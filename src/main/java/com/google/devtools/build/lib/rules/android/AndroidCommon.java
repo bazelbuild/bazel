@@ -51,9 +51,8 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -128,14 +127,11 @@ public class AndroidCommon {
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
   private final boolean asNeverLink;
-  private final boolean exportDeps;
 
-  private NestedSet<Artifact> compileTimeDependencyArtifacts;
   private NestedSet<Artifact> filesToBuild;
   private NestedSet<Artifact> transitiveNeverlinkLibraries =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
-  private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
+  private JavaCompilationArgsProvider javaCompilationArgs = JavaCompilationArgsProvider.EMPTY;
   private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
   private Artifact nativeHeaderOutput;
@@ -154,7 +150,7 @@ public class AndroidCommon {
   private AndroidIdlHelper idlHelper;
 
   public AndroidCommon(JavaCommon javaCommon) {
-    this(javaCommon, JavaCommon.isNeverLink(javaCommon.getRuleContext()), false);
+    this(javaCommon, JavaCommon.isNeverLink(javaCommon.getRuleContext()));
   }
 
   /**
@@ -163,12 +159,10 @@ public class AndroidCommon {
    * @param common the JavaCommon instance
    * @param asNeverLink Boolean to indicate if this rule should be treated as a compile time dep by
    *     consuming rules.
-   * @param exportDeps Boolean to indicate if the dependencies should be treated as "exported" deps.
    */
-  public AndroidCommon(JavaCommon common, boolean asNeverLink, boolean exportDeps) {
+  public AndroidCommon(JavaCommon common, boolean asNeverLink) {
     this.ruleContext = common.getRuleContext();
     this.asNeverLink = asNeverLink;
-    this.exportDeps = exportDeps;
     this.javaCommon = common;
   }
 
@@ -639,9 +633,7 @@ public class AndroidCommon {
     }
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
-    compileTimeDependencyArtifacts =
-        javaCommon.collectCompileTimeDependencyArtifacts(
-            javaArtifacts.getCompileTimeDependencyArtifact());
+    javaCommon.setJavaCompilationArtifacts(javaArtifacts);
     javaCommon.setJavaCompilationArtifacts(javaArtifacts);
 
     javaCommon.setClassPathFragment(
@@ -658,9 +650,7 @@ public class AndroidCommon {
             javaCommon.getJavaCompilationArtifacts().getRuntimeJars());
     if (collectJavaCompilationArgs) {
       boolean hasSources = attributes.hasSources();
-      this.javaCompilationArgs = collectJavaCompilationArgs(exportDeps, asNeverLink, hasSources);
-      this.recursiveJavaCompilationArgs =
-          collectJavaCompilationArgs(true, asNeverLink, /* hasSources */ true);
+      this.javaCompilationArgs = collectJavaCompilationArgs(asNeverLink, hasSources);
     }
   }
 
@@ -694,9 +684,7 @@ public class AndroidCommon {
             .setNativeHeaders(nativeHeaderOutput)
             .build();
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaCompilationArgsProvider.create(
-            javaCompilationArgs, recursiveJavaCompilationArgs, compileTimeDependencyArtifacts);
+    JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
@@ -762,18 +750,17 @@ public class AndroidCommon {
   /**
    * Collects Java compilation arguments for this target.
    *
-   * @param recursive Whether to scan dependencies recursively.
    * @param isNeverLink Whether the target has the 'neverlink' attr.
    * @param hasSrcs If false, deps are exported (deprecated behaviour)
    */
-  private JavaCompilationArgs collectJavaCompilationArgs(
-      boolean recursive, boolean isNeverLink, boolean hasSrcs) {
+  private JavaCompilationArgsProvider collectJavaCompilationArgs(
+      boolean isNeverLink, boolean hasSrcs) {
     boolean exportDeps =
         !hasSrcs
             && ruleContext
                 .getFragment(AndroidConfiguration.class)
-                .allowSrcsLessAndroidLibraryDeps();
-    return javaCommon.collectJavaCompilationArgs(recursive, isNeverLink, exportDeps);
+                .allowSrcsLessAndroidLibraryDeps(ruleContext);
+    return javaCommon.collectJavaCompilationArgs(isNeverLink, exportDeps);
   }
 
   public ImmutableList<String> getJavacOpts() {

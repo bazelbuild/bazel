@@ -206,9 +206,8 @@ public abstract class AbstractAction implements Action, ActionApi {
   }
 
   /**
-   * Should be called when the inputs of the action become known, that is, either during
-   * {@link #discoverInputs(ActionExecutionContext)} or during
-   * {@link #execute(ActionExecutionContext)}.
+   * Should be called when the inputs of the action become known, that is, either during {@link
+   * #discoverInputs(ActionExecutionContext)} or during {@link #execute(ActionExecutionContext)}.
    *
    * <p>When an action discovers inputs, it must have been called by the time {@code #execute()}
    * returns. It can be called both during {@code discoverInputs} and during {@code execute()}.
@@ -217,7 +216,7 @@ public abstract class AbstractAction implements Action, ActionApi {
    * itself when an action is loaded from the on-disk action cache.
    */
   @Override
-  public final synchronized void updateInputs(Iterable<Artifact> inputs) {
+  public synchronized void updateInputs(Iterable<Artifact> inputs) {
     this.inputs = CollectionUtils.makeImmutable(inputs);
     inputsDiscovered = true;
   }

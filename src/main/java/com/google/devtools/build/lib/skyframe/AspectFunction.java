@@ -18,8 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -573,7 +571,6 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        GeneratingActions.EMPTY,
         transitivePackagesForPackageRootResolution);
   }
 
@@ -644,23 +641,12 @@ public final class AspectFunction implements SkyFunction {
     analysisEnvironment.disable(associatedTarget.getTarget());
     Preconditions.checkNotNull(configuredAspect);
 
-    GeneratingActions generatingActions;
-    // Check for conflicting actions within this aspect (indicates a bug in the implementation).
-    try {
-      generatingActions =
-          Actions.filterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions());
-    } catch (ActionConflictException e) {
-      throw new AspectFunctionException(e);
-    }
     return new AspectValue(
         key,
         aspect,
         associatedTarget.getTarget().getLabel(),
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
-        generatingActions,
         transitivePackagesForPackageRootResolution == null
             ? null
             : transitivePackagesForPackageRootResolution.build());
@@ -709,10 +695,8 @@ public final class AspectFunction implements SkyFunction {
     }
   }
 
-  /**
-   * Used to indicate errors during the computation of an {@link AspectValue}.
-   */
-  private static final class AspectFunctionException extends SkyFunctionException {
+  /** Used to indicate errors during the computation of an {@link AspectValue}. */
+  public static final class AspectFunctionException extends SkyFunctionException {
     public AspectFunctionException(NoSuchThingException e) {
       super(e, Transience.PERSISTENT);
     }

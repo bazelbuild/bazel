@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -129,7 +130,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     CreateIncSymlinkAction action =
         new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), outputDir);
     Path extra = rootDirectory.getRelative("out/extra");
-    extra.getOutputStream().close();
+    FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
     action.prepare(fileSystem, rootDirectory);
     assertThat(extra.exists()).isFalse();

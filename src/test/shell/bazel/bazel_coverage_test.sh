@@ -209,21 +209,24 @@ FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
-FNF:0
-FNH:0
+FNF:2
+FNH:1
 BA:6,2
 BA:9,2
+BRF:2
+BRH:2
 DA:3,0
 DA:6,3
 DA:7,2
 DA:9,4
 DA:10,5
 DA:12,7
-LH:0
-LF:0
+LH:5
+LF:6
 end_of_record
 EOF
 
+  diff result.dat "$coverage_file_path" >> $TEST_log
   if ! cmp result.dat $coverage_file_path; then
     fail "Coverage output file is different with expected"
   fi
@@ -302,21 +305,23 @@ FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
 FNDA:1,com/example/Collatz::getCollatzFinal (I)I
-FNF:0
-FNH:0
+FNF:2
+FNH:1
 BA:6,2
 BA:9,2
+BRF:2
+BRH:2
 DA:3,0
 DA:6,3
 DA:7,2
 DA:9,4
 DA:10,5
 DA:12,7
-LH:0
-LF:0
+LH:5
+LF:6
 end_of_record
 EOF
-
+  diff result.dat "$coverage_file_path" >> $TEST_log
   cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
 }
 

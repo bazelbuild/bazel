@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
@@ -197,40 +198,39 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
               + " returns an <code>exec_result</code> structure containing the output of the"
               + " command. The <code>environment</code> map can be used to override some"
               + " environment variables to be passed to the process.",
+      useLocation = true,
       parameters = {
-          @Param(
-              name = "arguments",
-              type = SkylarkList.class,
-              doc =
-                  "List of arguments, the first element should be the path to the program to "
-                      + "execute."
-          ),
-          @Param(
-              name = "timeout",
-              type = Integer.class,
-              named = true,
-              defaultValue = "600",
-              doc = "maximum duration of the command in seconds (default is 600 seconds)."
-          ),
-          @Param(
-              name = "environment",
-              type = SkylarkDict.class,
-              defaultValue = "{}",
-              named = true,
-              doc = "force some environment variables to be set to be passed to the process."
-          ),
-          @Param(
-              name = "quiet",
-              type = Boolean.class,
-              defaultValue = "True",
-              named = true,
-              doc = "If stdout and stderr should be printed to the terminal."
-          ),
-      }
-  )
+        @Param(
+            name = "arguments",
+            type = SkylarkList.class,
+            doc =
+                "List of arguments, the first element should be the path to the program to "
+                    + "execute."),
+        @Param(
+            name = "timeout",
+            type = Integer.class,
+            named = true,
+            defaultValue = "600",
+            doc = "maximum duration of the command in seconds (default is 600 seconds)."),
+        @Param(
+            name = "environment",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "force some environment variables to be set to be passed to the process."),
+        @Param(
+            name = "quiet",
+            type = Boolean.class,
+            defaultValue = "True",
+            named = true,
+            doc = "If stdout and stderr should be printed to the terminal."),
+      })
   public SkylarkExecutionResultApi execute(
-      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment,
-      boolean quiet)
+      SkylarkList<Object> arguments,
+      Integer timeout,
+      SkylarkDict<String, String> environment,
+      boolean quiet,
+      Location location)
       throws EvalException, RepositoryFunctionExceptionT;
 
   @SkylarkCallable(

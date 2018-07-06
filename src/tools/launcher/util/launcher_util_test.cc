@@ -18,6 +18,7 @@
 #include <iostream>
 #include <string>
 
+#include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/launcher_util.h"
 #include "gtest/gtest.h"
 
@@ -28,6 +29,7 @@ using std::getenv;
 using std::ios;
 using std::ofstream;
 using std::string;
+using std::wstring;
 
 class LaunchUtilTest : public ::testing::Test {
  protected:
@@ -38,141 +40,142 @@ class LaunchUtilTest : public ::testing::Test {
   void SetUp() override {
     char* tmpdir = getenv("TEST_TMPDIR");
     if (tmpdir != NULL) {
-      test_tmpdir = string(tmpdir);
+      test_tmpdir = blaze_util::CstringToWstring(string(tmpdir));
     } else {
       tmpdir = getenv("TEMP");
       ASSERT_FALSE(tmpdir == NULL);
-      test_tmpdir = string(tmpdir);
+      test_tmpdir = blaze_util::CstringToWstring(string(tmpdir));
     }
   }
 
   void TearDown() override {}
 
-  string GetTmpDir() { return this->test_tmpdir; }
+  wstring GetTmpDir() { return this->test_tmpdir; }
 
   // Create an empty file at path
-  static void CreateEmptyFile(const string& path) {
+  static void CreateEmptyFile(const wstring& path) {
     ofstream file_stream(path.c_str(), ios::out | ios::binary);
     file_stream.put('\0');
   }
 
  private:
-  string test_tmpdir;
+  wstring test_tmpdir;
 };
 
 TEST_F(LaunchUtilTest, GetBinaryPathWithoutExtensionTest) {
-  ASSERT_EQ("foo", GetBinaryPathWithoutExtension("foo.exe"));
-  ASSERT_EQ("foo.sh", GetBinaryPathWithoutExtension("foo.sh.exe"));
-  ASSERT_EQ("foo.sh", GetBinaryPathWithoutExtension("foo.sh"));
+  ASSERT_EQ(L"foo", GetBinaryPathWithoutExtension(L"foo.exe"));
+  ASSERT_EQ(L"foo.sh", GetBinaryPathWithoutExtension(L"foo.sh.exe"));
+  ASSERT_EQ(L"foo.sh", GetBinaryPathWithoutExtension(L"foo.sh"));
 }
 
 TEST_F(LaunchUtilTest, GetBinaryPathWithExtensionTest) {
-  ASSERT_EQ("foo.exe", GetBinaryPathWithExtension("foo"));
-  ASSERT_EQ("foo.sh.exe", GetBinaryPathWithExtension("foo.sh.exe"));
-  ASSERT_EQ("foo.sh.exe", GetBinaryPathWithExtension("foo.sh"));
+  ASSERT_EQ(L"foo.exe", GetBinaryPathWithExtension(L"foo"));
+  ASSERT_EQ(L"foo.sh.exe", GetBinaryPathWithExtension(L"foo.sh.exe"));
+  ASSERT_EQ(L"foo.sh.exe", GetBinaryPathWithExtension(L"foo.sh"));
 }
 
 TEST_F(LaunchUtilTest, GetEscapedArgumentTest) {
-  ASSERT_EQ("foo", GetEscapedArgument("foo", true));
-  ASSERT_EQ("\"foo bar\"", GetEscapedArgument("foo bar", true));
-  ASSERT_EQ("\"\\\"foo bar\\\"\"", GetEscapedArgument("\"foo bar\"", true));
-  ASSERT_EQ("foo\\\\bar", GetEscapedArgument("foo\\bar", true));
-  ASSERT_EQ("foo\\\"bar", GetEscapedArgument("foo\"bar", true));
-  ASSERT_EQ("C:\\\\foo\\\\bar\\\\", GetEscapedArgument("C:\\foo\\bar\\", true));
-  ASSERT_EQ("\"C:\\\\foo foo\\\\bar\\\\\"",
-            GetEscapedArgument("C:\\foo foo\\bar\\", true));
+  ASSERT_EQ(L"foo", GetEscapedArgument(L"foo", true));
+  ASSERT_EQ(L"\"foo bar\"", GetEscapedArgument(L"foo bar", true));
+  ASSERT_EQ(L"\"\\\"foo bar\\\"\"", GetEscapedArgument(L"\"foo bar\"", true));
+  ASSERT_EQ(L"foo\\\\bar", GetEscapedArgument(L"foo\\bar", true));
+  ASSERT_EQ(L"foo\\\"bar", GetEscapedArgument(L"foo\"bar", true));
+  ASSERT_EQ(L"C:\\\\foo\\\\bar\\\\",
+            GetEscapedArgument(L"C:\\foo\\bar\\", true));
+  ASSERT_EQ(L"\"C:\\\\foo foo\\\\bar\\\\\"",
+            GetEscapedArgument(L"C:\\foo foo\\bar\\", true));
 
-  ASSERT_EQ("foo\\bar", GetEscapedArgument("foo\\bar", false));
-  ASSERT_EQ("C:\\foo\\bar\\", GetEscapedArgument("C:\\foo\\bar\\", false));
-  ASSERT_EQ("\"C:\\foo foo\\bar\\\"",
-            GetEscapedArgument("C:\\foo foo\\bar\\", false));
+  ASSERT_EQ(L"foo\\bar", GetEscapedArgument(L"foo\\bar", false));
+  ASSERT_EQ(L"C:\\foo\\bar\\", GetEscapedArgument(L"C:\\foo\\bar\\", false));
+  ASSERT_EQ(L"\"C:\\foo foo\\bar\\\"",
+            GetEscapedArgument(L"C:\\foo foo\\bar\\", false));
 }
 
 TEST_F(LaunchUtilTest, DoesFilePathExistTest) {
-  string file1 = GetTmpDir() + "/foo";
-  string file2 = GetTmpDir() + "/bar";
+  wstring file1 = GetTmpDir() + L"/foo";
+  wstring file2 = GetTmpDir() + L"/bar";
   CreateEmptyFile(file1);
   ASSERT_TRUE(DoesFilePathExist(file1.c_str()));
   ASSERT_FALSE(DoesFilePathExist(file2.c_str()));
 }
 
 TEST_F(LaunchUtilTest, DoesDirectoryPathExistTest) {
-  string dir1 = GetTmpDir() + "/dir1";
-  string dir2 = GetTmpDir() + "/dir2";
-  CreateDirectory(dir1.c_str(), NULL);
+  wstring dir1 = GetTmpDir() + L"/dir1";
+  wstring dir2 = GetTmpDir() + L"/dir2";
+  CreateDirectoryW(dir1.c_str(), NULL);
   ASSERT_TRUE(DoesDirectoryPathExist(dir1.c_str()));
   ASSERT_FALSE(DoesDirectoryPathExist(dir2.c_str()));
 }
 
 TEST_F(LaunchUtilTest, SetAndGetEnvTest) {
-  ASSERT_TRUE(SetEnv("foo", "bar"));
-  string value;
-  ASSERT_TRUE(GetEnv("foo", &value));
-  ASSERT_EQ(value, "bar");
-  SetEnv("FOO", "");
-  ASSERT_FALSE(GetEnv("FOO", &value));
+  ASSERT_TRUE(SetEnv(L"foo", L"bar"));
+  wstring value;
+  ASSERT_TRUE(GetEnv(L"foo", &value));
+  ASSERT_EQ(value, L"bar");
+  SetEnv(L"FOO", L"");
+  ASSERT_FALSE(GetEnv(L"FOO", &value));
 }
 
 TEST_F(LaunchUtilTest, NormalizePathTest) {
-  string value;
-  ASSERT_TRUE(NormalizePath("C:\\foo\\bar\\", &value));
-  ASSERT_EQ("c:\\foo\\bar", value);
-  ASSERT_TRUE(NormalizePath("c:/foo/bar/", &value));
-  ASSERT_EQ("c:\\foo\\bar", value);
-  ASSERT_TRUE(NormalizePath("FoO\\\\bAr\\", &value));
-  ASSERT_EQ("foo\\bar", value);
-  ASSERT_TRUE(NormalizePath("X\\Y/Z\\", &value));
-  ASSERT_EQ("x\\y\\z", value);
-  ASSERT_TRUE(NormalizePath("c://foo//bar", &value));
-  ASSERT_EQ("c:\\foo\\bar", value);
-  ASSERT_FALSE(NormalizePath("c:foo\\bar", &value));
+  wstring value;
+  ASSERT_TRUE(NormalizePath(L"C:\\foo\\bar\\", &value));
+  ASSERT_EQ(L"c:\\foo\\bar", value);
+  ASSERT_TRUE(NormalizePath(L"c:/foo/bar/", &value));
+  ASSERT_EQ(L"c:\\foo\\bar", value);
+  ASSERT_TRUE(NormalizePath(L"FoO\\\\bAr\\", &value));
+  ASSERT_EQ(L"foo\\bar", value);
+  ASSERT_TRUE(NormalizePath(L"X\\Y/Z\\", &value));
+  ASSERT_EQ(L"x\\y\\z", value);
+  ASSERT_TRUE(NormalizePath(L"c://foo//bar", &value));
+  ASSERT_EQ(L"c:\\foo\\bar", value);
+  ASSERT_FALSE(NormalizePath(L"c:foo\\bar", &value));
 }
 
 TEST_F(LaunchUtilTest, RelativeToTest) {
-  string value;
-  ASSERT_TRUE(RelativeTo("c:\\foo\\bar1", "c:\\foo\\bar2", &value));
-  ASSERT_EQ("..\\bar1", value);
-  ASSERT_TRUE(RelativeTo("c:\\foo\\bar", "c:\\", &value));
-  ASSERT_EQ("foo\\bar", value);
-  ASSERT_TRUE(RelativeTo("c:\\foo\\bar", "c:\\foo\\bar", &value));
-  ASSERT_EQ("", value);
-  ASSERT_TRUE(RelativeTo("c:\\foo\\bar", "c:\\foo", &value));
-  ASSERT_EQ("bar", value);
-  ASSERT_TRUE(RelativeTo("c:\\foo\\bar", "c:\\foo\\ba", &value));
-  ASSERT_EQ("..\\bar", value);
-  ASSERT_TRUE(RelativeTo("c:\\", "c:\\foo", &value));
-  ASSERT_EQ("..\\", value);
-  ASSERT_TRUE(RelativeTo("c:\\", "c:\\a\\b\\c", &value));
-  ASSERT_EQ("..\\..\\..\\", value);
-  ASSERT_TRUE(RelativeTo("c:\\aa\\bb\\cc", "c:\\a\\b", &value));
-  ASSERT_EQ("..\\..\\aa\\bb\\cc", value);
+  wstring value;
+  ASSERT_TRUE(RelativeTo(L"c:\\foo\\bar1", L"c:\\foo\\bar2", &value));
+  ASSERT_EQ(L"..\\bar1", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\foo\\bar", L"c:\\", &value));
+  ASSERT_EQ(L"foo\\bar", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\foo\\bar", L"c:\\foo\\bar", &value));
+  ASSERT_EQ(L"", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\foo\\bar", L"c:\\foo", &value));
+  ASSERT_EQ(L"bar", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\foo\\bar", L"c:\\foo\\ba", &value));
+  ASSERT_EQ(L"..\\bar", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\", L"c:\\foo", &value));
+  ASSERT_EQ(L"..\\", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\", L"c:\\a\\b\\c", &value));
+  ASSERT_EQ(L"..\\..\\..\\", value);
+  ASSERT_TRUE(RelativeTo(L"c:\\aa\\bb\\cc", L"c:\\a\\b", &value));
+  ASSERT_EQ(L"..\\..\\aa\\bb\\cc", value);
 
-  ASSERT_TRUE(RelativeTo("foo\\bar", "foo\\bar", &value));
-  ASSERT_EQ("", value);
-  ASSERT_TRUE(RelativeTo("foo\\bar1", "foo\\bar2", &value));
-  ASSERT_EQ("..\\bar1", value);
-  ASSERT_TRUE(RelativeTo("foo\\bar1", "foo\\bar", &value));
-  ASSERT_EQ("..\\bar1", value);
-  ASSERT_TRUE(RelativeTo("foo\\bar1", "foo", &value));
-  ASSERT_EQ("bar1", value);
-  ASSERT_TRUE(RelativeTo("foo\\bar1", "fo", &value));
-  ASSERT_EQ("..\\foo\\bar1", value);
-  ASSERT_TRUE(RelativeTo("foo\\ba", "foo\\bar", &value));
-  ASSERT_EQ("..\\ba", value);
-  ASSERT_TRUE(RelativeTo("foo", "foo\\bar", &value));
-  ASSERT_EQ("..\\", value);
-  ASSERT_TRUE(RelativeTo("fo", "foo\\bar", &value));
-  ASSERT_EQ("..\\..\\fo", value);
-  ASSERT_TRUE(RelativeTo("", "foo\\bar", &value));
-  ASSERT_EQ("..\\..\\", value);
-  ASSERT_TRUE(RelativeTo("foo\\bar", "", &value));
-  ASSERT_EQ("foo\\bar", value);
-  ASSERT_TRUE(RelativeTo("a\\b\\c", "x\\y", &value));
-  ASSERT_EQ("..\\..\\a\\b\\c", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\bar", L"foo\\bar", &value));
+  ASSERT_EQ(L"", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\bar1", L"foo\\bar2", &value));
+  ASSERT_EQ(L"..\\bar1", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\bar1", L"foo\\bar", &value));
+  ASSERT_EQ(L"..\\bar1", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\bar1", L"foo", &value));
+  ASSERT_EQ(L"bar1", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\bar1", L"fo", &value));
+  ASSERT_EQ(L"..\\foo\\bar1", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\ba", L"foo\\bar", &value));
+  ASSERT_EQ(L"..\\ba", value);
+  ASSERT_TRUE(RelativeTo(L"foo", L"foo\\bar", &value));
+  ASSERT_EQ(L"..\\", value);
+  ASSERT_TRUE(RelativeTo(L"fo", L"foo\\bar", &value));
+  ASSERT_EQ(L"..\\..\\fo", value);
+  ASSERT_TRUE(RelativeTo(L"", L"foo\\bar", &value));
+  ASSERT_EQ(L"..\\..\\", value);
+  ASSERT_TRUE(RelativeTo(L"foo\\bar", L"", &value));
+  ASSERT_EQ(L"foo\\bar", value);
+  ASSERT_TRUE(RelativeTo(L"a\\b\\c", L"x\\y", &value));
+  ASSERT_EQ(L"..\\..\\a\\b\\c", value);
 
-  ASSERT_FALSE(RelativeTo("c:\\foo\\bar1", "foo\\bar2", &value));
-  ASSERT_FALSE(RelativeTo("c:foo\\bar1", "c:\\foo\\bar2", &value));
-  ASSERT_FALSE(RelativeTo("c:\\foo\\bar1", "d:\\foo\\bar2", &value));
+  ASSERT_FALSE(RelativeTo(L"c:\\foo\\bar1", L"foo\\bar2", &value));
+  ASSERT_FALSE(RelativeTo(L"c:foo\\bar1", L"c:\\foo\\bar2", &value));
+  ASSERT_FALSE(RelativeTo(L"c:\\foo\\bar1", L"d:\\foo\\bar2", &value));
 }
 
 }  // namespace launcher

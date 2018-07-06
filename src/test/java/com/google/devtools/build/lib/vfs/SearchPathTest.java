@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.OutputStream;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +39,9 @@ public class SearchPathTest {
     assertThat(SearchPath.parse(fs, "/:/bin")).isEqualTo(searchPath);
     assertThat(SearchPath.parse(fs, ".:/:/bin")).isEqualTo(searchPath);
 
-    fs.getOutputStream(fs.getPath("/bin/exe")).write(new byte[5]);
+    try (OutputStream out = fs.getOutputStream(fs.getPath("/bin/exe"))) {
+      out.write(new byte[5]);
+    }
 
     assertThat(SearchPath.which(searchPath, "exe")).isNull();
 

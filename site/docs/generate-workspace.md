@@ -47,7 +47,8 @@ use this tool:
     $ bazel run //generate_workspace -- \
     >    --maven_project=/path/to/my/project \
     >    --artifact=groupId:artifactId:version \
-    >    --artifact=groupId:artifactId:version
+    >    --artifact=groupId:artifactId:version \
+    >    --repositories=https://jcenter.bintray.com
     Wrote
     /usr/local/.../generate_workspace.runfiles/__main__/generate_workspace.bzl
     ```

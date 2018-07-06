@@ -89,7 +89,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -176,7 +175,7 @@ public class BazelRepositoryModule extends BlazeModule {
     @Override
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException, InterruptedException {
-      return this.repositoryCache.getRootPath().toString().getBytes(StandardCharsets.UTF_8);
+      return print(repositoryCache.getRootPath());
     }
   }
 

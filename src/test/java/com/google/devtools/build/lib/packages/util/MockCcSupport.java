@@ -80,10 +80,8 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing header processing.
-   */
-  public static final String HEADER_PROCESSING_FEATURE_CONFIGURATION =
+  /** A feature configuration snippet useful for testing header processing. */
+  public static final String PARSE_HEADERS_FEATURE_CONFIGURATION =
       ""
           + "feature {"
           + "  name: 'parse_headers'"
@@ -91,15 +89,6 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-parsing'"
           + "    flag_group {"
           + "      flag: '<c++-header-parsing>'"
-          + "    }"
-          + "  }"
-          + "}"
-          + "feature {"
-          + "  name: 'preprocess_headers'"
-          + "  flag_set {"
-          + "    action: 'c++-header-preprocessing'"
-          + "    flag_group {"
-          + "      flag: '<c++-header-preprocessing>'"
           + "    }"
           + "  }"
           + "}";
@@ -113,7 +102,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    flag_group {"
           + "      iterate_over: 'dependent_module_map_files'"
@@ -156,7 +144,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    flag_group {"
           + "      flag: 'module_name:%{module_name}'"
@@ -170,7 +157,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-modules-compile'"
           + "    flag_group {"
           + "      iterate_over: 'module_files'"
@@ -195,7 +181,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    env_entry {"
           + "      key: 'cat'"
@@ -209,7 +194,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    env_entry {"
           + "      key: 'module'"

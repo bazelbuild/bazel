@@ -43,7 +43,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   @Test
   public void noRepeatedLabelVisitationForTransitiveTraversalFunction() throws Exception {
     // Create a basic package with a target //foo:foo.
-    Label label = Label.parseAbsolute("//foo:foo");
+    Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
     Package pkg =
         scratchPackage(
             "workspace",
@@ -64,8 +64,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     // Create the GroupedList saying we had already requested two targets the last time we called
     // #compute.
     GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
-    SkyKey fakeDep1 = function.getKey(Label.parseAbsolute("//foo:bar"));
-    SkyKey fakeDep2 = function.getKey(Label.parseAbsolute("//foo:baz"));
+    SkyKey fakeDep1 = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    SkyKey fakeDep2 = function.getKey(Label.parseAbsolute("//foo:baz", ImmutableMap.of()));
     helper.add(TargetMarkerValue.key(label));
     helper.add(PackageValue.key(label.getPackageIdentifier()));
     helper.startGroup();

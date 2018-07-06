@@ -22,33 +22,33 @@
 namespace bazel {
 namespace launcher {
 
-using std::ostringstream;
-using std::string;
 using std::vector;
+using std::wostringstream;
+using std::wstring;
 
 static constexpr const char* BASH_BIN_PATH = "bash_bin_path";
 
 ExitCode BashBinaryLauncher::Launch() {
-  string bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
+  wstring bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
   // If specified bash binary path doesn't exist, then fall back to
   // bash.exe and hope it's in PATH.
   if (!DoesFilePathExist(bash_binary.c_str())) {
-    bash_binary = "bash.exe";
+    bash_binary = L"bash.exe";
   }
 
-  vector<string> origin_args = this->GetCommandlineArguments();
-  ostringstream bash_command;
-  string bash_main_file = GetBinaryPathWithoutExtension(origin_args[0]);
+  vector<wstring> origin_args = this->GetCommandlineArguments();
+  wostringstream bash_command;
+  wstring bash_main_file = GetBinaryPathWithoutExtension(origin_args[0]);
   bash_command << GetEscapedArgument(bash_main_file,
                                      /*escape_backslash = */ true);
   for (int i = 1; i < origin_args.size(); i++) {
-    bash_command << ' ';
+    bash_command << L' ';
     bash_command << GetEscapedArgument(origin_args[i],
                                        /*escape_backslash = */ true);
   }
 
-  vector<string> args;
-  args.push_back("-c");
+  vector<wstring> args;
+  args.push_back(L"-c");
   args.push_back(
       GetEscapedArgument(bash_command.str(), /*escape_backslash = */ true));
   return this->LaunchProcess(bash_binary, args);

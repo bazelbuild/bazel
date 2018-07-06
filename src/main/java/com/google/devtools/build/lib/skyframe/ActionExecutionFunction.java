@@ -413,6 +413,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           metadataHandler.getOutputTreeArtifactData(),
           metadataHandler.getAdditionalOutputData(),
           /*outputSymlinks=*/ null,
+          (action instanceof IncludeScannable)
+              ? ((IncludeScannable) action).getDiscoveredModules()
+              : null,
           action instanceof NotifyOnActionCacheHit);
     }
 
@@ -454,6 +457,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // available.
       if (state.discoveredInputsStage2 == null) {
         state.discoveredInputsStage2 = action.discoverInputsStage2(env);
+        if (env.valuesMissing()) {
+          return null;
+        }
       }
       if (state.discoveredInputsStage2 != null) {
         addDiscoveredInputs(

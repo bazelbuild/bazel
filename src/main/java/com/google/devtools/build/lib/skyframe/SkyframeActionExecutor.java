@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -773,6 +774,9 @@ public final class SkyframeActionExecutor {
             metadataHandler.getOutputTreeArtifactData(),
             metadataHandler.getAdditionalOutputData(),
             actionExecutionContext.getOutputSymlinks(),
+            (action instanceof IncludeScannable)
+                ? ((IncludeScannable) action).getDiscoveredModules()
+                : null,
             action instanceof NotifyOnActionCacheHit);
       }
     }

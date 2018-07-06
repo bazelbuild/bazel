@@ -201,9 +201,9 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     // Create an "/in" directory directly on the output delegate to bypass the
     // UnionFileSystem's mapping.
     assertThat(inDelegate.getPath("/in").createDirectory()).isTrue();
-    OutputStream outStream = inDelegate.getPath("/in/bar.txt").getOutputStream();
-    outStream.write('i');
-    outStream.close();
+    try (OutputStream outStream = inDelegate.getPath("/in/bar.txt").getOutputStream()) {
+      outStream.write('i');
+    }
 
     Path outFoo = unionfs.getPath("/out/foo");
     unionfs.createSymbolicLink(outFoo, PathFragment.create("../in/bar.txt"));
@@ -218,9 +218,10 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
 
     Path resolved = unionfs.resolveSymbolicLinks(outFoo);
     assertThat(resolved.getFileSystem()).isSameAs(unionfs);
-    InputStream barInput = resolved.getInputStream();
-    int barChar = barInput.read();
-    barInput.close();
+    int barChar = -1;
+    try (InputStream barInput = resolved.getInputStream()) {
+      barChar = barInput.read();
+    }
     assertThat(barChar).isEqualTo('i');
   }
 

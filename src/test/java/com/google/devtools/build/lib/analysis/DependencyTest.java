@@ -40,9 +40,10 @@ import org.junit.runners.JUnit4;
 public class DependencyTest extends AnalysisTestCase {
   @Test
   public void withNullConfiguration_BasicAccessors() throws Exception {
-    Dependency nullDep = Dependency.withNullConfiguration(Label.parseAbsolute("//a"));
+    Dependency nullDep =
+        Dependency.withNullConfiguration(Label.parseAbsolute("//a", ImmutableMap.of()));
 
-    assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
+    assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(nullDep.hasExplicitConfiguration()).isTrue();
     assertThat(nullDep.getConfiguration()).isNull();
     assertThat(nullDep.getAspects().getAllAspects()).isEmpty();
@@ -59,9 +60,10 @@ public class DependencyTest extends AnalysisTestCase {
   public void withConfiguration_BasicAccessors() throws Exception {
     update();
     Dependency targetDep =
-        Dependency.withConfiguration(Label.parseAbsolute("//a"), getTargetConfiguration());
+        Dependency.withConfiguration(
+            Label.parseAbsolute("//a", ImmutableMap.of()), getTargetConfiguration());
 
-    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
+    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects()).isEmpty();
@@ -83,9 +85,9 @@ public class DependencyTest extends AnalysisTestCase {
         ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency targetDep =
         Dependency.withConfigurationAndAspects(
-            Label.parseAbsolute("//a"), getTargetConfiguration(), twoAspects);
+            Label.parseAbsolute("//a", ImmutableMap.of()), getTargetConfiguration(), twoAspects);
 
-    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
+    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
@@ -110,7 +112,8 @@ public class DependencyTest extends AnalysisTestCase {
     AspectCollection twoAspects = AspectCollection.createForTests(simpleAspect, attributeAspect);
 
     try {
-      Dependency.withConfigurationAndAspects(Label.parseAbsolute("//a"), null, twoAspects);
+      Dependency.withConfigurationAndAspects(
+          Label.parseAbsolute("//a", ImmutableMap.of()), null, twoAspects);
       fail("should not be allowed to create a dependency with a null configuration");
     } catch (NullPointerException expected) {
       // good. you fell rrrrright into my trap.
@@ -122,7 +125,7 @@ public class DependencyTest extends AnalysisTestCase {
     update();
     Dependency dep =
         Dependency.withConfigurationAndAspects(
-            Label.parseAbsolute("//a"),
+            Label.parseAbsolute("//a", ImmutableMap.of()),
             getTargetConfiguration(),
             AspectCollection.EMPTY);
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
@@ -140,9 +143,12 @@ public class DependencyTest extends AnalysisTestCase {
         simpleAspect, getTargetConfiguration(), attributeAspect, getHostConfiguration());
     Dependency targetDep =
         Dependency.withConfiguredAspects(
-            Label.parseAbsolute("//a"), getTargetConfiguration(), aspects, twoAspectMap);
+            Label.parseAbsolute("//a", ImmutableMap.of()),
+            getTargetConfiguration(),
+            aspects,
+            twoAspectMap);
 
-    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
+    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.hasExplicitConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects())
@@ -165,7 +171,8 @@ public class DependencyTest extends AnalysisTestCase {
     update();
     Dependency dep =
         Dependency.withConfiguredAspects(
-            Label.parseAbsolute("//a"), getTargetConfiguration(),
+            Label.parseAbsolute("//a", ImmutableMap.of()),
+            getTargetConfiguration(),
             AspectCollection.EMPTY,
             ImmutableMap.<AspectDescriptor, BuildConfiguration>of());
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
@@ -180,9 +187,9 @@ public class DependencyTest extends AnalysisTestCase {
         ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency hostDep =
         Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//a"), HostTransition.INSTANCE, twoAspects);
+            Label.parseAbsolute("//a", ImmutableMap.of()), HostTransition.INSTANCE, twoAspects);
 
-    assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
+    assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(hostDep.hasExplicitConfiguration()).isFalse();
     assertThat(hostDep.getAspects().getAllAspects())
         .containsExactlyElementsIn(twoAspects.getAllAspects());
@@ -217,7 +224,8 @@ public class DependencyTest extends AnalysisTestCase {
     update();
     Dependency dep =
         Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//a"), HostTransition.INSTANCE,
+            Label.parseAbsolute("//a", ImmutableMap.of()),
+            HostTransition.INSTANCE,
             AspectCollection.EMPTY);
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
     assertThat(dep.getAspects().getAllAspects()).isEmpty();
@@ -228,7 +236,7 @@ public class DependencyTest extends AnalysisTestCase {
     update();
 
     new NullPointerTester()
-        .setDefault(Label.class, Label.parseAbsolute("//a"))
+        .setDefault(Label.class, Label.parseAbsolute("//a", ImmutableMap.of()))
         .setDefault(BuildConfiguration.class, getTargetConfiguration())
         .testAllPublicStaticMethods(Dependency.class);
   }
@@ -237,9 +245,9 @@ public class DependencyTest extends AnalysisTestCase {
   public void equalsPassesEqualsTester() throws Exception {
     update();
 
-    Label a = Label.parseAbsolute("//a");
-    Label aExplicit = Label.parseAbsolute("//a:a");
-    Label b = Label.parseAbsolute("//b");
+    Label a = Label.parseAbsolute("//a", ImmutableMap.of());
+    Label aExplicit = Label.parseAbsolute("//a:a", ImmutableMap.of());
+    Label b = Label.parseAbsolute("//b", ImmutableMap.of());
 
     BuildConfiguration host = getHostConfiguration();
     BuildConfiguration target = getTargetConfiguration();

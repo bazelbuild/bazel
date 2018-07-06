@@ -77,12 +77,13 @@ class BazelWindowsTest(test_base.TestBase):
         'cc_binary(',
         '    name="x",',
         '    srcs=['
-        '        "x.asm",',
+        '        "inc.asm",',  # Test assemble action_config
+        '        "dec.S",',    # Test preprocess-assemble action_config
         '        "y.cc",',
         '    ],',
         ')',
     ])
-    self.ScratchFile('x.asm', [
+    self.ScratchFile('inc.asm', [
         '.code',
         'PUBLIC increment',
         'increment PROC x:WORD',
@@ -92,12 +93,25 @@ class BazelWindowsTest(test_base.TestBase):
         'increment EndP',
         'END',
     ])
+    self.ScratchFile('dec.S', [
+        '.code',
+        'PUBLIC decrement',
+        'decrement PROC x:WORD',
+        '  xchg rcx,rax',
+        '  dec rax',
+        '  ret',
+        'decrement EndP',
+        'END',
+    ])
     self.ScratchFile('y.cc', [
         '#include <stdio.h>',
         'extern "C" int increment(int);',
+        'extern "C" int decrement(int);',
         'int main(int, char**) {'
         '  int x = 5;',
         '  x = increment(x);',
+        '  printf("%d\\n", x);',
+        '  x = decrement(x);',
         '  printf("%d\\n", x);',
         '  return 0;',
         '}',

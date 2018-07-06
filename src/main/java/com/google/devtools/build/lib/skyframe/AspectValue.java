@@ -18,11 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -441,10 +437,8 @@ public final class AspectValue extends BasicActionLookupValue {
       Aspect aspect,
       Label label,
       Location location,
-      ConfiguredAspect configuredAspect,
-      ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex) {
-    super(actions, generatingActionIndex);
+      ConfiguredAspect configuredAspect) {
+    super(configuredAspect.getActions(), configuredAspect.getGeneratingActionIndex());
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);
@@ -459,9 +453,8 @@ public final class AspectValue extends BasicActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
-      GeneratingActions actions,
       NestedSet<Package> transitivePackagesForPackageRootResolution) {
-    super(actions);
+    super(configuredAspect.getActions(), configuredAspect.getGeneratingActionIndex());
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);

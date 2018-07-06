@@ -135,6 +135,9 @@ public class GrpcRemoteExecutionClientTest {
   private Server fakeServer;
   private static ListeningScheduledExecutorService retryService;
 
+  private static final OutputFile DUMMY_OUTPUT =
+      OutputFile.newBuilder().setPath("dummy.txt").build();
+
   private final SpawnExecutionContext simplePolicy =
       new SpawnExecutionContext() {
         @Override
@@ -311,6 +314,88 @@ public class GrpcRemoteExecutionClientTest {
   }
 
   @Test
+  public void failedAction() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+    final ActionResult actionResult = ActionResult.newBuilder().setExitCode(1).build();
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(
+                Operation.newBuilder()
+                    .setDone(true)
+                    .setResponse(
+                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    assertThat(result.exitCode()).isEqualTo(1);
+  }
+
+  @Test
+  public void noOutputs() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+    final ActionResult actionResult = ActionResult.getDefaultInstance();
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(
+                Operation.newBuilder()
+                    .setDone(true)
+                    .setResponse(
+                        Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    try {
+      client.exec(simpleSpawn, simplePolicy);
+      fail("Expected an exception");
+    } catch (Exception e) {
+      assertThat(e).hasMessageThat().contains("no output files.");
+    }
+  }
+
+  @Test
   public void cacheHitWithOutput() throws Exception {
     final Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("stdout");
     final Digest stdErrDigest = DIGEST_UTIL.computeAsUtf8("stderr");
@@ -321,6 +406,7 @@ public class GrpcRemoteExecutionClientTest {
               GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
             responseObserver.onNext(
                 ActionResult.newBuilder()
+                    .addOutputFiles(DUMMY_OUTPUT)
                     .setStdoutDigest(stdOutDigest)
                     .setStderrDigest(stdErrDigest)
                     .build());
@@ -347,6 +433,7 @@ public class GrpcRemoteExecutionClientTest {
               GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
             responseObserver.onNext(
                 ActionResult.newBuilder()
+                    .addOutputFiles(DUMMY_OUTPUT)
                     .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
                     .setStderrRaw(ByteString.copyFromUtf8("stderr"))
                     .build());
@@ -450,6 +537,7 @@ public class GrpcRemoteExecutionClientTest {
         ServerInterceptors.intercept(actionCache, new RequestHeadersValidator()));
     final ActionResult actionResult =
         ActionResult.newBuilder()
+            .addOutputFiles(DUMMY_OUTPUT)
             .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
             .setStderrRaw(ByteString.copyFromUtf8("stderr"))
             .build();
@@ -803,7 +891,10 @@ public class GrpcRemoteExecutionClientTest {
         });
     Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("bla");
     final ActionResult actionResult =
-        ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
+        ActionResult.newBuilder()
+            .addOutputFiles(DUMMY_OUTPUT)
+            .setStdoutDigest(stdOutDigest)
+            .build();
     serviceRegistry.addService(
         new ExecutionImplBase() {
           @Override
@@ -854,7 +945,10 @@ public class GrpcRemoteExecutionClientTest {
   public void passRepeatedOrphanedCacheMissErrorWithStackTrace() throws Exception {
     final Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("bloo");
     final ActionResult actionResult =
-        ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
+        ActionResult.newBuilder()
+            .addOutputFiles(DUMMY_OUTPUT)
+            .setStdoutDigest(stdOutDigest)
+            .build();
     serviceRegistry.addService(
         new ActionCacheImplBase() {
           @Override
@@ -915,7 +1009,10 @@ public class GrpcRemoteExecutionClientTest {
   public void remotelyReExecuteOrphanedCachedActions() throws Exception {
     final Digest stdOutDigest = DIGEST_UTIL.computeAsUtf8("stdout");
     final ActionResult actionResult =
-        ActionResult.newBuilder().setStdoutDigest(stdOutDigest).build();
+        ActionResult.newBuilder()
+            .addOutputFiles(DUMMY_OUTPUT)
+            .setStdoutDigest(stdOutDigest)
+            .build();
     serviceRegistry.addService(
         new ActionCacheImplBase() {
           @Override

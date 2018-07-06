@@ -215,7 +215,16 @@ public interface AppleCommonApi<FileApiT extends FileApi,
           "Returns a <a href='dict.html'>dict</a> of environment variables that should be set "
               + "for actions that need to run build tools on an Apple host system, such as the "
               + " version of Xcode that should be used. The keys are variable names and the values "
-              + " are their corresponding values."
+              + " are their corresponding values.",
+      parameters = {
+        @Param(
+            name = "xcode_config",
+            positional = true,
+            named = false,
+            type = XcodeConfigProviderApi.class,
+            doc = "A provider containing information about the xcode configuration."
+        ),
+      }
   )
   public ImmutableMap<String, String> getAppleHostSystemEnv(
       XcodeConfigProviderApiT xcodeConfig);
@@ -226,7 +235,23 @@ public interface AppleCommonApi<FileApiT extends FileApi,
           "Returns a <code>dict</code> of environment variables that should be set for actions "
               + "that build targets of the given Apple platform type. For example, this dictionary "
               + "contains variables that denote the platform name and SDK version with which to "
-              + "build. The keys are variable names and the values are their corresponding values."
+              + "build. The keys are variable names and the values are their corresponding values.",
+      parameters = {
+        @Param(
+            name = "xcode_config",
+            positional = true,
+            named = false,
+            type = XcodeConfigProviderApi.class,
+            doc = "A provider containing information about the xcode configuration."
+        ),
+        @Param(
+            name = "platform",
+            positional = true,
+            named = false,
+            type = ApplePlatformApi.class,
+            doc = "The apple platform."
+        ),
+      }
   )
   public ImmutableMap<String, String> getTargetAppleEnvironment(
       XcodeConfigProviderApiT xcodeConfig, ApplePlatformApiT platform);

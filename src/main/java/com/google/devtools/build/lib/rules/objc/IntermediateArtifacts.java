@@ -379,13 +379,6 @@ public final class IntermediateArtifacts {
   }
 
   /**
-   * Shell script that launches the binary.
-   */
-  public Artifact runnerScript() {
-    return appendExtension("_runner.sh");
-  }
-
-  /**
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {

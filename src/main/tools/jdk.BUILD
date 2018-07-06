@@ -141,14 +141,8 @@ filegroup(
         ]),
 )
 
-java_runtime_suite(
-    name = "jdk",
-    runtimes = {},
-    default = ":jdk-default",
-)
-
 java_runtime(
-    name = "jdk-default",
+    name = "jdk",
     srcs = [
         ":jdk-bin",
         ":jdk-include",

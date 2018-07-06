@@ -82,9 +82,11 @@ myrule = rule(
 
 `//mypkg/myrules_test.bzl`:
 
+
 ```python
 load("@bazel_skylib//:lib.bzl", "asserts", "unittest")
 load(":myrules.bzl", "myrule", "MyInfo")
+
 # ==== Check the provider contents ====
 
 def _provider_contents_test_impl(ctx):
@@ -417,6 +419,7 @@ def myhelper():
 ```
 
 `//mypkg/myhelpers_test.bzl`:
+
 
 ```python
 load("@bazel_skylib//:lib.bzl", "asserts", "unittest")

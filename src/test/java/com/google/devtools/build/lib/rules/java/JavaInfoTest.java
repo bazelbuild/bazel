@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -73,11 +74,11 @@ public class JavaInfoTest {
 
     assertThat(labels)
         .containsExactly(
-            Label.parseAbsolute("//foo:foo0.bzl"),
-            Label.parseAbsolute("//foo:foo1.bzl"),
-            Label.parseAbsolute("//bar:bar0.bzl"),
-            Label.parseAbsolute("//bar:bar1.bzl"),
-            Label.parseAbsolute("//bar:bar2.bzl"))
+            Label.parseAbsolute("//foo:foo0.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//foo:foo1.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//bar:bar0.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//bar:bar1.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//bar:bar2.bzl", ImmutableMap.of()))
         .inOrder();
   }
 
@@ -86,7 +87,7 @@ public class JavaInfoTest {
     NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
     for (int i = 0; i < count; i++) {
       String absName = String.format("//%s:%s%d.bzl", prefix, prefix, i);
-      Label label = Label.parseAbsolute(absName);
+      Label label = Label.parseAbsolute(absName, ImmutableMap.of());
       builder.add(label);
     } // TODO(dbabkin): refactor to use NestedSetCollector whe it will be ready.
     return new JavaExportsProvider(builder.build());

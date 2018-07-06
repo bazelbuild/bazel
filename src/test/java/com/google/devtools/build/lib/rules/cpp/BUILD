@@ -17,6 +17,7 @@ java_test(
         exclude = ["CcImportBaseConfiguredTargetTest.java"],
     ) + ["proto/CcProtoLibraryTest.java"],
     resources = [
+        "//tools/build_defs/cc:action_names.bzl",
         "//tools/cpp:crosstool_utils",
         "//tools/cpp:lib_cc_configure",
     ],

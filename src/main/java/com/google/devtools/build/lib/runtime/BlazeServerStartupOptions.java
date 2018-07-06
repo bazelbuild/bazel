@@ -112,23 +112,22 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * necessary.
    */
   @Option(
-    name = "output_base",
-    defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    valueHelp = "<path>",
-    help =
-        "If set, specifies the output location to which all build output will be written. "
-            + "Otherwise, the location will be "
-            + "${OUTPUT_ROOT}/_blaze_${USER}/${MD5_OF_WORKSPACE_ROOT}. Note: If you specify a "
-            + "different option from one to the next Blaze invocation for this value, you'll "
-            + "likely start up a new, additional Blaze server. Blaze starts exactly one server per "
-            + "specified output base. Typically there is one output base per workspace - however, "
-            + "with this option you may have multiple output bases per workspace and thereby run "
-            + "multiple builds for the same client on the same machine concurrently. See "
-            + "'blaze help shutdown' on how to shutdown a Blaze server."
-  )
+      name = "output_base",
+      defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      valueHelp = "<path>",
+      help =
+          "If set, specifies the output location to which all build output will be written. "
+              + "Otherwise, the location will be "
+              + "${OUTPUT_ROOT}/_blaze_${USER}/${MD5_OF_WORKSPACE_ROOT}. Note: If you specify a "
+              + "different option from one to the next Bazel invocation for this value, you'll "
+              + "likely start up a new, additional Bazel server. Bazel starts exactly one server "
+              + "per specified output base. Typically there is one output base per workspace - "
+              + "however, with this option you may have multiple output bases per workspace and "
+              + "thereby run multiple builds for the same client on the same machine concurrently. "
+              + "See 'bazel help shutdown' on how to shutdown a Bazel server.")
   public PathFragment outputBase;
 
   @Option(
@@ -164,16 +163,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public PathFragment serverJvmOut;
 
   @Option(
-    name = "workspace_directory",
-    defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help =
-        "The root of the workspace, that is, the directory that Blaze uses as the root of the "
-            + "build. This flag is only to be set by the blaze client."
-  )
+      name = "workspace_directory",
+      defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "The root of the workspace, that is, the directory that Bazel uses as the root of the "
+              + "build. This flag is only to be set by the bazel client.")
   public PathFragment workspaceDirectory;
 
   @Option(
@@ -203,19 +201,19 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public int maxIdleSeconds;
 
   @Option(
-    name = "batch",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
-    },
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help =
-        "If set, Blaze will be run as just a client process without a server, instead of in "
-            + "the standard client/server mode. This is deprecated and will be removed, please "
-            + "prefer shutting down the server explicitly if you wish to avoid lingering servers."
-  )
+      name = "batch",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "If set, Bazel will be run as just a client process without a server, instead of in "
+              + "the standard client/server mode. This is deprecated and will be removed, please "
+              + "prefer shutting down the server explicitly if you wish to avoid lingering "
+              + "servers.")
   public boolean batch;
 
   @Option(
@@ -243,52 +241,49 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean oomMoreEagerly;
 
   @Option(
-    name = "experimental_oom_more_eagerly_threshold",
-    defaultValue = "100", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
-    help =
-        "If this flag is set, Blaze will OOM if, after two full GC's, more than this percentage of "
-            + "the (old gen) heap is still occupied. Deprecated: Use the command argument "
-            + "--experimental_oom_more_eagerly_threshold instead."
-  )
+      name = "experimental_oom_more_eagerly_threshold",
+      defaultValue = "100", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If this flag is set, Bazel will OOM if, after two full GC's, more than this percentage "
+              + "of the (old gen) heap is still occupied. Deprecated: Use the command argument "
+              + "--experimental_oom_more_eagerly_threshold instead.")
   public int oomMoreEagerlyThreshold;
 
   @Option(
-    name = "block_for_lock",
-    defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
-    help =
-        "When --noblock_for_lock is passed, Blaze does not wait for a running command to "
-            + "complete, but instead exits immediately."
-  )
+      name = "block_for_lock",
+      defaultValue = "true", // NOTE: only for documentation, value never passed to the server.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "When --noblock_for_lock is passed, Bazel does not wait for a running command to "
+              + "complete, but instead exits immediately.")
   public boolean blockForLock;
 
   @Option(
-    name = "io_nice_level",
-    defaultValue = "-1", // NOTE: only for documentation, value never passed to the server.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-    valueHelp = "{-1,0,1,2,3,4,5,6,7}",
-    help =
-        "Only on Linux; set a level from 0-7 for best-effort IO scheduling using the "
-            + "sys_ioprio_set system call. 0 is highest priority, 7 is lowest. The anticipatory "
-            + "scheduler may only honor up to priority 4. If set to a negative value, then Blaze "
-            + "does not perform a system call."
-  )
+      name = "io_nice_level",
+      defaultValue = "-1", // NOTE: only for documentation, value never passed to the server.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      valueHelp = "{-1,0,1,2,3,4,5,6,7}",
+      help =
+          "Only on Linux; set a level from 0-7 for best-effort IO scheduling using the "
+              + "sys_ioprio_set system call. 0 is highest priority, 7 is lowest. The anticipatory "
+              + "scheduler may only honor up to priority 4. If set to a negative value, then Bazel "
+              + "does not perform a system call.")
   public int ioNiceLevel;
 
   @Option(
-    name = "batch_cpu_scheduling",
-    defaultValue = "false", // NOTE: only for documentation, value never passed to the server.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-    help =
-        "Only on Linux; use 'batch' CPU scheduling for Blaze. This policy is useful for "
-            + "workloads that are non-interactive, but do not want to lower their nice value. "
-            + "See 'man 2 sched_setscheduler'. If false, then Blaze does not perform a system call."
-  )
+      name = "batch_cpu_scheduling",
+      defaultValue = "false", // NOTE: only for documentation, value never passed to the server.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Only on Linux; use 'batch' CPU scheduling for Blaze. This policy is useful for "
+              + "workloads that are non-interactive, but do not want to lower their nice value. "
+              + "See 'man 2 sched_setscheduler'. If false, then Bazel does not perform a system "
+              + "call.")
   public boolean batchCpuScheduling;
 
   @Option(

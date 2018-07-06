@@ -540,6 +540,57 @@ class LauncherTest(test_base.TestBase):
     classpath = stdout[stdout.index('-classpath') + 1]
     self.assertRegexpMatches(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
 
+  def testWindowsNativeLauncherInNonEnglishPath(self):
+    if not self.IsWindows():
+      return
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('bin/BUILD', [
+        'java_binary(',
+        '  name = "bin_java",',
+        '  srcs = ["Main.java"],',
+        '  main_class = "Main",',
+        ')',
+        'sh_binary(',
+        '  name = "bin_sh",',
+        '  srcs = ["main.sh"],',
+        ')',
+    ])
+    self.ScratchFile('bin/Main.java', [
+        'public class Main {',
+        '  public static void main(String[] args) {'
+        '    System.out.println("helloworld");',
+        '  }',
+        '}',
+    ])
+    self.ScratchFile('bin/main.sh', [
+        'echo "helloworld"',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--windows_exe_launcher=1', '//bin/...'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    for f in [
+        'bin_java.exe', 'bin_java.exe.runfiles_manifest', 'bin_sh.exe',
+        'bin_sh', 'bin_sh.exe.runfiles_manifest'
+    ]:
+      self.CopyFile(os.path.join(bazel_bin, 'bin', f),
+                    os.path.join(u'./\u6d4b\u8bd5', f))
+
+    unicode_binary_path = u'./\u6d4b\u8bd5/bin_java.exe'
+    exit_code, stdout, stderr = self.RunProgram([unicode_binary_path])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+    unicode_binary_path = u'./\u6d4b\u8bd5/bin_sh.exe'
+    exit_code, stdout, stderr = self.RunProgram([unicode_binary_path])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
   def AssertRunfilesManifestContains(self, manifest, entry):
     with open(manifest, 'r') as f:
       for l in f:

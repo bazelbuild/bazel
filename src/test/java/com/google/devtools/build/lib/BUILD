@@ -62,6 +62,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
+        "//src/test/java/com/google/devtools/build/lib/integration/blackbox/framework/junit:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -152,6 +153,7 @@ java_library(
     name = "test_runner",
     testonly = 1,
     srcs = ["AllTests.java"],
+    visibility = ["//src/test/java/com/google/devtools/build:__subpackages__"],
     deps = [
         ":testutil",
         "//third_party:junit4",
@@ -1541,6 +1543,25 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/protobuf:worker_protocol_java_proto",
+    ],
+)
+
+java_test(
+    name = "java-integration-tests",
+    srcs = glob(["integration/blackbox/**/*.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":guava_junit_truth",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

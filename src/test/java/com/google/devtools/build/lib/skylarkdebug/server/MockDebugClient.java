@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkdebug.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugRequest;
 import java.io.IOException;
@@ -83,9 +84,18 @@ class MockDebugClient {
    */
   @Nullable
   DebugEvent waitForEvent(Predicate<DebugEvent> predicate, Duration timeout) {
+    waitForEvents(list -> list.stream().anyMatch(predicate), timeout);
+    return unnumberedEvents.stream().filter(predicate).findFirst().orElse(null);
+  }
+
+  /**
+   * Blocks waiting for a condition on all unnumbered events to be satisfied. Returns true if the
+   * condition was satisfied before the timeout.
+   */
+  boolean waitForEvents(Predicate<List<DebugEvent>> predicate, Duration timeout) {
     long startTime = System.currentTimeMillis();
     synchronized (unnumberedEvents) {
-      while (unnumberedEvents.stream().noneMatch(predicate)
+      while (!predicate.test(ImmutableList.copyOf(unnumberedEvents))
           && System.currentTimeMillis() - startTime < timeout.toMillis()) {
         try {
           unnumberedEvents.wait(timeout.toMillis());
@@ -94,7 +104,7 @@ class MockDebugClient {
         }
       }
     }
-    return unnumberedEvents.stream().filter(predicate).findFirst().orElse(null);
+    return predicate.test(ImmutableList.copyOf(unnumberedEvents));
   }
 
   /**

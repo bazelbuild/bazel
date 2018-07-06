@@ -53,7 +53,7 @@ public class BuildTypeTest {
 
   @Before
   public final void setCurrentRule() throws Exception  {
-    this.currentRule = Label.parseAbsolute("//quux:baz");
+    this.currentRule = Label.parseAbsolute("//quux:baz", ImmutableMap.of());
     this.labelConversionContext =
         new LabelConversionContext(currentRule, /* repositoryMapping= */ ImmutableMap.of());
   }
@@ -76,22 +76,34 @@ public class BuildTypeTest {
 
   @Test
   public void testLabelKeyedStringDictConvertsToMapFromLabelToString() throws Exception {
-    Map<Object, String> input = new ImmutableMap.Builder<Object, String>()
-        .put("//absolute:label", "absolute value")
-        .put(":relative", "theory of relativity")
-        .put("nocolon", "colonial times")
-        .put("//current/package:explicit", "explicit content")
-        .put(Label.parseAbsolute("//i/was/already/a/label"), "and that's okay")
-        .build();
-    Label context = Label.parseAbsolute("//current/package:this");
+    Map<Object, String> input =
+        new ImmutableMap.Builder<Object, String>()
+            .put("//absolute:label", "absolute value")
+            .put(":relative", "theory of relativity")
+            .put("nocolon", "colonial times")
+            .put("//current/package:explicit", "explicit content")
+            .put(
+                Label.parseAbsolute("//i/was/already/a/label", ImmutableMap.of()),
+                "and that's okay")
+            .build();
+    Label context = Label.parseAbsolute("//current/package:this", ImmutableMap.of());
 
-    Map<Label, String> expected = new ImmutableMap.Builder<Label, String>()
-        .put(Label.parseAbsolute("//absolute:label"), "absolute value")
-        .put(Label.parseAbsolute("//current/package:relative"), "theory of relativity")
-        .put(Label.parseAbsolute("//current/package:nocolon"), "colonial times")
-        .put(Label.parseAbsolute("//current/package:explicit"), "explicit content")
-        .put(Label.parseAbsolute("//i/was/already/a/label"), "and that's okay")
-        .build();
+    Map<Label, String> expected =
+        new ImmutableMap.Builder<Label, String>()
+            .put(Label.parseAbsolute("//absolute:label", ImmutableMap.of()), "absolute value")
+            .put(
+                Label.parseAbsolute("//current/package:relative", ImmutableMap.of()),
+                "theory of relativity")
+            .put(
+                Label.parseAbsolute("//current/package:nocolon", ImmutableMap.of()),
+                "colonial times")
+            .put(
+                Label.parseAbsolute("//current/package:explicit", ImmutableMap.of()),
+                "explicit content")
+            .put(
+                Label.parseAbsolute("//i/was/already/a/label", ImmutableMap.of()),
+                "and that's okay")
+            .build();
 
     assertThat(BuildType.LABEL_KEYED_STRING_DICT.convert(input, null, context))
         .containsExactlyEntriesIn(expected);
@@ -166,7 +178,7 @@ public class BuildTypeTest {
   @Test
   public void testLabelKeyedStringDictConvertingMapWithMultipleEquivalentKeysShouldFail()
       throws Exception {
-    Label context = Label.parseAbsolute("//current/package:this");
+    Label context = Label.parseAbsolute("//current/package:this", ImmutableMap.of());
     Map<String, String> input = new ImmutableMap.Builder<String, String>()
         .put(":reference", "value1")
         .put("//current/package:reference", "value2")
@@ -185,7 +197,7 @@ public class BuildTypeTest {
   @Test
   public void testLabelKeyedStringDictConvertingMapWithMultipleSetsOfEquivalentKeysShouldFail()
       throws Exception {
-    Label context = Label.parseAbsolute("//current/rule:sibling");
+    Label context = Label.parseAbsolute("//current/rule:sibling", ImmutableMap.of());
     Map<String, String> input = new ImmutableMap.Builder<String, String>()
         .put(":rule", "first set")
         .put("//current/rule:rule", "also first set")
@@ -211,7 +223,7 @@ public class BuildTypeTest {
   @Test
   public void testLabelKeyedStringDictErrorConvertingMapWithMultipleEquivalentKeysIncludesContext()
       throws Exception {
-    Label context = Label.parseAbsolute("//current/package:this");
+    Label context = Label.parseAbsolute("//current/package:this", ImmutableMap.of());
     Map<String, String> input = new ImmutableMap.Builder<String, String>()
         .put(":reference", "value1")
         .put("//current/package:reference", "value2")
@@ -229,21 +241,30 @@ public class BuildTypeTest {
 
   @Test
   public void testLabelKeyedStringDictCollectLabels() throws Exception {
-    Map<Label, String> input = new ImmutableMap.Builder<Label, String>()
-        .put(Label.parseAbsolute("//absolute:label"), "absolute value")
-        .put(Label.parseAbsolute("//current/package:relative"), "theory of relativity")
-        .put(Label.parseAbsolute("//current/package:nocolon"), "colonial times")
-        .put(Label.parseAbsolute("//current/package:explicit"), "explicit content")
-        .put(Label.parseAbsolute("//i/was/already/a/label"), "and that's okay")
-        .build();
+    Map<Label, String> input =
+        new ImmutableMap.Builder<Label, String>()
+            .put(Label.parseAbsolute("//absolute:label", ImmutableMap.of()), "absolute value")
+            .put(
+                Label.parseAbsolute("//current/package:relative", ImmutableMap.of()),
+                "theory of relativity")
+            .put(
+                Label.parseAbsolute("//current/package:nocolon", ImmutableMap.of()),
+                "colonial times")
+            .put(
+                Label.parseAbsolute("//current/package:explicit", ImmutableMap.of()),
+                "explicit content")
+            .put(
+                Label.parseAbsolute("//i/was/already/a/label", ImmutableMap.of()),
+                "and that's okay")
+            .build();
 
     ImmutableList<Label> expected =
         ImmutableList.of(
-            Label.parseAbsolute("//absolute:label"),
-            Label.parseAbsolute("//current/package:relative"),
-            Label.parseAbsolute("//current/package:nocolon"),
-            Label.parseAbsolute("//current/package:explicit"),
-            Label.parseAbsolute("//i/was/already/a/label"));
+            Label.parseAbsolute("//absolute:label", ImmutableMap.of()),
+            Label.parseAbsolute("//current/package:relative", ImmutableMap.of()),
+            Label.parseAbsolute("//current/package:nocolon", ImmutableMap.of()),
+            Label.parseAbsolute("//current/package:explicit", ImmutableMap.of()),
+            Label.parseAbsolute("//i/was/already/a/label", ImmutableMap.of()));
 
     assertThat(collectLabels(BuildType.LABEL_KEYED_STRING_DICT, input))
         .containsExactlyElementsIn(expected);
@@ -298,7 +319,9 @@ public class BuildTypeTest {
             ImmutableMap.of(
                 RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo")));
     Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
-    assertThat(label).isEquivalentAccordingToCompareTo(Label.parseAbsolute("@new_repo//foo:bar"));
+    assertThat(label)
+        .isEquivalentAccordingToCompareTo(
+            Label.parseAbsolute("@new_repo//foo:bar", ImmutableMap.of()));
   }
 
   /**
@@ -313,10 +336,12 @@ public class BuildTypeTest {
     Selector<Label> selector = new Selector<>(input, null, labelConversionContext, BuildType.LABEL);
     assertThat(selector.getOriginalType()).isEqualTo(BuildType.LABEL);
 
-    Map<Label, Label> expectedMap = ImmutableMap.of(
-        Label.parseAbsolute("//conditions:a"), Label.create("@//a", "a"),
-        Label.parseAbsolute("//conditions:b"), Label.create("@//b", "b"),
-        Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY), Label.create("@//d", "d"));
+    Map<Label, Label> expectedMap =
+        ImmutableMap.of(
+            Label.parseAbsolute("//conditions:a", ImmutableMap.of()), Label.create("@//a", "a"),
+            Label.parseAbsolute("//conditions:b", ImmutableMap.of()), Label.create("@//b", "b"),
+            Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY, ImmutableMap.of()),
+                Label.create("@//d", "d"));
     assertThat(selector.getEntries().entrySet()).containsExactlyElementsIn(expectedMap.entrySet());
   }
 
@@ -382,23 +407,27 @@ public class BuildTypeTest {
     assertThat(selectorList.getOriginalType()).isEqualTo(BuildType.LABEL_LIST);
     assertThat(selectorList.getKeyLabels())
         .containsExactly(
-            Label.parseAbsolute("//conditions:a"),
-            Label.parseAbsolute("//conditions:b"),
-            Label.parseAbsolute("//conditions:c"),
-            Label.parseAbsolute("//conditions:d"));
+            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:c", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:d", ImmutableMap.of()));
 
     List<Selector<List<Label>>> selectors = selectorList.getSelectors();
     assertThat(selectors.get(0).getEntries().entrySet())
         .containsExactlyElementsIn(
-            ImmutableMap.of(Label.parseAbsolute("//conditions:a"),
-            ImmutableList.of(Label.create("@//a", "a")), Label.parseAbsolute("//conditions:b"),
-            ImmutableList.of(Label.create("@//b", "b")))
+            ImmutableMap.of(
+                    Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+                    ImmutableList.of(Label.create("@//a", "a")),
+                    Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+                    ImmutableList.of(Label.create("@//b", "b")))
                 .entrySet());
     assertThat(selectors.get(1).getEntries().entrySet())
         .containsExactlyElementsIn(
             ImmutableMap.of(
-                Label.parseAbsolute("//conditions:c"), ImmutableList.of(Label.create("@//c", "c")),
-                Label.parseAbsolute("//conditions:d"), ImmutableList.of(Label.create("@//d", "d")))
+                    Label.parseAbsolute("//conditions:c", ImmutableMap.of()),
+                        ImmutableList.of(Label.create("@//c", "c")),
+                    Label.parseAbsolute("//conditions:d", ImmutableMap.of()),
+                        ImmutableList.of(Label.create("@//d", "d")))
                 .entrySet());
   }
 
@@ -495,9 +524,10 @@ public class BuildTypeTest {
     assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet())
         .containsExactlyElementsIn(
             ImmutableMap.of(
-                    Label.parseAbsolute("//conditions:a"),
+                    Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
                     expectedLabels,
-                    Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY),
+                    Label.parseAbsolute(
+                        BuildType.Selector.DEFAULT_CONDITION_KEY, ImmutableMap.of()),
                     expectedLabels)
                 .entrySet());
   }
@@ -523,10 +553,13 @@ public class BuildTypeTest {
    */
   @Test
   public void testReservedKeyLabels() throws Exception {
-    assertThat(BuildType.Selector.isReservedLabel(Label.parseAbsolute("//condition:a"))).isFalse();
     assertThat(
             BuildType.Selector.isReservedLabel(
-                Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY)))
+                Label.parseAbsolute("//condition:a", ImmutableMap.of())))
+        .isFalse();
+    assertThat(
+            BuildType.Selector.isReservedLabel(
+                Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY, ImmutableMap.of())))
         .isTrue();
   }
 
@@ -565,7 +598,7 @@ public class BuildTypeTest {
   private static FilesetEntry makeFilesetEntry() {
     try {
       return new FilesetEntry(
-          /* srcLabel */ Label.parseAbsolute("//foo:bar"),
+          /* srcLabel */ Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
           /* files */ ImmutableList.<Label>of(),
           /* excludes */ ImmutableSet.of("xyz"),
           /* destDir */ null,
@@ -595,7 +628,7 @@ public class BuildTypeTest {
   private FilesetEntry createTestFilesetEntry(
       FilesetEntry.SymlinkBehavior symlinkBehavior)
       throws LabelSyntaxException {
-    Label label = Label.parseAbsolute("//x");
+    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
     return new FilesetEntry(
         /* srcLabel */ label,
         /* files */ Arrays.asList(label),
@@ -632,7 +665,7 @@ public class BuildTypeTest {
   }
 
   private FilesetEntry createStripPrefixFilesetEntry(String stripPrefix)  throws Exception {
-    Label label = Label.parseAbsolute("//x");
+    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
     return new FilesetEntry(
         /* srcLabel */ label,
         /* files */ Arrays.asList(label),
@@ -657,23 +690,25 @@ public class BuildTypeTest {
   @Test
   public void testPrintFilesetEntry() throws Exception {
     assertThat(
-        Printer.repr(
-            new FilesetEntry(
-                /* srcLabel */ Label.parseAbsolute("//foo:BUILD"),
-                /* files */ ImmutableList.of(Label.parseAbsolute("//foo:bar")),
-                /* excludes */ ImmutableSet.of("baz"),
-                /* destDir */ "qux",
-                /* symlinkBehavior */ FilesetEntry.SymlinkBehavior.DEREFERENCE,
-                /* stripPrefix */ "blah")))
+            Printer.repr(
+                new FilesetEntry(
+                    /* srcLabel */ Label.parseAbsolute("//foo:BUILD", ImmutableMap.of()),
+                    /* files */ ImmutableList.of(
+                        Label.parseAbsolute("//foo:bar", ImmutableMap.of())),
+                    /* excludes */ ImmutableSet.of("baz"),
+                    /* destDir */ "qux",
+                    /* symlinkBehavior */ FilesetEntry.SymlinkBehavior.DEREFERENCE,
+                    /* stripPrefix */ "blah")))
         .isEqualTo(
-            Joiner.on(" ").join(
-                ImmutableList.of(
-                    "FilesetEntry(srcdir = \"//foo:BUILD\",",
-                    "files = [\"//foo:bar\"],",
-                    "excludes = [\"baz\"],",
-                    "destdir = \"qux\",",
-                    "strip_prefix = \"blah\",",
-                    "symlinks = \"dereference\")")));
+            Joiner.on(" ")
+                .join(
+                    ImmutableList.of(
+                        "FilesetEntry(srcdir = \"//foo:BUILD\",",
+                        "files = [\"//foo:bar\"],",
+                        "excludes = [\"baz\"],",
+                        "destdir = \"qux\",",
+                        "strip_prefix = \"blah\",",
+                        "symlinks = \"dereference\")")));
   }
 
   @Test

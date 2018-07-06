@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment.TargetProviderEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -368,22 +369,25 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     // Legal case:
     assertThat(
-            RedirectChaser
-                .followRedirects(env, Label.parseAbsolute("//java/hello:good_base"), "srcs")
+            RedirectChaser.followRedirects(
+                    env, Label.parseAbsolute("//java/hello:good_base", ImmutableMap.of()), "srcs")
                 .toString())
         .isEqualTo("//java/hello:actual_content");
 
     // Legal case:
     assertThat(
-            RedirectChaser
-                .followRedirects(env, Label.parseAbsolute("//java/hello:base_non_filegroup_target"),
+            RedirectChaser.followRedirects(
+                    env,
+                    Label.parseAbsolute(
+                        "//java/hello:base_non_filegroup_target", ImmutableMap.of()),
                     "srcs")
                 .toString())
         .isEqualTo("//java/hello:non_filegroup_target");
 
     // Illegal case:
     try {
-      RedirectChaser.followRedirects(env, Label.parseAbsolute("//java/hello:bad_base"), "srcs");
+      RedirectChaser.followRedirects(
+          env, Label.parseAbsolute("//java/hello:bad_base", ImmutableMap.of()), "srcs");
       fail("Expected RedirectChaser to fail on a sequence with configurable 'srcs' values");
     } catch (InvalidConfigurationException e) {
       // Expected failure..
@@ -1129,8 +1133,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("--test_arg=a");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
-    assertThat(attributes.get("dep", BuildType.LABEL)).isEqualTo(
-        Label.parseAbsolute("//foo:default"));
+    assertThat(attributes.get("dep", BuildType.LABEL))
+        .isEqualTo(Label.parseAbsolute("//foo:default", ImmutableMap.of()));
   }
 
   @Test

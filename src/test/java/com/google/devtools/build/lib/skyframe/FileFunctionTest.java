@@ -1365,11 +1365,8 @@ public class FileFunctionTest {
     return new Runnable() {
       @Override
       public void run() {
-        OutputStream outputStream;
-        try {
-          outputStream = toChange.getOutputStream();
+        try (OutputStream outputStream = toChange.getOutputStream()) {
           outputStream.write(contents);
-          outputStream.close();
         } catch (IOException e) {
           e.printStackTrace();
           fail(e.getMessage());
@@ -1439,9 +1436,9 @@ public class FileFunctionTest {
     Path fileToChange = path(fileStringToChange);
     if (fileToChange.exists()) {
       final byte[] oldContents = FileSystemUtils.readContent(fileToChange);
-      OutputStream outputStream = fileToChange.getOutputStream(/*append=*/ true);
-      outputStream.write(new byte[] {(byte) 42}, 0, 1);
-      outputStream.close();
+      try (OutputStream outputStream = fileToChange.getOutputStream(/*append=*/ true)) {
+        outputStream.write(new byte[] {(byte) 42}, 0, 1);
+      }
       return Pair.of(
           ImmutableList.of(fileStringToChange),
           makeWriteFileContentCallback(fileToChange, oldContents));

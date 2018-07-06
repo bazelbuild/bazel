@@ -22,8 +22,8 @@ import javax.annotation.Nullable;
 /** A context in which debugging can occur. Implemented by Skylark environments. */
 public interface Debuggable {
 
-  /** Evaluates a Skylark expression in the adapter's environment. */
-  Object evaluate(String expression) throws EvalException, InterruptedException;
+  /** Evaluates a Skylark statement in the adapter's environment. */
+  Object evaluate(String statement) throws EvalException, InterruptedException;
 
   /**
    * Returns the stack frames corresponding of the context's current (paused) state.

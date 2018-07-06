@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -50,7 +49,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -111,7 +110,9 @@ public class JavaCommon {
   private JavaCompilationHelper javaCompilationHelper;
 
   public JavaCommon(RuleContext ruleContext, JavaSemantics semantics) {
-    this(ruleContext, semantics,
+    this(
+        ruleContext,
+        semantics,
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
@@ -120,7 +121,9 @@ public class JavaCommon {
 
   public JavaCommon(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<Artifact> sources) {
-    this(ruleContext, semantics,
+    this(
+        ruleContext,
+        semantics,
         sources,
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY),
         collectTargetsTreatedAsDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY),
@@ -147,10 +150,11 @@ public class JavaCommon {
     this.javaToolchain = JavaToolchainProvider.from(ruleContext);
     this.semantics = semantics;
     this.sources = sources;
-    this.targetsTreatedAsDeps = ImmutableMap.of(
-        ClasspathType.COMPILE_ONLY, compileDeps,
-        ClasspathType.RUNTIME_ONLY, runtimeDeps,
-        ClasspathType.BOTH, bothDeps);
+    this.targetsTreatedAsDeps =
+        ImmutableMap.of(
+            ClasspathType.COMPILE_ONLY, compileDeps,
+            ClasspathType.RUNTIME_ONLY, runtimeDeps,
+            ClasspathType.BOTH, bothDeps);
   }
 
   public JavaSemantics getJavaSemantics() {
@@ -242,28 +246,29 @@ public class JavaCommon {
   /**
    * Collects Java compilation arguments for this target.
    *
-   * @param recursive Whether to scan dependencies recursively.
    * @param isNeverLink Whether the target has the 'neverlink' attr.
    * @param srcLessDepsExport If srcs is omitted, deps are exported (deprecated behaviour for
    *     android_library only)
    */
-  public JavaCompilationArgs collectJavaCompilationArgs(
-      boolean recursive, boolean isNeverLink, boolean srcLessDepsExport) {
+  public JavaCompilationArgsProvider collectJavaCompilationArgs(
+      boolean isNeverLink, boolean srcLessDepsExport) {
+    boolean javaProtoLibraryStrictDeps = semantics.isJavaProtoLibraryStrictDeps(ruleContext);
     return collectJavaCompilationArgs(
-        /* recursive= */ recursive,
         /* isNeverLink= */ isNeverLink,
         /* srcLessDepsExport= */ srcLessDepsExport,
         getJavaCompilationArtifacts(),
         ImmutableList.of(
             JavaCompilationArgsProvider.legacyFromTargets(
-                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))),
+                targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), javaProtoLibraryStrictDeps)),
         ImmutableList.of(
-            JavaCompilationArgsProvider.legacyFromTargets(getRuntimeDeps(ruleContext))),
-        ImmutableList.of(JavaCompilationArgsProvider.legacyFromTargets(getExports(ruleContext))));
+            JavaCompilationArgsProvider.legacyFromTargets(
+                getRuntimeDeps(ruleContext), javaProtoLibraryStrictDeps)),
+        ImmutableList.of(
+            JavaCompilationArgsProvider.legacyFromTargets(
+                getExports(ruleContext), javaProtoLibraryStrictDeps)));
   }
 
-  static JavaCompilationArgs collectJavaCompilationArgs(
-      boolean recursive,
+  static JavaCompilationArgsProvider collectJavaCompilationArgs(
       boolean isNeverLink,
       boolean srcLessDepsExport,
       JavaCompilationArtifacts compilationArtifacts,
@@ -271,16 +276,18 @@ public class JavaCommon {
       List<JavaCompilationArgsProvider> runtimeDeps,
       List<JavaCompilationArgsProvider> exports) {
     ClasspathType type = isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
-    JavaCompilationArgs.Builder builder =
-        JavaCompilationArgs.builder()
-            .merge(compilationArtifacts, isNeverLink)
-            .addTransitiveCompilationArgs(exports, recursive, type);
-    // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
-    if (recursive || srcLessDepsExport) {
-      builder
-          .addTransitiveCompilationArgs(deps, recursive, type)
-          .addTransitiveCompilationArgs(runtimeDeps, recursive, ClasspathType.RUNTIME_ONLY);
+    JavaCompilationArgsProvider.Builder builder =
+        JavaCompilationArgsProvider.builder().merge(compilationArtifacts, isNeverLink);
+    exports.forEach(export -> builder.addExports(export, type));
+    if (srcLessDepsExport) {
+      deps.forEach(dep -> builder.addExports(dep, type));
+    } else {
+      deps.forEach(dep -> builder.addDeps(dep, type));
     }
+    runtimeDeps.forEach(dep -> builder.addDeps(dep, ClasspathType.RUNTIME_ONLY));
+    builder.addCompileTimeJavaDependencyArtifacts(
+        collectCompileTimeDependencyArtifacts(
+            compilationArtifacts.getCompileTimeDependencyArtifact(), exports));
     return builder.build();
   }
 
@@ -303,13 +310,15 @@ public class JavaCommon {
    * @param exports dependencies with export-like semantics
    */
   public static NestedSet<Artifact> collectCompileTimeDependencyArtifacts(
-      @Nullable Artifact jdeps, Iterable<JavaCompilationArgsProvider> exports) {
+      @Nullable Artifact jdeps, Collection<JavaCompilationArgsProvider> exports) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     if (jdeps != null) {
       builder.add(jdeps);
     }
-    exports.forEach(
-        export -> builder.addTransitive(export.getCompileTimeJavaDependencyArtifacts()));
+    exports
+        .stream()
+        .map(JavaCompilationArgsProvider::getCompileTimeJavaDependencyArtifacts)
+        .forEach(builder::addTransitive);
     return builder.build();
   }
 
@@ -421,25 +430,21 @@ public class JavaCommon {
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
     return ImmutableList.<String>builder()
-        .addAll(computeToolchainJavacOpts(ruleContext, javaToolchain))
+        .addAll(javaToolchain.getJavacOptions())
         .addAll(extraRuleJavacOpts)
+        .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
         .build();
   }
 
-  /**
-   * Returns the toolchain javacopts for the current rule, including global defaults as well as any
-   * per-package configuration.
-   */
-  public static ImmutableList<String> computeToolchainJavacOpts(
+  /** Returns the per-package configured javacopts. */
+  public static ImmutableList<String> computePerPackageJavacOpts(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
-    return Streams.concat(
-            toolchain.getJavacOptions().stream(),
-            toolchain
-                .packageConfiguration()
-                .stream()
-                .filter(p -> p.matches(ruleContext.getLabel()))
-                .flatMap(p -> p.javacopts().stream()))
+    return toolchain
+        .packageConfiguration()
+        .stream()
+        .filter(p -> p.matches(ruleContext.getLabel()))
+        .flatMap(p -> p.javacopts().stream())
         .collect(toImmutableList());
   }
 
@@ -739,7 +744,8 @@ public class JavaCommon {
     List<TransitiveInfoCollection> runtimeDepInfo = getRuntimeDeps(ruleContext);
     checkRuntimeDeps(ruleContext, runtimeDepInfo);
     JavaCompilationArgsProvider provider =
-        JavaCompilationArgsProvider.legacyFromTargets(runtimeDepInfo);
+        JavaCompilationArgsProvider.legacyFromTargets(
+            runtimeDepInfo, semantics.isJavaProtoLibraryStrictDeps(ruleContext));
     attributes.addRuntimeClassPathEntries(provider.getRuntimeJars());
     attributes.addInstrumentationMetadataEntries(provider.getInstrumentationMetadata());
   }

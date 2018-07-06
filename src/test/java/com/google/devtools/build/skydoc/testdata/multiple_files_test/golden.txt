@@ -1,0 +1,12 @@
+my_rule
+This is my rule. It does stuff.
+first,second
+
+other_rule
+This is another rule.
+third,fourth
+
+yet_another_rule
+This is yet another rule
+fifth
+

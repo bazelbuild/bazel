@@ -1,0 +1,4 @@
+my_rule
+This is my rule. It does stuff.
+first,second,third,fourth
+

@@ -38,7 +38,17 @@ public interface AndroidSkylarkCommonApi<FileT extends FileApi> {
           "Returns a source directory for Android resource file. "
               + "The source directory is a prefix of resource's relative path up to "
               + "a directory that designates resource kind (cf. "
-              + "http://developer.android.com/guide/topics/resources/providing-resources.html).")
+              + "http://developer.android.com/guide/topics/resources/providing-resources.html).",
+      parameters = {
+        @Param(
+            name = "resource",
+            doc = "The android resource file.",
+            positional = true,
+            named = false,
+            type = FileApi.class
+        )
+      }
+  )
   PathFragment getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @SkylarkCallable(

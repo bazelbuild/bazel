@@ -16,11 +16,30 @@ executable file (the output).
 Note that, from Bazel's perspective, `g++` and the standard C++ libraries are
 also inputs to this rule. As a rule writer, you must consider not only the
 user-provided inputs to a rule, but also all of the tools and libraries required
-to execute the actions (called _implicit inputs_).
+to execute the actions (called _implicit dependencies_).
 
 Before creating or modifying any rule, make sure you are familiar with the
-[evaluation model](concepts.md) (understand the three phases of execution and the
-differences between macros and rules).
+[evaluation model](concepts.md). You must understand the three phases of
+execution and the differences between macros and rules.
+
+A few rules are built into Bazel itself. These *native rules*, such as
+`cc_library` and `java_binary`, provide some core support for certain languages.
+By defining your own rules, you can add similar support for languages and tools
+that Bazel does not support natively.
+
+Rules defined in .bzl files work just like native rules. For example, their
+targets have labels, can appear in `bazel query`, and get built whenever they
+are needed for a `bazel build` command or similar. When defining your own rule,
+you get to decide what attributes it supports and how it generates its outputs.
+
+The exact behavior of a rule during the
+[analysis phase](concepts.md#evaluation-model) is governed by its
+`implementation` function. This function does not run any external commands.
+Rather, it registers [actions](#actions) that will be used later during the
+execution phase to build the rule's outputs, if they are needed. Rules also
+produce and pass along information that may be useful to other rules, in the
+form of [providers](#providers).
+
 
 <!-- [TOC] -->
 
@@ -39,24 +58,13 @@ The rule can then be loaded in `BUILD` files:
 load('//some/pkg:whatever.bzl', 'my_rule')
 ```
 
-A custom rule can be used just like a native rule. It has a mandatory `name`
-attribute, you can refer to it with a label, and you can see it in
-`bazel query`.
-
-The rule is analyzed when you explicitly build it, or if it is a dependency of
-the build. In this case, Bazel will execute its `implementation` function. This
-function decides what the outputs of the rule are and how to build them (using
-[actions](#actions)). During the [analysis phase](concepts.md#evaluation-model),
-no external command can be executed. Instead, actions are registered and
-will be run in the execution phase, if their output is needed for the build.
-
 [See example](https://github.com/bazelbuild/examples/tree/master/rules/empty).
 
 ## Attributes
 
-An attribute is a rule argument, such as `srcs` or `deps`. You must list
-the attributes and their types when you define a rule. Create attributes using
-the [attr](lib/attr.html) module.
+An attribute is a rule argument, such as `srcs` or `deps`. You must list the
+names and schemas of all attributes when you define a rule. Attribute schemas
+are created using the [attr](lib/attr.html) module.
 
 ```python
 sum = rule(
@@ -67,11 +75,6 @@ sum = rule(
     },
 )
 ```
-
-The following attributes are implicitly added to every rule: `deprecation`,
-`features`, `name`, `tags`, `testonly`, `visibility`. Test rules also have the
-following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
-`timeout`.
 
 In a `BUILD` file, call the rule to create targets of this type:
 
@@ -86,10 +89,32 @@ sum(
 )
 ```
 
-Label attributes like `deps` above are used to declare dependencies. The target
-whose label is mentioned becomes a dependency of the target with the attribute.
-Therefore, `other-target` will be analyzed before `my-target`.
+Here `other-target` is a dependency of `my-target`, and therefore `other-target`
+will be analyzed first.
 
+There are two special kinds of attributes:
+
+* *Dependency attributes*, such as `attr.label` and `attr.label_list`,
+  declare a dependency from the target that owns the attribute to the target
+  whose label appears in the attribute's value. This kind of attribute forms the
+  basis of the target graph.
+
+* *Output attributes*, such as `attr.output` and `attr.output_list`, declare an
+  output file that the target generates. Although they refer to the output file
+  by label, they do not create a dependency relationship between targets. Output
+  attributes are used relatively rarely, in favor of other ways of declaring
+  output files that do not require the user to specify a label.
+
+Both dependency attributes and output attributes take in label values. These may
+be specified as either [`Label`](lib/Label.html) objects or as simple strings.
+If a string is given, it will be converted to a `Label` using the
+[constructor](lib/Label.html#Label). The repository, and possibly the path, will
+be resolved relative to the defined target.
+
+The following attributes are implicitly added to every rule: `deprecation`,
+`features`, `name`, `tags`, `testonly`, `visibility`. Test rules also have the
+following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
+`timeout`.
 
 ### <a name="private-attributes"></a> Private Attributes
 
@@ -152,11 +177,11 @@ of declaring and accessing attributes.
 
 ## Targets
 
-Each call to a build rule has the side effect of defining a new target (also
-called instantiating the rule). The dependencies of the new target are any other
-targets whose labels are mentioned in an attribute of type `attr.label` or
-`attr.label_list`. In the following example, the target `//mypkg:y` depends on
-the targets `//mypkg:x` and `//mypkg:z.foo`.
+Each call to a build rule returns no value but has the side effect of defining a
+new target; this is called instantiating the rule. The dependencies of the new
+target are any other targets whose labels are mentioned in its dependency
+attributes. In the following example, the target `//mypkg:y` depends on the
+targets `//mypkg:x` and `//mypkg:z.foo`.
 
 ```python
 # //mypkg:BUILD
@@ -165,6 +190,8 @@ my_rule(
     name = "x",
 )
 
+# Assuming that my_rule has attributes "deps" and "srcs",
+# of type attr.label_list()
 my_rule(
     name = "y",
     deps = [":x"],
@@ -172,16 +199,11 @@ my_rule(
 )
 ```
 
-Targets are represented at analysis time as [`Target`](lib/Target.html) objects.
-These objects contain the information produced by analyzing a target -- in
-particular, its [providers](#providers).
-
-In a rule's implementation function, the current target's dependencies are
-accessed using `ctx.attr`, just like any other attribute's value. However,
-unlike other types, attributes of type `attr.label` and `attr.label_list` have
-the special behavior that each label value is replaced by its corresponding
-`Target` object. This allows the current target being analyzed to consume the
-providers of its dependencies.
+Dependencies are represented at analysis time as [`Target`](lib/Target.html)
+objects. These objects contain the information produced by analyzing a target --
+in particular, its [providers](#providers). The current target can access its
+dependencies' `Target` objects within its rule implementation function by using
+`ctx.attr`.
 
 ## Files
 
@@ -196,9 +218,9 @@ be an output of exactly one action. Source files cannot be the output of any
 action.
 
 Some files, including all source files, are addressable by labels. These files
-have `Target` objects associated with them. If a file's label is used in a
-`attr.label` or `attr.label_list` attribute (for example, in a `srcs`
-attribute), the `ctx.attr.<attr_name>` entry for it will contain the
+have `Target` objects associated with them. If a file's label appears within a
+dependency attribute (for example, in a `srcs` attribute of type
+`attr.label_list`), the `ctx.attr.<attr_name>` entry for it will contain the
 corresponding `Target`. The `File` object can be obtained from this `Target`'s
 `files` field. This allows the file to be referenced in both the target graph
 and the action graph.
@@ -241,12 +263,12 @@ analysis using the [`ctx.actions.declare_file`](lib/actions.html#declare_file)
 and [`ctx.actions.declare_directory`](lib/actions.html#declare_directory)
 functions. Both kinds of outputs may be passed along in providers.
 
-Although the input files of a target -- those files passed through attributes of
-`attr.label` and `attr.label_list` type -- can be accessed indirectly via
-`ctx.attr`, it is more convenient to use `ctx.file` and `ctx.files`. For output
-files that are predeclared using attributes of `attr.output` or
-`attr.output_list` type, `ctx.attr` will only return the label, and you must use
-`ctx.outputs` to get the actual `File` object.
+Although the input files of a target -- those files passed through dependency
+attributes -- can be accessed indirectly via `ctx.attr`, it is more convenient
+to use `ctx.file` and `ctx.files`. For output files that are predeclared using
+output attributes (attributes of type `attr.output` or `attr.output_list`),
+`ctx.attr` will only return the label, and you must use `ctx.outputs` to get the
+actual `File` object.
 
 [See example of predeclared outputs](https://github.com/bazelbuild/examples/blob/master/rules/predeclared_outputs/hash.bzl)
 
@@ -327,9 +349,9 @@ tool, the label attribute will specify a transition to the host configuration.
 This causes the tool and all of its dependencies to be built for the host
 machine, assuming those dependencies do not themselves have transitions.
 
-For each [label attribute](lib/attr.html#label), you can decide whether the
-dependency should be built in the same configuration, or transition to the host
-configuration (using `cfg`). If a label attribute has the flag
+For each dependency attribute, you can decide whether the dependency target
+should be built in the same configuration, or transition to the host
+configuration (using `cfg`). If a dependency attribute has the flag
 `executable=True`, the configuration must be set explicitly.
 [See example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
 

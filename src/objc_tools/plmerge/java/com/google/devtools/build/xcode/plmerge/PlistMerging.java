@@ -298,9 +298,10 @@ public class PlistMerging extends Value<PlistMerging> {
     if (bundleExecutable == null) {
       merged.put("CFBundleExecutable", executableName);
     } else if (!executableName.equals(bundleExecutable.getContent())) {
-      throw new ValidationException(String.format(
-          "Blaze generated the executable %s but the Plist CFBundleExecutable is %s",
-          executableName, bundleExecutable));
+      throw new ValidationException(
+          String.format(
+              "Bazel generated the executable %s but the Plist CFBundleExecutable is %s",
+              executableName, bundleExecutable));
     }
 
     return this;

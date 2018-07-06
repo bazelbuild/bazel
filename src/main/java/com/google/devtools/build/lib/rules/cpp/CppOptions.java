@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
@@ -41,7 +40,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Command-line options for C++. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class CppOptions extends FragmentOptions {
   /**
    * Converts a comma-separated list of compilation mode settings to a properly typed List.
@@ -104,7 +102,7 @@ public class CppOptions extends FragmentOptions {
         throw new OptionsParsingException("Not a label");
       }
       try {
-        return Label.parseAbsolute(input)
+        return Label.parseAbsolute(input, ImmutableMap.of())
             .getRelativeWithRemapping(LIBC_RELATIVE_LABEL, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         throw new OptionsParsingException(e.getMessage());
@@ -788,6 +786,28 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, entries in linkopts that are not preceded by - or $ will be expanded.")
   public boolean expandLinkoptsLabels;
+
+  @Option(
+      name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES},
+      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+  public boolean enableLegacyToolchainSkylarkApi;
+
+  @Option(
+      name = "experimental_enable_cc_skylark_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, the C++ Skylark API can be used. Don't enable this flag yet, we will be making "
+              + "breaking changes.")
+  public boolean enableCcSkylarkApi;
 
   @Override
   public FragmentOptions getHost() {

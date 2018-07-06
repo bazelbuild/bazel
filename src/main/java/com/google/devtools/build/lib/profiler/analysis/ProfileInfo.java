@@ -444,6 +444,7 @@ public class ProfileInfo {
   private static final AggregateAttr ZERO = new AggregateAttr(0, 0);
 
   public final String comment;
+  private long minTaskStartTime = Long.MAX_VALUE;
   private boolean corruptedOrIncomplete = false;
 
   // TODO(bazel-team): (2010) In one case, this list took 277MB of heap. Ideally it should be
@@ -475,6 +476,7 @@ public class ProfileInfo {
 
   private void addTask(Task task) {
     allTasksById.add(task);
+    minTaskStartTime = Math.min(minTaskStartTime, task.startTime);
   }
 
   /**
@@ -622,6 +624,16 @@ public class ProfileInfo {
       }
     }
     return new AggregateAttr(count, totalTime);
+  }
+
+  /**
+   * Returns the minimum task start time, that is, when the profile actually started.
+   *
+   * <p>This should be very close to zero except that some Blaze versions contained a bug that made
+   * them not subtract the current time from task start times in the profile.</p>
+   */
+  public long getMinTaskStartTime() {
+    return minTaskStartTime;
   }
 
   /**

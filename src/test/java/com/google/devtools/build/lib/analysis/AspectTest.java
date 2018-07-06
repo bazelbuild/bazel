@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -437,7 +438,7 @@ public class AspectTest extends AnalysisTestCase {
       @Override
       public ConfiguredAspect create(
           ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-          throws InterruptedException {
+          throws InterruptedException, ActionConflictException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
         return new ConfiguredAspect.Builder(this, parameters, ruleContext)
             .addProvider(
@@ -507,7 +508,7 @@ public class AspectTest extends AnalysisTestCase {
       @Override
       public ConfiguredAspect create(
           ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-          throws InterruptedException {
+          throws InterruptedException, ActionConflictException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
         return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
       }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -48,7 +49,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
   @Override
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(
         this, parameters, ruleContext);
 

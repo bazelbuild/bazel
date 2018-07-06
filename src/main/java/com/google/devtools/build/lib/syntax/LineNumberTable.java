@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -31,6 +33,9 @@ import java.util.Objects;
 @AutoCodec
 @Immutable
 public class LineNumberTable implements Serializable {
+  private static final Interner<LineNumberTable> LINE_NUMBER_TABLE_INTERNER =
+      BlazeInterners.newWeakInterner();
+
   /** A mapping from line number (line >= 1) to character offset into the file. */
   private final int[] linestart;
 
@@ -42,6 +47,11 @@ public class LineNumberTable implements Serializable {
   }
 
   @AutoCodec.Instantiator
+  static LineNumberTable createForSerialization(
+      int[] linestart, PathFragment path, int bufferLength) {
+    return LINE_NUMBER_TABLE_INTERNER.intern(new LineNumberTable(linestart, path, bufferLength));
+  }
+
   LineNumberTable(int[] linestart, PathFragment path, int bufferLength) {
     this.linestart = linestart;
     this.path = path;

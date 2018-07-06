@@ -22,9 +22,11 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcTestRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcHostToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -76,6 +78,8 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
 
     builder.addSkylarkBootstrap(new CcBootstrap(new CcModule()));
+    builder.addSkylarkAccessibleTopLevels("CcCompilationInfo", CcCompilationInfo.PROVIDER);
+    builder.addSkylarkAccessibleTopLevels("CcLinkingInfo", CcLinkingInfo.PROVIDER);
   }
 
   @Override

@@ -564,10 +564,10 @@ public final class Profiler {
     FileWriter writer = null;
     if (stream != null) {
       if (format == Format.BINARY_BAZEL_FORMAT) {
-        writer = new BinaryFormatWriter(stream, profileStartTime, comment);
+        writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
         writer.start();
       } else if (format == Format.JSON_TRACE_FILE_FORMAT) {
-        writer = new JsonTraceFileWriter(stream, profileStartTime);
+        writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
         writer.start();
       }
     }
@@ -1032,6 +1032,7 @@ public final class Profiler {
             }
             char eventType = data.duration == 0 ? 'i' : 'X';
             out.append("{");
+            out.append("\"cat\":\"").append(data.type.description).append("\",");
             out.append("\"name\":\"").append(data.description).append("\",");
             out.append("\"ph\":\"").append(eventType).append("\",");
             out.append("\"ts\":")

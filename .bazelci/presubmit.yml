@@ -15,6 +15,8 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    # Disable Slow Tests
+    - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
   ubuntu1604:
@@ -32,6 +34,27 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
+    # Disable Slow Tests
+    - "-//src/test/shell/bazel:bazel_determinism_test"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
+    - "-//src/test/shell/bazel/android:android_ndk_integration_test"
+  ubuntu1804:
+    shell_commands:
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+      android_ndk_repository/android_ndk_repository/' WORKSPACE
+    - rm -f WORKSPACE.bak
+    build_targets:
+    - "//src:bazel"
+    test_flags:
+    - "--test_timeout=1200"
+    test_targets:
+    - "--"
+    - "//scripts/..."
+    - "//src/test/..."
+    - "//third_party/ijar/..."
+    - "//tools/android/..."
+    # Disable Slow Tests
+    - "-//src/test/shell/bazel:bazel_determinism_test"
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
   macos:

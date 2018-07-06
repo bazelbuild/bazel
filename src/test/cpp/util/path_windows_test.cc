@@ -309,7 +309,7 @@ TEST(PathWindowsTest, IsWindowsDevNullTest) {
   ASSERT_FALSE(IsDevNull("/dev/nul"));
   ASSERT_FALSE(IsDevNull("/dev/nulll"));
   ASSERT_FALSE(IsDevNull("nu"));
-  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull((char *) nullptr));
   ASSERT_FALSE(IsDevNull(""));
 }
 

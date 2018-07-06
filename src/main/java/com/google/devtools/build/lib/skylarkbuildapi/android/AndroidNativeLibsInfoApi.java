@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -58,6 +59,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
             ),
         },
         selfCall = true)
+    @SkylarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
     public AndroidNativeLibsInfoApi<?> createInfo(SkylarkNestedSet nativeLibs) throws EvalException;
   }
 }

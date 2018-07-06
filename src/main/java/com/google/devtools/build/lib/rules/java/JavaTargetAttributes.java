@@ -138,9 +138,9 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder merge(JavaCompilationArgs context) {
+    public Builder merge(JavaCompilationArgsProvider context) {
       Preconditions.checkArgument(!built);
-      addCompileTimeClassPathEntries(context.getCompileTimeJars());
+      addCompileTimeClassPathEntries(context.getTransitiveCompileTimeJars());
       addRuntimeClassPathEntries(context.getRuntimeJars());
       addInstrumentationMetadataEntries(context.getInstrumentationMetadata());
       return this;

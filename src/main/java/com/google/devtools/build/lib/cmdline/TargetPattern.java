@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -900,7 +901,7 @@ public abstract class TargetPattern implements Serializable {
   // TargetParsingException.
   private static Label label(String label) throws TargetParsingException {
     try {
-      return Label.parseAbsolute(label);
+      return Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new TargetParsingException("invalid target format: '"
           + StringUtilities.sanitizeControlChars(label) + "'; "

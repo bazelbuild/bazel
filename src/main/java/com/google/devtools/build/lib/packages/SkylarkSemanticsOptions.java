@@ -128,6 +128,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisableObjcProviderResources;
 
   @Option(
+      name = "incompatible_disallow_data_transition",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, rule attributes cannot set 'cfg = \"data\"', which is a noop."
+  )
+  public boolean incompatibleDisallowDataTransition;
+
+  @Option(
     name = "incompatible_disallow_dict_plus",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -164,6 +177,19 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       },
       help = "If set to true, old-style JavaInfo provider construction is disallowed.")
   public boolean incompatibleDisallowLegacyJavaInfo;
+
+  @Option(
+      name = "incompatible_generate_javacommon_source_jar",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, java_common.compile will always generate an output source jar."
+  )
+  public boolean incompatibleGenerateJavaCommonSourceJar;
 
   @Option(
     name = "incompatible_disallow_slash_operator",
@@ -302,11 +328,13 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)
         .incompatibleDisableObjcProviderResources(incompatibleDisableObjcProviderResources)
+        .incompatibleDisallowDataTransition(incompatibleDisallowDataTransition)
         .incompatibleDisallowDictPlus(incompatibleDisallowDictPlus)
         .incompatibleDisallowFileType(incompatibleDisallowFileType)
         .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
+        .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)

@@ -99,9 +99,10 @@ public class SkylarkImportsTest {
     assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
     // The import label is relative to the parent's package, not the parent's directory.
-    Label containingLabel = Label.parseAbsolute(containingLabelString);
-    assertThat(importForLabel.getLabel(containingLabel)).named("getLabel()")
-        .isEqualTo(Label.parseAbsolute(expectedLabelString));
+    Label containingLabel = Label.parseAbsolute(containingLabelString, ImmutableMap.of());
+    assertThat(importForLabel.getLabel(containingLabel))
+        .named("getLabel()")
+        .isEqualTo(Label.parseAbsolute(expectedLabelString, ImmutableMap.of()));
 
     assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
         .isEqualTo(PathFragment.create(expectedPathString));

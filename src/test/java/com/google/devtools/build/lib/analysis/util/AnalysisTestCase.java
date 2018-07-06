@@ -407,7 +407,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ensureUpdateWasCalled();
     Label parsedLabel;
     try {
-      parsedLabel = Label.parseAbsolute(label);
+      parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -416,8 +416,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected Target getTarget(String label) throws InterruptedException {
     try {
-      return SkyframeExecutorTestUtils.getExistingTarget(skyframeExecutor,
-          Label.parseAbsolute(label));
+      return SkyframeExecutorTestUtils.getExistingTarget(
+          skyframeExecutor, Label.parseAbsolute(label, ImmutableMap.of()));
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -452,7 +452,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       String label, BuildConfiguration configuration) {
     Label parsedLabel;
     try {
-      parsedLabel = Label.parseAbsolute(label);
+      parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }

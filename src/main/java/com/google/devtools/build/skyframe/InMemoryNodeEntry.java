@@ -194,8 +194,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  @Nullable
   public SkyValue getValueMaybeWithMetadata() {
-    Preconditions.checkState(isDone(), "no value until done: %s", this);
     return value;
   }
 

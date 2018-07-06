@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -124,21 +125,24 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
           }
         };
 
-    final Label binSrc = Label.parseAbsolute("//a:bin.sh");
+    final Label binSrc = Label.parseAbsolute("//a:bin.sh", ImmutableMap.of());
 
     useConfiguration("--define", "mode=a");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertThat(visitedLabels).containsExactly(binSrc, Label.parseAbsolute("//a:adep"));
+    assertThat(visitedLabels)
+        .containsExactly(binSrc, Label.parseAbsolute("//a:adep", ImmutableMap.of()));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=b");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertThat(visitedLabels).containsExactly(binSrc, Label.parseAbsolute("//a:bdep"));
+    assertThat(visitedLabels)
+        .containsExactly(binSrc, Label.parseAbsolute("//a:bdep", ImmutableMap.of()));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=c");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertThat(visitedLabels).containsExactly(binSrc, Label.parseAbsolute("//a:defaultdep"));
+    assertThat(visitedLabels)
+        .containsExactly(binSrc, Label.parseAbsolute("//a:defaultdep", ImmutableMap.of()));
   }
 
   /**
@@ -172,7 +176,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
     // Target configuration is in dbg mode, so we should match //conditions:b:
     assertThat(getMapper("//a:gen").get("tools", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsolute("//a:bdep"));
+        .containsExactly(Label.parseAbsolute("//a:bdep", ImmutableMap.of()));
 
     // Verify the "tools" dep uses a different configuration that's not also in "dbg":
     assertThat(
@@ -202,7 +206,9 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         ")");
     useConfiguration("--define", "foo=a", "--define", "bar=d");
     assertThat(getMapper("//hello:gen").get("srcs", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsolute("//hello:a.in"), Label.parseAbsolute("//hello:d.in"));
+        .containsExactly(
+            Label.parseAbsolute("//hello:a.in", ImmutableMap.of()),
+            Label.parseAbsolute("//hello:d.in", ImmutableMap.of()));
   }
 
   @Test

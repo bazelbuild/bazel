@@ -33,7 +33,8 @@ public final class SkylarkDebuggerModule extends BlazeModule {
     SkylarkDebuggerOptions buildOptions = env.getOptions().getOptions(SkylarkDebuggerOptions.class);
     boolean enabled = buildOptions != null && buildOptions.debugSkylark;
     if (enabled) {
-      initializeDebugging(env.getReporter(), buildOptions.debugServerPort);
+      initializeDebugging(
+          env.getReporter(), buildOptions.debugServerPort, buildOptions.verboseLogs);
     } else {
       disableDebugging();
     }
@@ -61,10 +62,10 @@ public final class SkylarkDebuggerModule extends BlazeModule {
     disableDebugging();
   }
 
-  private static void initializeDebugging(Reporter reporter, int debugPort) {
+  private static void initializeDebugging(Reporter reporter, int debugPort, boolean verboseLogs) {
     try {
       SkylarkDebugServer server =
-          SkylarkDebugServer.createAndWaitForConnection(reporter, debugPort);
+          SkylarkDebugServer.createAndWaitForConnection(reporter, debugPort, verboseLogs);
       DebugServerUtils.initializeDebugServer(server);
     } catch (IOException e) {
       reporter.handle(Event.error("Error while setting up the debug server: " + e.getMessage()));

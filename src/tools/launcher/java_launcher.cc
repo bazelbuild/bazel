@@ -30,12 +30,12 @@ namespace bazel {
 namespace launcher {
 
 using std::getline;
-using std::ofstream;
-using std::ostringstream;
 using std::string;
-using std::stringstream;
 using std::vector;
+using std::wofstream;
+using std::wostringstream;
 using std::wstring;
+using std::wstringstream;
 
 // The runfile path of java binary, eg. local_jdk/bin/java.exe
 static constexpr const char* JAVA_BIN_PATH = "java_bin_path";
@@ -47,15 +47,15 @@ static constexpr const char* JVM_FLAGS = "jvm_flags";
 // Check if a string start with a certain prefix.
 // If it's true, store the substring without the prefix in value.
 // If value is quoted, then remove the quotes.
-static bool GetFlagValue(const string& str, const string& prefix,
-                         string* value_ptr) {
+static bool GetFlagValue(const wstring& str, const wstring& prefix,
+                         wstring* value_ptr) {
   if (str.compare(0, prefix.length(), prefix)) {
     return false;
   }
-  string& value = *value_ptr;
+  wstring& value = *value_ptr;
   value = str.substr(prefix.length());
   int len = value.length();
-  if (len >= 2 && value[0] == '"' && value[len - 1] == '"') {
+  if (len >= 2 && value[0] == L'"' && value[len - 1] == L'"') {
     value = value.substr(1, len - 2);
   }
   return true;
@@ -64,34 +64,34 @@ static bool GetFlagValue(const string& str, const string& prefix,
 // Parses one launcher flag and updates this object's state accordingly.
 //
 // Returns true if the flag is a valid launcher flag; false otherwise.
-bool JavaBinaryLauncher::ProcessWrapperArgument(const string& argument) {
-  string flag_value;
-  if (argument.compare("--debug") == 0) {
-    string default_jvm_debug_port;
-    if (GetEnv("DEFAULT_JVM_DEBUG_PORT", &default_jvm_debug_port)) {
+bool JavaBinaryLauncher::ProcessWrapperArgument(const wstring& argument) {
+  wstring flag_value;
+  if (argument.compare(L"--debug") == 0) {
+    wstring default_jvm_debug_port;
+    if (GetEnv(L"DEFAULT_JVM_DEBUG_PORT", &default_jvm_debug_port)) {
       this->jvm_debug_port = default_jvm_debug_port;
     } else {
-      this->jvm_debug_port = "5005";
+      this->jvm_debug_port = L"5005";
     }
-  } else if (GetFlagValue(argument, "--debug=", &flag_value)) {
+  } else if (GetFlagValue(argument, L"--debug=", &flag_value)) {
     this->jvm_debug_port = flag_value;
-  } else if (GetFlagValue(argument, "--main_advice=", &flag_value)) {
+  } else if (GetFlagValue(argument, L"--main_advice=", &flag_value)) {
     this->main_advice = flag_value;
-  } else if (GetFlagValue(argument, "--main_advice_classpath=", &flag_value)) {
+  } else if (GetFlagValue(argument, L"--main_advice_classpath=", &flag_value)) {
     this->main_advice_classpath = flag_value;
-  } else if (GetFlagValue(argument, "--jvm_flag=", &flag_value)) {
+  } else if (GetFlagValue(argument, L"--jvm_flag=", &flag_value)) {
     this->jvm_flags_cmdline.push_back(flag_value);
-  } else if (GetFlagValue(argument, "--jvm_flags=", &flag_value)) {
-    stringstream flag_value_ss(flag_value);
-    string item;
-    while (getline(flag_value_ss, item, ' ')) {
+  } else if (GetFlagValue(argument, L"--jvm_flags=", &flag_value)) {
+    wstringstream flag_value_ss(flag_value);
+    wstring item;
+    while (getline(flag_value_ss, item, L' ')) {
       this->jvm_flags_cmdline.push_back(item);
     }
-  } else if (argument.compare("--singlejar") == 0) {
+  } else if (argument.compare(L"--singlejar") == 0) {
     this->singlejar = true;
-  } else if (argument.compare("--print_javabin") == 0) {
+  } else if (argument.compare(L"--print_javabin") == 0) {
     this->print_javabin = true;
-  } else if (GetFlagValue(argument, "--classpath_limit=", &flag_value)) {
+  } else if (GetFlagValue(argument, L"--classpath_limit=", &flag_value)) {
     this->classpath_limit = std::stoi(flag_value);
   } else {
     return false;
@@ -99,8 +99,8 @@ bool JavaBinaryLauncher::ProcessWrapperArgument(const string& argument) {
   return true;
 }
 
-vector<string> JavaBinaryLauncher::ProcessesCommandLine() {
-  vector<string> args;
+vector<wstring> JavaBinaryLauncher::ProcessesCommandLine() {
+  vector<wstring> args;
   bool first = 1;
   for (const auto& arg : this->GetCommandlineArguments()) {
     // Skip the first arugment.
@@ -108,13 +108,13 @@ vector<string> JavaBinaryLauncher::ProcessesCommandLine() {
       first = 0;
       continue;
     }
-    string flag_value;
+    wstring flag_value;
     // TODO(pcloudy): Should rename this flag to --native_launcher_flag.
     // But keep it as it is for now to be consistent with the shell script
     // launcher.
-    if (GetFlagValue(arg, "--wrapper_script_flag=", &flag_value)) {
+    if (GetFlagValue(arg, L"--wrapper_script_flag=", &flag_value)) {
       if (!ProcessWrapperArgument(flag_value)) {
-        die("invalid wrapper argument '%s'", arg.c_str());
+        die(L"invalid wrapper argument '%s'", arg.c_str());
       }
     } else if (!args.empty() || !ProcessWrapperArgument(arg)) {
       args.push_back(arg);
@@ -124,34 +124,34 @@ vector<string> JavaBinaryLauncher::ProcessesCommandLine() {
 }
 
 // Return an absolute normalized path for the directory of manifest jar
-static string GetManifestJarDir(const string& binary_base_path) {
-  string abs_manifest_jar_dir;
-  std::size_t slash = binary_base_path.find_last_of("/\\");
-  if (slash == string::npos) {
-    abs_manifest_jar_dir = "";
+static wstring GetManifestJarDir(const wstring& binary_base_path) {
+  wstring abs_manifest_jar_dir;
+  std::size_t slash = binary_base_path.find_last_of(L"/\\");
+  if (slash == wstring::npos) {
+    abs_manifest_jar_dir = L"";
   } else {
     abs_manifest_jar_dir = binary_base_path.substr(0, slash);
   }
   if (!blaze_util::IsAbsolute(binary_base_path)) {
-    abs_manifest_jar_dir = blaze_util::GetCwd() + "\\" + abs_manifest_jar_dir;
+    abs_manifest_jar_dir = blaze_util::GetCwdW() + L"\\" + abs_manifest_jar_dir;
   }
-  string result;
+  wstring result;
   if (!NormalizePath(abs_manifest_jar_dir, &result)) {
-    die("GetManifestJarDir Failed");
+    die(L"GetManifestJarDir Failed");
   }
   return result;
 }
 
-static void WriteJarClasspath(const string& jar_path,
-                              ostringstream* manifest_classpath) {
-  *manifest_classpath << ' ';
-  if (jar_path.find_first_of(" \\") != string::npos) {
+static void WriteJarClasspath(const wstring& jar_path,
+                              wostringstream* manifest_classpath) {
+  *manifest_classpath << L' ';
+  if (jar_path.find_first_of(L" \\") != wstring::npos) {
     for (const auto& x : jar_path) {
-      if (x == ' ') {
-        *manifest_classpath << "%20";
+      if (x == L' ') {
+        *manifest_classpath << L"%20";
       }
-      if (x == '\\') {
-        *manifest_classpath << "/";
+      if (x == L'\\') {
+        *manifest_classpath << L"/";
       } else {
         *manifest_classpath << x;
       }
@@ -161,119 +161,117 @@ static void WriteJarClasspath(const string& jar_path,
   }
 }
 
-string JavaBinaryLauncher::GetJunctionBaseDir() {
-  string binary_base_path =
+wstring JavaBinaryLauncher::GetJunctionBaseDir() {
+  wstring binary_base_path =
       GetBinaryPathWithExtension(this->GetCommandlineArguments()[0]);
-  string result;
-  if (!NormalizePath(binary_base_path + ".j", &result)) {
-    die("Failed to get normalized junction base directory.");
+  wstring result;
+  if (!NormalizePath(binary_base_path + L".j", &result)) {
+    die(L"Failed to get normalized junction base directory.");
   }
   return result;
 }
 
 void JavaBinaryLauncher::DeleteJunctionBaseDir() {
-  string junction_base_dir_norm = GetJunctionBaseDir();
+  wstring junction_base_dir_norm = GetJunctionBaseDir();
   if (!DoesDirectoryPathExist(junction_base_dir_norm.c_str())) {
     return;
   }
-  vector<string> junctions;
-  blaze_util::GetAllFilesUnder(junction_base_dir_norm, &junctions);
+  vector<wstring> junctions;
+  blaze_util::GetAllFilesUnderW(junction_base_dir_norm, &junctions);
   for (const auto& junction : junctions) {
     if (!DeleteDirectoryByPath(junction.c_str())) {
-      PrintError(GetLastErrorString().c_str());
+      PrintError(L"Failed to delete junction directory: %hs",
+                 GetLastErrorString().c_str());
     }
   }
   if (!DeleteDirectoryByPath(junction_base_dir_norm.c_str())) {
-    PrintError(GetLastErrorString().c_str());
+    PrintError(L"Failed to delete junction directory: %hs",
+               GetLastErrorString().c_str());
   }
 }
 
-string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
-  string binary_base_path =
+wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
+  wstring binary_base_path =
       GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
-  string abs_manifest_jar_dir_norm = GetManifestJarDir(binary_base_path);
+  wstring abs_manifest_jar_dir_norm = GetManifestJarDir(binary_base_path);
 
-  ostringstream manifest_classpath;
-  manifest_classpath << "Class-Path:";
-  stringstream classpath_ss(classpath);
-  string path, path_norm;
+  wostringstream manifest_classpath;
+  manifest_classpath << L"Class-Path:";
+  wstringstream classpath_ss(classpath);
+  wstring path, path_norm;
 
   // A set to store all junctions created.
   // The key is the target path, the value is the junction path.
-  std::unordered_map<string, string> jar_dirs;
-  string junction_base_dir_norm = GetJunctionBaseDir();
+  std::unordered_map<wstring, wstring> jar_dirs;
+  wstring junction_base_dir_norm = GetJunctionBaseDir();
   int junction_count = 0;
   // Make sure the junction base directory doesn't exist already.
   DeleteJunctionBaseDir();
-  blaze_util::MakeDirectories(junction_base_dir_norm, 0755);
+  blaze_util::MakeDirectoriesW(junction_base_dir_norm, 0755);
 
-  while (getline(classpath_ss, path, ';')) {
+  while (getline(classpath_ss, path, L';')) {
     if (blaze_util::IsAbsolute(path)) {
       if (!NormalizePath(path, &path_norm)) {
-        die("CreateClasspathJar failed");
+        die(L"CreateClasspathJar failed");
       }
 
       // If two paths are under different drives, we should create a junction to
       // the jar's directory
       if (path_norm[0] != abs_manifest_jar_dir_norm[0]) {
-        string jar_dir = GetParentDirFromPath(path_norm);
-        string jar_base_name = GetBaseNameFromPath(path_norm);
-        string junction;
+        wstring jar_dir = GetParentDirFromPath(path_norm);
+        wstring jar_base_name = GetBaseNameFromPath(path_norm);
+        wstring junction;
         auto search = jar_dirs.find(jar_dir);
         if (search == jar_dirs.end()) {
-          junction =
-              junction_base_dir_norm + "\\" + std::to_string(junction_count++);
+          junction = junction_base_dir_norm + L"\\" +
+                     std::to_wstring(junction_count++);
 
-          wstring wjar_dir(
-              blaze_util::CstringToWstring(junction.c_str()).get());
-          wstring wjunction(
-              blaze_util::CstringToWstring(jar_dir.c_str()).get());
-          wstring werror(bazel::windows::CreateJunction(wjar_dir, wjunction));
-          if (!werror.empty()) {
-            string error(werror.begin(), werror.end());
-            die("CreateClasspathJar failed: %s", error.c_str());
+          wstring error(bazel::windows::CreateJunction(junction, jar_dir));
+          if (!error.empty()) {
+            die(L"CreateClasspathJar failed: %s", error.c_str());
           }
 
           jar_dirs.insert(std::make_pair(jar_dir, junction));
         } else {
           junction = search->second;
         }
-        path_norm = junction + "\\" + jar_base_name;
+        path_norm = junction + L"\\" + jar_base_name;
       }
 
       if (!RelativeTo(path_norm, abs_manifest_jar_dir_norm, &path)) {
-        die("CreateClasspathJar failed");
+        die(L"CreateClasspathJar failed");
       }
     }
     WriteJarClasspath(path, &manifest_classpath);
   }
 
-  string rand_id = "-" + GetRandomStr(10);
-  string jar_manifest_file_path = binary_base_path + rand_id + ".jar_manifest";
-  ofstream jar_manifest_file(jar_manifest_file_path);
-  jar_manifest_file << "Manifest-Version: 1.0\n";
+  wstring rand_id = L"-" + GetRandomStr(10);
+  wstring jar_manifest_file_path =
+      binary_base_path + rand_id + L".jar_manifest";
+  wofstream jar_manifest_file(jar_manifest_file_path);
+  jar_manifest_file << L"Manifest-Version: 1.0\n";
   // No line in the MANIFEST.MF file may be longer than 72 bytes.
   // A space prefix indicates the line is still the content of the last
   // attribute.
-  string manifest_classpath_str = manifest_classpath.str();
+  wstring manifest_classpath_str = manifest_classpath.str();
   for (size_t i = 0; i < manifest_classpath_str.length(); i += 71) {
     if (i > 0) {
-      jar_manifest_file << " ";
+      jar_manifest_file << L" ";
     }
     jar_manifest_file << manifest_classpath_str.substr(i, 71) << "\n";
   }
   jar_manifest_file.close();
 
   // Create the command for generating classpath jar.
-  string manifest_jar_path = binary_base_path + rand_id + "-classpath.jar";
-  string jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH));
-  vector<string> arguments;
-  arguments.push_back("cvfm");
+  wstring manifest_jar_path = binary_base_path + rand_id + L"-classpath.jar";
+  wstring jar_bin = this->Rlocation(this->GetLaunchInfoByKey(JAR_BIN_PATH));
+  vector<wstring> arguments;
+  arguments.push_back(L"cvfm");
   arguments.push_back(manifest_jar_path);
   arguments.push_back(jar_manifest_file_path);
 
   if (this->LaunchProcess(jar_bin, arguments, /* suppressOutput */ true) != 0) {
-    die("Couldn't create classpath jar: %s", manifest_jar_path.c_str());
+    die(L"Couldn't create classpath jar: %s", manifest_jar_path.c_str());
   }
 
   // Delete jar_manifest_file after classpath jar is created.
@@ -284,95 +282,95 @@ string JavaBinaryLauncher::CreateClasspathJar(const string& classpath) {
 
 ExitCode JavaBinaryLauncher::Launch() {
   // Parse the original command line.
-  vector<string> remaining_args = this->ProcessesCommandLine();
+  vector<wstring> remaining_args = this->ProcessesCommandLine();
 
   // Set JAVA_RUNFILES
-  string java_runfiles;
-  if (!GetEnv("JAVA_RUNFILES", &java_runfiles)) {
+  wstring java_runfiles;
+  if (!GetEnv(L"JAVA_RUNFILES", &java_runfiles)) {
     java_runfiles = this->GetRunfilesPath();
   }
-  SetEnv("JAVA_RUNFILES", java_runfiles);
+  SetEnv(L"JAVA_RUNFILES", java_runfiles);
 
   // Print Java binary path if needed
-  string java_bin = this->Rlocation(this->GetLaunchInfoByKey(JAVA_BIN_PATH),
-                                    /*need_workspace_name =*/false);
+  wstring java_bin = this->Rlocation(this->GetLaunchInfoByKey(JAVA_BIN_PATH),
+                                     /*need_workspace_name =*/false);
   if (this->print_javabin ||
-      this->GetLaunchInfoByKey(JAVA_START_CLASS) == "--print_javabin") {
-    printf("%s\n", java_bin.c_str());
+      this->GetLaunchInfoByKey(JAVA_START_CLASS) == L"--print_javabin") {
+    wprintf(L"%s\n", java_bin.c_str());
     return 0;
   }
 
-  ostringstream classpath;
+  wostringstream classpath;
 
   // Run deploy jar if needed, otherwise generate the CLASSPATH by rlocation.
   if (this->singlejar) {
-    string deploy_jar =
+    wstring deploy_jar =
         GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]) +
-        "_deploy.jar";
+        L"_deploy.jar";
     if (!DoesFilePathExist(deploy_jar.c_str())) {
-      die("Option --singlejar was passed, but %s does not exist.\n  (You may "
+      die(L"Option --singlejar was passed, but %s does not exist.\n  (You may "
           "need to build it explicitly.)",
           deploy_jar.c_str());
     }
-    classpath << deploy_jar << ';';
+    classpath << deploy_jar << L';';
   } else {
     // Add main advice classpath if exists
     if (!this->main_advice_classpath.empty()) {
-      classpath << this->main_advice_classpath << ';';
+      classpath << this->main_advice_classpath << L';';
     }
-    string path;
-    stringstream classpath_ss(this->GetLaunchInfoByKey(CLASSPATH));
-    while (getline(classpath_ss, path, ';')) {
-      classpath << this->Rlocation(path) << ';';
+    wstring path;
+    wstringstream classpath_ss(this->GetLaunchInfoByKey(CLASSPATH));
+    while (getline(classpath_ss, path, L';')) {
+      classpath << this->Rlocation(path) << L';';
     }
   }
 
   // Set jvm debug options
-  ostringstream jvm_debug_flags;
+  wostringstream jvm_debug_flags;
   if (!this->jvm_debug_port.empty()) {
-    string jvm_debug_suspend;
-    if (!GetEnv("DEFAULT_JVM_DEBUG_SUSPEND", &jvm_debug_suspend)) {
-      jvm_debug_suspend = "y";
+    wstring jvm_debug_suspend;
+    if (!GetEnv(L"DEFAULT_JVM_DEBUG_SUSPEND", &jvm_debug_suspend)) {
+      jvm_debug_suspend = L"y";
     }
-    jvm_debug_flags << "-agentlib:jdwp=transport=dt_socket,server=y";
-    jvm_debug_flags << ",suspend=" << jvm_debug_suspend;
-    jvm_debug_flags << ",address=" << jvm_debug_port;
+    jvm_debug_flags << L"-agentlib:jdwp=transport=dt_socket,server=y";
+    jvm_debug_flags << L",suspend=" << jvm_debug_suspend;
+    jvm_debug_flags << L",address=" << jvm_debug_port;
 
-    string value;
-    if (GetEnv("PERSISTENT_TEST_RUNNER", &value) && value == "true") {
-      jvm_debug_flags << ",quiet=y";
+    wstring value;
+    if (GetEnv(L"PERSISTENT_TEST_RUNNER", &value) && value == L"true") {
+      jvm_debug_flags << L",quiet=y";
     }
   }
 
   // Get jvm flags from JVM_FLAGS environment variable and JVM_FLAGS launch info
-  vector<string> jvm_flags;
-  string jvm_flags_env;
-  GetEnv("JVM_FLAGS", &jvm_flags_env);
-  string flag;
-  stringstream jvm_flags_env_ss(jvm_flags_env);
-  while (getline(jvm_flags_env_ss, flag, ' ')) {
+  vector<wstring> jvm_flags;
+  wstring jvm_flags_env;
+  GetEnv(L"JVM_FLAGS", &jvm_flags_env);
+  wstring flag;
+  wstringstream jvm_flags_env_ss(jvm_flags_env);
+  while (getline(jvm_flags_env_ss, flag, L' ')) {
     jvm_flags.push_back(flag);
   }
-  stringstream jvm_flags_launch_info_ss(this->GetLaunchInfoByKey(JVM_FLAGS));
-  while (getline(jvm_flags_launch_info_ss, flag, ' ')) {
+  wstringstream jvm_flags_launch_info_ss(this->GetLaunchInfoByKey(JVM_FLAGS));
+  while (getline(jvm_flags_launch_info_ss, flag, L' ')) {
     jvm_flags.push_back(flag);
   }
 
   // Check if TEST_TMPDIR is available to use for scratch.
-  string test_tmpdir;
-  if (GetEnv("TEST_TMPDIR", &test_tmpdir) &&
+  wstring test_tmpdir;
+  if (GetEnv(L"TEST_TMPDIR", &test_tmpdir) &&
       DoesDirectoryPathExist(test_tmpdir.c_str())) {
-    jvm_flags.push_back("-Djava.io.tmpdir=" + test_tmpdir);
+    jvm_flags.push_back(L"-Djava.io.tmpdir=" + test_tmpdir);
   }
 
   // Construct the final command line arguments
-  vector<string> arguments;
+  vector<wstring> arguments;
   // Add classpath flags
-  arguments.push_back("-classpath");
+  arguments.push_back(L"-classpath");
   // Check if CLASSPATH is over classpath length limit.
   // If it does, then we create a classpath jar to pass CLASSPATH value.
-  string classpath_str = classpath.str();
-  string classpath_jar = "";
+  wstring classpath_str = classpath.str();
+  wstring classpath_jar = L"";
   if (classpath_str.length() > this->classpath_limit) {
     classpath_jar = CreateClasspathJar(classpath_str);
     arguments.push_back(classpath_jar);
@@ -380,7 +378,7 @@ ExitCode JavaBinaryLauncher::Launch() {
     arguments.push_back(classpath_str);
   }
   // Add JVM debug flags
-  string jvm_debug_flags_str = jvm_debug_flags.str();
+  wstring jvm_debug_flags_str = jvm_debug_flags.str();
   if (!jvm_debug_flags_str.empty()) {
     arguments.push_back(jvm_debug_flags_str);
   }
@@ -403,7 +401,7 @@ ExitCode JavaBinaryLauncher::Launch() {
     arguments.push_back(arg);
   }
 
-  vector<string> escaped_arguments;
+  vector<wstring> escaped_arguments;
   // Quote the arguments if having spaces
   for (const auto& arg : arguments) {
     escaped_arguments.push_back(

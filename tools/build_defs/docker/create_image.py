@@ -75,21 +75,21 @@ def _base_name_filter(name):
   return all([not name.endswith(s) for s in filter_names])
 
 
-def create_image(output,
-                 identifier,
-                 layers,
-                 config,
-                 tags=None,
-                 base=None,
-                 legacy_base=None,
-                 metadata_id=None,
-                 metadata=None,
-                 name=None,
-                 repository=None):
+def _create_image(tar,
+                  identifier,
+                  layers,
+                  config,
+                  tags=None,
+                  base=None,
+                  legacy_base=None,
+                  metadata_id=None,
+                  metadata=None,
+                  name=None,
+                  repository=None):
   """Creates a Docker image.
 
   Args:
-    output: the name of the docker image file to create.
+    tar: archive.TarFileWriter object for the docker image file to create.
     identifier: the identifier for this image (sha256 of the metadata).
     layers: the layer content (a sha256 and a tar file).
     config: the configuration file for the image.
@@ -101,8 +101,6 @@ def create_image(output,
     name: symbolic name for this docker image.
     repository: repository name for this docker image.
   """
-  tar = archive.TarFileWriter(output)
-
   # add the image config referenced by the Config section in the manifest
   # the name can be anything but docker uses the format below
   config_file_name = identifier + '.json'
@@ -182,6 +180,37 @@ def create_image(output,
         '    "%s": "%s"' % (name, identifier),
         '  }',
         '}']))
+
+
+def create_image(output,
+                 identifier,
+                 layers,
+                 config,
+                 tags=None,
+                 base=None,
+                 legacy_base=None,
+                 metadata_id=None,
+                 metadata=None,
+                 name=None,
+                 repository=None):
+  """Creates a Docker image.
+
+  Args:
+    output: the name of the docker image file to create.
+    identifier: the identifier for this image (sha256 of the metadata).
+    layers: the layer content (a sha256 and a tar file).
+    config: the configuration file for the image.
+    tags: tags that apply to this image.
+    base: a base layer (optional) to build on top of.
+    legacy_base: a base layer (optional) to build on top of.
+    metadata_id: the identifier of the top layer for this image.
+    metadata: the json metadata file for the top layer.
+    name: symbolic name for this docker image.
+    repository: repository name for this docker image.
+  """
+  with archive.TarFileWriter(output) as tar:
+    _create_image(tar, identifier, layers, config, tags, base, legacy_base,
+                  metadata_id, metadata, name, repository)
 
 
 # Main program to create a docker image. It expect to be run with:

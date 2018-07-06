@@ -46,8 +46,8 @@ to make your files easy to process, both by humans and tools.
 
 *   When in doubt, follow the [Python style
     guide](https://www.python.org/dev/peps/pep-0008/). In particular, use 4
-    4 spaces for indentation (we previously recommended 2, but we now
-    follow the Python convention).
+    spaces for indentation (we previously recommended 2, but we now follow the
+    Python convention).
 
 *   Document files and functions using [docstrings](skylint.md#docstrings). Use
     a docstring at the top of each `.bzl` file, and a docstring for each public

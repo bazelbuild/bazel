@@ -17,12 +17,16 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -35,11 +39,10 @@ import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
 import java.io.IOException;
-import java.util.Set;
+import java.util.Collection;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 
 /**
  * Non-blocking file transport.
@@ -54,7 +57,6 @@ abstract class FileTransport implements BuildEventTransport {
   private final BuildEventProtocolOptions options;
   private final BuildEventArtifactUploader uploader;
   private final Consumer<AbruptExitException> exitFunc;
-  private boolean errored;
 
   @VisibleForTesting
   final AsynchronousFileOutputStream out;
@@ -111,57 +113,66 @@ abstract class FileTransport implements BuildEventTransport {
    * a side effect. May return {@code null} if there was an interrupt. This method is not
    * thread-safe.
    */
-  @Nullable
-  protected BuildEventStreamProtos.BuildEvent asStreamProto(
+  protected ListenableFuture<BuildEventStreamProtos.BuildEvent> asStreamProto(
       BuildEvent event, ArtifactGroupNamer namer) {
     checkNotNull(event);
-    PathConverter pathConverter = uploadReferencedFiles(event.referencedLocalFiles());
-    if (pathConverter == null) {
-      return null;
-    }
 
-    BuildEventContext context =
-        new BuildEventContext() {
+    return Futures.transform(
+        uploadReferencedFiles(event.referencedLocalFiles()),
+        new Function<PathConverter, BuildEventStreamProtos.BuildEvent>() {
           @Override
-          public PathConverter pathConverter() {
-            return pathConverter;
-          }
+          public BuildEventStreamProtos.BuildEvent apply(PathConverter pathConverter) {
+            BuildEventContext context =
+                new BuildEventContext() {
+                  @Override
+                  public PathConverter pathConverter() {
+                    return pathConverter;
+                  }
 
-          @Override
-          public ArtifactGroupNamer artifactGroupNamer() {
-            return namer;
-          }
+                  @Override
+                  public ArtifactGroupNamer artifactGroupNamer() {
+                    return namer;
+                  }
 
-          @Override
-          public BuildEventProtocolOptions getOptions() {
-            return options;
+                  @Override
+                  public BuildEventProtocolOptions getOptions() {
+                    return options;
+                  }
+                };
+            return event.asStreamProto(context);
           }
-        };
-    return event.asStreamProto(context);
+        },
+        MoreExecutors.directExecutor());
   }
 
   /**
    * Returns a {@link PathConverter} for the uploaded files, or {@code null} when the uploaded
    * failed.
    */
-  private @Nullable PathConverter uploadReferencedFiles(Set<Path> artifacts) {
-    checkNotNull(artifacts);
+  private ListenableFuture<PathConverter> uploadReferencedFiles(Collection<LocalFile> localFiles) {
+    checkNotNull(localFiles);
+    ImmutableMap.Builder<Path, LocalFile> localFileMap =
+        ImmutableMap.builderWithExpectedSize(localFiles.size());
+    for (LocalFile localFile : localFiles) {
+      localFileMap.put(localFile.path, localFile);
+    }
+    ListenableFuture<PathConverter> upload = uploader.upload(localFileMap.build());
+    Futures.addCallback(
+        upload,
+        new FutureCallback<PathConverter>() {
+          @Override
+          public void onSuccess(PathConverter result) {
+            // Intentionally left empty.
+          }
 
-    if (errored) {
-      return null;
-    }
-    try {
-      return uploader.upload(artifacts);
-    } catch (IOException e) {
-      errored = true;
-      exitFunc.accept(
-          new AbruptExitException(
-              Throwables.getStackTraceAsString(e), ExitCode.PUBLISH_ERROR, e));
-    } catch (InterruptedException e) {
-      errored = true;
-      exitFunc.accept(new AbruptExitException(ExitCode.INTERRUPTED, e));
-      Thread.currentThread().interrupt();
-    }
-    return null;
+          @Override
+          public void onFailure(Throwable t) {
+            exitFunc.accept(
+                new AbruptExitException(
+                    Throwables.getStackTraceAsString(t), ExitCode.PUBLISH_ERROR, t));
+          }
+        },
+        MoreExecutors.directExecutor());
+    return upload;
   }
 }

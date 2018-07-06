@@ -574,7 +574,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
         "           includes = ['./'])");
-    Label label = Label.parseAbsolute("@pkg//bar:lib");
+    Label label = Label.parseAbsolute("@pkg//bar:lib", ImmutableMap.of());
     ConfiguredTarget target = view.getConfiguredTargetForTesting(reporter, label, targetConfig);
     assertThat(view.hasErrors(target)).isFalse();
     assertNoEvents();

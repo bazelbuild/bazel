@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaC
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -132,9 +131,6 @@ public final class FuncallExpression extends Expression {
                       continue;
                     }
                     String name = callable.name();
-                    if (name.isEmpty()) {
-                      name = StringUtilities.toPythonStyleFunctionName(method.getName());
-                    }
                     if (methodMap.containsKey(name)) {
                       methodMap.get(name).add(new MethodDescriptor(method, callable));
                     } else {
@@ -168,11 +164,6 @@ public final class FuncallExpression extends Expression {
                   for (MethodDescriptor fieldMethod : fieldMethods) {
                     SkylarkCallable callable = fieldMethod.getAnnotation();
                     String name = callable.name();
-                    if (name.isEmpty()) {
-                      name =
-                          StringUtilities.toPythonStyleFunctionName(
-                              fieldMethod.getMethod().getName());
-                    }
                     // TODO(b/72113542): Validate with annotation processor instead of at runtime.
                     if (!fieldNamesForCollisions.add(name)) {
                       throw new IllegalArgumentException(

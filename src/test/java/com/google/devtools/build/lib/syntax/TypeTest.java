@@ -48,7 +48,7 @@ public class TypeTest {
 
   @Before
   public final void setCurrentRule() throws Exception  {
-    this.currentRule = Label.parseAbsolute("//quux:baz");
+    this.currentRule = Label.parseAbsolute("//quux:baz", ImmutableMap.of());
   }
 
   @Test
@@ -220,16 +220,14 @@ public class TypeTest {
 
   @Test
   public void testLabel() throws Exception {
-    Label label = Label
-        .parseAbsolute("//foo:bar");
+    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
     assertThat(BuildType.LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
     assertThat(collectLabels(BuildType.LABEL, label)).containsExactly(label);
   }
 
   @Test
   public void testNodepLabel() throws Exception {
-    Label label = Label
-        .parseAbsolute("//foo:bar");
+    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
     assertThat(BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
     assertThat(collectLabels(BuildType.NODEP_LABEL, label)).containsExactly(label);
   }
@@ -237,9 +235,9 @@ public class TypeTest {
   @Test
   public void testRelativeLabel() throws Exception {
     assertThat(BuildType.LABEL.convert(":wiz", null, currentRule))
-        .isEqualTo(Label.parseAbsolute("//quux:wiz"));
+        .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
     assertThat(BuildType.LABEL.convert("wiz", null, currentRule))
-        .isEqualTo(Label.parseAbsolute("//quux:wiz"));
+        .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
     try {
       BuildType.LABEL.convert("wiz", null);
       fail();
@@ -336,8 +334,9 @@ public class TypeTest {
     List<Label> converted =
       BuildType.LABEL_LIST.convert(input , null, currentRule);
     List<Label> expected =
-      Arrays.asList(Label.parseAbsolute("//foo:bar"),
-                    Label.parseAbsolute("//quux:wiz"));
+        Arrays.asList(
+            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
+            Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
     assertThat(converted).isEqualTo(expected);
     assertThat(converted).isNotSameAs(expected);
     assertThat(collectLabels(BuildType.LABEL_LIST, converted)).containsExactlyElementsIn(expected);

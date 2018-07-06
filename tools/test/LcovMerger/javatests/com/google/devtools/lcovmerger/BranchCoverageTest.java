@@ -28,8 +28,8 @@ import org.junit.runners.JUnit4;
 public class BranchCoverageTest {
 
   private static final int BRANCH1_LINE_NR = 10;
-  private static final int BRANCH1_BLOCK_NR = 3;
-  private static final int BRANCH1_BRANCH_NR = 2;
+  private static final String BRANCH1_BLOCK_NR = "3";
+  private static final String BRANCH1_BRANCH_NR = "2";
   private static final boolean BRANCH1_WAS_EXECUTED = false;
   private static final int BRANCH1_NR_EXECUTIONS = 0;
 
@@ -37,8 +37,8 @@ public class BranchCoverageTest {
   private static final int BRANCH1_OTHER_TRACEFILE_NR_EXECUTIONS = 5;
 
   private static final int BRANCH2_LINE_NR = 20;
-  private static final int BRANCH2_BLOCK_NR = 7;
-  private static final int BRANCH2_BRANCH_NR = 2;
+  private static final String BRANCH2_BLOCK_NR = "7";
+  private static final String BRANCH2_BRANCH_NR = "2";
   private static final boolean BRANCH2_WAS_EXECUTED = false;
   private static final int BRANCH2_NR_EXECUTIONS = 0;
 

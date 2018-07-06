@@ -330,7 +330,6 @@ toolchain {
       action: "c++-module-compile"
       action: "c++-module-codegen"
       action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "assemble"
       action: "preprocess-assemble"
       action: "c++-link-executable"
@@ -366,6 +365,19 @@ toolchain {
   action_config {
     config_name: 'assemble'
     action_name: 'assemble'
+    tool {
+      tool_path: '%{msvc_ml_path}'
+    }
+    implies: 'compiler_input_flags'
+    implies: 'compiler_output_flags'
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'sysroot'
+  }
+
+  action_config {
+    config_name: 'preprocess-assemble'
+    action_name: 'preprocess-assemble'
     tool {
       tool_path: '%{msvc_ml_path}'
     }
@@ -496,7 +508,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -514,7 +525,6 @@ toolchain {
       action: "c++-module-compile"
       action: "c++-module-codegen"
       action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "assemble"
       action: "preprocess-assemble"
       action: "c++-link-executable"
@@ -565,7 +575,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       flag_group {
         iterate_over: 'quote_include_paths'
@@ -590,7 +599,6 @@ toolchain {
       action: "c-compile"
       action: "c++-compile"
       action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       flag_group {
         flag: "/D%{preprocessor_defines}"
@@ -607,7 +615,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-module-compile'
-      action: 'c++-header-preprocessing'
       action: 'c++-header-parsing'
       flag_group {
         flag: "/showIncludes"
@@ -997,7 +1004,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1016,7 +1022,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       action: 'c++-link-executable'
@@ -1037,7 +1042,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1064,7 +1068,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1095,7 +1098,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {

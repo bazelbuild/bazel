@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import java.util.List;
 
 /** A target that can provide local proguard specifications. */
 @SkylarkModule(name = "AndroidProguardInfo", doc = "", documented = false)
@@ -34,6 +36,15 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
   @SkylarkCallable(
       name = PROVIDER_NAME,
       doc = "The <code>AndroidProguardInfo</code> constructor.",
+      parameters = {
+        @Param(
+            name = "local_proguard_specs",
+            doc = "A list of local proguard specs.",
+            positional = true,
+            named = false,
+            type = List.class
+        )
+      },
       selfCall = true)
   @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
   AndroidProguardInfoApi<FileT> androidProguardInfo(ImmutableList<FileT> localProguardSpecs);

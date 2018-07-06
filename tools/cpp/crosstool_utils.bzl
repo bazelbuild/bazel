@@ -19,7 +19,6 @@ COMPILE_ACTIONS = [
     "c-compile",
     "c++-compile",
     "c++-header-parsing",
-    "c++-header-preprocessing",
     "c++-module-compile",
     "c++-module-codegen",
     "assemble",

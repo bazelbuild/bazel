@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylarkdebug.server;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Breakpoint.ConditionCase;
 import com.google.devtools.build.lib.syntax.DebugServer;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Eval;
@@ -32,7 +30,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
 import java.util.function.Function;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Manages the network socket and debugging state for threads running Skylark code. */
@@ -43,29 +40,30 @@ public final class SkylarkDebugServer implements DebugServer {
    * debug server socket and blocks waiting for an incoming connection.
    *
    * @param port the port on which the server should listen for connections
+   * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while opening the socket or waiting for a connection
    */
-  public static SkylarkDebugServer createAndWaitForConnection(EventHandler eventHandler, int port)
-      throws IOException {
+  public static SkylarkDebugServer createAndWaitForConnection(
+      EventHandler eventHandler, int port, boolean verboseLogging) throws IOException {
     ServerSocket serverSocket = new ServerSocket(port, /* backlog */ 1);
-    return createAndWaitForConnection(eventHandler, serverSocket);
+    return createAndWaitForConnection(eventHandler, serverSocket, verboseLogging);
   }
 
   /**
    * Initializes debugging support, setting up any debugging-specific overrides, then opens the
    * debug server socket and blocks waiting for an incoming connection.
    *
+   * @param verboseLogging if true, debug-level events will be logged
    * @throws IOException if an I/O error occurs while waiting for a connection
    */
   @VisibleForTesting
   static SkylarkDebugServer createAndWaitForConnection(
-      EventHandler eventHandler, ServerSocket serverSocket) throws IOException {
+      EventHandler eventHandler, ServerSocket serverSocket, boolean verboseLogging)
+      throws IOException {
     DebugServerTransport transport =
-        DebugServerTransport.createAndWaitForClient(eventHandler, serverSocket);
-    return new SkylarkDebugServer(eventHandler, transport);
+        DebugServerTransport.createAndWaitForClient(eventHandler, serverSocket, verboseLogging);
+    return new SkylarkDebugServer(eventHandler, transport, verboseLogging);
   }
-
-  private static final Logger logger = Logger.getLogger(SkylarkDebugServer.class.getName());
 
   private final EventHandler eventHandler;
   /** Handles all thread-related state. */
@@ -73,10 +71,14 @@ public final class SkylarkDebugServer implements DebugServer {
   /** The server socket for the debug server. */
   private final DebugServerTransport transport;
 
-  private SkylarkDebugServer(EventHandler eventHandler, DebugServerTransport transport) {
+  private final boolean verboseLogging;
+
+  private SkylarkDebugServer(
+      EventHandler eventHandler, DebugServerTransport transport, boolean verboseLogging) {
     this.eventHandler = eventHandler;
     this.threadHandler = new ThreadHandler();
     this.transport = transport;
+    this.verboseLogging = verboseLogging;
     listenForClientRequests();
   }
 
@@ -122,7 +124,9 @@ public final class SkylarkDebugServer implements DebugServer {
   @Override
   public void close() {
     try {
-      logger.fine("Closing debug server");
+      if (verboseLogging) {
+        eventHandler.handle(Event.debug("Closing debug server"));
+      }
       transport.close();
 
     } catch (IOException e) {
@@ -173,6 +177,8 @@ public final class SkylarkDebugServer implements DebugServer {
           return pauseThread(sequenceNumber, request.getPauseThread());
         case EVALUATE:
           return evaluate(sequenceNumber, request.getEvaluate());
+        case GET_CHILDREN:
+          return getChildren(sequenceNumber, request.getGetChildren());
         case PAYLOAD_NOT_SET:
           DebugEventHelper.error(sequenceNumber, "No request payload found");
       }
@@ -194,13 +200,7 @@ public final class SkylarkDebugServer implements DebugServer {
   /** Handles a {@code SetBreakpointsRequest} and returns its response. */
   private SkylarkDebuggingProtos.DebugEvent setBreakpoints(
       long sequenceNumber, SkylarkDebuggingProtos.SetBreakpointsRequest request) {
-    threadHandler.setBreakpoints(
-        request
-            .getBreakpointList()
-            .stream()
-            .filter(b -> b.getConditionCase() == ConditionCase.LOCATION)
-            .map(SkylarkDebuggingProtos.Breakpoint::getLocation)
-            .collect(toImmutableSet()));
+    threadHandler.setBreakpoints(request.getBreakpointList());
     return DebugEventHelper.setBreakpointsResponse(sequenceNumber);
   }
 
@@ -209,7 +209,16 @@ public final class SkylarkDebugServer implements DebugServer {
       long sequenceNumber, SkylarkDebuggingProtos.EvaluateRequest request)
       throws DebugRequestException {
     return DebugEventHelper.evaluateResponse(
-        sequenceNumber, threadHandler.evaluate(request.getThreadId(), request.getExpression()));
+        sequenceNumber, threadHandler.evaluate(request.getThreadId(), request.getStatement()));
+  }
+
+  /** Handles a {@code GetChildrenRequest} and returns its response. */
+  private SkylarkDebuggingProtos.DebugEvent getChildren(
+      long sequenceNumber, SkylarkDebuggingProtos.GetChildrenRequest request)
+      throws DebugRequestException {
+    return DebugEventHelper.getChildrenResponse(
+        sequenceNumber,
+        threadHandler.getChildrenForValue(request.getThreadId(), request.getValueId()));
   }
 
   /** Handles a {@code ContinueExecutionRequest} and returns its response. */

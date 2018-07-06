@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
@@ -119,7 +120,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new LoadingFailedCause(
-                Label.parseAbsolute("//cycles1"),
+                Label.parseAbsolute("//cycles1", ImmutableMap.of()),
                 // TODO(ulfjack): Ideally, we'd get an error message about a symlink cycle instead.
                 "Target '//cycles1:cycles1' contains an error and its package is in error"));
   }
@@ -138,10 +139,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo"),
-                toId(Iterables
-                    .getOnlyElement(result.getTopLevelTargetsWithConfigs())
-                    .getConfiguration()),
+                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                toId(
+                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
+                        .getConfiguration()),
                 "target '//bar:bar' is not visible from target '//foo:foo'. "
                     + "Check the visibility declaration of the former target if you think the "
                     + "dependency is legitimate"));

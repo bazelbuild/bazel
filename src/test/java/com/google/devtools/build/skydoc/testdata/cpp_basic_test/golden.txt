@@ -1,0 +1,4 @@
+cpp_related_rule
+This rule does cpp-related things.
+first,second,third,fourth
+

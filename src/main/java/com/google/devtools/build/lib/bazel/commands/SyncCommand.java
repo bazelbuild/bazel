@@ -54,6 +54,14 @@ public final class SyncCommand implements BlazeCommand {
   @Override
   public void editOptions(OptionsParser optionsParser) {}
 
+  private static void reportError(CommandEnvironment env, EvaluationResult<SkyValue> value) {
+    if (value.getError().getException() != null) {
+      env.getReporter().handle(Event.error(value.getError().getException().getMessage()));
+    } else {
+      env.getReporter().handle(Event.error(value.getError().toString()));
+    }
+  }
+
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
     try {
@@ -73,6 +81,7 @@ public final class SyncCommand implements BlazeCommand {
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
               env.getReporter());
       if (packageLookupValue.hasError()) {
+        reportError(env, packageLookupValue);
         return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
       }
       RootedPath workspacePath =
@@ -89,6 +98,7 @@ public final class SyncCommand implements BlazeCommand {
                 SkyframeExecutor.DEFAULT_THREAD_COUNT,
                 env.getReporter());
         if (value.hasError()) {
+          reportError(env, value);
           return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
         }
         fileValue = (WorkspaceFileValue) value.get(workspace);
@@ -115,11 +125,7 @@ public final class SyncCommand implements BlazeCommand {
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
               env.getReporter());
       if (fetchValue.hasError()) {
-        if (fetchValue.getError().getException() != null) {
-          env.getReporter().handle(Event.error(fetchValue.getError().getException().getMessage()));
-        } else {
-          env.getReporter().handle(Event.error(fetchValue.getError().toString()));
-        }
+        reportError(env, fetchValue);
         return BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE);
       }
     } catch (InterruptedException e) {

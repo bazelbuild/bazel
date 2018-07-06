@@ -155,7 +155,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testStructureRcOptionsAndConfigs_argumentless_inPlace() throws Exception {
+  public void testStructureRcOptionsAndConfigs_argumentless() throws Exception {
     ListMultimap<String, RcChunkOfArgs> structuredRc =
         BlazeOptionHandler.structureRcOptionsAndConfigs(
             eventHandler,
@@ -167,7 +167,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testStructureRcOptionsAndConfigs_configOnly_inPlace() throws Exception {
+  public void testStructureRcOptionsAndConfigs_configOnly() throws Exception {
     BlazeOptionHandler.structureRcOptionsAndConfigs(
         eventHandler,
         Arrays.asList("rc1", "rc2"),
@@ -177,7 +177,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testStructureRcOptionsAndConfigs_invalidCommand_inPlace() throws Exception {
+  public void testStructureRcOptionsAndConfigs_invalidCommand() throws Exception {
     BlazeOptionHandler.structureRcOptionsAndConfigs(
         eventHandler,
         Arrays.asList("rc1", "rc2"),
@@ -189,7 +189,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testStructureRcOptionsAndConfigs_twoRcs_inPlace() throws Exception {
+  public void testStructureRcOptionsAndConfigs_twoRcs() throws Exception {
     ListMultimap<String, RcChunkOfArgs> structuredRc =
         BlazeOptionHandler.structureRcOptionsAndConfigs(
             eventHandler,
@@ -208,7 +208,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testStructureRcOptionsAndConfigs_importedRcs_inPlace() throws Exception {
+  public void testStructureRcOptionsAndConfigs_importedRcs() throws Exception {
     ListMultimap<String, RcChunkOfArgs> structuredRc =
         BlazeOptionHandler.structureRcOptionsAndConfigs(
             eventHandler,
@@ -227,7 +227,8 @@ public class BlazeOptionHandlerTest {
     assertThat(eventHandler.isEmpty()).isTrue();
   }
 
-  private void testStructureRcOptionsAndConfigs_badOverrideIndex() throws Exception {
+  @Test
+  public void testStructureRcOptionsAndConfigs_badOverrideIndex() throws Exception {
     ListMultimap<String, RcChunkOfArgs> structuredRc =
         BlazeOptionHandler.structureRcOptionsAndConfigs(
             eventHandler,
@@ -251,36 +252,21 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testStructureRcOptionsAndConfigs_badOverrideIndex_inPlace() throws Exception {
-    
-    testStructureRcOptionsAndConfigs_badOverrideIndex();
-  }
-
-  private void testParseRcOptions_empty() throws Exception {
+  public void testParseRcOptions_empty() throws Exception {
     optionHandler.parseRcOptions(eventHandler, ArrayListMultimap.create());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
   }
 
   @Test
-  public void testParseRcOptions_empty_inPlace() throws Exception {
-    
-    testParseRcOptions_empty();
-  }
-
-  private void testParseRcOptions_flatRcs_residue() throws Exception {
+  public void testParseRcOptions_flatRcs_residue() throws Exception {
     optionHandler.parseRcOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).containsExactly("c", "a", "d", "e").inOrder();
   }
 
   @Test
-  public void testParseRcOptions_flatRcs_residue_inPlace() throws Exception {
-    
-    testParseRcOptions_flatRcs_residue();
-  }
-
-  private void testParseRcOptions_flatRcs_flags() throws Exception {
+  public void testParseRcOptions_flatRcs_flags() throws Exception {
     optionHandler.parseRcOptions(eventHandler, structuredArgsFrom2SimpleRcsWithFlags());
     assertThat(eventHandler.getEvents()).isEmpty();
     TestOptions options = parser.getOptions(TestOptions.class);
@@ -289,35 +275,20 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseRcOptions_flatRcs_flags_inPlace() throws Exception {
-    
-    testParseRcOptions_flatRcs_flags();
-  }
-
-  private void testParseRcOptions_importedRcs_residue() throws Exception {
+  public void testParseRcOptions_importedRcs_residue() throws Exception {
     optionHandler.parseRcOptions(eventHandler, structuredArgsFromImportedRcsWithOnlyResidue());
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).containsExactly("c", "a", "d", "e", "h").inOrder();
   }
 
   @Test
-  public void testParseRcOptions_importedRcs_residue_inPlace() throws Exception {
-    
-    testParseRcOptions_importedRcs_residue();
-  }
-
-  private void testExpandConfigOptions_configless() throws Exception {
+  public void testExpandConfigOptions_configless() throws Exception {
     optionHandler.expandConfigOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(parser.getResidue()).isEmpty();
   }
 
   @Test
-  public void testExpandConfigOptions_configless_inPlace() throws Exception {
-    
-    testExpandConfigOptions_configless();
-  }
-
-  private void testExpandConfigOptions_withConfig() throws Exception {
+  public void testExpandConfigOptions_withConfig() throws Exception {
     parser.parse("--config=config");
     optionHandler.expandConfigOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(parser.getResidue()).containsExactly("b");
@@ -326,69 +297,24 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testExpandConfigOptions_withConfig_inPlace() throws Exception {
-    
-    testExpandConfigOptions_withConfig();
-  }
-
-  private void testExpandConfigOptions_withConfigForUnapplicableCommand() throws Exception {
-    parser.parse("--config=other");
-    optionHandler.expandConfigOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
-    assertThat(parser.getResidue()).isEmpty();
-    assertThat(optionHandler.getRcfileNotes()).isEmpty();
-  }
-
-  @Test
-  public void testExpandConfigOptions_withConfigForUnapplicableCommand_inPlace() throws Exception {
-    
+  public void testExpandConfigOptions_withConfigForUnapplicableCommand() throws Exception {
     try {
-      testExpandConfigOptions_withConfigForUnapplicableCommand();
+      parser.parse("--config=other");
+      optionHandler.expandConfigOptions(
+          eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
+      assertThat(parser.getResidue()).isEmpty();
+      assertThat(optionHandler.getRcfileNotes()).isEmpty();
       fail();
     } catch (OptionsParsingException e) {
       assertThat(e).hasMessageThat().contains("Config value other is not defined in any .rc file");
     }
   }
 
-  private void testExpandConfigOptions_withConfigForUnapplicableCommand_allowUndefined()
-      throws Exception {
-    parser.parse("--config=other", "--allow_undefined_configs");
-    optionHandler.expandConfigOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
-  }
-
   @Test
-  public void testExpandConfigOptions_withConfigForUnapplicableCommand_allowUndefined_inPlace()
-      throws Exception {
-    
-    testExpandConfigOptions_withConfigForUnapplicableCommand_allowUndefined();
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Config value other is not defined in any .rc file"));
-  }
-
-  private void testAllowUndefinedConfig() throws Exception {
-    parser.parse("--config=invalid", "--allow_undefined_configs");
-    optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create());
-    assertThat(parser.getResidue()).isEmpty();
-    assertThat(optionHandler.getRcfileNotes()).isEmpty();
-  }
-
-  @Test
-  public void testAllowUndefinedConfig_inPlace() throws Exception {
-    
-    testAllowUndefinedConfig();
-    assertThat(eventHandler.getEvents())
-        .contains(Event.warn("Config value invalid is not defined in any .rc file"));
-  }
-
-  private void testUndefinedConfig() throws OptionsParsingException {
-    parser.parse("--config=invalid");
-    optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create());
-  }
-
-  @Test
-  public void testNoAllowUndefinedConfig_inPlace() {
-    
+  public void testUndefinedConfig() {
     try {
-      testUndefinedConfig();
+      parser.parse("--config=invalid");
+      optionHandler.expandConfigOptions(eventHandler, ArrayListMultimap.create());
       fail();
     } catch (OptionsParsingException e) {
       assertThat(e)
@@ -397,7 +323,8 @@ public class BlazeOptionHandlerTest {
     }
   }
 
-  private void testParseOptions_argless() {
+  @Test
+  public void testParseOptions_argless() {
     optionHandler.parseOptions(ImmutableList.of("c0"), eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -405,12 +332,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_argless_inPlace() {
-    
-    testParseOptions_argless();
-  }
-
-  private void testParseOptions_residue() {
+  public void testParseOptions_residue() {
     optionHandler.parseOptions(ImmutableList.of("c0", "res"), eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).contains("res");
@@ -418,12 +340,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_residue_inPlace() {
-    
-    testParseOptions_residue();
-  }
-
-  private void testParseOptions_explicitOption() {
+  public void testParseOptions_explicitOption() {
     optionHandler.parseOptions(
         ImmutableList.of("c0", "--test_multiple_string=explicit"), eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
@@ -435,12 +352,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_explicitOption_inPlace() {
-    
-    testParseOptions_explicitOption();
-  }
-
-  private void testParseOptions_rcOption() {
+  public void testParseOptions_rcOption() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -461,12 +373,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_rcOption_inPlace() {
-    
-    testParseOptions_rcOption();
-  }
-
-  private void testParseOptions_multipleRcs() {
+  public void testParseOptions_multipleRcs() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -492,13 +399,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_multipleRcs_inPlace() {
-    
-    testParseOptions_multipleRcs();
-  }
-
-  @Test
-  public void testParseOptions_multipleRcsWithMultipleCommands_inPlace() {
+  public void testParseOptions_multipleRcsWithMultipleCommands() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -532,7 +433,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_rcOptionAndExplicit_inPlace() {
+  public void testParseOptions_rcOptionAndExplicit() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -552,7 +453,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_multiCommandRcOptionAndExplicit_inPlace() {
+  public void testParseOptions_multiCommandRcOptionAndExplicit() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -578,7 +479,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_multipleRcsWithMultipleCommandsPlusExplicitOption_inPlace() {
+  public void testParseOptions_multipleRcsWithMultipleCommandsPlusExplicitOption() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -613,7 +514,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_explicitConfig_inPlace() {
+  public void testParseOptions_explicitConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -639,7 +540,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_rcSpecifiedConfig_inPlace() {
+  public void testParseOptions_rcSpecifiedConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -665,7 +566,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_recursiveConfig_inPlace() {
+  public void testParseOptions_recursiveConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -700,7 +601,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_recursiveConfigWithDifferentTokens_inPlace() {
+  public void testParseOptions_recursiveConfigWithDifferentTokens() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -723,7 +624,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_complexConfigOrder_inPlace() {
+  public void testParseOptions_complexConfigOrder() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -782,7 +683,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_repeatSubConfig_inPlace() {
+  public void testParseOptions_repeatSubConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -820,7 +721,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_repeatConfig_inPlace() {
+  public void testParseOptions_repeatConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -863,7 +764,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_configCycleLength1_inPlace() {
+  public void testParseOptions_configCycleLength1() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -882,7 +783,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_configCycleLength2_inPlace() {
+  public void testParseOptions_configCycleLength2() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -903,7 +804,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testParseOptions_recursiveConfigWasAlreadyPresent_inPlace() {
+  public void testParseOptions_recursiveConfigWasAlreadyPresent() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -975,7 +876,7 @@ public class BlazeOptionHandlerTest {
           "--default_override=0:c0:mu=--test_multiple_string=mu");
 
   @Test
-  public void testParseOptions_longChain_inPlace() {
+  public void testParseOptions_longChain() {
     ImmutableList<String> args =
         ImmutableList.<String>builder()
             .add("c0")
@@ -1028,7 +929,8 @@ public class BlazeOptionHandlerTest {
                     + "excessive, and might be hiding errors."));
   }
 
-  private void testParseOptions_twoLongChains() {
+  @Test
+  public void testParseOptions_2LongChains() {
     ImmutableList<String> args =
         ImmutableList.<String>builder()
             .add("c0")
@@ -1040,12 +942,7 @@ public class BlazeOptionHandlerTest {
 
     optionHandler.parseOptions(args, eventHandler);
     assertThat(parser.getResidue()).isEmpty();
-  }
 
-  @Test
-  public void testParseOptions_2LongChains_inPlace() {
-    
-    testParseOptions_twoLongChains();
     // Expect the second --config=gamma to have started a second chain, and get warnings about both.
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
@@ -1072,7 +969,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testWarningFlag_inPlace() {
+  public void testWarningFlag() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -1087,7 +984,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testWarningFlag_byConfig_notTriggered_inPlace() {
+  public void testWarningFlag_byConfig_notTriggered() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -1101,7 +998,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testWarningFlag_byConfig_triggered_inPlace() {
+  public void testWarningFlag_byConfig_triggered() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -1120,7 +1017,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testConfigAfterExplicit_inPlace() {
+  public void testConfigAfterExplicit() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",
@@ -1146,7 +1043,7 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
-  public void testExplicitOverridesConfig_inPlace() {
+  public void testExplicitOverridesConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
             "c0",

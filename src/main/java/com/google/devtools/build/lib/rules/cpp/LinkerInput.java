@@ -15,22 +15,18 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkerInputApi;
 
 /**
  * Something that appears on the command line of the linker. Since we sometimes expand archive files
  * to their constituent object files, we need to keep information whether a certain file contains
  * embedded objects and if so, the list of the object files themselves.
  */
-public interface LinkerInput {
+public interface LinkerInput extends LinkerInputApi {
   /**
    * Returns the type of the linker input.
    */
   ArtifactCategory getArtifactCategory();
-
-  /** Returns the artifact that is the input of the linker. */
-  @SkylarkCallable(name = "artifact", doc = "Artifact passed to the linker.")
-  Artifact getArtifact();
 
   /**
    * Returns the original library to link. If this library is a solib symlink, returns the

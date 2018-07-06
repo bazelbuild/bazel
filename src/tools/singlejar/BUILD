@@ -50,7 +50,6 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
-    # TODO(b/68065069): use singlejar_local except in remote execution
     visibility = ["//visibility:public"],
     deps = [
         "options",
@@ -310,7 +309,7 @@ sh_test(
     ],
     data = [
         ":singlejar",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
         "@local_jdk//:jar",
     ],
     deps = ["//src/test/shell:bashunit"],
@@ -335,6 +334,7 @@ cc_library(
     hdrs = ["desugar_checking.h"],
     deps = [
         ":combiners",
+        "//src/main/protobuf:desugar_deps_cc_proto",
     ],
 )
 
@@ -478,7 +478,7 @@ genrule(
     name = "stored_jar",
     srcs = [
         "output_jar.cc",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     outs = ["stored.jar"],
     cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",

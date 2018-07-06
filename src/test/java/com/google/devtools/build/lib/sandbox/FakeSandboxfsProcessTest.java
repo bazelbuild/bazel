@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -44,7 +45,7 @@ public class FakeSandboxfsProcessTest extends BaseSandboxfsProcessTest {
 
   @Test
   public void testMount_NotADirectory() throws IOException {
-    tmpDir.getRelative("file").getOutputStream().close();
+    FileSystemUtils.createEmptyFile(tmpDir.getRelative("file"));
     IOException expected = assertThrows(
         IOException.class, () -> mount(tmpDir.getRelative("file")));
     assertThat(expected).hasMessageThat().matches(".*/file.*not a directory");

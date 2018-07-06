@@ -1078,7 +1078,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testDoNotCompileSourceFilesInHeaders() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PARSE_HEADERS_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers");
     ConfiguredTarget x =
         scratchConfiguredTarget("x", "x", "cc_library(name = 'x', hdrs = ['x.cc'])");
@@ -1089,7 +1089,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testProcessHeadersInDependencies() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PARSE_HEADERS_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
     ConfiguredTarget x =
         scratchConfiguredTarget(
@@ -1105,7 +1105,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testProcessHeadersInDependenciesOfBinaries() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PARSE_HEADERS_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
     ConfiguredTarget x =
         scratchConfiguredTarget(
@@ -1124,7 +1124,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testDoNotProcessHeadersInDependencies() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PARSE_HEADERS_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers");
     ConfiguredTarget x =
         scratchConfiguredTarget(
@@ -1140,7 +1140,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testProcessHeadersInCompileOnlyMode() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PARSE_HEADERS_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
     ConfiguredTarget y =
         scratchConfiguredTarget(
@@ -1497,8 +1497,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testProcessedHeadersWithPicSharedLibsAndNoPicBinaries() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
-            MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+        .setupCrosstool(mockToolsConfig, MockCcSupport.PARSE_HEADERS_FEATURE_CONFIGURATION);
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");

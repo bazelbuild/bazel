@@ -222,16 +222,16 @@ public class NativePathTest {
   @Test
   public void testInputOutputStreams() throws IOException {
     Path path = fs.getPath(aFile.getPath());
-    OutputStream out = path.getOutputStream();
-    for (int i = 0; i < 256; i++) {
-      out.write(i);
+    try (OutputStream out = path.getOutputStream()) {
+      for (int i = 0; i < 256; i++) {
+        out.write(i);
+      }
     }
-    out.close();
-    InputStream in = path.getInputStream();
-    for (int i = 0; i < 256; i++) {
-      assertThat(in.read()).isEqualTo(i);
+    try (InputStream in = path.getInputStream()) {
+      for (int i = 0; i < 256; i++) {
+        assertThat(in.read()).isEqualTo(i);
+      }
+      assertThat(in.read()).isEqualTo(-1);
     }
-    assertThat(in.read()).isEqualTo(-1);
-    in.close();
   }
 }

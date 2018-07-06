@@ -256,71 +256,88 @@ public final class ConfigFeatureFlagOptionsTest {
             // Empty with all flags trimmed
             getOptionsAndTrim(ImmutableMap.of(), ImmutableSet.of()),
             getOptionsAndTrim(
-                ImmutableMap.of(Label.parseAbsolute("//a:a"), "a"), ImmutableSet.of()),
+                ImmutableMap.of(Label.parseAbsolute("//a:a", ImmutableMap.of()), "a"),
+                ImmutableSet.of()),
             getOptionsAndTrim(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//a:a"), "a", Label.parseAbsolute("//b:b"), "b"),
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()),
+                    "a",
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()),
+                    "b"),
                 ImmutableSet.of()))
         .addEqualityGroup(
             // Only //a:a => a, others default
-            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//a:a"), "a")),
-            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//a:a"), "a")))
+            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//a:a", ImmutableMap.of()), "a")),
+            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//a:a", ImmutableMap.of()), "a")))
         .addEqualityGroup(
             // Error: //a:a is absent
-            getOptionsAndTrim(ImmutableMap.of(), ImmutableSet.of(Label.parseAbsolute("//a:a"))),
             getOptionsAndTrim(
-                ImmutableMap.of(Label.parseAbsolute("//b:b"), "b"),
-                ImmutableSet.of(Label.parseAbsolute("//a:a"))))
+                ImmutableMap.of(),
+                ImmutableSet.of(Label.parseAbsolute("//a:a", ImmutableMap.of()))),
+            getOptionsAndTrim(
+                ImmutableMap.of(Label.parseAbsolute("//b:b", ImmutableMap.of()), "b"),
+                ImmutableSet.of(Label.parseAbsolute("//a:a", ImmutableMap.of()))))
         .addEqualityGroup(
             // Only //a:a => a, others trimmed
             getOptionsAndTrim(
-                ImmutableMap.of(Label.parseAbsolute("//a:a"), "a"),
-                ImmutableSet.of(Label.parseAbsolute("//a:a"))),
+                ImmutableMap.of(Label.parseAbsolute("//a:a", ImmutableMap.of()), "a"),
+                ImmutableSet.of(Label.parseAbsolute("//a:a", ImmutableMap.of()))),
             getOptionsAndTrim(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//a:a"), "a", Label.parseAbsolute("//b:b"), "b"),
-                ImmutableSet.of(Label.parseAbsolute("//a:a"))))
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()),
+                    "a",
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()),
+                    "b"),
+                ImmutableSet.of(Label.parseAbsolute("//a:a", ImmutableMap.of()))))
         .addEqualityGroup(
             // Only //b:b => a, others default
-            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//b:b"), "a")))
+            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//b:b", ImmutableMap.of()), "a")))
         .addEqualityGroup(
             // Only //a:a => b, others default
-            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//a:a"), "b")))
+            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//a:a", ImmutableMap.of()), "b")))
         .addEqualityGroup(
             // Only //b:b => b, others default
-            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//b:b"), "b")))
+            getOptionsWith(ImmutableMap.of(Label.parseAbsolute("//b:b", ImmutableMap.of()), "b")))
         .addEqualityGroup(
             // //a:a => b and //b:b => a, others default (order doesn't matter)
             getOptionsWith(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//a:a"), "b",
-                    Label.parseAbsolute("//b:b"), "a")),
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()), "b",
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()), "a")),
             getOptionsWith(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//b:b"), "a",
-                    Label.parseAbsolute("//a:a"), "b")))
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()), "a",
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()), "b")))
         .addEqualityGroup(
             // //a:a => b and //b:b => a, others trimmed (order doesn't matter)
             getOptionsAndTrim(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//a:a"), "b",
-                    Label.parseAbsolute("//b:b"), "a"),
-                ImmutableSet.of(Label.parseAbsolute("//a:a"), Label.parseAbsolute("//b:b"))),
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()), "b",
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()), "a"),
+                ImmutableSet.of(
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()),
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()))),
             getOptionsAndTrim(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//a:a"), "b",
-                    Label.parseAbsolute("//b:b"), "a"),
-                ImmutableSet.of(Label.parseAbsolute("//b:b"), Label.parseAbsolute("//a:a"))),
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()), "b",
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()), "a"),
+                ImmutableSet.of(
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()),
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()))),
             getOptionsAndTrim(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//b:b"), "a",
-                    Label.parseAbsolute("//a:a"), "b"),
-                ImmutableSet.of(Label.parseAbsolute("//a:a"), Label.parseAbsolute("//b:b"))),
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()), "a",
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()), "b"),
+                ImmutableSet.of(
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()),
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()))),
             getOptionsAndTrim(
                 ImmutableMap.of(
-                    Label.parseAbsolute("//b:b"), "a",
-                    Label.parseAbsolute("//a:a"), "b"),
-                ImmutableSet.of(Label.parseAbsolute("//b:b"), Label.parseAbsolute("//a:a"))))
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()), "a",
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()), "b"),
+                ImmutableSet.of(
+                    Label.parseAbsolute("//b:b", ImmutableMap.of()),
+                    Label.parseAbsolute("//a:a", ImmutableMap.of()))))
         .testEquals();
   }
 
@@ -341,7 +358,7 @@ public final class ConfigFeatureFlagOptionsTest {
   public void parser_doesNotAllowFlagValuesToBeParsed() throws Exception {
     ConfigFeatureFlagOptions options = Options.getDefaults(ConfigFeatureFlagOptions.class);
     ImmutableSortedMap<Label, String> testValue =
-        ImmutableSortedMap.of(Label.parseAbsolute("//what:heck"), "something");
+        ImmutableSortedMap.of(Label.parseAbsolute("//what:heck", ImmutableMap.of()), "something");
     options.flagValues = testValue;
     String flagValuesOption =
         options
@@ -363,7 +380,8 @@ public final class ConfigFeatureFlagOptionsTest {
   @Test
   public void parser_doesNotAllowKnownDefaultValuesToBeParsed() throws Exception {
     ConfigFeatureFlagOptions options = Options.getDefaults(ConfigFeatureFlagOptions.class);
-    ImmutableSortedSet<Label> testValue = ImmutableSortedSet.of(Label.parseAbsolute("//what:heck"));
+    ImmutableSortedSet<Label> testValue =
+        ImmutableSortedSet.of(Label.parseAbsolute("//what:heck", ImmutableMap.of()));
     options.knownDefaultFlags = testValue;
     String defaultValuesOption =
         options
@@ -385,7 +403,8 @@ public final class ConfigFeatureFlagOptionsTest {
   @Test
   public void parser_doesNotAllowUnknownValuesToBeParsed() throws Exception {
     ConfigFeatureFlagOptions options = Options.getDefaults(ConfigFeatureFlagOptions.class);
-    ImmutableSortedSet<Label> testValue = ImmutableSortedSet.of(Label.parseAbsolute("//what:heck"));
+    ImmutableSortedSet<Label> testValue =
+        ImmutableSortedSet.of(Label.parseAbsolute("//what:heck", ImmutableMap.of()));
     options.unknownFlags = testValue;
     String unknownFlagsOption =
         options

@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.ArrayList;
@@ -122,6 +121,11 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper addExport(JavaCompilationArgsProvider provider) {
+    exports.add(provider);
+    return this;
+  }
+
   public JavaLibraryHelper addAllExports(Iterable<JavaCompilationArgsProvider> providers) {
     Iterables.addAll(exports, providers);
     return this;
@@ -153,10 +157,9 @@ public final class JavaLibraryHelper {
   /**
    * When in strict mode, compiling the source-jars passed to this JavaLibraryHelper will break if
    * they depend on classes not in any of the {@link
-   * JavaCompilationArgsProvider#getJavaCompilationArgs()} passed in {@link #addDep}, even if they
-   * do appear in
-   * {@link JavaCompilationArgsProvider#getRecursiveJavaCompilationArgs()}. That is, depending
-   * on a class requires a direct dependency on it.
+   * JavaCompilationArgsProvider#getDirectCompileTimeJars()} passed in {@link #addDep}, even if they
+   * do appear in {@link JavaCompilationArgsProvider#getTransitiveCompileTimeJars()}. That is,
+   * depending on a class requires a direct dependency on it.
    *
    * <p>Contrast this with the strictness-parameter to {@link #buildCompilationArgsProvider}, which
    * controls whether others depending on the result of this compilation, can perform strict-deps
@@ -325,18 +328,8 @@ public final class JavaLibraryHelper {
   public JavaCompilationArgsProvider buildCompilationArgsProvider(
       JavaCompilationArtifacts artifacts, boolean isReportedAsStrict, boolean isNeverlink) {
 
-    JavaCompilationArgs directArgs =
+    JavaCompilationArgsProvider directArgs =
         collectJavaCompilationArgs(
-            /* recursive= */ false,
-            /* isNeverLink= */ isNeverlink,
-            /* srcLessDepsExport= */ false,
-            artifacts,
-            deps,
-            /* runtimeDeps= */ ImmutableList.of(),
-            exports);
-    JavaCompilationArgs transitiveArgs =
-        collectJavaCompilationArgs(
-            /* recursive= */ true,
             /* isNeverLink= */ isNeverlink,
             /* srcLessDepsExport= */ false,
             artifacts,
@@ -344,24 +337,17 @@ public final class JavaLibraryHelper {
             /* runtimeDeps= */ ImmutableList.of(),
             exports);
 
-    NestedSet<Artifact> compileTimeJavaDepArtifacts =
-        JavaCommon.collectCompileTimeDependencyArtifacts(
-            artifacts.getCompileTimeDependencyArtifact(), exports);
-
-    return JavaCompilationArgsProvider.create(
-        isReportedAsStrict ? directArgs : transitiveArgs,
-        transitiveArgs,
-        compileTimeJavaDepArtifacts);
+    if (!isReportedAsStrict) {
+      directArgs = JavaCompilationArgsProvider.makeNonStrict(directArgs);
+    }
+    return directArgs;
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
     JavaCompilationArgsProvider argsProvider = JavaCompilationArgsProvider.merge(deps);
 
     if (isStrict()) {
-      NestedSet<Artifact> directJars = argsProvider.getDirectCompileTimeJars();
-      if (directJars != null) {
-        attributes.addDirectJars(directJars);
-      }
+      attributes.addDirectJars(argsProvider.getDirectCompileTimeJars());
     }
 
     attributes.addCompileTimeClassPathEntries(argsProvider.getTransitiveCompileTimeJars());

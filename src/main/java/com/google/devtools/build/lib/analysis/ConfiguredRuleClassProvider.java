@@ -277,7 +277,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder setPrelude(String preludeLabelString) {
       try {
-        this.preludeLabel = Label.parseAbsolute(preludeLabelString);
+        this.preludeLabel = Label.parseAbsolute(preludeLabelString, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         String errorMsg =
             String.format("Prelude label '%s' is invalid: %s", preludeLabelString, e.getMessage());

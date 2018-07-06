@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -118,18 +118,18 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   }
 
   @Override
-  public ImmutableSet<Path> referencedLocalFiles() {
-    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+  public Collection<LocalFile> referencedLocalFiles() {
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
     if (stdout != null) {
-      artifacts.add(stdout);
+      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT));
     }
     if (stderr != null) {
-      artifacts.add(stderr);
+      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR));
     }
     if (exception == null) {
-      artifacts.add(action.getPrimaryOutput().getPath());
+      localFiles.add(new LocalFile(action.getPrimaryOutput().getPath(), LocalFileType.OUTPUT));
     }
-    return artifacts.build();
+    return localFiles.build();
   }
 
   @Override

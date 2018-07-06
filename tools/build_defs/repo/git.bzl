@@ -16,15 +16,19 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 
 def _clone_or_update(ctx):
-    if ((not ctx.attr.tag and not ctx.attr.commit) or
-        (ctx.attr.tag and ctx.attr.commit)):
-        fail("Exactly one of commit and tag must be provided")
+    if ((not ctx.attr.tag and not ctx.attr.commit and not ctx.attr.branch) or
+        (ctx.attr.tag and ctx.attr.commit) or
+        (ctx.attr.tag and ctx.attr.branch) or
+        (ctx.attr.commit and ctx.attr.branch)):
+        fail("Exactly one of commit, tag, or branch must be provided")
     shallow = ""
     if ctx.attr.commit:
         ref = ctx.attr.commit
-    else:
+    elif ctx.attr.tag:
         ref = "tags/" + ctx.attr.tag
         shallow = "--depth=1"
+    else:
+        ref = ctx.attr.branch
     directory = str(ctx.path("."))
     if ctx.attr.strip_prefix:
         directory = directory + "-tmp"
@@ -99,7 +103,7 @@ set -ex
 
 def _update_commit(orig, keys, override):
     # Merge the override information into the dict, resulting by taking the
-    # given keys, as well as the name, form orig (if present there).
+    # given keys, as well as the name, from orig (if present there).
     result = {}
     for key in keys:
         if getattr(orig, key) != None:
@@ -107,9 +111,11 @@ def _update_commit(orig, keys, override):
     result["name"] = orig.name
     result.update(override)
 
-    # remove tag if we found the actual commit
+    # if we found the actual commit, remove all other means of specifying it,
+    # like tag or branch.
     if "commit" in result:
         result.pop("tag", None)
+        result.pop("branch", None)
     return result
 
 _common_attrs = {
@@ -117,6 +123,7 @@ _common_attrs = {
     "commit": attr.string(default = ""),
     "shallow_since": attr.string(default = ""),
     "tag": attr.string(default = ""),
+    "branch": attr.string(default = ""),
     "init_submodules": attr.bool(default = False),
     "verbose": attr.bool(default = False),
     "strip_prefix": attr.string(default = ""),
@@ -155,7 +162,7 @@ new_git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checkted out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with paramters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -181,10 +188,12 @@ Args:
 
     Either `workspace_file` or `workspace_file_content` can be specified, or
     neither, but not both.
+  branch: branch in the remote repository to checked out
+
   tag: tag in the remote repository to checked out
 
   commit: specific commit to be checked out
-    Either tag or commit must be specified.
+    Precisely one of branch, tag, or commit must be specified.
 
   shallow_since: an optional date, not after the specified commit; the
     argument is not allowed if a tag is specified (which allows cloning
@@ -213,7 +222,7 @@ git_repository = repository_rule(
 
 Clones a Git repository, checks out the specified tag, or commit, and
 makes its targets available for binding. Also determine the id of the
-commit actually checkted out and its date, and return a dict with paramters
+commit actually checked out and its date, and return a dict with paramters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
 
@@ -225,10 +234,12 @@ Args:
 
   remote: The URI of the remote Git repository.
 
+  branch: branch in the remote repository to checked out
+
   tag: tag in the remote repository to checked out
 
   commit: specific commit to be checked out
-    Either tag or commit must be specified.
+    Precisely one of branch, tag, or commit must be specified.
 
   shallow_since: an optional date in the form YYYY-MM-DD, not after
     the specified commit; the argument is not allowed if a tag is specified

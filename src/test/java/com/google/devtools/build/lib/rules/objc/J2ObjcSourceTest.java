@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -61,7 +62,7 @@ public class J2ObjcSourceTest {
 
   private J2ObjcSource getJ2ObjcSource(String label, String fileName,
       J2ObjcSource.SourceType sourceType) throws Exception {
-    Label ruleLabel = Label.parseAbsolute(label);
+    Label ruleLabel = Label.parseAbsolute(label, ImmutableMap.of());
     PathFragment path = ruleLabel.toPathFragment();
     return new J2ObjcSource(
         ruleLabel,

@@ -1,0 +1,4 @@
+java_related_rule
+This rule does java-related things.
+first,second,third,fourth
+

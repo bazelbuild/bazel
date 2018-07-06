@@ -277,6 +277,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableMap.of(output, treeArtifactValue),
           ImmutableMap.<Artifact, FileArtifactValue>of(),
           /*outputSymlinks=*/ null,
+          /*discoveredModules=*/ null,
           /*notifyOnActionCacheHitAction=*/ false);
     }
 

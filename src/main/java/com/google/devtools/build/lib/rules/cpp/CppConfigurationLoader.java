@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -149,7 +149,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     if (cppOptions.getFdoOptimize() != null) {
       if (cppOptions.getFdoOptimize().startsWith("//")) {
         try {
-          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize());
+          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
         } catch (LabelSyntaxException e) {
           throw new InvalidConfigurationException(e);
         }

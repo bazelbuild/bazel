@@ -108,9 +108,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           case INSTANTIATOR:
             codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType, annotation);
             break;
-          case PUBLIC_FIELDS:
-            codecClassBuilder = buildClassWithPublicFieldsStrategy(encodedType, annotation);
-            break;
           case AUTO_VALUE_BUILDER:
             codecClassBuilder = buildClassWithAutoValueBuilderStrategy(encodedType, annotation);
             break;
@@ -632,45 +629,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return serializeBuilder.build();
   }
 
-  private TypeSpec.Builder buildClassWithPublicFieldsStrategy(
-      TypeElement encodedType, AutoCodec annotation) {
-    TypeSpec.Builder codecClassBuilder =
-        AutoCodecUtil.initializeCodecClassBuilder(encodedType, env);
-    ImmutableList<? extends VariableElement> publicFields =
-        ElementFilter.fieldsIn(env.getElementUtils().getAllMembers(encodedType))
-            .stream()
-            .filter(this::isPublicField)
-            .collect(toImmutableList());
-    codecClassBuilder.addMethod(
-        buildSerializeMethodWithPublicFields(encodedType, publicFields, annotation));
-    MethodSpec.Builder deserializeBuilder =
-        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, env);
-    buildDeserializeBody(deserializeBuilder, publicFields);
-    addInstantiatePopulateFieldsAndReturn(deserializeBuilder, encodedType, publicFields);
-    codecClassBuilder.addMethod(deserializeBuilder.build());
-    return codecClassBuilder;
-  }
-
-  private boolean isPublicField(VariableElement element) {
-    if (matchesType(element.asType(), Void.class)) {
-      return false; // Void types can't be instantiated, so the processor ignores them completely.
-    }
-    Set<Modifier> modifiers = element.getModifiers();
-    return modifiers.contains(Modifier.PUBLIC) && !modifiers.contains(Modifier.STATIC);
-  }
-
-  private MethodSpec buildSerializeMethodWithPublicFields(
-      TypeElement encodedType, List<? extends VariableElement> fields, AutoCodec annotation) {
-    MethodSpec.Builder serializeBuilder =
-        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, annotation, env);
-    for (VariableElement parameter : fields) {
-      String paramAccessor = "input." + parameter.getSimpleName();
-      marshallers.writeSerializationCode(
-          new Marshaller.Context(serializeBuilder, parameter.asType(), paramAccessor));
-    }
-    return serializeBuilder.build();
-  }
-
   /**
    * Adds a body to the deserialize method that extracts serialized parameters.
    *
@@ -734,24 +692,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
    */
   private static String handleFromParameter(VariableElement parameter) {
     return parameter.getSimpleName() + "_";
-  }
-
-  /**
-   * Invokes the constructor, populates public fields and returns the value.
-   *
-   * <p>Used by the {@link AutoCodec.Strategy#PUBLIC_FIELDS} strategy.
-   */
-  private static void addInstantiatePopulateFieldsAndReturn(
-      MethodSpec.Builder builder, TypeElement type, List<? extends VariableElement> fields) {
-    builder.addStatement(
-        "$T deserializationResult = new $T()",
-        TypeName.get(type.asType()),
-        TypeName.get(type.asType()));
-    for (VariableElement field : fields) {
-      String fieldName = field.getSimpleName().toString();
-      builder.addStatement("deserializationResult.$L = $L", fieldName, fieldName + "_");
-    }
-    builder.addStatement("return deserializationResult");
   }
 
   /**

@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.analysis.whitelisting;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -63,11 +65,10 @@ public final class Whitelist {
     Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL));
     TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName, Mode.HOST);
     Label label = ruleContext.getLabel();
-    return packageGroup
-        .getProvider(PackageSpecificationProvider.class)
-        .getPackageSpecifications()
-        .toList()
-        .stream()
+    PackageSpecificationProvider packageSpecificationProvider =
+        packageGroup.getProvider(PackageSpecificationProvider.class);
+    requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
+    return Streams.stream(packageSpecificationProvider.getPackageSpecifications())
         .anyMatch(p -> p.containsPackage(label.getPackageIdentifier()));
   }
 

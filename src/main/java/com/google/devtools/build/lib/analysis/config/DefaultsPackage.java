@@ -141,7 +141,7 @@ public final class DefaultsPackage {
 
   public static Label parseOptionalLabel(String value) {
     try {
-      return Label.parseAbsolute(value);
+      return Label.parseAbsolute(value, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       // We ignore this exception here - it will cause an error message at a later time.
       return null;

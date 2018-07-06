@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -278,12 +279,15 @@ public final class TargetCompleteEvent
   }
 
   @Override
-  public ImmutableSet<Path> referencedLocalFiles() {
-    ImmutableSet.Builder<Path> builder = ImmutableSet.builder();
+  public Collection<LocalFile> referencedLocalFiles() {
+    ImmutableList.Builder<LocalFile> builder = ImmutableList.builder();
     for (ArtifactsInOutputGroup group : outputs) {
       if (group.areImportant()) {
         for (Artifact artifact : group.getArtifacts()) {
-          builder.add(artifact.getPath());
+          builder.add(
+              new LocalFile(
+                  artifact.getPath(),
+                  artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
         }
       }
     }

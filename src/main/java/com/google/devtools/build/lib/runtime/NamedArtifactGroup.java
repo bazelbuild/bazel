@@ -14,18 +14,19 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
-import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
 /**
@@ -49,18 +50,21 @@ class NamedArtifactGroup implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableSet.<BuildEventId>of();
+    return ImmutableSet.of();
   }
 
   @Override
-  public ImmutableSet<Path> referencedLocalFiles() {
+  public Collection<LocalFile> referencedLocalFiles() {
     // This has to be consistent with the code below.
-    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
+    ImmutableList.Builder<LocalFile> artifacts = ImmutableList.builder();
     for (Artifact artifact : view.directs()) {
       if (artifact.isMiddlemanArtifact()) {
         continue;
       }
-      artifacts.add(artifact.getPath());
+      artifacts.add(
+          new LocalFile(
+              artifact.getPath(),
+              artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
     }
     return artifacts.build();
   }

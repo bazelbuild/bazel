@@ -52,7 +52,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -349,7 +351,9 @@ public class BazelCppRuleClasses {
               attr("deps", LABEL_LIST)
                   .allowedRuleClasses(DEPS_ALLOWED_RULES)
                   .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
-                  .skipAnalysisTimeFileTypeCheck())
+                  .skipAnalysisTimeFileTypeCheck()
+                  .mandatoryProviders(
+                      SkylarkProviderIdentifier.forKey(CcSkylarkInfo.PROVIDER.getKey())))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(win_def_file) -->
           The Windows DEF file to be passed to linker.
           <p>This attribute should only be used when Windows is the target platform.

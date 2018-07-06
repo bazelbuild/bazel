@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -45,10 +48,18 @@ public final class BinaryFormatFileTransport extends FileTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventStreamProtos.BuildEvent protoEvent = asStreamProto(event, namer);
-    if (protoEvent == null) {
-      return;
-    }
-    write(protoEvent);
+    Futures.addCallback(asStreamProto(event, namer),
+        new FutureCallback<BuildEventStreamProtos.BuildEvent>() {
+          @Override
+          public void onSuccess(BuildEventStreamProtos.BuildEvent protoEvent) {
+            write(protoEvent);
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            // Intentionally left empty. The error handling happens in
+            // FileTransport.
+          }
+        }, MoreExecutors.directExecutor());
   }
 }

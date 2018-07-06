@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -47,20 +50,27 @@ public final class JsonFormatFileTransport extends FileTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventStreamProtos.BuildEvent protoEvent = asStreamProto(event, namer);
-    if (protoEvent == null) {
-      return;
-    }
-    String protoJsonRepresentation;
-    try {
-      protoJsonRepresentation =
-          JsonFormat.printer().omittingInsignificantWhitespace().print(protoEvent) + "\n";
-    } catch (InvalidProtocolBufferException e) {
-      // We don't expect any unknown Any fields in our protocol buffer. Nevertheless, handle
-      // the exception gracefully and, at least, return valid JSON with an id field.
-      protoJsonRepresentation =
-          "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
-    }
-    write(protoJsonRepresentation);
+    Futures.addCallback(asStreamProto(event, namer),
+        new FutureCallback<BuildEventStreamProtos.BuildEvent>() {
+          @Override
+          public void onSuccess(BuildEventStreamProtos.BuildEvent protoEvent) {
+            String protoJsonRepresentation;
+            try {
+              protoJsonRepresentation =
+                  JsonFormat.printer().omittingInsignificantWhitespace().print(protoEvent) + "\n";
+            } catch (InvalidProtocolBufferException e) {
+              // We don't expect any unknown Any fields in our protocol buffer. Nevertheless, handle
+              // the exception gracefully and, at least, return valid JSON with an id field.
+              protoJsonRepresentation =
+                  "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
+            }
+            write(protoJsonRepresentation);
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            // Intentionally left empty. The error handling happens in FileTransport.
+          }
+        }, MoreExecutors.directExecutor());
   }
 }

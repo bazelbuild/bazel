@@ -435,6 +435,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           treeArtifactData,
           additionalOutputData,
           /*outputSymlinks=*/ null,
+          /*discoveredModules=*/ null,
           /*notifyOnActionCacheHitAction=*/ false);
     }
 

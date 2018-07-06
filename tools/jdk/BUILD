@@ -1,8 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-# TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
-# in a Bazel release
-load("//tools/jdk:alias_rules.bzl", "java_host_runtime_alias")
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
@@ -49,7 +46,7 @@ filegroup(
 # *before* the transition.
 alias(
     name = "java_runtime_alias",
-    actual = "//tools/jdk:current_java_runtime",
+    actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
 alias(
@@ -249,7 +246,6 @@ filegroup(
     srcs = [
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
-        "alias_rules.bzl",
         "default_java_toolchain.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",

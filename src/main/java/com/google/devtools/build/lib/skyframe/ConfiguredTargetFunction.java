@@ -452,7 +452,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContext == null
                   ? ImmutableSet.of()
-                  : toolchainContext.getResolvedToolchainLabels(),
+                  : toolchainContext.resolvedToolchainLabels(),
               transitiveRootCauses,
               defaultBuildOptions,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());

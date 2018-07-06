@@ -199,12 +199,10 @@ genrule(
         --rewrite_core_library_prefix java/time/ \
         --rewrite_core_library_prefix java/util/stream/ \
         --rewrite_core_library_prefix java/util/function/ \
-        --rewrite_core_library_prefix java/util/Arrays8 \
         --rewrite_core_library_prefix java/util/Comparators \
-        --rewrite_core_library_prefix java/util/Date8 \
+        --rewrite_core_library_prefix java/util/Desugar \
         --rewrite_core_library_prefix java/util/DoubleSummaryStatistics \
         --rewrite_core_library_prefix java/util/IntSummaryStatistics \
-        --rewrite_core_library_prefix java/util/LinkedHashSet8 \
         --rewrite_core_library_prefix java/util/LongSummaryStatistics \
         --rewrite_core_library_prefix java/util/Objects \
         --rewrite_core_library_prefix java/util/Optional \
@@ -212,11 +210,11 @@ genrule(
         --rewrite_core_library_prefix java/util/SortedSet\$$1 \
         --rewrite_core_library_prefix java/util/Spliterator \
         --rewrite_core_library_prefix java/util/StringJoiner \
-        --rewrite_core_library_prefix java/util/TimeZone8 \
         --rewrite_core_library_prefix java/util/Tripwire \
-        --retarget_core_library_member "java/util/Arrays#stream->java/util/Arrays8" \
-        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/Arrays8" \
-        --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/LinkedHashSet8" \
+        --rewrite_core_library_prefix java/util/concurrent/atomic/DesugarAtomic \
+        --retarget_core_library_member "java/util/Arrays#stream->java/util/DesugarArrays" \
+        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/DesugarArrays" \
+        --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/DesugarLinkedHashSet" \
         --emulate_core_library_interface java/util/Collection \
         --emulate_core_library_interface java/util/Map \
         --emulate_core_library_interface java/util/Map\$$Entry \
@@ -442,6 +440,11 @@ package_group(
 
 package_group(
     name = "export_deps_whitelist",
+    packages = ["//..."],
+)
+
+package_group(
+    name = "allow_android_library_deps_without_srcs_whitelist",
     packages = ["//..."],
 )
 

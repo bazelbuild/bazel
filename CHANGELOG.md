@@ -1,3 +1,70 @@
+## Release 0.15.0 (2018-06-26)
+
+```
+Baseline: b93ae42e8e693ccbcc387841a17f58259966fa38
+
+Cherry picks:
+   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
+     Add option to enable Docker sandboxing.
+   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
+     Allow disabling the simple blob caches via CLI flag overrides.
+   + 4ec0a7524913ab2c4641368e3f8c09b347351a08:
+     Use BUILD.bazel instead of BUILD for external projects
+```
+
+Incompatible changes:
+
+  - Bazel now always runs binaries in with "bazel run" in
+    interactive mode. The "--nodirect_run" command line option is now
+    a no-op.
+  - "bazel run --noas_test" is not supported anymore.
+  - Indentation on the first line of a file was previously ignored.
+    This is now fixed.
+
+New features:
+
+  - C++,runfiles: to access data-dependencies (runfiles) in C++
+    programs, use the runfiles library built into Bazel. For usage
+    info, see
+    https://github.com/bazelbuild/bazel/blob/master/tools/cpp/runfiles
+    /runfiles.h
+
+Important changes:
+
+  - Bazel now allows almost all 7-bit ASCII characters in labels.
+  - Remove vestigial java_plugin.data attribute
+  - Bazel supports including select Java 8 APIs into Android apps
+    targeting pre-Nougat Android devices with
+    --experimental_desugar_java8_libs
+  - Flag `--incompatible_disable_glob_tracking` is removed.
+  - SkyQuery's rbuildfiles now returns targets corresponding to
+    broken packages.
+  - Introduce build support for providing cache prefetch hints.
+  - Update the skylark DefaultInfo documentation to spell out
+    runfiles, data_runfiles and default_runfiles
+  - An internal action for symlinking runfiles will use Command
+    instead of a Spawns. This should have no functional chages; the
+    only user visible consequence should be that the internal action
+    is no longer be included in statistics when calculating processes
+    count.
+  - --batch is deprecated
+  - execution strategies line no longer handles differently the case
+    where all processes have the same strategy.
+  - The --experimental_remote_spawn_cache flag is now enabled by
+    default, and remote caching no longer needs --*_strategy=remote
+    flags (it will fail if they are specified).
+  - android_binary.aapt_version='aapt2' now supports en_XA and ar_XB
+  - Added --apple_enable_auto_dsym_dbg flag.
+  - non_propagated_deps has been removed from objc_library and
+    apple_binary.
+  - For Android projects, Bazel now supports building fonts as
+    resources. See
+    https://developer.android.com/guide/topics/ui/look-and-feel/fonts-in-xml
+    for more information on the feature.
+  - With --incompatible_no_support_tools_in_action_inputs enabled, Skylark
+    action inputs are no longer scanned for tools. Move any such
+    inputs to the newly introduced 'tools' attribute.
+
 ## Release 0.14.1 (2018-06-08)
 
 ```
@@ -2914,6 +2981,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 

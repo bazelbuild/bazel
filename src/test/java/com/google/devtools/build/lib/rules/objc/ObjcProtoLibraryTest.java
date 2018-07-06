@@ -175,7 +175,9 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .containsAllOf(
             "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.h",
+            "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.m",
             "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.h",
+            "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.m",
             "package/_generated_protos/opl_protobuf/dep/File.pbobjc.h");
   }
 
@@ -185,7 +187,9 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .containsAllOf(
             "package/_generated_protos/nested_opl/package/FileA.pbobjc.h",
-            "package/_generated_protos/nested_opl/package/dir/FileB.pbobjc.h");
+            "package/_generated_protos/nested_opl/package/FileA.pbobjc.m",
+            "package/_generated_protos/nested_opl/package/dir/FileB.pbobjc.h",
+            "package/_generated_protos/nested_opl/package/dir/FileB.pbobjc.m");
   }
 
   @Test
@@ -197,7 +201,9 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .containsAllOf(
             "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.h",
+            "package/_generated_protos/opl_protobuf/package/FileA.pbobjc.m",
             "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.h",
+            "package/_generated_protos/opl_protobuf/package/dir/FileB.pbobjc.m",
             "package/_generated_protos/opl_protobuf/dep/File.pbobjc.h");
   }
 
@@ -209,13 +215,21 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .containsAllOf(
             outputPath + "J2ObjcDescriptor.pbobjc.h",
+            outputPath + "J2ObjcDescriptor.pbobjc.m",
             outputPath + "HTTP.pbobjc.h",
+            outputPath + "HTTP.pbobjc.m",
             outputPath + "HTTPS.pbobjc.h",
+            outputPath + "HTTPS.pbobjc.m",
             outputPath + "SomeURLBlah.pbobjc.h",
+            outputPath + "SomeURLBlah.pbobjc.m",
             outputPath + "ThumbnailURL.pbobjc.h",
+            outputPath + "ThumbnailURL.pbobjc.m",
             outputPath + "URL.pbobjc.h",
+            outputPath + "URL.pbobjc.m",
             outputPath + "URL2HTTPS.pbobjc.h",
-            outputPath + "Urlbar.pbobjc.h");
+            outputPath + "URL2HTTPS.pbobjc.m",
+            outputPath + "Urlbar.pbobjc.h",
+            outputPath + "Urlbar.pbobjc.m");
   }
 
   @Test
@@ -223,26 +237,31 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
     NestedSet<Artifact> filesToBuild =
         getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_well_known_types"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .contains(
-            "package/_generated_protos/opl_protobuf_well_known_types/package/FileA.pbobjc.h");
+        .containsAllOf(
+            "package/_generated_protos/opl_protobuf_well_known_types/package/FileA.pbobjc.h",
+            "package/_generated_protos/opl_protobuf_well_known_types/package/FileA.pbobjc.m");
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
         .doesNotContain(
             "package/_generated_protos/opl_protobuf_well_known_types/objcproto/WellKnownType.pbobjc.h");
+    assertThat(Artifact.toRootRelativePaths(filesToBuild))
+        .doesNotContain(
+            "package/_generated_protos/opl_protobuf_well_known_types/objcproto/WellKnownType.pbobjc.m");
   }
 
   @Test
   public void testOutputsGenfile() throws Exception {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(getConfiguredTarget("//package:gen_opl"));
     assertThat(Artifact.toRootRelativePaths(filesToBuild))
-        .contains(
-            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.h");
+        .containsAllOf(
+            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.h",
+            "package/_generated_protos/gen_opl/package/FileAGenfile.pbobjc.m");
   }
 
   @Test
-  public void testHeaderGenerationAction() throws Exception {
+  public void testSourceGenerationAction() throws Exception {
     Artifact sourceFile =
         ActionsTestUtil.getFirstArtifactEndingWith(
-            getFilesToBuild(getConfiguredTarget("//package:opl_protobuf")), "/FileA.pbobjc.h");
+            getFilesToBuild(getConfiguredTarget("//package:opl_protobuf")), "/FileA.pbobjc.m");
     SpawnAction action = (SpawnAction) getGeneratingAction(sourceFile);
 
     Artifact inputFileList =
@@ -271,8 +290,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             "--config",
             "package/proto_filter2.txt",
             "--config",
-            "package/proto_filter3.txt",
-            "--headers-only")
+            "package/proto_filter3.txt")
         .inOrder();
     assertThat(Artifact.toRootRelativePaths(action.getInputs()))
         .containsAllOf(
@@ -288,11 +306,11 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testWellKnownTypesProtoListInput() throws Exception {
-    Artifact headerFile =
+    Artifact sourceFile =
         ActionsTestUtil.getFirstArtifactEndingWith(
             getFilesToBuild(getConfiguredTarget("//package:opl_protobuf_well_known_types")),
-            "/FileA.pbobjc.h");
-    SpawnAction action = (SpawnAction) getGeneratingAction(headerFile);
+            "/FileA.pbobjc.m");
+    SpawnAction action = (SpawnAction) getGeneratingAction(sourceFile);
 
     Artifact inputFileList =
         ActionsTestUtil.getFirstArtifactEndingWith(

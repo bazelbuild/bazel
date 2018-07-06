@@ -162,8 +162,8 @@ def _is_compiler_option_supported(repository_ctx, cc, option):
     ])
     return result.stderr.find(option) == -1
 
-def _is_linker_option_supported(repository_ctx, cc, option):
-    """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
+def _is_linker_option_supported(repository_ctx, cc, option, pattern):
+    """Checks that `option` is supported by the C linker. Doesn't %-escape the option."""
     result = repository_ctx.execute([
         cc,
         option,
@@ -171,7 +171,7 @@ def _is_linker_option_supported(repository_ctx, cc, option):
         "/dev/null",
         str(repository_ctx.path("tools/cpp/empty.cc")),
     ])
-    return result.stderr.find(option) == -1
+    return result.stderr.find(pattern) == -1
 
 def _is_gold_supported(repository_ctx, cc):
     """Checks that `gold` is supported by the C compiler."""
@@ -193,9 +193,9 @@ def _add_compiler_option_if_supported(repository_ctx, cc, option):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
     return [option] if _is_compiler_option_supported(repository_ctx, cc, option) else []
 
-def _add_linker_option_if_supported(repository_ctx, cc, option):
+def _add_linker_option_if_supported(repository_ctx, cc, option, pattern):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
-    return [option] if _is_linker_option_supported(repository_ctx, cc, option) else []
+    return [option] if _is_linker_option_supported(repository_ctx, cc, option, pattern) else []
 
 def _get_no_canonical_prefixes_opt(repository_ctx, cc):
     # If the compiler sometimes rewrites paths in the .d files without symlinks
@@ -270,10 +270,12 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
             repository_ctx,
             cc,
             "-Wl,-no-as-needed",
+            "-no-as-needed",
         ) + _add_linker_option_if_supported(
             repository_ctx,
             cc,
             "-Wl,-z,relro,-z,now",
+            "-z,relro,-z,now",
         ) + (
             [
                 "-undefined",
@@ -360,7 +362,12 @@ def _opt_content(repository_ctx, cc, darwin):
             "-fdata-sections",
         ],
         "linker_flag": (
-            [] if darwin else _add_linker_option_if_supported(repository_ctx, cc, "-Wl,--gc-sections")
+            [] if darwin else _add_linker_option_if_supported(
+                repository_ctx,
+                cc,
+                "-Wl,--gc-sections",
+                "-gc-sections",
+            )
         ),
     }
 
@@ -419,7 +426,6 @@ def _coverage_feature(repository_ctx, darwin):
         action: 'c-compile'
         action: 'c++-compile'
         action: 'c++-header-parsing'
-        action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
         """ + compile_flags + """
       }

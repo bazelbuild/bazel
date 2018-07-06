@@ -149,7 +149,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'sub', "
+            "expected value of type 'string or tuple of strings' for parameter 'sub', "
                 + "in method call startswith(int) of 'string'",
             "'test'.startswith(1)")
         .testIfErrorContains(
