@@ -37,6 +37,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",
         "//third_party:guava",
+        "//third_party:netty",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",

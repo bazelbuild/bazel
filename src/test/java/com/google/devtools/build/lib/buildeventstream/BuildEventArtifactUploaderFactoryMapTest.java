@@ -16,10 +16,6 @@ package com.google.devtools.build.lib.buildeventstream;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
-import com.google.devtools.build.lib.vfs.Path;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,28 +24,16 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link BuildEventArtifactUploaderFactoryMap}. */
 @RunWith(JUnit4.class)
 public final class BuildEventArtifactUploaderFactoryMapTest {
-  private BuildEventArtifactUploaderFactoryMap uploaderFactories;
-  private BuildEventArtifactUploaderFactory noConversionUploaderFactory;
+  private BuildEventArtifactUploaderFactoryMap uploader;
+  private BuildEventArtifactUploader noConversionUploader;
 
   @Before
   public void setUp() {
-    noConversionUploaderFactory =
-        () ->
-            new BuildEventArtifactUploader() {
-              @Override
-              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-                return Futures.immediateFuture(PathConverter.NO_CONVERSION);
-              }
-
-              @Override
-              public void shutdown() {
-                // Intentionally left empty.
-              }
-            };
-    uploaderFactories =
+    noConversionUploader = files -> Futures.immediateFuture(PathConverter.NO_CONVERSION);
+    uploader =
         new BuildEventArtifactUploaderFactoryMap.Builder()
-            .add("a", BuildEventArtifactUploaderFactory.LOCAL_FILES_UPLOADER_FACTORY)
-            .add("b", noConversionUploaderFactory)
+            .add("a", BuildEventArtifactUploader.LOCAL_FILES_UPLOADER)
+            .add("b", noConversionUploader)
             .build();
   }
 
@@ -57,19 +41,17 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
   public void testEmptyUploaders() throws Exception {
     BuildEventArtifactUploaderFactoryMap emptyUploader =
         new BuildEventArtifactUploaderFactoryMap.Builder().build();
-    assertThat(emptyUploader.select(null).create())
+    assertThat(emptyUploader.select(null))
         .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
   }
 
   @Test
-  public void testAlphabeticalOrder() {
-    assertThat(uploaderFactories.select(null).create())
-        .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
+  public void testAlphabeticalOrder() throws Exception {
+    assertThat(uploader.select(null)).isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
   }
 
   @Test
   public void testSelectByName() throws Exception {
-    assertThat(uploaderFactories.select("b"))
-        .isEqualTo(noConversionUploaderFactory);
+    assertThat(uploader.select("b")).isEqualTo(noConversionUploader);
   }
 }

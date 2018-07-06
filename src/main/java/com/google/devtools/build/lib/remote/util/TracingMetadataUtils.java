@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.util;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
@@ -50,18 +51,21 @@ public class TracingMetadataUtils {
    * version.
    */
   public static Context contextWithMetadata(
-      String buildRequestId, String commandId, ActionKey actionKey) {
-    RequestMetadata metadata =
+      String buildRequestId, String commandId, @Nullable ActionKey actionKey) {
+    Preconditions.checkNotNull(buildRequestId);
+    Preconditions.checkNotNull(commandId);
+    RequestMetadata.Builder metadata =
         RequestMetadata.newBuilder()
             .setCorrelatedInvocationsId(buildRequestId)
-            .setToolInvocationId(commandId)
-            .setActionId(actionKey.getDigest().getHash())
-            .setToolDetails(
-                ToolDetails.newBuilder()
-                    .setToolName("bazel")
-                    .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+            .setToolInvocationId(commandId);
+    if (actionKey != null) {
+      metadata.setActionId(actionKey.getDigest().getHash());
+    }
+    metadata.setToolDetails(ToolDetails.newBuilder()
+            .setToolName("bazel")
+            .setToolVersion(BlazeVersionInfo.instance().getVersion()))
             .build();
-    return Context.current().withValue(CONTEXT_KEY, metadata);
+    return Context.current().withValue(CONTEXT_KEY, metadata.build());
   }
 
   /**

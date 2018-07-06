@@ -31,25 +31,29 @@ import com.google.watcher.v1.WatcherGrpc;
 import com.google.watcher.v1.WatcherGrpc.WatcherBlockingStub;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
+import io.grpc.ManagedChannel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /** A remote work executor that uses gRPC for communicating the work, inputs and outputs. */
 @ThreadSafe
 class GrpcRemoteExecutor {
 
-  private final Channel channel;
+  private final ManagedChannel channel;
   private final CallCredentials callCredentials;
   private final int callTimeoutSecs;
   private final RemoteRetrier retrier;
 
+  private AtomicBoolean closed = new AtomicBoolean();
+
   public GrpcRemoteExecutor(
-      Channel channel,
+      ManagedChannel channel,
       @Nullable CallCredentials callCredentials,
       int callTimeoutSecs,
       RemoteRetrier retrier) {
@@ -73,7 +77,7 @@ class GrpcRemoteExecutor {
         .withCallCredentials(callCredentials);
   }
 
-  private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) throws IOException {
+  private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) {
     if (statusProto.getCode() == Code.OK.value()) {
       return;
     }
@@ -205,5 +209,12 @@ class GrpcRemoteExecutor {
                     String.format("Watch request for %s terminated with no result.", op.getName()));
               });
         });
+  }
+
+  public void close() {
+    if (!closed.getAndSet(true)) {
+      return;
+    }
+    channel.shutdown();
   }
 }
