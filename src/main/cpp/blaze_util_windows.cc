@@ -671,8 +671,9 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
         << "): AsAbsoluteWindowsPath(" << posix_name << ") failed: " << error;
     return false;
   }
-  wstring werror(CreateJunction(name, target));
-  if (!werror.empty()) {
+  wstring werror;
+  if (CreateJunction(name, target, &werror) !=
+      bazel::windows::CreateJunctionResult::kSuccess) {
     string error(blaze_util::WstringToCstring(werror.c_str()).get());
     BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
                      << posix_name << "): CreateJunction: " << error;
