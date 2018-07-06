@@ -388,4 +388,51 @@ EOF
   expect_log "Failure-message"
 }
 
+test_indirect_call() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _trivial_rule_impl(ctx):
+  ctx.file("BUILD","genrule(name='hello', outs=['hello.txt'], cmd=' echo hello world > $@')")
+
+trivial_rule = repository_rule(
+  implementation = _trivial_rule_impl,
+  attrs = {},
+)
+EOF
+  cat > indirect.bzl <<'EOF'
+def call(fn_name, **args):
+  fn_name(**args)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+load("//:indirect.bzl", "call")
+
+call(trivial_rule, name="foo")
+EOF
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+ruleclass = "".join([entry["original_rule_class"] for entry in resolved if entry["original_attributes"]["name"]=="foo"])
+
+genrule(
+  name = "ruleclass",
+  outs = ["ruleclass.txt"],
+  cmd = "echo %s > $@" % (ruleclass,)
+)
+EOF
+  bazel build //:ruleclass
+  cat `bazel info bazel-genfiles`/ruleclass.txt > ${TEST_log}
+  expect_log '//:rule.bzl%trivial_rule'
+  expect_not_log 'fn_name'
+}
+
 run_suite "workspace_resolved_test tests"
