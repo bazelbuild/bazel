@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import com.google.common.base.Charsets;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -50,19 +51,8 @@ public final class TextFormatFileTransport extends FileTransport {
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    Futures.addCallback(asStreamProto(event, namer),
-        new FutureCallback<BuildEventStreamProtos.BuildEvent>() {
-          @Override
-          public void onSuccess(BuildEventStreamProtos.BuildEvent protoEvent) {
-            String protoTextRepresentation = TextFormat.printToString(protoEvent);
-            write("event {\n" + protoTextRepresentation + "}\n\n");
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            // Intentionally left empty. The error handling happens in FileTransport.
-          }
-        }, MoreExecutors.directExecutor());
+  protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
+    String protoTextRepresentation = TextFormat.printToString(buildEvent);
+    return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(Charsets.UTF_8);
   }
 }
