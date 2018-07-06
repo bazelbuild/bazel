@@ -579,18 +579,15 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Collection<Artifact> getIncludeScannerSources() {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     if (getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)) {
       // If this is an action that compiles the header module itself, the source we build is the
       // module map, and we need to include-scan all headers that are referenced in the module map.
-      // We need to do include scanning as long as we want to support building code bases that are
-      // not fully strict layering clean.
-      builder.addAll(ccCompilationContext.getHeaderModuleSrcs());
-    } else {
-      builder.add(getSourceFile());
-      builder.addAll(additionalIncludeScanningRoots);
+      return ccCompilationContext.getHeaderModuleSrcs();
     }
-    return builder.build().toCollection();
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
+    builder.add(getSourceFile());
+    builder.addAll(additionalIncludeScanningRoots);
+    return builder.build();
   }
 
   /**
