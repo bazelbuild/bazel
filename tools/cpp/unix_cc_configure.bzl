@@ -275,7 +275,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
             repository_ctx,
             cc,
             "-Wl,-z,relro,-z,now",
-            "-z,relro,-z,now",
+            "-z",
         ) + (
             [
                 "-undefined",
