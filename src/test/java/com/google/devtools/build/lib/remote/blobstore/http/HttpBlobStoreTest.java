@@ -128,7 +128,6 @@ public class HttpBlobStoreTest {
   }
 
   interface TestServer {
-
     ServerChannel start(ChannelInboundHandler handler);
 
     void stop(ServerChannel serverChannel);

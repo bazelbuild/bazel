@@ -62,6 +62,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
@@ -120,10 +121,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
       int remoteMaxConnections, @Nullable final Credentials creds)
       throws Exception {
     return new HttpBlobStore(
-        new InetSocketAddress(uri.getHost(), uri.getPort()),
         NioEventLoopGroup::new,
         NioSocketChannel.class,
-        uri, timeoutMillis, remoteMaxConnections, creds);
+        uri, timeoutMillis, remoteMaxConnections, creds,
+        null);
   }
 
   public static HttpBlobStore create(
@@ -133,27 +134,27 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
       if (KQueue.isAvailable()) {
         return new HttpBlobStore(
-            domainSocketAddress,
             KQueueEventLoopGroup::new,
             KQueueDomainSocketChannel.class,
-            uri, timeoutMillis, remoteMaxConnections, creds);
+            uri, timeoutMillis, remoteMaxConnections, creds,
+            domainSocketAddress);
       }
       else if (Epoll.isAvailable()) {
         return new HttpBlobStore(
-            domainSocketAddress,
             EpollEventLoopGroup::new,
             EpollDomainSocketChannel.class,
-            uri, timeoutMillis, remoteMaxConnections, creds);
+            uri, timeoutMillis, remoteMaxConnections, creds,
+            domainSocketAddress);
       }
       else
         throw new Exception("Unix domain sockets are unsupported on this platform");
   }
 
   private HttpBlobStore(
-      SocketAddress socketAddress,
       Function<Integer, EventLoopGroup> newEventLoopGroup,
       Class<? extends Channel> channelClass,
-      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds)
+      URI uri, int timeoutMillis, int remoteMaxConnections, @Nullable final Credentials creds,
+      @Nullable SocketAddress socketAddress)
       throws Exception {
     boolean useTls = uri.getScheme().equals("https");
     if (uri.getPort() == -1) {
@@ -169,6 +170,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
               uri.getFragment());
     }
     this.uri = uri;
+    if (socketAddress == null) {
+      socketAddress = new InetSocketAddress(uri.getHost(), uri.getPort());
+    }
+
     final SslContext sslCtx;
     if (useTls) {
       // OpenSsl gives us a > 2x speed improvement on fast networks, but requires netty tcnative
