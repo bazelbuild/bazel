@@ -191,32 +191,6 @@ toolchain(
 )
 
 cc_toolchain(
-    name = "cc-compiler-armeabi-v8",
-    all_files = ":empty",
-    compiler_files = ":empty",
-    cpu = "local",
-    dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
-    linker_files = ":empty",
-    objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
-    strip_files = ":empty",
-    supports_param_files = 1,
-)
-
-toolchain(
-    name = "cc-toolchain-armeabi-v8",
-    exec_compatible_with = [
-    ],
-    target_compatible_with = [
-        "@bazel_tools//platforms:arm64",
-    ],
-    toolchain = ":cc-compiler-armeabi-v8",
-    toolchain_type = ":toolchain_type",
-)
-
-
-cc_toolchain(
     name = "cc-compiler-k8",
     all_files = ":empty",
     compiler_files = ":empty",
