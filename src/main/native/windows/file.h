@@ -94,9 +94,10 @@ HANDLE OpenDirectory(const WCHAR* path, bool read_write);
 wstring CreateJunction(const wstring& junction_name,
                        const wstring& junction_target);
 
-// Deletes the file or directory at `path`.
+// Deletes the file, junction, or empty directory at `path`.
 // Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise
-// returns one of the other DELETE_PATH_* constants.
+// returns one of the other DELETE_PATH_* constants (e.g. when the directory is
+// not empty or the file is in use by another process).
 // Returns DELETE_PATH_ERROR for unexpected errors. If `error` is not null, the
 // function writes an error message into it. 
 int DeletePath(const wstring& path, wstring* error);
