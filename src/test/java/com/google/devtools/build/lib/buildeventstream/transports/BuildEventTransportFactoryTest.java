@@ -22,7 +22,7 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -86,8 +86,8 @@ public class BuildEventTransportFactoryTest {
     Mockito.validateMockitoUsage();
   }
 
-  private BuildEventArtifactUploaderMap localFilesOnly() {
-    return new BuildEventArtifactUploaderMap.Builder().build();
+  private BuildEventArtifactUploaderFactoryMap localFilesOnly() {
+    return new BuildEventArtifactUploaderFactoryMap.Builder().build();
   }
 
   @Test

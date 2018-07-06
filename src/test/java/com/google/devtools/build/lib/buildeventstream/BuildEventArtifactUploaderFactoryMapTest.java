@@ -21,17 +21,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link BuildEventArtifactUploaderMap}. */
+/** Tests for {@link BuildEventArtifactUploaderFactoryMap}. */
 @RunWith(JUnit4.class)
-public final class BuildEventArtifactUploaderMapTest {
-  private BuildEventArtifactUploaderMap uploader;
+public final class BuildEventArtifactUploaderFactoryMapTest {
+  private BuildEventArtifactUploaderFactoryMap uploader;
   private BuildEventArtifactUploader noConversionUploader;
 
   @Before
   public void setUp() {
     noConversionUploader = files -> Futures.immediateFuture(PathConverter.NO_CONVERSION);
     uploader =
-        new BuildEventArtifactUploaderMap.Builder()
+        new BuildEventArtifactUploaderFactoryMap.Builder()
             .add("a", BuildEventArtifactUploader.LOCAL_FILES_UPLOADER)
             .add("b", noConversionUploader)
             .build();
@@ -39,8 +39,8 @@ public final class BuildEventArtifactUploaderMapTest {
 
   @Test
   public void testEmptyUploaders() throws Exception {
-    BuildEventArtifactUploaderMap emptyUploader =
-        new BuildEventArtifactUploaderMap.Builder().build();
+    BuildEventArtifactUploaderFactoryMap emptyUploader =
+        new BuildEventArtifactUploaderFactoryMap.Builder().build();
     assertThat(emptyUploader.select(null))
         .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
   }

@@ -21,15 +21,15 @@ import javax.annotation.concurrent.ThreadSafe;
 
 /** Selects between multiple available upload strategies. */
 @ThreadSafe
-public class BuildEventArtifactUploaderMap {
-  private final ImmutableMap<String, BuildEventArtifactUploader> uploaders;
+public class BuildEventArtifactUploaderFactoryMap {
+  private final ImmutableMap<String, BuildEventArtifactUploaderFactory> uploaders;
 
-  private BuildEventArtifactUploaderMap(
-      ImmutableMap<String, BuildEventArtifactUploader> uploaders) {
+  private BuildEventArtifactUploaderFactoryMap(
+      ImmutableMap<String, BuildEventArtifactUploaderFactory> uploaders) {
     this.uploaders = uploaders;
   }
 
-  public BuildEventArtifactUploader select(@Nullable String name) {
+  public BuildEventArtifactUploaderFactory select(@Nullable String name) {
     if (name == null && !uploaders.values().isEmpty()) {
       // TODO(b/110235226): We currently choose the strategy with alphabetically first strategy,
       // which happens to be backwards-compatible; we need to set
@@ -37,23 +37,23 @@ public class BuildEventArtifactUploaderMap {
       // make it an error to pass null.
       return uploaders.values().iterator().next();
     }
-    return uploaders.getOrDefault(name, BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
+    return uploaders.getOrDefault(
+        name, BuildEventArtifactUploaderFactory.LOCAL_FILES_UPLOADER_FACTORY);
   }
 
-  /** Builder class for {@link BuildEventArtifactUploaderMap}. */
+  /** Builder class for {@link BuildEventArtifactUploaderFactoryMap}. */
   public static class Builder {
-    private final SortedMap<String, BuildEventArtifactUploader> uploaders = new TreeMap<>();
+    private final SortedMap<String, BuildEventArtifactUploaderFactory> uploaders = new TreeMap<>();
 
-    public Builder() {
-    }
+    public Builder() {}
 
-    public Builder add(String name, BuildEventArtifactUploader uploader) {
+    public Builder add(String name, BuildEventArtifactUploaderFactory uploader) {
       uploaders.put(name, uploader);
       return this;
     }
 
-    public BuildEventArtifactUploaderMap build() {
-      return new BuildEventArtifactUploaderMap(ImmutableMap.copyOf(uploaders));
+    public BuildEventArtifactUploaderFactoryMap build() {
+      return new BuildEventArtifactUploaderFactoryMap(ImmutableMap.copyOf(uploaders));
     }
   }
 }
