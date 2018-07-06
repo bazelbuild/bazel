@@ -96,6 +96,7 @@ public class CppCompileAction extends AbstractAction
 
   protected final Artifact outputFile;
   private final Artifact sourceFile;
+  private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> mandatoryInputs;
   private final Iterable<Artifact> inputsForInvalidation;
 
@@ -113,10 +114,8 @@ public class CppCompileAction extends AbstractAction
   @Nullable private final Artifact grepIncludes;
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
-  private final boolean pruneCppInputDiscovery;
   private final boolean usePic;
   private final boolean useHeaderModules;
-  private final boolean isStrictSystemIncludes;
   private final boolean needsDotdInputPruning;
   protected final boolean needsIncludeValidation;
   private final IncludeProcessing includeProcessing;
@@ -194,7 +193,6 @@ public class CppCompileAction extends AbstractAction
    * @param shouldScanIncludes a boolean indicating whether scanning of {@code sourceFile} is to be
    *     performed looking for inclusions.
    * @param usePic TODO(bazel-team): Add parameter description.
-   * @param isStrictSystemIncludes should this compile action use strict system includes
    * @param mandatoryInputs any additional files that need to be present for the compilation to
    *     succeed, can be empty but not null, for example, extra sources for FDO.
    * @param inputsForInvalidation are there only to invalidate this action when they change, but are
@@ -220,12 +218,11 @@ public class CppCompileAction extends AbstractAction
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
       Artifact sourceFile,
+      CppConfiguration cppConfiguration,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
-      boolean pruneCppInputDiscovery,
       boolean usePic,
       boolean useHeaderModules,
-      boolean isStrictSystemIncludes,
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
@@ -258,6 +255,7 @@ public class CppCompileAction extends AbstractAction
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceFile = sourceFile;
+    this.cppConfiguration = cppConfiguration;
     // We do not need to include the middleman artifact since it is a generated artifact and will
     // definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
@@ -269,10 +267,8 @@ public class CppCompileAction extends AbstractAction
     // the inputs are as declared, hence known, and remain so.
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
-    this.pruneCppInputDiscovery = pruneCppInputDiscovery;
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
-    this.isStrictSystemIncludes = isStrictSystemIncludes;
     this.ccCompilationContext = ccCompilationContext;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.additionalIncludeScanningRoots = ImmutableList.copyOf(additionalIncludeScanningRoots);
@@ -343,14 +339,12 @@ public class CppCompileAction extends AbstractAction
   }
 
   /**
-   * Returns the list of additional inputs found by dependency discovery, during action preparation,
-   * and clears the stored list. {@link #discoverInputs(ActionExecutionContext)} must be called
-   * before this method is called on each action execution.
+   * Returns the list of additional inputs found by dependency discovery, during action preparation.
+   * {@link #discoverInputs(ActionExecutionContext)} must be called before this method is called on
+   * each action execution.
    */
   public Iterable<Artifact> getAdditionalInputs() {
-    Iterable<Artifact> result = Preconditions.checkNotNull(additionalInputs);
-    additionalInputs = null;
-    return result;
+    return Preconditions.checkNotNull(additionalInputs);
   }
 
   @Override
@@ -488,7 +482,7 @@ public class CppCompileAction extends AbstractAction
   @Override
   @Nullable
   public Set<Artifact> getModularHeaders() {
-    return useHeaderModules && pruneCppInputDiscovery
+    return useHeaderModules && cppConfiguration.getPruneCppInputDiscovery()
         ? ccCompilationContext.getModularHeaders(usePic)
         : null;
   }
@@ -716,7 +710,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     Iterable<PathFragment> ignoreDirs =
-        isStrictSystemIncludes
+    cppConfiguration.isStrictSystemIncludes()
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
 
@@ -1020,6 +1014,12 @@ public class CppCompileAction extends AbstractAction
       actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
     }
 
+    if (cppConfiguration.getNoDotdScanningWithModules() && useHeaderModules && shouldPruneModules) {
+      updateActionInputs(
+          NestedSetBuilder.wrap(
+              Order.STABLE_ORDER, Iterables.concat(discoveredModules, additionalInputs)));
+    }
+
     List<SpawnResult> spawnResults;
     try {
       CppCompileActionResult cppCompileActionResult =
@@ -1033,8 +1033,14 @@ public class CppCompileAction extends AbstractAction
           "C++ compilation of rule '" + getOwner().getLabel() + "'",
           actionExecutionContext.getVerboseFailures(),
           this);
+    } finally {
+      additionalInputs = null;
     }
     ensureCoverageNotesFilesExist(actionExecutionContext);
+
+    if (cppConfiguration.getNoDotdScanningWithModules() && useHeaderModules && shouldPruneModules) {
+      return ActionResult.create(spawnResults);
+    }
 
     // This is the .d file scanning part.
     CppIncludeExtractionContext scanningContext =
