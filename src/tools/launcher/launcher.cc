@@ -139,13 +139,14 @@ void BinaryLauncherBase::ParseManifestFile(ManifestFileMap* manifest_file_map,
 
 wstring BinaryLauncherBase::Rlocation(const wstring& path,
                                       bool need_workspace_name) const {
+  // No need to do rlocation if the path is absolute.
+  if (blaze_util::IsAbsolute(path)) {
+    return path;
+  }
+
   // If the manifest file map is empty, then we're using the runfiles directory
   // instead.
   if (manifest_file_map.empty()) {
-    if (blaze_util::IsAbsolute(path)) {
-      return path;
-    }
-
     wstring query_path = runfiles_dir;
     if (need_workspace_name) {
       query_path += L"/" + this->workspace_name;
