@@ -90,3 +90,19 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeCreat
   }
   return JNI_TRUE;
 }
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeDeletePath(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  std::wstring error;
+  int result = bazel::windows::DeletePath(wpath, &error);
+  if (result != bazel::windows::DELETE_PATH_SUCCESS && !error.empty() &&
+      CanReportError(env, error_msg_holder)) {
+    ReportLastError(
+        bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                         L"nativeDeletePath", wpath, error),
+        env, error_msg_holder);
+  }
+  return result;
+}
