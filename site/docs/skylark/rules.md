@@ -16,7 +16,7 @@ executable file (the output).
 Note that, from Bazel's perspective, `g++` and the standard C++ libraries are
 also inputs to this rule. As a rule writer, you must consider not only the
 user-provided inputs to a rule, but also all of the tools and libraries required
-to execute the actions (called _implicit dependencies_).
+to execute the actions.
 
 Before creating or modifying any rule, make sure you are familiar with the
 [evaluation model](concepts.md). You must understand the three phases of
@@ -111,17 +111,34 @@ If a string is given, it will be converted to a `Label` using the
 [constructor](lib/Label.html#Label). The repository, and possibly the path, will
 be resolved relative to the defined target.
 
-The following attributes are implicitly added to every rule: `deprecation`,
+If an attribute schema is defined in the rule but no value for that attribute is
+given when the rule is instantiated, then the rule implementation function will
+see a placeholder value in `ctx.attr`. The placeholder value depends on the type
+of attribute. If the schema specifies a `default` value, that value will be used
+instead of the placeholder. The schema may also specify `mandatory=True`, in
+which case it is illegal for the user to not give an explicit value. It is not
+useful for an attribute schema with `mandatory` to also have a `default`.
+
+The following attributes are automatically added to every rule: `deprecation`,
 `features`, `name`, `tags`, `testonly`, `visibility`. Test rules also have the
 following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
 `timeout`.
 
-### <a name="private-attributes"></a> Private Attributes
+### <a name="private-attributes"></a> Private Attributes and Implicit Dependencies
 
-Attribute names that start with an underscore (`_`) are private; users of the
-rule cannot set it when creating targets. Instead, it takes its value from the
-default given by the rule's declaration. This is used for creating *implicit
-dependencies*:
+A dependency attribute with a default value is called an *implicit dependency*.
+The name comes from the fact that it is a part of the target graph that the user
+does not specify in a BUILD file. Implicit dependencies are useful for
+hard-coding a relationship between a rule and a tool (such as a compiler), since
+most of the time a user is not interested in specifying what tool the rule uses.
+From the rule's point of view, the tool is still an input, just like any source
+file or other dependency.
+
+Sometimes we want to not only provide a default value, but prevent the user from
+overriding this default. To do this, you can make the attribute *private* by
+giving it a name that begins with an underscore (`_`). Private attributes must
+have default values. It generally only makes sense to use private attributes for
+implicit dependencies.
 
 ```python
 metal_binary = rule(
@@ -138,9 +155,14 @@ metal_binary = rule(
 ```
 
 In this example, every target of type `metal_binary` will have an implicit
-dependency on the target `//tools:metalc`. This allows the rule implementation
-to generate actions that invoke the compiler, without requiring users to know
-and specify the compiler's label.
+dependency on the compiler `//tools:metalc`. This allows `metal_binary`'s
+implementation function to generate actions that invoke the compiler, even
+though the user did not pass its label as an input. Since `_compiler` is a
+private attribute, we know for sure that `ctx.attr._compiler` will always point
+to `//tools:metalc` in all targets of this rule type. Alternatively, we could
+have named the attribute `compiler` without the underscore and kept the default
+value. This lets users substitute a different compiler if necessary, but
+requires no awareness of the compiler's label otherwise.
 
 ## Implementation function
 

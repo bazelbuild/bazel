@@ -96,7 +96,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   static final String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
-  static final String DEFAULT_DOC = "The default value of the attribute. ";
+  static final String DEFAULT_DOC =
+      "A default value to use if no value for this attribute is given when instantiating the rule.";
 
   static final String DOC_ARG = "doc";
   static final String DOC_DOC =
@@ -112,7 +113,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
   static final String FLAGS_DOC = "Deprecated, will be removed.";
 
   static final String MANDATORY_ARG = "mandatory";
-  static final String MANDATORY_DOC = "True if the value must be explicitly specified.";
+  static final String MANDATORY_DOC =
+      "If true, the value must be specified explicitly (even if it has a <code>default</code>).";
 
   static final String NON_EMPTY_ARG = "non_empty";
   static final String NON_EMPTY_DOC =
@@ -233,9 +235,17 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "label",
-      doc =
-          "Creates a schema for a label attribute. This is a dependency attribute."
-              + DEPENDENCY_ATTR_TEXT,
+      doc = "Creates a schema for a label attribute. This is a dependency attribute."
+              + DEPENDENCY_ATTR_TEXT
+              + "<p>In addition to ordinary source files, this kind of attribute is often used to "
+              + "refer to a tool -- for example, a compiler. Such tools are considered to be "
+              + "dependencies, just like source files. To avoid requiring users to specify the "
+              + "tool's label every time they use the rule in their BUILD files, you can hard-code "
+              + "the label of a canonical tool as the <code>default</code> value of this "
+              + "attribute. If you also want to prevent users from overriding this default, you "
+              + "can make the attribute private by giving it a name that starts with an "
+              + "underscore. See the <a href='../rules.$DOC_EXT#private-attributes'>Rules</a> page "
+              + "for more information.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -359,8 +369,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "string_list",
-      doc =
-          "Creates a schema for a list-of-strings attribute.",
+      doc = "Creates a schema for a list-of-strings attribute.",
       parameters = {
         @Param(
             name = MANDATORY_ARG,
