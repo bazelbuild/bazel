@@ -80,16 +80,16 @@ typedef struct _JunctionDescription {
     WORD SubstituteNameLength;
     WORD PrintNameOffset;
     WORD PrintNameLength;
-  } WriteDesc;
+  } Descriptor;
 
   Header header;
-  WriteDesc write;
+  Descriptor descriptor;
   WCHAR PathBuffer[ANYSIZE_ARRAY];
 } JunctionDescription;
 #pragma pack(pop)
 
-wstring CreateJunction(const wstring& junction_name,
-                       const wstring& junction_target) {
+int CreateJunction(const wstring& junction_name, const wstring& junction_target,
+                   wstring* error) {
   const wstring target = HasUncPrefix(junction_target.c_str())
                              ? junction_target.substr(4)
                              : junction_target;
@@ -98,7 +98,7 @@ wstring CreateJunction(const wstring& junction_name,
   //
   // The structure's layout is:
   //   [JunctionDescription::Header]
-  //   [JunctionDescription::WriteDesc]
+  //   [JunctionDescription::Descriptor]
   //   ---- start of JunctionDescription::PathBuffer ----
   //   [4 WCHARs]             : "\??\" prefix
   //   [target.size() WCHARs] : junction target name
@@ -109,83 +109,224 @@ wstring CreateJunction(const wstring& junction_name,
   // We can rearrange this to get the limit for target.size().
   static const size_t kMaxJunctionTargetLen =
       ((MAXIMUM_REPARSE_DATA_BUFFER_SIZE - sizeof(JunctionDescription::Header) -
-        sizeof(JunctionDescription::WriteDesc) -
+        sizeof(JunctionDescription::Descriptor) -
         /* one "\??\" prefix */ sizeof(WCHAR) * 4 -
         /* two null terminators */ sizeof(WCHAR) * 2) /
        /* two copies of the string are stored */ 2) /
       sizeof(WCHAR);
   if (target.size() > kMaxJunctionTargetLen) {
-    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateJunction", target,
-                            L"target is too long");
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateJunction",
+                                target, L"target path is too long");
+    }
+    return CreateJunctionResult::kTargetNameTooLong;
   }
   const wstring name = HasUncPrefix(junction_name.c_str())
                            ? junction_name
                            : (wstring(L"\\\\?\\") + junction_name);
 
-  // Junctions are directories, so create one
+  // `create` is true if we attempt to create or set the junction, i.e. can open
+  // the file for writing. `create` is false if we only check that the existing
+  // file is a junction, i.e. we can only open it for reading.
+  bool create = true;
+
+  // Junctions are directories, so create a directory.
   if (!::CreateDirectoryW(name.c_str(), NULL)) {
-    DWORD err_code = GetLastError();
-    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateJunction", name,
-                            err_code);
+    DWORD err = GetLastError();
+    if (err == ERROR_PATH_NOT_FOUND) {
+      // A parent directory does not exist.
+      return CreateJunctionResult::kParentMissing;
+    }
+    if (err == ERROR_ALREADY_EXISTS) {
+      create = false;
+    } else {
+      // Some unknown error occurred.
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateDirectoryW",
+                                  name, err);
+      }
+      return CreateJunctionResult::kError;
+    }
+    // The directory already existed.
+    // It may be a file, an empty directory, a non-empty directory, a junction
+    // pointing to the wrong target, or ideally a junction pointing to the
+    // right target.
   }
 
-  AutoHandle handle(OpenDirectory(name.c_str(), true));
+  AutoHandle handle(CreateFileW(
+      name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL));
   if (!handle.IsValid()) {
-    DWORD err_code = GetLastError();
-    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"OpenDirectory", name,
-                            err_code);
+    DWORD err = GetLastError();
+    // We can't open the directory for writing: either it disappeared, or turned
+    // into a file, or another process holds it open without write-sharing.
+    // Either way, don't try to create the junction, just try opening it for
+    // reading and check its value.
+    create = false;
+    handle = CreateFileW(
+        name.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    if (!handle.IsValid()) {
+      // We can't open the directory even for reading: either it disappeared, or
+      // it turned into a file, or another process holds it open without
+      // read-sharing. Give up.
+      DWORD err = GetLastError();
+      if (err == ERROR_SHARING_VIOLATION) {
+        // The junction is held open by another process.
+        return CreateJunctionResult::kAccessDenied;
+      } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+        // Meanwhile the directory disappeared or one of its parent directories
+        // disappeared.
+        return CreateJunctionResult::kDisappeared;
+      }
+
+      // Some unknown error occurred.
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW",
+                                  name, err);
+      }
+      return CreateJunctionResult::kError;
+    }
+  }
+
+  // We have an open handle to the file! It may still be other than a junction,
+  // so check its attributes.
+  BY_HANDLE_FILE_INFORMATION info;
+  if (!GetFileInformationByHandle(handle, &info)) {
+    DWORD err = GetLastError();
+    // Some unknown error occurred.
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"GetFileInformationByHandle", name, err);
+    }
+    return CreateJunctionResult::kError;
+  }
+
+  if (info.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
+    DWORD err = GetLastError();
+    // Some unknown error occurred.
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"GetFileInformationByHandle", name, err);
+    }
+    return CreateJunctionResult::kError;
+  }
+
+  if (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+    // The path already exists and it's a junction. Do not overwrite, just check
+    // its target.
+    create = false;
+  }
+
+  if (create) {
+    if (!(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+      // Even though we managed to create the directory and it didn't exist
+      // before, another process changed it in the meantime so it's no longer a
+      // directory.
+      create = false;
+      if (!(info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+        // The path is no longer a directory, and it's not a junction either.
+        return CreateJunctionResult::kAlreadyExistsButNotJunction;
+      }
+    }
+  }
+
+  if (!create) {
+    // The path already exists. Check if it's a junction.
+    if (!(info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      return CreateJunctionResult::kAlreadyExistsButNotJunction;
+    }
   }
 
   uint8_t reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
   JunctionDescription* reparse_buffer =
       reinterpret_cast<JunctionDescription*>(reparse_buffer_bytes);
-  memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+  if (create) {
+    // The junction doesn't exist yet, and we have an open handle to the
+    // candidate directory with write access and no sharing. Proceed to turn the
+    // directory into a junction.
 
-  // "\??\" is meaningful to the kernel, it's a synomym for the "\DosDevices\"
-  // object path. (NOT to be confused with "\\?\" which is meaningful for the
-  // Win32 API.) We need to use this prefix to tell the kernel where the reparse
-  // point is pointing to.
-  memcpy(reparse_buffer->PathBuffer, L"\\??\\", 4 * sizeof(WCHAR));
-  memcpy(reparse_buffer->PathBuffer + 4, target.c_str(),
-         target.size() * sizeof(WCHAR));
+    memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
 
-  // In addition to their target, junctions also have another string which is a
-  // user-visible name of where the junction points, as listed by "dir". This
-  // can be any string and won't affect the usability of the junction.
-  // MKLINK uses the target path without the "\??\" prefix as the display name,
-  // so let's do that here too. This is also in line with how UNIX behaves.
-  // Using a dummy or fake display name would be pure evil, it would make the
-  // output of `dir` look like:
-  //   2017-01-18  01:37 PM    <JUNCTION>     juncname [dummy string]
-  memcpy(reparse_buffer->PathBuffer + 4 + target.size() + 1, target.c_str(),
-         target.size() * sizeof(WCHAR));
+    // "\??\" is meaningful to the kernel, it's a synomym for the "\DosDevices\"
+    // object path. (NOT to be confused with "\\?\" which is meaningful for the
+    // Win32 API.) We need to use this prefix to tell the kernel where the
+    // reparse point is pointing to.
+    memcpy(reparse_buffer->PathBuffer, L"\\??\\", 4 * sizeof(WCHAR));
+    memcpy(reparse_buffer->PathBuffer + 4, target.c_str(),
+           target.size() * sizeof(WCHAR));
 
-  reparse_buffer->write.SubstituteNameOffset = 0;
-  reparse_buffer->write.SubstituteNameLength =
-      (4 + target.size()) * sizeof(WCHAR);
-  reparse_buffer->write.PrintNameOffset =
-      reparse_buffer->write.SubstituteNameLength +
-      /* null-terminator */ sizeof(WCHAR);
-  reparse_buffer->write.PrintNameLength = target.size() * sizeof(WCHAR);
+    // In addition to their target, junctions also have another string which is
+    // a user-visible name of where the junction points, as listed by "dir".
+    // This can be any string and won't affect the usability of the junction.
+    // MKLINK uses the target path without the "\??\" prefix as the display
+    // name, so let's do that here too. This is also in line with how UNIX
+    // behaves. Using a dummy or fake display name would be misleading, it would
+    // make the output of `dir` look like:
+    //   2017-01-18  01:37 PM    <JUNCTION>     juncname [dummy string]
+    memcpy(reparse_buffer->PathBuffer + 4 + target.size() + 1, target.c_str(),
+           target.size() * sizeof(WCHAR));
 
-  reparse_buffer->header.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
-  reparse_buffer->header.ReparseDataLength =
-      sizeof(JunctionDescription::WriteDesc) +
-      reparse_buffer->write.SubstituteNameLength +
-      reparse_buffer->write.PrintNameLength +
-      /* 2 null-terminators */ (2 * sizeof(WCHAR));
-  reparse_buffer->header.Reserved = 0;
+    reparse_buffer->descriptor.SubstituteNameOffset = 0;
+    reparse_buffer->descriptor.SubstituteNameLength =
+        (4 + target.size()) * sizeof(WCHAR);
+    reparse_buffer->descriptor.PrintNameOffset =
+        reparse_buffer->descriptor.SubstituteNameLength +
+        /* null-terminator */ sizeof(WCHAR);
+    reparse_buffer->descriptor.PrintNameLength = target.size() * sizeof(WCHAR);
 
-  DWORD bytes_returned;
-  if (!::DeviceIoControl(handle, FSCTL_SET_REPARSE_POINT, reparse_buffer,
-                         reparse_buffer->header.ReparseDataLength +
-                             sizeof(JunctionDescription::Header),
-                         NULL, 0, &bytes_returned, NULL)) {
-    DWORD err_code = GetLastError();
-    return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl", L"",
-                            err_code);
+    reparse_buffer->header.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+    reparse_buffer->header.ReparseDataLength =
+        sizeof(JunctionDescription::Descriptor) +
+        reparse_buffer->descriptor.SubstituteNameLength +
+        reparse_buffer->descriptor.PrintNameLength +
+        /* 2 null-terminators */ (2 * sizeof(WCHAR));
+    reparse_buffer->header.Reserved = 0;
+
+    DWORD bytes_returned;
+    if (!::DeviceIoControl(handle, FSCTL_SET_REPARSE_POINT, reparse_buffer,
+                           reparse_buffer->header.ReparseDataLength +
+                               sizeof(JunctionDescription::Header),
+                           NULL, 0, &bytes_returned, NULL)) {
+      DWORD err = GetLastError();
+      if (err == ERROR_DIR_NOT_EMPTY) {
+        return CreateJunctionResult::kAlreadyExistsButNotJunction;
+      }
+      // Some unknown error occurred.
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl",
+                                  name, err);
+      }
+      return CreateJunctionResult::kError;
+    }
+  } else {
+    // The junction already exists. Check if it points to the right target.
+
+    DWORD bytes_returned;
+    if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0,
+                           reparse_buffer, MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
+                           &bytes_returned, NULL)) {
+      DWORD err = GetLastError();
+      // Some unknown error occurred.
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeviceIoControl",
+                                  name, err);
+      }
+      return CreateJunctionResult::kError;
+    }
+
+    WCHAR* actual_target =
+        reparse_buffer->PathBuffer
+            + reparse_buffer->descriptor.SubstituteNameOffset
+            + /* "\??\" prefix */ 4;
+    if (reparse_buffer->descriptor.SubstituteNameLength !=
+        (/* "\??\" prefix */ 4 + target.size()) * sizeof(WCHAR)
+        || _wcsnicmp(actual_target, target.c_str(), target.size()) != 0) {
+      return CreateJunctionResult::kAlreadyExistsWithDifferentTarget;
+    }
   }
-  return L"";
+
+  return CreateJunctionResult::kSuccess;
 }
 
 int DeletePath(const wstring& path, wstring* error) {

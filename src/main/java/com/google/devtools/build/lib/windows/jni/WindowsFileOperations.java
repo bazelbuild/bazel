@@ -49,11 +49,21 @@ public class WindowsFileOperations {
   private static final int IS_JUNCTION_NO = 1;
   private static final int IS_JUNCTION_ERROR = 2;
 
+  // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.cc.
+  private static final int CREATE_JUNCTION_SUCCESS = 0;
+  private static final int CREATE_JUNCTION_ERROR = 1;
+  private static final int CREATE_JUNCTION_TARGET_NAME_TOO_LONG = 2;
+  private static final int CREATE_JUNCTION_PARENT_MISSING = 3;
+  private static final int CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET = 4;
+  private static final int CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION = 5;
+  private static final int CREATE_JUNCTION_ACCESS_DENIED = 6;
+  private static final int CREATE_JUNCTION_DISAPPEARED = 7;
+
   private static native int nativeIsJunction(String path, String[] error);
 
   private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
-  private static native boolean nativeCreateJunction(String name, String target, String[] error);
+  private static native int nativeCreateJunction(String name, String target, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isJunction(String path) throws IOException {
@@ -116,9 +126,33 @@ public class WindowsFileOperations {
   public static void createJunction(String name, String target) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    if (!nativeCreateJunction(name.replace('/', '\\'), target.replace('/', '\\'), error)) {
+    int result = nativeCreateJunction(name.replace('/', '\\'), target.replace('/', '\\'), error);
+    if (result != CREATE_JUNCTION_SUCCESS) {
+      switch (result) {
+        case CREATE_JUNCTION_TARGET_NAME_TOO_LONG:
+          error[0] = "target name is too long";
+          break;
+        case CREATE_JUNCTION_PARENT_MISSING:
+          error[0] = "a parent directory is missing";
+          break;
+        case CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET:
+          error[0] = "junction already exists with different target";
+          break;
+        case CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION:
+          error[0] = "a file or directory already exists at the junction's path";
+          break;
+        case CREATE_JUNCTION_ACCESS_DENIED:
+          error[0] = "access is denied";
+          break;
+        case CREATE_JUNCTION_DISAPPEARED:
+          error[0] = "the junction's path got modified unexpectedly";
+          break;
+        default:
+          break;
+      }
       throw new IOException(
-          String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+          String.format(
+              "Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
     }
   }
 }
