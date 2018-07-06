@@ -188,14 +188,18 @@ public class GrpcRemoteCacheTest {
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
             retryService,
             Retrier.ALLOW_ALL_CALLS);
-    return new GrpcRemoteCache(
+    Channel ch =
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-            ImmutableList.of(new CallCredentialsInterceptor(creds))),
+            ImmutableList.of(new CallCredentialsInterceptor(creds)));
+    return new GrpcRemoteCache(
+        ch,
         creds,
         remoteOptions,
         retrier,
-        DIGEST_UTIL);
+        DIGEST_UTIL,
+        new ByteStreamUploader(
+            remoteOptions.remoteInstanceName, ch, creds, remoteOptions.remoteTimeout, retrier));
   }
 
   @Test

@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.protobuf.CodedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -32,6 +30,7 @@ import java.util.function.Consumer;
  * {@link BuildEvent} protocol buffers to a file.
  */
 public final class BinaryFormatFileTransport extends FileTransport {
+
   BinaryFormatFileTransport(
       String path,
       BuildEventProtocolOptions options,
@@ -47,19 +46,16 @@ public final class BinaryFormatFileTransport extends FileTransport {
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    Futures.addCallback(asStreamProto(event, namer),
-        new FutureCallback<BuildEventStreamProtos.BuildEvent>() {
-          @Override
-          public void onSuccess(BuildEventStreamProtos.BuildEvent protoEvent) {
-            write(protoEvent);
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            // Intentionally left empty. The error handling happens in
-            // FileTransport.
-          }
-        }, MoreExecutors.directExecutor());
+  protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
+    final int size = buildEvent.getSerializedSize();
+    ByteArrayOutputStream bos =
+        new ByteArrayOutputStream(CodedOutputStream.computeUInt32SizeNoTag(size) + size);
+    try {
+      buildEvent.writeDelimitedTo(bos);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Unexpected error serializing protobuf to in memory outputstream.", e);
+    }
+    return bos.toByteArray();
   }
 }
