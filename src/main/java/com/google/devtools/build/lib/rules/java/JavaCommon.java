@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -431,25 +430,21 @@ public class JavaCommon {
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
     return ImmutableList.<String>builder()
-        .addAll(computeToolchainJavacOpts(ruleContext, javaToolchain))
+        .addAll(javaToolchain.getJavacOptions())
         .addAll(extraRuleJavacOpts)
+        .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
         .build();
   }
 
-  /**
-   * Returns the toolchain javacopts for the current rule, including global defaults as well as any
-   * per-package configuration.
-   */
-  public static ImmutableList<String> computeToolchainJavacOpts(
+  /** Returns the per-package configured javacopts. */
+  public static ImmutableList<String> computePerPackageJavacOpts(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
-    return Streams.concat(
-            toolchain.getJavacOptions().stream(),
-            toolchain
-                .packageConfiguration()
-                .stream()
-                .filter(p -> p.matches(ruleContext.getLabel()))
-                .flatMap(p -> p.javacopts().stream()))
+    return toolchain
+        .packageConfiguration()
+        .stream()
+        .filter(p -> p.matches(ruleContext.getLabel()))
+        .flatMap(p -> p.javacopts().stream())
         .collect(toImmutableList());
   }
 

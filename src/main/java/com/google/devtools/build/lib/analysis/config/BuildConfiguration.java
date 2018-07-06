@@ -763,18 +763,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean isHost;
 
     @Option(
-      name = "features",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "The given features will be enabled or disabled by default for all packages. "
-              + "Specifying -<feature> will disable the feature globally. "
-              + "Negative features always override positive ones. "
-              + "This flag is used to enable rolling out default feature changes without a "
-              + "Blaze release."
-    )
+        name = "features",
+        allowMultiple = true,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "The given features will be enabled or disabled by default for all packages. "
+                + "Specifying -<feature> will disable the feature globally. "
+                + "Negative features always override positive ones. "
+                + "This flag is used to enable rolling out default feature changes without a "
+                + "Bazel release.")
     public List<String> defaultFeatures;
 
     @Option(

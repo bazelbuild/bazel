@@ -1045,7 +1045,7 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist)[DEPRECATED] -->
            The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
 
-           <p>Blaze will perform variable substitution on the plist file for the following values
+           <p>Bazel will perform variable substitution on the plist file for the following values
            (if they are strings in the top-level <code>dict</code> of the plist):</p>
 
            <ul>
@@ -1058,7 +1058,7 @@ public class ObjcRuleClasses {
           </ul>
 
           <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
-          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Blaze will
+          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Bazel will
           replicate Xcode's behavior and replace non-RFC1034-compliant characters with
           <code>-</code>.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -1069,7 +1069,7 @@ public class ObjcRuleClasses {
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
 
-           <p>Blaze will perform variable substitution on the plist file for the following values
+           <p>Bazel will perform variable substitution on the plist file for the following values
            (if they are strings in the top-level <code>dict</code> of the plist):</p>
 
            <ul>
@@ -1082,7 +1082,7 @@ public class ObjcRuleClasses {
           </ul>
 
           <p>The key in <code>${}</code> may be suffixed with <code>:rfc1034identifier</code> (for
-          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Blaze will
+          example <code>${PRODUCT_NAME::rfc1034identifier}</code>) in which case Bazel will
           replicate Xcode's behavior and replace non-RFC1034-compliant characters with
           <code>-</code>.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/

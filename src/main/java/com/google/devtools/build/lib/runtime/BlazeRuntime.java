@@ -228,8 +228,8 @@ public final class BlazeRuntime {
     for (BlazeModule module : blazeModules) {
       CoverageReportActionFactory factory = module.getCoverageReportFactory(commandOptions);
       if (factory != null) {
-        Preconditions.checkState(firstFactory == null,
-            "only one Blaze Module can have a Coverage Report Factory");
+        Preconditions.checkState(
+            firstFactory == null, "only one Bazel Module can have a Coverage Report Factory");
         firstFactory = factory;
       }
     }
@@ -393,12 +393,12 @@ public final class BlazeRuntime {
           options = optionsFromModule;
         } else {
           throw new IllegalArgumentException(
-              "Two or more blaze modules contained default build options.");
+              "Two or more bazel modules contained default build options.");
         }
       }
     }
     if (options == null) {
-      throw new IllegalArgumentException("No default build options specified in any Blaze module");
+      throw new IllegalArgumentException("No default build options specified in any Bazel module");
     }
     return options;
   }
@@ -636,10 +636,7 @@ public final class BlazeRuntime {
       System.exit(batchMain(modules, args));
     }
     logger.info(
-        "Starting Blaze server with "
-            + maybeGetPidString()
-            + "args "
-            + Arrays.toString(args));
+        "Starting Bazel server with " + maybeGetPidString() + "args " + Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
@@ -782,7 +779,7 @@ public final class BlazeRuntime {
       @Override
       public void run() {
         logger.info("User interrupt");
-        OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
+        OutErr.SYSTEM_OUT_ERR.printErrLn("Bazel received an interrupt");
         mainThread.interrupt();
 
         int curNumInterrupts = numInterrupts.incrementAndGet();
@@ -806,7 +803,7 @@ public final class BlazeRuntime {
     InterruptSignalHandler signalHandler = captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
     logger.info(
-        "Running Blaze in batch mode with "
+        "Running Bazel in batch mode with "
             + maybeGetPidString()
             + "startup args "
             + commandLineOptions.getStartupArgs());

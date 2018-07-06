@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeSuiteRule;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
@@ -78,7 +77,6 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(JavaToolchainRule.create(BazelJavaToolchain.class));
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());
-    builder.addRuleDefinition(new JavaRuntimeSuiteRule());
     builder.addRuleDefinition(new JavaRuntimeAliasRule());
     builder.addRuleDefinition(new JavaHostRuntimeAliasRule());
     builder.addRuleDefinition(new JavaToolchainAliasRule());

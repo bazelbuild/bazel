@@ -2008,27 +2008,6 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat((Boolean) result).isTrue();
   }
 
-  @Test
-  public void testStringKeyedLabelDictAttributeInSkylarkRuleContext() throws Exception {
-    scratch.file("jvm/BUILD",
-        "java_runtime(name='runtime', srcs=[], java_home='')",
-        "java_runtime_suite(",
-        "  name = 'suite',",
-        "  runtimes = {'x86': ':runtime'},",
-        "  default = ':runtime',",
-        ")");
-
-    invalidatePackages();
-    SkylarkRuleContext ruleContext = createRuleContext("//jvm:suite");
-    assertNoEvents();
-    String keyString =
-        (String) evalRuleContextCode(ruleContext, "ruleContext.attr.runtimes.keys()[0]");
-    assertThat(keyString).isEqualTo("x86");
-    Label valueLabel =
-        (Label) evalRuleContextCode(ruleContext, "ruleContext.attr.runtimes.values()[0]");
-    assertThat(valueLabel).isEqualTo(Label.parseAbsolute("//jvm:runtime", ImmutableMap.of()));
-  }
-
   // A list of attributes and methods ctx objects have
   private final List<String> ctxAttributes = ImmutableList.of(
       "attr",
