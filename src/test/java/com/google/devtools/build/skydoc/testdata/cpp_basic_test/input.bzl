@@ -6,7 +6,6 @@ exercise_the_api()
 def my_rule_impl(ctx):
     return struct()
 
-
 cpp_related_rule = rule(
     implementation = my_rule_impl,
     doc = "This rule does cpp-related things.",

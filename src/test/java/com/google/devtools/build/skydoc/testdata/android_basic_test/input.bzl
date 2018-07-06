@@ -11,7 +11,6 @@ exercise_the_api()
 def my_rule_impl(ctx):
     return struct()
 
-
 android_related_rule = rule(
     implementation = my_rule_impl,
     doc = "This rule does android-related things.",
