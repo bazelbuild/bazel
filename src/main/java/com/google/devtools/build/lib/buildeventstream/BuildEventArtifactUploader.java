@@ -31,6 +31,11 @@ public interface BuildEventArtifactUploader {
         public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
           return completedPathConverter;
         }
+
+        @Override
+        public void shutdown() {
+          // Intentionally left empty.
+        }
       };
 
   /**
@@ -43,4 +48,9 @@ public interface BuildEventArtifactUploader {
    * as it should appear in the BEP.
    */
   ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files);
+
+  /**
+   * Shutdown any resources associated with the uploader.
+   */
+  void shutdown();
 }
