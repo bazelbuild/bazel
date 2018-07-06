@@ -100,8 +100,8 @@ toolchain(
 
 cc_toolchain(
     name = "cc-compiler-x64_windows",
-    all_files = ":every-file-x64_windows",
-    compiler_files = ":compile-x64_windows",
+    all_files = ":empty",
+    compiler_files = ":empty",
     cpu = "x64_windows",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
@@ -150,21 +150,6 @@ toolchain(
     ],
     toolchain = ":cc-compiler-armeabi-v7a",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-)
-
-filegroup(
-    name = "every-file-x64_windows",
-    srcs = [
-        ":compile-x64_windows",
-    ],
-)
-
-filegroup(
-    name = "compile-x64_windows",
-    srcs = glob([
-        "wrapper/bin/msvc_*",
-        "wrapper/bin/pydir/msvc*",
-    ]),
 )
 
 filegroup(

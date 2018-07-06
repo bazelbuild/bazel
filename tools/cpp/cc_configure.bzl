@@ -83,7 +83,6 @@ cc_autoconf = repository_rule(
         "NO_WHOLE_ARCHIVE_OPTION",
         "SYSTEMROOT",
         "USE_DYNAMIC_CRT",
-        "USE_MSVC_WRAPPER",
         "VS90COMNTOOLS",
         "VS100COMNTOOLS",
         "VS110COMNTOOLS",
