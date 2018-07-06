@@ -51,16 +51,6 @@ default_toolchain {
   toolchain_identifier: "%{toolchain_name}"
 }
 
-default_toolchain {
-  cpu: "local"
-  toolchain_identifier: "ios_x86_64"
-}
-
-default_toolchain {
-  cpu: "ios_x86_64"
-  toolchain_identifier: "ios_x86_64"
-}
-
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
 toolchain {
   abi_version: "armeabi-v7a"
@@ -79,37 +69,6 @@ toolchain {
   target_cpu: "armeabi-v7a"
   target_system_name: "armeabi-v7a"
   toolchain_identifier: "stub_armeabi-v7a"
-
-  tool_path { name: "ar" path: "/bin/false" }
-  tool_path { name: "compat-ld" path: "/bin/false" }
-  tool_path { name: "cpp" path: "/bin/false" }
-  tool_path { name: "dwp" path: "/bin/false" }
-  tool_path { name: "gcc" path: "/bin/false" }
-  tool_path { name: "gcov" path: "/bin/false" }
-  tool_path { name: "ld" path: "/bin/false" }
-
-  tool_path { name: "nm" path: "/bin/false" }
-  tool_path { name: "objcopy" path: "/bin/false" }
-  tool_path { name: "objdump" path: "/bin/false" }
-  tool_path { name: "strip" path: "/bin/false" }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
-  toolchain_identifier: "ios_x86_64"
-  host_system_name: "x86_64-apple-macosx"
-  target_system_name: "x86_64-apple-ios"
-  target_cpu: "ios_x86_64"
-  target_libc: "ios"
-  compiler: "compiler"
-  abi_version: "local"
-  abi_libc_version: "local"
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
 
   tool_path { name: "ar" path: "/bin/false" }
   tool_path { name: "compat-ld" path: "/bin/false" }

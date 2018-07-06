@@ -53,11 +53,6 @@ default_toolchain {
   toolchain_identifier: "local_linux"
 }
 
-default_toolchain {
-  cpu: "ios_x86_64"
-  toolchain_identifier: "ios_x86_64"
-}
-
 toolchain {
   abi_version: "armeabi-v7a"
   abi_libc_version: "armeabi-v7a"
@@ -903,38 +898,4 @@ toolchain {
     compiler_flag: "/O2"
     compiler_flag: "-Xcompilation-mode=opt"
   }
-}
-
-# Stub crosstool to allow construction of apple crosstool configuration in a
-# static configuration set.
-# TODO(b/33804121): Remove this once dynamic configurations are in place.
-toolchain {
-  toolchain_identifier: "ios_x86_64"
-  host_system_name: "x86_64-apple-macosx"
-  target_system_name: "x86_64-apple-ios"
-  target_cpu: "ios_x86_64"
-  target_libc: "ios"
-  compiler: "compiler"
-  abi_version: "local"
-  abi_libc_version: "local"
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-
-  tool_path { name: "ar" path: "/bin/false" }
-  tool_path { name: "compat-ld" path: "/bin/false" }
-  tool_path { name: "cpp" path: "/bin/false" }
-  tool_path { name: "dwp" path: "/bin/false" }
-  tool_path { name: "gcc" path: "/bin/false" }
-  tool_path { name: "gcov" path: "/bin/false" }
-  tool_path { name: "ld" path: "/bin/false" }
-
-  tool_path { name: "nm" path: "/bin/false" }
-  tool_path { name: "objcopy" path: "/bin/false" }
-  tool_path { name: "objdump" path: "/bin/false" }
-  tool_path { name: "strip" path: "/bin/false" }
-  linking_mode_flags { mode: DYNAMIC }
 }
