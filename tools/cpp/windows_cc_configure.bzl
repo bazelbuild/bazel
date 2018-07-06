@@ -80,27 +80,6 @@ def _get_system_root(repository_ctx):
     auto_configure_warning("SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
     return "C:\\Windows"
 
-def _find_cuda(repository_ctx):
-    """Find out if and where cuda is installed. Doesn't %-escape the result."""
-    if "CUDA_PATH" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["CUDA_PATH"]
-    nvcc = which(repository_ctx, "nvcc.exe")
-    if nvcc:
-        return nvcc[:-len("/bin/nvcc.exe")]
-    return None
-
-def _find_python(repository_ctx):
-    """Find where is python on Windows. Doesn't %-escape the result."""
-    if "BAZEL_PYTHON" in repository_ctx.os.environ:
-        python_binary = repository_ctx.os.environ["BAZEL_PYTHON"]
-        if not python_binary.endswith(".exe"):
-            python_binary = python_binary + ".exe"
-        return python_binary
-    auto_configure_warning("'BAZEL_PYTHON' is not set, start looking for python in PATH.")
-    python_binary = which_cmd(repository_ctx, "python.exe")
-    auto_configure_warning("Python found at %s" % python_binary)
-    return python_binary
-
 def _add_system_root(repository_ctx, env):
     """Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\\\system32 in PATH."""
     if "PATH" not in env:
@@ -269,61 +248,11 @@ def _find_missing_vc_tools(repository_ctx, vc_path):
 
     return missing_tools
 
-def _is_support_whole_archive(repository_ctx, vc_path):
-    """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
-    env = repository_ctx.os.environ
-    if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
-        return False
-    linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
-    result = execute(repository_ctx, [linker], expect_failure = True)
-    return result.find("/WHOLEARCHIVE") != -1
-
 def _is_support_debug_fastlink(repository_ctx, vc_path):
     """Run MSVC linker alone to see if it supports /DEBUG:FASTLINK."""
     linker = find_msvc_tool(repository_ctx, vc_path, "link.exe")
     result = execute(repository_ctx, [linker], expect_failure = True)
     return result.find("/DEBUG[:{FASTLINK|FULL|NONE}]") != -1
-
-def _is_use_msvc_wrapper(repository_ctx):
-    """Returns True if USE_MSVC_WRAPPER is set to 1."""
-    env = repository_ctx.os.environ
-    return "USE_MSVC_WRAPPER" in env and env["USE_MSVC_WRAPPER"] == "1"
-
-def _get_compilation_mode_content():
-    """Return the content for adding flags for different compilation modes when using MSVC wrapper."""
-    return "\n".join([
-        "    compilation_mode_flags {",
-        "      mode: DBG",
-        "      compiler_flag: '-Xcompilation-mode=dbg'",
-        "      linker_flag: '-Xcompilation-mode=dbg'",
-        "    }",
-        "    compilation_mode_flags {",
-        "      mode: FASTBUILD",
-        "      compiler_flag: '-Xcompilation-mode=fastbuild'",
-        "      linker_flag: '-Xcompilation-mode=fastbuild'",
-        "    }",
-        "    compilation_mode_flags {",
-        "      mode: OPT",
-        "      compiler_flag: '-Xcompilation-mode=opt'",
-        "      linker_flag: '-Xcompilation-mode=opt'",
-        "    }",
-    ])
-
-def _escaped_cuda_compute_capabilities(repository_ctx):
-    """Returns a %-escaped list of strings representing cuda compute capabilities."""
-
-    if "CUDA_COMPUTE_CAPABILITIES" not in repository_ctx.os.environ:
-        return ["3.5", "5.2"]
-    capabilities_str = escape_string(repository_ctx.os.environ["CUDA_COMPUTE_CAPABILITIES"])
-    capabilities = capabilities_str.split(",")
-    for capability in capabilities:
-        # Workaround for Skylark's lack of support for regex. This check should
-        # be equivalent to checking:
-        #     if re.match("[0-9]+.[0-9]+", capability) == None:
-        parts = capability.split(".")
-        if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
-            auto_configure_fail("Invalid compute capability: %s" % capability)
-    return capabilities
 
 def configure_windows_toolchain(repository_ctx):
     """Configure C++ toolchain on Windows."""
@@ -332,8 +261,6 @@ def configure_windows_toolchain(repository_ctx):
         "@bazel_tools//tools/cpp:CROSSTOOL",
         "@bazel_tools//tools/cpp:CROSSTOOL.tpl",
         "@bazel_tools//tools/cpp:vc_installation_error.bat.tpl",
-        "@bazel_tools//tools/cpp:wrapper/bin/call_python.bat.tpl",
-        "@bazel_tools//tools/cpp:wrapper/bin/pydir/msvc_tools.py.tpl",
     ])
 
     repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.windows"], "BUILD")
@@ -404,56 +331,6 @@ def configure_windows_toolchain(repository_ctx):
     msvc_link_path = find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
     msvc_lib_path = find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
     escaped_cxx_include_directories = []
-    compilation_mode_content = ""
-
-    if _is_use_msvc_wrapper(repository_ctx):
-        if _is_support_whole_archive(repository_ctx, vc_path):
-            support_whole_archive = "True"
-        else:
-            support_whole_archive = "False"
-        nvcc_tmp_dir_name = escaped_tmp_dir + "\\\\nvcc_inter_files_tmp_dir"
-
-        # Make sure nvcc.exe is in PATH
-        cuda_path = _find_cuda(repository_ctx)
-        if cuda_path:
-            escaped_paths = escape_string(cuda_path.replace("\\", "\\\\") + "/bin;") + escaped_paths
-        escaped_compute_capabilities = _escaped_cuda_compute_capabilities(repository_ctx)
-        repository_ctx.template(
-            "wrapper/bin/pydir/msvc_tools.py",
-            paths["@bazel_tools//tools/cpp:wrapper/bin/pydir/msvc_tools.py.tpl"],
-            {
-                "%{lib_tool}": escape_string(msvc_lib_path),
-                "%{support_whole_archive}": support_whole_archive,
-                "%{cuda_compute_capabilities}": ", ".join(
-                    ["\"%s\"" % c for c in escaped_compute_capabilities],
-                ),
-                "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
-            },
-        )
-
-        # nvcc will generate some source files under %{nvcc_tmp_dir_name}
-        # The generated files are guranteed to have unique name, so they can share the same tmp directory
-        escaped_cxx_include_directories += ["cxx_builtin_include_directory: \"%s\"" % nvcc_tmp_dir_name]
-        msvc_wrapper = repository_ctx.path(
-            paths["@bazel_tools//tools/cpp:CROSSTOOL"],
-        ).dirname.get_child(
-            "wrapper",
-        ).get_child("bin")
-        for f in ["msvc_cl.bat", "msvc_link.bat", "msvc_nop.bat"]:
-            repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/" + f)
-        msvc_wrapper = msvc_wrapper.get_child("pydir")
-        for f in ["msvc_cl.py", "msvc_link.py"]:
-            repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
-        python_binary = _find_python(repository_ctx)
-        repository_ctx.template(
-            "wrapper/bin/call_python.bat",
-            paths["@bazel_tools//tools/cpp:wrapper/bin/call_python.bat.tpl"],
-            {"%{python_binary}": escape_string(python_binary)},
-        )
-        msvc_cl_path = "wrapper/bin/msvc_cl.bat"
-        msvc_link_path = "wrapper/bin/msvc_link.bat"
-        msvc_lib_path = "wrapper/bin/msvc_link.bat"
-        compilation_mode_content = _get_compilation_mode_content()
 
     for path in escaped_include_paths.split(";"):
         if path:
@@ -478,7 +355,6 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_lib_path}": msvc_lib_path,
             "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
             "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{compilation_mode_content}": compilation_mode_content,
             "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
             "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
             "%{opt_content}": "",
