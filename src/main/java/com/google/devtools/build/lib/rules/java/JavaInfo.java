@@ -128,6 +128,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
     List<JavaExportsProvider> javaExportsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+    List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
 
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
@@ -145,9 +147,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
             JavaStrictCompilationArgsProvider.merge(javaStrictCompilationArgsProviders))
         .addProvider(
             JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-        // When a rule merges multiple JavaProviders, its purpose is to pass on information, so
-        // it doesn't have any output jars.
-        .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
+        .addProvider(JavaRuleOutputJarsProvider.class,
+            JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
