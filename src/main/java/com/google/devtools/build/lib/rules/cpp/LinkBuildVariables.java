@@ -161,8 +161,6 @@ public enum LinkBuildVariables {
 
     if (librariesToLink != null) {
       buildVariables.addCustomBuiltVariable(LIBRARIES_TO_LINK.getVariableName(), librariesToLink);
-      // TODO(b/72803478): Remove once existing crosstools have been migrated
-      buildVariables.addStringVariable("libs_to_link_dont_emit_objects_for_archiver", "");
     }
 
     buildVariables.addStringSequenceVariable(
