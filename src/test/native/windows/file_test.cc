@@ -182,8 +182,9 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyFile) {
   HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
                          FILE_ATTRIBUTE_NORMAL, NULL);
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
-  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_ACCESS_DENIED);
+  int actual = DeletePath(path.c_str(), nullptr);
   CloseHandle(h);
+  ASSERT_EQ(actual, DELETE_PATH_ACCESS_DENIED);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyDirectory) {
@@ -193,8 +194,9 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyDirectory) {
   HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
                          FILE_FLAG_BACKUP_SEMANTICS, NULL);
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
-  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_ACCESS_DENIED);
+  int actual = DeletePath(path.c_str(), nullptr);
   CloseHandle(h);
+  ASSERT_EQ(actual, DELETE_PATH_ACCESS_DENIED);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyJunction) {
@@ -207,8 +209,10 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyJunction) {
   HANDLE h = CreateFileW(
       name.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
       FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
-  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_ACCESS_DENIED);
+  EXPECT_NE(h, INVALID_HANDLE_VALUE);
+  int actual = DeletePath(name.c_str(), nullptr);
   CloseHandle(h);
+  ASSERT_EQ(actual, DELETE_PATH_ACCESS_DENIED);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
@@ -220,8 +224,10 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
   // Open the junction's target (follow symlinks).
   HANDLE h = CreateFileW(target.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
                          FILE_FLAG_BACKUP_SEMANTICS, NULL);
-  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
+  EXPECT_NE(h, INVALID_HANDLE_VALUE);
+  int actual = DeletePath(name.c_str(), nullptr);
   CloseHandle(h);
+  ASSERT_EQ(actual, DELETE_PATH_SUCCESS);
 }
 
 #undef TOSTRING
