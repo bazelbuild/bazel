@@ -404,7 +404,8 @@ public class BuildView {
               allTargetsToTest,
               baselineCoverageArtifacts,
               getArtifactFactory(),
-              CoverageReportValue.COVERAGE_REPORT_KEY);
+              CoverageReportValue.COVERAGE_REPORT_KEY,
+              loadingResult.getWorkspaceName());
       if (actionsWrapper != null) {
         ImmutableList<ActionAnalysisMetadata> actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);

@@ -41,7 +41,7 @@ public class MainTest {
 
   @Test
   public void testMainEmptyCoverageDir() {
-    assertThat(Main.getLcovTracefiles(coverageDir.toAbsolutePath().toString())).isEmpty();
+    assertThat(Main.getLcovTracefilesFromDir(coverageDir.toAbsolutePath().toString())).isEmpty();
   }
 
   @Test
@@ -52,7 +52,7 @@ public class MainTest {
     Files.createTempFile(ccCoverageDir, "tracefile1", ".dat");
     Files.createTempFile(javaCoverageDir, "tracefile2", ".dat");
 
-    List<File> tracefiles = Main.getLcovTracefiles(coverageDir.toAbsolutePath().toString());
+    List<File> tracefiles = Main.getLcovTracefilesFromDir(coverageDir.toAbsolutePath().toString());
     assertThat(tracefiles).hasSize(2);
   }
 }

@@ -197,8 +197,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                     BaseRuleClasses.coverageReportGeneratorAttribute(
                         labelCache.getUnchecked(
                             toolsRepository
-                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
-                .singleArtifact())
+                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
         .add(attr(":run_under", LABEL).value(RUN_UNDER))
         .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
         .build();

@@ -190,8 +190,7 @@ public class BaseRuleClasses {
                   .cfg(HostTransition.INSTANCE)
                   .value(
                       coverageReportGeneratorAttribute(
-                          env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
-                  .singleArtifact())
+                          env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
           .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
           .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)

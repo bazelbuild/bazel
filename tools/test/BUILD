@@ -24,7 +24,7 @@ filegroup(
 
 filegroup(
     name = "coverage_report_generator",
-    srcs = ["//tools/coverage:coverage_report_generator"],
+    srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
 )
 
 filegroup(
