@@ -914,7 +914,55 @@ toolchain {
       action: 'c++-compile'
       flag_group {
         flag: "/O2" # Implies /Og /Oi /Ot /Oy /Ob2 /Gs /GF /Gy
+      }
+    }
+    implies: 'frame_pointer'
+  }
+
+  # Keep stack frames for debugging, even in opt mode.
+  # Must come after /O1, /O2 and /Ox.
+  feature {
+    name: "frame_pointer"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "/Oy-"
+      }
+    }
+  }
+
+  # Remove assert/DCHECKs in opt mode.
+  # You can have them back with --features=-disable_assertions.
+  feature {
+    name: 'disable_assertions'
+    enabled: true
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      with_feature: {
+        feature: 'opt'
+      }
+      flag_group {
         flag: "/DNDEBUG"
+      }
+    }
+  }
+
+  feature {
+    name: "determinism"
+    enabled: true
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        # Make C++ compilation deterministic. Use linkstamping instead of these
+        # compiler symbols.
+        # TODO: detect clang on Windows and use "-Wno-builtin-macro-redefined"
+        flag: "/wd4177" # Trying to define or undefine a predefined macro
+        flag: "-D__DATE__=\"redacted\""
+        flag: "-D__TIMESTAMP__=\"redacted\""
+        flag: "-D__TIME__=\"redacted\""
       }
     }
   }
@@ -930,11 +978,28 @@ toolchain {
     }
   }
 
-  # Enable C++ exception by default.
+  ##
+  # C++ exceptions
+  #
+  # 'default_exceptions' is in effect automatically when user does not choose
+  # between 'use_exceptions' and 'no_exceptions'. It will enable C++ exceptions,
+  # which is the default behaviour for most C++ compilers. Do not enable/disable
+  # this feature directly.
+  #
+  # If you enable 'use_exceptions' or 'no_exceptions' globally and need to switch
+  # to the opposite feature for one target, you need to first disable the
+  # original feature due to limitation of CROSSTOOL.
+  #
+  # E.g. cc_library(... features = ["-no_exceptions", "use_exceptions"])
+  #
+  # These two features are marked with "provides: 'cpp_exceptions'" to make sure
+  # that user can never enable both of them at once for any target.
+
   feature {
     name: 'default_exceptions'
     enabled: true
     flag_set {
+      action: 'c-compile'
       action: 'c++-compile'
       with_feature: {
         not_feature: 'no_exceptions'
@@ -949,7 +1014,9 @@ toolchain {
 
   feature {
     name: 'use_exceptions'
+    provides: 'cpp_exceptions'
     flag_set {
+      action: 'c-compile'
       action: 'c++-compile'
       with_feature: {
         not_feature: 'no_exceptions'
@@ -963,7 +1030,9 @@ toolchain {
 
   feature {
     name: 'no_exceptions'
+    provides: 'cpp_exceptions'
     flag_set {
+      action: 'c-compile'
       action: 'c++-compile'
       with_feature: {
         not_feature: 'use_exceptions'
@@ -972,35 +1041,6 @@ toolchain {
         flag: "/D_HAS_EXCEPTIONS=0"
         flag: "/EHs-c-"
         flag: "/wd4577" # Suppress 'noexcept used with no exception handling mode specified'
-      }
-    }
-  }
-
-  # 'default_rtti' omitted as RTTI is always enabled by default in MSVC
-
-  feature {
-    name: 'use_rtti'
-    flag_set {
-      action: 'c++-compile'
-      with_feature: {
-        not_feature: 'no_rtti'
-      }
-      flag_group {
-        flag: "/GR"
-      }
-    }
-  }
-
-  feature {
-    name: 'no_rtti'
-    flag_set {
-      action: 'c++-compile'
-      with_feature: {
-        not_feature: 'use_rtti'
-        not_feature: 'use_exceptions' # RTTI is needed for exceptions to work
-      }
-      flag_group {
-        flag: "/GR-"
       }
     }
   }
