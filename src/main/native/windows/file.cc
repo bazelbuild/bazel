@@ -188,5 +188,108 @@ wstring CreateJunction(const wstring& junction_name,
   return L"";
 }
 
+int DeletePath(const wstring& path, wstring* error) {
+  const wchar_t* wpath = path.c_str();
+  if (!DeleteFileW(wpath)) {
+    DWORD err = GetLastError();
+    if (err == ERROR_SHARING_VIOLATION) {
+      // The file or directory is in use by some process.
+      return DELETE_PATH_ACCESS_DENIED;
+    } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+      // The file or directory does not exist, or a parent directory does not
+      // exist, or a parent directory is actually a file.
+      return DELETE_PATH_DOES_NOT_EXIST;
+    } else if (err != ERROR_ACCESS_DENIED) {
+      // Some unknown error occurred.
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeleteFileW",
+                                  path, err);
+      }
+      return DELETE_PATH_ERROR;
+    }
+
+    // DeleteFileW failed with access denied, because the file is read-only or
+    // it is a directory.
+    DWORD attr = GetFileAttributesW(wpath);
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+      err = GetLastError();
+      if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+        // The file disappeared, or one of its parent directories disappeared,
+        // or one of its parent directories is no longer a directory.
+        return DELETE_PATH_DOES_NOT_EXIST;
+      }
+
+      // Some unknown error occurred.
+      if (error) {
+        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                  L"GetFileAttributesW", path, err);
+      }
+      return DELETE_PATH_ERROR;
+    }
+
+    if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+      // It's a directory or a junction.
+      if (!RemoveDirectoryW(wpath)) {
+        // Failed to delete the directory.
+        err = GetLastError();
+        if (err == ERROR_SHARING_VIOLATION) {
+          // The junction or directory is in use by another process.
+          return DELETE_PATH_ACCESS_DENIED;
+        } else if (err == ERROR_DIR_NOT_EMPTY) {
+          // The directory is not empty.
+          return DELETE_PATH_DIRECTORY_NOT_EMPTY;
+        } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+          // The directory or one of its directories disappeared or is no longer a
+          // directory.
+          return DELETE_PATH_DOES_NOT_EXIST;
+        }
+
+        // Some unknown error occurred.
+        if (error) {
+          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                    L"DeleteDirectoryW", path, err);
+        }
+        return DELETE_PATH_ERROR;
+      }
+    } else {
+      // It's a file and it's probably read-only.
+      // Make it writable then try deleting it again.
+      attr &= ~FILE_ATTRIBUTE_READONLY;
+      if (!SetFileAttributesW(wpath, attr)) {
+        err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+          // The file disappeared, or one of its parent directories disappeared,
+          // or one of its parent directories is no longer a directory.
+          return DELETE_PATH_DOES_NOT_EXIST;
+        }
+        // Some unknown error occurred.
+        if (error) {
+          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                    L"SetFileAttributesW", path, err);
+        }
+        return DELETE_PATH_ERROR;
+      }
+
+      if (!DeleteFileW(wpath)) {
+        // Failed to delete the file again.
+        err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+          // The file disappeared, or one of its parent directories disappeared, or
+          // one of its parent directories is no longer a directory.
+          return DELETE_PATH_DOES_NOT_EXIST;
+        }
+
+        // Some unknown error occurred.
+        if (error) {
+          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeleteFileW",
+                                    path, err);
+        }
+        return DELETE_PATH_ERROR;
+      }
+    }
+  }
+  return DELETE_PATH_SUCCESS;
+}
+
 }  // namespace windows
 }  // namespace bazel
