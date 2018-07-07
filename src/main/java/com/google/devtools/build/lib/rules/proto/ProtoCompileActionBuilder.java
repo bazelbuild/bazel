@@ -295,6 +295,7 @@ public class ProtoCompileActionBuilder {
     // Add include maps
     addIncludeMapArguments(
         result,
+        ruleContext,
         areDepsStrict ? supportData.getProtosInDirectDeps() : null,
         supportData.getTransitiveImports());
 
@@ -461,7 +462,10 @@ public class ProtoCompileActionBuilder {
                 areDepsStrict(ruleContext) ? protosInDirectDeps : null,
                 ruleLabel,
                 allowServices,
-                ruleContext.getFragment(ProtoConfiguration.class).protocOpts()),
+                ruleContext.getFragment(ProtoConfiguration.class).protocOpts(),
+                // FIXME(jmillikin): why not pass `ruleContext` already? are there requirements about
+                // valid parameter types here?
+                ruleContext),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
         .setMnemonic(MNEMONIC);
@@ -498,7 +502,8 @@ public class ProtoCompileActionBuilder {
       @Nullable NestedSet<Artifact> protosInDirectDeps,
       Label ruleLabel,
       boolean allowServices,
-      ImmutableList<String> protocOpts) {
+      ImmutableList<String> protocOpts,
+      RuleContext ruleContext) {
     CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
 
     cmdLine.addAll(
@@ -537,7 +542,7 @@ public class ProtoCompileActionBuilder {
     cmdLine.addAll(protocOpts);
 
     // Add include maps
-    addIncludeMapArguments(cmdLine, protosInDirectDeps, transitiveSources);
+    addIncludeMapArguments(cmdLine, ruleContext, protosInDirectDeps, transitiveSources);
 
     if (protosInDirectDeps != null) {
       cmdLine.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
@@ -557,9 +562,13 @@ public class ProtoCompileActionBuilder {
   @VisibleForTesting
   static void addIncludeMapArguments(
       CustomCommandLine.Builder commandLine,
+      RuleContext ruleContext,
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
       NestedSet<Artifact> transitiveImports) {
-    commandLine.addAll(VectorArg.of(transitiveImports).mapped(EXPAND_TRANSITIVE_IMPORT_ARG));
+    for (Artifact proto : transitiveImports) {
+      commandLine.addFormatted(
+          "-I%s=%s", getPathIgnoringRepository(ruleContext, proto), proto.getExecPathString());
+    }
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
@@ -596,11 +605,25 @@ public class ProtoCompileActionBuilder {
    * </code>
    */
   private static String getPathIgnoringRepository(Artifact artifact) {
+    // FIXME(jmillikin): How can I plumb `ruleContext` through the @AutoCodec closures
+    // that call this variant?
     return artifact
         .getRootRelativePath()
         .relativeTo(
             artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
         .toString();
+  }
+
+  private static String getPathIgnoringRepository(RuleContext ruleContext, Artifact artifact) {
+    System.out.println("===========================================");
+    System.out.println("getPathIgnoringRepository");
+    System.out.println("  artifact class: " + artifact.getClass().getName());
+    String path = artifact
+        .getRootRelativePath()
+        .relativeTo(
+            artifact.getOwnerLabel().getPackageIdentifier().getRepository().getPathUnderExecRoot())
+        .toString();
+    return ProtoCommon.adjustImportPath(ruleContext, path);
   }
 
   /**

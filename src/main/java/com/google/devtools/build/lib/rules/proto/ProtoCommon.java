@@ -251,4 +251,45 @@ public class ProtoCommon {
     }
     return (flagValue == BuildConfiguration.StrictDepsMode.STRICT);
   }
+
+  /**
+   * Returns the protobuf import prefix to use for .proto srcs in this rule.
+   * This is normally the package name, but can be adjusted with
+   * {@code import_prefix} or {@code strip_import_prefix} attrs.
+   */
+  public static String adjustImportPath(RuleContext ruleContext, String path) {
+    System.out.println("adjustImportPath(label=\"" + ruleContext.getLabel() + "\")");
+
+    String pkgPrefix = ruleContext.getLabel().getPackageName();
+    String addPrefix = ruleContext.attributes().get("import_prefix", Type.STRING);
+    String stripPrefix = ruleContext.attributes().get("strip_import_prefix", Type.STRING);
+    System.out.println("    addPrefix: \"" + addPrefix + "\"");
+    System.out.println("  stripPrefix: \"" + stripPrefix + "\"");
+    System.out.println("    pkgPrefix: \"" + pkgPrefix + "\"");
+    System.out.println("         path: \"" + path + "\"");
+
+    if (stripPrefix != null && !stripPrefix.isEmpty()) {
+      if (!stripPrefix.endsWith("/")) {
+        stripPrefix += "/";
+      }
+      if (!path.startsWith(stripPrefix)) {
+        ruleContext.ruleError(
+            String.format(
+              "proto is not under the specified strip prefix '%s'",
+              stripPrefix));
+      }
+      path = path.substring(stripPrefix.length());
+    }
+
+    if (addPrefix != null && !addPrefix.isEmpty()) {
+      if (!addPrefix.endsWith("/")) {
+        addPrefix += "/";
+      }
+      path = addPrefix + path;
+    }
+
+    System.out.println("  -> \"" + path + "\"");
+
+    return path;
+  }
 }

@@ -354,6 +354,92 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         .containsAllOf("--proto_path=x/foo", "--proto_path=x/bar");
   }
 
+  @Test
+  public void testAddImportPrefix() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/bar/BUILD",
+        "proto_library(",
+        "    name = 'foo_proto',",
+        "    srcs = ['foo.proto'],",
+        "    import_prefix = 'example.com/v1',",
+        ")",
+        "proto_library(",
+        "    name = 'bar_proto',",
+        "    srcs = ['bar.proto'],",
+        "    import_prefix = 'example.com/v1',",
+        "    deps = [':foo_proto'],",
+        ")"
+    );
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo/bar:foo_proto"))
+      .getRemainingArguments())
+      .contains("-Iexample.com/v1/x/foo/bar/foo.proto=x/foo/bar/foo.proto");
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo/bar:bar_proto"))
+      .getRemainingArguments())
+      .containsAllOf(
+          "-Iexample.com/v1/x/foo/bar/foo.proto=x/foo/bar/foo.proto",
+          "-Iexample.com/v1/x/foo/bar/bar.proto=x/foo/bar/bar.proto"
+      );
+  }
+
+  @Test
+  public void testStripImportPrefix() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/bar/BUILD",
+        "proto_library(",
+        "    name = 'foo_proto',",
+        "    srcs = ['foo.proto'],",
+        "    strip_import_prefix = 'x/foo',",
+        ")",
+        "proto_library(",
+        "    name = 'bar_proto',",
+        "    srcs = ['bar.proto'],",
+        "    strip_import_prefix = 'x/foo',",
+        "    deps = [':foo_proto'],",
+        ")"
+    );
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo/bar:foo_proto"))
+      .getRemainingArguments())
+      .contains("-Ibar/foo.proto=x/foo/bar/foo.proto");
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo/bar:bar_proto"))
+      .getRemainingArguments())
+      .containsAllOf(
+          "-Ibar/foo.proto=x/foo/bar/foo.proto",
+          "-Ibar/bar.proto=x/foo/bar/bar.proto"
+      );
+  }
+
+  @Test
+  public void testReplaceImportPrefix() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file(
+        "x/foo/bar/BUILD",
+        "proto_library(",
+        "    name = 'foo_proto',",
+        "    srcs = ['subdir/foo.proto'],",
+        "    import_prefix = 'example.com/foo/bar/v1',",
+        "    strip_import_prefix = 'x/foo/bar/subdir',",
+        ")",
+        "proto_library(",
+        "    name = 'bar_proto',",
+        "    srcs = ['subdir/bar.proto'],",
+        "    import_prefix = 'example.com/foo/bar/v1',",
+        "    strip_import_prefix = 'x/foo/bar/subdir',",
+        "    deps = [':foo_proto'],",
+        ")"
+    );
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo/bar:foo_proto"))
+      .getRemainingArguments())
+      .contains("-Iexample.com/foo/bar/v1/foo.proto=x/foo/bar/subdir/foo.proto");
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x/foo/bar:bar_proto"))
+      .getRemainingArguments())
+      .containsAllOf(
+          "-Iexample.com/foo/bar/v1/foo.proto=x/foo/bar/subdir/foo.proto",
+          "-Iexample.com/foo/bar/v1/bar.proto=x/foo/bar/subdir/bar.proto"
+      );
+  }
+
   private Artifact getDescriptorOutput(String label) throws Exception {
     return getFirstArtifactEndingWith(getFilesToBuild(getConfiguredTarget(label)), ".proto.bin");
   }

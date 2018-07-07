@@ -77,6 +77,12 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         the source root will be the workspace directory (default).
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("proto_source_root", STRING))
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(import_prefix) -->
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("import_prefix", STRING))
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(strip_import_prefix) -->
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("strip_import_prefix", STRING))
         .advertiseProvider(ProtoSourcesProvider.class, ProtoSupportDataProvider.class)
         .build();
   }
