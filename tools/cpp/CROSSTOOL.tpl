@@ -217,6 +217,9 @@ toolchain {
   compiler_flag: "/bigobj"
   # Allocate 500MB for precomputed headers.
   compiler_flag: "/Zm500"
+  # Catch C++ exceptions only and tell the compiler to assume that functions declared
+  # as extern "C" never throw a C++ exception.
+  compiler_flag: "/EHsc"
 
   # Globally disabled warnings.
   # Don't warn about elements of array being be default initialized.
@@ -974,73 +977,6 @@ toolchain {
       action: 'c++-compile'
       flag_group {
         flag: "/WX"
-      }
-    }
-  }
-
-  ##
-  # C++ exceptions
-  #
-  # 'default_exceptions' is in effect automatically when user does not choose
-  # between 'use_exceptions' and 'no_exceptions'. It will enable C++ exceptions,
-  # which is the default behaviour for most C++ compilers. Do not enable/disable
-  # this feature directly.
-  #
-  # If you enable 'use_exceptions' or 'no_exceptions' globally and need to switch
-  # to the opposite feature for one target, you need to first disable the
-  # original feature due to limitation of CROSSTOOL.
-  #
-  # E.g. cc_library(... features = ["-no_exceptions", "use_exceptions"])
-  #
-  # These two features are marked with "provides: 'cpp_exceptions'" to make sure
-  # that user can never enable both of them at once for any target.
-
-  feature {
-    name: 'default_exceptions'
-    enabled: true
-    flag_set {
-      action: 'c-compile'
-      action: 'c++-compile'
-      with_feature: {
-        not_feature: 'no_exceptions'
-        not_feature: 'use_exceptions'
-      }
-      flag_group {
-        flag: "/D_HAS_EXCEPTIONS=1"
-        flag: "/EHsc"
-      }
-    }
-  }
-
-  feature {
-    name: 'use_exceptions'
-    provides: 'cpp_exceptions'
-    flag_set {
-      action: 'c-compile'
-      action: 'c++-compile'
-      with_feature: {
-        not_feature: 'no_exceptions'
-      }
-      flag_group {
-        flag: "/D_HAS_EXCEPTIONS=1"
-        flag: "/EHsc"
-      }
-    }
-  }
-
-  feature {
-    name: 'no_exceptions'
-    provides: 'cpp_exceptions'
-    flag_set {
-      action: 'c-compile'
-      action: 'c++-compile'
-      with_feature: {
-        not_feature: 'use_exceptions'
-      }
-      flag_group {
-        flag: "/D_HAS_EXCEPTIONS=0"
-        flag: "/EHs-c-"
-        flag: "/wd4577" # Suppress 'noexcept used with no exception handling mode specified'
       }
     }
   }
