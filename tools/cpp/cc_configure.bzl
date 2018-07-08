@@ -60,6 +60,7 @@ cc_autoconf = repository_rule(
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
         "BAZEL_COMPILER",
+        "BAZEL_GCC", # Root to GCC installation. Expect <BAZEL_GCC>/bin/gcc to exist (currently for Windows only).
         "BAZEL_HOST_SYSTEM",
         "BAZEL_LINKOPTS",
         "BAZEL_PYTHON",
@@ -79,6 +80,7 @@ cc_autoconf = repository_rule(
         "GCOV",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
+        "TERM", # Use to detect if Bazel is running in MSYS.
         "VS90COMNTOOLS",
         "VS100COMNTOOLS",
         "VS110COMNTOOLS",

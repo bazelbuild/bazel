@@ -42,6 +42,11 @@ default_toolchain {
 }
 
 default_toolchain {
+  cpu: "x64_windows_mingw"
+  toolchain_identifier: "mingw_x64"
+}
+
+default_toolchain {
   cpu: "x64_windows_msys"
   toolchain_identifier: "msys_x64"
 }
@@ -117,22 +122,7 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "msys_x64_mingw"
-  abi_version: "local"
-  abi_libc_version: "local"
-  builtin_sysroot: ""
-  compiler: "mingw-gcc"
-  host_system_name: "local"
-  needsPic: false
-  target_libc: "mingw"
-  target_cpu: "x64_windows"
-  target_system_name: "local"
-
-  artifact_name_pattern {
-     category_name: 'executable'
-     prefix: ''
-     extension: '.exe'
-  }
+  toolchain_identifier: "msys_x64"
 
 %{msys_x64_mingw_content}
 

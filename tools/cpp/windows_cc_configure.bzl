@@ -27,11 +27,42 @@ load(
     "which_cmd",
 )
 
-def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = False):
-    """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
+_GCC_TEMPLATE = """
+  abi_version: "local"
+  abi_libc_version: "local"
+  builtin_sysroot: ""
+  compiler: "%{libc}-gcc"
+  host_system_name: "local"
+  needsPic: false
+  target_libc: "%{libc}"
+  target_cpu: "x64_windows"
+  target_system_name: "local"
+  tool_path { name: "ar" path: "%{gcc_root}/bin/ar" }
+  tool_path { name: "compat-ld" path: "%{gcc_root}/bin/ld" }
+  tool_path { name: "cpp" path: "%{gcc_root}/bin/cpp" }
+  tool_path { name: "dwp" path: "%{gcc_root}/bin/dwp" }
+  tool_path { name: "gcc" path: "%{gcc_root}/bin/gcc" }
+  artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}
+  artifact_name_pattern { category_name: "dynamic_library" prefix: "" extension: ".dll"}
+  cxx_flag: "-std=gnu++0x"
+  linker_flag: "-lstdc++"
+  cxx_builtin_include_directory: "%{gcc_root}/"
+  tool_path { name: "gcov" path: "%{gcc_root}/bin/gcov" }
+  tool_path { name: "ld" path: "%{gcc_root}/bin/ld" }
+  tool_path { name: "nm" path: "%{gcc_root}/bin/nm" }
+  tool_path { name: "objcopy" path: "%{gcc_root}/bin/objcopy" }
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+  tool_path { name: "objdump" path: "%{gcc_root}/bin/objdump" }
+  tool_path { name: "strip" path: "%{gcc_root}/bin/strip" }
+  feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }
+  feature { name: "copy_dynamic_libraries_to_binary" }
+"""
+
+def _find_gcc_root_in_msys(repository_ctx, libc):
     bazel_sh = get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
     tokens = bazel_sh.rsplit("/", 1)
-    prefix = "mingw64" if use_mingw else "usr"
+    prefix = "mingw64" if libc == "mingw" else "usr"
     msys_root = None
     if tokens[0].endswith("/usr/bin"):
         msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
@@ -41,37 +72,30 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = Fals
         auto_configure_fail(
             "Could not determine MSYS/Cygwin root from BAZEL_SH (%s)" % bazel_sh,
         )
-    escaped_msys_root = escape_string(msys_root)
-    return (((
-                '   abi_version: "local"\n' +
-                '   abi_libc_version: "local"\n' +
-                '   builtin_sysroot: ""\n' +
-                '   compiler: "msys-gcc"\n' +
-                '   host_system_name: "local"\n' +
-                "   needsPic: false\n" +
-                '   target_libc: "msys"\n' +
-                '   target_cpu: "x64_windows"\n' +
-                '   target_system_name: "local"\n'
-            ) if not use_mingw else "") +
-            '   tool_path { name: "ar" path: "%s%s/bin/ar" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "compat-ld" path: "%s%s/bin/ld" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "cpp" path: "%s%s/bin/cpp" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "dwp" path: "%s%s/bin/dwp" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "gcc" path: "%s%s/bin/gcc" }\n' % (escaped_msys_root, prefix) +
-            '   artifact_name_pattern { category_name: "executable" prefix: "" extension: ".exe"}\n' +
-            '   cxx_flag: "-std=gnu++0x"\n' +
-            '   linker_flag: "-lstdc++"\n' +
-            '   cxx_builtin_include_directory: "%s%s/"\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "gcov" path: "%s%s/bin/gcov" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "ld" path: "%s%s/bin/ld" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "nm" path: "%s%s/bin/nm" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "objcopy" path: "%s%s/bin/objcopy" }\n' % (escaped_msys_root, prefix) +
-            '   objcopy_embed_flag: "-I"\n' +
-            '   objcopy_embed_flag: "binary"\n' +
-            '   tool_path { name: "objdump" path: "%s%s/bin/objdump" }\n' % (escaped_msys_root, prefix) +
-            '   tool_path { name: "strip" path: "%s%s/bin/strip" }' % (escaped_msys_root, prefix) +
-            '   feature { name: "targets_windows" implies: "copy_dynamic_libraries_to_binary" enabled: true }' +
-            '   feature { name: "copy_dynamic_libraries_to_binary" }')
+    return escape_string(msys_root) + prefix
+
+def _find_gcc_root(repository_ctx, libc):
+    """Return root of GCC installation."""
+    if "BAZEL_GCC" in repository_ctx.os.environ:
+        return repository_ctx.os.environ["BAZEL_GCC"]
+
+    # If Bazel is running in MSYS environment, get mingw-gcc and msys-gcc from MSYS.
+    # If Bazel is running outside of MSYS environment, only get msys-gcc from MSYS.
+    if get_env_var(repository_ctx, "TERM", "", False) == "cygwin" or libc == "msys":
+        return _find_gcc_root_in_msys(repository_ctx, libc)
+
+    # If user runs in Windows command prompt, maybe GCC/Mingw64 is in PATH.
+    gcc_in_path = which(repository_ctx, "gcc")
+    if gcc_in_path:
+        return gcc_in_path[:gcc_in_path.find("gcc") - len("/bin") - 1]
+
+    # Can't detect GCC anywhere. Maybe this user does not use GCC at all.
+    return "/"
+
+def _get_escaped_windows_msys_crosstool_content(repository_ctx, libc):
+    """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
+    gcc_root = _find_gcc_root(repository_ctx, libc)
+    return _GCC_TEMPLATE.replace("%{gcc_root}", gcc_root).replace("%{libc}", libc)
 
 def _get_system_root(repository_ctx):
     """Get System root path on Windows, default is C:\\\Windows. Doesn't %-escape the result."""
@@ -296,7 +320,7 @@ def configure_windows_toolchain(repository_ctx):
             {
                 "%{cpu}": "x64_windows",
                 "%{default_toolchain_name}": "msvc_x64",
-                "%{toolchain_name}": "msys_x64",
+                "%{toolchain_name}": "mingw_x64",
                 "%{msvc_env_tmp}": "",
                 "%{msvc_env_path}": "",
                 "%{msvc_env_include}": "",
@@ -308,8 +332,8 @@ def configure_windows_toolchain(repository_ctx):
                 "%{dbg_mode_debug}": "/DEBUG",
                 "%{fastbuild_mode_debug}": "/DEBUG",
                 "%{compilation_mode_content}": "",
-                "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-                "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+                "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, "mingw"),
+                "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, "msys"),
                 "%{opt_content}": "",
                 "%{dbg_content}": "",
                 "%{link_content}": "",
@@ -344,7 +368,7 @@ def configure_windows_toolchain(repository_ctx):
         {
             "%{cpu}": "x64_windows",
             "%{default_toolchain_name}": "msvc_x64",
-            "%{toolchain_name}": "msys_x64",
+            "%{toolchain_name}": "mingw_x64",
             "%{msvc_env_tmp}": escaped_tmp_dir,
             "%{msvc_env_path}": escaped_paths,
             "%{msvc_env_include}": escaped_include_paths,
@@ -355,8 +379,8 @@ def configure_windows_toolchain(repository_ctx):
             "%{msvc_lib_path}": msvc_lib_path,
             "%{dbg_mode_debug}": "/DEBUG:FULL" if support_debug_fastlink else "/DEBUG",
             "%{fastbuild_mode_debug}": "/DEBUG:FASTLINK" if support_debug_fastlink else "/DEBUG",
-            "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
-            "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, use_mingw = True),
+            "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, "mingw"),
+            "%{msys_x64_mingw_content}": _get_escaped_windows_msys_crosstool_content(repository_ctx, "msys"),
             "%{opt_content}": "",
             "%{dbg_content}": "",
             "%{link_content}": "",
