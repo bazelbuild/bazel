@@ -76,7 +76,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public final void createBuildFile() throws Exception  {
+  public final void createBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
         "genrule(name = 'foo',",
@@ -302,7 +302,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
             + " but got an element of type string.",
         "c = provider()",
         "attr.label_list(allow_files = True,  providers = [['a', b], c])");
-
   }
 
   @Test
@@ -330,7 +329,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(aspect).isNotNull();
     assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
   }
-
 
   @Test
   public void testLabelListWithAspectsError() throws Exception {
@@ -674,6 +672,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(c.hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
     assertThat(c.hasAttr("a2", Type.INTEGER)).isTrue();
   }
+
   @Test
   public void testRuleAttributeFlag() throws Exception {
     evalAndExport(
@@ -877,6 +876,21 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testJsonBooleanFields() throws Exception {
     checkJson("struct(name=True).to_json()", "{\"name\":true}");
     checkJson("struct(name=False).to_json()", "{\"name\":false}");
+  }
+
+  @Test
+  public void testJsonDictFields() throws Exception {
+    checkJson("struct(config={}).to_json()", "{\"config\":{}}");
+    checkJson("struct(config={'key': 'value'}).to_json()", "{\"config\":{\"key\":\"value\"}}");
+    checkErrorContains(
+        "Keys must be a string but got a int for struct field 'config'",
+        "struct(config={1:2}).to_json()");
+    checkErrorContains(
+        "Keys must be a string but got a int for dict value 'foo'",
+        "struct(config={'foo':{1:2}}).to_json()");
+    checkErrorContains(
+        "Keys must be a string but got a bool for struct field 'config'",
+        "struct(config={True: False}).to_json()");
   }
 
   @Test
@@ -1464,8 +1478,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "aspect(impl, doc = 1)");
   }
 
-
-
   @Test
   public void fancyExports() throws Exception {
     evalAndExport(
@@ -1512,7 +1524,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     SkylarkProvider p = (SkylarkProvider) lookup("p");
     SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
 
-
     assertThat(p1.getProvider()).isEqualTo(p);
     assertThat(lookup("x")).isEqualTo(1);
     assertThat(lookup("y")).isEqualTo(2);
@@ -1529,7 +1540,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     SkylarkProvider p = (SkylarkProvider) lookup("p");
     SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
 
-
     assertThat(p1.getProvider()).isEqualTo(p);
     assertThat(lookup("x")).isEqualTo(1);
     assertThat(lookup("y")).isEqualTo(2);
@@ -1544,7 +1554,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     );
     SkylarkProvider p = (SkylarkProvider) lookup("p");
     SkylarkInfo p1 = (SkylarkInfo) lookup("p1");
-
 
     assertThat(p1.getProvider()).isEqualTo(p);
     assertThat(lookup("y")).isEqualTo(2);
@@ -1583,7 +1592,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     MoreAsserts.assertContainsEvent(ev.getEventCollector(),
         "unexpected keywords 'x', 'y', 'z' in call to p()");
   }
-
 
   @Test
   public void starTheOnlyAspectArg() throws Exception {
