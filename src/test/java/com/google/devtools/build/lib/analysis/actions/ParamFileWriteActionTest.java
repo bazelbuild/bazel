@@ -76,9 +76,9 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
 
   @Test
   public void testInputs() {
-    Action action = createParameterFileWriteAction(
-        ImmutableList.of(treeArtifact),
-        createTreeArtifactExpansionCommandLine());
+    Action action =
+        createParameterFileWriteAction(
+            ImmutableList.of(treeArtifact), createTreeArtifactExpansionCommandLineDefault());
     assertThat(Artifact.toExecPaths(action.getInputs()))
         .containsExactly("out/artifact/myTreeFileArtifact");
   }
@@ -95,10 +95,10 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWriteCommandLineWithTreeArtifactExpansion() throws Exception {
-    Action action = createParameterFileWriteAction(
-        ImmutableList.of(treeArtifact),
-        createTreeArtifactExpansionCommandLine());
+  public void testWriteCommandLineWithTreeArtifactExpansionDefault() throws Exception {
+    Action action =
+        createParameterFileWriteAction(
+            ImmutableList.of(treeArtifact), createTreeArtifactExpansionCommandLineDefault());
     ActionExecutionContext context = actionExecutionContext();
     ActionResult actionResult = action.execute(context);
     assertThat(actionResult.spawnResults()).isEmpty();
@@ -108,6 +108,22 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
             "--flag1\n"
                 + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
                 + "out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
+  }
+
+  @Test
+  public void testWriteCommandLineWithTreeArtifactExpansionExpandedFunction() throws Exception {
+    Action action =
+        createParameterFileWriteAction(
+            ImmutableList.of(treeArtifact),
+            createTreeArtifactExpansionCommandLineExpandedFunction());
+    ActionExecutionContext context = actionExecutionContext();
+    ActionResult actionResult = action.execute(context);
+    assertThat(actionResult.spawnResults()).isEmpty();
+    String content = new String(FileSystemUtils.readContentAsLatin1(outputArtifact.getPath()));
+    assertThat(content.trim())
+        .isEqualTo(
+            "--flag1=out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact1\n"
+                + "--flag1=out/artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
@@ -145,10 +161,17 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         .build();
   }
 
-  private CommandLine createTreeArtifactExpansionCommandLine() {
+  private CommandLine createTreeArtifactExpansionCommandLineDefault() {
     return CustomCommandLine.builder()
         .add("--flag1")
         .addExpandedTreeArtifactExecPaths(treeArtifact)
+        .build();
+  }
+
+  private CommandLine createTreeArtifactExpansionCommandLineExpandedFunction() {
+    return CustomCommandLine.builder()
+        .addExpandedTreeArtifact(
+            treeArtifact, artifact -> ImmutableList.of("--flag1=" + artifact.getExecPath()))
         .build();
   }
 
