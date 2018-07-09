@@ -67,6 +67,13 @@ skydoc_test(
 )
 
 skydoc_test(
+    name = "cpp_basic_test",
+    golden_file = "testdata/cpp_basic_test/golden.txt",
+    input_file = "testdata/cpp_basic_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
     name = "java_basic_test",
     golden_file = "testdata/java_basic_test/golden.txt",
     input_file = "testdata/java_basic_test/input.bzl",

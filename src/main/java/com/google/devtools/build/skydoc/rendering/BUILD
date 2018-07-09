@@ -12,11 +12,20 @@ filegroup(
 java_library(
     name = "rendering",
     srcs = glob(["*.java"]),
+    resources = [":template_files"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+filegroup(
+    name = "template_files",
+    srcs = glob([
+        "templates/*.vm",
+    ]),
 )

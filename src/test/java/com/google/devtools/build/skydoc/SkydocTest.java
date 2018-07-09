@@ -97,9 +97,14 @@ public final class SkydocTest extends SkylarkTestCase {
     Entry<String, RuleInfo> ruleInfo = Iterables.getOnlyElement(ruleInfos.entrySet());
     assertThat(ruleInfo.getKey()).isEqualTo("my_rule");
     assertThat(ruleInfo.getValue().getDocString()).isEqualTo("This is my rule. It does stuff.");
-    assertThat(ruleInfo.getValue().getAttrNames()).containsExactly(
-        "first", "second", "third", "fourth");
+    assertThat(getAttrNames(ruleInfo.getValue())).containsExactly(
+        "first", "fourth", "second", "third").inOrder();
     assertThat(unexportedRuleInfos.build()).isEmpty();
+  }
+
+  private static Iterable<String> getAttrNames(RuleInfo ruleInfo) {
+    return ruleInfo.getAttributes().stream().map(attr -> attr.getName())
+        .collect(Collectors.toList());
   }
 
   @Test

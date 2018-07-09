@@ -30,13 +30,13 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
   @Override
   public Descriptor intAttribute(Integer defaultInt, String doc, Boolean mandatory,
       SkylarkList<?> values, FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor stringAttribute(String defaultString, String doc, Boolean mandatory,
       SkylarkList<?> values, FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
@@ -44,21 +44,21 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object allowFiles, Object allowSingleFile, Boolean mandatory, SkylarkList<?> providers,
       Object allowRules, Boolean singleFile, Object cfg, SkylarkList<?> aspects,
       FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor stringListAttribute(Boolean mandatory, Boolean nonEmpty, Boolean allowEmpty,
       SkylarkList<?> defaultList, String doc, FuncallExpression ast, Environment env)
       throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor intListAttribute(Boolean mandatory, Boolean nonEmpty, Boolean allowEmpty,
       SkylarkList<?> defaultList, String doc, FuncallExpression ast, Environment env)
       throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
@@ -66,7 +66,7 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       Object allowFiles, Object allowRules, SkylarkList<?> providers, SkylarkList<?> flags,
       Boolean mandatory, Boolean nonEmpty, Object cfg, SkylarkList<?> aspects,
       FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
@@ -74,46 +74,46 @@ public class FakeSkylarkAttrApi implements SkylarkAttrApi {
       String doc, Object allowFiles, Object allowRules, SkylarkList<?> providers,
       SkylarkList<?> flags, Boolean mandatory, Boolean nonEmpty, Object cfg, SkylarkList<?> aspects,
       FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor boolAttribute(Boolean defaultO, String doc, Boolean mandatory,
       FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor outputAttribute(Object defaultO, String doc, Boolean mandatory,
       FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor outputListAttribute(Boolean allowEmpty, SkylarkList<?> defaultList, String doc,
       Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
       throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor stringDictAttribute(Boolean allowEmpty, SkylarkDict<?, ?> defaultO, String doc,
       Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
       throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor stringListDictAttribute(Boolean allowEmpty, SkylarkDict<?, ?> defaultO,
       String doc, Boolean mandatory, Boolean nonEmpty, FuncallExpression ast, Environment env)
       throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override
   public Descriptor licenseAttribute(Object defaultO, String doc, Boolean mandatory,
       FuncallExpression ast, Environment env) throws EvalException {
-    return new FakeDescriptor();
+    return new FakeDescriptor(doc);
   }
 
   @Override

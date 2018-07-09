@@ -12,28 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.skydoc.fakebuildapi;
-
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi.Descriptor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+package com.google.devtools.build.skydoc.rendering;
 
 /**
- * Fake implementation of {@link Descriptor}.
+ * Stores information about a skylark attribute definition.
  */
-public class FakeDescriptor implements Descriptor {
+public class AttributeInfo {
+
+  private final String name;
   private final String docString;
 
-  public FakeDescriptor(String docString) {
+  public AttributeInfo(String name, String docString) {
+    this.name = name;
     this.docString = docString;
+  }
+
+  public String getName() {
+    return name;
   }
 
   public String getDocString() {
     return docString;
   }
-
-  @Override
-  public void repr(SkylarkPrinter printer) {}
-
-  // TODO(cparsons): This class should store information about the attribute definition, for
-  // example, the attribute type.
 }

@@ -1,4 +1,37 @@
-android_related_rule
+<a name="#android_related_rule"></a>
+## android_related_rule
+
+<pre>
+android_related_rule(first, fourth, second, third)
+</pre>
+
 This rule does android-related things.
-first,second,third,fourth
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#android_related_rule_first">
+      <td><code>first</code></td>
+      <td></td>
+    </tr>
+    <tr id="#android_related_rule_fourth">
+      <td><code>fourth</code></td>
+      <td></td>
+    </tr>
+    <tr id="#android_related_rule_second">
+      <td><code>second</code></td>
+      <td></td>
+    </tr>
+    <tr id="#android_related_rule_third">
+      <td><code>third</code></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
 

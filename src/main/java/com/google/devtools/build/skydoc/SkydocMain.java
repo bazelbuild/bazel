@@ -62,6 +62,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
+import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -116,29 +117,33 @@ public class SkydocMain {
 
     new SkydocMain(new FilesystemFileAccessor()).eval(path, ruleInfoMap, unexportedRuleInfos);
 
+    MarkdownRenderer renderer = new MarkdownRenderer();
+
     try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-      printRuleInfos(printWriter, ruleInfoMap.build(), unexportedRuleInfos.build());
+      printRuleInfos(printWriter, renderer, ruleInfoMap.build(), unexportedRuleInfos.build());
     }
   }
 
   // TODO(cparsons): Improve output (markdown or HTML).
   private static void printRuleInfos(
       PrintWriter printWriter,
+      MarkdownRenderer renderer,
       Map<String, RuleInfo> ruleInfos,
       List<RuleInfo> unexportedRuleInfos) throws IOException {
     for (Entry<String, RuleInfo> ruleInfoEntry : ruleInfos.entrySet()) {
-      printRuleInfo(printWriter, ruleInfoEntry.getKey(), ruleInfoEntry.getValue());
+      printRuleInfo(printWriter, renderer, ruleInfoEntry.getKey(), ruleInfoEntry.getValue());
+      printWriter.println();
     }
     for (RuleInfo unexportedRuleInfo : unexportedRuleInfos) {
-      printRuleInfo(printWriter, "<unknown name>", unexportedRuleInfo);
+      printRuleInfo(printWriter, renderer, "<unknown name>", unexportedRuleInfo);
+      printWriter.println();
     }
   }
 
   private static void printRuleInfo(
-      PrintWriter printWriter, String exportedName, RuleInfo ruleInfo) {
-    printWriter.println(exportedName);
-    printWriter.println(ruleInfo.getDescription());
-    printWriter.println();
+      PrintWriter printWriter, MarkdownRenderer renderer,
+      String exportedName, RuleInfo ruleInfo) throws IOException {
+    printWriter.println(renderer.render(exportedName, ruleInfo));
   }
 
   /**

@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi.Descriptor;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -30,10 +29,11 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.skydoc.rendering.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -68,19 +68,24 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       SkylarkList<?> toolchains, String doc, SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed, SkylarkList<?> execCompatibleWith,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
-    Set<String> attrNames;
+    List<AttributeInfo> attrInfos;
+    // TODO(cparsons): Include implicit "Name" attribute.
     if (attrs != null && attrs != Runtime.NONE) {
       SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
-      Map<String, Descriptor> attrsMap =
-          attrsDict.getContents(String.class, Descriptor.class, "attrs");
-      attrNames = attrsMap.keySet();
+      Map<String, FakeDescriptor> attrsMap =
+          attrsDict.getContents(String.class, FakeDescriptor.class, "attrs");
+      // TODO(cparsons): Include better attribute details. For example, attribute type.
+      attrInfos = attrsMap.entrySet().stream()
+          .map(entry -> new AttributeInfo(entry.getKey(), entry.getValue().getDocString()))
+          .sorted((o1, o2) -> o1.getName().compareTo(o2.getName()))
+          .collect(Collectors.toList());
     } else {
-      attrNames = ImmutableSet.of();
+      attrInfos = ImmutableList.of();
     }
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
-    // TODO(cparsons): Improve details given to RuleInfo (for example, attribute types).
-    ruleInfoList.add(new RuleInfo(functionIdentifier, ast.getLocation(), doc, attrNames));
+
+    ruleInfoList.add(new RuleInfo(functionIdentifier, ast.getLocation(), doc, attrInfos));
     return functionIdentifier;
   }
 
