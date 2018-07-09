@@ -396,7 +396,6 @@ toolchain {
     implies: 'linker_subsystem_flag'
     implies: 'linker_param_file'
     implies: 'msvc_env'
-    implies: 'use_linker'
     implies: 'no_stripping'
   }
 
@@ -416,7 +415,6 @@ toolchain {
     implies: 'linker_subsystem_flag'
     implies: 'linker_param_file'
     implies: 'msvc_env'
-    implies: 'use_linker'
     implies: 'no_stripping'
     implies: 'has_configured_linker_path'
     implies: 'def_file'
@@ -438,7 +436,6 @@ toolchain {
       implies: 'linker_subsystem_flag'
       implies: 'linker_param_file'
       implies: 'msvc_env'
-      implies: 'use_linker'
       implies: 'no_stripping'
       implies: 'has_configured_linker_path'
       implies: 'def_file'
@@ -509,19 +506,6 @@ toolchain {
       env_entry {
         key: "TEMP"
         value: "%{msvc_env_tmp}"
-      }
-    }
-  }
-
-  feature {
-    name: "use_linker"
-    env_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      env_entry {
-        key: "USE_LINKER"
-        value: "1"
       }
     }
   }
@@ -1093,7 +1077,4 @@ toolchain {
   }
 
   linking_mode_flags { mode: DYNAMIC }
-
-%{compilation_mode_content}
-
 }

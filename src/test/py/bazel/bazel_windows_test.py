@@ -45,29 +45,6 @@ class BazelWindowsTest(test_base.TestBase):
         ['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'])
     self.AssertExitCode(exit_code, 0, stderr)
 
-  def testUseMSVCWrapperScript(self):
-    self.createProjectFiles()
-
-    exit_code, stdout, stderr = self.RunBazel(['info', 'execution_root'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    execution_root = stdout[0]
-
-    exit_code, _, stderr = self.RunBazel(
-        [
-            '--batch',
-            'build',
-            '//foo:x',
-        ],
-        # USE_MSVC_WRAPPER will be needed after
-        # swichting wrapper-less CROSSTOOL as default
-        env_add={'USE_MSVC_WRAPPER': '1'},)
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertTrue(
-        os.path.exists(
-            os.path.join(
-                execution_root,
-                'external/local_config_cc/wrapper/bin/pydir/msvc_tools.py')))
-
   def testWindowsCompilesAssembly(self):
     self.ScratchFile('WORKSPACE')
     exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
