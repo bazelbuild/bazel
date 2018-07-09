@@ -18,7 +18,6 @@
 #include <stdio.h>
 
 #include <cinttypes>
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_map>
