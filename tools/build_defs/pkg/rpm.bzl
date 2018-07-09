@@ -174,7 +174,10 @@ an RPM package based on the spec_file and data attributes.
 Two outputs are guaranteed to be produced: "%{name}.rpm", and
 "%{name}-%{architecture}.rpm". If the "version" and "release" arguments are
 non-empty, a third output will be produced, following the RPM-recommended
-N-V-R.A format (Name-Version-Release.Architecture.rpm).
+N-V-R.A format (Name-Version-Release.Architecture.rpm). Note that due to
+the fact that rule implementations cannot access the contents of files,
+the "version_file" and "release_file" arguments will not create an output
+using N-V-R.A format.
 
 Args:
   spec_file: The RPM spec file to use. If the version or version_file
