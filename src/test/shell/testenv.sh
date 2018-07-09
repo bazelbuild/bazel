@@ -115,7 +115,7 @@ if [ "${MACHINE_TYPE}" = 's390x' ]; then
 fi
 
 # Requires //third_party/protobuf:protoc
-protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/3.6.0/protoc"
+protoc_compiler="${BAZEL_RUNFILES}/third_party/protobuf/3.4.0/protoc"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
