@@ -500,11 +500,12 @@ toolchain {
         value: "%{msvc_env_tmp}"
       }
     }
+    implies: 'msvc_compile_env'
+    implies: 'msvc_link_env'
   }
 
   feature {
     name: "msvc_compile_env"
-    enabled: true
     env_set {
       action: "c-compile"
       action: "c++-compile"
@@ -522,7 +523,6 @@ toolchain {
 
   feature {
     name: "msvc_link_env"
-    enabled: true
     env_set {
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
