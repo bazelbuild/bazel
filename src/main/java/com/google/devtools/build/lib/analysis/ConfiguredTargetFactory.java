@@ -275,11 +275,6 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
 
-    // Load the requested toolchains into the ToolchainContext.
-    if (toolchainContext != null) {
-      toolchainContext.resolveToolchains(prerequisiteMap);
-    }
-
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
@@ -391,11 +386,6 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws AspectFunctionException, InterruptedException {
-
-    // Load the requested toolchains into the ToolchainContext.
-    if (toolchainContext != null) {
-      toolchainContext.resolveToolchains(prerequisiteMap);
-    }
 
     RuleContext.Builder builder =
         new RuleContext.Builder(
