@@ -77,6 +77,7 @@ pkg_deb(
         "g++",
         "zlib1g-dev",
         "bash-completion",
+        "unzip",
     ],
     description_file = "description",
     homepage = "http://bazel.build",
