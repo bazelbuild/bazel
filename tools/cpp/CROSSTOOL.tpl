@@ -975,7 +975,6 @@ toolchain {
     flag_set {
       action: 'c-compile'
       action: 'c++-compile'
-      flag_group {
         flag: "/WX"
       }
     }
@@ -1019,6 +1018,49 @@ toolchain {
       flag_group {
         # Suppress 'object file does not define any public symbols' warning
         flag: '/ignore:4221'
+      }
+    }
+  }
+
+  # Enable C++ exception by default, just like GCC and Clang.
+  # This is implementation detail. Please use "[-]disable_exceptions"
+  # to control C++ exceptions instead.
+  feature {
+    name: 'default_exceptions'
+    enabled: true
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      with_feature {
+        not_feature: 'disable_exceptions'
+      }
+      flag_group {
+        flag: '/EHsc'
+        flag: '/D_HAS_EXCEPTIONS=1'
+      }
+    }
+  }
+
+  feature {
+    name: 'disable_exceptions'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: '/EHs-c-'
+        flag: '/D_HAS_EXCEPTIONS=0'
+        flag: '/wd4577' # Suppress 'noexcept used with no exception handling mode specified'
+      }
+    }
+  }
+
+  feature {
+    name: 'disable_rtti'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: '/GR-'
       }
     }
   }

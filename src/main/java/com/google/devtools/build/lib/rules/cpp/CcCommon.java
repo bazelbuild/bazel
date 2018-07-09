@@ -864,6 +864,18 @@ public final class CcCommon {
               : CppRuleClasses.DYNAMIC_LINK_MSVCRT_NO_DEBUG);
     }
 
+    if (requestedFeatures.contains(CppRuleClasses.DISABLE_EXCEPTIONS)) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.NO_EXCEPTIONS_IMPL);
+    } else {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.USE_EXCEPTIONS_IMPL);
+    }
+
+    if (requestedFeatures.contains(CppRuleClasses.DISABLE_RTTI)) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.NO_RTTI_IMPL);
+    } else {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.USE_RTTI_IMPL);
+    }
+
     ImmutableList.Builder<String> allFeatures =
         new ImmutableList.Builder<String>()
             .addAll(ImmutableSet.of(toolchain.getCompilationMode().toString()))
