@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("//third_party/protobuf/3.6.0:protobuf.bzl", "py_proto_library")
+load("//third_party/protobuf/3.4.0:protobuf.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
 exports_files(
@@ -148,7 +148,7 @@ proto_library(
     name = "remote_execution_log_proto",
     srcs = ["remote_execution_log.proto"],
     deps = [
-        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:well_known_types_timestamp_proto",
         "@googleapis//:google_bytestream_bytestream_proto",
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_proto",
         "@googleapis//:google_longrunning_operations_proto",
