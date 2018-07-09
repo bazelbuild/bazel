@@ -49,11 +49,20 @@ public class WindowsFileOperations {
   private static final int IS_JUNCTION_NO = 1;
   private static final int IS_JUNCTION_ERROR = 2;
 
+  // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.cc.
+  private static final int DELETE_PATH_SUCCESS = 0;
+  private static final int DELETE_PATH_DOES_NOT_EXIST = 1;
+  private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 2;
+  private static final int DELETE_PATH_ACCESS_DENIED = 3;
+  private static final int DELETE_PATH_ERROR = 4;
+
   private static native int nativeIsJunction(String path, String[] error);
 
   private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
   private static native boolean nativeCreateJunction(String name, String target, String[] error);
+
+  private static native int nativeDeletePath(String path, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isJunction(String path) throws IOException {
@@ -119,6 +128,24 @@ public class WindowsFileOperations {
     if (!nativeCreateJunction(name.replace('/', '\\'), target.replace('/', '\\'), error)) {
       throw new IOException(
           String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+    }
+  }
+
+  public static boolean deletePath(String path) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] error = new String[] {null};
+    int result = nativeDeletePath(asLongPath(path), error);
+    switch (result) {
+      case DELETE_PATH_SUCCESS:
+        return true;
+      case DELETE_PATH_DOES_NOT_EXIST:
+        return false;
+      case DELETE_PATH_DIRECTORY_NOT_EMPTY:
+        throw new java.nio.file.DirectoryNotEmptyException(path);
+      case DELETE_PATH_ACCESS_DENIED:
+        throw new java.nio.file.AccessDeniedException(path);
+      default:
+        throw new IOException(String.format("Cannot delete path '%s': %s", path, error[0]));
     }
   }
 }
