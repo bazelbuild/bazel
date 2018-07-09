@@ -58,8 +58,17 @@ public class SkylarkInterfaceUtils {
     } else if (yClass.isAssignableFrom(xClass)) {
       return x;
     } else {
+      // If this exception occurs, it indicates the following error scenario:
+      //
+      // Suppose class A is a subclass of both B and C, where B and C are annotated with
+      // @SkylarkModule annotations (and are thus considered "skylark types"). If B is not a
+      // subclass of C (nor visa versa), then it's impossible to resolve whether A is of type
+      // B or if A is of type C. It's both! The way to resolve this is usually to have A be its own
+      // type (annotated with @SkylarkModule), and thus have the explicit type of A be semantically
+      // "B and C".
+      // TODO(cparsons): Verify in a test, and thus not rely solely on a runtime check.
       throw new IllegalArgumentException(String.format(
-          "Expected one of %s and %s to be assignable to each other",
+          "Expected one of %s and %s to be a subclass of the other",
           xClass, yClass));
     }
   }

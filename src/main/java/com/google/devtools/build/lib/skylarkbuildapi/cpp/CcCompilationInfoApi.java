@@ -14,17 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Interface for a wrapper of every C++ compilation provider.
- */
+/** Interface for a wrapper of every C++ compilation provider. */
 @SkylarkModule(
     name = "cc_compilation_info",
     documented = false,
     category = SkylarkModuleCategory.PROVIDER,
-    doc = "Wrapper for every C++ compilation provider"
-)
-public interface CcCompilationInfoApi {
-}
+    doc = "Wrapper for every C++ compilation provider")
+public interface CcCompilationInfoApi extends StructApi {}
