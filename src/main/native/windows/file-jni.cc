@@ -74,21 +74,22 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeGetLo
   return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeCreateJunction(
     JNIEnv* env, jclass clazz, jstring name, jstring target,
     jobjectArray error_msg_holder) {
   std::wstring wname(bazel::windows::GetJavaWstring(env, name));
   std::wstring wtarget(bazel::windows::GetJavaWstring(env, target));
-  std::wstring error(bazel::windows::CreateJunction(wname, wtarget));
-  if (!error.empty() && CanReportError(env, error_msg_holder)) {
+  std::wstring error;
+  int result = bazel::windows::CreateJunction(wname, wtarget, &error);
+  if (result != bazel::windows::CreateJunctionResult::kSuccess &&
+      !error.empty() && CanReportError(env, error_msg_holder)) {
     ReportLastError(bazel::windows::MakeErrorMessage(
                         WSTR(__FILE__), __LINE__, L"nativeCreateJunction",
                         wname + L", " + wtarget, error),
                     env, error_msg_holder);
-    return JNI_FALSE;
   }
-  return JNI_TRUE;
+  return result;
 }
 
 extern "C" JNIEXPORT jint JNICALL

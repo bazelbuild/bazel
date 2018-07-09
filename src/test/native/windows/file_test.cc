@@ -30,7 +30,8 @@
 namespace bazel {
 namespace windows {
 
-#define TOSTRING(x) #x
+#define TOSTRING1(x) #x
+#define TOSTRING(x) TOSTRING1(x)
 #define TOWSTRING1(x) L##x
 #define TOWSTRING(x) TOWSTRING1(x)
 #define WLINE TOWSTRING(TOSTRING(__LINE__))
@@ -61,10 +62,14 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
 
   // Create junctions from all combinations of UNC-prefixed or non-prefixed name
   // and target paths.
-  ASSERT_EQ(L"", CreateJunction(name + L"1", target));
-  ASSERT_EQ(L"", CreateJunction(name + L"2", target.substr(4)));
-  ASSERT_EQ(L"", CreateJunction(name.substr(4) + L"3", target));
-  ASSERT_EQ(L"", CreateJunction(name.substr(4) + L"4", target.substr(4)));
+  ASSERT_EQ(CreateJunction(name + L"1", target, nullptr),
+            CreateJunctionResult::kSuccess);
+  ASSERT_EQ(CreateJunction(name + L"2", target.substr(4), nullptr),
+            CreateJunctionResult::kSuccess);
+  ASSERT_EQ(CreateJunction(name.substr(4) + L"3", target, nullptr),
+            CreateJunctionResult::kSuccess);
+  ASSERT_EQ(CreateJunction(name.substr(4) + L"4", target.substr(4), nullptr),
+            CreateJunctionResult::kSuccess);
 
   // Assert creation of the junctions.
   ASSERT_EQ(IS_JUNCTION_YES,
@@ -113,6 +118,92 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
             ::GetFileAttributesW((name + L"4\\bar").c_str()));
 }
 
+TEST_F(WindowsFileOperationsTest, TestCanCreateNonDanglingJunction) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCanCreateDanglingJunction) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCreateJunctionChecksExistingJunction) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
+
+  ASSERT_EQ(CreateJunction(name, target + WLINE, nullptr),
+            CreateJunctionResult::kAlreadyExistsWithDifferentTarget);
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotCreateJunctionFromEmptyDirectory) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(name.c_str(), NULL));
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kAlreadyExistsButNotJunction);
+}
+
+TEST_F(WindowsFileOperationsTest,
+       TestCannotCreateJunctionFromNonEmptyDirectory) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(name.c_str(), NULL));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(name + L"\\hello.txt"));
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kAlreadyExistsButNotJunction);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotCreateJunctionFromExistingFile) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(blaze_util::CreateDummyFile(name));
+  ASSERT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kAlreadyExistsButNotJunction);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCannotCreateJunctionIfNameIsBusy) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(name.c_str(), NULL));
+  HANDLE h = CreateFileW(
+      name.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+      FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+  EXPECT_NE(h, INVALID_HANDLE_VALUE);
+  int actual = CreateJunction(name, target, nullptr);
+  CloseHandle(h);
+  ASSERT_EQ(actual, CreateJunctionResult::kAccessDenied);
+}
+
+TEST_F(WindowsFileOperationsTest, TestCanCreateJunctionIfTargetIsBusy) {
+  wstring tmp(kUncPrefix + GetTestTmpDirW());
+  wstring name = tmp + L"\\junc" WLINE;
+  wstring target = tmp + L"\\target" WLINE;
+  EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
+  HANDLE h = CreateFileW(target.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                         FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  EXPECT_NE(h, INVALID_HANDLE_VALUE);
+  int actual = CreateJunction(name, target, nullptr);
+  CloseHandle(h);
+  ASSERT_EQ(actual, CreateJunctionResult::kSuccess);
+}
+
 TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingFile) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring path = tmp + L"\\file" WLINE;
@@ -132,7 +223,8 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunction) {
   wstring name = tmp + L"\\junc" WLINE;
   wstring target = tmp + L"\\target" WLINE;
   EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
-  EXPECT_EQ(L"", CreateJunction(name, target));
+  EXPECT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
   ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
 }
 
@@ -141,7 +233,8 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunctionWithoutTarget) {
   wstring name = tmp + L"\\junc" WLINE;
   wstring target = tmp + L"\\target" WLINE;
   EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
-  EXPECT_EQ(L"", CreateJunction(name, target));
+  EXPECT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
   EXPECT_TRUE(RemoveDirectoryW(target.c_str()));
   // The junction still exists, its target does not.
   EXPECT_NE(GetFileAttributesW(name.c_str()), INVALID_FILE_ATTRIBUTES);
@@ -204,7 +297,8 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyJunction) {
   wstring name = tmp + L"\\junc" WLINE;
   wstring target = tmp + L"\\target" WLINE;
   EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
-  EXPECT_EQ(L"", CreateJunction(name, target));
+  EXPECT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
   // Open the junction itself (do not follow symlinks).
   HANDLE h = CreateFileW(
       name.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
@@ -220,7 +314,8 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
   wstring name = tmp + L"\\junc" WLINE;
   wstring target = tmp + L"\\target" WLINE;
   EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
-  EXPECT_EQ(L"", CreateJunction(name, target));
+  EXPECT_EQ(CreateJunction(name, target, nullptr),
+            CreateJunctionResult::kSuccess);
   // Open the junction's target (follow symlinks).
   HANDLE h = CreateFileW(target.c_str(), GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
                          FILE_FLAG_BACKUP_SEMANTICS, NULL);
@@ -230,6 +325,7 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
   ASSERT_EQ(actual, DELETE_PATH_SUCCESS);
 }
 
+#undef TOSTRING1
 #undef TOSTRING
 #undef TOWSTRING1
 #undef TOWSTRING
