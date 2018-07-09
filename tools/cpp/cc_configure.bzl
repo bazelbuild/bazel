@@ -60,7 +60,6 @@ cc_autoconf = repository_rule(
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
         "BAZEL_COMPILER",
-        "BAZEL_GCC", # Root to GCC installation. Expect <BAZEL_GCC>/bin/gcc to exist (currently for Windows only).
         "BAZEL_HOST_SYSTEM",
         "BAZEL_LINKOPTS",
         "BAZEL_PYTHON",

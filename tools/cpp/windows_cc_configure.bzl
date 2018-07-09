@@ -76,21 +76,14 @@ def _find_gcc_root_in_msys(repository_ctx, libc):
 
 def _find_gcc_root(repository_ctx, libc):
     """Return root of GCC installation."""
-    if "BAZEL_GCC" in repository_ctx.os.environ:
-        return repository_ctx.os.environ["BAZEL_GCC"]
+    if get_env_var(repository_ctx, "TERM", "", False) != "cygwin" and libc == "mingw":
+        # If user runs in Windows command prompt, maybe mingw-gcc is in PATH.
+        gcc_in_path = which(repository_ctx, "gcc")
+        if gcc_in_path:
+            return gcc_in_path[:gcc_in_path.find("gcc") - len("/bin") - 1]
 
-    # If Bazel is running in MSYS environment, get mingw-gcc and msys-gcc from MSYS.
-    # If Bazel is running outside of MSYS environment, only get msys-gcc from MSYS.
-    if get_env_var(repository_ctx, "TERM", "", False) == "cygwin" or libc == "msys":
-        return _find_gcc_root_in_msys(repository_ctx, libc)
-
-    # If user runs in Windows command prompt, maybe GCC/Mingw64 is in PATH.
-    gcc_in_path = which(repository_ctx, "gcc")
-    if gcc_in_path:
-        return gcc_in_path[:gcc_in_path.find("gcc") - len("/bin") - 1]
-
-    # Can't detect GCC anywhere. Maybe this user does not use GCC at all.
-    return "/"
+    # Just try to get mingw-gcc and msys-gcc from MSYS environment.
+    return _find_gcc_root_in_msys(repository_ctx, libc)
 
 def _get_escaped_windows_msys_crosstool_content(repository_ctx, libc):
     """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
