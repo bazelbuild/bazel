@@ -226,8 +226,9 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
           junction = junction_base_dir_norm + L"\\" +
                      std::to_wstring(junction_count++);
 
-          wstring error(bazel::windows::CreateJunction(junction, jar_dir));
-          if (!error.empty()) {
+          wstring error;
+          if (bazel::windows::CreateJunction(junction, jar_dir, &error) !=
+              bazel::windows::CreateJunctionResult::kSuccess) {
             die(L"CreateClasspathJar failed: %s", error.c_str());
           }
 
