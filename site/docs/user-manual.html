@@ -3857,9 +3857,8 @@ Bazel execution can result in following exit codes:
 <b>For <code>bazel run</code>:</b>
 <ul>
   <li><code>1</code> - Build failed.</li>
-  <li><code>6</code> - Run command failure. The executed subprocess returned a
-                       non-zero exit code. The actual subprocess exit code is
-                       given in stderr.</li>
+  <li>If the build succeeds but the executed subprocess returns a non-zero exit code it will be the
+    exit code of the command as well.</li>
 </ul>
 
 
