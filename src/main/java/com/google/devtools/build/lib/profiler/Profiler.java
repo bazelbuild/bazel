@@ -652,6 +652,7 @@ public final class Profiler {
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
     Preconditions.checkNotNull(description);
     Preconditions.checkState(startTimeNanos > 0, "startTime was %s", startTimeNanos);
+    Preconditions.checkState(!"".equals(description), "No description -> not helpful");
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
