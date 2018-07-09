@@ -36,7 +36,7 @@ public class AsyncRetrier extends Retrier {
   private final ListeningScheduledExecutorService retryService;
 
   public AsyncRetrier(
-      Retrier retrier, 
+      Retrier retrier,
       ListeningScheduledExecutorService retryService) {
     super(retrier);
     this.retryService = retryService;
