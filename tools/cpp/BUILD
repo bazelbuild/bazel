@@ -97,6 +97,7 @@ cc_toolchain_suite(
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
         "ppc|compiler": ":cc-compiler-ppc",
+        "aarch64|compiler": ":cc-compiler-aarch64",
         "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
@@ -180,10 +181,10 @@ toolchain(
 )
 
 cc_toolchain(
-    name = "cc-compiler-armeabi-v8",
+    name = "cc-compiler-aarch64",
     all_files = ":empty",
     compiler_files = ":empty",
-    cpu = "local",
+    cpu = "aarch64",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = ":empty",
@@ -194,16 +195,18 @@ cc_toolchain(
 )
 
 toolchain(
-    name = "cc-toolchain-armeabi-v8",
+    name = "cc-toolchain-aarch64",
     exec_compatible_with = [
+        "@bazel_tools//platforms:aarch64",
+        "@bazel_tools//platforms:linux",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:arm64",
+        "@bazel_tools//platforms:aarch64",
+        "@bazel_tools//platforms:linux",
     ],
-    toolchain = ":cc-compiler-armeabi-v8",
+    toolchain = ":cc-compiler-aarch64",
     toolchain_type = ":toolchain_type",
 )
-
 
 cc_toolchain(
     name = "cc-compiler-k8",
