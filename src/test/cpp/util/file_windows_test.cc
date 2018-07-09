@@ -39,6 +39,7 @@
 namespace blaze_util {
 
 using bazel::windows::CreateJunction;
+using bazel::windows::CreateJunctionResult;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
@@ -66,7 +67,8 @@ class FileWindowsTest : public ::testing::Test {
     wstring wtarget;                                                          \
     EXPECT_TRUE(AsWindowsPath(name, &wname, nullptr));                        \
     EXPECT_TRUE(AsWindowsPath(target, &wtarget, nullptr));                    \
-    EXPECT_EQ(L"", CreateJunction(wname, wtarget));                           \
+    EXPECT_EQ(CreateJunction(wname, wtarget, nullptr),                        \
+              CreateJunctionResult::kSuccess);                                \
   }
 
 // Asserts that dir1 can be created with some content, and dir2 doesn't exist.

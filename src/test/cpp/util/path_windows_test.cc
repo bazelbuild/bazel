@@ -36,7 +36,6 @@
 
 namespace blaze_util {
 
-using bazel::windows::CreateJunction;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
