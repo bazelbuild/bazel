@@ -480,12 +480,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               hostConfiguration,
               ruleClassProvider,
               defaultBuildOptions);
-      // It's important that we don't use "if (env.missingValues()) { return null }" here (or
-      // in the following lines). See the comments in getDynamicConfigurations' Skyframe call
-      // for explanation.
-      if (depValueNames == null) {
-        return null;
-      }
+    }
+
+    // Return early in case packages were not loaded yet. In theory, we could start configuring
+    // dependent targets in loaded packages. However, that creates an artificial sync boundary
+    // between loading all dependent packages (fast) and configuring some dependent targets (can
+    // have a long tail).
+    if (env.valuesMissing()) {
+      return null;
     }
 
     // Resolve configured target dependencies and handle errors.
