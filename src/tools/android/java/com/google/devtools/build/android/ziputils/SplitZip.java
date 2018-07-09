@@ -118,7 +118,7 @@ public class SplitZip implements EntryHandler {
   }
 
   // Package private for testing with mock file
-  SplitZip setMainClassListFile(InputStream clInputStream) {
+  SplitZip setMainClassListStreamForTesting(InputStream clInputStream) {
     filterInputStream = clInputStream;
     return this;
   }
@@ -446,21 +446,16 @@ public class SplitZip implements EntryHandler {
    */
   private Set<String> readPaths(String fileName) throws IOException {
     Set<String> paths = new HashSet<>();
-    BufferedReader reader = null;
-    try {
-      if (filterInputStream == null) {
-        filterInputStream = new FileInputStream(fileName);
-      }
-      reader = new BufferedReader(new InputStreamReader(filterInputStream, UTF_8));
+    if (filterInputStream == null) {
+      filterInputStream = new FileInputStream(fileName);
+    }
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(filterInputStream, UTF_8))) {
       String line;
       while (null != (line = reader.readLine())) {
         paths.add(fixPath(line));
       }
       return paths;
-    } finally {
-      if (reader != null) {
-        reader.close();
-      }
     }
   }
 
