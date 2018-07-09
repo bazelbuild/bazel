@@ -18,8 +18,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactory;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -45,8 +45,8 @@ public final class ServerBuilder {
       ImmutableList.builder();
   private final ImmutableList.Builder<PackageFactory.EnvironmentExtension> environmentExtensions =
       ImmutableList.builder();
-  private final BuildEventArtifactUploaderMap.Builder buildEventArtifactUploaders =
-      new BuildEventArtifactUploaderMap.Builder();
+  private final BuildEventArtifactUploaderFactoryMap.Builder buildEventArtifactUploaderFactories =
+      new BuildEventArtifactUploaderFactoryMap.Builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -87,8 +87,8 @@ public final class ServerBuilder {
     return commands.build();
   }
 
-  public BuildEventArtifactUploaderMap getBuildEventArtifactUploaderMap() {
-    return buildEventArtifactUploaders.build();
+  public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderMap() {
+    return buildEventArtifactUploaderFactories.build();
   }
 
   /**
@@ -178,9 +178,9 @@ public final class ServerBuilder {
     return this;
   }
 
-  public ServerBuilder addBuildEventArtifactUploader(
-      BuildEventArtifactUploader uploader, String name) {
-    buildEventArtifactUploaders.add(name, uploader);
+  public ServerBuilder addBuildEventArtifactUploaderFactory(
+      BuildEventArtifactUploaderFactory uploaderFactory, String name) {
+    buildEventArtifactUploaderFactories.add(name, uploaderFactory);
     return this;
   }
 }

@@ -76,7 +76,7 @@ abstract class FileTransport implements BuildEventTransport {
     this.uploader = uploader;
     this.options = options;
     this.exitFunc = exitFunc;
-    this.writer = new SequentialWriter(path, this::serializeEvent, exitFunc);
+    this.writer = new SequentialWriter(path, this::serializeEvent, exitFunc, uploader);
   }
 
   @ThreadSafe
@@ -90,6 +90,7 @@ abstract class FileTransport implements BuildEventTransport {
     @VisibleForTesting OutputStream out;
     private final Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc;
     private final Consumer<AbruptExitException> exitFunc;
+    private final BuildEventArtifactUploader uploader;
 
     @VisibleForTesting
     final BlockingQueue<ListenableFuture<BuildEventStreamProtos.BuildEvent>> pendingWrites =
@@ -100,7 +101,8 @@ abstract class FileTransport implements BuildEventTransport {
     SequentialWriter(
         String path,
         Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc,
-        Consumer<AbruptExitException> exitFunc) {
+        Consumer<AbruptExitException> exitFunc,
+        BuildEventArtifactUploader uploader) {
       try {
         this.out = new BufferedOutputStream(new FileOutputStream(path));
       } catch (FileNotFoundException e) {
@@ -115,6 +117,7 @@ abstract class FileTransport implements BuildEventTransport {
       this.writerThread = new Thread(this);
       this.serializeFunc = serializeFunc;
       this.exitFunc = exitFunc;
+      this.uploader = uploader;
       writerThread.start();
     }
 
@@ -135,8 +138,12 @@ abstract class FileTransport implements BuildEventTransport {
         logger.log(Level.SEVERE, "Failed to write BEP events to file.", e);
       } finally {
         try {
-          out.flush();
-          out.close();
+          try {
+            out.flush();
+            out.close();
+          } finally {
+            uploader.shutdown();
+          }
         } catch (IOException e) {
           logger.log(Level.SEVERE, "Failed to close BEP file output stream.", e);
         }

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -155,7 +155,7 @@ public final class BlazeRuntime {
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
-  private final BuildEventArtifactUploaderMap buildEventArtifactUploaders;
+  private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
 
   // Workspace state (currently exactly one workspace per server)
@@ -180,7 +180,7 @@ public final class BlazeRuntime {
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
       String productName,
-      BuildEventArtifactUploaderMap buildEventArtifactUploaders) {
+      BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -207,7 +207,7 @@ public final class BlazeRuntime {
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
-    this.buildEventArtifactUploaders = buildEventArtifactUploaders;
+    this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -1253,8 +1253,8 @@ public final class BlazeRuntime {
     return productName;
   }
 
-  public BuildEventArtifactUploaderMap getBuildEventArtifactUploaders() {
-    return buildEventArtifactUploaders;
+  public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderFactoryMap() {
+    return buildEventArtifactUploaderFactoryMap;
   }
 
   /**

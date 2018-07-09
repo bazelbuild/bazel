@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -42,6 +44,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
@@ -206,14 +209,20 @@ public class BinaryFormatFileTransportTest {
     BuildEvent event1 = new WithLocalFileEvent(file1);
     BuildEvent event2 = new WithLocalFileEvent(file2);
 
-    BuildEventArtifactUploader uploader =
-        files -> {
-          if (files.containsKey(file1)) {
-            LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(200));
-          }
-          return Futures.immediateFuture(new FileUriPathConverter());
-        };
+    BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
+      @Override
+      public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+        if (files.containsKey(file1)) {
+          LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(200));
+        }
+        return Futures.immediateFuture(new FileUriPathConverter());
+      }
 
+      @Override
+      public void shutdown() {
+        // Intentionally left empty.
+      }
+    });
     File output = tmp.newFile();
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
@@ -230,6 +239,8 @@ public class BinaryFormatFileTransportTest {
           .isEqualTo(event2.asStreamProto(null));
       assertThat(in.available()).isEqualTo(0);
     }
+
+    verify(uploader).shutdown();
   }
 
   @Test
@@ -241,7 +252,17 @@ public class BinaryFormatFileTransportTest {
     BuildEvent event = new WithLocalFileEvent(file1);
 
     SettableFuture<PathConverter> upload = SettableFuture.create();
-    BuildEventArtifactUploader uploader = files -> upload;
+    BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
+      @Override
+      public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+        return upload;
+      }
+
+      @Override
+      public void shutdown() {
+        // Intentionally left empty.
+      }
+    });
 
     File output = tmp.newFile();
     BinaryFormatFileTransport transport =
@@ -258,6 +279,8 @@ public class BinaryFormatFileTransportTest {
           .isEqualTo(event.asStreamProto(null));
       assertThat(in.available()).isEqualTo(0);
     }
+
+    verify(uploader).shutdown();
   }
 
   private static class WithLocalFileEvent implements BuildEvent {

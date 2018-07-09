@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactory;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
@@ -138,8 +138,8 @@ public class BazelBuildEventServiceModuleTest {
         commandLineReporter,
         moduleEnvironment,
         clock,
-        new BuildEventArtifactUploaderMap.Builder()
-            .add("", BuildEventArtifactUploader.LOCAL_FILES_UPLOADER)
+        new BuildEventArtifactUploaderFactoryMap.Builder()
+            .add("", BuildEventArtifactUploaderFactory.LOCAL_FILES_UPLOADER_FACTORY)
             .build(),
         reporter,
         /* buildRequestId= */ "foo",
