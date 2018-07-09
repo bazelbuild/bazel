@@ -186,7 +186,7 @@ java_library_attrs = {
     "_javac": attr.label(default = Label("//tools/jdk:javac"), single_file = True),
     "_jar": attr.label(default = Label("//tools/jdk:jar"), single_file = True),
     "_jdk": attr.label(default = Label("//tools/jdk:jdk"), allow_files = True),
-    "data": attr.label_list(allow_files = True, cfg = "data"),
+    "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),
     "srcs": attr.label_list(allow_files = java_filetype),
     "jars": attr.label_list(allow_files = jar_filetype),
