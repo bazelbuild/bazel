@@ -83,6 +83,7 @@ public class ProtoCompileActionBuilderTest {
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
@@ -94,6 +95,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>stableOrder().build(),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             null /* protosInDirectDeps */,
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -120,6 +122,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /* transitiveImports= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
@@ -128,6 +131,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             null /* protosInDirectDeps */,
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -155,6 +159,7 @@ public class ProtoCompileActionBuilderTest {
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
@@ -163,6 +168,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             supportData.getProtosInDirectDeps(),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -189,6 +195,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
@@ -197,6 +204,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             supportData.getProtosInDirectDeps(),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             false /* allowServices */,
@@ -233,6 +241,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
     CustomCommandLine cmdLine =
@@ -241,6 +250,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
             supportData.getProtosInDirectDeps(),
             Label.parseAbsoluteUnchecked("//foo:bar"),
             true /* allowServices */,
@@ -264,6 +274,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
     ProtoLangToolchainProvider toolchain1 =
@@ -288,6 +299,7 @@ public class ProtoCompileActionBuilderTest {
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
           /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+          /*directProtoSourceRoots=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
           supportData.getProtosInDirectDeps(),
           Label.parseAbsoluteUnchecked("//foo:bar"),
           true /* allowServices */,
@@ -383,7 +395,10 @@ public class ProtoCompileActionBuilderTest {
     NestedSet<Artifact> transitiveImportsNestedSet =
         NestedSetBuilder.wrap(STABLE_ORDER, transitiveImports);
     ProtoCompileActionBuilder.addIncludeMapArguments(
-        commandLine, protosInDirectDependenciesBuilder, transitiveImportsNestedSet);
+        commandLine,
+        protosInDirectDependenciesBuilder,
+        NestedSetBuilder.emptySet(STABLE_ORDER),
+        transitiveImportsNestedSet);
     return commandLine.build().arguments();
   }
 }

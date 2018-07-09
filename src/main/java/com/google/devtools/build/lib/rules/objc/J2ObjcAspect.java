@@ -640,6 +640,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         supportData.getTransitiveImports(),
         supportData.getProtosInDirectDeps(),
         supportData.getTransitiveProtoPathFlags(),
+        supportData.getDirectProtoSourceRoots(),
         ruleContext.getLabel(),
         outputs,
         "j2objc",

@@ -44,7 +44,8 @@ public abstract class ProtoSourcesProvider
       NestedSet<Artifact> checkDepsProtoSources,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
-      NestedSet<String> transitiveProtoPathFlags) {
+      NestedSet<String> transitiveProtoPathFlags,
+      String protoSourceRoot) {
     return new AutoValue_ProtoSourcesProvider(
         transitiveImports,
         transitiveProtoSources,
@@ -52,7 +53,8 @@ public abstract class ProtoSourcesProvider
         checkDepsProtoSources,
         directDescriptorSet,
         transitiveDescriptorSets,
-        transitiveProtoPathFlags);
+        transitiveProtoPathFlags,
+        protoSourceRoot);
   }
 
   /**
@@ -107,6 +109,9 @@ public abstract class ProtoSourcesProvider
    */
   @Override
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
+
+  /** The {@code proto_source_root} of the current library. */
+  public abstract String getProtoSourceRoot();
 
   ProtoSourcesProvider() {}
 }
