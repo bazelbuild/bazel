@@ -122,7 +122,7 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "msys_x64"
+  toolchain_identifier: "mingw_x64"
 
 %{msys_x64_mingw_content}
 
