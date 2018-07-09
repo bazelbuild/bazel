@@ -65,6 +65,8 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -255,15 +257,18 @@ public final class SkyframeBuildView {
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
               eventHandler, values, aspectKeys, keepGoing, numThreads);
     } finally {
       enableAnalysis(false);
     }
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
-        skyframeExecutor.findArtifactConflicts();
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions;
+    try (SilentCloseable c =
+        Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
+      badActions = skyframeExecutor.findArtifactConflicts();
+    }
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
     Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
