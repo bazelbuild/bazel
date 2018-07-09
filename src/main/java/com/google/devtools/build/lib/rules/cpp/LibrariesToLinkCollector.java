@@ -285,6 +285,11 @@ public class LibrariesToLinkCollector {
     Preconditions.checkState(
         !Link.useStartEndLib(
             input, CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider)));
+    if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+      // On Windows, dynamic library (dll) cannot be linked directly.
+      Preconditions.checkState(
+          !CppFileTypes.SHARED_LIBRARY.matches(input.getArtifact().getFilename()));
+    }
 
     expandedLinkerInputsBuilder.add(input);
     Artifact inputArtifact = input.getArtifact();

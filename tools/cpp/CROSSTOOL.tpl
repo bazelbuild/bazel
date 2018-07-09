@@ -678,46 +678,13 @@ toolchain {
             value: 'interface_library'
           }
           flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {
           expand_if_equal: {
             variable: 'libraries_to_link.type'
             value: 'static_library'
-          }
-          flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
-            flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
-          }
-        }
-        flag_group {
-          expand_if_equal: {
-            variable: 'libraries_to_link.type'
-            value: 'dynamic_library'
-          }
-          flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
-            flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
-          }
-        }
-        flag_group {
-          expand_if_equal: {
-            variable: 'libraries_to_link.type'
-            value: 'versioned_dynamic_library'
           }
           flag_group {
             expand_if_false: 'libraries_to_link.is_whole_archive'
