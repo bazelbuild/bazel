@@ -492,20 +492,45 @@ toolchain {
         value: "%{msvc_env_path}"
       }
       env_entry {
-        key: "INCLUDE"
-        value: "%{msvc_env_include}"
-      }
-      env_entry {
-        key: "LIB"
-        value: "%{msvc_env_lib}"
-      }
-      env_entry {
         key: "TMP"
         value: "%{msvc_env_tmp}"
       }
       env_entry {
         key: "TEMP"
         value: "%{msvc_env_tmp}"
+      }
+    }
+    implies: 'msvc_compile_env'
+    implies: 'msvc_link_env'
+  }
+
+  feature {
+    name: "msvc_compile_env"
+    env_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "c++-header-parsing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      env_entry {
+        key: "INCLUDE"
+        value: "%{msvc_env_include}"
+      }
+    }
+  }
+
+  feature {
+    name: "msvc_link_env"
+    env_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-nodeps-dynamic-library"
+      action: "c++-link-static-library"
+      env_entry {
+        key: "LIB"
+        value: "%{msvc_env_lib}"
       }
     }
   }
