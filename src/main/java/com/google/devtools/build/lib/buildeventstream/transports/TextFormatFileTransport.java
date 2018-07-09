@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -47,12 +46,8 @@ public final class TextFormatFileTransport extends FileTransport {
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventStreamProtos.BuildEvent protoEvent = asStreamProto(event, namer);
-    if (protoEvent == null) {
-      return;
-    }
-    String protoTextRepresentation = TextFormat.printToString(protoEvent);
-    write("event {\n" + protoTextRepresentation + "}\n\n");
+  protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
+    String protoTextRepresentation = TextFormat.printToString(buildEvent);
+    return ("event {\n" + protoTextRepresentation + "}\n\n").getBytes(Charsets.UTF_8);
   }
 }

@@ -59,9 +59,9 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
    * Writes the given data to the given file.
    */
   private static void writeToFile(Path path, String data) throws IOException {
-    OutputStream out = path.getOutputStream();
-    out.write(data.getBytes(Charset.defaultCharset()));
-    out.close();
+    try (OutputStream out = path.getOutputStream()) {
+      out.write(data.getBytes(Charset.defaultCharset()));
+    }
   }
 
   /**
@@ -155,10 +155,11 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
           assertThat(file.isWritable()).isFalse();
           assertThat(file.isExecutable()).isFalse();
           assertThat(file.getLastModifiedTime()).isEqualTo(300);
-          BufferedReader reader = new BufferedReader(
-              new InputStreamReader(file.getInputStream(), Charset.defaultCharset()));
-          assertThat(reader.readLine()).isEqualTo(TEST_FILE_DATA);
-          assertThat(reader.readLine()).isNull();
+          try (BufferedReader reader = new BufferedReader(
+              new InputStreamReader(file.getInputStream(), Charset.defaultCharset()))) {
+            assertThat(reader.readLine()).isEqualTo(TEST_FILE_DATA);
+            assertThat(reader.readLine()).isNull();
+          }
 
           Path symlink = base.getRelative("symlink" + i);
           assertThat(symlink.exists()).isTrue();
@@ -239,10 +240,11 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
           assertThat(file.isExecutable()).isEqualTo(i % 4 == 0);
           assertThat(file.getLastModifiedTime()).isEqualTo(i);
           if (file.isReadable()) {
-            BufferedReader reader = new BufferedReader(
-                new InputStreamReader(file.getInputStream(), Charset.defaultCharset()));
-            assertThat(reader.readLine()).isEqualTo(TEST_FILE_DATA);
-            assertThat(reader.readLine()).isNull();
+            try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(file.getInputStream(), Charset.defaultCharset()))) {
+              assertThat(reader.readLine()).isEqualTo(TEST_FILE_DATA);
+              assertThat(reader.readLine()).isNull();
+            }
           }
 
           Path symlink = base.getRelative("symlink_" + threadId + "_" + i);

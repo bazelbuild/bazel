@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -107,7 +108,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x"))).isFalse();
+    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isFalse();
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
         "sh_library(name = 'x')");
@@ -115,7 +116,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x"))).isTrue();
+    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isTrue();
     assertNoEvents();
   }
 
@@ -136,7 +137,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertThat(visitTransitively(Label.parseAbsolute("//top:top"))).isFalse();
+    assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isFalse();
     assertContainsEvent("no such package 'pkg'");
     // The traditional label visitor does not propagate the original IOException message.
     // assertContainsEvent("custom crash");
@@ -150,7 +151,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertThat(visitTransitively(Label.parseAbsolute("//top:top"))).isTrue();
+    assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isTrue();
     assertNoEvents();
   }
 
@@ -169,6 +170,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x"))).isFalse();
+    assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x", ImmutableMap.of()))).isFalse();
   }
 }

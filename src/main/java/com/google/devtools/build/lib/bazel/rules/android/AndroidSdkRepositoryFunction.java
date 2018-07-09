@@ -46,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
 
@@ -311,9 +312,10 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       env.getValueOrThrow(releaseFileKey, IOException.class);
 
       Properties properties = new Properties();
-      properties.load(sourcePropertiesFilePath.getInputStream());
+      try (InputStream in = sourcePropertiesFilePath.getInputStream()) {
+        properties.load(in);
+      }
       return properties;
-
     } catch (IOException e) {
       String error = String.format(
           "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());

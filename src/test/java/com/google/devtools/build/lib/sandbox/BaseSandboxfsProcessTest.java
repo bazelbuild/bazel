@@ -95,7 +95,7 @@ abstract class BaseSandboxfsProcessTest {
 
       // Create twp mappings: one to be deleted and one to be kept around throughout the test.
       Path keepMeFile = tmpDir.getRelative("one");
-      keepMeFile.getOutputStream().close();
+      FileSystemUtils.createEmptyFile(keepMeFile);
       Path oneFile = tmpDir.getRelative("one");
       FileSystemUtils.writeContent(oneFile, UTF_8, "One test data");
       process.map(

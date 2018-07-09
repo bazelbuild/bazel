@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -46,21 +45,17 @@ public final class JsonFormatFileTransport extends FileTransport {
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventStreamProtos.BuildEvent protoEvent = asStreamProto(event, namer);
-    if (protoEvent == null) {
-      return;
-    }
+  protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
     String protoJsonRepresentation;
     try {
       protoJsonRepresentation =
-          JsonFormat.printer().omittingInsignificantWhitespace().print(protoEvent) + "\n";
+          JsonFormat.printer().omittingInsignificantWhitespace().print(buildEvent) + "\n";
     } catch (InvalidProtocolBufferException e) {
       // We don't expect any unknown Any fields in our protocol buffer. Nevertheless, handle
       // the exception gracefully and, at least, return valid JSON with an id field.
       protoJsonRepresentation =
           "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
     }
-    write(protoJsonRepresentation);
+    return protoJsonRepresentation.getBytes(Charsets.UTF_8);
   }
 }

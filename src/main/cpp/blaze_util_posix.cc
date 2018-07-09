@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define _WITH_DPRINTF
 #include "src/main/cpp/blaze_util_platform.h"
 
-#define _WITH_DPRINTF
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>

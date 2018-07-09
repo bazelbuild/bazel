@@ -352,9 +352,7 @@ public class BuildViewForTesting {
         configurations.getHostConfiguration(),
         /*aspect=*/ null,
         getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
-        toolchainContext == null
-            ? ImmutableSet.of()
-            : toolchainContext.getResolvedToolchainLabels(),
+        toolchainContext == null ? ImmutableSet.of() : toolchainContext.resolvedToolchainLabels(),
         skyframeExecutor.getDefaultBuildOptions(),
         ruleClassProvider.getTrimmingTransitionFactory());
   }

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import com.google.protobuf.ByteString;
@@ -68,7 +68,6 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -82,7 +81,7 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class ByteStreamUploaderTest {
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(HashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private static final int CHUNK_SIZE = 10;
   private static final String INSTANCE_NAME = "foo";
@@ -133,8 +132,7 @@ public class ByteStreamUploaderTest {
     retryService.shutdownNow();
   }
 
-  @Ignore // TODO(buchgr): This test is so flaky that it fails three times in a row on Bazel CI.
-  @Test(timeout = 10000)
+  @Test
   public void singleBlobUploadShouldWork() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     AsyncRetrier asyncRetrier =
@@ -205,8 +203,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Ignore
-  @Test(timeout = 20000)
+  @Test
   public void multipleBlobsUploadShouldWork() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     AsyncRetrier asyncRetrier =
@@ -214,7 +211,7 @@ public class ByteStreamUploaderTest {
             () -> new FixedBackoff(1, 0), (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
     ByteStreamUploader uploader = new ByteStreamUploader(INSTANCE_NAME, channel, null, 3, asyncRetrier);
 
-    int numUploads = 100;
+    int numUploads = 10;
     Map<String, byte[]> blobsByHash = new HashMap<>();
     List<Chunker> builders = new ArrayList<>(numUploads);
     Random rand = new Random();
@@ -389,7 +386,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void sameBlobShouldNotBeUploadedTwice() throws Exception {
     // Test that uploading the same file concurrently triggers only one file upload.
 
@@ -452,7 +449,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void errorsShouldBeReported() throws IOException, InterruptedException {
     Context prevContext = withEmptyMetadata.attach();
     AsyncRetrier asyncRetrier =
@@ -482,7 +479,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void shutdownShouldCancelOngoingUploads() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     AsyncRetrier asyncRetrier =
@@ -540,7 +537,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void failureInRetryExecutorShouldBeHandled() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     ListeningScheduledExecutorService retryService =
@@ -576,7 +573,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void resourceNameWithoutInstanceName() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     AsyncRetrier asyncRetrier =
@@ -616,7 +613,7 @@ public class ByteStreamUploaderTest {
     withEmptyMetadata.detach(prevContext);
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void nonRetryableStatusShouldNotBeRetried() throws Exception {
     Context prevContext = withEmptyMetadata.attach();
     AsyncRetrier asyncRetrier =

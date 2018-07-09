@@ -564,10 +564,10 @@ public final class Profiler {
     FileWriter writer = null;
     if (stream != null) {
       if (format == Format.BINARY_BAZEL_FORMAT) {
-        writer = new BinaryFormatWriter(stream, profileStartTime, comment);
+        writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
         writer.start();
       } else if (format == Format.JSON_TRACE_FILE_FORMAT) {
-        writer = new JsonTraceFileWriter(stream, profileStartTime);
+        writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
         writer.start();
       }
     }
@@ -652,6 +652,7 @@ public final class Profiler {
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
     Preconditions.checkNotNull(description);
     Preconditions.checkState(startTimeNanos > 0, "startTime was %s", startTimeNanos);
+    Preconditions.checkState(!"".equals(description), "No description -> not helpful");
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
@@ -1032,6 +1033,7 @@ public final class Profiler {
             }
             char eventType = data.duration == 0 ? 'i' : 'X';
             out.append("{");
+            out.append("\"cat\":\"").append(data.type.description).append("\",");
             out.append("\"name\":\"").append(data.description).append("\",");
             out.append("\"ph\":\"").append(eventType).append("\",");
             out.append("\"ts\":")

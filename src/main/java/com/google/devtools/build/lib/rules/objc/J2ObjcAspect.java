@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -121,10 +122,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private final String toolsRepository;
   private final Label ccToolchainType;
+  private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
 
   public J2ObjcAspect(RuleDefinitionEnvironment env) {
     this.toolsRepository = checkNotNull(env.getToolsRepository());
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
+    this.ccToolchain = CppRuleClasses.ccToolchainAttribute(env);
   }
 
   /** Returns whether this aspect allows proto services to be generated from this proto rule */
@@ -213,14 +216,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(
                     getProtoToolchainLabel(
                         toolsRepository + "//tools/j2objc:j2objc_proto_toolchain")))
-        .add(attr(":j2objc_cc_toolchain", LABEL).value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+        .add(attr(":j2objc_cc_toolchain", LABEL).value(ccToolchain))
         .build();
   }
 
   @Override
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     ConfiguredTarget base = ctadBase.getConfiguredTarget();
     if (isProtoRule(base)) {
       return proto(base, ruleContext, parameters);
@@ -237,7 +240,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider,
       Iterable<Attribute> depAttributes,
       List<TransitiveInfoCollection> otherDeps)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
     ObjcCommon common;
 
@@ -300,7 +303,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private ConfiguredAspect java(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
     JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
@@ -349,7 +352,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private ConfiguredAspect proto(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     ProtoSourcesProvider protoSourcesProvider = base.getProvider(ProtoSourcesProvider.class);
     ImmutableList<Artifact> protoSources = protoSourcesProvider.getDirectProtoSources();
 
@@ -637,6 +640,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         supportData.getTransitiveImports(),
         supportData.getProtosInDirectDeps(),
         supportData.getTransitiveProtoPathFlags(),
+        supportData.getDirectProtoSourceRoots(),
         ruleContext.getLabel(),
         outputs,
         "j2objc",

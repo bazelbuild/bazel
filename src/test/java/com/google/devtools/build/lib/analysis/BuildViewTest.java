@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -240,7 +241,8 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(recorder.events)
         .contains(
             new LoadingFailureEvent(
-                Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//nopackage:missing")));
+                Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
+                Label.parseAbsolute("//nopackage:missing", ImmutableMap.of())));
     assertContainsEvent("missing value for mandatory attribute 'outs'");
     assertContainsEvent("no such package 'nopackage'");
     // Skyframe correctly reports the other root cause as the genrule itself (since it is
@@ -249,7 +251,8 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(recorder.events)
         .contains(
             new LoadingFailureEvent(
-                Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:foo")));
+                Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
+                Label.parseAbsolute("//pkg:foo", ImmutableMap.of())));
   }
 
   @Test
@@ -279,13 +282,14 @@ public class BuildViewTest extends BuildViewTestBase {
         .that(
             recorder.events.contains(
                 new LoadingFailureEvent(
-                    Label.parseAbsolute("//third_party/first"),
-                    Label.parseAbsolute("//third_party/fourth"))))
+                    Label.parseAbsolute("//third_party/first", ImmutableMap.of()),
+                    Label.parseAbsolute("//third_party/fourth", ImmutableMap.of()))))
         .isTrue();
     assertThat(recorder.events)
-        .contains(new LoadingFailureEvent(
-            Label.parseAbsolute("//third_party/third"),
-            Label.parseAbsolute("//third_party/fourth")));
+        .contains(
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//third_party/third", ImmutableMap.of()),
+                Label.parseAbsolute("//third_party/fourth", ImmutableMap.of())));
   }
 
   @Test
@@ -305,10 +309,14 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(recorder.events).hasSize(2);
     assertThat(recorder.events)
         .contains(
-            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c1:not")));
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//gp", ImmutableMap.of()),
+                Label.parseAbsolute("//c1:not", ImmutableMap.of())));
     assertThat(recorder.events)
         .contains(
-            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c2:not")));
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//gp", ImmutableMap.of()),
+                Label.parseAbsolute("//c2:not", ImmutableMap.of())));
   }
 
   /**
@@ -348,7 +356,8 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<Label> labels = Iterables.transform(targets, target -> target.getLabel());
     assertThat(labels)
         .containsExactly(
-            Label.parseAbsolute("//package:inner"), Label.parseAbsolute("//package:file"));
+            Label.parseAbsolute("//package:inner", ImmutableMap.of()),
+            Label.parseAbsolute("//package:file", ImmutableMap.of()));
   }
 
   @Test
@@ -372,12 +381,11 @@ public class BuildViewTest extends BuildViewTestBase {
 
     Dependency innerDependency =
         Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//package:inner"),
+            Label.parseAbsolute("//package:inner", ImmutableMap.of()),
             NoTransition.INSTANCE,
             AspectCollection.EMPTY);
     Dependency fileDependency =
-        Dependency.withNullConfiguration(
-            Label.parseAbsolute("//package:file"));
+        Dependency.withNullConfiguration(Label.parseAbsolute("//package:file", ImmutableMap.of()));
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }
@@ -831,8 +839,12 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events)
         .containsExactly(
-            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1")),
-            new LoadingFailureEvent(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2")));
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//gp", ImmutableMap.of()),
+                Label.parseAbsolute("//cycles1", ImmutableMap.of())),
+            new LoadingFailureEvent(
+                Label.parseAbsolute("//gp", ImmutableMap.of()),
+                Label.parseAbsolute("//cycles2", ImmutableMap.of())));
   }
 
   /**

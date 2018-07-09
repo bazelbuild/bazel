@@ -51,16 +51,6 @@ default_toolchain {
   toolchain_identifier: "%{toolchain_name}"
 }
 
-default_toolchain {
-  cpu: "local"
-  toolchain_identifier: "ios_x86_64"
-}
-
-default_toolchain {
-  cpu: "ios_x86_64"
-  toolchain_identifier: "ios_x86_64"
-}
-
 # Android tooling requires a default toolchain for the armeabi-v7a cpu.
 toolchain {
   abi_version: "armeabi-v7a"
@@ -79,37 +69,6 @@ toolchain {
   target_cpu: "armeabi-v7a"
   target_system_name: "armeabi-v7a"
   toolchain_identifier: "stub_armeabi-v7a"
-
-  tool_path { name: "ar" path: "/bin/false" }
-  tool_path { name: "compat-ld" path: "/bin/false" }
-  tool_path { name: "cpp" path: "/bin/false" }
-  tool_path { name: "dwp" path: "/bin/false" }
-  tool_path { name: "gcc" path: "/bin/false" }
-  tool_path { name: "gcov" path: "/bin/false" }
-  tool_path { name: "ld" path: "/bin/false" }
-
-  tool_path { name: "nm" path: "/bin/false" }
-  tool_path { name: "objcopy" path: "/bin/false" }
-  tool_path { name: "objdump" path: "/bin/false" }
-  tool_path { name: "strip" path: "/bin/false" }
-  linking_mode_flags { mode: DYNAMIC }
-}
-
-toolchain {
-  toolchain_identifier: "ios_x86_64"
-  host_system_name: "x86_64-apple-macosx"
-  target_system_name: "x86_64-apple-ios"
-  target_cpu: "ios_x86_64"
-  target_libc: "ios"
-  compiler: "compiler"
-  abi_version: "local"
-  abi_libc_version: "local"
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
 
   tool_path { name: "ar" path: "/bin/false" }
   tool_path { name: "compat-ld" path: "/bin/false" }
@@ -330,7 +289,6 @@ toolchain {
       action: "c++-module-compile"
       action: "c++-module-codegen"
       action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "assemble"
       action: "preprocess-assemble"
       action: "c++-link-executable"
@@ -366,6 +324,19 @@ toolchain {
   action_config {
     config_name: 'assemble'
     action_name: 'assemble'
+    tool {
+      tool_path: '%{msvc_ml_path}'
+    }
+    implies: 'compiler_input_flags'
+    implies: 'compiler_output_flags'
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'sysroot'
+  }
+
+  action_config {
+    config_name: 'preprocess-assemble'
+    action_name: 'preprocess-assemble'
     tool {
       tool_path: '%{msvc_ml_path}'
     }
@@ -425,7 +396,6 @@ toolchain {
     implies: 'linker_subsystem_flag'
     implies: 'linker_param_file'
     implies: 'msvc_env'
-    implies: 'use_linker'
     implies: 'no_stripping'
   }
 
@@ -445,7 +415,6 @@ toolchain {
     implies: 'linker_subsystem_flag'
     implies: 'linker_param_file'
     implies: 'msvc_env'
-    implies: 'use_linker'
     implies: 'no_stripping'
     implies: 'has_configured_linker_path'
     implies: 'def_file'
@@ -467,7 +436,6 @@ toolchain {
       implies: 'linker_subsystem_flag'
       implies: 'linker_param_file'
       implies: 'msvc_env'
-      implies: 'use_linker'
       implies: 'no_stripping'
       implies: 'has_configured_linker_path'
       implies: 'def_file'
@@ -496,7 +464,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -514,7 +481,6 @@ toolchain {
       action: "c++-module-compile"
       action: "c++-module-codegen"
       action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "assemble"
       action: "preprocess-assemble"
       action: "c++-link-executable"
@@ -545,19 +511,6 @@ toolchain {
   }
 
   feature {
-    name: "use_linker"
-    env_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      env_entry {
-        key: "USE_LINKER"
-        value: "1"
-      }
-    }
-  }
-
-  feature {
     name: 'include_paths'
     flag_set {
       action: "assemble"
@@ -565,7 +518,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       flag_group {
         iterate_over: 'quote_include_paths'
@@ -590,7 +542,6 @@ toolchain {
       action: "c-compile"
       action: "c++-compile"
       action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       flag_group {
         flag: "/D%{preprocessor_defines}"
@@ -607,7 +558,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-module-compile'
-      action: 'c++-header-preprocessing'
       action: 'c++-header-parsing'
       flag_group {
         flag: "/showIncludes"
@@ -728,46 +678,13 @@ toolchain {
             value: 'interface_library'
           }
           flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {
           expand_if_equal: {
             variable: 'libraries_to_link.type'
             value: 'static_library'
-          }
-          flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
-            flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
-          }
-        }
-        flag_group {
-          expand_if_equal: {
-            variable: 'libraries_to_link.type'
-            value: 'dynamic_library'
-          }
-          flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
-            flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
-          }
-        }
-        flag_group {
-          expand_if_equal: {
-            variable: 'libraries_to_link.type'
-            value: 'versioned_dynamic_library'
           }
           flag_group {
             expand_if_false: 'libraries_to_link.is_whole_archive'
@@ -997,7 +914,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1016,7 +932,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       action: 'c++-link-executable'
@@ -1037,7 +952,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1064,7 +978,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1095,7 +1008,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -1132,7 +1044,4 @@ toolchain {
   }
 
   linking_mode_flags { mode: DYNAMIC }
-
-%{compilation_mode_content}
-
 }

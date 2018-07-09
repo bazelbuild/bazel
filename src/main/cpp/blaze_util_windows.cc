@@ -64,6 +64,7 @@ static const size_t kWindowsPathBufferSize = 0x8010;
 using bazel::windows::AutoAttributeList;
 using bazel::windows::AutoHandle;
 using bazel::windows::CreateJunction;
+using bazel::windows::CreateJunctionResult;
 
 // TODO(bazel-team): stop using BAZEL_DIE, handle errors on the caller side.
 // BAZEL_DIE calls exit(exitcode), which makes it difficult to follow the
@@ -671,8 +672,8 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
         << "): AsAbsoluteWindowsPath(" << posix_name << ") failed: " << error;
     return false;
   }
-  wstring werror(CreateJunction(name, target));
-  if (!werror.empty()) {
+  wstring werror;
+  if (CreateJunction(name, target, &werror) != CreateJunctionResult::kSuccess) {
     string error(blaze_util::WstringToCstring(werror.c_str()).get());
     BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
                      << posix_name << "): CreateJunction: " << error;
@@ -1093,7 +1094,7 @@ static string GetMsysBash() {
   // MSYS2 installer writes its registry into HKCU, although documentation
   // (https://msdn.microsoft.com/en-us/library/ms954376.aspx)
   // clearly states that it should go to HKLM.
-  static const char* const key =
+  static constexpr const char key[] =
       "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
   if (RegOpenKeyExA(HKEY_CURRENT_USER,  // _In_     HKEY    hKey,
                     key,                // _In_opt_ LPCTSTR lpSubKey,
@@ -1111,7 +1112,7 @@ static string GetMsysBash() {
   // we enumerate all keys under
   // HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall and find the first
   // with MSYS2 64bit display name.
-  static const char* const msys_display_name = "MSYS2 64bit";
+  static constexpr const char msys_display_name[] = "MSYS2 64bit";
   DWORD n_subkeys;
 
   if (RegQueryInfoKey(h_uninstall,  // _In_        HKEY      hKey,
@@ -1220,7 +1221,7 @@ static string GetBashFromGitOnWin() {
   HKEY h_GitOnWin_uninstall;
 
   // Well-known registry key for Git-on-Windows.
-  static const char* const key =
+  static constexpr const char key[] =
       "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Git_is1";
   if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,    // _In_     HKEY    hKey,
                     key,                   // _In_opt_ LPCTSTR lpSubKey,

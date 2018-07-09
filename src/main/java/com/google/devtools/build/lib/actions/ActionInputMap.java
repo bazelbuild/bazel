@@ -110,19 +110,26 @@ public final class ActionInputMap implements MetadataProvider {
 
   private void resize() {
     Object[] oldData = data;
-    int oldSize = size;
     data = new Object[data.length * 2];
-    size = 0;
     ++numBits;
     mask = (1 << numBits) - 1;
     for (int i = 0; i < oldData.length; i += 2) {
       ActionInput key = (ActionInput) oldData[i];
-      if (key != null) {
-        FileArtifactValue value = (FileArtifactValue) oldData[i + 1];
-        putImpl(key, value);
+      if (key == null) {
+        continue;
+      }
+      int hashCode = key.getExecPathString().hashCode();
+      int probe = getProbe(hashCode);
+      while (true) {
+        // Only checks for empty slots because all map keys are known to be unique.
+        if (data[probe] == null) {
+          data[probe] = key;
+          data[probe + 1] = oldData[i + 1];
+          break;
+        }
+        probe = incProbe(probe);
       }
     }
-    Preconditions.checkState(size == oldSize, "size = %s, oldSize = %s", size, oldSize);
   }
 
   /**

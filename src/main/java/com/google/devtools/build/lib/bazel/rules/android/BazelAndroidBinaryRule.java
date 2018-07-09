@@ -70,6 +70,11 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .add(
             Whitelist.getAttributeFromWhitelistName("export_deps")
                 .value(environment.getToolsLabel("//tools/android:export_deps_whitelist")))
+        .add(
+            Whitelist.getAttributeFromWhitelistName("allow_deps_without_srcs")
+                .value(
+                    environment.getToolsLabel(
+                        "//tools/android:allow_android_library_deps_without_srcs_whitelist")))
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))

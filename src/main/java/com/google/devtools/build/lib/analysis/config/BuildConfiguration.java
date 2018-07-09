@@ -169,7 +169,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       if (!input.startsWith("/") && !input.startsWith("@")) {
         input = "//" + input;
       }
-      return Label.parseAbsolute(input);
+      return Label.parseAbsolute(input, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new OptionsParsingException(e.getMessage());
     }
@@ -336,7 +336,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * for semantically identical option values. The simplest way to ensure that is to return the
    * input string.
    */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions implements Cloneable {
     @Option(
       name = "experimental_separate_genfiles_directory",
@@ -764,18 +763,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean isHost;
 
     @Option(
-      name = "features",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "The given features will be enabled or disabled by default for all packages. "
-              + "Specifying -<feature> will disable the feature globally. "
-              + "Negative features always override positive ones. "
-              + "This flag is used to enable rolling out default feature changes without a "
-              + "Blaze release."
-    )
+        name = "features",
+        allowMultiple = true,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "The given features will be enabled or disabled by default for all packages. "
+                + "Specifying -<feature> will disable the feature globally. "
+                + "Negative features always override positive ones. "
+                + "This flag is used to enable rolling out default feature changes without a "
+                + "Bazel release.")
     public List<String> defaultFeatures;
 
     @Option(

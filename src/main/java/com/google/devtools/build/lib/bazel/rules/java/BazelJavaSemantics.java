@@ -31,10 +31,10 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
+import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -50,8 +50,8 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -509,7 +509,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps) {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
-    // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
+    // so we reuse the logic within JavaCompilationArgsProvider to handle both scenarios.
     return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.copyOf(deps))
         .getRuntimeJars();
   }
@@ -855,5 +855,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
       throws InterruptedException {
     return null;
+  }
+
+  @Override
+  public boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext) {
+    return false;
   }
 }

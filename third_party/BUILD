@@ -543,16 +543,6 @@ java_import(
 )
 
 java_import(
-    name = "kryo_lib",
-    jars = ["kryo/kryo-3.0.2.jar"],
-)
-
-java_library(
-    name = "kryo",
-    exports = ["kryo_lib"],
-)
-
-java_import(
     name = "minlog_lib",
     jars = ["minlog/minlog-1.2.jar"],
 )
@@ -654,6 +644,11 @@ config_setting(
 config_setting(
     name = "arm",
     values = {"host_cpu": "arm"},
+)
+
+config_setting(
+    name = "aarch64",
+    values = {"host_cpu": "aarch64"},
 )
 
 config_setting(

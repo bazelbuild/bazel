@@ -754,7 +754,7 @@ function run_suite() {
       TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
     elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       if grep -q "TESTS=" "$TEST_script" ; then
-        echo "TESTS variable overridden in Blaze sh_test. Please remove before submitting" \
+        echo "TESTS variable overridden in Bazel sh_test. Please remove before submitting" \
           >> "$TEST_WARNINGS_OUTPUT_FILE"
       fi
     fi

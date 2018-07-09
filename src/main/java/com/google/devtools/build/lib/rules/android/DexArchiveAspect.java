@@ -33,6 +33,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -94,7 +95,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   /**
    * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
    * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
-   * for {@code blaze mobile-install}.
+   * for {@code bazel mobile-install}.
    */
   @AutoCodec
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
@@ -178,7 +179,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   @Override
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters params)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
     Function<Artifact, Artifact> desugaredJars =
         desugarJarsIfRequested(ctadBase.getConfiguredTarget(), ruleContext, result);

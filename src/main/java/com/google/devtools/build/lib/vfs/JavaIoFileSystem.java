@@ -56,7 +56,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     this(new JavaClock());
   }
 
-  public JavaIoFileSystem(HashFunction hashFunction) {
+  public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = new JavaClock();
   }
@@ -343,22 +343,42 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean delete(Path path) throws IOException {
-    File file = getIoFile(path);
+    java.nio.file.Path nioPath = getNioPath(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (file.delete()) {
-        return true;
+      return Files.deleteIfExists(nioPath);
+    } catch (java.nio.file.DirectoryNotEmptyException e) {
+      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
+    } catch (java.nio.file.AccessDeniedException e) {
+      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
+    } catch (java.nio.file.AtomicMoveNotSupportedException
+        | java.nio.file.FileAlreadyExistsException
+        | java.nio.file.FileSystemLoopException
+        | java.nio.file.NoSuchFileException
+        | java.nio.file.NotDirectoryException
+        | java.nio.file.NotLinkException e) {
+      // All known but unexpected subclasses of FileSystemException.
+      throw new IOException(path.getPathString() + ": unexpected FileSystemException", e);
+    } catch (java.nio.file.FileSystemException e) {
+      // Files.deleteIfExists() throws FileSystemException on Linux if a path component is a file.
+      // We caught all known subclasses of FileSystemException so `e` is either an unknown
+      // subclass or it is indeed a "Not a directory" error. Non-English JDKs may use a different
+      // error message than "Not a directory", so we should not look for that text. Checking the
+      // parent directory if it's indeed a directory is unrealiable, because another process may
+      // modify it concurrently... but we have no better choice.
+      if (e.getClass().equals(java.nio.file.FileSystemException.class)
+          && !nioPath.getParent().toFile().isDirectory()) {
+        // Hopefully the try-block failed because a parent directory was in fact not a directory.
+        // Theoretically it's possible that the try-block failed for some other reason and all
+        // parent directories were indeed directories, but another process changed a parent
+        // directory into a file after the try-block failed but before this catch-block started, and
+        // we return false here losing the real exception in `e`, but we cannot know.
+        return false;
+      } else {
+        throw new IOException(path.getPathString() + ": unexpected FileSystemException", e);
       }
-      if (file.exists()) {
-        if (file.isDirectory() && file.list().length > 0) {
-          throw new IOException(path + ERR_DIRECTORY_NOT_EMPTY);
-        } else {
-          throw new IOException(path + ERR_PERMISSION_DENIED);
-        }
-      }
-      return false;
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, file.getPath());
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
     }
   }
 
@@ -392,7 +412,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(Path path, DigestHashFunction hashFunction) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {

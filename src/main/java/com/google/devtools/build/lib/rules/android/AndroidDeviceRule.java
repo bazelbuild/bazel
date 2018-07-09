@@ -181,11 +181,11 @@ public final class AndroidDeviceRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = android_device, TYPE = OTHER, FAMILY = Android) -->
 
 <p>This rule creates an android emulator configured with the given
-  specifications. This emulator may be started via a blaze run
+  specifications. This emulator may be started via a bazel run
   command or by executing the generated script directly. It is encouraged to depend
   on existing android_device rules rather than defining your own.
 </p>
-<p>This rule is a suitable target for the --run_under flag to blaze test and blaze
+<p>This rule is a suitable target for the --run_under flag to bazel test and blaze
   run.  It starts an emulator, copies the target being tested/run to the emulator,
   and tests it or runs it as appropriate.
 </p>
@@ -229,7 +229,7 @@ ro.product.name=soju
 </pre>
 <p>
   This rule will generate images and a start script. You can start the emulator
-  locally by executing blaze run :nexus_s -- --action=start. The script exposes
+  locally by executing bazel run :nexus_s -- --action=start. The script exposes
   the following flags:
 </p>
   <ul>

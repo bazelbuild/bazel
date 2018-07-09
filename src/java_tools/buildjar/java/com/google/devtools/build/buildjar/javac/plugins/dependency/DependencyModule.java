@@ -299,10 +299,9 @@ public final class DependencyModule {
      *
      * @param missing the missing dependencies to be added.
      * @param recipient the target from which the dependencies are missing.
-     * @param dependencyModule {@link DependencyModule} instance for compilation context.
      * @return the string message describing the dependency build issues, including fix.
      */
-    String get(Iterable<JarOwner> missing, String recipient, DependencyModule dependencyModule);
+    String get(Iterable<JarOwner> missing, String recipient);
   }
 
   /** Tool with which to fix dependency issues. */
@@ -343,7 +342,7 @@ public final class DependencyModule {
 
     private static class DefaultFixMessage implements FixMessage {
       @Override
-      public String get(Iterable<JarOwner> missing, String recipient, DependencyModule depModule) {
+      public String get(Iterable<JarOwner> missing, String recipient) {
         ImmutableSet<String> missingTargets =
             Streams.stream(missing)
                 .flatMap(owner -> owner.label().map(Stream::of).orElse(Stream.empty()))

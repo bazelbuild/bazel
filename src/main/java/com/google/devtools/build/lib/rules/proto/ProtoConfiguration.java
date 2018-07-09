@@ -41,7 +41,6 @@ import java.util.List;
 // configuration fragment in aspect definitions.
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
   /** Command line options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
       name = "protocopt",

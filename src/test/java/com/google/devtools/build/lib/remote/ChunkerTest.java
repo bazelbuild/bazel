@@ -18,7 +18,7 @@ import static junit.framework.TestCase.fail;
 
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
@@ -38,7 +38,7 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class ChunkerTest {
 
-  private final DigestUtil digestUtil = new DigestUtil(HashFunction.SHA256);
+  private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
 
   @Test
   public void chunkingShouldWork() throws IOException {

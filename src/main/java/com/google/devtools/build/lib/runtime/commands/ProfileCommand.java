@@ -222,9 +222,12 @@ public final class ProfileCommand implements BlazeCommand {
     }
 
     try (PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream())) {
-      env.getReporter().handle(Event.warn(
-          null, "This information is intended for consumption by Blaze developers"
-              + " only, and may change at any time.  Script against it at your own risk"));
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  null,
+                  "This information is intended for consumption by Bazel developers"
+                      + " only, and may change at any time.  Script against it at your own risk"));
       if (opts.combine != null && opts.dumpMode == null) {
         MultiProfileStatistics statistics =
             new MultiProfileStatistics(

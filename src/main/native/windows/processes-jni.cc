@@ -126,7 +126,7 @@ static bool NestedJobsSupported() {
   }
 
   return version_info.dwMajorVersion > 6 ||
-         version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
+         (version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2);
 }
 
 // Ensure we can safely cast jlong to void*.

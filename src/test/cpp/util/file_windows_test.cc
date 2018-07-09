@@ -34,9 +34,12 @@
 #error("This test should only be run on Windows")
 #endif  // !defined(_WIN32) && !defined(__CYGWIN__)
 
+#define TOSTRING(x) #x
+
 namespace blaze_util {
 
 using bazel::windows::CreateJunction;
+using bazel::windows::CreateJunctionResult;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
@@ -64,7 +67,8 @@ class FileWindowsTest : public ::testing::Test {
     wstring wtarget;                                                          \
     EXPECT_TRUE(AsWindowsPath(name, &wname, nullptr));                        \
     EXPECT_TRUE(AsWindowsPath(target, &wtarget, nullptr));                    \
-    EXPECT_EQ(L"", CreateJunction(wname, wtarget));                           \
+    EXPECT_EQ(CreateJunction(wname, wtarget, nullptr),                        \
+              CreateJunctionResult::kSuccess);                                \
   }
 
 // Asserts that dir1 can be created with some content, and dir2 doesn't exist.
@@ -295,6 +299,32 @@ TEST_F(FileWindowsTest, TestMakeCanonical) {
   ASSERT_NE(symcanon, "");
   ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
   ASSERT_EQ(dircanon, symcanon);
+}
+
+TEST_F(FileWindowsTest, TestMtimeHandling) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_NE(tempdir_cstr, nullptr);
+  ASSERT_NE(tempdir_cstr[0], 0);
+  string tempdir(tempdir_cstr);
+
+  string target(JoinPath(tempdir, "target" TOSTRING(__LINE__)));
+  wstring wtarget;
+  EXPECT_TRUE(AsWindowsPath(target, &wtarget, nullptr));
+  EXPECT_TRUE(CreateDirectoryW(wtarget.c_str(), NULL));
+
+  std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
+  // Assert that a directory is always a good embedded binary. (We do not care
+  // about directories' mtimes.)
+  ASSERT_TRUE(mtime.get()->IsUntampered(target));
+  // Assert that junctions whose target exists are "good" embedded binaries.
+  string sym(JoinPath(tempdir, "junc" TOSTRING(__LINE__)));
+  CREATE_JUNCTION(sym, target);
+  ASSERT_TRUE(mtime.get()->IsUntampered(sym));
+  // Assert that checking fails for non-existent directories and dangling
+  // junctions.
+  EXPECT_TRUE(RemoveDirectoryW(wtarget.c_str()));
+  ASSERT_FALSE(mtime.get()->IsUntampered(target));
+  ASSERT_FALSE(mtime.get()->IsUntampered(sym));
 }
 
 }  // namespace blaze_util

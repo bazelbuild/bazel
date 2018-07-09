@@ -369,7 +369,7 @@ public class WorkspaceFactory {
           throws EvalException, InterruptedException {
         Label nameLabel;
         try {
-          nameLabel = Label.parseAbsolute("//external:" + name);
+          nameLabel = Label.parseAbsolute("//external:" + name, ImmutableMap.of());
           try {
             Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
@@ -377,7 +377,7 @@ public class WorkspaceFactory {
                 builder,
                 ruleClass,
                 nameLabel,
-                actual == null ? null : Label.parseAbsolute(actual),
+                actual == null ? null : Label.parseAbsolute(actual, ImmutableMap.of()),
                 ast.getLocation(),
                 ruleFactory.getAttributeContainer(ruleClass));
           } catch (RuleFactory.InvalidRuleException

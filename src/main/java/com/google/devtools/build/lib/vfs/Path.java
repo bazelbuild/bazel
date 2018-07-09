@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -766,7 +765,7 @@ public class Path
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  public byte[] getDigest(HashFunction hashFunction) throws IOException {
+  public byte[] getDigest(DigestHashFunction hashFunction) throws IOException {
     return fileSystem.getDigest(this, hashFunction);
   }
 

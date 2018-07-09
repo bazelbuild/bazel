@@ -163,6 +163,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -347,7 +348,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsPolicyEnforcer.enforce(optionsParser);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
-    skyframeExecutor.invalidateConfigurationCollection();
+    skyframeExecutor.resetConfigurationCollectionForTesting();
     return skyframeExecutor.createConfigurations(
         reporter, ruleClassProvider.getConfigurationFragments(), buildOptions,
         ImmutableSet.<String>of(), false);
@@ -356,7 +357,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
       LabelSyntaxException, InterruptedException {
-    return getTarget(Label.parseAbsolute(label));
+    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
   }
 
   protected Target getTarget(Label label)
@@ -551,7 +552,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
       throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label);
+    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
     for (ConfiguredTarget candidate : getDirectPrerequisites(target)) {
       if (candidate.getLabel().equals(candidateLabel)) {
         return candidate;
@@ -563,7 +564,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
       ConfiguredTargetAndData ctad, String label) throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label);
+    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
     for (ConfiguredTargetAndData candidate : getDirectPrerequisites(ctad)) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
@@ -828,7 +829,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
       throws LabelSyntaxException {
-    return getConfiguredTarget(Label.parseAbsolute(label), config);
+    return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
   }
 
   /**
@@ -860,7 +861,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException {
-    return getConfiguredTargetAndData(Label.parseAbsolute(label), targetConfig);
+    return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
   }
 
   /**
@@ -1485,7 +1486,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   public static Label makeLabel(String label) {
     try {
-      return Label.parseAbsolute(label);
+      return Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -1781,7 +1782,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
-      result.add(Label.parseAbsolute(s));
+      result.add(Label.parseAbsolute(s, ImmutableMap.of()));
     }
     return result;
   }
@@ -2093,6 +2094,37 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   public Path getExecRoot() {
     return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
+  }
+
+  /** Returns true iff commandLine contains the option --flagName followed by arg. */
+  protected static boolean containsFlag(String flagName, String arg, Iterable<String> commandLine) {
+    Iterator<String> iterator = commandLine.iterator();
+    while (iterator.hasNext()) {
+      if (flagName.equals(iterator.next()) && iterator.hasNext() && arg.equals(iterator.next())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Returns the list of arguments in commandLine that follow after --flagName. */
+  protected static ImmutableList<String> flagValue(String flagName, Iterable<String> commandLine) {
+    ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
+    Iterator<String> iterator = commandLine.iterator();
+    boolean found = false;
+    while (iterator.hasNext()) {
+      String val = iterator.next();
+      if (found) {
+        if (val.startsWith("--")) {
+          break;
+        }
+        resultBuilder.add(val);
+      } else if (flagName.equals(val)) {
+        found = true;
+      }
+    }
+    Preconditions.checkArgument(found);
+    return resultBuilder.build();
   }
 
   /** Creates instances of {@link ActionExecutionContext} consistent with test case. */

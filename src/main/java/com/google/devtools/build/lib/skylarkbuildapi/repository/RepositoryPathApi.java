@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -55,7 +56,16 @@ public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<
 
   @SkylarkCallable(
     name = "get_child",
-    doc = "Append the given path to this path and return the resulted path."
+    doc = "Append the given path to this path and return the resulted path.",
+    parameters = {
+      @Param(
+          name = "child_path",
+          positional = true,
+          named = false,
+          type = String.class,
+          doc = "The path to append to this path."
+      ),
+    }
   )
   public RepositoryPathApi<?> getChild(String childPath);
 

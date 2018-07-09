@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -155,7 +155,7 @@ public final class BlazeRuntime {
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
-  private final BuildEventArtifactUploaderMap buildEventArtifactUploaders;
+  private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
 
   // Workspace state (currently exactly one workspace per server)
@@ -180,7 +180,7 @@ public final class BlazeRuntime {
       InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
       String productName,
-      BuildEventArtifactUploaderMap buildEventArtifactUploaders) {
+      BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -207,7 +207,7 @@ public final class BlazeRuntime {
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
-    this.buildEventArtifactUploaders = buildEventArtifactUploaders;
+    this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -228,8 +228,8 @@ public final class BlazeRuntime {
     for (BlazeModule module : blazeModules) {
       CoverageReportActionFactory factory = module.getCoverageReportFactory(commandOptions);
       if (factory != null) {
-        Preconditions.checkState(firstFactory == null,
-            "only one Blaze Module can have a Coverage Report Factory");
+        Preconditions.checkState(
+            firstFactory == null, "only one Bazel Module can have a Coverage Report Factory");
         firstFactory = factory;
       }
     }
@@ -393,12 +393,12 @@ public final class BlazeRuntime {
           options = optionsFromModule;
         } else {
           throw new IllegalArgumentException(
-              "Two or more blaze modules contained default build options.");
+              "Two or more bazel modules contained default build options.");
         }
       }
     }
     if (options == null) {
-      throw new IllegalArgumentException("No default build options specified in any Blaze module");
+      throw new IllegalArgumentException("No default build options specified in any Bazel module");
     }
     return options;
   }
@@ -636,10 +636,7 @@ public final class BlazeRuntime {
       System.exit(batchMain(modules, args));
     }
     logger.info(
-        "Starting Blaze server with "
-            + maybeGetPidString()
-            + "args "
-            + Arrays.toString(args));
+        "Starting Bazel server with " + maybeGetPidString() + "args " + Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
@@ -782,7 +779,7 @@ public final class BlazeRuntime {
       @Override
       public void run() {
         logger.info("User interrupt");
-        OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
+        OutErr.SYSTEM_OUT_ERR.printErrLn("Bazel received an interrupt");
         mainThread.interrupt();
 
         int curNumInterrupts = numInterrupts.incrementAndGet();
@@ -806,7 +803,7 @@ public final class BlazeRuntime {
     InterruptSignalHandler signalHandler = captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
     logger.info(
-        "Running Blaze in batch mode with "
+        "Running Bazel in batch mode with "
             + maybeGetPidString()
             + "startup args "
             + commandLineOptions.getStartupArgs());
@@ -1256,8 +1253,8 @@ public final class BlazeRuntime {
     return productName;
   }
 
-  public BuildEventArtifactUploaderMap getBuildEventArtifactUploaders() {
-    return buildEventArtifactUploaders;
+  public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderFactoryMap() {
+    return buildEventArtifactUploaderFactoryMap;
   }
 
   /**

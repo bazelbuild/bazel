@@ -625,6 +625,14 @@ message BuildMetrics {
     int64 actions_created = 1;
   }
   ActionSummary action_summary = 1;
+
+  message MemoryMetrics {
+    // Size of the JVM heap post build in bytes. This is only collected if
+    // --bep_publish_used_heap_size_post_build is set,
+    // since it forces a full GC.
+    int64 used_heap_size_post_build = 1;
+  }
+  MemoryMetrics memory_metrics = 2;
 }
 
 // Event providing additional statistics/logs after completion of the build.

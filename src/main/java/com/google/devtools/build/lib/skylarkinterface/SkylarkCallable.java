@@ -60,7 +60,7 @@ public @interface SkylarkCallable {
   /**
    * Name of the method, as exposed to Skylark.
    */
-  String name() default "";
+  String name();
 
   /**
    * The documentation text in Skylark. It can contain HTML tags for special formatting.

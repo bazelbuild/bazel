@@ -244,9 +244,6 @@ public class LcovMergerTestUtils {
     sourceFile.addLineNumber(FUNC_3, FUNC_3_LINE_NR);
     sourceFile.addFunctionExecution(FUNC_3, FUNC_3_NR_EXECUTED_LINES_TRACEFILE1);
 
-    sourceFile.nrFunctionsFound(NR_FUNCTIONS_FOUND);
-    sourceFile.nrFunctionsHit(NR_FUNCTIONS_HIT_TRACEFILE1);
-
 
     for (int line = FUNC_1_LINE_NR; line < MAX_LINES_IN_FILE; line++) {
       if (lineExecutionCount[line] >= 0) {
@@ -255,9 +252,6 @@ public class LcovMergerTestUtils {
                 line, lineExecutionCount[line], null));
       }
     }
-
-    sourceFile.nrOfLinesWithNonZeroExecution(NR_LINES_HIT_TRACEFILE1);
-    sourceFile.nrOfInstrumentedLines(NR_LINES_FOUND);
 
     return sourceFile;
   }
@@ -275,10 +269,6 @@ public class LcovMergerTestUtils {
     sourceFileCoverage.addLineNumber(FUNC_3, FUNC_3_LINE_NR);
     sourceFileCoverage.addFunctionExecution(FUNC_3, FUNC_3_NR_EXECUTED_LINES_TRACEFILE2);
 
-    sourceFileCoverage.nrFunctionsFound(NR_FUNCTIONS_FOUND);
-    sourceFileCoverage.nrFunctionsHit(NR_FUNCTIONS_HIT_TRACEFILE2);
-
-
     for (int line = FUNC_1_LINE_NR; line < MAX_LINES_IN_FILE; line++) {
       if (lineExecutionCount[line] >= 0) {
         sourceFileCoverage.addLine(
@@ -286,10 +276,6 @@ public class LcovMergerTestUtils {
                 line, lineExecutionCount[line], null));
       }
     }
-
-    sourceFileCoverage.nrOfLinesWithNonZeroExecution(NR_LINES_HIT_TRACEFILE2);
-    sourceFileCoverage.nrOfInstrumentedLines(NR_LINES_FOUND);
-
     return sourceFileCoverage;
   }
 

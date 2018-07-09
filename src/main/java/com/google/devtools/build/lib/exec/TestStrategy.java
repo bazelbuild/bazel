@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -418,21 +417,18 @@ public abstract class TestStrategy implements TestActionContext {
   /** In rare cases, we might write something to stderr. Append it to the real test.log. */
   protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
     FileStatus stat = stdErr.statNullable();
-    OutputStream out = null;
-    InputStream in = null;
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {
           if (stdOut.exists()) {
             stdOut.setWritable(true);
           }
-          out = stdOut.getOutputStream(true);
-          in = stdErr.getInputStream();
-          ByteStreams.copy(in, out);
+          try (OutputStream out = stdOut.getOutputStream(true);
+              InputStream in = stdErr.getInputStream()) {
+            ByteStreams.copy(in, out);
+          }
         }
       } finally {
-        Closeables.close(out, true);
-        Closeables.close(in, true);
         stdErr.delete();
       }
     }

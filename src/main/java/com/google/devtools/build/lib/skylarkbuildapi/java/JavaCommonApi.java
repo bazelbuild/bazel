@@ -309,7 +309,8 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
           type = Boolean.class,
           defaultValue = "False"
       )
-    }
+    },
+    useEnvironment = true
   )
   public JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
@@ -326,7 +327,8 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
       TransitiveInfoCollectionT hostJavabase,
       SkylarkList<FileT> sourcepathEntries,
       SkylarkList<FileT> resources,
-      Boolean neverlink) throws EvalException, InterruptedException;
+      Boolean neverlink,
+      Environment environment) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "run_ijar",

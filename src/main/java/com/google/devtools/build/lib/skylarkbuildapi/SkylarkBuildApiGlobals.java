@@ -33,7 +33,14 @@ public interface SkylarkBuildApiGlobals {
     doc = "References a late-bound default value for an attribute of type "
       + "<a href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires "
       + "the configuration to be built before determining the value. Any attribute using this "
-      + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>.",
+      + "as a value must <a href=\"../rules.html#private-attributes\">be private</a>. "
+      + "<p>Example usage: "
+      + "<p>Defining a rule attribute: <br><pre class=language-python>"
+      + "'foo_': attr.label(default=configuration_field(fragment='java', name='toolchain'))</pre>"
+      + "<p>Accessing in rule implementation: <br><pre class=language-python>"
+      + "  def _rule_impl(ctx):\n"
+      + "    foo_info = ctx.attr._foo\n"
+      + "    ...</pre>",
     parameters = {
         @Param(
             name = "fragment",

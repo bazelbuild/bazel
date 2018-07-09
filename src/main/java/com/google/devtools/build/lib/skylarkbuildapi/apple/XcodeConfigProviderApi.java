@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
@@ -37,12 +38,31 @@ public interface XcodeConfigProviderApi<ApplePlatformApiT extends ApplePlatformA
   @SkylarkCallable(
       name = "minimum_os_for_platform_type",
       doc = "The minimum compatible OS version for target simulator and devices for a particular "
-          + "platform type.")
+          + "platform type.",
+      parameters = {
+        @Param(
+            name = "platform_type",
+            positional = true,
+            named = false,
+            type = ApplePlatformTypeApi.class,
+            doc = "The apple platform type."
+        ),
+      }
+  )
   public DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(
       name = "sdk_version_for_platform",
       doc = "The version of the platform SDK that will be used to build targets for the given "
-          + "platform.")
+          + "platform.",
+      parameters = {
+        @Param(
+            name = "platform",
+            positional = true,
+            named = false,
+            type = ApplePlatformApi.class,
+            doc = "The apple platform."
+        ),
+      })
   public DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
 }

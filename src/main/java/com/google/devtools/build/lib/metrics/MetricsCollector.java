@@ -17,16 +17,24 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 
 class MetricsCollector {
 
   private final CommandEnvironment env;
+  private final boolean bepPublishUsedHeapSizePostBuild;
+
   private int actionsConstructed;
 
   MetricsCollector(CommandEnvironment env) {
     this.env = env;
+    this.bepPublishUsedHeapSizePostBuild =
+        env.getOptions().getOptions(Options.class).bepPublishUsedHeapSizePostBuild;
     env.getEventBus().register(this);
   }
 
@@ -45,8 +53,23 @@ class MetricsCollector {
   }
 
   private BuildMetrics createBuildMetrics() {
-    return BuildMetrics.newBuilder()
-        .setActionSummary(ActionSummary.newBuilder().setActionsCreated(actionsConstructed).build())
-        .build();
+    BuildMetrics.Builder metrics = BuildMetrics.newBuilder();
+    metrics.setActionSummary(createActionSummary());
+    metrics.setMemoryMetrics(createMemoryMetrics());
+    return metrics.build();
+  }
+
+  private ActionSummary createActionSummary() {
+    return ActionSummary.newBuilder().setActionsCreated(actionsConstructed).build();
+  }
+
+  private MemoryMetrics createMemoryMetrics() {
+    MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
+    if (bepPublishUsedHeapSizePostBuild) {
+      System.gc();
+      MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
+      memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
+    }
+    return memoryMetrics.build();
   }
 }

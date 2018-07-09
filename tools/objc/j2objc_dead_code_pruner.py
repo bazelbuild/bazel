@@ -200,11 +200,10 @@ def _PruneFile(file_queue, reachable_files, objc_file_path, file_open=open,
     if file_name in reachable_files:
       file_shutil.copy(input_file, output_file)
     else:
-      f = file_open(output_file, 'w')
-      # Use a static variable scoped to the source file to supress
-      # the "has no symbols" linker warning for empty object files.
-      f.write(PRUNED_SRC_CONTENT)
-      f.close()
+      with file_open(output_file, 'w') as f:
+        # Use a static variable scoped to the source file to supress
+        # the "has no symbols" linker warning for empty object files.
+        f.write(PRUNED_SRC_CONTENT)
     file_queue.task_done()
 
 
@@ -352,7 +351,9 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
                                               header_map,
                                               archive_source_file_mapping)
 
-  cmd_env = {}
+  # Copy the current processes' environment, as xcrunwrapper depends on these
+  # variables.
+  cmd_env = dict(os.environ)
   j2objc_cmd = ''
   if input_archive in archive_source_file_mapping:
     source_files = archive_source_file_mapping[input_archive]

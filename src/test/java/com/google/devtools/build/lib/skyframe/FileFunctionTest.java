@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -451,7 +452,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path, HashFunction hf) throws IOException {
+          protected byte[] getFastDigest(Path path, DigestHashFunction hf) throws IOException {
             return digest;
           }
         });
@@ -490,7 +491,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path, HashFunction hf) {
+          protected byte[] getFastDigest(Path path, DigestHashFunction hf) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -826,7 +827,7 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(Path path, HashFunction hf) throws IOException {
+          protected byte[] getDigest(Path path, DigestHashFunction hf) throws IOException {
             digestCalls.incrementAndGet();
             return super.getDigest(path, hf);
           }
@@ -1364,11 +1365,8 @@ public class FileFunctionTest {
     return new Runnable() {
       @Override
       public void run() {
-        OutputStream outputStream;
-        try {
-          outputStream = toChange.getOutputStream();
+        try (OutputStream outputStream = toChange.getOutputStream()) {
           outputStream.write(contents);
-          outputStream.close();
         } catch (IOException e) {
           e.printStackTrace();
           fail(e.getMessage());
@@ -1438,9 +1436,9 @@ public class FileFunctionTest {
     Path fileToChange = path(fileStringToChange);
     if (fileToChange.exists()) {
       final byte[] oldContents = FileSystemUtils.readContent(fileToChange);
-      OutputStream outputStream = fileToChange.getOutputStream(/*append=*/ true);
-      outputStream.write(new byte[] {(byte) 42}, 0, 1);
-      outputStream.close();
+      try (OutputStream outputStream = fileToChange.getOutputStream(/*append=*/ true)) {
+        outputStream.write(new byte[] {(byte) 42}, 0, 1);
+      }
       return Pair.of(
           ImmutableList.of(fileStringToChange),
           makeWriteFileContentCallback(fileToChange, oldContents));
@@ -1686,7 +1684,7 @@ public class FileFunctionTest {
     }
 
     @Override
-    protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+    protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }

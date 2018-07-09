@@ -400,7 +400,10 @@ public class FileSystemUtils {
       throw new IOException("error copying file: "
           + "couldn't delete destination: " + e.getMessage());
     }
-    asByteSource(from).copyTo(asByteSink(to));
+    try (InputStream in = from.getInputStream();
+        OutputStream out = to.getOutputStream()) {
+      ByteStreams.copy(in, out);
+    }
     to.setLastModifiedTime(from.getLastModifiedTime()); // Preserve mtime.
     if (!from.isWritable()) {
       to.setWritable(false); // Make file read-only if original was read-only.
@@ -427,7 +430,10 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        asByteSource(from).copyTo(asByteSink(to));
+        try (InputStream in = from.getInputStream();
+            OutputStream out = to.getOutputStream()) {
+          ByteStreams.copy(in, out);
+        }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {
           to.setWritable(false); // Make file read-only if original was read-only.
@@ -692,7 +698,14 @@ public class FileSystemUtils {
    */
   public static void writeContent(Path outputFile, Charset charset, String content)
       throws IOException {
-    asByteSink(outputFile).asCharSink(charset).write(content);
+    try (OutputStream out = outputFile.getOutputStream()) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.asCharSink(charset).write(content);
+    }
   }
 
   /**
@@ -723,7 +736,14 @@ public class FileSystemUtils {
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     createDirectoryAndParents(file.getParentDirectory());
-    asByteSink(file).asCharSink(charset).writeLines(lines);
+    try (OutputStream out = file.getOutputStream()) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.asCharSink(charset).writeLines(lines);
+    }
   }
 
   /**
@@ -734,7 +754,14 @@ public class FileSystemUtils {
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     createDirectoryAndParents(file.getParentDirectory());
-    asByteSink(file, true).asCharSink(charset).writeLines(lines);
+    try (OutputStream out = file.getOutputStream(true)) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.asCharSink(charset).writeLines(lines);
+    }
   }
 
   /**
@@ -743,7 +770,15 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static void writeContent(Path outputFile, byte[] content) throws IOException {
-    asByteSink(outputFile).write(content);
+    try (OutputStream out = outputFile.getOutputStream()) {
+      new ByteSink() {
+        @Override
+        public OutputStream openStream() throws IOException {
+          return out;
+        }
+      }.write(content);
+      ;
+    }
   }
 
   /**
@@ -817,7 +852,14 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static Iterable<String> readLines(Path inputFile, Charset charset) throws IOException {
-    return asByteSource(inputFile).asCharSource(charset).readLines();
+    try (InputStream in = inputFile.getInputStream()) {
+      return new ByteSource() {
+        @Override
+        public InputStream openStream() throws IOException {
+          return in;
+        }
+      }.asCharSource(charset).readLines();
+    }
   }
 
   /**
@@ -826,14 +868,28 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static byte[] readContent(Path inputFile) throws IOException {
-    return asByteSource(inputFile).read();
+    try (InputStream in = inputFile.getInputStream()) {
+      return new ByteSource() {
+        @Override
+        public InputStream openStream() throws IOException {
+          return in;
+        }
+      }.read();
+    }
   }
 
   /**
    * Reads the entire file using the given charset and returns the contents as a string
    */
   public static String readContent(Path inputFile, Charset charset) throws IOException {
-    return asByteSource(inputFile).asCharSource(charset).read();
+    try (InputStream in = inputFile.getInputStream()) {
+      return new ByteSource() {
+        @Override
+        public InputStream openStream() throws IOException {
+          return in;
+        }
+      }.asCharSource(charset).read();
+    }
   }
 
   /**
@@ -843,11 +899,18 @@ public class FileSystemUtils {
    */
   public static byte[] readContentWithLimit(Path inputFile, int limit) throws IOException {
     Preconditions.checkArgument(limit >= 0, "limit needs to be >=0, but it is %s", limit);
-    ByteSource byteSource = asByteSource(inputFile);
-    byte[] buffer = new byte[limit];
-    try (InputStream inputStream = byteSource.openBufferedStream()) {
-      int read = ByteStreams.read(inputStream, buffer, 0, limit);
-      return read == limit ? buffer : Arrays.copyOf(buffer, read);
+    try (InputStream in = inputFile.getInputStream()) {
+      byte[] buffer = new byte[limit];
+      try (InputStream inputStream =
+          new ByteSource() {
+            @Override
+            public InputStream openStream() throws IOException {
+              return in;
+            }
+          }.openBufferedStream()) {
+        int read = ByteStreams.read(inputStream, buffer, 0, limit);
+        return read == limit ? buffer : Arrays.copyOf(buffer, read);
+      }
     }
   }
 

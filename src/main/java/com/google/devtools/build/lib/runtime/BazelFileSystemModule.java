@@ -17,8 +17,9 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -34,11 +35,11 @@ public class BazelFileSystemModule extends BlazeModule {
 
   @Override
   public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
-    final HashFunction hashFunction;
+    final DigestHashFunction hashFunction;
     String value = null;
     try {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
-      hashFunction = new HashFunction.Converter().convert(value);
+      hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
       throw new AbruptExitException(
           "The specified hash function '" + value + "' is not supported.",

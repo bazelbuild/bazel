@@ -27,6 +27,10 @@ default_toolchain {
   toolchain_identifier: "local_linux"
 }
 default_toolchain {
+  cpu: "aarch64"
+  toolchain_identifier: "local_linux"
+}
+default_toolchain {
   cpu: "x64_windows"
   toolchain_identifier: "local_windows_msys64"
 }
@@ -47,11 +51,6 @@ default_toolchain {
 default_toolchain {
   cpu: "ppc64"
   toolchain_identifier: "local_linux"
-}
-
-default_toolchain {
-  cpu: "ios_x86_64"
-  toolchain_identifier: "ios_x86_64"
 }
 
 toolchain {
@@ -712,7 +711,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -729,7 +727,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       flag_group {
         iterate_over: 'quote_include_paths'
@@ -754,7 +751,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-module-compile'
-      action: 'c++-header-preprocessing'
       action: 'c++-header-parsing'
       expand_if_all_available: 'dependency_file'
       flag_group {
@@ -773,7 +769,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -792,7 +787,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       action: 'c++-link-executable'
@@ -814,7 +808,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -841,7 +834,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -872,7 +864,6 @@ toolchain {
       action: 'c-compile'
       action: 'c++-compile'
       action: 'c++-header-parsing'
-      action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       action: 'c++-module-codegen'
       flag_group {
@@ -907,38 +898,4 @@ toolchain {
     compiler_flag: "/O2"
     compiler_flag: "-Xcompilation-mode=opt"
   }
-}
-
-# Stub crosstool to allow construction of apple crosstool configuration in a
-# static configuration set.
-# TODO(b/33804121): Remove this once dynamic configurations are in place.
-toolchain {
-  toolchain_identifier: "ios_x86_64"
-  host_system_name: "x86_64-apple-macosx"
-  target_system_name: "x86_64-apple-ios"
-  target_cpu: "ios_x86_64"
-  target_libc: "ios"
-  compiler: "compiler"
-  abi_version: "local"
-  abi_libc_version: "local"
-  supports_gold_linker: false
-  supports_incremental_linker: false
-  supports_fission: false
-  supports_interface_shared_objects: false
-  supports_normalizing_ar: false
-  supports_start_end_lib: false
-
-  tool_path { name: "ar" path: "/bin/false" }
-  tool_path { name: "compat-ld" path: "/bin/false" }
-  tool_path { name: "cpp" path: "/bin/false" }
-  tool_path { name: "dwp" path: "/bin/false" }
-  tool_path { name: "gcc" path: "/bin/false" }
-  tool_path { name: "gcov" path: "/bin/false" }
-  tool_path { name: "ld" path: "/bin/false" }
-
-  tool_path { name: "nm" path: "/bin/false" }
-  tool_path { name: "objcopy" path: "/bin/false" }
-  tool_path { name: "objdump" path: "/bin/false" }
-  tool_path { name: "strip" path: "/bin/false" }
-  linking_mode_flags { mode: DYNAMIC }
 }

@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -893,7 +894,13 @@ public final class StringModule {
               + "and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Tuple.class, generic1 = String.class),
+            },
+            legacyNamed = true,
             doc = "The substring to check."),
         @Param(
             name = "start",
@@ -909,9 +916,21 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
       })
-  public Boolean endsWith(String self, String sub, Integer start, Object end)
-      throws ConversionException {
-    return pythonSubstring(self, start, end, "'end' operand of 'endswith'").endsWith(sub);
+  public Boolean endsWith(String self, Object sub, Integer start, Object end)
+      throws ConversionException, EvalException {
+    String str = pythonSubstring(self, start, end, "'end' operand of 'endswith'");
+    if (sub instanceof String) {
+      return str.endsWith((String) sub);
+    }
+
+    @SuppressWarnings("unchecked")
+    Tuple<Object> subs = (Tuple<Object>) sub;
+    for (String s : subs.getContents(String.class, "string")) {
+      if (str.endsWith(s)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // In Python, formatting is very complex.
@@ -966,8 +985,14 @@ public final class StringModule {
               + "<code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
-            doc = "The substring to check."),
+        @Param(
+            name = "sub",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Tuple.class, generic1 = String.class),
+            },
+            legacyNamed = true,
+            doc = "The substring(s) to check."),
         @Param(
             name = "start",
             type = Integer.class,
@@ -982,9 +1007,21 @@ public final class StringModule {
             defaultValue = "None",
             doc = "Stop comparing at this position.")
       })
-  public Boolean startsWith(String self, String sub, Integer start, Object end)
-      throws ConversionException {
-    return pythonSubstring(self, start, end, "'end' operand of 'startswith'").startsWith(sub);
+  public Boolean startsWith(String self, Object sub, Integer start, Object end)
+      throws ConversionException, EvalException {
+    String str = pythonSubstring(self, start, end, "'end' operand of 'startswith'");
+    if (sub instanceof String) {
+      return str.startsWith((String) sub);
+    }
+
+    @SuppressWarnings("unchecked")
+    Tuple<Object> subs = (Tuple<Object>) sub;
+    for (String s : subs.getContents(String.class, "string")) {
+      if (str.startsWith(s)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static final StringModule INSTANCE = new StringModule();

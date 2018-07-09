@@ -32,7 +32,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   public AbstractFileSystem() {}
 
-  public AbstractFileSystem(HashFunction digestFunction) {
+  public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);
   }
 

@@ -24,6 +24,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/main/java/com/google/devtools/build/lib/causes:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/debug:srcs",
         "//src/main/java/com/google/devtools/build/lib/clock:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
@@ -658,6 +659,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -706,6 +708,7 @@ java_library(
         "bazel/rules/sh/sh_stub_template_windows.txt",
     ],
     deps = [
+        ":bazel-coverage",
         ":bazel/BazelRepositoryModule",
         ":exitcode-external",
         "//src/main/java/com/google/devtools/build/lib:bazel",
@@ -719,6 +722,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
@@ -793,6 +797,25 @@ java_library(
 )
 
 java_library(
+    name = "bazel-coverage",
+    srcs = glob(["bazel/coverage/*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-repository",
     srcs = glob(
         [
@@ -825,6 +848,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -925,8 +949,6 @@ java_library(
         "rules/java/JavaRuntimeAliasRule.java",
         "rules/java/JavaRuntimeClasspathProvider.java",
         "rules/java/JavaRuntimeRule.java",
-        "rules/java/JavaRuntimeSuite.java",
-        "rules/java/JavaRuntimeSuiteRule.java",
         "rules/java/JavaSkylarkCommon.java",
         "rules/java/JavaSourceInfoProvider.java",
         "rules/java/JavaToolchain.java",
@@ -1001,7 +1023,6 @@ java_library(
         "rules/java/ImportDepsCheckActionBuilder.java",
         "rules/java/JavaBuildInfoFactory.java",
         "rules/java/JavaCommon.java",
-        "rules/java/JavaCompilationArgs.java",
         "rules/java/JavaCompilationArgsProvider.java",
         "rules/java/JavaCompilationArtifacts.java",
         "rules/java/JavaCompilationHelper.java",
@@ -1028,6 +1049,7 @@ java_library(
         "rules/java/JavaSkylarkApiProvider.java",
         "rules/java/JavaSkylarkCommon.java",
         "rules/java/JavaSourceJarsProvider.java",
+        "rules/java/JavaStrictCompilationArgsProvider.java",
         "rules/java/JavaTargetAttributes.java",
         "rules/java/JavaToolchainProvider.java",
         "rules/java/JavaUtil.java",

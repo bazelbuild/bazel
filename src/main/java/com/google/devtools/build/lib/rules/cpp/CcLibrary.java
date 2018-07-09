@@ -66,31 +66,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CppFileTypes.ALWAYS_LINK_LIBRARY, CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
       CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
 
-  private static Runfiles collectRunfiles(
-      RuleContext context,
-      FeatureConfiguration featureConfiguration,
-      CcLinkingOutputs ccLinkingOutputs,
-      CcToolchainProvider ccToolchain,
-      boolean neverLink,
-      boolean addDynamicRuntimeInputArtifactsToRunfiles,
-      boolean linkingStatically) {
-    Runfiles.Builder builder = new Runfiles.Builder(
-        context.getWorkspaceName(), context.getConfiguration().legacyExternalRunfiles());
-
-    // neverlink= true creates a library that will never be linked into any binary that depends on
-    // it, but instead be loaded as an extension. So we need the dynamic library for this in the
-    // runfiles.
-    builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically && !neverLink));
-    builder.add(context, CcRunfiles.runfilesFunction(linkingStatically));
-
-    builder.addDataDeps(context);
-
-    if (addDynamicRuntimeInputArtifactsToRunfiles) {
-      builder.addTransitiveArtifacts(ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
-    }
-    return builder.build();
-  }
-
   @Override
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
@@ -329,7 +304,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
           LinkerInputs.toNonSolibArtifacts(linkedLibraries.getDynamicLibrariesForRuntime()));
     }
 
-    CcLinkingOutputs linkingOutputs = linkingInfo.getCcLinkingOutputs();
     if (!featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
       warnAboutEmptyLibraries(ruleContext, compilationInfo.getCcCompilationOutputs(), linkStatic);
     }
@@ -343,38 +317,33 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             instrumentedObjectFiles, /* withBaselineCoverage= */ true);
     CppHelper.maybeAddStaticLinkMarkerProvider(targetBuilder, ruleContext);
 
-    Runfiles staticRunfiles =
-        collectRunfiles(
-            ruleContext,
-            featureConfiguration,
-            linkingOutputs,
-            ccToolchain,
-            neverLink,
-            addDynamicRuntimeInputArtifactsToRunfiles,
-            true);
-    Runfiles sharedRunfiles =
-        collectRunfiles(
-            ruleContext,
-            featureConfiguration,
-            linkingOutputs,
-            ccToolchain,
-            neverLink,
-            addDynamicRuntimeInputArtifactsToRunfiles,
-            false);
+    Runfiles.Builder builder = new Runfiles.Builder(ruleContext.getWorkspaceName());
+    builder.addDataDeps(ruleContext);
+    builder.add(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+    if (addDynamicRuntimeInputArtifactsToRunfiles) {
+      builder.addTransitiveArtifacts(ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+    }
+    Runfiles runfiles = builder.build();
+    Runfiles.Builder defaultRunfiles =
+        new Runfiles.Builder(ruleContext.getWorkspaceName())
+            .merge(runfiles)
+            .addArtifacts(linkingInfo.getCcLinkingOutputs().getLibrariesForRunfiles(!neverLink));
+
+    Runfiles.Builder dataRunfiles =
+        new Runfiles.Builder(ruleContext.getWorkspaceName())
+            .merge(runfiles)
+            .addArtifacts(linkingInfo.getCcLinkingOutputs().getLibrariesForRunfiles(false));
 
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProviders(compilationInfo.getProviders())
         .addProviders(linkingInfo.getProviders())
-        .addNativeDeclaredProvider(
-            overrideRunfilesProvider(staticRunfiles, sharedRunfiles, linkingInfo))
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(
                 ImmutableList.of(compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups())))
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
-        .addProvider(
-            RunfilesProvider.class, RunfilesProvider.withData(staticRunfiles, sharedRunfiles))
+        .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()))
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             collectHiddenTopLevelArtifacts(
@@ -385,19 +354,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext, compilationInfo.getCcCompilationOutputs()));
   }
 
-  private static CcLinkingInfo overrideRunfilesProvider(
-      Runfiles staticRunfiles, Runfiles sharedRunfiles, LinkingInfo linkingInfo) {
-    CcLinkingInfo ccLinkingInfo =
-        (CcLinkingInfo) linkingInfo.getProviders().getProvider(CcLinkingInfo.PROVIDER.getKey());
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsStore(ccLinkingInfo.getCcLinkParamsStore());
-    ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
-        ccLinkingInfo.getCcDynamicLibrariesForRuntime());
-    ccLinkingInfoBuilder.setCcRunfiles(new CcRunfiles(staticRunfiles, sharedRunfiles));
-
-    return ccLinkingInfoBuilder.build();
-  }
-
   private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(
       RuleContext ruleContext,
       CcToolchainProvider toolchain,
@@ -406,7 +362,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = CppHelper.usePicForDynamicLibraries(ruleContext, toolchain);
+    boolean usePic = toolchain.usePicForDynamicLibraries();
     artifactsToForceBuilder.addTransitive(
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :

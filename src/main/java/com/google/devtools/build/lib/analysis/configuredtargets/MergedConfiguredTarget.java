@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -39,6 +40,7 @@ import java.util.function.Consumer;
  */
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
+  private final ImmutableList<ConfiguredAspect> aspects;
   private final TransitiveInfoProviderMap providers;
 
   /**
@@ -52,9 +54,13 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
-  private MergedConfiguredTarget(ConfiguredTarget base, TransitiveInfoProviderMap providers) {
+  private MergedConfiguredTarget(
+      ConfiguredTarget base,
+      Iterable<ConfiguredAspect> aspects,
+      TransitiveInfoProviderMap providers) {
     super(base.getLabel(), base.getConfigurationKey());
     this.base = base;
+    this.aspects = ImmutableList.copyOf(aspects);
     this.providers = providers;
   }
 
@@ -81,6 +87,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         result.accept((String) classAt);
       }
     }
+    result.accept(RuleConfiguredTarget.ACTIONS_FIELD_NAME);
   }
 
   @Override
@@ -94,6 +101,16 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
+    if (providerKey.equals(RuleConfiguredTarget.ACTIONS_FIELD_NAME)) {
+      ImmutableList.Builder<ActionAnalysisMetadata> actions = ImmutableList.builder();
+      for (ConfiguredAspect aspect : aspects) {
+        actions.addAll(aspect.getActions());
+      }
+      if (base instanceof RuleConfiguredTarget) {
+        actions.addAll(((RuleConfiguredTarget) base).getActions());
+      }
+      return actions.build();
+    }
     Object provider = providers.getProvider(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
@@ -159,7 +176,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         }
       }
     }
-    return new MergedConfiguredTarget(base, aspectProviders.build());
+    return new MergedConfiguredTarget(base, aspects, aspectProviders.build());
   }
 
   private static ImmutableList<OutputGroupInfo> getAllOutputGroupProviders(

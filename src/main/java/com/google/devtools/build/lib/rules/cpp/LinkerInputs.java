@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 
 /**
  * Factory for creating new {@link LinkerInput} objects.
@@ -154,12 +153,7 @@ public abstract class LinkerInputs {
    * A library the user can link to. This is different from a simple linker input in that it also
    * has a library identifier.
    */
-  @SkylarkModule(
-      name = "LibraryToLink",
-      category = SkylarkModuleCategory.BUILTIN,
-      documented = false,
-      doc = "A library the user can link to.")
-  public interface LibraryToLink extends LinkerInput {
+  public interface LibraryToLink extends LinkerInput, LibraryToLinkApi {
     ImmutableMap<Artifact, Artifact> getLtoBitcodeFiles();
 
     /**

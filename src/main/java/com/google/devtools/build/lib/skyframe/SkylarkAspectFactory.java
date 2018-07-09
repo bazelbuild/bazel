@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -49,7 +50,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   @Override
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
       AspectDescriptor aspectDescriptor =
@@ -106,7 +107,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   private ConfiguredAspect createAspect(
       Object aspectSkylarkObject, AspectDescriptor aspectDescriptor, RuleContext ruleContext)
-      throws EvalException {
+      throws EvalException, ActionConflictException {
 
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(aspectDescriptor, ruleContext);
 

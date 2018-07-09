@@ -41,6 +41,28 @@ enum {
   IS_JUNCTION_ERROR = 2,
 };
 
+// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
+enum {
+  DELETE_PATH_SUCCESS = 0,
+  DELETE_PATH_DOES_NOT_EXIST = 1,
+  DELETE_PATH_DIRECTORY_NOT_EMPTY = 2,
+  DELETE_PATH_ACCESS_DENIED = 3,
+  DELETE_PATH_ERROR = 4,
+};
+
+struct CreateJunctionResult {
+  enum {
+    kSuccess = 0,
+    kError = 1,
+    kTargetNameTooLong = 2,
+    kParentMissing = 3,
+    kAlreadyExistsWithDifferentTarget = 4,
+    kAlreadyExistsButNotJunction = 5,
+    kAccessDenied = 6,
+    kDisappeared = 7,
+  };
+};
+
 // Determines whether `path` is a junction (or directory symlink).
 //
 // `path` should be an absolute, normalized, Windows-style path, with "\\?\"
@@ -77,13 +99,30 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 HANDLE OpenDirectory(const WCHAR* path, bool read_write);
 
 // Creates a junction at `name`, pointing to `target`.
-// Returns the empty string upon success, or a human-readable error message upon
-// failure.
+// Returns CreateJunctionResult::kSuccess if it could create the junction, or if
+// the junction already exists with the same target.
+// If the junction's name already exists as an empty directory, this function
+// will turn it into a junction and return kSuccess.
+// Otherwise returns one of the other CreateJunctionResult::k* constants for
+// known error cases, or CreateJunctionResult::kError for unknown error cases.
+// When the function returns CreateJunctionResult::kError, and `error` is
+// non-null, the function writes an error message into `error`. If the return
+// value is anything other than CreateJunctionResult::kError, then this function
+// ignores the  `error` argument.
+//
 // Neither `junction_name` nor `junction_target` needs to have a "\\?\" prefix,
 // not even if they are longer than MAX_PATH, though it's okay if they do. This
 // function will add the right prefixes as necessary.
-wstring CreateJunction(const wstring& junction_name,
-                       const wstring& junction_target);
+int CreateJunction(const wstring& junction_name, const wstring& junction_target,
+                   wstring* error);
+
+// Deletes the file, junction, or empty directory at `path`.
+// Returns DELETE_PATH_SUCCESS if it successfully deleted the path, otherwise
+// returns one of the other DELETE_PATH_* constants (e.g. when the directory is
+// not empty or the file is in use by another process).
+// Returns DELETE_PATH_ERROR for unexpected errors. If `error` is not null, the
+// function writes an error message into it.
+int DeletePath(const wstring& path, wstring* error);
 
 }  // namespace windows
 }  // namespace bazel

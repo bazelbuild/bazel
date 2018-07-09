@@ -208,7 +208,7 @@ class LcovParser {
     }
     try {
       int nrFunctionsFound = Integer.parseInt(lineContent);
-      currentSourceFileCoverage.nrFunctionsFound(nrFunctionsFound);
+      assert currentSourceFileCoverage.nrFunctionsFound() == nrFunctionsFound;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING,
           "Tracefile contains invalid number of functions on FNF line " + line);
@@ -226,7 +226,7 @@ class LcovParser {
     }
     try {
       int nrFunctionsHit = Integer.parseInt(lineContent);
-      currentSourceFileCoverage.nrFunctionsHit(nrFunctionsHit);
+      assert currentSourceFileCoverage.nrFunctionsHit() == nrFunctionsHit;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING,
           "Tracefile contains invalid number of functions hit on FNH line " + line);
@@ -258,7 +258,7 @@ class LcovParser {
         wasExecuted = true;
       }
       BranchCoverage branchCoverage =
-          BranchCoverage.create(lineNumber, -1, -1, wasExecuted, taken);
+          BranchCoverage.create(lineNumber, "", "", wasExecuted, taken);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
     } catch (NumberFormatException e) {
@@ -284,8 +284,8 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int blockNumber = Integer.parseInt(lineData[1]);
-      int branchNumber = Integer.parseInt(lineData[2]);
+      String blockNumber = lineData[1];
+      String branchNumber = lineData[2];
       String taken = lineData[3];
 
       boolean wasExecuted = false;
@@ -314,7 +314,7 @@ class LcovParser {
     }
     try {
       int nrBranchesFound = Integer.parseInt(lineContent);
-      currentSourceFileCoverage.nrBranchesFound(nrBranchesFound);
+      assert currentSourceFileCoverage.nrBranchesFound() == nrBranchesFound;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING,
           "Tracefile contains invalid number of branches in BRDA line " + line);
@@ -332,7 +332,7 @@ class LcovParser {
     }
     try {
       int nrBranchesHit = Integer.parseInt(lineContent);
-      currentSourceFileCoverage.nrBranchesHit(nrBranchesHit);
+      assert currentSourceFileCoverage.nrBranchesHit() == nrBranchesHit;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING,
           "Tracefile contains invalid number of branches hit in BRH line " + line);
@@ -382,7 +382,7 @@ class LcovParser {
     }
     try {
       int nrLines = Integer.parseInt(lineContent);
-      currentSourceFileCoverage.nrOfLinesWithNonZeroExecution(nrLines);
+      assert currentSourceFileCoverage.nrOfLinesWithNonZeroExecution() == nrLines;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number on LHL line " + line);
       return false;
@@ -399,7 +399,7 @@ class LcovParser {
     }
     try {
       int nrLines = Integer.parseInt(lineContent);
-      currentSourceFileCoverage.nrOfInstrumentedLines(nrLines);
+      assert currentSourceFileCoverage.nrOfInstrumentedLines() == nrLines;
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number on LF line " + line);
       return false;

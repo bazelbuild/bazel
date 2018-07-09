@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,9 +35,7 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
 
   public SkylarkJavaMethodDoc(String moduleName, Method method, SkylarkCallable callable) {
     this.moduleName = moduleName;
-    this.name = callable.name().isEmpty()
-        ? StringUtilities.toPythonStyleFunctionName(method.getName())
-        : callable.name();
+    this.name = callable.name();
     this.method = method;
     this.callable = callable;
     this.params =

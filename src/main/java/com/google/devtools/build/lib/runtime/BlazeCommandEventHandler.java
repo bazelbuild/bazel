@@ -156,14 +156,13 @@ public class BlazeCommandEventHandler implements EventHandler {
     public boolean showTimestamp;
 
     @Option(
-      name = "progress_in_terminal_title",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Show the command progress in the terminal title. "
-              + "Useful to see what blaze is doing when having multiple terminal tabs."
-    )
+        name = "progress_in_terminal_title",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Show the command progress in the terminal title. "
+                + "Useful to see what bazel is doing when having multiple terminal tabs.")
     public boolean progressInTermTitle;
 
     @Option(

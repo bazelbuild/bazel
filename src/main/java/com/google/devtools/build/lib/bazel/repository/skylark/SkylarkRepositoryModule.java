@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -30,8 +31,10 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -85,12 +88,35 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
     return new RepositoryRuleFunction(builder);
   }
 
-  private static final class RepositoryRuleFunction extends BaseFunction {
+  private static final class RepositoryRuleFunction extends BaseFunction
+      implements SkylarkExportable {
     private final RuleClass.Builder builder;
+    private Label extensionLabel;
+    private String exportedName;
 
     public RepositoryRuleFunction(RuleClass.Builder builder) {
       super("repository_rule", FunctionSignature.KWARGS);
       this.builder = builder;
+    }
+
+    @Override
+    public void export(Label extensionLabel, String exportedName) {
+      this.extensionLabel = extensionLabel;
+      this.exportedName = exportedName;
+    }
+
+    @Override
+    public boolean isExported() {
+      return extensionLabel != null;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      if (exportedName == null) {
+        printer.append("<anonymous skylark repository rule>");
+      } else {
+        printer.append("<skylark repository rule " + extensionLabel + "%" + exportedName + ">");
+      }
     }
 
     @Override
@@ -99,7 +125,15 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         throws EvalException, InterruptedException {
       String ruleClassName = null;
       Expression function = ast.getFunction();
-      if (function instanceof Identifier) {
+      // If the function ever got exported (the common case), we take the name
+      // it was exprted to. Only in the not intended case of calling an unexported
+      // repository function through an exported macro, we fall back, for lack of
+      // alternatives, to the name in the local context.
+      // TODO(b/111199163): we probably should disallow the use of non-exported
+      // repository rules anyway.
+      if (isExported()) {
+        ruleClassName = exportedName;
+      } else if (function instanceof Identifier) {
         ruleClassName = ((Identifier) function).getName();
       } else if (function instanceof DotExpression) {
         ruleClassName = ((DotExpression) function).getField().getName();

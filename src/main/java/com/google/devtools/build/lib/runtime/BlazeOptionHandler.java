@@ -437,13 +437,8 @@ public final class BlazeOptionHandler {
     }
 
     if (!foundDefinition) {
-      String warning = "Config value " + configToExpand + " is not defined in any .rc file";
-      CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-      if (commonOptions.allowUndefinedConfigs) {
-        eventHandler.handle(Event.warn(warning));
-      } else {
-        throw new OptionsParsingException(warning);
-      }
+      throw new OptionsParsingException(
+          "Config value " + configToExpand + " is not defined in any .rc file");
     }
     return expansion;
   }

@@ -15,7 +15,7 @@ java_library(
     srcs = ["MockDebugClient.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

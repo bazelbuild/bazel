@@ -100,7 +100,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     Path temp = workPath.getRelative("upload").getRelative(UUID.randomUUID().toString());
     try {
       FileSystemUtils.createDirectoryAndParents(temp.getParentDirectory());
-      temp.getOutputStream().close();
+      FileSystemUtils.createEmptyFile(temp);
     } catch (IOException e) {
       logger.log(SEVERE, "Failed to create temporary file for upload", e);
       responseObserver.onError(StatusUtils.internalError(e));

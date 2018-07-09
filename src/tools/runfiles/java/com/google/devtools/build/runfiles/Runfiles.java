@@ -25,13 +25,33 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Returns the runtime location of runfiles (data-dependencies of Bazel-built binaries and tests).
+ * Runfiles lookup library for Bazel-built Java binaries and tests.
  *
- * <p>Usage:
+ * <p>USAGE:
+ *
+ * <p>1. Depend on this runfiles library from your build rule:
  *
  * <pre>
- *   Runfiles runfiles = Runfiles.create();
- *   File p = new File(runfiles.rlocation("io_bazel/src/bazel"));
+ *   java_binary(
+ *       name = "my_binary",
+ *       ...
+ *       deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+ *   )
+ * </pre>
+ *
+ * <p>2. Import the runfiles library.
+ *
+ * <pre>
+ *   import com.google.devtools.build.runfiles.Runfiles;
+ * </pre>
+ *
+ * <p>3. Create a Runfiles object and use rlocation to look up runfile paths:
+ *
+ * <pre>
+ *   public void myFunction() {
+ *     Runfiles runfiles = Runfiles.create();
+ *     String path = runfiles.rlocation("my_workspace/path/to/my/data.txt");
+ *     ...
  * </pre>
  *
  * <p>If you want to start subprocesses that also need runfiles, you need to set the right

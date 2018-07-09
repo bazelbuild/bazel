@@ -29,7 +29,6 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.util.JsonFormat;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import org.junit.After;
@@ -82,8 +81,7 @@ public class JsonFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
-    try (InputStream in = new FileInputStream(output)) {
-      Reader reader = new InputStreamReader(in);
+    try (Reader reader = new InputStreamReader(new FileInputStream(output))) {
       JsonFormat.Parser parser = JsonFormat.parser();
       BuildEventStreamProtos.BuildEvent.Builder builder =
           BuildEventStreamProtos.BuildEvent.newBuilder();

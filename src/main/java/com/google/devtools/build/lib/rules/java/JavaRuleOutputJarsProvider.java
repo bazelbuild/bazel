@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -148,6 +149,15 @@ public final class JavaRuleOutputJarsProvider
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  public static JavaRuleOutputJarsProvider merge(
+      Collection<JavaRuleOutputJarsProvider> providers) {
+    Builder builder = new Builder();
+    for (JavaRuleOutputJarsProvider provider : providers) {
+      builder.addOutputJars(provider.getOutputJars());
+    }
+    return builder.build();
   }
 
   /**

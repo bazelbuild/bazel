@@ -44,8 +44,9 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -94,11 +95,11 @@ public final class RemoteWorker {
   private final ExecutionImplBase execServer;
 
   static FileSystem getFileSystem() {
-    final HashFunction hashFunction;
+    final DigestHashFunction hashFunction;
     String value = null;
     try {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
-      hashFunction = new HashFunction.Converter().convert(value);
+      hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
       throw new Error("The specified hash function '" + value + "' is not supported.");
     }

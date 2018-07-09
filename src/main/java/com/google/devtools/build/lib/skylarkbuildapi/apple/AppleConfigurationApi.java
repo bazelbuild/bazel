@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -56,7 +57,16 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
     name = "multi_arch_platform",
     doc = "The platform of the current configuration for the given platform type. This should only "
         + "be invoked in a context where multiple architectures may be supported; consider "
-        + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases."
+        + "<a href='#single_arch_platform'>single_arch_platform</a> for other cases.",
+    parameters = {
+      @Param(
+          name = "platform_type",
+          positional = true,
+          named = false,
+          type = ApplePlatformTypeApi.class,
+          doc = "The apple platform type."
+      )
+    }
   )
   public ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
 

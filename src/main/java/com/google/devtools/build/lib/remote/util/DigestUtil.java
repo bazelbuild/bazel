@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -52,9 +52,9 @@ public class DigestUtil {
     }
   }
 
-  private final HashFunction hashFn;
+  private final DigestHashFunction hashFn;
 
-  public DigestUtil(HashFunction hashFn) {
+  public DigestUtil(DigestHashFunction hashFn) {
     this.hashFn = hashFn;
   }
 

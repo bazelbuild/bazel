@@ -87,7 +87,9 @@ public class DebugServerTransportTest {
     ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getByName(null));
     Future<DebugServerTransport> future =
         executor.submit(
-            () -> DebugServerTransport.createAndWaitForClient(events.reporter(), serverSocket));
+            () ->
+                DebugServerTransport.createAndWaitForClient(
+                    events.reporter(), serverSocket, false));
     MockDebugClient client = new MockDebugClient();
     client.connect(Duration.ofSeconds(10), serverSocket);
 
@@ -109,7 +111,9 @@ public class DebugServerTransportTest {
     ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getByName(null));
     Future<DebugServerTransport> future =
         executor.submit(
-            () -> DebugServerTransport.createAndWaitForClient(events.reporter(), serverSocket));
+            () ->
+                DebugServerTransport.createAndWaitForClient(
+                    events.reporter(), serverSocket, false));
     MockDebugClient client = new MockDebugClient();
     client.connect(Duration.ofSeconds(10), serverSocket);
 

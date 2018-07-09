@@ -79,19 +79,10 @@ std::vector<const char *> ConvertToCArgs(const std::vector<std::string> &args) {
   return c_args;
 }
 
-// Turn our current process into a new process. Avoids fork overhead.
-// Never returns.
-void ExecProcess(const std::vector<std::string> &args) {
-  std::vector<const char *> exec_argv = ConvertToCArgs(args);
-  execv(args[0].c_str(), const_cast<char **>(exec_argv.data()));
-  std::cerr << "Error executing child process.'" <<  args[0] << "'. "
-            << strerror(errno) << "\n";
-  abort();
-}
-
-// Spawns a subprocess for given arguments args. The first argument is used
-// for the executable path.
-void RunSubProcess(const std::vector<std::string> &args) {
+// Spawns a subprocess for given arguments args. The first argument is used for
+// the executable path. Returns zero on success and an appropriate error number
+// otherwise.
+int RunSubProcess(const std::vector<std::string> &args) {
   std::vector<const char *> exec_argv = ConvertToCArgs(args);
   pid_t pid;
   int status = posix_spawn(&pid, args[0].c_str(), NULL, NULL,
@@ -104,18 +95,19 @@ void RunSubProcess(const std::vector<std::string> &args) {
     if (wait_status < 0) {
       std::cerr << "Error waiting on child process '" <<  args[0] << "'. "
                 << strerror(errno) << "\n";
-      abort();
+      return errno;
     }
     if (WEXITSTATUS(status) != 0) {
       std::cerr << "Error in child process '" <<  args[0] << "'. "
                 << WEXITSTATUS(status) << "\n";
-      abort();
+      return errno;
     }
   } else {
     std::cerr << "Error forking process '" <<  args[0] << "'. "
               << strerror(status) << "\n";
-    abort();
+    return status;
   }
+  return 0;
 }
 
 // Finds and replaces all instances of oldsub with newsub, in-place on str.
@@ -141,13 +133,13 @@ bool SetArgIfFlagPresent(const std::string &arg, const std::string &flagname,
   return false;
 }
 
-// Returns the DEVELOPER_DIR environment variable in the current process
-// environment. Aborts if this variable is unset.
+// Gets an environment variable in the current process environment. Logs an
+// error and returns the empty string if the variable is undefined.
 std::string GetMandatoryEnvVar(const std::string &var_name) {
   char *env_value = getenv(var_name.c_str());
-  if (env_value == nullptr) {
+  if (env_value == nullptr || *env_value == '\0') {
     std::cerr << "Error: " << var_name << " not set.\n";
-    abort();
+    return "";
   }
   return env_value;
 }
@@ -166,11 +158,17 @@ int main(int argc, char *argv[]) {
     std::cerr << "Binary must either be named 'wrapped_clang' or "
                  "'wrapped_clang_pp', not "
               << binary_name << "\n";
-    abort();
+    return EXIT_FAILURE;
   }
 
   std::string developer_dir = GetMandatoryEnvVar("DEVELOPER_DIR");
+  if (developer_dir.empty()) {
+    return EXIT_FAILURE;
+  }
   std::string sdk_root = GetMandatoryEnvVar("SDKROOT");
+  if (sdk_root.empty()) {
+    return EXIT_FAILURE;
+  }
 
   std::vector<std::string> processed_args = {"/usr/bin/xcrun", tool_name};
 
@@ -216,42 +214,42 @@ int main(int argc, char *argv[]) {
       std::cerr << "Error in clang wrapper: If any dsym "
               "hint is defined, then "
            << missing_dsym_flag << " must be defined\n";
-      abort();
+      return EXIT_FAILURE;
     } else {
       postprocess = true;
     }
   }
 
-  if (!postprocess) {
-    ExecProcess(processed_args);
-    std::cerr << "ExecProcess should not return. Please fix!\n";
-    abort();
+  if (RunSubProcess(processed_args) != 0) {
+    return EXIT_FAILURE;
   }
 
-  RunSubProcess(processed_args);
+  if (postprocess) {
+    std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun", "dsymutil",
+                                              linked_binary, "-o", dsym_path};
 
-  std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun", "dsymutil",
-                                            linked_binary, "-o", dsym_path};
+    if (RunSubProcess(dsymutil_args) != 0) {
+      return EXIT_FAILURE;
+    }
 
-  RunSubProcess(dsymutil_args);
+    std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
+                                                     std::free};
+    if (cwd == nullptr) {
+      std::cerr << "Error determining current working directory\n";
+      return EXIT_FAILURE;
+    }
+    std::vector<std::string> zip_args = {
+        "/usr/bin/zip", "-q", "-r",
+        std::string(cwd.get()) + "/" + dsym_bundle_zip, "."};
+    if (chdir(dsym_path.c_str()) < 0) {
+      std::cerr << "Error changing directory to '" << dsym_path << "'\n";
+      return EXIT_FAILURE;
+    }
 
-  std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
-                                                   std::free};
-  if (cwd == nullptr) {
-    std::cerr << "Error determining current working directory\n";
-    abort();
+    if (RunSubProcess(zip_args) != 0) {
+      return EXIT_FAILURE;
+    }
   }
-  std::vector<std::string> zip_args = {
-      "/usr/bin/zip", "-q", "-r",
-      std::string(cwd.get()) + "/" + dsym_bundle_zip, "."};
-  if (chdir(dsym_path.c_str()) < 0) {
-    std::cerr << "Error changing directory to '" << dsym_path << "'\n";
-    abort();
-  }
 
-  ExecProcess(zip_args);
-
-  std::cerr << "Should never get to end of wrapped_clang. Please fix!\n";
-  abort();
   return 0;
 }

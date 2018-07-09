@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -275,7 +276,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   }
 
   /** Android configuration options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
       name = "Android configuration distinguisher",
@@ -360,21 +360,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public Label androidLibcTopLabel;
 
     @Option(
-      name = "android_dynamic_mode",
-      defaultValue = "off",
-      converter = DynamicModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "Determines whether C++ deps of Android rules will be linked dynamically when a "
-              + "cc_binary does not explicitly create a shared library. "
-              + "'default' means blaze will choose whether to link dynamically.  "
-              + "'fully' means all libraries will be linked dynamically. "
-              + "'off' means that all libraries will be linked in mostly static mode."
-    )
+        name = "android_dynamic_mode",
+        defaultValue = "off",
+        converter = DynamicModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help =
+            "Determines whether C++ deps of Android rules will be linked dynamically when a "
+                + "cc_binary does not explicitly create a shared library. "
+                + "'default' means bazel will choose whether to link dynamically.  "
+                + "'fully' means all libraries will be linked dynamically. "
+                + "'off' means that all libraries will be linked in mostly static mode.")
     public DynamicMode dynamicMode;
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
@@ -1139,8 +1138,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return useRexToCompressDexFiles;
   }
 
-  public boolean allowSrcsLessAndroidLibraryDeps() {
-    return allowAndroidLibraryDepsWithoutSrcs;
+  public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
+    return allowAndroidLibraryDepsWithoutSrcs
+        && Whitelist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   public boolean useAndroidResourceShrinking() {

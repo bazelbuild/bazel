@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -276,9 +275,5 @@ public class AppleSkylarkCommon
             "debug_outputs_provider", output.getDebugOutputsProvider(),
             "output_groups", SkylarkDict.copyOf(environment, outputGroups));
     return SkylarkInfo.createSchemaless(constructor, fields, Location.BUILTIN);
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(AppleSkylarkCommon.class);
   }
 }

@@ -109,6 +109,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
 
       try {
+        verifyNameNotEmpty(methodElement, annotation);
         verifyDocumented(methodElement, annotation);
         verifyNotStructFieldWithParams(methodElement, annotation);
         verifyParamSemantics(methodElement, annotation);
@@ -123,6 +124,15 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     return true;
   }
 
+  private void verifyNameNotEmpty(ExecutableElement methodElement, SkylarkCallable annotation)
+      throws SkylarkCallableProcessorException {
+    if (annotation.name().isEmpty()) {
+      throw new SkylarkCallableProcessorException(
+          methodElement,
+          "@SkylarkCallable.name must be non-empty.");
+    }
+  }
+
   private void verifyIfSelfCall(ExecutableElement methodElement, SkylarkCallable annotation)
       throws SkylarkCallableProcessorException {
     if (annotation.selfCall()) {
@@ -130,11 +140,6 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         throw new SkylarkCallableProcessorException(
             methodElement,
             "@SkylarkCallable-annotated methods with selfCall=true must have structField=false");
-      }
-      if (annotation.name().isEmpty()) {
-        throw new SkylarkCallableProcessorException(
-            methodElement,
-            "@SkylarkCallable-annotated methods with selfCall=true must have a name");
       }
       if (!classesWithSelfcall.add(methodElement.getEnclosingElement().asType().toString())) {
         throw new SkylarkCallableProcessorException(
@@ -260,17 +265,15 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     List<? extends VariableElement> methodSignatureParams = methodElement.getParameters();
     int numExtraInterpreterParams = numExpectedExtraInterpreterParams(annotation);
 
-    if (annotation.parameters().length > 0 || annotation.mandatoryPositionals() >= 0) {
-      int numDeclaredArgs =
-          annotation.parameters().length + Math.max(0, annotation.mandatoryPositionals());
-      if (methodSignatureParams.size() != numDeclaredArgs + numExtraInterpreterParams) {
-        throw new SkylarkCallableProcessorException(
-            methodElement,
-            String.format(
-                "@SkylarkCallable annotated method has %d parameters, but annotation declared "
-                    + "%d user-supplied parameters and %d extra interpreter parameters.",
-                methodSignatureParams.size(), numDeclaredArgs, numExtraInterpreterParams));
-      }
+    int numDeclaredArgs =
+        annotation.parameters().length + Math.max(0, annotation.mandatoryPositionals());
+    if (methodSignatureParams.size() != numDeclaredArgs + numExtraInterpreterParams) {
+      throw new SkylarkCallableProcessorException(
+          methodElement,
+          String.format(
+              "@SkylarkCallable annotated method has %d parameters, but annotation declared "
+                  + "%d user-supplied parameters and %d extra interpreter parameters.",
+              methodSignatureParams.size(), numDeclaredArgs, numExtraInterpreterParams));
     }
     if (annotation.structField()) {
       if (methodSignatureParams.size() != numExtraInterpreterParams) {

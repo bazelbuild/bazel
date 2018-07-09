@@ -18,7 +18,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderMap;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -107,14 +107,14 @@ public enum BuildEventTransportFactory {
   public static ImmutableSet<BuildEventTransport> createFromOptions(
       BuildEventStreamOptions options,
       BuildEventProtocolOptions protocolOptions,
-      BuildEventArtifactUploaderMap artifactUploaders,
+      BuildEventArtifactUploaderFactoryMap artifactUploaders,
       Consumer<AbruptExitException> exitFunc)
       throws IOException {
     ImmutableSet.Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
     for (BuildEventTransportFactory transportFactory : BuildEventTransportFactory.values()) {
       if (transportFactory.enabled(options)) {
         BuildEventArtifactUploader uploader = transportFactory.usePathConverter(options)
-            ? artifactUploaders.select(protocolOptions.buildEventUploadStrategy)
+            ? artifactUploaders.select(protocolOptions.buildEventUploadStrategy).create()
             : BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
         buildEventTransportsBuilder.add(
             transportFactory.create(options, protocolOptions, uploader, exitFunc));

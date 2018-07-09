@@ -64,7 +64,10 @@ public final class TurbineTest {
 
     StringWriter errOutput = new StringWriter();
     int result =
-        new Turbine("An exception has occurred in turbine.", "", "jadep")
+        new Turbine(
+                "An exception has occurred in turbine.",
+                "",
+                (type, target) -> String.format("jadep -classnames=%s %s", type, target))
             .compile(optionsBuilder.build(), new PrintWriter(errOutput, true));
     assertThat(errOutput.toString())
         .contains(
@@ -73,6 +76,7 @@ public final class TurbineTest {
                 + "       ^\n"
                 + "\n"
                 + "\033[35m\033[1m** Command to add missing dependencies:\033[0m\n"
+                + "\n"
                 + "jadep -classnames=p.Lib //test");
     assertThat(result).isEqualTo(1);
   }

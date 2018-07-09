@@ -48,7 +48,6 @@ public class TestLogHelper {
    */
   public static void writeTestLog(Path testOutput, String testName, OutputStream out)
       throws IOException {
-    InputStream input = null;
     PrintStream printOut = new PrintStream(new BufferedOutputStream(out));
     try {
       final String outputHeader = "==================== Test output for " + testName + ":";
@@ -58,9 +57,10 @@ public class TestLogHelper {
       printOut.println(outputHeader);
       printOut.flush();
 
-      input = testOutput.getInputStream();
       FilterTestHeaderOutputStream filteringOutputStream = getHeaderFilteringOutputStream(printOut);
-      ByteStreams.copy(input, filteringOutputStream);
+      try (InputStream input = testOutput.getInputStream()) {
+        ByteStreams.copy(input, filteringOutputStream);
+      }
 
       if (!filteringOutputStream.foundHeader()) {
         try (InputStream inputAgain = testOutput.getInputStream()) {
@@ -71,9 +71,6 @@ public class TestLogHelper {
       printOut.println(outputFooter);
     } finally {
       printOut.flush();
-      if (input != null) {
-        input.close();
-      }
     }
   }
 

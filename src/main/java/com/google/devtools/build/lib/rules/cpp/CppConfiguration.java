@@ -415,7 +415,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
   @Override
   @Deprecated
-  public String getCompiler() {
+  public String getCompiler() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return cppToolchainInfo.getCompiler();
   }
 
@@ -427,7 +428,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // TODO(b/68038647): Remove once make variables are no longer derived from CppConfiguration.
   @Override
   @Deprecated
-  public String getTargetLibc() {
+  public String getTargetLibc() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return cppToolchainInfo.getTargetLibc();
   }
 
@@ -439,7 +441,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // TODO(b/68038647): Remove once skylark callers are migrated.
   @Override
   @Deprecated
-  public String getTargetCpu() {
+  public String getTargetCpu() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return cppToolchainInfo.getTargetCpu();
   }
 
@@ -471,8 +474,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @SkylarkConfigurationField(
       name = "cc_toolchain",
       doc = "The label of the target describing the C++ toolchain",
-      defaultLabel = "//tools/defaults:crosstool",
-      defaultInToolRepository = false
+      defaultLabel = "//tools/cpp:crosstool",
+      defaultInToolRepository = true
   )
   public Label getCcToolchainRuleLabel() {
     return ccToolchainLabel;
@@ -495,8 +498,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   @Override
+  @Deprecated
   public ImmutableList<String> getBuiltInIncludeDirectoriesForSkylark()
-      throws InvalidConfigurationException {
+      throws InvalidConfigurationException, EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return getBuiltInIncludeDirectories(nonConfiguredSysroot)
             .stream()
             .map(PathFragment::getPathString)
@@ -527,7 +532,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    * this method returns <code>null</code>.
    */
   @Override
-  public String getSysroot() {
+  @Deprecated
+  public String getSysroot() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return nonConfiguredSysroot.getPathString();
   }
 
@@ -545,7 +552,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // TODO(b/64384912): Migrate skylark callers and remove.
   @Override
   @Deprecated
-  public ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore) {
+  public ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore)
+    throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return compilerFlags;
   }
 
@@ -555,6 +564,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   // TODO(b/64384912): Migrate skylark callers and remove.
   @Override
+  @Deprecated
+  public ImmutableList<String> getCOptionsForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
+    return getCOptions();
+  }
+
   public ImmutableList<String> getCOptions() {
     return cOptions;
   }
@@ -568,7 +583,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // TODO(b/64384912): Migrate skylark callers and remove.
   @Override
   @Deprecated
-  public ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore) {
+  public ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore)
+    throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return cxxFlags;
   }
 
@@ -584,7 +601,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Deprecated
   @Override
   public ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
-      Iterable<String> featuresNotUsedAnymore) {
+      Iterable<String> featuresNotUsedAnymore) throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return getUnfilteredCompilerOptionsDoNotUse(nonConfiguredSysroot);
   }
 
@@ -594,7 +612,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
   @Deprecated
-  ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(@Nullable PathFragment sysroot) {
+  ImmutableList<String> getUnfilteredCompilerOptionsDoNotUse(@Nullable PathFragment sysroot)
+    throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     if (sysroot == null) {
       return unfilteredCompilerFlags;
     }
@@ -615,7 +635,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   // TODO(b/65401585): Migrate existing uses to cc_toolchain and cleanup here.
   @Deprecated
   @Override
-  public ImmutableList<String> getLinkOptionsWithLegacySysroot() {
+  public ImmutableList<String> getLinkOptionsWithLegacySysroot() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return getLinkOptionsDoNotUse(nonConfiguredSysroot);
   }
 
@@ -672,6 +693,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     if (!sharedLib) {
       throw new EvalException(
           Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
@@ -692,7 +714,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Override
   @Deprecated
   public ImmutableList<String> getMostlyStaticLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     if (sharedLib) {
       return getSharedLibraryLinkOptions(
           cppToolchainInfo.supportsEmbeddedRuntimes()
@@ -716,7 +739,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Override
   @Deprecated
   public ImmutableList<String> getDynamicLinkOptions(
-      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) {
+      Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     if (sharedLib) {
       return getSharedLibraryLinkOptions(dynamicLinkFlags);
     } else {
@@ -752,7 +776,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    * relative to the execution root.
    */
   @Override
-  public String getLdExecutableForSkylark() {
+  @Deprecated
+  public String getLdExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
     return ldExecutable != null ? ldExecutable.getPathString() : "";
   }
@@ -790,7 +816,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public Label getSkylarkStl() {
     if (stlLabel == null) {
       try {
-        return Label.parseAbsolute("//third_party/stl");
+        return Label.parseAbsolute("//third_party/stl", ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException("STL label not formatted correctly", e);
       }
@@ -911,6 +937,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.pruneCppInputDiscovery;
   }
 
+  public boolean getNoDotdScanningWithModules() {
+    return cppOptions.noDotdScanningWithModules;
+  }
+
   public boolean getParseHeadersVerifiesModules() {
     return cppOptions.parseHeadersVerifiesModules;
   }
@@ -923,56 +953,66 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.expandLinkoptsLabels;
   }
 
+  public boolean getEnableCcSkylarkApi() {
+    return cppOptions.enableCcSkylarkApi;
+  }
+
   /**
    * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
    * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
    */
   @Override
-  public String getObjCopyExecutableForSkylark() {
+  @Deprecated
+  public String getObjCopyExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment objCopyExecutable = getToolPathFragment(Tool.OBJCOPY);
     return objCopyExecutable != null ? objCopyExecutable.getPathString() : "";
   }
 
   @Override
-  public String getCppExecutableForSkylark() {
+  @Deprecated
+  public String getCppExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment cppExecutable = getToolPathFragment(Tool.GCC);
     return cppExecutable != null ? cppExecutable.getPathString() : "";
   }
 
   @Override
-  public String getCpreprocessorExecutableForSkylark() {
+  @Deprecated
+  public String getCpreprocessorExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment cpreprocessorExecutable = getToolPathFragment(Tool.CPP);
     return cpreprocessorExecutable != null ? cpreprocessorExecutable.getPathString() : "";
   }
 
-  /**
-   * Returns the path to the 'gcov-tool' executable that should be used
-   * by this build. Relative paths are relative to the execution root.
-   */
-  public PathFragment getGcovToolExecutable() {
-    return getToolPathFragment(CppConfiguration.Tool.GCOVTOOL);
-  }
-
   @Override
-  public String getNmExecutableForSkylark() {
+  @Deprecated
+  public String getNmExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment nmExecutable = getToolPathFragment(Tool.NM);
     return nmExecutable != null ? nmExecutable.getPathString() : "";
   }
 
   @Override
-  public String getObjdumpExecutableForSkylark() {
+  @Deprecated
+  public String getObjdumpExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment objdumpExecutable = getToolPathFragment(Tool.OBJDUMP);
     return objdumpExecutable != null ? objdumpExecutable.getPathString() : "";
   }
 
   @Override
-  public String getArExecutableForSkylark() {
+  @Deprecated
+  public String getArExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment arExecutable = getToolPathFragment(Tool.AR);
     return arExecutable != null ? arExecutable.getPathString() : "";
   }
 
   @Override
-  public String getStripExecutableForSkylark() {
+  @Deprecated
+  public String getStripExecutableForSkylark() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     PathFragment stripExecutable = getToolPathFragment(Tool.STRIP);
     return stripExecutable != null ? stripExecutable.getPathString() : "";
   }
@@ -984,7 +1024,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   //TODO(b/70225490): Migrate skylark dependants to CcToolchainProvider and delete.
   @Override
   @Deprecated
-  public String getTargetGnuSystemName() {
+  public String getTargetGnuSystemName() throws EvalException {
+    checkForToolchainSkylarkApiAvailability();
     return cppToolchainInfo.getTargetGnuSystemName();
   }
 
@@ -1058,8 +1099,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     globalMakeEnvBuilder.putAll(
         CcToolchainProvider.getCppBuildVariables(
             this::getToolPathFragment,
-            getTargetLibc(),
-            getCompiler(),
+            cppToolchainInfo.getTargetLibc(),
+            cppToolchainInfo.getCompiler(),
             desiredCpu,
             crosstoolTopPathFragment,
             cppToolchainInfo.getAbiGlibcVersion(),
@@ -1093,7 +1134,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     // --compiler initially defaults to null because its *actual* default isn't known
     // until it's read from the CROSSTOOL. Feed the CROSSTOOL defaults in here.
     return ImmutableMap.<String, Object>of(
-        "compiler", getCompiler());
+        "compiler", cppToolchainInfo.getCompiler());
   }
 
   public String getFdoInstrument() {
@@ -1122,6 +1163,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean useLLVMCoverageMapFormat() {
     return cppOptions.useLLVMCoverageMapFormat;
+  }
+
+  private void checkForToolchainSkylarkApiAvailability() throws EvalException {
+    if (!cppOptions.enableLegacyToolchainSkylarkApi) {
+      throw new EvalException(null, "Information about the C++ toolchain API is not accessible "
+          + "anymore through ctx.fragments.cpp . Use CcToolchainInfo instead.");
+    }
   }
 
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {

@@ -27,7 +27,9 @@ def _strip_version(version):
       The version with trailing letters stripped.
     """
     result = ""
-    for ch in str(version):
+    string = str(version)
+    for i in range(len(string)):
+        ch = string[i]
         if not ch.isdigit() and ch != ".":
             break
 

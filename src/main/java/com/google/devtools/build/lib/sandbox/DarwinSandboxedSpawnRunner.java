@@ -65,9 +65,12 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @VisibleForTesting
   static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
+  // Since checking if sandbox is supported is expensive, we remember what we've checked.
+  private static Boolean isSupported = null;
+
   /**
    * Returns whether the darwin sandbox is supported on the local machine by running a small command
-   * in it. This is expensive!
+   * in it.
    */
   public static boolean isSupported(CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.DARWIN) {
@@ -76,7 +79,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (!ProcessWrapperUtil.isSupported(cmdEnv)) {
       return false;
     }
+    if (isSupported == null) {
+      isSupported = computeIsSupported();
+    }
+    return isSupported;
+  }
 
+  private static boolean computeIsSupported() {
     List<String> args = new ArrayList<>();
     args.add(sandboxExecBinary);
     args.add("-p");

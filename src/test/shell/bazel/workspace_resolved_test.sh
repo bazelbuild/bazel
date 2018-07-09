@@ -166,6 +166,78 @@ EOF
        && fail "not taking the frozen commit" || :
 }
 
+test_git_follow_branch() {
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  mkdir extgit
+  (cd extgit && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello World > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit')
+  # Check out the external git repository at the given branch, and record
+  # the return value of the git rule.
+  mkdir branchcheckout
+  cd branchcheckout
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/extgit/.git",
+  branch="master",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+
+  # Now add an additional commit to the upstream repository
+  echo CHANGED > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'change hello.txt')
+
+  # Verify that the recorded resolved information is what we expect. In
+  # particular, verify that we don't get the new upstream commit.
+  mkdir analysisrepo
+  cd analysisrepo
+  cp ../repo.bzl .
+  cat > workspace.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("//:repo.bzl", "resolved")
+
+def repo():
+    for entry in resolved:
+        if entry["original_attributes"]["name"] == "ext":
+            new_git_repository(**(entry["repositories"][0]["attributes"]))
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:workspace.bzl", "repo")
+repo()
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:out
+  grep "Hello World" `bazel info bazel-genfiles`/out.txt \
+       || fail "ext not taken at the right commit"
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       && fail "not taking the frozen commit" || :
+}
+
 
 test_sync_calls_all() {
   mkdir sync_calls_all && cd sync_calls_all
@@ -278,6 +350,19 @@ EOF
   bazel build :a :b || fail "Expected both repositories to be present"
 }
 
+test_sync_load_errors_reported() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  cat > WORKSPACE <<'EOF'
+load("//does/not:exist.bzl", "randomfunction")
+
+radomfunction(name="foo")
+EOF
+  bazel sync > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log '//does/not:exist.bzl'
+}
+
 test_sync_debug_and_errors_printed() {
   rm -rf fetchrepo
   mkdir fetchrepo
@@ -301,6 +386,53 @@ EOF
   bazel sync > "${TEST_log}" 2>&1 && fail "expected failure" || :
   expect_log "DEBUG-message"
   expect_log "Failure-message"
+}
+
+test_indirect_call() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _trivial_rule_impl(ctx):
+  ctx.file("BUILD","genrule(name='hello', outs=['hello.txt'], cmd=' echo hello world > $@')")
+
+trivial_rule = repository_rule(
+  implementation = _trivial_rule_impl,
+  attrs = {},
+)
+EOF
+  cat > indirect.bzl <<'EOF'
+def call(fn_name, **args):
+  fn_name(**args)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+load("//:indirect.bzl", "call")
+
+call(trivial_rule, name="foo")
+EOF
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+ruleclass = "".join([entry["original_rule_class"] for entry in resolved if entry["original_attributes"]["name"]=="foo"])
+
+genrule(
+  name = "ruleclass",
+  outs = ["ruleclass.txt"],
+  cmd = "echo %s > $@" % (ruleclass,)
+)
+EOF
+  bazel build //:ruleclass
+  cat `bazel info bazel-genfiles`/ruleclass.txt > ${TEST_log}
+  expect_log '//:rule.bzl%trivial_rule'
+  expect_not_log 'fn_name'
 }
 
 run_suite "workspace_resolved_test tests"

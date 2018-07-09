@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.AutoProfiler.ElapsedTimeReceiver;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -169,9 +171,11 @@ public class FilesystemValueChecker {
     logger.info("Accumulating dirty actions");
     final int numOutputJobs = Runtime.getRuntime().availableProcessors() * 4;
     final Set<SkyKey> actionSkyKeys = new HashSet<>();
-    for (SkyKey key : valuesMap.keySet()) {
-      if (ACTION_FILTER.apply(key)) {
-        actionSkyKeys.add(key);
+    try (SilentCloseable c = Profiler.instance().profile("getDirtyActionValues.filter_actions")) {
+      for (SkyKey key : valuesMap.keySet()) {
+        if (ACTION_FILTER.apply(key)) {
+          actionSkyKeys.add(key);
+        }
       }
     }
     final Sharder<Pair<SkyKey, ActionExecutionValue>> outputShards =
@@ -211,16 +215,24 @@ public class FilesystemValueChecker {
         }
       });
 
-    for (List<Pair<SkyKey, ActionExecutionValue>> shard : outputShards) {
-      Runnable job = (batchStatter == null)
-          ? outputStatJob(dirtyKeys, shard, knownModifiedOutputFiles,
-              sortedKnownModifiedOutputFiles)
-          : batchStatJob(dirtyKeys, shard, batchStatter, knownModifiedOutputFiles,
-              sortedKnownModifiedOutputFiles);
-      Future<?> unused = executor.submit(wrapper.wrap(job));
-    }
+    boolean interrupted;
+    try (SilentCloseable c = Profiler.instance().profile("getDirtyActionValues.stat_files")) {
+      for (List<Pair<SkyKey, ActionExecutionValue>> shard : outputShards) {
+        Runnable job =
+            (batchStatter == null)
+                ? outputStatJob(
+                    dirtyKeys, shard, knownModifiedOutputFiles, sortedKnownModifiedOutputFiles)
+                : batchStatJob(
+                    dirtyKeys,
+                    shard,
+                    batchStatter,
+                    knownModifiedOutputFiles,
+                    sortedKnownModifiedOutputFiles);
+        Future<?> unused = executor.submit(wrapper.wrap(job));
+      }
 
-    boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
+      interrupted = ExecutorUtil.interruptibleShutdown(executor);
+    }
     Throwables.propagateIfPossible(wrapper.getFirstThrownError());
     logger.info("Completed output file stat checks");
     if (interrupted) {

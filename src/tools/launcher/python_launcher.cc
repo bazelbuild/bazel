@@ -21,21 +21,21 @@
 namespace bazel {
 namespace launcher {
 
-using std::string;
 using std::vector;
+using std::wstring;
 
 static constexpr const char* PYTHON_BIN_PATH = "python_bin_path";
 
 ExitCode PythonBinaryLauncher::Launch() {
-  string python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
+  wstring python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
   // If specified python binary path doesn't exist, then fall back to
   // python.exe and hope it's in PATH.
   if (!DoesFilePathExist(python_binary.c_str())) {
-    python_binary = "python.exe";
+    python_binary = L"python.exe";
   }
 
-  vector<string> args = this->GetCommandlineArguments();
-  string python_zip_file = GetBinaryPathWithoutExtension(args[0]) + ".zip";
+  vector<wstring> args = this->GetCommandlineArguments();
+  wstring python_zip_file = GetBinaryPathWithoutExtension(args[0]) + L".zip";
 
   // Replace the first argument with python zip file path
   args[0] = python_zip_file;

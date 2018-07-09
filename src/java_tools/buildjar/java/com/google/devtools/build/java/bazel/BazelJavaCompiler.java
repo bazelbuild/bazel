@@ -54,6 +54,8 @@ public class BazelJavaCompiler {
   private static final ImmutableList<String> DEFAULT_JAVACOPTS =
       ImmutableList.<String>builder()
           .addAll(JavaBuilderConfig.defaultJavacOpts())
+          .add("-encoding")
+          .add("UTF-8")
           // The bootclasspath must be specified both via an invocation option and
           // via fileManager.setLocation(PLATFORM_CLASS_PATH), to work around what
           // appears to be a bug in jdk[6,8] javac.

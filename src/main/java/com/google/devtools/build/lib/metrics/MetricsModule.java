@@ -13,14 +13,38 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
 
 /**
  * A blaze module that installs metrics instrumentations and issues a {@link BuildMetricsEvent} at
  * the end of the build.
  */
 public class MetricsModule extends BlazeModule {
+
+  /** Metrics options. */
+  public static final class Options extends OptionsBase {
+    @Option(
+        name = "bep_publish_used_heap_size_post_build",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "When set we collect and publish used_heap_size_post_build "
+                + "from build_event_stream.proto. This forces a full GC and is off by default.")
+    public boolean bepPublishUsedHeapSizePostBuild;
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return ImmutableList.of(Options.class);
+  }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {

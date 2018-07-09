@@ -61,8 +61,9 @@ public class PrinterTest {
     assertThat(Printer.repr(3)).isEqualTo("3");
     assertThat(Printer.repr(Runtime.NONE)).isEqualTo("None");
 
-    assertThat(Printer.str(Label.parseAbsolute("//x"))).isEqualTo("//x:x");
-    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("Label(\"//x:x\")");
+    assertThat(Printer.str(Label.parseAbsolute("//x", ImmutableMap.of()))).isEqualTo("//x:x");
+    assertThat(Printer.repr(Label.parseAbsolute("//x", ImmutableMap.of())))
+        .isEqualTo("Label(\"//x:x\")");
 
     List<?> list = MutableList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");

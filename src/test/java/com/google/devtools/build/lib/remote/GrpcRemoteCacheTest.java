@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -74,6 +74,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -90,7 +91,7 @@ import org.mockito.stubbing.Answer;
 @RunWith(JUnit4.class)
 public class GrpcRemoteCacheTest {
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(HashFunction.SHA256);
+  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private FileSystem fs;
   private Path execRoot;
@@ -118,7 +119,7 @@ public class GrpcRemoteCacheTest {
             .build()
             .start();
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
-    fs = new InMemoryFileSystem(new JavaClock(), HashFunction.SHA256);
+    fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -176,10 +177,10 @@ public class GrpcRemoteCacheTest {
     Scratch scratch = new Scratch();
     scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
 
-    CallCredentials creds =
-        GoogleAuthUtils.newCallCredentials(
-            scratch.resolve(authTlsOptions.googleCredentials).getInputStream(),
-            authTlsOptions.googleAuthScopes);
+    CallCredentials creds = null;
+    try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
+      GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
+    }
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     RemoteRetrier retrier =
         new RemoteRetrier(

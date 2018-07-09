@@ -450,8 +450,9 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       doc =
           "Creates a template expansion action. When the action is executed, it will "
               + "generate a file based on a template. Parts of the template will be replaced "
-              + "using the <code>substitutions</code> dictionary. Whenever a key of the "
-              + "dictionary appears in the template, it is replaced with the associated value. "
+              + "using the <code>substitutions</code> dictionary, in the order the substitutions "
+              + "are specified. Whenever a key of the dictionary appears in the template (or a "
+              + "result of a previous substitution), it is replaced with the associated value. "
               + "There is no special syntax for the keys. You may, for example, use curly braces "
               + "to avoid conflicts (for example, <code>{KEY}</code>). "
               + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/"

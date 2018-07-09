@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -206,7 +207,7 @@ public abstract class RepositoryFunction {
       RootedPath rootedPath;
       String fileKey = key.substring(5);
       if (LabelValidator.isAbsolute(fileKey)) {
-        rootedPath = getRootedPathFromLabel(Label.parseAbsolute(fileKey), env);
+        rootedPath = getRootedPathFromLabel(Label.parseAbsolute(fileKey, ImmutableMap.of()), env);
       } else {
         // TODO(pcloudy): Removing checking absolute path, they should all be absolute label.
         PathFragment filePathFragment = PathFragment.create(fileKey);

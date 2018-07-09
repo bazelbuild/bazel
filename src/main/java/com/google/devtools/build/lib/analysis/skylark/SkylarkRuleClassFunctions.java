@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -100,16 +99,21 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   // If we don't want to support old built-in rules and Skylark simultaneously
   // (except for transition phase) it's probably OK.
   private static final LoadingCache<String, Label> labelCache =
-      CacheBuilder.newBuilder().build(new CacheLoader<String, Label>() {
-        @Override
-        public Label load(String from) throws Exception {
-          try {
-            return Label.parseAbsolute(from, false);
-          } catch (LabelSyntaxException e) {
-            throw new Exception(from);
-          }
-        }
-      });
+      CacheBuilder.newBuilder()
+          .build(
+              new CacheLoader<String, Label>() {
+                @Override
+                public Label load(String from) throws Exception {
+                  try {
+                    return Label.parseAbsolute(
+                        from,
+                        /* defaultToMain=*/ false,
+                        /* repositoryMapping= */ ImmutableMap.of());
+                  } catch (LabelSyntaxException e) {
+                    throw new Exception(from);
+                  }
+                }
+              });
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Skylark rules. */
@@ -193,8 +197,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                     BaseRuleClasses.coverageReportGeneratorAttribute(
                         labelCache.getUnchecked(
                             toolsRepository
-                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
-                .singleArtifact())
+                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
         .add(attr(":run_under", LABEL).value(RUN_UNDER))
         .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
         .build();
@@ -380,7 +383,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label toolchainLabel = Label.parseAbsolute(rawLabel);
+        Label toolchainLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         requiredToolchains.add(toolchainLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
@@ -396,7 +399,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label constraintLabel = Label.parseAbsolute(rawLabel);
+        Label constraintLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         constraintLabels.add(constraintLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
@@ -410,12 +413,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   @Override
   public SkylarkAspect aspect(
       BaseFunction implementation,
-      SkylarkList attributeAspects,
+      SkylarkList<?> attributeAspects,
       Object attrs,
-      SkylarkList requiredAspectProvidersArg,
-      SkylarkList providesArg,
-      SkylarkList fragments,
-      SkylarkList hostFragments,
+      SkylarkList<?> requiredAspectProvidersArg,
+      SkylarkList<?> providesArg,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
       SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
@@ -646,17 +649,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
   }
 
-  /**
-   * All classes of values that need special processing after they are exported from an extension
-   * file.
-   *
-   * <p>Order in list is significant: all {@link SkylarkDefinedAspect}s need to be exported before
-   * {@link SkylarkRuleFunction}s etc.
-   */
-  private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
-      ImmutableList.of(
-          SkylarkProvider.class, SkylarkDefinedAspect.class, SkylarkRuleFunction.class);
-
   @Override
   public Label label(
       String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
@@ -693,9 +685,5 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               + "--incompatible_disallow_filetype=false");
     }
     return SkylarkFileType.of(types.getContents(String.class, "types"));
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
   }
 }

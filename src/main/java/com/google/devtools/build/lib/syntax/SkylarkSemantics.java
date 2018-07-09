@@ -49,6 +49,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisableObjcProviderResources();
 
+  public abstract boolean incompatibleDisallowDataTransition();
+
   public abstract boolean incompatibleDisallowDictPlus();
 
   public abstract boolean incompatibleDisallowFileType();
@@ -58,6 +60,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDisallowOldStyleArgsAdd();
 
   public abstract boolean incompatibleDisallowSlashOperator();
+
+  public abstract boolean incompatibleGenerateJavaCommonSourceJar();
 
   public abstract boolean incompatibleNewActionsApi();
 
@@ -93,11 +97,13 @@ public abstract class SkylarkSemantics {
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDisableObjcProviderResources(false)
+          .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowSlashOperator(false)
+          .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatiblePackageNameIsAFunction(false)
@@ -122,6 +128,8 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
+    public abstract Builder incompatibleDisallowDataTransition(boolean value);
+
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
     public abstract Builder incompatibleDisallowFileType(boolean value);
@@ -131,6 +139,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisallowOldStyleArgsAdd(boolean value);
 
     public abstract Builder incompatibleDisallowSlashOperator(boolean value);
+
+    public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 

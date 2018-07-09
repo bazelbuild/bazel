@@ -501,7 +501,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "Exactly one of commit and tag must be provided"
+  expect_log "Exactly one of commit"
 }
 
 # Verifies that rule fails if neither tag or commit are set.
@@ -528,7 +528,7 @@ EOF
 
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
-  expect_log "Exactly one of commit and tag must be provided"
+  expect_log "Exactly one of commit"
 }
 
 # Verifies that if a non-existent subdirectory is supplied, then strip_prefix

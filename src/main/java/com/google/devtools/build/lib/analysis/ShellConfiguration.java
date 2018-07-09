@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.io.Serializable;
 import javax.annotation.Nullable;
 
@@ -40,17 +41,22 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
           .build();
 
   private final PathFragment shellExecutable;
+  private final boolean useShBinaryStubScript;
 
-  public ShellConfiguration(PathFragment shellExecutable) {
+  public ShellConfiguration(PathFragment shellExecutable, boolean useShBinaryStubScript) {
     this.shellExecutable = shellExecutable;
+    this.useShBinaryStubScript = useShBinaryStubScript;
   }
 
   public PathFragment getShellExecutable() {
     return shellExecutable;
   }
 
+  public boolean useShBinaryStubScript() {
+    return useShBinaryStubScript;
+  }
+
   /** An option that tells Bazel where the shell is. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
         name = "shell_executable",
@@ -69,10 +75,20 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
     )
     public PathFragment shellExecutable;
 
+    @Option(
+        name = "experimental_use_sh_binary_stub_script",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        defaultValue = "false",
+        help = "If enabled, use a stub script for sh_binary targets.")
+    public boolean useShBinaryStubScript;
+
     @Override
     public Options getHost() {
       Options host = (Options) getDefault();
       host.shellExecutable = shellExecutable;
+      host.useShBinaryStubScript = useShBinaryStubScript;
       return host;
     }
   }
@@ -101,7 +117,10 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
     @Nullable
     @Override
     public Fragment create(BuildOptions buildOptions) {
-        return new ShellConfiguration(shellExecutableProvider.getShellExecutable(buildOptions));
+      Options options = buildOptions.get(Options.class);
+      return new ShellConfiguration(
+          shellExecutableProvider.getShellExecutable(buildOptions),
+          options != null && options.useShBinaryStubScript);
     }
 
     public static PathFragment determineShellExecutable(

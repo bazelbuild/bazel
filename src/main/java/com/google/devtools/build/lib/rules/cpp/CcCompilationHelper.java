@@ -209,7 +209,7 @@ public final class CcCompilationHelper {
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CcCompilationInfo> ccCompilationInfos = new ArrayList<>();
-  private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
+  private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
 
@@ -292,10 +292,10 @@ public final class CcCompilationHelper {
     this.cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
     setGenerateNoPicAction(
-        !CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain)
+        !ccToolchain.usePicForDynamicLibraries()
             || !CppHelper.usePicForBinaries(ruleContext, ccToolchain));
     setGeneratePicAction(
-        CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain)
+        ccToolchain.usePicForDynamicLibraries()
             || CppHelper.usePicForBinaries(ruleContext, ccToolchain));
   }
 
@@ -324,7 +324,7 @@ public final class CcCompilationHelper {
     setCopts(Iterables.concat(common.getCopts(), additionalCopts));
     addDefines(common.getDefines());
     addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    addLooseIncludeDirs(common.getLooseIncludeDirs());
+    setLooseIncludeDirs(common.getLooseIncludeDirs());
     addSystemIncludeDirs(common.getSystemIncludeDirs());
     setCoptsFilter(common.getCoptsFilter());
     setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
@@ -407,7 +407,7 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(privateHeader.getExecPath());
     Preconditions.checkState(isHeader || isTextualInclude);
 
-    if (shouldProcessHeaders() && !isTextualInclude) {
+    if (ccToolchain.shouldProcessHeaders(featureConfiguration) && !isTextualInclude) {
       compilationUnitSources.add(CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
     this.privateHeaders.add(privateHeader);
@@ -461,7 +461,7 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_HEADER.matches(header.getExecPath()) || header.isTreeArtifact();
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
     publicHeaders.add(header);
-    if (isTextualInclude || !isHeader || !shouldProcessHeaders()) {
+    if (isTextualInclude || !isHeader || !ccToolchain.shouldProcessHeaders(featureConfiguration)) {
       return;
     }
     compilationUnitSources.add(CppSource.create(header, label, CppSource.Type.HEADER));
@@ -498,14 +498,6 @@ public final class CcCompilationHelper {
       type = CppSource.Type.SOURCE;
     }
     compilationUnitSources.add(CppSource.create(source, label, type));
-  }
-
-  private boolean shouldProcessHeaders() {
-    // If parse_headers_verifies_modules is switched on, we verify that headers are
-    // self-contained by building the module instead.
-    return !cppConfiguration.getParseHeadersVerifiesModules()
-        && (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
-            || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
   }
 
   /**
@@ -591,12 +583,12 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Adds the given directories to the loose include directories that are only allowed to be
+   * Sets the given directories to by loose include directories that are only allowed to be
    * referenced when headers checking is {@link HeadersCheckingMode#LOOSE} or {@link
    * HeadersCheckingMode#WARN}.
    */
-  private void addLooseIncludeDirs(Iterable<PathFragment> looseIncludeDirs) {
-    Iterables.addAll(this.looseIncludeDirs, looseIncludeDirs);
+  private void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
+    this.looseIncludeDirs = looseIncludeDirs;
   }
 
   /**
@@ -775,7 +767,7 @@ public final class CcCompilationHelper {
     outputGroups.put(OutputGroupInfo.TEMP_FILES, ccOutputs.getTemps());
     if (emitCompileProviders) {
       boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-      boolean usePic = CppHelper.usePicForDynamicLibraries(ruleContext, ccToolchain);
+      boolean usePic = ccToolchain.usePicForDynamicLibraries();
       outputGroups.put(
           OutputGroupInfo.FILES_TO_COMPILE,
           ccOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
@@ -923,10 +915,8 @@ public final class CcCompilationHelper {
 
   /**
    * Create {@code CcCompilationContext} for cc compile action from generated inputs.
-   *
-   * <p>TODO(plf): Try to pull out CcCompilationContext building out of this class.
    */
-  public CcCompilationContext initializeCcCompilationContext() {
+  private CcCompilationContext initializeCcCompilationContext() {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         new CcCompilationContext.Builder(ruleContext);
 

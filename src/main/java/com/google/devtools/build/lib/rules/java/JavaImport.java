@@ -83,10 +83,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
-    JavaCompilationArgs javaCompilationArgs =
-        common.collectJavaCompilationArgs(false, neverLink, false);
-    JavaCompilationArgs recursiveJavaCompilationArgs =
-        common.collectJavaCompilationArgs(true, neverLink, false);
+    JavaCompilationArgsProvider javaCompilationArgs =
+        common.collectJavaCompilationArgs(neverLink, false);
     NestedSet<Artifact> transitiveJavaSourceJars =
         collectTransitiveJavaSourceJars(ruleContext, srcJar);
     if (srcJar != null) {
@@ -136,8 +134,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs);
+    JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     common.addTransitiveInfoProviders(ruleBuilder, javaInfoBuilder, filesToBuild, null);

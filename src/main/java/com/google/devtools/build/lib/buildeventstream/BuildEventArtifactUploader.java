@@ -13,26 +13,44 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
-import java.util.Set;
+import java.util.Map;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
 public interface BuildEventArtifactUploader {
-  public static final BuildEventArtifactUploader LOCAL_FILES_UPLOADER =
+  BuildEventArtifactUploader LOCAL_FILES_UPLOADER =
       new BuildEventArtifactUploader() {
-    @Override
-    public PathConverter upload(Set<Path> files) {
-      return new FileUriPathConverter();
-    }
-  };
+        private final ListenableFuture<PathConverter> completedPathConverter =
+            Futures.immediateFuture(new FileUriPathConverter());
+
+        @Override
+        public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+          return completedPathConverter;
+        }
+
+        @Override
+        public void shutdown() {
+          // Intentionally left empty.
+        }
+      };
 
   /**
-   * Uploads a set of files referenced by the protobuf representation of a {@link BuildEvent}.
+   * Asynchronously uploads a set of files referenced by the protobuf representation of a {@link
+   * BuildEvent}. This method is expected to return quickly.
    *
-   * <p>Returns a {@link PathConverter} that must provide a name for each uploaded file as it should
-   * appear in the BEP.
+   * <p>This method must not throw any exceptions.
+   *
+   * <p>Returns a future to a {@link PathConverter} that must provide a name for each uploaded file
+   * as it should appear in the BEP.
    */
-  PathConverter upload(Set<Path> files) throws IOException, InterruptedException;
+  ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files);
+
+  /**
+   * Shutdown any resources associated with the uploader.
+   */
+  void shutdown();
 }

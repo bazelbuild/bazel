@@ -108,7 +108,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
   private OrderedSetMultimap<Attribute, Dependency> dependentNodeMap(
       String targetName, NativeAspectClass aspect) throws Exception {
-    Target target = packageManager.getTarget(reporter, Label.parseAbsolute(targetName));
+    Target target =
+        packageManager.getTarget(reporter, Label.parseAbsolute(targetName, ImmutableMap.of()));
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),

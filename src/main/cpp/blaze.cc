@@ -367,7 +367,7 @@ static void ComputeInstallMd5AndNoteAllFiles(const string &self_path) {
                                   &install_key_processor});
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
-  if (extractor.get() == NULL) {
+  if (extractor == NULL) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Failed to open " << globals->options->product_name
         << " as a zip file: " << GetLastErrorString();
@@ -893,9 +893,16 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
   void Process(const char *filename, const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, const size_t size) override {
     string path = blaze_util::JoinPath(embedded_binaries_, filename);
-    if (!blaze_util::MakeDirectories(blaze_util::Dirname(path), 0777)) {
-      BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-          << "couldn't create '" << path << "': " << GetLastErrorString();
+    string dirname = blaze_util::Dirname(path);
+    // Performance optimization: memoize the paths we already created a
+    // directory for, to spare a stat in attempting to recreate an already
+    // existing directory. This optimization alone shaves off seconds from the
+    // extraction time on Windows.
+    if (created_directories_.insert(dirname).second) {
+      if (!blaze_util::MakeDirectories(dirname, 0777)) {
+        BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+            << "couldn't create '" << path << "': " << GetLastErrorString();
+      }
     }
 
     if (!blaze_util::WriteFile(data, size, path, 0755)) {
@@ -907,6 +914,7 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
 
  private:
   const string embedded_binaries_;
+  set<string> created_directories_;
 };
 
 // Actually extracts the embedded data files into the tree whose root
@@ -929,7 +937,7 @@ static void ActuallyExtractData(const string &argv0,
 
   std::unique_ptr<devtools_ijar::ZipExtractor> extractor(
       devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
-  if (extractor.get() == NULL) {
+  if (extractor == NULL) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Failed to open " << globals->options->product_name
         << " as a zip file: " << GetLastErrorString();
@@ -972,7 +980,7 @@ static void ActuallyExtractData(const string &argv0,
     // releases so that the metadata cache knows that the files may have
     // changed. This is essential for the correctness of actions that use
     // embedded binaries as artifacts.
-    if (!mtime.get()->SetToDistantFuture(it)) {
+    if (!mtime->SetToDistantFuture(it)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << extracted_path
           << "': " << GetLastErrorString();
@@ -1052,7 +1060,7 @@ static void ExtractData(const string &self_path) {
   } else {
     if (!blaze_util::IsDirectory(globals->options->install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Install base directory '" << globals->options->install_base
+          << "install base directory '" << globals->options->install_base
           << "' could not be created. It exists but is not a directory.";
     }
 
@@ -1062,31 +1070,11 @@ static void ExtractData(const string &self_path) {
         globals->options->install_base, "_embedded_binaries");
     for (const auto &it : globals->extracted_binaries) {
       string path = blaze_util::JoinPath(real_install_dir, it);
-      // Check that the file exists and is readable.
-      if (blaze_util::IsDirectory(path)) {
-        continue;
-      }
-      if (!blaze_util::CanReadFile(path)) {
+      if (!mtime->IsUntampered(path)) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "corrupt installation: file '" << path
-            << "' missing. Please remove '" << globals->options->install_base
-            << "' and try again.";
-      }
-      // Check that the timestamp is in the future. A past timestamp would
-      // indicate that the file has been tampered with.
-      // See ActuallyExtractData().
-      bool is_in_future = false;
-      if (!mtime.get()->GetIfInDistantFuture(path, &is_in_future)) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "Error: could not retrieve mtime of file '" << path
-            << "'. Please remove '" << globals->options->install_base
-            << "' and try again.";
-      }
-      if (!is_in_future) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "Error: corrupt installation: file '" << path
-            << "' modified.  Please remove '" << globals->options->install_base
-            << "' and try again.";
+            << "' is missing or modified.  Please remove '"
+            << globals->options->install_base << "' and try again.";
       }
     }
   }
@@ -1208,7 +1196,7 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
     // find install bases that haven't been used for a long time
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    if (!mtime.get()->SetToNow(globals->options->install_base)) {
+    if (!mtime->SetToNow(globals->options->install_base)) {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << globals->options->install_base
           << "': " << GetLastErrorString();

@@ -179,12 +179,14 @@ public abstract class FileArtifactValue implements SkyValue {
     return create(artifact.getPath());
   }
 
-  @VisibleForTesting
   public static FileArtifactValue create(Path path) throws IOException {
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
-    FileStatus stat = path.stat(Symlinks.FOLLOW);
+    return create(path, path.stat(Symlinks.FOLLOW));
+  }
+
+  public static FileArtifactValue create(Path path, FileStatus stat) throws IOException {
     return create(path, stat.isFile(), stat.getSize(), FileContentsProxy.create(stat), null);
   }
 

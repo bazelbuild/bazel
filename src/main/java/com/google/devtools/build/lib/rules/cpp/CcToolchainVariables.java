@@ -19,6 +19,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -49,7 +51,6 @@ import javax.annotation.Nullable;
  * instance could serve as a top level View used to expand all flag_groups.
  */
 public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
-
   /**
    * A piece of a single string value.
    *
@@ -578,473 +579,609 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       }
     }
 
-    /**
-     * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
-     * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
-     * RuleContext}).
-     */
-    @AutoCodec
+  /**
+   * Lazily computed string sequence. Exists as a memory optimization. Make sure the {@param
+   * supplier} doesn't capture anything that shouldn't outlive analysis phase (e.g. {@link
+   * RuleContext}).
+   */
+  @AutoCodec
+  @VisibleForSerialization
+  static final class LazyStringSequence extends VariableValueAdapter {
+    private final Supplier<ImmutableList<String>> supplier;
+
     @VisibleForSerialization
-    static final class LazyStringSequence extends VariableValueAdapter {
-      private final Supplier<ImmutableList<String>> supplier;
+    LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
+      this.supplier = Preconditions.checkNotNull(supplier);
+    }
 
-      @VisibleForSerialization
-      LazyStringSequence(Supplier<ImmutableList<String>> supplier) {
-        this.supplier = Preconditions.checkNotNull(supplier);
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      return supplier
+          .get()
+          .stream()
+          .map(flag -> new StringValue(flag))
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !supplier.get().isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof LazyStringSequence)) {
+        return false;
       }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        return supplier
-            .get()
-            .stream()
-            .map(flag -> new StringValue(flag))
-            .collect(ImmutableList.toImmutableList());
+      if (this == other) {
+        return true;
       }
-
-      @Override
-      public String getVariableTypeName() {
-        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+      LazyStringSequence that = (LazyStringSequence) other;
+      if (this.supplier == that.supplier) {
+        return true;
       }
+      return Objects.equals(supplier.get(), ((LazyStringSequence) other).supplier.get());
+    }
 
-      @Override
-      public boolean isTruthy() {
-        return !supplier.get().isEmpty();
+    @Override
+    public int hashCode() {
+      return supplier.get().hashCode();
+    }
+  }
+
+  /**
+   * A sequence of structure values. Exists as a memory optimization - a typical build can contain
+   * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
+   * significantly reduces memory overhead.
+   */
+  @Immutable
+  @AutoCodec
+  public static class LibraryToLinkValue extends VariableValueAdapter {
+    public static final String OBJECT_FILES_FIELD_NAME = "object_files";
+    public static final String NAME_FIELD_NAME = "name";
+    public static final String TYPE_FIELD_NAME = "type";
+    public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
+
+    private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
+
+    @VisibleForSerialization
+    enum Type {
+      OBJECT_FILE("object_file"),
+      OBJECT_FILE_GROUP("object_file_group"),
+      INTERFACE_LIBRARY("interface_library"),
+      STATIC_LIBRARY("static_library"),
+      DYNAMIC_LIBRARY("dynamic_library"),
+      VERSIONED_DYNAMIC_LIBRARY("versioned_dynamic_library");
+
+      private final String name;
+
+      Type(String name) {
+        this.name = name;
       }
     }
 
-    /**
-     * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-     * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-     * significantly reduces memory overhead.
-     */
-    @Immutable
-    @AutoCodec
-    public static class LibraryToLinkValue extends VariableValueAdapter {
-      public static final String OBJECT_FILES_FIELD_NAME = "object_files";
-      public static final String NAME_FIELD_NAME = "name";
-      public static final String TYPE_FIELD_NAME = "type";
-      public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
+    private final String name;
+    private final ImmutableList<Artifact> objectFiles;
+    private final boolean isWholeArchive;
+    private final Type type;
 
-      private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
-
-      @VisibleForSerialization
-      enum Type {
-        OBJECT_FILE("object_file"),
-        OBJECT_FILE_GROUP("object_file_group"),
-        INTERFACE_LIBRARY("interface_library"),
-        STATIC_LIBRARY("static_library"),
-        DYNAMIC_LIBRARY("dynamic_library"),
-        VERSIONED_DYNAMIC_LIBRARY("versioned_dynamic_library");
-
-        private final String name;
-
-        Type(String name) {
-          this.name = name;
-        }
-      }
-
-      private final String name;
-      private final ImmutableList<Artifact> objectFiles;
-      private final boolean isWholeArchive;
-      private final Type type;
-
-      public static LibraryToLinkValue forDynamicLibrary(String name) {
+    public static LibraryToLinkValue forDynamicLibrary(String name) {
       return new LibraryToLinkValue(
           Preconditions.checkNotNull(name),
           /* objectFiles= */ null,
           /* isWholeArchive= */ false,
           Type.DYNAMIC_LIBRARY);
-      }
+    }
 
-      public static LibraryToLinkValue forVersionedDynamicLibrary(
-          String name) {
+    public static LibraryToLinkValue forVersionedDynamicLibrary(String name) {
       return new LibraryToLinkValue(
           Preconditions.checkNotNull(name),
           /* objectFiles= */ null,
           /* isWholeArchive= */ false,
           Type.VERSIONED_DYNAMIC_LIBRARY);
-      }
+    }
 
-      public static LibraryToLinkValue forInterfaceLibrary(String name) {
+    public static LibraryToLinkValue forInterfaceLibrary(String name) {
       return new LibraryToLinkValue(
           Preconditions.checkNotNull(name),
           /* objectFiles= */ null,
           /* isWholeArchive= */ false,
           Type.INTERFACE_LIBRARY);
-      }
+    }
 
-      public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
+    public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
       return new LibraryToLinkValue(
           Preconditions.checkNotNull(name),
           /* objectFiles= */ null,
           isWholeArchive,
           Type.STATIC_LIBRARY);
-      }
+    }
 
-      public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
+    public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
       return new LibraryToLinkValue(
           Preconditions.checkNotNull(name),
           /* objectFiles= */ null,
           isWholeArchive,
           Type.OBJECT_FILE);
-      }
+    }
 
-      public static LibraryToLinkValue forObjectFileGroup(
-          ImmutableList<Artifact> objects, boolean isWholeArchive) {
-        Preconditions.checkNotNull(objects);
-        Preconditions.checkArgument(!objects.isEmpty());
+    public static LibraryToLinkValue forObjectFileGroup(
+        ImmutableList<Artifact> objects, boolean isWholeArchive) {
+      Preconditions.checkNotNull(objects);
+      Preconditions.checkArgument(!objects.isEmpty());
       return new LibraryToLinkValue(
           /* name= */ null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
-      }
+    }
 
-      @VisibleForSerialization
-      LibraryToLinkValue(
-          String name, ImmutableList<Artifact> objectFiles, boolean isWholeArchive, Type type) {
-        this.name = name;
-        this.objectFiles = objectFiles;
-        this.isWholeArchive = isWholeArchive;
-        this.type = type;
-      }
+    @VisibleForSerialization
+    LibraryToLinkValue(
+        String name, ImmutableList<Artifact> objectFiles, boolean isWholeArchive, Type type) {
+      this.name = name;
+      this.objectFiles = objectFiles;
+      this.isWholeArchive = isWholeArchive;
+      this.type = type;
+    }
 
-      @Override
-      public VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander) {
-        Preconditions.checkNotNull(field);
-        if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
-          return new StringValue(name);
-        } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
-          ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
-          for (Artifact objectFile : objectFiles) {
-            if (objectFile.isTreeArtifact() && (expander != null)) {
-              List<Artifact> artifacts = new ArrayList<>();
-              expander.expand(objectFile, artifacts);
-              expandedObjectFiles.addAll(
-                  Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
-            } else {
-              expandedObjectFiles.add(objectFile.getExecPathString());
-            }
+    @Override
+    public VariableValue getFieldValue(
+        String variableName, String field, @Nullable ArtifactExpander expander) {
+      Preconditions.checkNotNull(field);
+      if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
+        return new StringValue(name);
+      } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
+        ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
+        for (Artifact objectFile : objectFiles) {
+          if (objectFile.isTreeArtifact() && (expander != null)) {
+            List<Artifact> artifacts = new ArrayList<>();
+            expander.expand(objectFile, artifacts);
+            expandedObjectFiles.addAll(
+                Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
+          } else {
+            expandedObjectFiles.add(objectFile.getExecPathString());
           }
-          return new StringSequence(expandedObjectFiles.build());
-        } else if (TYPE_FIELD_NAME.equals(field)) {
-          return new StringValue(type.name);
-        } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
-          return new IntegerValue(isWholeArchive ? 1 : 0);
-        } else {
-          return null;
         }
+        return new StringSequence(expandedObjectFiles.build());
+      } else if (TYPE_FIELD_NAME.equals(field)) {
+        return new StringValue(type.name);
+      } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
+        return new IntegerValue(isWholeArchive ? 1 : 0);
+      } else {
+        return null;
       }
+    }
 
-      @Override
-      public String getVariableTypeName() {
-        return LIBRARY_TO_LINK_VARIABLE_TYPE_NAME;
+    @Override
+    public String getVariableTypeName() {
+      return LIBRARY_TO_LINK_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return true;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof LibraryToLinkValue)) {
+        return false;
       }
-
-      @Override
-      public boolean isTruthy() {
+      if (this == other) {
         return true;
       }
+      LibraryToLinkValue that = (LibraryToLinkValue) other;
+      return Objects.equals(this.name, that.name)
+          && Objects.equals(this.objectFiles, that.objectFiles)
+          && this.isWholeArchive == that.isWholeArchive
+          && Objects.equals(this.type, that.type);
     }
 
-    /** Sequence of arbitrary VariableValue objects. */
-    @Immutable
-    @AutoCodec
-    @VisibleForSerialization
-    static final class Sequence extends VariableValueAdapter {
-      private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
+    @Override
+    public int hashCode() {
+      return 31 * Objects.hash(name, objectFiles, type) + (isWholeArchive ? 1231 : 1237);
+    }
+  }
 
-      private final ImmutableList<VariableValue> values;
+  /** Sequence of arbitrary VariableValue objects. */
+  @Immutable
+  @AutoCodec
+  @VisibleForSerialization
+  static final class Sequence extends VariableValueAdapter {
+    private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
 
-      public Sequence(ImmutableList<VariableValue> values) {
-        this.values = values;
-      }
+    private final ImmutableList<VariableValue> values;
 
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        return values;
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return SEQUENCE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return values.isEmpty();
-      }
+    public Sequence(ImmutableList<VariableValue> values) {
+      this.values = values;
     }
 
-    /**
-     * A sequence of structure values. Exists as a memory optimization - a typical build can contain
-     * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
-     * significantly reduces memory overhead.
-     */
-    @Immutable
-    @AutoCodec
-    @VisibleForSerialization
-    static final class StructureSequence extends VariableValueAdapter {
-      private final ImmutableList<ImmutableMap<String, VariableValue>> values;
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      return values;
+    }
 
-      @VisibleForSerialization
-      StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
-        Preconditions.checkNotNull(values);
-        this.values = values;
+    @Override
+    public String getVariableTypeName() {
+      return SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof Sequence)) {
+        return false;
       }
+      if (this == other) {
+        return true;
+      }
+      return Objects.equals(values, ((Sequence) other).values);
+    }
 
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-        for (ImmutableMap<String, VariableValue> value : values) {
-          sequences.add(new StructureValue(value));
+    @Override
+    public int hashCode() {
+      return values.hashCode();
+    }
+  }
+
+  /**
+   * A sequence of structure values. Exists as a memory optimization - a typical build can contain
+   * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
+   * significantly reduces memory overhead.
+   */
+  @Immutable
+  @AutoCodec
+  @VisibleForSerialization
+  static final class StructureSequence extends VariableValueAdapter {
+    private final ImmutableList<ImmutableMap<String, VariableValue>> values;
+
+    @VisibleForSerialization
+    StructureSequence(ImmutableList<ImmutableMap<String, VariableValue>> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
+      for (ImmutableMap<String, VariableValue> value : values) {
+        sequences.add(new StructureValue(value));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StructureSequence)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      return Objects.equals(values, ((StructureSequence) other).values);
+    }
+
+    @Override
+    public int hashCode() {
+      return values.hashCode();
+    }
+  }
+
+  /**
+   * A sequence of simple string values. Exists as a memory optimization - a typical build can
+   * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
+   * objects significantly reduces memory overhead.
+   */
+  @Immutable
+  @AutoCodec
+  static final class StringSequence extends VariableValueAdapter {
+    private final Iterable<String> values;
+    private int hash = 0;
+
+    public StringSequence(Iterable<String> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
+      for (String value : values) {
+        sequences.add(new StringValue(value));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !Iterables.isEmpty(values);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StringSequence)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      return Iterables.elementsEqual(values, ((StringSequence) other).values);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = hash;
+      if (h == 0) {
+        h = 1;
+        for (String s : values) {
+          h = 31 * h + (s == null ? 0 : s.hashCode());
         }
-        return sequences.build();
+        hash = h;
       }
+      return h;
+    }
+  }
 
-      @Override
-      public String getVariableTypeName() {
-        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-      }
+  /**
+   * Single structure value. Be careful not to create sequences of single structures, as the memory
+   * overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
+   */
+  @Immutable
+  @AutoCodec
+  @VisibleForSerialization
+  static final class StructureValue extends VariableValueAdapter {
+    private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
 
-      @Override
-      public boolean isTruthy() {
-        return !values.isEmpty();
+    private final ImmutableMap<String, VariableValue> value;
+
+    public StructureValue(ImmutableMap<String, VariableValue> value) {
+      this.value = value;
+    }
+
+    @Override
+    public VariableValue getFieldValue(
+        String variableName, String field, @Nullable ArtifactExpander expander) {
+      if (value.containsKey(field)) {
+        return value.get(field);
+      } else {
+        return null;
       }
     }
 
-    /**
-     * A sequence of simple string values. Exists as a memory optimization - a typical build can
-     * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
-     * objects significantly reduces memory overhead.
-     */
-    @Immutable
-    @AutoCodec
-    static final class StringSequence extends VariableValueAdapter {
-      private final Iterable<String> values;
-
-      public StringSequence(Iterable<String> values) {
-        Preconditions.checkNotNull(values);
-        this.values = values;
-      }
-
-      @Override
-      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-        final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-        for (String value : values) {
-          sequences.add(new StringValue(value));
-        }
-        return sequences.build();
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !Iterables.isEmpty(values);
-      }
+    @Override
+    public String getVariableTypeName() {
+      return STRUCTURE_VARIABLE_TYPE_NAME;
     }
 
-    /**
-     * Single structure value. Be careful not to create sequences of single structures, as the
-     * memory overhead is prohibitively big. Use optimized {@link StructureSequence} instead.
-     */
-    @Immutable
-    @AutoCodec
-    @VisibleForSerialization
-    static final class StructureValue extends VariableValueAdapter {
-      private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
-
-      private final ImmutableMap<String, VariableValue> value;
-
-      public StructureValue(ImmutableMap<String, VariableValue> value) {
-        this.value = value;
-      }
-
-      @Override
-      public VariableValue getFieldValue(
-          String variableName, String field, @Nullable ArtifactExpander expander) {
-        if (value.containsKey(field)) {
-          return value.get(field);
-        } else {
-          return null;
-        }
-      }
-
-      @Override
-      public String getVariableTypeName() {
-        return STRUCTURE_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !value.isEmpty();
-      }
+    @Override
+    public boolean isTruthy() {
+      return !value.isEmpty();
     }
 
-    /**
-     * The leaves in the variable sequence node tree are simple string values. Note that this should
-     * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
-     */
-    @Immutable
-    @AutoCodec
-    @VisibleForSerialization
-    static final class StringValue extends VariableValueAdapter {
-      private static final String STRING_VARIABLE_TYPE_NAME = "string";
-
-      private final String value;
-
-      public StringValue(String value) {
-        Preconditions.checkNotNull(value, "Cannot create StringValue from null");
-        this.value = value;
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StructureValue)) {
+        return false;
       }
-
-      @Override
-      public String getStringValue(String variableName) {
-        return value;
+      if (this == other) {
+        return true;
       }
-
-      @Override
-      public String getVariableTypeName() {
-        return STRING_VARIABLE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return !value.isEmpty();
-      }
+      return Objects.equals(value, ((StructureValue) other).value);
     }
 
-    /**
-     * The leaves in the variable sequence node tree are simple integer values. Note that this
-     * should never live outside of {@code expand}, as the object overhead is prohibitively
-     * expensive.
-     */
-    @Immutable
-    @AutoCodec
-    static final class IntegerValue extends VariableValueAdapter {
-      private static final String INTEGER_VALUE_TYPE_NAME = "integer";
-      private final int value;
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+  }
 
-      public IntegerValue(int value) {
-        this.value = value;
-      }
+  /**
+   * The leaves in the variable sequence node tree are simple string values. Note that this should
+   * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
+   */
+  @Immutable
+  @AutoCodec
+  @VisibleForSerialization
+  static final class StringValue extends VariableValueAdapter {
+    private static final String STRING_VARIABLE_TYPE_NAME = "string";
 
-      @Override
-      public String getStringValue(String variableName) {
-        return Integer.toString(value);
-      }
+    private final String value;
 
-      @Override
-      public String getVariableTypeName() {
-        return INTEGER_VALUE_TYPE_NAME;
-      }
-
-      @Override
-      public boolean isTruthy() {
-        return value != 0;
-      }
+    public StringValue(String value) {
+      Preconditions.checkNotNull(value, "Cannot create StringValue from null");
+      this.value = value;
     }
 
-    /**
-     * Builder for {@code Variables}.
-     */
-    // TODO(b/65472725): Forbid sequences with empty string in them.
-    public static class Builder {
-      private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
-      private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
+    @Override
+    public String getStringValue(String variableName) {
+      return value;
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return STRING_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !value.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StringValue)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      return Objects.equals(value, ((StringValue) other).value);
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+  }
+
+  /**
+   * The leaves in the variable sequence node tree are simple integer values. Note that this should
+   * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
+   */
+  @Immutable
+  @AutoCodec
+  static final class IntegerValue extends VariableValueAdapter {
+    private static final String INTEGER_VALUE_TYPE_NAME = "integer";
+    private final int value;
+
+    public IntegerValue(int value) {
+      this.value = value;
+    }
+
+    @Override
+    public String getStringValue(String variableName) {
+      return Integer.toString(value);
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return INTEGER_VALUE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return value != 0;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof IntegerValue)) {
+        return false;
+      }
+      return value == ((IntegerValue) other).value;
+    }
+
+    @Override
+    public int hashCode() {
+      return value;
+    }
+  }
+
+  /** Builder for {@code Variables}. */
+  // TODO(b/65472725): Forbid sequences with empty string in them.
+  public static class Builder {
+    private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
+    private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
     private final CcToolchainVariables parent;
 
-      public Builder() {
-        parent = null;
-      }
+    public Builder() {
+      parent = null;
+    }
 
     public Builder(@Nullable CcToolchainVariables parent) {
-        this.parent = parent;
-      }
+      this.parent = parent;
+    }
 
-      /** Add an integer variable that expands {@code name} to {@code value}. */
-      public Builder addIntegerVariable(String name, int value) {
-        variablesMap.put(name, new IntegerValue(value));
-        return this;
-      }
+    /** Add an integer variable that expands {@code name} to {@code value}. */
+    public Builder addIntegerVariable(String name, int value) {
+      variablesMap.put(name, new IntegerValue(value));
+      return this;
+    }
 
-      /** Add a string variable that expands {@code name} to {@code value}. */
-      public Builder addStringVariable(String name, String value) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(
-            value, "Cannot set null as a value for variable '%s'", name);
-        stringVariablesMap.put(name, value);
-        return this;
-      }
+    /** Add a string variable that expands {@code name} to {@code value}. */
+    public Builder addStringVariable(String name, String value) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      stringVariablesMap.put(name, value);
+      return this;
+    }
 
-      /** Overrides a variable to expands {@code name} to {@code value} instead. */
-      public Builder overrideStringVariable(String name, String value) {
-        Preconditions.checkNotNull(
-            value, "Cannot set null as a value for variable '%s'", name);
-        stringVariablesMap.put(name, value);
-        return this;
-      }
+    /** Overrides a variable to expands {@code name} to {@code value} instead. */
+    public Builder overrideStringVariable(String name, String value) {
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      stringVariablesMap.put(name, value);
+      return this;
+    }
 
     /** Overrides a variable to expand {@code name} to {@code value} instead. */
     public Builder overrideLazyStringSequenceVariable(
         String name, Supplier<ImmutableList<String>> supplier) {
-        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new LazyStringSequence(supplier));
-        return this;
-      }
+      Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new LazyStringSequence(supplier));
+      return this;
+    }
 
-      /**
-       * Add a sequence variable that expands {@code name} to {@code values}.
-       *
-       * <p>Accepts values as ImmutableSet. As ImmutableList has smaller memory footprint, we copy
-       * the values into a new list.
-       */
-      public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        builder.addAll(values);
-        variablesMap.put(name, new StringSequence(builder.build()));
-        return this;
-      }
+    /**
+     * Add a sequence variable that expands {@code name} to {@code values}.
+     *
+     * <p>Accepts values as ImmutableSet. As ImmutableList has smaller memory footprint, we copy the
+     * values into a new list.
+     */
+    public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      ImmutableList.Builder<String> builder = ImmutableList.builder();
+      builder.addAll(values);
+      variablesMap.put(name, new StringSequence(builder.build()));
+      return this;
+    }
 
-      /**
-       * Add a sequence variable that expands {@code name} to {@code values}.
-       *
-       * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
-       */
-      public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new StringSequence(values));
-        return this;
-      }
+    /**
+     * Add a sequence variable that expands {@code name} to {@code values}.
+     *
+     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
+     */
+    public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new StringSequence(values));
+      return this;
+    }
 
-      /**
-       * Add a sequence variable that expands {@code name} to {@code values}.
-       *
-       * <p>Accepts values as Iterable. The iterable is stored directly, not cloned, not iterated.
-       * Be mindful of memory consumption of the particular Iterable. Prefer ImmutableList, or
-       * be sure that the iterable always returns the same elements in the same order, without any
-       * side effects.
-       */
-      public Builder addStringSequenceVariable(String name, Iterable<String> values) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new StringSequence(values));
-        return this;
-      }
+    /**
+     * Add a sequence variable that expands {@code name} to {@code values}.
+     *
+     * <p>Accepts values as Iterable. The iterable is stored directly, not cloned, not iterated. Be
+     * mindful of memory consumption of the particular Iterable. Prefer ImmutableList, or be sure
+     * that the iterable always returns the same elements in the same order, without any side
+     * effects.
+     */
+    public Builder addStringSequenceVariable(String name, Iterable<String> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new StringSequence(values));
+      return this;
+    }
 
-      public Builder addLazyStringSequenceVariable(
-          String name, Supplier<ImmutableList<String>> supplier) {
-        checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new LazyStringSequence(supplier));
-        return this;
-      }
+    public Builder addLazyStringSequenceVariable(
+        String name, Supplier<ImmutableList<String>> supplier) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(supplier, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new LazyStringSequence(supplier));
+      return this;
+    }
 
     /**
      * Add a variable built using {@code VariableValueBuilder} api that expands {@code name} to the
@@ -1052,90 +1189,97 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      */
     public Builder addCustomBuiltVariable(
         String name, CcToolchainVariables.VariableValueBuilder builder) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(
+          builder, "Cannot use null builder to get variable value for variable '%s'", name);
+      variablesMap.put(name, builder.build());
+      return this;
+    }
+
+    /** Add all string variables in a map. */
+    public Builder addAllStringVariables(Map<String, String> variables) {
+      for (String name : variables.keySet()) {
         checkVariableNotPresentAlready(name);
-        Preconditions.checkNotNull(
-            builder,
-            "Cannot use null builder to get variable value for variable '%s'",
-            name);
-        variablesMap.put(name, builder.build());
-        return this;
       }
+      stringVariablesMap.putAll(variables);
+      return this;
+    }
 
-      /** Add all string variables in a map. */
-      public Builder addAllStringVariables(Map<String, String> variables) {
-        for (String name : variables.keySet()) {
-          checkVariableNotPresentAlready(name);
-        }
-        stringVariablesMap.putAll(variables);
-        return this;
-      }
-
-      private void checkVariableNotPresentAlready(String name) {
-        Preconditions.checkNotNull(name);
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-        Preconditions.checkArgument(
-            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-      }
+    private void checkVariableNotPresentAlready(String name) {
+      Preconditions.checkNotNull(name);
+      Preconditions.checkArgument(
+          !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+      Preconditions.checkArgument(
+          !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+    }
 
     /**
      * Adds all variables to this builder. Cannot override already added variables. Does not add
      * variables defined in the {@code parent} variables.
      */
     public Builder addAllNonTransitive(CcToolchainVariables variables) {
-        SetView<String> intersection =
-            Sets.intersection(variables.getVariablesMap().keySet(), variablesMap.keySet());
-        SetView<String> stringIntersection =
-            Sets.intersection(
-                variables.getStringVariablesMap().keySet(), stringVariablesMap.keySet());
-        Preconditions.checkArgument(
-            intersection.isEmpty(), "Cannot overwrite existing variables: %s", intersection);
-        Preconditions.checkArgument(
-            stringIntersection.isEmpty(),
-            "Cannot overwrite existing variables: %s", stringIntersection);
-        this.variablesMap.putAll(variables.getVariablesMap());
-        this.stringVariablesMap.putAll(variables.getStringVariablesMap());
-        return this;
-      }
+      SetView<String> intersection =
+          Sets.intersection(variables.getVariablesMap().keySet(), variablesMap.keySet());
+      SetView<String> stringIntersection =
+          Sets.intersection(
+              variables.getStringVariablesMap().keySet(), stringVariablesMap.keySet());
+      Preconditions.checkArgument(
+          intersection.isEmpty(), "Cannot overwrite existing variables: %s", intersection);
+      Preconditions.checkArgument(
+          stringIntersection.isEmpty(),
+          "Cannot overwrite existing variables: %s",
+          stringIntersection);
+      this.variablesMap.putAll(variables.getVariablesMap());
+      this.stringVariablesMap.putAll(variables.getStringVariablesMap());
+      return this;
+    }
 
     /** @return a new {@link CcToolchainVariables} object. */
     public CcToolchainVariables build() {
-        if (stringVariablesMap.isEmpty() && variablesMap.size() == 1) {
-          return new SingleVariables(
-              parent,
-              variablesMap.keySet().iterator().next(),
-              variablesMap.values().iterator().next());
-        }
-        return new MapVariables(
-            parent, ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
+      if (stringVariablesMap.isEmpty() && variablesMap.size() == 1) {
+        return new SingleVariables(
+            parent,
+            variablesMap.keySet().iterator().next(),
+            variablesMap.values().iterator().next());
       }
+      return new MapVariables(
+          parent, ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
     }
-    
-    /**
-     * A group of extra {@code Variable} instances, packaged as logic for adding to a
-     * {@code Builder}
-     */
-    public interface VariablesExtension {
-      void addVariables(Builder builder);
-    }
+  }
+
+  /**
+   * A group of extra {@code Variable} instances, packaged as logic for adding to a {@code Builder}
+   */
+  public interface VariablesExtension {
+    void addVariables(Builder builder);
+  }
 
   @Immutable
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class MapVariables extends CcToolchainVariables {
+    private static final Interner<MapVariables> INTERNER = BlazeInterners.newWeakInterner();
+
+    @Nullable private final CcToolchainVariables parent;
     private final ImmutableMap<String, VariableValue> variablesMap;
     private final ImmutableMap<String, String> stringVariablesMap;
-    private final CcToolchainVariables parent;
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    MapVariables(
+    private MapVariables(
         CcToolchainVariables parent,
         ImmutableMap<String, VariableValue> variablesMap,
         ImmutableMap<String, String> stringVariablesMap) {
+      this.parent = parent;
       this.variablesMap = variablesMap;
       this.stringVariablesMap = stringVariablesMap;
-      this.parent = parent;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static MapVariables create(
+        CcToolchainVariables parent,
+        ImmutableMap<String, VariableValue> variablesMap,
+        ImmutableMap<String, String> stringVariablesMap) {
+      return INTERNER.intern(new MapVariables(parent, variablesMap, stringVariablesMap));
     }
 
     @Override
@@ -1163,13 +1307,55 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
       return null;
     }
+
+    /**
+     * NB: this compares parents using reference equality instead of logical equality.
+     *
+     * <p>This is a performance optimization to avoid possibly expensive recursive equality
+     * expansions and suitable for comparisons needed by interning deserialized values. If full
+     * logical equality is desired, it's possible to either enable full interning (at a modest CPU
+     * cost) or change the parent comparison to use deep equality.
+     *
+     * <p>This same comment applies to {@link SingleVariables#equals}.
+     */
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof MapVariables)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      MapVariables that = (MapVariables) other;
+      if (this.parent != that.parent) {
+        return false;
+      }
+      return Objects.equals(this.variablesMap, that.variablesMap)
+          && Objects.equals(this.stringVariablesMap, that.stringVariablesMap);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * Objects.hash(variablesMap, stringVariablesMap) + System.identityHashCode(parent);
+    }
   }
 
+  @VisibleForSerialization
+  @AutoCodec
   @Immutable
   static class SingleVariables extends CcToolchainVariables {
-    private final CcToolchainVariables parent;
+    private static final Interner<SingleVariables> INTERNER = BlazeInterners.newWeakInterner();
+
+    @Nullable private final CcToolchainVariables parent;
     private final String name;
     private final VariableValue variableValue;
+    private int hash = 0;
+
+    @AutoCodec.Instantiator
+    static SingleVariables create(
+        CcToolchainVariables parent, String name, VariableValue variableValue) {
+      return INTERNER.intern(new SingleVariables(parent, name, variableValue));
+    }
 
     SingleVariables(CcToolchainVariables parent, String name, VariableValue variableValue) {
       this.parent = parent;
@@ -1193,6 +1379,31 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         return variableValue;
       }
       return parent == null ? null : parent.getNonStructuredVariable(name);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof SingleVariables)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      SingleVariables that = (SingleVariables) other;
+      if (this.parent != that.parent) {
+        return false;
+      }
+      return Objects.equals(this.name, that.name)
+          && Objects.equals(this.variableValue, that.variableValue);
+    }
+
+    @Override
+    public int hashCode() {
+      int h = hash;
+      if (h == 0) {
+        hash = h = Objects.hash(parent, name, variableValue);
+      }
+      return h;
     }
   }
 }

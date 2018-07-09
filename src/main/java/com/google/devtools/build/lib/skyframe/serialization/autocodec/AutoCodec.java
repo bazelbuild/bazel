@@ -64,13 +64,6 @@ public @interface AutoCodec {
      */
     INSTANTIATOR,
     /**
-     * Uses the public fields to infer serialization code.
-     *
-     * <p>Serializes each public field. Calls the no-arg constructor of the class to instantiate an
-     * instance for deserialization.
-     */
-    PUBLIC_FIELDS,
-    /**
      * For use with {@link com.google.auto.value.AutoValue} classes with an {@link
      * com.google.auto.value.AutoValue.Builder} static nested Builder class: uses the builder when
      * deserializing.

@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.windows;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,7 +39,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   public WindowsFileSystem() {}
 
-  public WindowsFileSystem(HashFunction hashFunction) {
+  public WindowsFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
   }
 
@@ -45,6 +48,20 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     // TODO(laszlocsomor): implement this properly, i.e. actually query this information from
     // somewhere (java.nio.Filesystem? System.getProperty? implement JNI method and use WinAPI?).
     return "ntfs";
+  }
+
+  @Override
+  public boolean delete(Path path) throws IOException {
+    long startTime = Profiler.nanoTimeMaybe();
+    try {
+      return WindowsFileOperations.deletePath(path.getPathString());
+    } catch (java.nio.file.DirectoryNotEmptyException e) {
+      throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY);
+    } catch (java.nio.file.AccessDeniedException e) {
+      throw new IOException(path.getPathString() + ERR_PERMISSION_DENIED);
+    } finally {
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_DELETE, path.getPathString());
+    }
   }
 
   @Override

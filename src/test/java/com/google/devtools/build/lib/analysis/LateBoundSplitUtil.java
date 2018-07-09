@@ -39,7 +39,6 @@ import com.google.devtools.common.options.OptionEffectTag;
  */
 public class LateBoundSplitUtil {
   /** A custom {@link FragmentOptions} with the option to be split. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class TestOptions extends FragmentOptions { // public for options loader
     @Option(
       name = "foo",

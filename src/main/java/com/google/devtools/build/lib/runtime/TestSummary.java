@@ -18,12 +18,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -491,11 +491,15 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   }
 
   @Override
-  public ImmutableSet<Path> referencedLocalFiles() {
-    ImmutableSet.Builder<Path> artifacts = ImmutableSet.builder();
-    artifacts.addAll(getFailedLogs());
-    artifacts.addAll(getPassedLogs());
-    return artifacts.build();
+  public ImmutableList<LocalFile> referencedLocalFiles() {
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    for (Path path : getFailedLogs()) {
+      localFiles.add(new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT));
+    }
+    for (Path path : getPassedLogs()) {
+      localFiles.add(new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT));
+    }
+    return localFiles.build();
   }
 
   @Override

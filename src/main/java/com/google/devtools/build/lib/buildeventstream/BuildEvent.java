@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Set;
+import java.util.Collection;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -28,6 +29,52 @@ import java.util.Set;
 public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postable {
 
   /**
+   * A local file that is referenced by the build event. These can be uploaded to a separate backend
+   * storage.
+   */
+  final class LocalFile {
+
+    /**
+     * The type of the local file. This is used by uploaders to determine how long to store the
+     * associated files for.
+     */
+    public enum LocalFileType {
+      SOURCE,
+      OUTPUT,
+      SUCCESSFUL_TEST_OUTPUT,
+      FAILED_TEST_OUTPUT,
+      STDOUT,
+      STDERR,
+      LOG,
+    }
+
+    public final Path path;
+    public final LocalFileType type;
+
+    public LocalFile(Path path, LocalFileType type) {
+      this.path = path;
+      this.type = type;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      LocalFile localFile = (LocalFile) o;
+      return Objects.equal(path, localFile.path) && type == localFile.type;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(path, type);
+    }
+  }
+
+  /**
    * Returns a list of files that are referenced in the protobuf representation returned by {@link
    * #asStreamProto(BuildEventContext)}.
    *
@@ -35,13 +82,11 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
    * only returns files directly referenced in the protobuf returned by {@link
    * #asStreamProto(BuildEventContext)}.
    *
-   * <p>Note the consistency requirement - you must not attempt to pass Path objects to the
-   * {@link PathConverter} unless you have returned the Path object here.
+   * <p>Note the consistency requirement - you must not attempt to pass Path objects to the {@link
+   * PathConverter} unless you have returned a corresponding {@link LocalFile} object here.
    */
-  // TODO(ulfjack): Consider moving the upload call to the BuildEventContext and returning a map
-  // from Path to URI, rather than a callback.
-  default Set<Path> referencedLocalFiles() {
-    return ImmutableSet.of();
+  default Collection<LocalFile> referencedLocalFiles() {
+    return ImmutableList.of();
   }
 
   /**

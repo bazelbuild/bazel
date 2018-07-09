@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
@@ -478,7 +477,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       SkyFunctionEnvironment env =
           new SkyFunctionEnvironment(
               parent,
-              new GroupedList<SkyKey>(),
+              parentEntry.getTemporaryDirectDeps(),
               bubbleErrorInfo,
               ImmutableSet.<SkyKey>of(),
               evaluatorContext);
@@ -504,8 +503,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               errorKey,
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  env.buildEvents(parentEntry, /*missingChildren=*/ true),
-                  env.buildPosts(parentEntry)));
+                  env.buildEvents(parentEntry, /*expectDoneDeps=*/ false),
+                  env.buildPosts(parentEntry, /*expectDoneDeps=*/ false)));
           continue;
         }
       } finally {
@@ -517,8 +516,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           errorKey,
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              env.buildEvents(parentEntry, /*missingChildren=*/ true),
-              env.buildPosts(parentEntry)));
+              env.buildEvents(parentEntry, /*expectDoneDeps=*/ false),
+              env.buildPosts(parentEntry, /*expectDoneDeps=*/ false)));
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.

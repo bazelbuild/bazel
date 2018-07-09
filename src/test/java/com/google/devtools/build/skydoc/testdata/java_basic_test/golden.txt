@@ -1,0 +1,37 @@
+<a name="#java_related_rule"></a>
+## java_related_rule
+
+<pre>
+java_related_rule(first, fourth, second, third)
+</pre>
+
+This rule does java-related things.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#java_related_rule_first">
+      <td><code>first</code></td>
+      <td></td>
+    </tr>
+    <tr id="#java_related_rule_fourth">
+      <td><code>fourth</code></td>
+      <td></td>
+    </tr>
+    <tr id="#java_related_rule_second">
+      <td><code>second</code></td>
+      <td></td>
+    </tr>
+    <tr id="#java_related_rule_third">
+      <td><code>third</code></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
+

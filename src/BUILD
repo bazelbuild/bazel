@@ -49,9 +49,9 @@ filegroup(
 # so we cannot get it from the command-line options.
 genquery(
     name = "java_toolchain_content",
-    expression = "kind(java_toolchain, deps(//tools/defaults:java_toolchain))",
+    expression = "kind(java_toolchain, deps(@bazel_tools//tools/jdk:current_java_toolchain))",
     opts = ["--output=xml"],
-    scope = ["//tools/defaults:java_toolchain"],
+    scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
 )
 
 # Create dummy tools so we can do select to prevent building iOS target on
@@ -172,7 +172,7 @@ py_binary(
             "//src/java_tools/singlejar:SingleJar_deploy.jar",
         ],
         "//conditions:default": [
-            "//src/tools/singlejar:singlejar",
+            "//src/tools/singlejar:singlejar_local",
         ],
     }) + ([":embedded_jdk"] if (suffix == "") else []),
     visibility = [
@@ -324,6 +324,7 @@ filegroup(
         "//src/main/cpp:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib:srcs",
+        "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/com/google/devtools/skylark:srcs",
@@ -340,6 +341,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
         "//src/test/java/com/google/devtools/build/lib/shell:srcs",
+        "//src/test/java/com/google/devtools/build/skydoc:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
         "//src/test/py/bazel:srcs",

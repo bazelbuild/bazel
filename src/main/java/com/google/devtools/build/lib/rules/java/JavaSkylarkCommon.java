@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -99,7 +97,8 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
       ConfiguredTarget hostJavabase,
       SkylarkList<Artifact> sourcepathEntries,
       SkylarkList<Artifact> resources,
-      Boolean neverlink) throws EvalException, InterruptedException {
+      Boolean neverlink,
+      Environment environment) throws EvalException, InterruptedException {
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
@@ -118,7 +117,8 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
             sourcepathEntries,
             resources,
             neverlink,
-            javaSemantics);
+            javaSemantics,
+            environment);
   }
 
   @Override
@@ -184,30 +184,15 @@ public class JavaSkylarkCommon implements JavaCommonApi<Artifact, JavaInfo, Skyl
   // TODO(b/65113771): Remove this method because it's incorrect.
   @Override
   public JavaInfo makeNonStrict(JavaInfo javaInfo) {
-    JavaCompilationArgsProvider directCompilationArgs =
-        makeNonStrict(javaInfo.getProvider(JavaCompilationArgsProvider.class));
-
     return JavaInfo.Builder.copyOf(javaInfo)
         // Overwrites the old provider.
-        .addProvider(JavaCompilationArgsProvider.class, directCompilationArgs)
+        .addProvider(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider.makeNonStrict(
+                javaInfo.getProvider(JavaCompilationArgsProvider.class)))
         .build();
   }
 
-
-  /**
-   * Returns a new JavaCompilationArgsProvider whose direct-jars part is the union of both the
-   * direct and indirect jars of 'provider'.
-   */
-  private static JavaCompilationArgsProvider makeNonStrict(JavaCompilationArgsProvider provider) {
-    JavaCompilationArgs.Builder directCompilationArgs = JavaCompilationArgs.builder();
-    directCompilationArgs
-        .addTransitiveArgs(provider.getJavaCompilationArgs(), BOTH)
-        .addTransitiveArgs(provider.getRecursiveJavaCompilationArgs(), BOTH);
-    return JavaCompilationArgsProvider.create(
-        directCompilationArgs.build(),
-        provider.getRecursiveJavaCompilationArgs(),
-        provider.getCompileTimeJavaDependencyArtifacts());
-  }
 
   @Override
   public Provider getJavaRuntimeProvider() {

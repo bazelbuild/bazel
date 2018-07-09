@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -39,7 +38,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Command-line options for building Java targets */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class JavaOptions extends FragmentOptions {
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
@@ -76,16 +74,15 @@ public class JavaOptions extends FragmentOptions {
   }
 
   @Option(
-    name = "javabase",
-    defaultValue = "@bazel_tools//tools/jdk:jdk",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "JAVABASE used for the JDK invoked by Blaze. This is the "
-            + "java_runtime_suite which will be used to execute "
-            + "external Java commands."
-  )
+      name = "javabase",
+      defaultValue = "@bazel_tools//tools/jdk:jdk",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "JAVABASE used for the JDK invoked by Blaze. This is the "
+              + "java_runtime which will be used to execute "
+              + "external Java commands.")
   public Label javaBase;
 
   @Option(
@@ -109,15 +106,14 @@ public class JavaOptions extends FragmentOptions {
   public Label hostJavaToolchain;
 
   @Option(
-    name = "host_javabase",
-    defaultValue = "@bazel_tools//tools/jdk:host_jdk",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "JAVABASE used for the host JDK. This is the java_runtime_suite which is used to execute "
-            + "tools during a build."
-  )
+      name = "host_javabase",
+      defaultValue = "@bazel_tools//tools/jdk:host_jdk",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "JAVABASE used for the host JDK. This is the java_runtime which is used to execute "
+              + "tools during a build.")
   public Label hostJavaBase;
 
   @Option(

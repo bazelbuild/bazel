@@ -777,7 +777,7 @@ def IncrementalInstall(adb_path,
              "dialog on your device.")
   except MultipleDevicesError as e:
     sys.exit("Error: " + str(e) + "\nTry specifying a device serial with "
-             "\"blaze mobile-install --adb_arg=-s --adb_arg=$ANDROID_SERIAL\"")
+             "\"bazel mobile-install --adb_arg=-s --adb_arg=$ANDROID_SERIAL\"")
   except OldSdkException as e:
     sys.exit("Error: The device does not support the API level specified in "
              "the application's manifest. Check minSdkVersion in "

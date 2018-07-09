@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,8 +38,8 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -455,10 +456,7 @@ public class CppHelper {
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) {
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            ruleContext.getToolchainContext().getResolvedToolchainProviders();
-    return (CcToolchainProvider) providers.getForToolchainType(toolchainType);
+    return (CcToolchainProvider) ruleContext.getToolchainContext().forToolchainType(toolchainType);
   }
 
   private static CcToolchainProvider getToolchainFromCrosstoolTop(
@@ -483,6 +481,40 @@ public class CppHelper {
   /** Returns the directory where object files are created. */
   public static PathFragment getObjDirectory(Label ruleLabel) {
     return getObjDirectory(ruleLabel, false);
+  }
+
+  /**
+   * Returns a function that gets the C++ runfiles from a {@link TransitiveInfoCollection} or the
+   * empty runfiles instance if it does not contain that provider.
+   */
+  public static final Function<TransitiveInfoCollection, Runfiles> runfilesFunction(
+      RuleContext ruleContext, boolean linkingStatically) {
+    final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingDynamically =
+        input -> {
+          CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
+          CcLinkParamsStore ccLinkParamsStore =
+              provider == null ? null : provider.getCcLinkParamsStore();
+          return ccLinkParamsStore == null
+              ? Runfiles.EMPTY
+              : new Runfiles.Builder(ruleContext.getWorkspaceName())
+                  .addTransitiveArtifacts(
+                      ccLinkParamsStore.get(false, false).getDynamicLibrariesForRuntime())
+                  .build();
+        };
+
+    final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingStatically =
+        input -> {
+          CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
+          CcLinkParamsStore ccLinkParamsStore =
+              provider == null ? null : provider.getCcLinkParamsStore();
+          return ccLinkParamsStore == null
+              ? Runfiles.EMPTY
+              : new Runfiles.Builder(ruleContext.getWorkspaceName())
+                  .addTransitiveArtifacts(
+                      ccLinkParamsStore.get(true, false).getDynamicLibrariesForRuntime())
+                  .build();
+        };
+    return linkingStatically ? runfilesForLinkingStatically : runfilesForLinkingDynamically;
   }
 
   /**
@@ -652,21 +684,6 @@ public class CppHelper {
 
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
-  /**
-   * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
-   * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
-   * However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
-   * attribute. This allows incompatible rules to "opt out" of global PIC settings (see bug:
-   * "Provide a way to turn off -fPIC for targets that can't be built that way").
-   *
-   * @param ruleContext the context of the rule to check
-   * @return true if this rule's compilations should apply -fPIC, false otherwise
-   */
-  public static boolean usePicForDynamicLibraries(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
-    return ruleContext.getFragment(CppConfiguration.class).forcePic()
-        || toolchain.toolchainNeedsPic();
-  }
 
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(RuleContext ruleContext, CcToolchainProvider toolchain) {
