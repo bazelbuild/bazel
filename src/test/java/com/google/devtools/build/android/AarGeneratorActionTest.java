@@ -732,13 +732,13 @@ public class AarGeneratorActionTest {
     assertThat(zipEntries).contains("proguard.txt");
     List<String> proguardTxtContents = null;
     try (ZipReader aarReader = new ZipReader(aar.toFile())) {
-      proguardTxtContents =
+      try (BufferedReader entryReader =
           new BufferedReader(
-                  new InputStreamReader(
-                      aarReader.getInputStream(aarReader.getEntry("proguard.txt")),
-                      StandardCharsets.UTF_8))
-              .lines()
-              .collect(Collectors.toList());
+              new InputStreamReader(
+                  aarReader.getInputStream(aarReader.getEntry("proguard.txt")),
+                  StandardCharsets.UTF_8))) {
+        proguardTxtContents = entryReader.lines().collect(Collectors.toList());
+      }
     }
     assertThat(proguardTxtContents).containsExactly("foo", "bar", "baz").inOrder();
   }

@@ -31,7 +31,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -887,30 +886,21 @@ public final class Profiler {
 
   /** Writes the profile in the binary Bazel profile format. */
   private static class BinaryFormatWriter extends FileWriter {
-    private final DataOutputStream out;
+    private final OutputStream outStream;
     private final long profileStartTime;
     private final String comment;
 
-    BinaryFormatWriter(
-        OutputStream out,
-        long profileStartTime,
-        String comment) {
+    BinaryFormatWriter(OutputStream outStream, long profileStartTime, String comment) {
       // Wrapping deflater stream in the buffered stream proved to reduce CPU consumption caused by
       // the write() method. Values for buffer sizes were chosen by running small amount of tests
       // and identifying point of diminishing returns - but I have not really tried to optimize
       // them.
-      this.out =
-          new DataOutputStream(
-              new BufferedOutputStream(
-                  new DeflaterOutputStream(
-                      // the DeflaterOutputStream has its own output buffer of 65k, chosen at random
-                      out, new Deflater(Deflater.BEST_SPEED, false), 65536),
-                  262144)); // buffer size, basically chosen at random
+      this.outStream = outStream;
       this.profileStartTime = profileStartTime;
       this.comment = comment;
     }
 
-    private void writeHeader() throws IOException {
+    private static void writeHeader(DataOutputStream out, String comment) throws IOException {
       out.writeInt(MAGIC); // magic
       out.writeInt(VERSION); // protocol_version
       out.writeUTF(comment);
@@ -931,8 +921,16 @@ public final class Profiler {
     public void run() {
       try {
         boolean receivedPoisonPill = false;
-        try {
-          writeHeader();
+        try (DataOutputStream out =
+            new DataOutputStream(
+                new BufferedOutputStream(
+                    new DeflaterOutputStream(
+                        // the DeflaterOutputStream has its own output buffer of 65k, chosen at
+                        // random
+                        outStream, new Deflater(Deflater.BEST_SPEED, false), 65536),
+                    // buffer size, basically chosen at random
+                    262144))) {
+          writeHeader(out, comment);
           // Allocate the sink once to avoid GC
           ByteBuffer sink = ByteBuffer.allocate(1024);
           ObjectDescriber describer = new ObjectDescriber();
@@ -974,14 +972,8 @@ public final class Profiler {
           }
           receivedPoisonPill = true;
           out.writeInt(EOF_MARKER);
-          out.close();
         } catch (IOException e) {
           this.savedException = e;
-          try {
-            out.close();
-          } catch (IOException e2) {
-            // ignore it
-          }
           if (!receivedPoisonPill) {
             while (queue.take() != POISON_PILL) {
               // We keep emptying the queue, but we can't write anything.
@@ -996,16 +988,11 @@ public final class Profiler {
 
   /** Writes the profile in Json Trace file format. */
   private static class JsonTraceFileWriter extends FileWriter {
-    private final Writer out;
+    private final OutputStream outStream;
     private final long profileStartTimeNanos;
 
-    JsonTraceFileWriter(
-        OutputStream out,
-        long profileStartTimeNanos) {
-      this.out =
-          // The buffer size of 262144 is chosen at random. We might also want to use compression
-          // in the future.
-          new OutputStreamWriter(new BufferedOutputStream(out, 262144), StandardCharsets.UTF_8);
+    JsonTraceFileWriter(OutputStream outStream, long profileStartTimeNanos) {
+      this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
     }
 
@@ -1018,7 +1005,11 @@ public final class Profiler {
     public void run() {
       try {
         boolean receivedPoisonPill = false;
-        try {
+        try (OutputStreamWriter out =
+            // The buffer size of 262144 is chosen at random. We might also want to use compression
+            // in the future.
+            new OutputStreamWriter(
+                new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8)) {
           out.append("[");
           boolean first = true;
           TaskData data;
@@ -1052,14 +1043,8 @@ public final class Profiler {
           }
           receivedPoisonPill = true;
           out.append("]");
-          out.close();
         } catch (IOException e) {
           this.savedException = e;
-          try {
-            out.close();
-          } catch (IOException e2) {
-            // ignore it
-          }
           if (!receivedPoisonPill) {
             while (queue.take() != POISON_PILL) {
               // We keep emptying the queue, but we can't write anything.
