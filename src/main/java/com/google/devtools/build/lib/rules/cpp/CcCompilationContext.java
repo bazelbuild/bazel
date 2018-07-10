@@ -60,10 +60,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final NestedSet<PathFragment> declaredIncludeWarnDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
 
-  /**
-   * Module maps from direct dependencies.
-   */
-  private final NestedSet<Artifact> directModuleMaps;
+  /** Module maps from direct dependencies. */
+  private final ImmutableList<Artifact> directModuleMaps;
 
   /** Non-code mandatory compilation inputs. */
   private final NestedSet<Artifact> nonCodeInputs;
@@ -94,7 +92,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       NestedSet<HeaderInfo> transitiveHeaderInfos,
       NestedSet<Artifact> transitiveModules,
       NestedSet<Artifact> transitivePicModules,
-      NestedSet<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
@@ -265,7 +263,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    */
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    builder.addTransitive(directModuleMaps);
+    builder.addAll(directModuleMaps);
     builder.addTransitive(nonCodeInputs);
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
@@ -273,10 +271,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return builder.build();
   }
 
-  /**
-   * @return modules maps from direct dependencies.
-   */
-  public NestedSet<Artifact> getDirectModuleMaps() {
+  /** @return modules maps from direct dependencies. */
+  public Iterable<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
   }
 
@@ -378,7 +374,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> directModuleMaps = NestedSetBuilder.stableOrder();
+    private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
@@ -685,7 +681,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           transitiveHeaderInfo.build(),
           transitiveModules.build(),
           transitivePicModules.build(),
-          directModuleMaps.build(),
+          ImmutableList.copyOf(directModuleMaps),
           cppModuleMap,
           verificationModuleMap,
           propagateModuleMapAsActionInput);

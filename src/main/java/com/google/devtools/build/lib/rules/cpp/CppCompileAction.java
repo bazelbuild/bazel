@@ -99,15 +99,11 @@ public class CppCompileAction extends AbstractAction
   private final Iterable<Artifact> inputsForInvalidation;
 
   /**
-   * The set of input files that we add to the set of input artifacts of the action if we don't use
-   * input discovery. They may be pruned after execution.
-   *
-   * <p>This is necessary because the inputs that can be pruned by .d file parsing must be returned
-   * from {@link #discoverInputs(ActionExecutionContext)} and they cannot be in
-   * {@link #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we
-   * "discover" these headers.
+   * The set of input files that in addition to {@link CcCompilationContext#declaredIncludeSrcs}
+   * need to be added to the set of input artifacts of the action if we don't use input discovery.
+   * They may be pruned after execution. See {@link #findUsedHeaders} for more details.
    */
-  private final NestedSet<Artifact> prunableHeaders;
+  private final NestedSet<Artifact> additionalPrunableHeaders;
 
   @Nullable private final Artifact grepIncludes;
   private final boolean shouldScanIncludes;
@@ -224,7 +220,7 @@ public class CppCompileAction extends AbstractAction
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
-      NestedSet<Artifact> prunableHeaders,
+      NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
       DotdFile dotdFile,
       @Nullable Artifact gcnoFile,
@@ -258,7 +254,7 @@ public class CppCompileAction extends AbstractAction
     // definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
     this.inputsForInvalidation = inputsForInvalidation;
-    this.prunableHeaders = prunableHeaders;
+    this.additionalPrunableHeaders = additionalPrunableHeaders;
     // inputsKnown begins as the logical negation of shouldScanIncludes.
     // When scanning includes, the inputs begin as not known, and become
     // known after inclusion scanning. When *not* scanning includes,
@@ -353,11 +349,17 @@ public class CppCompileAction extends AbstractAction
   @Override
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public Iterable<Artifact> getPossibleInputsForTesting() {
-    return Iterables.concat(getInputs(), prunableHeaders);
+    return Iterables.concat(
+        getInputs(), ccCompilationContext.getDeclaredIncludeSrcs(), additionalPrunableHeaders);
   }
 
   /**
    * Returns the results of include scanning or, when that is null, all prunable headers.
+   *
+   * <p>This is necessary because the inputs that can be pruned by .d file parsing must be returned
+   * from {@link #discoverInputs(ActionExecutionContext)} and they cannot be in {@link
+   * #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we "discover"
+   * these headers.
    */
   private Iterable<Artifact> findUsedHeaders(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -373,8 +375,12 @@ public class CppCompileAction extends AbstractAction
           actionExecutionContext.getVerboseFailures(),
           this);
     }
-
-    return includeScanningResult == null ? prunableHeaders : includeScanningResult;
+    if (includeScanningResult != null) {
+      return includeScanningResult;
+    }
+    return NestedSetBuilder.fromNestedSet(ccCompilationContext.getDeclaredIncludeSrcs())
+        .addTransitive(additionalPrunableHeaders)
+        .build();
   }
 
   @Nullable
@@ -685,7 +691,11 @@ public class CppCompileAction extends AbstractAction
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (Artifact input : Iterables.concat(mandatoryInputs, prunableHeaders)) {
+    for (Artifact input :
+        Iterables.concat(
+            mandatoryInputs,
+            ccCompilationContext.getDeclaredIncludeSrcs(),
+            additionalPrunableHeaders)) {
       if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
         actionExecutionContext.getArtifactExpander().expand(input, allowedIncludes);
       }
@@ -873,9 +883,8 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getAllowedDerivedInputs() {
     HashSet<Artifact> result = new HashSet<>();
     addNonSources(result, mandatoryInputs);
-    addNonSources(result, prunableHeaders);
+    addNonSources(result, additionalPrunableHeaders);
     addNonSources(result, getDeclaredIncludeSrcs());
-    addNonSources(result, ccCompilationContext.getTransitiveCompilationPrerequisites());
     addNonSources(result, ccCompilationContext.getTransitiveModules(usePic));
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
@@ -977,7 +986,7 @@ public class CppCompileAction extends AbstractAction
     fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, getMandatoryInputs());
     fp.addInt(0);
-    actionKeyContext.addNestedSetToFingerprint(fp, prunableHeaders);
+    actionKeyContext.addNestedSetToFingerprint(fp, additionalPrunableHeaders);
   }
 
   @Override
