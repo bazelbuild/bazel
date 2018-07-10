@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
@@ -34,7 +31,7 @@ import java.util.List;
  * that is populated by child classes.
  */
 public abstract class CqueryThreadsafeCallback
-    extends ThreadSafeOutputFormatterCallback<ConfiguredTarget> {
+    extends NamedThreadSafeOutputFormatterCallback<ConfiguredTarget> {
 
   protected final Reporter reporter;
   protected final CqueryOptions options;
@@ -57,22 +54,6 @@ public abstract class CqueryThreadsafeCallback
     }
     this.skyframeExecutor = skyframeExecutor;
     this.accessor = (ConfiguredTargetAccessor) accessor;
-  }
-
-  public abstract String getName();
-
-  public static String callbackNames(Iterable<CqueryThreadsafeCallback> callbacks) {
-    return Streams.stream(callbacks).map(CqueryThreadsafeCallback::getName).collect(joining(", "));
-  }
-
-  public static CqueryThreadsafeCallback getCallback(
-      String type, Iterable<CqueryThreadsafeCallback> callbacks) {
-    for (CqueryThreadsafeCallback callback : callbacks) {
-      if (callback.getName().equals(type)) {
-        return callback;
-      }
-    }
-    return null;
   }
 
   public void addResult(String string) {
