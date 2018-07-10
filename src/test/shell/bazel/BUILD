@@ -158,8 +158,11 @@ sh_test(
     name = "bazel_rules_test",
     size = "large",
     srcs = ["bazel_rules_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 3,
 )
 
 sh_test(
