@@ -16,20 +16,46 @@
 #
 # An end-to-end test for bazel-specific parts of the build-event stream.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 #### SETUP #############################################################
 
-set -e
-
 function set_up() {
   mkdir -p pkg
   touch remote_file
+  if is_windows; then
+    # Windows needs "file:///c:/foo/bar".
+    FILE_URL="file:///$(cygpath -m "$PWD")/remote_file"
+  else
+    # Non-Windows needs "file://foo/bar".
+    FILE_URL="file://${PWD}/remote_file"
+  fi
+
   cat > WORKSPACE <<EOF
-http_file(name="remote", urls=["file://`pwd`/remote_file"])
+http_file(name="remote", urls=["${FILE_URL}"])
 EOF
   cat > pkg/BUILD <<'EOF'
 genrule(
@@ -49,7 +75,7 @@ function test_fetch_test() {
   # build-event stream.
   bazel clean --expunge
   rm -f "${TEST_log}"
-  bazel fetch --build_event_text_file="${TEST_log}" //pkg:main \
+  bazel fetch --build_event_text_file="${TEST_log}" pkg:main \
       || fail "bazel fetch failed"
   [ -f "${TEST_log}" ] \
       || fail "fetch did not generate requested build-event file"
@@ -61,7 +87,7 @@ function test_fetch_test() {
   # on second attempt, the fetched file should already be cached.
   bazel shutdown
   rm -f "${TEST_log}"
-  bazel fetch --build_event_text_file="${TEST_log}" //pkg:main \
+  bazel fetch --build_event_text_file="${TEST_log}" pkg:main \
       || fail "bazel fetch failed"
   [ -f "${TEST_log}" ] \
       || fail "fetch did not generate requested build-event file"
@@ -75,12 +101,12 @@ function test_fetch_test() {
 function test_fetch_in_build() {
   # We expect a fetch that happens as a consequence of a build to be reported.
   bazel clean --expunge
-  bazel build --build_event_text_file="${TEST_log}" //pkg:main \
+  bazel build --build_event_text_file="${TEST_log}" pkg:main \
       || fail "bazel build failed"
   expect_log 'name: "SUCCESS"'
   expect_log '^fetch'
   bazel shutdown
-  bazel build --build_event_text_file="${TEST_log}" //pkg:main \
+  bazel build --build_event_text_file="${TEST_log}" pkg:main \
       || fail "bazel build failed"
   expect_log 'name: "SUCCESS"'
   expect_not_log '^fetch'
