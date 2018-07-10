@@ -932,6 +932,17 @@ toolchain {
   }
 
   feature {
+    name: 'disable_rtti'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/GR-"
+      }
+    }
+  }
+
+  feature {
     name: 'user_compile_flags'
     flag_set {
       expand_if_all_available: 'user_compile_flags'
