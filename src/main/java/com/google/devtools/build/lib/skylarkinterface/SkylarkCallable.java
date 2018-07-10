@@ -178,6 +178,5 @@ public @interface SkylarkCallable {
    * the annotated method signature must contain SkylarkSemantics as a parameter. See the
    * interface-level javadoc for details.)
    */
-  // TODO(cparsons): This field should work with structField=true.
   boolean useSkylarkSemantics() default false;
 }
