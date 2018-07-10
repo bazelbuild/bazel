@@ -83,7 +83,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/java/dd_plist",
-        "//third_party/protobuf/3.4.0:protobuf_java",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
