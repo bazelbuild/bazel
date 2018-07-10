@@ -274,21 +274,6 @@ public class CppRuleClasses {
   public static final String NO_EXCEPTIONS_IMPL = "no_exceptions_impl";
 
   /**
-   * A string constant for the feature to disable C++ RTTI.
-   */
-  public static final String DISABLE_RTTI = "disable_rtti";
-
-  /**
-   * A string constant for the feature to compile with C++ RTTI enabled.
-   */
-  public static final String USE_RTTI_IMPL = "use_rtti_impl";
-
-  /**
-   * A string constant for the feature to compile with C++ RTTI disabled.
-   */
-  public static final String NO_RTTI_IMPL = "no_rtti_impl";
-
-  /**
    * A string constant for the ThinLTO feature.
    */
   public static final String THIN_LTO = "thin_lto";
