@@ -82,7 +82,9 @@ sh_test(
     data = [
         ":test-deps",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",  # darwin-specific test
+    ],
 )
 
 sh_test(
@@ -93,7 +95,9 @@ sh_test(
         ":test-deps",
         "//:workspace-file",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",  # objc-specific test
+    ],
 )
 
 sh_test(
@@ -101,7 +105,9 @@ sh_test(
     size = "medium",
     srcs = ["bazel_embedded_skylark_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",  # TODO(laszlocsomor): make this run on Windows
+    ],
 )
 
 sh_test(
@@ -120,14 +126,21 @@ sh_test(
     timeout = "eternal",
     srcs = ["bazel_java_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        # TODO(laszlocsomor): make this run on Windows. Currently fails because
+        # the java_common provider doesn't work on Windows.
+        "no_windows",
+    ],
 )
 
 sh_test(
     name = "bazel_build_event_stream_test",
     size = "medium",
     srcs = ["bazel_build_event_stream_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     tags = ["no_windows"],
 )
 
