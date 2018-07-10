@@ -185,6 +185,31 @@ public class Retrier {
         }
       };
 
+  /** No backoff. */
+  public static class ZeroBackoff implements Backoff {
+
+    private final int maxRetries;
+    private int retries;
+
+    public ZeroBackoff(int maxRetries) {
+      this.maxRetries = maxRetries;
+    }
+
+    @Override
+    public long nextDelayMillis() {
+      if (retries >= maxRetries) {
+        return -1;
+      }
+      retries++;
+      return 0;
+    }
+
+    @Override
+    public int getRetryAttempts() {
+      return retries;
+    }
+  }
+
   private final Supplier<Backoff> backoffSupplier;
   private final Predicate<? super Exception> shouldRetry;
   private final CircuitBreaker circuitBreaker;

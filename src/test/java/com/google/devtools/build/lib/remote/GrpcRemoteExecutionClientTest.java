@@ -277,6 +277,7 @@ public class GrpcRemoteExecutionClientTest {
             "command-id",
             remoteCache,
             executor,
+            retrier,
             DIGEST_UTIL,
             logDir);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");

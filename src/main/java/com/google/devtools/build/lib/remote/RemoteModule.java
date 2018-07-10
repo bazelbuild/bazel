@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -43,11 +44,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.rpc.PreconditionFailure;
+import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.Status.Code;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -114,6 +122,40 @@ public final class RemoteModule extends BlazeModule {
         "remote");
   }
 
+  private static final String VIOLATION_TYPE_MISSING = "MISSING";
+
+  private static final Predicate<? super Exception> RETRIABLE_EXEC_ERRORS =
+      e -> {
+        if (e instanceof CacheNotFoundException || e.getCause() instanceof CacheNotFoundException) {
+          return true;
+        }
+        if (!(e instanceof RetryException)
+            || !RemoteRetrierUtils.causedByStatus((RetryException) e, Code.FAILED_PRECONDITION)) {
+          return false;
+        }
+        com.google.rpc.Status status = StatusProto.fromThrowable(e);
+        if (status == null || status.getDetailsCount() == 0) {
+          return false;
+        }
+        for (Any details : status.getDetailsList()) {
+          PreconditionFailure f;
+          try {
+            f = details.unpack(PreconditionFailure.class);
+          } catch (InvalidProtocolBufferException protoEx) {
+            return false;
+          }
+          if (f.getViolationsCount() == 0) {
+            return false; // Generally shouldn't happen
+          }
+          for (Violation v : f.getViolationsList()) {
+            if (!v.getType().equals(VIOLATION_TYPE_MISSING)) {
+              return false;
+            }
+          }
+        }
+        return true; // if *all* > 0 violations have type MISSING
+      };
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     env.getEventBus().register(this);
@@ -167,6 +209,7 @@ public final class RemoteModule extends BlazeModule {
         logger = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
       }
 
+      final RemoteRetrier executeRetrier;
       final AbstractRemoteActionCache cache;
       if (enableBlobStoreCache) {
         Retrier retrier =
@@ -175,6 +218,7 @@ public final class RemoteModule extends BlazeModule {
                 (e) -> false,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
+        executeRetrier = null;
         cache =
             new SimpleBlobStoreActionCache(
                 remoteOptions,
@@ -197,6 +241,7 @@ public final class RemoteModule extends BlazeModule {
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
+        executeRetrier = createExecuteRetrier(remoteOptions, retryScheduler);
         cache =
             new GrpcRemoteCache(
                 ch,
@@ -205,6 +250,7 @@ public final class RemoteModule extends BlazeModule {
                 retrier,
                 digestUtil);
       } else {
+        executeRetrier = null;
         cache = null;
       }
 
@@ -230,7 +276,7 @@ public final class RemoteModule extends BlazeModule {
         executor = null;
       }
       actionContextProvider =
-          new RemoteActionContextProvider(env, cache, executor, digestUtil, logDir);
+          new RemoteActionContextProvider(env, cache, executor, executeRetrier, digestUtil, logDir);
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       env.getBlazeModuleEnvironment()
@@ -271,5 +317,16 @@ public final class RemoteModule extends BlazeModule {
   public static boolean remoteEnabled(RemoteOptions options) {
     return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
         || GrpcRemoteCache.isRemoteCacheOptions(options);
+  }
+
+  public static RemoteRetrier createExecuteRetrier(
+      RemoteOptions options, ListeningScheduledExecutorService retryService) {
+    return new RemoteRetrier(
+        options.experimentalRemoteRetry
+            ? () -> new Retrier.ZeroBackoff(options.experimentalRemoteRetryMaxAttempts)
+            : () -> Retrier.RETRIES_DISABLED,
+        RemoteModule.RETRIABLE_EXEC_ERRORS,
+        retryService,
+        Retrier.ALLOW_ALL_CALLS);
   }
 }
