@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -56,8 +58,12 @@ public class MavenDownloader extends HttpDownloader {
    * Download the Maven artifact to the output directory. Returns the path to the jar (and the
    * srcjar if available).
    */
-  public JarPaths download(String name, WorkspaceAttributeMapper mapper, Path outputDirectory,
-      MavenServerValue serverValue) throws IOException, EvalException {
+  public JarPaths download(
+      String name,
+      WorkspaceAttributeMapper mapper,
+      Path outputDirectory,
+      MavenServerValue serverValue,
+      ExtendedEventHandler eventHandler) throws IOException, EvalException {
 
     String url = serverValue.getUrl();
     Server server = serverValue.getServer();
@@ -80,14 +86,20 @@ public class MavenDownloader extends HttpDownloader {
 
     if (isCaching) {
       Path downloadPath = getDownloadDestination(outputDirectory, artifact);
-      Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
-      if (cachedDestination != null) {
-        Path cachedDestinationSrc = null;
-        if (sha1Src != null) {
-          Path downloadPathSrc = getDownloadDestination(outputDirectory, artifactWithSrcs);
-          cachedDestinationSrc = repositoryCache.get(sha1Src, downloadPathSrc, KeyType.SHA1);
+      try {
+        Path cachedDestination = repositoryCache.get(sha1, downloadPath, KeyType.SHA1);
+        if (cachedDestination != null) {
+          Path cachedDestinationSrc = null;
+          if (sha1Src != null) {
+            Path downloadPathSrc = getDownloadDestination(outputDirectory, artifactWithSrcs);
+            cachedDestinationSrc = repositoryCache.get(sha1Src, downloadPathSrc, KeyType.SHA1);
+          }
+          return new JarPaths(cachedDestination, Optional.fromNullable(cachedDestinationSrc));
         }
-        return new JarPaths(cachedDestination, Optional.fromNullable(cachedDestinationSrc));
+      } catch (IOException e) {
+        eventHandler.handle(
+            Event.debug("RepositoryCache entry " + sha1 + " is invalid, replacing it..."));
+        // Ignore error trying to get. We'll just download again.
       }
     }
 

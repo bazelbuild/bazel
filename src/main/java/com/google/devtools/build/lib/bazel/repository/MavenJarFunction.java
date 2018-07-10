@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.MavenDownloader.JarPaths;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -101,11 +102,11 @@ public class MavenJarFunction extends HttpArchiveFunction {
     }
 
     Path outputDir = getExternalRepositoryDirectory(directories).getRelative(rule.getName());
-    return createOutputTree(rule, outputDir, serverValue);
+    return createOutputTree(rule, outputDir, serverValue, env.getListener());
   }
 
   private RepositoryDirectoryValue.Builder createOutputTree(Rule rule, Path outputDirectory,
-      MavenServerValue serverValue) throws RepositoryFunctionException {
+      MavenServerValue serverValue, ExtendedEventHandler eventHandler) throws RepositoryFunctionException {
     Preconditions.checkState(downloader instanceof MavenDownloader);
     MavenDownloader mavenDownloader = (MavenDownloader) downloader;
 
@@ -115,7 +116,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
     try {
       repositoryJars =
           mavenDownloader.download(
-              name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue);
+              name, WorkspaceAttributeMapper.of(rule), outputDirectory, serverValue, eventHandler);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     } catch (EvalException e) {
