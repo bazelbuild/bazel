@@ -19,13 +19,13 @@
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-    if [[ -f "$0.runfiles_manifest" ]]; then
-      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-      export RUNFILES_DIR="$0.runfiles"
-    fi
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
 fi
 if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
   source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
@@ -50,7 +50,7 @@ function set_up() {
     # Windows needs "file:///c:/foo/bar".
     FILE_URL="file:///$(cygpath -m "$PWD")/remote_file"
   else
-    # Non-Windows needs "file://foo/bar".
+    # Non-Windows needs "file:///foo/bar".
     FILE_URL="file://${PWD}/remote_file"
   fi
 
