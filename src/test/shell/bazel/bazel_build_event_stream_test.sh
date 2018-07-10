@@ -43,6 +43,9 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 #### SETUP #############################################################
 
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
 function set_up() {
   mkdir -p pkg
   touch remote_file
@@ -75,7 +78,7 @@ function test_fetch_test() {
   # build-event stream.
   bazel clean --expunge
   rm -f "${TEST_log}"
-  bazel fetch --build_event_text_file="${TEST_log}" pkg:main \
+  bazel fetch --build_event_text_file="${TEST_log}" //pkg:main \
       || fail "bazel fetch failed"
   [ -f "${TEST_log}" ] \
       || fail "fetch did not generate requested build-event file"
@@ -87,7 +90,7 @@ function test_fetch_test() {
   # on second attempt, the fetched file should already be cached.
   bazel shutdown
   rm -f "${TEST_log}"
-  bazel fetch --build_event_text_file="${TEST_log}" pkg:main \
+  bazel fetch --build_event_text_file="${TEST_log}" //pkg:main \
       || fail "bazel fetch failed"
   [ -f "${TEST_log}" ] \
       || fail "fetch did not generate requested build-event file"
@@ -101,12 +104,12 @@ function test_fetch_test() {
 function test_fetch_in_build() {
   # We expect a fetch that happens as a consequence of a build to be reported.
   bazel clean --expunge
-  bazel build --build_event_text_file="${TEST_log}" pkg:main \
+  bazel build --build_event_text_file="${TEST_log}" //pkg:main \
       || fail "bazel build failed"
   expect_log 'name: "SUCCESS"'
   expect_log '^fetch'
   bazel shutdown
-  bazel build --build_event_text_file="${TEST_log}" pkg:main \
+  bazel build --build_event_text_file="${TEST_log}" //pkg:main \
       || fail "bazel build failed"
   expect_log 'name: "SUCCESS"'
   expect_not_log '^fetch'
