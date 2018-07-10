@@ -28,7 +28,11 @@ ptrdiff_t pread(int fd, void *buf, size_t count, ptrdiff_t offset) {
     OVERLAPPED overlap;
     memset(&overlap, 0, sizeof(OVERLAPPED));
     overlap.Offset = offset;
-    ::ReadFile(hFile, buf, count, &ret, &overlap);
+    if (!::ReadFile(hFile, buf, count, &ret, &overlap)) {
+      // For this simple implementation, we don't update errno.
+      // Just return -1 as error.
+      return -1;
+    }
   }
   return ret;
 }
