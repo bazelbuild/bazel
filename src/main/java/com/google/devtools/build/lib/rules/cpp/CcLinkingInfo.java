@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -109,8 +110,11 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
       };
 
   private final CcLinkParamsStore ccLinkParamsStore;
-  private final CcRunfiles ccRunfiles;
-  private final CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime;
+  // TODO(b/111289526): These providers are not useful. All the information they provide can be
+  // obtained from CcLinkParams. CcRunfiles is already dead code and can be removed.
+  // CcDynamicLibrariesForRuntime is not dead code yet.
+  @Deprecated private final CcRunfiles ccRunfiles;
+  @Deprecated private final CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
@@ -169,5 +173,25 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
     public CcLinkingInfo build() {
       return new CcLinkingInfo(ccLinkParamsStore, ccRunfiles, ccDynamicLibrariesForRuntime);
     }
+  }
+
+  @Override
+  public boolean equals(Object otherObject) {
+    if (!(otherObject instanceof CcLinkingInfo)) {
+      return false;
+    }
+    CcLinkingInfo other = (CcLinkingInfo) otherObject;
+    if (this == other) {
+      return true;
+    }
+    if (!this.ccLinkParamsStore.equals(other.ccLinkParamsStore)) {
+      return false;
+    }
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(ccLinkParamsStore);
   }
 }

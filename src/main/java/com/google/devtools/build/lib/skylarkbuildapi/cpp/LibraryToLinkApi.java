@@ -26,4 +26,4 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
     doc = "A library the user can link to.")
-public interface LibraryToLinkApi {}
+public interface LibraryToLinkApi extends LinkerInputApi {}

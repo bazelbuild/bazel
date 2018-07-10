@@ -21,6 +21,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingOutputsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,10 +31,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A structured representation of the link outputs of a C++ rule.
- */
-public class CcLinkingOutputs {
+/** A structured representation of the link outputs of a C++ rule. */
+public class CcLinkingOutputs implements CcLinkingOutputsApi {
 
   public static final CcLinkingOutputs EMPTY = new Builder().build();
 
@@ -66,12 +67,27 @@ public class CcLinkingOutputs {
     this.dynamicLibrariesForRuntime = dynamicLibrariesForRuntime;
   }
 
+  @Override
+  public SkylarkList<LibraryToLinkApi> getSkylarkStaticLibraries() {
+    return SkylarkList.createImmutable(staticLibraries);
+  }
+
   public ImmutableList<LibraryToLink> getStaticLibraries() {
     return staticLibraries;
   }
 
+  @Override
+  public SkylarkList<LibraryToLinkApi> getSkylarkPicStaticLibraries() {
+    return SkylarkList.createImmutable(picStaticLibraries);
+  }
+
   public ImmutableList<LibraryToLink> getPicStaticLibraries() {
     return picStaticLibraries;
+  }
+
+  @Override
+  public SkylarkList<LibraryToLinkApi> getSkylarkDynamicLibrariesForLinking() {
+    return SkylarkList.createImmutable(dynamicLibrariesForLinking);
   }
 
   public ImmutableList<LibraryToLink> getDynamicLibrariesForLinking() {

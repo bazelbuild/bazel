@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,26 +14,24 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
-/**
- * Something that appears on the command line of the linker. Since we sometimes expand archive files
- * to their constituent object files, we need to keep information whether a certain file contains
- * embedded objects and if so, the list of the object files themselves.
- */
+/** Interface for a structured representation of the linking outputs of a C++ rule. */
 @SkylarkModule(
-    name = "LinkerInputApi",
+    name = "CcLinkingOutputs",
     category = SkylarkModuleCategory.BUILTIN,
     documented = false,
-    doc = "An input that appears in the command line of the linker.")
-public interface LinkerInputApi {
-  /** Returns the artifact that is the input of the linker. */
-  @SkylarkCallable(name = "artifact", doc = "Artifact passed to the linker.")
-  Artifact getArtifact();
+    doc = "Helper class containing CC compilation outputs.")
+public interface CcLinkingOutputsApi {
+  @SkylarkCallable(name = "dynamic_libraries_for_linking", documented = false)
+  SkylarkList<LibraryToLinkApi> getSkylarkDynamicLibrariesForLinking();
 
-  @SkylarkCallable(name = "original_artifact", doc = "Artifact passed to the linker.")
-  Artifact getOriginalLibraryArtifact();
+  @SkylarkCallable(name = "static_libraries", documented = false)
+  SkylarkList<LibraryToLinkApi> getSkylarkStaticLibraries();
+
+  @SkylarkCallable(name = "pic_static_libraries", documented = false)
+  SkylarkList<LibraryToLinkApi> getSkylarkPicStaticLibraries();
 }
