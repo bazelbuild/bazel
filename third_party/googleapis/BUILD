@@ -146,8 +146,8 @@ proto_library(
         ":google_api_annotations_proto",
         ":google_longrunning_operations_proto",
         ":google_rpc_status_proto",
-        "@com_google_protobuf//:well_known_types_any_proto",
-        "@com_google_protobuf//:well_known_types_duration_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:duration_proto",
     ],
 )
 
@@ -160,8 +160,8 @@ proto_library(
     name = "google_rpc_error_details_proto",
     srcs = ["google/rpc/error_details.proto"],
     deps = [
-        "@com_google_protobuf//:well_known_types_any_proto",
-        "@com_google_protobuf//:well_known_types_duration_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:duration_proto",
     ],
 )
 
@@ -170,8 +170,8 @@ proto_library(
     srcs = ["google/watcher/v1/watch.proto"],
     deps = [
         ":google_api_annotations_proto",
-        "@com_google_protobuf//:well_known_types_any_proto",
-        "@com_google_protobuf//:well_known_types_empty_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:empty_proto",
     ],
 )
 
@@ -180,7 +180,7 @@ proto_library(
     srcs = ["google/bytestream/bytestream.proto"],
     deps = [
         ":google_api_annotations_proto",
-        "@com_google_protobuf//:well_known_types_wrappers_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -191,8 +191,8 @@ proto_library(
         ":google_api_annotations_proto",
         ":google_api_http_proto",
         ":google_rpc_status_proto",
-        "@com_google_protobuf//:well_known_types_any_proto",
-        "@com_google_protobuf//:well_known_types_empty_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:empty_proto",
     ],
 )
 
@@ -201,7 +201,7 @@ proto_library(
     srcs = ["google/devtools/build/v1/build_status.proto"],
     deps = [
         ":google_api_annotations_proto",
-        "@com_google_protobuf//:well_known_types_any_proto",
+        "@com_google_protobuf//:any_proto",
     ],
 )
 
@@ -212,9 +212,9 @@ proto_library(
         ":google_api_annotations_proto",
         ":google_devtools_build_v1_build_status_proto",
         ":google_rpc_status_proto",
-        "@com_google_protobuf//:well_known_types_any_proto",
-        "@com_google_protobuf//:well_known_types_timestamp_proto",
-        "@com_google_protobuf//:well_known_types_wrappers_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -225,9 +225,9 @@ proto_library(
         ":google_api_annotations_proto",
         ":google_api_auth_proto",
         ":google_devtools_build_v1_build_events_proto",
-        "@com_google_protobuf//:well_known_types_any_proto",
-        "@com_google_protobuf//:well_known_types_duration_proto",
-        "@com_google_protobuf//:well_known_types_empty_proto",
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
     ],
 )
 
@@ -236,7 +236,7 @@ proto_library(
     srcs = ["google/api/annotations.proto"],
     deps = [
         ":google_api_http_proto",
-        "@com_google_protobuf//:well_known_types_descriptor_proto",
+        "@com_google_protobuf//:descriptor_proto",
     ],
 )
 
@@ -248,7 +248,7 @@ proto_library(
 proto_library(
     name = "google_rpc_status_proto",
     srcs = ["google/rpc/status.proto"],
-    deps = ["@com_google_protobuf//:well_known_types_any_proto"],
+    deps = ["@com_google_protobuf//:any_proto"],
 )
 
 proto_library(
