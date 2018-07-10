@@ -65,7 +65,7 @@ final class ByteStreamUploader {
   private final Channel channel;
   private final CallCredentials callCredentials;
   private final long callTimeoutSecs;
-  private final RemoteRetrier retrier;
+  private final AsyncRetrier asyncRetrier;
 
   private final Object lock = new Object();
 
@@ -85,21 +85,21 @@ final class ByteStreamUploader {
    *     case no authentication is performed
    * @param callTimeoutSecs the timeout in seconds after which a {@code Write} gRPC call must be
    *     complete. The timeout resets between retries
-   * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
+   * @param asyncRetrier the {@link AsyncRetrier} whose backoff strategy to use for retry timings.
    */
   public ByteStreamUploader(
       @Nullable String instanceName,
       Channel channel,
       @Nullable CallCredentials callCredentials,
       long callTimeoutSecs,
-      RemoteRetrier retrier) {
+      AsyncRetrier asyncRetrier) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
 
     this.instanceName = instanceName;
     this.channel = channel;
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
-    this.retrier = retrier;
+    this.asyncRetrier = asyncRetrier;
   }
 
   /**
@@ -201,7 +201,7 @@ final class ByteStreamUploader {
           },
           MoreExecutors.directExecutor());
       Context ctx = Context.current();
-      retrier.executeAsync(
+      asyncRetrier.executeAsync(
           () -> ctx.call(() -> startAsyncUpload(chunker, uploadResult)), uploadResult);
       uploadsInProgress.put(digest, uploadResult);
       return uploadResult;

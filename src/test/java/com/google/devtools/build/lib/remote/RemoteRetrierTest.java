@@ -109,7 +109,7 @@ public class RemoteRetrierTest {
     options.experimentalRemoteRetry = false;
 
     RemoteRetrier retrier =
-        Mockito.spy(new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS));
+        Mockito.spy(new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS));
     when(fooMock.foo())
         .thenReturn("bla")
         .thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
@@ -127,7 +127,6 @@ public class RemoteRetrierTest {
             new RemoteRetrier(
                 s,
                 (e) -> false,
-                retryService,
                 Retrier.ALLOW_ALL_CALLS,
                 Mockito.mock(Sleeper.class)));
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
@@ -142,7 +141,7 @@ public class RemoteRetrierTest {
     Sleeper sleeper = Mockito.mock(Sleeper.class);
     RemoteRetrier retrier =
         Mockito.spy(
-            new RemoteRetrier(s, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS, sleeper));
+            new RemoteRetrier(s, (e) -> true, Retrier.ALLOW_ALL_CALLS, sleeper));
 
     when(fooMock.foo()).thenThrow(Status.Code.UNKNOWN.toStatus().asRuntimeException());
     assertThrows(retrier, 3);
@@ -159,7 +158,7 @@ public class RemoteRetrierTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.experimentalRemoteRetry = false;
     RemoteRetrier retrier =
-        new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+        new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS);
     try {
       retrier.execute(() -> {
         throw thrown;
@@ -176,7 +175,7 @@ public class RemoteRetrierTest {
 
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     RemoteRetrier retrier =
-        new RemoteRetrier(options, (e) -> true, retryService, Retrier.ALLOW_ALL_CALLS);
+        new RemoteRetrier(options, (e) -> true, Retrier.ALLOW_ALL_CALLS);
 
     AtomicInteger numCalls = new AtomicInteger();
     try {

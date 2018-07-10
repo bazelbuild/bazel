@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
@@ -78,33 +77,29 @@ public class RemoteRetrier extends Retrier {
   public RemoteRetrier(
       RemoteOptions options,
       Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
         options.experimentalRemoteRetry
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
         shouldRetry,
-        retryScheduler,
         circuitBreaker);
   }
 
   public RemoteRetrier(
       Supplier<Backoff> backoff,
       Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    super(backoff, supportPassthrough(shouldRetry), retryScheduler, circuitBreaker);
+    super(backoff, supportPassthrough(shouldRetry), circuitBreaker);
   }
 
   @VisibleForTesting
   RemoteRetrier(
       Supplier<Backoff> backoff,
       Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
-    super(backoff, supportPassthrough(shouldRetry), retryScheduler, circuitBreaker, sleeper);
+    super(backoff, supportPassthrough(shouldRetry), circuitBreaker, sleeper);
   }
 
   @Override
@@ -120,7 +115,6 @@ public class RemoteRetrier extends Retrier {
       throw e;
     }
   }
-
 
   private static Predicate<? super Exception> supportPassthrough(
       Predicate<? super Exception> delegate) {

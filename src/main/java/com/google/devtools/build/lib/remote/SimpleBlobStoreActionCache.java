@@ -63,8 +63,8 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
   private final SimpleBlobStore blobStore;
 
   public SimpleBlobStoreActionCache(
-      RemoteOptions options, SimpleBlobStore blobStore, Retrier retrier, DigestUtil digestUtil) {
-    super(options, digestUtil, retrier);
+      RemoteOptions options, SimpleBlobStore blobStore, AsyncRetrier asyncRetrier, DigestUtil digestUtil) {
+    super(options, digestUtil, asyncRetrier);
     this.blobStore = blobStore;
   }
 
