@@ -15,14 +15,13 @@ package com.google.devtools.build.lib.exec;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.io.ByteSource;
 import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -60,13 +59,8 @@ public final class FilesetManifest {
       RelativeSymlinkBehavior relSymlinkBehavior)
           throws IOException {
     Path file = execRoot.getRelative(AnalysisUtils.getManifestPathFromFilesetPath(manifest));
-    try (InputStream in = file.getInputStream()) {
-      return new ByteSource() {
-        @Override
-        public InputStream openStream() throws IOException {
-          return in;
-        }
-      }.asCharSource(UTF_8)
+    try {
+      return FileSystemUtils.asByteSource(file).asCharSource(UTF_8)
           .readLines(
               new ManifestLineProcessor(workspaceName, manifest, relSymlinkBehavior));
     } catch (IllegalStateException e) {

@@ -852,14 +852,7 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static Iterable<String> readLines(Path inputFile, Charset charset) throws IOException {
-    try (InputStream in = inputFile.getInputStream()) {
-      return new ByteSource() {
-        @Override
-        public InputStream openStream() throws IOException {
-          return in;
-        }
-      }.asCharSource(charset).readLines();
-    }
+    return asByteSource(inputFile).asCharSource(charset).readLines();
   }
 
   /**
@@ -868,28 +861,14 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static byte[] readContent(Path inputFile) throws IOException {
-    try (InputStream in = inputFile.getInputStream()) {
-      return new ByteSource() {
-        @Override
-        public InputStream openStream() throws IOException {
-          return in;
-        }
-      }.read();
-    }
+    return asByteSource(inputFile).read();
   }
 
   /**
    * Reads the entire file using the given charset and returns the contents as a string
    */
   public static String readContent(Path inputFile, Charset charset) throws IOException {
-    try (InputStream in = inputFile.getInputStream()) {
-      return new ByteSource() {
-        @Override
-        public InputStream openStream() throws IOException {
-          return in;
-        }
-      }.asCharSource(charset).read();
-    }
+    return asByteSource(inputFile).asCharSource(charset).read();
   }
 
   /**
@@ -899,18 +878,11 @@ public class FileSystemUtils {
    */
   public static byte[] readContentWithLimit(Path inputFile, int limit) throws IOException {
     Preconditions.checkArgument(limit >= 0, "limit needs to be >=0, but it is %s", limit);
-    try (InputStream in = inputFile.getInputStream()) {
-      byte[] buffer = new byte[limit];
-      try (InputStream inputStream =
-          new ByteSource() {
-            @Override
-            public InputStream openStream() throws IOException {
-              return in;
-            }
-          }.openBufferedStream()) {
-        int read = ByteStreams.read(inputStream, buffer, 0, limit);
-        return read == limit ? buffer : Arrays.copyOf(buffer, read);
-      }
+    ByteSource byteSource = asByteSource(inputFile);
+    byte[] buffer = new byte[limit];
+    try (InputStream inputStream = byteSource.openBufferedStream()) {
+      int read = ByteStreams.read(inputStream, buffer, 0, limit);
+      return read == limit ? buffer : Arrays.copyOf(buffer, read);
     }
   }
 
