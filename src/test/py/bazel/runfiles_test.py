@@ -59,8 +59,7 @@ class RunfilesTest(test_base.TestBase):
     bazel_bin = stdout[0]
 
     exit_code, _, stderr = self.RunBazel([
-        "build", "--verbose_failures", "--experimental_shortened_obj_file_path",
-        "//foo:runfiles-" + family
+        "build", "--verbose_failures", "//foo:runfiles-" + family
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
@@ -138,7 +137,7 @@ class RunfilesTest(test_base.TestBase):
     bazel_bin = stdout[0]
 
     exit_code, _, stderr = self.RunBazel([
-        "build", "--verbose_failures", "--experimental_shortened_obj_file_path",
+        "build", "--verbose_failures",
         "//bar:bar-py", "//bar:bar-java", "//bar:bar-sh", "//bar:bar-cc"
     ])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -200,7 +199,6 @@ class RunfilesTest(test_base.TestBase):
     for lang in [("java", "Java"), ("sh", "Bash"), ("cc", "C++")]:
       exit_code, _, stderr = self.RunBazel([
           "build", "--verbose_failures",
-          "--experimental_shortened_obj_file_path",
           "--experimental_enable_runfiles=no", "//bar:bar-" + lang[0]
       ])
       self.AssertExitCode(exit_code, 0, stderr)

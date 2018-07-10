@@ -734,9 +734,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testContainingSourcesWithSameBaseNameWithNewObjPath() throws Exception {
+  public void testContainingSourcesWithSameBaseName() throws Exception {
     AnalysisMock.get().ccSupport().setup(mockToolsConfig);
-    useConfiguration("--cpu=k8", "--experimental_shortened_obj_file_path=true");
+    useConfiguration("--cpu=k8");
     setupPackagesForSourcesWithSameBaseNameTests();
     getConfiguredTarget("//foo:lib");
 
@@ -745,32 +745,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact a2 = getBinArtifact("_objs/lib/2/a.pic.o", getConfiguredTarget("//foo:lib"));
     Artifact a3 = getBinArtifact("_objs/lib/3/A.pic.o", getConfiguredTarget("//foo:lib"));
     Artifact b = getBinArtifact("_objs/lib/b.pic.o", getConfiguredTarget("//foo:lib"));
-
-    assertThat(getGeneratingAction(a0)).isNotNull();
-    assertThat(getGeneratingAction(a1)).isNotNull();
-    assertThat(getGeneratingAction(a2)).isNotNull();
-    assertThat(getGeneratingAction(a3)).isNotNull();
-    assertThat(getGeneratingAction(b)).isNotNull();
-
-    assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.cc"));
-    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/subpkg1/a.c"));
-    assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("bar/a.cpp"));
-    assertThat(getGeneratingAction(a3).getInputs()).contains(getSourceArtifact("foo/subpkg2/A.c"));
-    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/subpkg1/b.cc"));
-  }
-
-  @Test
-  public void testContainingSourcesWithSameBaseNameWithLegacyObjPath() throws Exception {
-    AnalysisMock.get().ccSupport().setup(mockToolsConfig);
-    useConfiguration("--cpu=k8", "--experimental_shortened_obj_file_path=false");
-    setupPackagesForSourcesWithSameBaseNameTests();
-    getConfiguredTarget("//foo:lib");
-
-    Artifact a0 = getBinArtifact("_objs/lib/foo/a.pic.o", getConfiguredTarget("//foo:lib"));
-    Artifact a1 = getBinArtifact("_objs/lib/foo/subpkg1/a.pic.o", getConfiguredTarget("//foo:lib"));
-    Artifact a2 = getBinArtifact("_objs/lib/bar/a.pic.o", getConfiguredTarget("//foo:lib"));
-    Artifact a3 = getBinArtifact("_objs/lib/foo/subpkg2/A.pic.o", getConfiguredTarget("//foo:lib"));
-    Artifact b = getBinArtifact("_objs/lib/foo/subpkg1/b.pic.o", getConfiguredTarget("//foo:lib"));
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();

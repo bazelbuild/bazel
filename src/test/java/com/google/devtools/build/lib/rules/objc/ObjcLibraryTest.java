@@ -122,8 +122,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilesSourcesWithSameBaseNameWithNewObjPath() throws Exception {
-    useConfiguration("--experimental_shortened_obj_file_path=true");
+  public void testCompilesSourcesWithSameBaseName() throws Exception {
     createLibraryTargetWriter("//foo:lib")
         .setAndCreateFiles("srcs", "a.m", "pkg1/a.m", "b.m")
         .setAndCreateFiles("non_arc_srcs", "pkg2/a.m")
@@ -135,32 +134,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     Artifact a1 = getBinArtifact("_objs/lib/arc/1/a.o", getConfiguredTarget("//foo:lib"));
     Artifact a2 = getBinArtifact("_objs/lib/non_arc/a.o", getConfiguredTarget("//foo:lib"));
     Artifact b = getBinArtifact("_objs/lib/arc/b.o", getConfiguredTarget("//foo:lib"));
-
-    assertThat(getGeneratingAction(a0)).isNotNull();
-    assertThat(getGeneratingAction(a1)).isNotNull();
-    assertThat(getGeneratingAction(a2)).isNotNull();
-    assertThat(getGeneratingAction(b)).isNotNull();
-
-    assertThat(getGeneratingAction(a0).getInputs()).contains(getSourceArtifact("foo/a.m"));
-    assertThat(getGeneratingAction(a1).getInputs()).contains(getSourceArtifact("foo/pkg1/a.m"));
-    assertThat(getGeneratingAction(a2).getInputs()).contains(getSourceArtifact("foo/pkg2/a.m"));
-    assertThat(getGeneratingAction(b).getInputs()).contains(getSourceArtifact("foo/b.m"));
-  }
-
-  @Test
-  public void testCompilesSourcesWithSameBaseNameWithLegacyObjPath() throws Exception {
-    useConfiguration("--experimental_shortened_obj_file_path=false");
-    createLibraryTargetWriter("//foo:lib")
-        .setAndCreateFiles("srcs", "a.m", "pkg1/a.m", "b.m")
-        .setAndCreateFiles("non_arc_srcs", "pkg2/a.m")
-        .write();
-
-    getConfiguredTarget("//foo:lib");
-
-    Artifact a0 = getBinArtifact("_objs/lib/foo/a.o", getConfiguredTarget("//foo:lib"));
-    Artifact a1 = getBinArtifact("_objs/lib/foo/pkg1/a.o", getConfiguredTarget("//foo:lib"));
-    Artifact a2 = getBinArtifact("_objs/lib/foo/pkg2/a.o", getConfiguredTarget("//foo:lib"));
-    Artifact b = getBinArtifact("_objs/lib/foo/b.o", getConfiguredTarget("//foo:lib"));
 
     assertThat(getGeneratingAction(a0)).isNotNull();
     assertThat(getGeneratingAction(a1)).isNotNull();

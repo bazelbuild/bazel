@@ -1166,10 +1166,7 @@ public final class CcCompilationHelper {
   private Artifact getHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
     PathFragment outputName =
-        objectDir.getRelative(
-            cppConfiguration.shortenObjFilePath()
-                ? moduleMapArtifact.getRootRelativePath().getBaseName()
-                : moduleMapArtifact.getRootRelativePath().getPathString());
+        objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
     return ruleContext.getRelatedArtifact(outputName, ".pcm");
   }
 
@@ -1177,10 +1174,7 @@ public final class CcCompilationHelper {
   private Artifact getPicHeaderModule(Artifact moduleMapArtifact) {
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
     PathFragment outputName =
-        objectDir.getRelative(
-            cppConfiguration.shortenObjFilePath()
-                ? moduleMapArtifact.getRootRelativePath().getBaseName()
-                : moduleMapArtifact.getRootRelativePath().getPathString());
+        objectDir.getRelative(moduleMapArtifact.getRootRelativePath().getBaseName());
     return ruleContext.getRelatedArtifact(outputName, ".pic.pcm");
   }
 
@@ -1294,15 +1288,14 @@ public final class CcCompilationHelper {
     }
 
     ImmutableMap<Artifact, String> outputNameMap = null;
-    if (cppConfiguration.shortenObjFilePath()) {
-      String outputNamePrefixDir = null;
-      // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
-      // Here we use it to distinguish arc and non-arc compilation.
-      if (purpose != null) {
-        outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
-      }
-      outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
+
+    String outputNamePrefixDir = null;
+    // purpose is only used by objc rules, it ends with either "_non_objc_arc" or "_objc_arc".
+    // Here we use it to distinguish arc and non-arc compilation.
+    if (purpose != null) {
+      outputNamePrefixDir = purpose.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
+    outputNameMap = calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
     for (CppSource source : compilationUnitSources.values()) {
       Artifact sourceArtifact = source.getSource();
@@ -1318,9 +1311,7 @@ public final class CcCompilationHelper {
           featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
 
-      String outputName = cppConfiguration.shortenObjFilePath()
-          ? outputNameMap.get(sourceArtifact)
-          : FileSystemUtils.removeExtension(sourceArtifact.getRootRelativePath()).getPathString();
+      String outputName = outputNameMap.get(sourceArtifact);
 
       if (!sourceArtifact.isTreeArtifact()) {
         switch (source.getType()) {
@@ -1560,10 +1551,7 @@ public final class CcCompilationHelper {
       // If we find one, support needs to be added here.
       return;
     }
-    String outputName =
-        cppConfiguration.shortenObjFilePath()
-            ? module.getRootRelativePath().getBaseName()
-            : module.getRootRelativePath().getPathString();
+    String outputName = module.getRootRelativePath().getBaseName();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
     boolean pic = module.getFilename().contains(".pic.");
@@ -1674,13 +1662,7 @@ public final class CcCompilationHelper {
     // - it creates a header module (.pcm file).
     return createSourceAction(
         Label.parseAbsoluteUnchecked(cppModuleMap.getName()),
-        // The header module(.pcm) is generated at most one file per target,
-        // so it's safe to remove module map's package path from its output name.
-        cppConfiguration.shortenObjFilePath()
-            ? FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath())
-                .getBaseName()
-            : FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath())
-                .getPathString(),
+        FileSystemUtils.removeExtension(moduleMapArtifact.getRootRelativePath()).getBaseName(),
         result,
         env,
         moduleMapArtifact,
