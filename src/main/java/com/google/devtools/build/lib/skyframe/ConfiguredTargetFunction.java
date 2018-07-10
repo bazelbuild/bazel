@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -370,15 +369,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               e.getMessage(),
               configuration,
               e.getCauses()));
-    } catch (ToolchainContextException e) {
+    } catch (ToolchainException e) {
       // We need to throw a ConfiguredValueCreationException, so either find one or make one.
       ConfiguredValueCreationException cvce;
       if (e.getCause() instanceof ConfiguredValueCreationException) {
         cvce = (ConfiguredValueCreationException) e.getCause();
       } else {
         cvce =
-            new ConfiguredValueCreationException(
-                e.getCause().getMessage(), target.getLabel(), configuration);
+            new ConfiguredValueCreationException(e.getMessage(), target.getLabel(), configuration);
       }
 
       env.getListener()
@@ -386,7 +384,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               Event.error(
                   String.format(
                       "While resolving toolchains for target %s: %s",
-                      target.getLabel(), e.getCause().getMessage())));
+                      target.getLabel(), e.getMessage())));
       throw new ConfiguredTargetFunctionException(cvce);
     } finally {
       cpuBoundSemaphore.release();

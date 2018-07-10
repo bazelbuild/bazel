@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.NoMatchingPlatformException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.UnresolvedToolchainsException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -205,16 +204,10 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(UnresolvedToolchainsException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .hasMessageThat()
         .contains("no matching toolchains found for types //fake/toolchain:type_1");
   }
@@ -238,11 +231,6 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(UnresolvedToolchainsException.class);
     // Only one of the missing types will be reported, so do not check the specific error message.
   }
@@ -261,16 +249,10 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .hasMessageThat()
         .contains("//invalid:not_a_platform");
   }
@@ -289,16 +271,10 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .hasMessageThat()
         .contains("//invalid:not_a_platform");
   }
@@ -317,16 +293,10 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidPlatformException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .hasMessageThat()
         .contains("//invalid:not_a_platform");
   }
@@ -393,16 +363,10 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(InvalidConstraintValueException.class);
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasCauseThat()
         .hasMessageThat()
         .contains("//platforms:linux");
   }
@@ -451,11 +415,6 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(ToolchainContextException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasCauseThat()
         .isInstanceOf(NoMatchingPlatformException.class);
   }
 
@@ -552,7 +511,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
           return null;
         }
         return CreateToolchainContextValue.create(toolchainContext);
-      } catch (ToolchainContextException e) {
+      } catch (ToolchainException e) {
         throw new CreateToolchainContextFunctionException(e);
       }
     }
@@ -565,7 +524,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   private static class CreateToolchainContextFunctionException extends SkyFunctionException {
-    public CreateToolchainContextFunctionException(ToolchainContextException e) {
+    public CreateToolchainContextFunctionException(ToolchainException e) {
       super(e, Transience.PERSISTENT);
     }
   }

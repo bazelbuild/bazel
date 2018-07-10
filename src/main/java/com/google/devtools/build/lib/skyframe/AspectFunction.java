@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.Configure
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.ToolchainContextException;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -416,7 +415,7 @@ public final class AspectFunction implements SkyFunction {
                 requiredToolchains,
                 /* execConstraintLabels= */ ImmutableSet.of(),
                 key.getAspectConfigurationKey());
-      } catch (ToolchainContextException e) {
+      } catch (ToolchainException e) {
         // TODO(katre): better error handling
         throw new AspectCreationException(
             e.getMessage(), new LabelCause(key.getLabel(), e.getMessage()));
