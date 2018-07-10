@@ -60,8 +60,6 @@ platforms:
     - "//src/test/..."
     - "//third_party/ijar/..."
     - "//tools/android/..."
-    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
-    - "-//src/test/shell/bazel:bazel_determinism_test"
   windows:
     build_flags:
     - "--copt=-w"
