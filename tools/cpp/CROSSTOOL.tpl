@@ -217,9 +217,6 @@ toolchain {
   compiler_flag: "/bigobj"
   # Allocate 500MB for precomputed headers.
   compiler_flag: "/Zm500"
-  # Catch C++ exceptions only and tell the compiler to assume that functions declared
-  # as extern "C" never throw a C++ exception.
-  compiler_flag: "/EHsc"
 
   # Globally disabled warnings.
   # Don't warn about elements of array being be default initialized.
