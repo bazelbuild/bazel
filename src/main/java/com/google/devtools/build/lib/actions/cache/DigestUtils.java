@@ -164,11 +164,17 @@ public class DigestUtils {
     long startTime = BlazeClock.nanoTime();
     byte[] digest = path.getDigest();
 
-    long millis = (BlazeClock.nanoTime() - startTime) / 1000000;
-    if (millis > SLOW_READ_MILLIS && (path.getFileSize() / millis) < SLOW_READ_THROUGHPUT) {
-      System.err.println("Slow read: a " + path.getFileSize() + "-byte read from " + path
-          + " took " +  millis + "ms.");
+    // When using multi-threaded digesting, it makes no sense to use the throughput of a single
+    // digest operation to determine whether a read was abnormally slow (as the scheduler might just
+    // have preferred other reads).
+    if (!MULTI_THREADED_DIGEST.get()) {
+      long millis = (BlazeClock.nanoTime() - startTime) / 1000000;
+      if (millis > SLOW_READ_MILLIS && (path.getFileSize() / millis) < SLOW_READ_THROUGHPUT) {
+        System.err.printf(
+            "Slow read: a %d-byte read from %s took %d ms.%n", path.getFileSize(), path, millis);
+      }
     }
+
     return digest;
   }
 
