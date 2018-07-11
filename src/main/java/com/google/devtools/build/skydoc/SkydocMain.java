@@ -17,6 +17,7 @@ package com.google.devtools.build.skydoc;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
@@ -87,8 +88,13 @@ import java.util.stream.Collectors;
  *
  * <p>Usage:</p>
  * <pre>
- *   skydoc {target_skylark_file} {output_file}
+ *   skydoc {target_skylark_file} {output_file} [symbol_name]...
  * </pre>
+ * <p>
+ *   Generates documentation for all exported symbols of the target skylark file that are
+ *   specified in the list of symbol names. If no symbol names are supplied, outputs documentation
+ *   for all exported symbols in the target skylark file.
+ * </p>
  */
 public class SkydocMain {
 
@@ -102,40 +108,58 @@ public class SkydocMain {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    if (args.length != 2) {
-      throw new IllegalArgumentException("Expected two arguments. Usage:\n"
-          + "{skydoc_bin} {target_skylark_file} {output_file}");
+    if (args.length < 2) {
+      throw new IllegalArgumentException("Expected two or more arguments. Usage:\n"
+          + "{skydoc_bin} {target_skylark_file} {output_file} [symbol_names]...");
     }
 
     String bzlPath = args[0];
     String outputPath = args[1];
+    ImmutableSet<String> symbolNames = getSymbolNames(args);
 
     Path path = Paths.get(bzlPath);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-    ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
+    ImmutableList.Builder<RuleInfo> unknownNamedRules = ImmutableList.builder();
 
-    new SkydocMain(new FilesystemFileAccessor()).eval(path, ruleInfoMap, unexportedRuleInfos);
+    new SkydocMain(new FilesystemFileAccessor()).eval(path, ruleInfoMap, unknownNamedRules);
 
     MarkdownRenderer renderer = new MarkdownRenderer();
 
-    try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
-      printRuleInfos(printWriter, renderer, ruleInfoMap.build(), unexportedRuleInfos.build());
+    if (symbolNames.isEmpty()) {
+      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+        printRuleInfos(printWriter, renderer, ruleInfoMap.build(), unknownNamedRules.build());
+      }
+    } else {
+      Map<String, RuleInfo> filteredRuleInfos = ImmutableMap.copyOf(
+          ruleInfoMap.build().entrySet().stream()
+              .filter(entry -> symbolNames.contains(entry.getKey()))
+              .collect(Collectors.toList()));
+      try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+        printRuleInfos(printWriter, renderer, filteredRuleInfos, ImmutableList.of());
+      }
     }
   }
 
-  // TODO(cparsons): Improve output (markdown or HTML).
+  private static ImmutableSet<String> getSymbolNames(String[] args) {
+    ImmutableSet.Builder<String> symbolNameSet = ImmutableSet.builder();
+    for (int argi = 2; argi < args.length; argi++) {
+      symbolNameSet.add(args[argi]);
+    }
+    return symbolNameSet.build();
+  }
+
   private static void printRuleInfos(
       PrintWriter printWriter,
       MarkdownRenderer renderer,
       Map<String, RuleInfo> ruleInfos,
-      List<RuleInfo> unexportedRuleInfos) throws IOException {
+      List<RuleInfo> unknownNamedRules) throws IOException {
     for (Entry<String, RuleInfo> ruleInfoEntry : ruleInfos.entrySet()) {
       printRuleInfo(printWriter, renderer, ruleInfoEntry.getKey(), ruleInfoEntry.getValue());
       printWriter.println();
     }
-    for (RuleInfo unexportedRuleInfo : unexportedRuleInfos) {
-      printRuleInfo(printWriter, renderer, "<unknown name>", unexportedRuleInfo);
+    for (RuleInfo unknownNamedRule : unknownNamedRules) {
+      printRuleInfo(printWriter, renderer, "<unknown name>", unknownNamedRule);
       printWriter.println();
     }
   }
@@ -148,20 +172,57 @@ public class SkydocMain {
 
   /**
    * Evaluates/interprets the skylark file at a given path and its transitive skylark dependencies
-   * using a fake build API and collects information about all rule definitions made in those files.
+   * using a fake build API and collects information about all rule definitions made in the
+   * root skylark file.
    *
    * @param path the path of the skylark file to evaluate
    * @param ruleInfoMap a map builder to be populated with rule definition information for
    *     named rules. Keys are exported names of rules, and values are their {@link RuleInfo}
    *     rule descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
-   * @param unexportedRuleInfos a list builder to be populated with rule definition information
+   * @param unknownNamedRules a list builder to be populated with rule definition information
    *     for rules which were not exported as top level symbols
    * @throws InterruptedException if evaluation is interrupted
    */
   public Environment eval(
       Path path,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
-      ImmutableList.Builder<RuleInfo> unexportedRuleInfos)
+      ImmutableList.Builder<RuleInfo> unknownNamedRules)
+      throws InterruptedException, IOException {
+    List<RuleInfo> ruleInfoList = new ArrayList<>();
+    Environment env = recursiveEval(path, ruleInfoList);
+
+    Map<BaseFunction, RuleInfo> ruleFunctions = ruleInfoList.stream()
+        .collect(Collectors.toMap(
+            RuleInfo::getIdentifierFunction,
+            Functions.identity()));
+
+    ImmutableSet.Builder<RuleInfo> handledRuleDefinitions = ImmutableSet.builder();
+    for (Entry<String, Object> envEntry : env.getGlobals().getBindings().entrySet()) {
+      if (ruleFunctions.containsKey(envEntry.getValue())) {
+        RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue());
+        ruleInfoMap.put(envEntry.getKey(), ruleInfo);
+        handledRuleDefinitions.add(ruleInfo);
+      }
+    }
+
+    unknownNamedRules.addAll(ruleFunctions.values().stream()
+        .filter(ruleInfo -> !handledRuleDefinitions.build().contains(ruleInfo)).iterator());
+
+    return env;
+  }
+
+  /**
+   * Recursively evaluates/interprets the skylark file at a given path and its transitive skylark
+   * dependencies using a fake build API and collects information about all rule definitions made
+   * in those files.
+   *
+   * @param path the path of the skylark file to evaluate
+   * @param ruleInfoList a collection of all rule definitions made so far (using rule()); this
+   *     method will add to this list as it evaluates additional files
+   * @throws InterruptedException if evaluation is interrupted
+   */
+  private Environment recursiveEval(
+      Path path, List<RuleInfo> ruleInfoList)
       throws InterruptedException, IOException {
     if (pending.contains(path)) {
       throw new IllegalStateException("cycle with " + path);
@@ -177,12 +238,12 @@ public class SkydocMain {
     for (SkylarkImport anImport : buildFileAST.getImports()) {
       Path importPath = fromPathFragment(path, anImport.asPathFragment());
 
-      Environment importEnv = eval(importPath, ruleInfoMap, unexportedRuleInfos);
+      Environment importEnv = recursiveEval(importPath, ruleInfoList);
 
       imports.put(anImport.getImportString(), new Extension(importEnv));
     }
 
-    Environment env = evalSkylarkBody(buildFileAST, imports, ruleInfoMap, unexportedRuleInfos);
+    Environment env = evalSkylarkBody(buildFileAST, imports, ruleInfoList);
 
     pending.remove(path);
     env.mutability().freeze();
@@ -202,9 +263,7 @@ public class SkydocMain {
   private Environment evalSkylarkBody(
       BuildFileAST buildFileAST,
       Map<String, Extension> imports,
-      ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
-      ImmutableList.Builder<RuleInfo> unexportedRuleInfos) throws InterruptedException {
-    List<RuleInfo> ruleInfoList = new ArrayList<>();
+      List<RuleInfo> ruleInfoList) throws InterruptedException {
 
     Environment env = createEnvironment(
         eventHandler,
@@ -217,19 +276,6 @@ public class SkydocMain {
 
     env.mutability().freeze();
 
-    Map<BaseFunction, RuleInfo> ruleFunctions = ruleInfoList.stream()
-        .collect(Collectors.toMap(
-            RuleInfo::getIdentifierFunction,
-            Functions.identity()));
-
-    for (Entry<String, Object> envEntry : env.getGlobals().getBindings().entrySet()) {
-      if (ruleFunctions.containsKey(envEntry.getValue())) {
-        ruleInfoMap.put(envEntry.getKey(), ruleFunctions.get(envEntry.getValue()));
-        ruleFunctions.remove(envEntry.getValue());
-      }
-    }
-    unexportedRuleInfos.addAll(ruleFunctions.values());
-
     return env;
   }
 
@@ -240,8 +286,6 @@ public class SkydocMain {
    *     information will be added
    */
   private static GlobalFrame globalFrame(List<RuleInfo> ruleInfoList) {
-    // TODO(cparsons): Complete the Fake Build API stubs. For example, implement provider(),
-    // and include the other bootstraps.
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(new FakeBuildApiGlobals(),
             new FakeSkylarkAttrApi(),

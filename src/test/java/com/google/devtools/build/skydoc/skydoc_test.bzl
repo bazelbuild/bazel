@@ -20,7 +20,7 @@
 #    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
-def skydoc_test(name, input_file, golden_file, skydoc, deps = []):
+def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_symbols = []):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
     The test target is named "{name}_e2e_test".
@@ -34,6 +34,9 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = []):
           is run on the input file.
       skydoc: The label string of the skydoc binary.
       deps: A list of label strings of skylark file dependencies of the input_file.
+      whitelisted_symbols: A list of strings representing top-level symbols in the input file
+          to generate documentation for. If empty, documentation for all top-level symbols
+          will be generated.
     """
     output_golden_file = "%s_output.txt" % name
     native.sh_test(
@@ -43,7 +46,7 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = []):
             "$(location %s)" % skydoc,
             "$(location %s)" % input_file,
             "$(location %s)" % golden_file,
-        ],
+        ] + whitelisted_symbols,
         data = [
             input_file,
             golden_file,
@@ -58,6 +61,7 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = []):
         ] + deps,
         outs = [output_golden_file],
         cmd = "$(location %s) " % skydoc +
-              "$(location %s) $(location %s)" % (input_file, output_golden_file),
+              "$(location %s) $(location %s) " % (input_file, output_golden_file) +
+              " ".join(whitelisted_symbols),
         tools = [skydoc],
     )

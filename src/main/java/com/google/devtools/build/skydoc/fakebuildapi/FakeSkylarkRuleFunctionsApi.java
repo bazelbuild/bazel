@@ -123,8 +123,10 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
    */
   private static class RuleDefinitionIdentifier extends BaseFunction {
 
+    private static int idCounter = 0;
+
     public RuleDefinitionIdentifier() {
-      super("RuleDefinitionIdentifier");
+      super("RuleDefinitionIdentifier" + idCounter++);
     }
 
     @Override

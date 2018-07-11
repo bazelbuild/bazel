@@ -19,13 +19,16 @@
 set -u
 
 skydoc_bin=$1
-input_file=$2
-golden_file=$3
+shift 1
+input_file=$1
+shift 1
+golden_file=$1
+shift 1
 
 actual_file="${TEST_TMPDIR}/actual"
 
 set -e
-${skydoc_bin} ${input_file} ${actual_file}
+${skydoc_bin} ${input_file} ${actual_file} $@
 set +e
 
 DIFF="$(diff ${actual_file} ${golden_file})"

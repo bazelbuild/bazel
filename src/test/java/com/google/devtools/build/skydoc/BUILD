@@ -105,3 +105,17 @@ skydoc_test(
     input_file = "testdata/attribute_types_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )
+
+skydoc_test(
+    name = "filter_rules_test",
+    golden_file = "testdata/filter_rules_test/golden.txt",
+    input_file = "testdata/filter_rules_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+    whitelisted_symbols = [
+        "my_rule",
+        "whitelisted_dep_rule",
+    ],
+    deps = [
+        "testdata/filter_rules_test/dep.bzl",
+    ],
+)

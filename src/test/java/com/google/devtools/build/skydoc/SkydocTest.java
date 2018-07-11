@@ -168,7 +168,10 @@ public final class SkydocTest extends SkylarkTestCase {
         "load('//lib:rule_impl.bzl', 'rule_impl')",
         "load(':docstring.bzl', 'doc_string')",
         "",
-        "some_var = 1",
+        "_hidden_rule = rule(",
+        "    doc = doc_string,",
+        "    implementation = rule_impl,",
+        ")",
         "",
         "dep_rule = rule(",
         "    doc = doc_string,",
@@ -178,7 +181,7 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/main.bzl",
         "load('//lib:rule_impl.bzl', 'rule_impl')",
-        "load('//deps/foo:dep_rule.bzl', 'some_var')",
+        "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
         "",
         "main_rule = rule(",
         "    doc = 'Main rule',",
@@ -194,6 +197,8 @@ public final class SkydocTest extends SkylarkTestCase {
 
     Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
 
+    // dep_rule is available here, even though it was not defined in main.bzl, because it is
+    // imported in main.bzl. Thus, it's a top-level symbol in main.bzl.
     assertThat(ruleInfoMap.keySet()).containsExactly("main_rule", "dep_rule");
     assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
     assertThat(ruleInfoMap.get("dep_rule").getDocString()).isEqualTo("Dep rule");
