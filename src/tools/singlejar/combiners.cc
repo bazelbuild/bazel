@@ -15,6 +15,8 @@
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 
+#include <cctype>
+
 Combiner::~Combiner() {}
 
 Concatenator::~Concatenator() {}
@@ -33,7 +35,7 @@ bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
     }
     buffer_->DecompressEntryContents(cdh, lh, inflater_.get());
   } else {
-    errx(2, "%s is neither stored nor deflated", filename_.c_str());
+    diag_errx(2, "%s is neither stored nor deflated", filename_.c_str());
   }
   return true;
 }
@@ -138,7 +140,7 @@ bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
     }
     bytes_.DecompressEntryContents(cdh, lh, inflater_.get());
   } else {
-    errx(2, "%s is neither stored nor deflated", filename_.c_str());
+    diag_errx(2, "%s is neither stored nor deflated", filename_.c_str());
   }
   uint32_t checksum;
   char *buf = reinterpret_cast<char *>(malloc(bytes_.data_size()));

@@ -276,7 +276,7 @@ class TransientBytes {
   // Returns the old write position.
   uint8_t *advance(size_t amount) {
     if (amount > free_size()) {
-      diag_errx(2, "%s: %d: Cannot advance %ld bytes, only %" PRIu64
+      diag_errx(2, "%s: %d: Cannot advance %zu bytes, only %" PRIu64
                    " is available",
                 __FILE__, __LINE__, amount, free_size());
     }
