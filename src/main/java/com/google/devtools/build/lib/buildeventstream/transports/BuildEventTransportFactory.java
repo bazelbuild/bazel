@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -105,19 +107,27 @@ public enum BuildEventTransportFactory {
    * @throws IOException Exception propagated from a {@link BuildEventTransport} creation failure.
    */
   public static ImmutableSet<BuildEventTransport> createFromOptions(
-      BuildEventStreamOptions options,
-      BuildEventProtocolOptions protocolOptions,
+      OptionsProvider options,
       BuildEventArtifactUploaderFactoryMap artifactUploaders,
       Consumer<AbruptExitException> exitFunc)
       throws IOException {
+    BuildEventStreamOptions bepOptions =
+        checkNotNull(
+            options.getOptions(BuildEventStreamOptions.class),
+            "Could not get BuildEventStreamOptions.");
+    BuildEventProtocolOptions protocolOptions =
+        checkNotNull(
+            options.getOptions(BuildEventProtocolOptions.class),
+            "Could not get BuildEventProtocolOptions.");
     ImmutableSet.Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
     for (BuildEventTransportFactory transportFactory : BuildEventTransportFactory.values()) {
-      if (transportFactory.enabled(options)) {
-        BuildEventArtifactUploader uploader = transportFactory.usePathConverter(options)
-            ? artifactUploaders.select(protocolOptions.buildEventUploadStrategy).create()
-            : BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
+      if (transportFactory.enabled(bepOptions)) {
+        BuildEventArtifactUploader uploader =
+            transportFactory.usePathConverter(bepOptions)
+                ? artifactUploaders.select(protocolOptions.buildEventUploadStrategy).create(options)
+                : BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
         buildEventTransportsBuilder.add(
-            transportFactory.create(options, protocolOptions, uploader, exitFunc));
+            transportFactory.create(bepOptions, protocolOptions, uploader, exitFunc));
       }
     }
     return buildEventTransportsBuilder.build();

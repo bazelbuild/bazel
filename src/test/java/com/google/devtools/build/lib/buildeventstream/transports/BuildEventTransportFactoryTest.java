@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -49,25 +49,16 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class BuildEventTransportFactoryTest {
 
-  private static final Function<Object, Class<?>> GET_CLASS =
-      new Function<Object, Class<?>>() {
-        @Override
-        public Class<?> apply(Object o) {
-          return o.getClass();
-        }
-      };
+  private static final Function<Object, Class<?>> GET_CLASS = Object::getClass;
 
   private static final BuildEventStreamProtos.BuildEvent BUILD_EVENT_AS_PROTO =
       BuildEventStreamProtos.BuildEvent.newBuilder()
           .setStarted(BuildStarted.newBuilder().setCommand("build"))
           .build();
 
-  private final BuildEventProtocolOptions protocolOpts =
-      Options.getDefaults(BuildEventProtocolOptions.class);
+  private OptionsParser optionsParser;
 
   @Rule public TemporaryFolder tmp = new TemporaryFolder();
-
-  @Mock public BuildEventStreamOptions options;
 
   @Mock public BuildEvent buildEvent;
 
@@ -79,6 +70,9 @@ public class BuildEventTransportFactoryTest {
     MockitoAnnotations.initMocks(this);
     when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any()))
         .thenReturn(BUILD_EVENT_AS_PROTO);
+    optionsParser =
+        OptionsParser.newOptionsParser(
+            BuildEventStreamOptions.class, BuildEventProtocolOptions.class);
   }
 
   @After
@@ -93,11 +87,9 @@ public class BuildEventTransportFactoryTest {
   @Test
   public void testCreatesTextFormatFileTransport() throws Exception {
     File textFile = tmp.newFile();
-    when(options.getBuildEventTextFile()).thenReturn(textFile.getAbsolutePath());
-    when(options.getBuildEventBinaryFile()).thenReturn("");
+    optionsParser.parse("--build_event_text_file=" + textFile.getAbsolutePath());
     ImmutableSet<BuildEventTransport> transports =
-        BuildEventTransportFactory.createFromOptions(
-            options, protocolOpts, localFilesOnly(), (e) -> {});
+        BuildEventTransportFactory.createFromOptions(optionsParser, localFilesOnly(), (e) -> {});
     assertThat(FluentIterable.from(transports).transform(GET_CLASS))
         .containsExactly(TextFormatFileTransport.class);
     sendEventsAndClose(buildEvent, transports);
@@ -107,11 +99,9 @@ public class BuildEventTransportFactoryTest {
   @Test
   public void testCreatesBinaryFormatFileTransport() throws Exception {
     File binaryFile = tmp.newFile();
-    when(options.getBuildEventTextFile()).thenReturn("");
-    when(options.getBuildEventBinaryFile()).thenReturn(binaryFile.getAbsolutePath());
+    optionsParser.parse("--build_event_binary_file=" + binaryFile.getAbsolutePath());
     ImmutableSet<BuildEventTransport> transports =
-        BuildEventTransportFactory.createFromOptions(
-            options, protocolOpts, localFilesOnly(), (e) -> {});
+        BuildEventTransportFactory.createFromOptions(optionsParser, localFilesOnly(), (e) -> {});
     assertThat(FluentIterable.from(transports).transform(GET_CLASS))
         .containsExactly(BinaryFormatFileTransport.class);
     sendEventsAndClose(buildEvent, transports);
@@ -122,11 +112,11 @@ public class BuildEventTransportFactoryTest {
   public void testCreatesAllTransports() throws Exception {
     File textFile = tmp.newFile();
     File binaryFile = tmp.newFile();
-    when(options.getBuildEventTextFile()).thenReturn(textFile.getAbsolutePath());
-    when(options.getBuildEventBinaryFile()).thenReturn(binaryFile.getAbsolutePath());
+    optionsParser.parse(
+        "--build_event_text_file=" + textFile.getAbsolutePath(),
+        "--build_event_binary_file=" + binaryFile.getAbsolutePath());
     ImmutableSet<BuildEventTransport> transports =
-        BuildEventTransportFactory.createFromOptions(
-            options, protocolOpts, localFilesOnly(), (e) -> {});
+        BuildEventTransportFactory.createFromOptions(optionsParser, localFilesOnly(), (e) -> {});
     assertThat(FluentIterable.from(transports).transform(GET_CLASS))
         .containsExactly(TextFormatFileTransport.class, BinaryFormatFileTransport.class);
     sendEventsAndClose(buildEvent, transports);
@@ -136,10 +126,8 @@ public class BuildEventTransportFactoryTest {
 
   @Test
   public void testCreatesNoTransports() throws IOException {
-    when(options.getBuildEventTextFile()).thenReturn("");
     ImmutableSet<BuildEventTransport> transports =
-        BuildEventTransportFactory.createFromOptions(
-            options, protocolOpts, localFilesOnly(), (e) -> {});
+        BuildEventTransportFactory.createFromOptions(optionsParser, localFilesOnly(), (e) -> {});
     assertThat(transports).isEmpty();
   }
 

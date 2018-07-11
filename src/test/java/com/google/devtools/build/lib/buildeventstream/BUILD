@@ -18,6 +18,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",

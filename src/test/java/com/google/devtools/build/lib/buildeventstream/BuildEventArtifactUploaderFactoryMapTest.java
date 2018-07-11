@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,11 +33,12 @@ import org.junit.runners.JUnit4;
 public final class BuildEventArtifactUploaderFactoryMapTest {
   private BuildEventArtifactUploaderFactoryMap uploaderFactories;
   private BuildEventArtifactUploaderFactory noConversionUploaderFactory;
+  private final OptionsParser optionsParser = OptionsParser.newOptionsParser(ImmutableList.of());
 
   @Before
   public void setUp() {
     noConversionUploaderFactory =
-        () ->
+        (OptionsProvider options) ->
             new BuildEventArtifactUploader() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
@@ -57,13 +61,13 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
   public void testEmptyUploaders() throws Exception {
     BuildEventArtifactUploaderFactoryMap emptyUploader =
         new BuildEventArtifactUploaderFactoryMap.Builder().build();
-    assertThat(emptyUploader.select(null).create())
+    assertThat(emptyUploader.select(null).create(optionsParser))
         .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
   }
 
   @Test
   public void testAlphabeticalOrder() {
-    assertThat(uploaderFactories.select(null).create())
+    assertThat(uploaderFactories.select(null).create(optionsParser))
         .isEqualTo(BuildEventArtifactUploader.LOCAL_FILES_UPLOADER);
   }
 

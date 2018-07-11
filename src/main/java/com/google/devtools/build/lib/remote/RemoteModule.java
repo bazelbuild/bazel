@@ -105,7 +105,7 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
     builder.addBuildEventArtifactUploaderFactory(
-        () ->
+        (OptionsProvider options) ->
             new BuildEventArtifactUploader() {
 
               @Override
