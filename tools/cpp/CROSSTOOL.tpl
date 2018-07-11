@@ -975,6 +975,7 @@ toolchain {
     flag_set {
       action: 'c-compile'
       action: 'c++-compile'
+      flag_group {
         flag: "/WX"
       }
     }

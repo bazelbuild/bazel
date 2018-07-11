@@ -259,21 +259,6 @@ public class CppRuleClasses {
   public static final String DYNAMIC_LINKING_MODE = "dynamic_linking_mode";
 
   /**
-   * A string constant for the feature to disable C++ exceptions.
-   */
-  public static final String DISABLE_EXCEPTIONS = "disable_exceptions";
-
-  /**
-   * A string constant for the feature to compile with C++ exceptions enabled.
-   */
-  public static final String USE_EXCEPTIONS_IMPL = "use_exceptions_impl";
-
-  /**
-   * A string constant for the feature to compile with C++ exceptions disabled.
-   */
-  public static final String NO_EXCEPTIONS_IMPL = "no_exceptions_impl";
-
-  /**
    * A string constant for the ThinLTO feature.
    */
   public static final String THIN_LTO = "thin_lto";
