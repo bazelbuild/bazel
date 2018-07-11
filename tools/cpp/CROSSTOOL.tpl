@@ -155,6 +155,16 @@ toolchain {
       }
     }
   }
+  feature {
+    name: "disable_errors"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-w"
+      }
+    }
+  }
 }
 
 toolchain {
