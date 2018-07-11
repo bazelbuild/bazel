@@ -462,9 +462,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // Unnecessary ImmutableList.copyOf apparently necessary to choose non-varargs constructor.
     new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
         .addDependency(FileSystem.class, getScratch().getFileSystem())
-        .addDependency(
-            BuildConfigurationValue.KeyCodecCache.class,
-            new BuildConfigurationValue.KeyCodecCache())
+        .addDependency(BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())
         .setVerificationFunction(BuildConfigurationTest::verifyDeserialized)
         .runTests();
   }
@@ -476,9 +474,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
                 .stream()
                 .map(BuildConfigurationValue::key)
                 .collect(ImmutableList.toImmutableList()))
-        .addDependency(
-            BuildConfigurationValue.KeyCodecCache.class,
-            new BuildConfigurationValue.KeyCodecCache())
+        .addDependency(BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())
         .runTests();
   }
 
