@@ -646,8 +646,10 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public void setAdditionalPrunableHeaders(Iterable<Artifact> additionalPrunableHeaders) {
+  public CppCompileActionBuilder setAdditionalPrunableHeaders(
+      Iterable<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
+    return this;
   }
 
   public boolean shouldCompileHeaders() {

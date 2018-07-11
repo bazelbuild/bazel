@@ -302,6 +302,12 @@ public class CppCompileAction extends AbstractAction
     return shouldScanIncludes;
   }
 
+  private boolean shouldScanDotdFiles() {
+    return !cppConfiguration.getNoDotdScanningWithModules()
+        || !useHeaderModules
+        || !shouldPruneModules;
+  }
+
   @Override
   public List<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
@@ -972,21 +978,23 @@ public class CppCompileAction extends AbstractAction
     // A better long-term solution would be to make the compiler to find them automatically and
     // never hand in the .pcm files explicitly on the command line in the first place.
     fp.addStrings(compileCommandLine.getArguments(/* overwrittenVariables= */ null));
-
-    /*
-     * getArguments() above captures all changes which affect the compilation
-     * command and hence the contents of the object file.  But we need to
-     * also make sure that we reexecute the action if any of the fields
-     * that affect whether validateIncludes() will report an error or warning
-     * have changed, otherwise we might miss some errors.
-     */
-    fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
-    fp.addPaths(ccCompilationContext.getDeclaredIncludeWarnDirs());
     actionKeyContext.addNestedSetToFingerprint(fp, ccCompilationContext.getDeclaredIncludeSrcs());
     fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, getMandatoryInputs());
     fp.addInt(0);
     actionKeyContext.addNestedSetToFingerprint(fp, additionalPrunableHeaders);
+
+    fp.addBoolean(shouldScanDotdFiles());
+    if (shouldScanDotdFiles()) {
+      /**
+       * getArguments() above captures all changes which affect the compilation command and hence
+       * the contents of the object file. But we need to also make sure that we re-execute the
+       * action if any of the fields that affect whether {@link #validateInclusions} will report an
+       * error or warning have changed, otherwise we might miss some errors.
+       */
+      fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
+      fp.addPaths(ccCompilationContext.getDeclaredIncludeWarnDirs());
+    }
   }
 
   @Override
@@ -1006,7 +1014,7 @@ public class CppCompileAction extends AbstractAction
       actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
     }
 
-    if (cppConfiguration.getNoDotdScanningWithModules() && useHeaderModules && shouldPruneModules) {
+    if (!shouldScanDotdFiles()) {
       updateActionInputs(
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER, Iterables.concat(discoveredModules, additionalInputs)));
@@ -1030,7 +1038,7 @@ public class CppCompileAction extends AbstractAction
     }
     ensureCoverageNotesFilesExist(actionExecutionContext);
 
-    if (cppConfiguration.getNoDotdScanningWithModules() && useHeaderModules && shouldPruneModules) {
+    if (!shouldScanDotdFiles()) {
       return ActionResult.create(spawnResults);
     }
 
