@@ -100,7 +100,7 @@ public class MultiArchBinarySupport {
      * dylib symbols should be subtracted from this provider.
      */
     abstract ObjcProvider objcLinkProvider();
-    
+
     /**
      * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have dylib
      * symbols subtracted, thus signaling that this target is still responsible for those symbols.
@@ -184,7 +184,6 @@ public class MultiArchBinarySupport {
               j2ObjcEntryClassProvider,
               extraLinkArgs,
               extraLinkInputs,
-              DsymOutputType.APP,
               dependencySpecificConfiguration.toolchain())
           .validateAttributes();
       ruleContext.assertNoErrors();
@@ -309,9 +308,6 @@ public class MultiArchBinarySupport {
             .setAlwayslink(false)
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
-      commonBuilder.addDebugArtifacts(DsymOutputType.APP);
-    }
     return commonBuilder.build();
   }
 

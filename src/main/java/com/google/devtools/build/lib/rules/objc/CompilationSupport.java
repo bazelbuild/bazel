@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -149,7 +148,7 @@ public class CompilationSupport {
 
   @VisibleForTesting
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  
+
   @VisibleForTesting
   static final String MODULES_CACHE_PATH_WARNING =
       "setting '-fmodules-cache-path' manually in copts is unsupported";
@@ -211,6 +210,9 @@ public class CompilationSupport {
 
   /** Enabled if this target generates debug symbols in a dSYM file. */
   private static final String GENERATE_DSYM_FILE_FEATURE_NAME = "generate_dsym_file";
+
+  /** Always enabled to simplify dSYMs handling for newer Bazel versions. */
+  private static final String NO_DSYM_ZIPS_FEATURE_NAME = "no_dsym_create_zip";
 
   /**
    * Enabled if this target does not generate debug symbols.
@@ -546,6 +548,10 @@ public class CompilationSupport {
     if (toolchain.useFission()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
+
+    // TODO(b/111205462): Remove this feature from here, CROSSTOOL, and wrapped_clang after the
+    // next release.
+    activatedCrosstoolSelectables.add(NO_DSYM_ZIPS_FEATURE_NAME);
 
     activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
         + XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2));
@@ -1102,7 +1108,6 @@ public class CompilationSupport {
    * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
    * @param extraLinkInputs any additional input artifacts to pass to the link action
-   * @param dsymOutputType the file type of the dSYM bundle to be generated
    * @return this compilation support
    */
   CompilationSupport registerLinkActions(
@@ -1111,7 +1116,6 @@ public class CompilationSupport {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
-      DsymOutputType dsymOutputType,
       CcToolchainProvider toolchain)
       throws InterruptedException {
     Iterable<Artifact> prunedJ2ObjcArchives =
@@ -1179,12 +1183,14 @@ public class CompilationSupport {
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
-      Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
+      Artifact dsymSymbol =
+          objcConfiguration.shouldStripBinary()
+              ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
+              : intermediateArtifacts.dsymSymbolForStrippedBinary();
       extensionBuilder
-          .setDsymBundleZip(dsymBundleZip)
+          .setDsymSymbol(dsymSymbol)
           .addVariableCategory(VariableCategory.DSYM_VARIABLES);
-      registerDsymActions(dsymOutputType);
-      executableLinkAction.addActionOutput(dsymBundleZip);
+      executableLinkAction.addActionOutput(dsymSymbol);
     }
 
     if (objcConfiguration.generateLinkmap()) {
@@ -1340,58 +1346,6 @@ public class CompilationSupport {
             .addVariablesExtension(extension)
             .build();
     ruleContext.registerAction(fullyLinkAction);
-
-    return this;
-  }
-
-  private PathFragment removeSuffix(PathFragment path, String suffix) {
-    String name = path.getBaseName();
-    Preconditions.checkArgument(
-        name.endsWith(suffix), "expected %s to end with %s, but it does not", name, suffix);
-    return path.replaceName(name.substring(0, name.length() - suffix.length()));
-  }
-
-  private CompilationSupport registerDsymActions(DsymOutputType dsymOutputType) {
-    Artifact tempDsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
-    Artifact linkedBinary =
-        objcConfiguration.shouldStripBinary()
-            ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
-            : intermediateArtifacts.strippedSingleArchitectureBinary();
-    Artifact debugSymbolFile = intermediateArtifacts.dsymSymbol(dsymOutputType);
-    Artifact dsymPlist = intermediateArtifacts.dsymPlist(dsymOutputType);
-
-    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".temp.zip");
-    PathFragment dsymPlistZipEntry = dsymPlist.getExecPath().relativeTo(dsymOutputDir);
-    PathFragment debugSymbolFileZipEntry =
-        debugSymbolFile
-            .getExecPath()
-            .replaceName(linkedBinary.getFilename())
-            .relativeTo(dsymOutputDir);
-
-    StringBuilder unzipDsymCommand =
-        new StringBuilder()
-            .append(
-                String.format(
-                    "unzip -p %s %s > %s",
-                    tempDsymBundleZip.getExecPathString(),
-                    dsymPlistZipEntry,
-                    dsymPlist.getExecPathString()))
-            .append(
-                String.format(
-                    " && unzip -p %s %s > %s",
-                    tempDsymBundleZip.getExecPathString(),
-                    debugSymbolFileZipEntry,
-                    debugSymbolFile.getExecPathString()));
-
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .setMnemonic("UnzipDsym")
-            .setShellCommand(shExecutable, unzipDsymCommand.toString())
-            .addInput(tempDsymBundleZip)
-            .addOutput(dsymPlist)
-            .addOutput(debugSymbolFile)
-            .build(ruleContext));
 
     return this;
   }
@@ -1575,7 +1529,7 @@ public class CompilationSupport {
     // the symbol table from the unstripped binary.
     return objcConfiguration.shouldStripBinary()
         ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
-        : intermediateArtifacts.strippedSingleArchitectureBinary();    
+        : intermediateArtifacts.strippedSingleArchitectureBinary();
   }
 
   private static CommandLine symbolStripCommandLine(
@@ -1632,7 +1586,7 @@ public class CompilationSupport {
             umbrellaHeader,
             publicHeaders,
             ImmutableList.<PathFragment>of()));
- 
+
     return this;
   }
 
@@ -1692,7 +1646,7 @@ public class CompilationSupport {
 
     return this;
   }
-    
+
   /**
    * Collector that, given a list of output artifacts, finds and registers coverage notes metadata
    * for any compilation action.

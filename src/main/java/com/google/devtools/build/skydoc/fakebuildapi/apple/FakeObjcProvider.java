@@ -53,16 +53,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public NestedSet<FileApi> debugSymbols() {
-    return null;
-  }
-
-  @Override
-  public NestedSet<FileApi> debugSymbolsPlist() {
-    return null;
-  }
-
-  @Override
   public NestedSet<FileApi> exportedDebugArtifacts() {
     return null;
   }

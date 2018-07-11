@@ -263,18 +263,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
       new Key<>(STABLE_ORDER, "nested_bundle", Bundling.class);
 
   /**
-   * Artifact containing information on debug symbols.
-   */
-  public static final Key<Artifact> DEBUG_SYMBOLS =
-      new Key<>(STABLE_ORDER, "debug_symbols", Artifact.class);
-
-  /**
-   * Artifact containing the plist of the debug symbols.
-   */
-  public static final Key<Artifact> DEBUG_SYMBOLS_PLIST =
-      new Key<>(STABLE_ORDER, "debug_symbols_plist", Artifact.class);
-
-  /**
    * Debug artifacts that should be exported by the top-level target.
    */
   public static final Key<Artifact> EXPORTED_DEBUG_ARTIFACTS =
@@ -372,8 +360,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
           DEFINE,
           DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
-          DEBUG_SYMBOLS,
-          DEBUG_SYMBOLS_PLIST,
           EXPORTED_DEBUG_ARTIFACTS,
           FRAMEWORK_SEARCH_PATH_ONLY,
           FORCE_LOAD_LIBRARY,
@@ -444,16 +430,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
   @Override
   public NestedSet<Artifact> dynamicFrameworkFile() {
     return get(DYNAMIC_FRAMEWORK_FILE);
-  }
-
-  @Override
-  public NestedSet<Artifact> debugSymbols() {
-    return get(DEBUG_SYMBOLS);
-  }
-
-  @Override
-  public NestedSet<Artifact> debugSymbolsPlist() {
-    return get(DEBUG_SYMBOLS_PLIST);
   }
 
   @Override
@@ -986,7 +962,7 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
       }
       return this;
     }
-   
+
     /**
      * Add all keys and values from the given provider, but propagate any normally-propagated items
      * only to direct dependers of this ObjcProvider.

@@ -66,18 +66,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StructApi {
   )
   public NestedSet<FileApiT> dynamicFrameworkFile();
 
-  @SkylarkCallable(name = "debug_symbols",
-      structField = true,
-      doc = "Files containing information on debug symbols."
-  )
-  public NestedSet<FileApiT> debugSymbols();
-
-  @SkylarkCallable(name = "debug_symbols_plist",
-      structField = true,
-      doc = "Files containing the plist of the debug symbols."
-  )
-  public NestedSet<FileApiT> debugSymbolsPlist();
-
   @SkylarkCallable(name = "exported_debug_artifacts",
       structField = true,
       doc = "Debug files that should be exported by the top-level target."

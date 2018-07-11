@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Set;
 
 /** Build variable extensions for templating a toolchain for objc builds. */
@@ -62,7 +61,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   // dsym variables
   static final String DSYM_PATH_VARIABLE_NAME = "dsym_path";
-  static final String DSYM_BUNDLE_ZIP_VARIABLE_NAME = "dsym_bundle_zip";
 
   // ARC variables. Mutually exclusive.
   static final String OBJC_ARC_VARIABLE_NAME = "objc_arc";
@@ -79,7 +77,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final ImmutableSet<Artifact> forceLoadArtifacts;
   private final ImmutableList<String> attributeLinkopts;
   private final ImmutableSet<VariableCategory> activeVariableCategories;
-  private final Artifact dsymBundleZip;
+  private final Artifact dsymSymbol;
   private final Artifact linkmap;
   private final Artifact bitcodeSymbolMap;
   private boolean arcEnabled = true;
@@ -96,7 +94,7 @@ class ObjcVariablesExtension implements VariablesExtension {
       ImmutableSet<Artifact> forceLoadArtifacts,
       ImmutableList<String> attributeLinkopts,
       ImmutableSet<VariableCategory> activeVariableCategories,
-      Artifact dsymBundleZip,
+      Artifact dsymSymbol,
       Artifact linkmap,
       Artifact bitcodeSymbolMap,
       boolean arcEnabled) {
@@ -111,7 +109,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.forceLoadArtifacts = forceLoadArtifacts;
     this.attributeLinkopts = attributeLinkopts;
     this.activeVariableCategories = activeVariableCategories;
-    this.dsymBundleZip = dsymBundleZip;
+    this.dsymSymbol = dsymSymbol;
     this.linkmap = linkmap;
     this.bitcodeSymbolMap = bitcodeSymbolMap;
     this.arcEnabled = arcEnabled;
@@ -236,11 +234,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   private void addDsymVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        DSYM_BUNDLE_ZIP_VARIABLE_NAME, dsymBundleZip.getShellEscapedExecPathString());
-    builder.addStringVariable(
-        DSYM_PATH_VARIABLE_NAME,
-        FileSystemUtils.removeExtension(dsymBundleZip.getExecPath()).getPathString());
+    builder.addStringVariable(DSYM_PATH_VARIABLE_NAME, dsymSymbol.getShellEscapedExecPathString());
   }
 
   private void addLinkmapVariables(CcToolchainVariables.Builder builder) {
@@ -264,7 +258,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     private ImmutableSet<Artifact> forceLoadArtifacts;
     private ImmutableList<String> libraryNames;
     private ImmutableList<String> attributeLinkopts;
-    private Artifact dsymBundleZip;
+    private Artifact dsymSymbol;
     private Artifact linkmap;
     private Artifact bitcodeSymbolMap;
     private boolean arcEnabled = true;
@@ -313,34 +307,34 @@ class ObjcVariablesExtension implements VariablesExtension {
       this.frameworkNames = Preconditions.checkNotNull(frameworkNames);
       return this;
     }
-    
+
     /** Sets binary input files to be passed to the linker with "-l" flags. */
     public Builder setLibraryNames(ImmutableList<String> libraryNames) {
       this.libraryNames = Preconditions.checkNotNull(libraryNames);
       return this;
     }
-    
+
     /** Sets artifacts to be passed to the linker with {@code -force_load}. */
     public Builder setForceLoadArtifacts(ImmutableSet<Artifact> forceLoadArtifacts) {
       this.forceLoadArtifacts = Preconditions.checkNotNull(forceLoadArtifacts);
       return this;
     }
-    
+
     /** Sets linkopts arising from rule attributes. */
     public Builder setAttributeLinkopts(ImmutableList<String> attributeLinkopts) {
       this.attributeLinkopts = Preconditions.checkNotNull(attributeLinkopts);
       return this;
     }
-    
+
     /** Sets the given {@link VariableCategory} as active for this extension. */
     public Builder addVariableCategory(VariableCategory variableCategory) {
       this.activeVariableCategoriesBuilder.add(Preconditions.checkNotNull(variableCategory));
       return this;
     }
 
-    /** Sets the Artifact for the zipped dsym bundle. */
-    public Builder setDsymBundleZip(Artifact dsymBundleZip) {
-      this.dsymBundleZip = dsymBundleZip;
+    /** Sets the Artifact for the dsym symbol file. */
+    public Builder setDsymSymbol(Artifact dsymSymbol) {
+      this.dsymSymbol = dsymSymbol;
       return this;
     }
 
@@ -363,10 +357,10 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
 
     public ObjcVariablesExtension build() {
-      
+
       ImmutableSet<VariableCategory> activeVariableCategories =
           activeVariableCategoriesBuilder.build();
-      
+
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
       Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
       Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
@@ -384,7 +378,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         Preconditions.checkNotNull(attributeLinkopts, "missing attribute linkopts");
       }
       if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
-        Preconditions.checkNotNull(dsymBundleZip, "missing dsym bundle zip artifact");
+        Preconditions.checkNotNull(dsymSymbol, "missing dsym symbol artifact");
       }
       if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
         Preconditions.checkNotNull(linkmap, "missing linkmap artifact");
@@ -405,7 +399,7 @@ class ObjcVariablesExtension implements VariablesExtension {
           forceLoadArtifacts,
           attributeLinkopts,
           activeVariableCategories,
-          dsymBundleZip,
+          dsymSymbol,
           linkmap,
           bitcodeSymbolMap,
           arcEnabled);
