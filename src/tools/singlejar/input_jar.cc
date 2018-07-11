@@ -27,8 +27,8 @@ bool InputJar::Open(const std::string &path) {
   }
   if (mapped_file_.size() < sizeof(ECD)) {
     diag_warnx(
-        "%s:%d: %s is only 0x%lx"
-        " bytes long, should be at least 0x%lx bytes long",
+        "%s:%d: %s is only 0x%zx"
+        " bytes long, should be at least 0x%zx bytes long",
         __FILE__, __LINE__, path.c_str(), mapped_file_.size(), sizeof(ECD));
     mapped_file_.Close();
     return false;
