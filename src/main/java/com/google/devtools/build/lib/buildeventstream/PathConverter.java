@@ -18,22 +18,21 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
+import javax.annotation.Nullable;
 
 /**
  * Interface for conversion of paths to URIs.
  */
 public interface PathConverter {
   /** An implementation that throws on every call to {@link #apply(Path)}. */
-  public static final PathConverter NO_CONVERSION = new PathConverter() {
-    @Override
-    public String apply(Path path) {
-      throw new IllegalStateException(
-          String.format(
-              "Can't convert '%s', as it has not been"
-                  + "declared as a referenced artifact of a build event",
-              path.getPathString()));
-    }
-  };
+  PathConverter NO_CONVERSION =
+      path -> {
+        throw new IllegalStateException(
+            String.format(
+                "Can't convert '%s', as it has not been"
+                    + "declared as a referenced artifact of a build event",
+                path.getPathString()));
+      };
 
   /** A {@link PathConverter} that returns a path formatted as a URI with a {@code file} scheme. */
   // TODO(ulfjack): Make this a static final field.
@@ -81,7 +80,12 @@ public interface PathConverter {
   /**
    * Return the URI corresponding to the given path.
    *
-   * <p>This method must not return {@code null}.
+   * <p>This method may return null, in which case the associated {@link BuildEventArtifactUploader}
+   * was permanently unable to upload the file. The file should be omitted from the BEP stream.
+   *
+   * <p>This method may throw {@link IllegalStateException} if it is passed a path that
+   * wasn't declared in {@link BuildEvent#referencedLocalFiles()}.
    */
+  @Nullable
   String apply(Path path);
 }
