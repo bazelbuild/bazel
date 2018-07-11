@@ -307,6 +307,19 @@ You may want to delete content from the cache to:
 * Create a clean cache after a cache was poisoned
 * Reduce the amount of storage used by deleting old outputs
 
+### Unix sockets
+
+The remote HTTP cache supports connecting over unix domain sockets. The behavior is similar to
+curl's `--unix-socket` flag. Use the following to configure unix domain socket:
+
+```
+build --experimental_remote_spawn_cache
+build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache_proxy=unix:/replace/with/socket/path
+```
+
+This feature is unsupported on Windows.
+
 ## Disk cache
 
 Bazel can use a directory on the file system as a remote cache. This is
@@ -392,4 +405,3 @@ execution platform.
 [gRPC protocol]: https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto
 [Buildfarm]: https://github.com/bazelbuild/bazel-buildfarm
 [issue #4558]: https://github.com/bazelbuild/bazel/issues/4558
-
