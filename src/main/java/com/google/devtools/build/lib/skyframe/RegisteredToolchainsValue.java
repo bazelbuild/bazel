@@ -39,7 +39,7 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
 
   /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
   @AutoCodec
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
 
     private final BuildConfigurationValue.Key configurationKey;

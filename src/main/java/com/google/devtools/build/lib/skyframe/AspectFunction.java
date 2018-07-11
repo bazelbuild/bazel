@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainContextBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -402,11 +403,11 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Determine what toolchains are needed by this target.
-      ToolchainContext toolchainContext;
+      ToolchainContextBuilder toolchainContextBuilder;
       try {
         ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
-        toolchainContext =
-            ToolchainUtil.createToolchainContext(
+        toolchainContextBuilder =
+            ToolchainContextBuilder.create(
                 env,
                 String.format(
                     "aspect %s applied to %s",
@@ -433,9 +434,9 @@ public final class AspectFunction implements SkyFunction {
                 originalTargetAndAspectConfiguration,
                 aspectPath,
                 configConditions,
-                toolchainContext == null
+                toolchainContextBuilder == null
                     ? ImmutableSet.of()
-                    : toolchainContext.resolvedToolchainLabels(),
+                    : toolchainContextBuilder.resolvedToolchainLabels(),
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
@@ -453,8 +454,9 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      if (toolchainContext != null) {
-        toolchainContext.resolveToolchains(depValueMap);
+      ToolchainContext toolchainContext = null;
+      if (toolchainContextBuilder != null) {
+        toolchainContext = toolchainContextBuilder.loadToolchainProviders(depValueMap);
       }
 
       return createAspect(
