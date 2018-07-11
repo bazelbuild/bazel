@@ -26,6 +26,7 @@ The following resources will help you work with Bazel on Android projects:
    Android Studio using the [Android Studio with Bazel](https://ij.bazel.build/)
    plugin.
 *  Bazel supports [Android instrumentation testing](https://docs.bazel.build/versions/master/android-instrumentation-test.html).
+*  Learn how to use the [Android NDK with Bazel](https://docs.bazel.build/versions/master/android-ndk.html).
 *  Learn [How Android Builds Work in Bazel](https://blog.bazel.build/2018/02/14/how-android-builds-work-in-bazel.html).
 
 ## Android and new rules
