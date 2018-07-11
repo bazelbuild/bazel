@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -67,10 +68,10 @@ public final class SkydocTest extends SkylarkTestCase {
         "    doc = 'This is my rule. It does stuff.',",
         "    implementation = rule_impl,",
         "    attrs = {",
-        "        'first': attr.label(mandatory=True, allow_files=True, single_file=True),",
-        "        'second': attr.string_dict(mandatory=True),",
-        "        'third': attr.output(mandatory=True),",
-        "        'fourth': attr.bool(default=False, mandatory=False),",
+        "        'a': attr.label(mandatory=True, allow_files=True, single_file=True),",
+        "        'b': attr.string_dict(mandatory=True),",
+        "        'c': attr.output(mandatory=True),",
+        "        'd': attr.bool(default=False, mandatory=False),",
         "    },",
         ")");
 
@@ -88,12 +89,23 @@ public final class SkydocTest extends SkylarkTestCase {
     assertThat(ruleInfo.getKey()).isEqualTo("my_rule");
     assertThat(ruleInfo.getValue().getDocString()).isEqualTo("This is my rule. It does stuff.");
     assertThat(getAttrNames(ruleInfo.getValue())).containsExactly(
-        "first", "fourth", "second", "third").inOrder();
+        "name", "a", "b", "c", "d").inOrder();
+    assertThat(getAttrTypes(ruleInfo.getValue())).containsExactly(
+        Type.STRING.getDescription(),
+        Type.LABEL.getDescription(),
+        Type.STRING_DICT.getDescription(),
+        Type.LABEL.getDescription(),
+        Type.BOOLEAN.getDescription()).inOrder();
     assertThat(unexportedRuleInfos.build()).isEmpty();
   }
 
   private static Iterable<String> getAttrNames(RuleInfo ruleInfo) {
     return ruleInfo.getAttributes().stream().map(attr -> attr.getName())
+        .collect(Collectors.toList());
+  }
+
+  private static Iterable<String> getAttrTypes(RuleInfo ruleInfo) {
+    return ruleInfo.getAttributes().stream().map(attr -> attr.getTypeString())
         .collect(Collectors.toList());
   }
 

@@ -33,7 +33,7 @@ import org.apache.velocity.runtime.resource.loader.JarResourceLoader;
 public class MarkdownRenderer {
 
   private static final String TEMPLATE_FILENAME =
-      "com/google/devtools/build/skydoc/rendering/templates/test.vm";
+      "com/google/devtools/build/skydoc/rendering/templates/rule.vm";
 
   private final VelocityEngine velocityEngine;
 

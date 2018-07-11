@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(first, fourth, second, third)
+my_rule(name, first, fourth, second, third)
 </pre>
 
 This rule exercises some of the build API.
@@ -15,21 +15,38 @@ This rule exercises some of the build API.
     <col class="col-description" />
   </colgroup>
   <tbody>
+    <tr id="#my_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
     <tr id="#my_rule_first">
       <td><code>first</code></td>
-      <td></td>
+      <td>
+        Label; required
+      </td>
     </tr>
     <tr id="#my_rule_fourth">
       <td><code>fourth</code></td>
-      <td></td>
+      <td>
+        Boolean; optional
+      </td>
     </tr>
     <tr id="#my_rule_second">
       <td><code>second</code></td>
-      <td></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
     </tr>
     <tr id="#my_rule_third">
       <td><code>third</code></td>
-      <td></td>
+      <td>
+        Label; required
+      </td>
     </tr>
   </tbody>
 </table>

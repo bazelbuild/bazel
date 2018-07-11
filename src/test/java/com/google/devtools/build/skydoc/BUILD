@@ -22,6 +22,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skydoc:skydoc_lib",
+        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
@@ -95,5 +96,12 @@ skydoc_test(
     name = "misc_apis_test",
     golden_file = "testdata/misc_apis_test/golden.txt",
     input_file = "testdata/misc_apis_test/input.bzl",
+    skydoc = "//src/main/java/com/google/devtools/build/skydoc",
+)
+
+skydoc_test(
+    name = "attribute_types_test",
+    golden_file = "testdata/attribute_types_test/golden.txt",
+    input_file = "testdata/attribute_types_test/input.bzl",
     skydoc = "//src/main/java/com/google/devtools/build/skydoc",
 )

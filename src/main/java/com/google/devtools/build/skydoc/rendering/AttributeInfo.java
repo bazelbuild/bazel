@@ -21,17 +21,36 @@ public class AttributeInfo {
 
   private final String name;
   private final String docString;
+  private final String typeString;
+  private final boolean mandatory;
 
-  public AttributeInfo(String name, String docString) {
+  public AttributeInfo(String name, String docString, String typeString, boolean mandatory) {
     this.name = name;
     this.docString = docString;
+    this.typeString = typeString;
+    this.mandatory = mandatory;
   }
 
+  @SuppressWarnings("unused") // Used by markdown template.
   public String getName() {
     return name;
   }
 
+  @SuppressWarnings("unused") // Used by markdown template.
   public String getDocString() {
     return docString;
+  }
+
+  @SuppressWarnings("unused") // Used by markdown template.
+  public String getTypeString() {
+    return typeString;
+  }
+
+  /**
+   * Returns a string representing whether this attribute is required or optional.
+   */
+  @SuppressWarnings("unused") // Used by markdown template.
+  public String getMandatoryString() {
+    return mandatory ? "required" : "optional";
   }
 }

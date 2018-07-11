@@ -19,7 +19,14 @@ ${ruleInfo.docString}
 #foreach ($attribute in $ruleInfo.attributes)
     <tr id="#${ruleName}_${attribute.name}">
       <td><code>${attribute.name}</code></td>
-      <td>${attribute.docString}</td>
+      <td>
+        ${attribute.typeString}; ${attribute.mandatoryString}
+#if (!$attribute.docString.isEmpty())
+        <p>
+          ${attribute.docString}
+        </p>
+#end
+      </td>
     </tr>
 #end
   </tbody>

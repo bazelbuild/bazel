@@ -2,7 +2,7 @@
 ## my_rule
 
 <pre>
-my_rule(first, second)
+my_rule(name, first, second)
 </pre>
 
 This is my rule. It does stuff.
@@ -15,13 +15,29 @@ This is my rule. It does stuff.
     <col class="col-description" />
   </colgroup>
   <tbody>
+    <tr id="#my_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
     <tr id="#my_rule_first">
       <td><code>first</code></td>
-      <td>first my_rule doc string</td>
+      <td>
+        Label; required
+        <p>
+          first my_rule doc string
+        </p>
+      </td>
     </tr>
     <tr id="#my_rule_second">
       <td><code>second</code></td>
-      <td></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
     </tr>
   </tbody>
 </table>
@@ -31,7 +47,7 @@ This is my rule. It does stuff.
 ## other_rule
 
 <pre>
-other_rule(fourth, third)
+other_rule(name, fourth, third)
 </pre>
 
 This is another rule.
@@ -44,13 +60,29 @@ This is another rule.
     <col class="col-description" />
   </colgroup>
   <tbody>
+    <tr id="#other_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
     <tr id="#other_rule_fourth">
       <td><code>fourth</code></td>
-      <td></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
     </tr>
     <tr id="#other_rule_third">
       <td><code>third</code></td>
-      <td>third other_rule doc string</td>
+      <td>
+        Label; required
+        <p>
+          third other_rule doc string
+        </p>
+      </td>
     </tr>
   </tbody>
 </table>
@@ -60,7 +92,7 @@ This is another rule.
 ## yet_another_rule
 
 <pre>
-yet_another_rule(fifth)
+yet_another_rule(name, fifth)
 </pre>
 
 This is yet another rule
@@ -73,9 +105,20 @@ This is yet another rule
     <col class="col-description" />
   </colgroup>
   <tbody>
+    <tr id="#yet_another_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
     <tr id="#yet_another_rule_fifth">
       <td><code>fifth</code></td>
-      <td></td>
+      <td>
+        Label; required
+      </td>
     </tr>
   </tbody>
 </table>

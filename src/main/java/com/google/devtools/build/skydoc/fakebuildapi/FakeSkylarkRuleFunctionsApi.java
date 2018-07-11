@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
@@ -29,10 +29,11 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -44,6 +45,8 @@ import javax.annotation.Nullable;
  */
 public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<FileApi> {
 
+  private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
+      new FakeDescriptor(Type.STRING, "A unique name for this rule.", true);
   private final List<RuleInfo> ruleInfoList;
 
   /**
@@ -69,19 +72,21 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Boolean executionPlatformConstraintsAllowed, SkylarkList<?> execCompatibleWith,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
     List<AttributeInfo> attrInfos;
-    // TODO(cparsons): Include implicit "Name" attribute.
+    ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Runtime.NONE) {
       SkylarkDict<?, ?> attrsDict = (SkylarkDict<?, ?>) attrs;
-      Map<String, FakeDescriptor> attrsMap =
-          attrsDict.getContents(String.class, FakeDescriptor.class, "attrs");
-      // TODO(cparsons): Include better attribute details. For example, attribute type.
-      attrInfos = attrsMap.entrySet().stream()
-          .map(entry -> new AttributeInfo(entry.getKey(), entry.getValue().getDocString()))
-          .sorted((o1, o2) -> o1.getName().compareTo(o2.getName()))
-          .collect(Collectors.toList());
-    } else {
-      attrInfos = ImmutableList.of();
+      attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
     }
+
+    attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
+    attrInfos = attrsMapBuilder.build().entrySet().stream()
+        .map(entry -> new AttributeInfo(
+            entry.getKey(),
+            entry.getValue().getDocString(),
+            entry.getValue().getType().getDescription(),
+            entry.getValue().isMandatory()))
+        .collect(Collectors.toList());
+    attrInfos.sort(new AttributeNameComparator());
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
@@ -126,6 +131,24 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
     public boolean equals(@Nullable Object other) {
       // Use exact object matching.
       return this == other;
+    }
+  }
+
+  /**
+   * A comparator for {@link AttributeInfo} objects which sorts by attribute name alphabetically,
+   * except that any attribute named "name" is placed first.
+   */
+  private static class AttributeNameComparator implements Comparator<AttributeInfo> {
+
+    @Override
+    public int compare(AttributeInfo o1, AttributeInfo o2) {
+      if (o1.getName().equals("name")) {
+        return o2.getName().equals("name") ? 0 : -1;
+      } else if (o2.getName().equals("name")) {
+        return 1;
+      } else {
+        return o1.getName().compareTo(o2.getName());
+      }
     }
   }
 }
