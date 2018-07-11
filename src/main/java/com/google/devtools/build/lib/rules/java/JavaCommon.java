@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -102,7 +103,7 @@ public class JavaCommon {
       targetsTreatedAsDeps;
 
   private final ImmutableList<Artifact> sources;
-  private ImmutableList<JavaPluginInfoProvider> activePlugins = ImmutableList.of();
+  private JavaPluginInfoProvider activePlugins = JavaPluginInfoProvider.empty();
 
   private final RuleContext ruleContext;
   private final JavaSemantics semantics;
@@ -762,33 +763,21 @@ public class JavaCommon {
    * Adds information about the annotation processors that should be run for this java target
    * retrieved from the given plugins to the target attributes.
    *
-   * In particular, the processor names/paths and the API generating processor names/paths are added
-   * to the given attributes. Plugins having repetitive names/paths will be added only once.
+   * <p>In particular, the processor names/paths and the API generating processor names/paths are
+   * added to the given attributes. Plugins having repetitive names/paths will be added only once.
    */
   public static void addPlugins(
-      JavaTargetAttributes.Builder attributes, Iterable<JavaPluginInfoProvider> activePlugins) {
-    for (JavaPluginInfoProvider plugin : activePlugins) {
-      for (String name : plugin.getProcessorClasses()) {
-        attributes.addProcessorName(name);
-      }
-      // Now get the plugin-libraries runtime classpath.
-      attributes.addProcessorPath(plugin.getProcessorClasspath());
-
-      // Add api-generating plugins
-      for (String name : plugin.getApiGeneratingProcessorClasses()) {
-        attributes.addApiGeneratingProcessorName(name);
-      }
-      attributes.addApiGeneratingProcessorPath(plugin.getApiGeneratingProcessorClasspath());
-    }
+      JavaTargetAttributes.Builder attributes, JavaPluginInfoProvider activePlugins) {
+    attributes.addPlugin(activePlugins);
   }
 
-  private ImmutableList<JavaPluginInfoProvider> collectPlugins() {
+  private JavaPluginInfoProvider collectPlugins() {
     List<JavaPluginInfoProvider> result = new ArrayList<>();
     Iterables.addAll(result,
         getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
     Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "deps", Mode.TARGET));
-    return ImmutableList.copyOf(result);
+    return JavaPluginInfoProvider.merge(result);
   }
 
   private static Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(
@@ -801,23 +790,12 @@ public class JavaCommon {
   }
 
   JavaPluginInfoProvider getJavaPluginInfoProvider(RuleContext ruleContext) {
-    ImmutableSet<String> processorClasses = getProcessorClasses(ruleContext);
+    NestedSet<String> processorClasses =
+        NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, getProcessorClasses(ruleContext));
     NestedSet<Artifact> processorClasspath = getRuntimeClasspath();
-    ImmutableSet<String> apiGeneratingProcessorClasses;
-    NestedSet<Artifact> apiGeneratingProcessorClasspath;
-    if (ruleContext.attributes().get("generates_api", Type.BOOLEAN)) {
-      apiGeneratingProcessorClasses = processorClasses;
-      apiGeneratingProcessorClasspath = processorClasspath;
-    } else {
-      apiGeneratingProcessorClasses = ImmutableSet.of();
-      apiGeneratingProcessorClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    }
-
-    return new JavaPluginInfoProvider(
-        processorClasses,
-        processorClasspath,
-        apiGeneratingProcessorClasses,
-        apiGeneratingProcessorClasspath);
+    return JavaPluginInfoProvider.create(
+        JavaPluginInfo.create(processorClasses, processorClasspath),
+        ruleContext.attributes().get("generates_api", Type.BOOLEAN));
   }
 
   /**

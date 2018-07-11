@@ -229,8 +229,7 @@ public final class JavaCompilationHelper {
     builder.setSourceGenDirectory(sourceGenDir(classJar));
     builder.setTempDirectory(tempDir(classJar));
     builder.setClassDirectory(classDir(classJar));
-    builder.setProcessorPaths(attributes.getProcessorPath());
-    builder.addProcessorNames(attributes.getProcessorNames());
+    builder.setPlugins(attributes.plugins().plugins());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setDirectJars(attributes.getDirectJars());
@@ -405,8 +404,7 @@ public final class JavaCompilationHelper {
         ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
 
     // only run API-generating annotation processors during header compilation
-    builder.setProcessorPaths(attributes.getApiGeneratingProcessorPath());
-    builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
+    builder.setPlugins(attributes.plugins().apiGeneratingPlugins());
     builder.setJavacOpts(getJavacOpts());
     builder.setTempDirectory(tempDir(headerJar));
     builder.setOutputJar(headerJar);
@@ -459,7 +457,7 @@ public final class JavaCompilationHelper {
    */
   public boolean usesAnnotationProcessing() {
     JavaTargetAttributes attributes = getAttributes();
-    return getJavacOpts().contains("-processor") || !attributes.getProcessorNames().isEmpty();
+    return getJavacOpts().contains("-processor") || !attributes.plugins().isEmpty();
   }
 
   /**
