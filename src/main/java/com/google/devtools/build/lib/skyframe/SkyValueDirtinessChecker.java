@@ -24,8 +24,10 @@ import javax.annotation.Nullable;
  * up to date.
  */
 public abstract class SkyValueDirtinessChecker {
-
-  /** Returns {@code true} iff the checker can handle {@code key}. */
+  /**
+   * Returns {@code true} iff the checker can handle {@code key}. Can only be true if {@code
+   * key.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC}.
+   */
   public abstract boolean applies(SkyKey key);
 
   /**

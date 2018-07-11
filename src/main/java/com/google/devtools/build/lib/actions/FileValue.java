@@ -49,7 +49,8 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public abstract class FileValue implements SkyValue {
-  public static final SkyFunctionName FILE = SkyFunctionName.create("FILE");
+  // Depends non-hermetically on package path.
+  public static final SkyFunctionName FILE = SkyFunctionName.createNonHermetic("FILE");
 
   /**
    * Exists to accommodate the control flow of {@link ActionMetadataHandler#getMetadata}.

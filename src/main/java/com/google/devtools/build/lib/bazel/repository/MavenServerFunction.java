@@ -53,7 +53,8 @@ import org.apache.maven.settings.building.SettingsBuildingResult;
  * Implementation of maven_repository.
  */
 public class MavenServerFunction implements SkyFunction {
-  public static final SkyFunctionName NAME = SkyFunctionName.create("MAVEN_SERVER_FUNCTION");
+  public static final SkyFunctionName NAME =
+      SkyFunctionName.createHermetic("MAVEN_SERVER_FUNCTION");
 
   private static final String USER_KEY = "user";
   private static final String SYSTEM_KEY = "system";

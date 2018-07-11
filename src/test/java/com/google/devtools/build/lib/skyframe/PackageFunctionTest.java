@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -202,13 +201,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // has a child directory "baz".
     fs.stubStat(bazDir, null);
     RootedPath barDirRootedPath = RootedPath.toRootedPath(pkgRoot, barDir);
-    FileStateValue barDirFileStateValue = FileStateValue.create(barDirRootedPath, tsgm);
-    FileValue barDirFileValue = FileValue.value(barDirRootedPath, barDirFileStateValue,
-        barDirRootedPath, barDirFileStateValue);
-    DirectoryListingValue barDirListing = DirectoryListingValue.value(barDirRootedPath,
-        barDirFileValue, DirectoryListingStateValue.create(ImmutableList.of(
-            new Dirent("baz", Dirent.Type.DIRECTORY))));
-    differencer.inject(ImmutableMap.of(DirectoryListingValue.key(barDirRootedPath), barDirListing));
+    differencer.inject(
+        ImmutableMap.of(
+            DirectoryListingStateValue.key(barDirRootedPath),
+            DirectoryListingStateValue.create(
+                ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY)))));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(

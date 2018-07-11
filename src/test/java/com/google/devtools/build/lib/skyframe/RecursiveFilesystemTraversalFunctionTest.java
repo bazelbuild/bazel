@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -91,12 +92,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private AtomicReference<PathPackageLocator> pkgLocator;
-  private ArtifactFakeFunction artifactFakeFunction;
 
   @Before
-  public final void setUp() throws Exception  {
+  public final void setUp() {
     AnalysisMock analysisMock = AnalysisMock.get();
-    artifactFakeFunction = new ArtifactFakeFunction();
     pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -154,7 +153,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new FileSymlinkInfiniteExpansionUniquenessFunction());
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
-    skyFunctions.put(Artifact.ARTIFACT, artifactFakeFunction);
+    // We use a non-hermetic key to allow us to invalidate the proper artifacts on rebuilds. We
+    // could have the artifact depend on the corresponding FileValue, but that would not cover the
+    // case of a generated directory, which we have test coverage for.
+    skyFunctions.put(Artifact.ARTIFACT, new ArtifactFakeFunction());
+    skyFunctions.put(NONHERMETIC_ARTIFACT, new NonHermeticArtifactFakeFunction());
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
     differencer = new SequencedRecordingDifferencer();
@@ -307,9 +310,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private void appendToFile(Artifact file, String content) throws Exception {
-    SkyKey key = file.isSourceArtifact()
-        ? FileStateValue.key(rootedPath(file))
-        : ArtifactSkyKey.key(file, true);
+    SkyKey key =
+        file.isSourceArtifact()
+            ? FileStateValue.key(rootedPath(file))
+            : new NonHermeticArtifactSkyKey(ArtifactSkyKey.key(file, true));
     appendToFile(rootedPath(file), key, content);
   }
 
@@ -319,7 +323,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private void invalidateOutputArtifact(Artifact output) {
     assertThat(output.isSourceArtifact()).isFalse();
-    differencer.invalidate(ImmutableList.of(ArtifactSkyKey.key(output, true)));
+    differencer.invalidate(
+        ImmutableList.of(new NonHermeticArtifactSkyKey(ArtifactSkyKey.key(output, true))));
   }
 
   private void invalidateDirectory(Artifact directoryArtifact) {
@@ -540,6 +545,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertTraversalOfDirectory(sourceArtifact("dir"));
   }
 
+  // Note that in actual Bazel derived artifact directories are not checked for modifications on
+  // incremental builds, so this test is testing a feature that Bazel does not have. It's included
+  // aspirationally.
   @Test
   public void testTraversalOfGeneratedDirectory() throws Exception {
     assertTraversalOfDirectory(derivedArtifact("dir"));
@@ -891,7 +899,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(error.getException()).hasMessageThat().contains("Symlink cycle");
   }
 
-  private static class ArtifactFakeFunction implements SkyFunction {
+  private static class NonHermeticArtifactFakeFunction implements SkyFunction {
     @Nullable
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
@@ -911,4 +919,33 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       return null;
     }
   }
+
+  private static class ArtifactFakeFunction implements SkyFunction {
+    @Nullable
+    @Override
+    public SkyValue compute(SkyKey skyKey, Environment env)
+        throws SkyFunctionException, InterruptedException {
+      return env.getValue(new NonHermeticArtifactSkyKey((ArtifactSkyKey) skyKey));
+    }
+
+    @Nullable
+    @Override
+    public String extractTag(SkyKey skyKey) {
+      return null;
+    }
+  }
+
+  private static class NonHermeticArtifactSkyKey extends AbstractSkyKey<ArtifactSkyKey> {
+    private NonHermeticArtifactSkyKey(ArtifactSkyKey arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return NONHERMETIC_ARTIFACT;
+    }
+  }
+
+  private static final SkyFunctionName NONHERMETIC_ARTIFACT =
+      SkyFunctionName.createNonHermetic("NONHERMETIC_ARTIFACT");
 }

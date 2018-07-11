@@ -67,8 +67,8 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ParallelEvaluatorTest {
-  private static final SkyFunctionName CHILD_TYPE = SkyFunctionName.create("child");
-  private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.create("parent");
+  private static final SkyFunctionName CHILD_TYPE = SkyFunctionName.createHermetic("child");
+  private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.createHermetic("parent");
 
   protected ProcessableGraph graph;
   protected IntVersion graphVersion = IntVersion.of(0);

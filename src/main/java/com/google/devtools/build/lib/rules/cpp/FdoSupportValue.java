@@ -36,7 +36,7 @@ import java.util.Objects;
 @AutoCodec
 @Immutable
 public class FdoSupportValue implements SkyValue {
-  public static final SkyFunctionName SKYFUNCTION = SkyFunctionName.create("FDO_SUPPORT");
+  public static final SkyFunctionName SKYFUNCTION = SkyFunctionName.createHermetic("FDO_SUPPORT");
 
   /** {@link SkyKey} for {@link FdoSupportValue}. */
   @Immutable

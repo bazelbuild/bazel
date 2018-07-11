@@ -70,7 +70,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       ForkJoinPool forkJoinPool,
-      CycleDetector cycleDetector) {
+      CycleDetector cycleDetector,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     super(
         graph,
         graphVersion,
@@ -83,7 +84,8 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         progressReceiver,
         graphInconsistencyReceiver,
         forkJoinPool,
-        cycleDetector);
+        cycleDetector,
+        evaluationVersionBehavior);
   }
 
   @Override

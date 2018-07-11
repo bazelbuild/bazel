@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -52,7 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 
 abstract class ArtifactFunctionTestCase {
-  static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+  static final ActionLookupKey ALL_OWNER = new InjectedActionLookupKey("all_owner");
 
   protected LinkedHashSet<ActionAnalysisMetadata> actions;
   protected boolean fastDigest = false;
@@ -156,13 +157,6 @@ abstract class ArtifactFunctionTestCase {
     @Override
     public String extractTag(SkyKey skyKey) {
       return delegateActionExecutionFunction.extractTag(skyKey);
-    }
-  }
-
-  private static class SingletonActionLookupKey extends ActionLookupKey {
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.CONFIGURED_TARGET;
     }
   }
 

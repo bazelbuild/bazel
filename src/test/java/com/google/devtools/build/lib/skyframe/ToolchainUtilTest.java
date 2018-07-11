@@ -420,7 +420,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
 
   // Calls ToolchainUtil.createToolchainContext.
   private static final SkyFunctionName CREATE_TOOLCHAIN_CONTEXT_FUNCTION =
-      SkyFunctionName.create("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");
+      SkyFunctionName.createHermetic("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");
 
   @AutoValue
   abstract static class CreateToolchainContextKey implements SkyKey {

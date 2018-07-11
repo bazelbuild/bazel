@@ -114,7 +114,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       ForkJoinPool forkJoinPool,
-      CycleDetector cycleDetector) {
+      CycleDetector cycleDetector,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     super(
         graph,
         graphVersion,
@@ -127,7 +128,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         progressReceiver,
         graphInconsistencyReceiver,
         forkJoinPool,
-        cycleDetector);
+        cycleDetector,
+        evaluationVersionBehavior);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -469,6 +471,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             maybeMarkRebuilding(parentEntry);
             // Fall through to REBUILDING.
           case REBUILDING:
+          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);

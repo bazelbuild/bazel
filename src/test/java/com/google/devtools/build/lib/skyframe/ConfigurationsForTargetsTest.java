@@ -95,7 +95,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   private static class ComputeDependenciesFunction implements SkyFunction {
     static final SkyFunctionName SKYFUNCTION_NAME =
-         SkyFunctionName.create("CONFIGURED_TARGET_FUNCTION_COMPUTE_DEPENDENCIES");
+        SkyFunctionName.createHermetic("CONFIGURED_TARGET_FUNCTION_COMPUTE_DEPENDENCIES");
 
     private final LateBoundStateProvider stateProvider;
     private final Supplier<BuildOptions> buildOptionsSupplier;

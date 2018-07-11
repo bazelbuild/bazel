@@ -127,7 +127,19 @@ public class Artifact
         }
       };
 
-  public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
+  /**
+   * {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} does direct filesystem access
+   * without declaring Skyframe dependencies if the artifact is a source directory. However, that
+   * filesystem access is not invalidated on incremental builds, and we have no plans to fix it,
+   * since general consumption of source directories in this way is unsound. Therefore no new bugs
+   * are created by declaring {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} to be
+   * hermetic.
+   *
+   * <p>TODO(janakr): Avoid this issue entirely by giving {@link SourceArtifact} its own {@code
+   * SkyFunction}. Then we can just declare that function to be non-hermetic. That will also save
+   * memory since we can make mandatory source artifacts their own SkyKeys!
+   */
+  public static final SkyFunctionName ARTIFACT = SkyFunctionName.createHermetic("ARTIFACT");
 
   @Override
   public int compareTo(Object o) {
