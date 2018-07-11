@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
@@ -59,7 +60,8 @@ public final class FilesetEntryFunction implements SkyFunction {
 
     // Create the set of excluded files. Only top-level files can be excluded, i.e. ones that are
     // directly under the root if the root is a directory.
-    Set<String> exclusions = createExclusionSet(t.getExcludedFiles());
+    Set<String> exclusions =
+        Sets.filter(t.getExcludedFiles(), e -> PathFragment.create(e).segmentCount() == 1);
 
     // The map of output symlinks. Each key is the path of a output symlink that the Fileset must
     // create, relative to the Fileset.out directory, and each value specifies extra information
@@ -79,7 +81,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       for (SkyKey nestedKey : nestedKeys) {
         FilesetEntryValue nested = (FilesetEntryValue) results.get(nestedKey);
         for (FilesetOutputSymlink s : nested.getSymlinks()) {
-          if (!exclusions.contains(s.name.getPathString())) {
+          if (!exclusions.contains(s.getName().getPathString())) {
             maybeStoreSymlink(s, t.getDestPath(), outputSymlinks);
           }
         }
@@ -189,7 +191,15 @@ public final class FilesetEntryFunction implements SkyFunction {
 
         // Metadata field must be present. It can only be absent when stripped by tests.
         String metadata = Integer.toHexString(f.getMetadataHash());
-        maybeStoreSymlink(linkName, targetName, metadata, t.getDestPath(), outputSymlinks);
+
+        maybeStoreSymlink(
+            linkName,
+            targetName,
+            metadata,
+            t.getDestPath(),
+            direct.isGenerated(),
+            f.getValueForDerivedArtifacts(),
+            outputSymlinks);
       }
     }
 
@@ -201,7 +211,14 @@ public final class FilesetEntryFunction implements SkyFunction {
       FilesetOutputSymlink nestedLink,
       PathFragment destPath,
       Map<PathFragment, FilesetOutputSymlink> result) {
-    maybeStoreSymlink(nestedLink.name, nestedLink.target, nestedLink.metadata, destPath, result);
+    maybeStoreSymlink(
+        nestedLink.getName(),
+        nestedLink.getTargetPath(),
+        nestedLink.getMetadata(),
+        destPath,
+        nestedLink.isGeneratedTarget(),
+        nestedLink.getTargetArtifactValue(),
+        result);
   }
 
   /** Stores an output symlink unless it would overwrite an existing one. */
@@ -210,22 +227,21 @@ public final class FilesetEntryFunction implements SkyFunction {
       PathFragment linkTarget,
       String metadata,
       PathFragment destPath,
+      boolean isGenerated,
+      FileArtifactValue targetArtifactValue,
       Map<PathFragment, FilesetOutputSymlink> result) {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
-      result.put(linkName, new FilesetOutputSymlink(linkName, linkTarget, metadata));
-    }
-  }
-
-  private static Set<String> createExclusionSet(Set<String> input) {
-    return Sets.filter(input, new Predicate<String>() {
-      @Override
-      public boolean apply(String e) {
-        // Keep the top-level exclusions only. Do not look for "/" but count the path segments
-        // instead, in anticipation of future Windows support.
-        return PathFragment.create(e).segmentCount() == 1;
+      if (isGenerated) {
+        result.put(
+            linkName,
+            FilesetOutputSymlink.createForDerivedTarget(
+                linkName, linkTarget, metadata, targetArtifactValue));
+      } else {
+        result.put(
+            linkName, FilesetOutputSymlink.createForSourceTarget(linkName, linkTarget, metadata));
       }
-    });
+    }
   }
 
   @Override

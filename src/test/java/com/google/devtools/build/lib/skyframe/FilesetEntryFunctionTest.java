@@ -192,15 +192,18 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   private static FilesetOutputSymlink symlink(String from, Artifact to) {
-    return new FilesetOutputSymlink(PathFragment.create(from), to.getPath().asFragment());
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create(from), to.getPath().asFragment());
   }
 
   private static FilesetOutputSymlink symlink(String from, String to) {
-    return new FilesetOutputSymlink(PathFragment.create(from), PathFragment.create(to));
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create(from), PathFragment.create(to));
   }
 
   private static FilesetOutputSymlink symlink(String from, RootedPath to) {
-    return new FilesetOutputSymlink(PathFragment.create(from), to.asPath().asFragment());
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create(from), to.asPath().asFragment());
   }
 
   private void assertSymlinksCreatedInOrder(
@@ -210,7 +213,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         Collections2.transform(
             evalFilesetTraversal(request).getSymlinks(),
             // Strip the metadata from the actual results.
-            (input) -> new FilesetOutputSymlink(input.name, input.target));
+            (input) ->
+                FilesetOutputSymlink.createForTesting(input.getName(), input.getTargetPath()));
     assertThat(actual).containsExactlyElementsIn(expected).inOrder();
   }
 

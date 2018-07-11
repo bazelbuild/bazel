@@ -271,7 +271,8 @@ public class SpawnInputExpanderTest {
   }
 
   private FilesetOutputSymlink filesetSymlink(String from, String to) {
-    return new FilesetOutputSymlink(PathFragment.create(from), PathFragment.create(to));
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create(from), PathFragment.create(to));
   }
 
   private ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> simpleFilesetManifest() {

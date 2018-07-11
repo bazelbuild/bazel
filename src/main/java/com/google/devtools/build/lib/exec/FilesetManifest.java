@@ -78,8 +78,8 @@ public final class FilesetManifest {
     LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
     Map<PathFragment, String> relativeLinks = new HashMap<>();
     for (FilesetOutputSymlink outputSymlink : outputSymlinks) {
-      PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.name);
-      String artifact = outputSymlink.target.getPathString();
+      PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
+      String artifact = outputSymlink.getTargetPath().getPathString();
       artifact = artifact.isEmpty() ? null : artifact;
       addSymlinkEntry(artifact, fullLocation, relSymlinkbehavior, entries, relativeLinks);
     }
