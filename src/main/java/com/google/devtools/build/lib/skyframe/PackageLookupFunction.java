@@ -306,6 +306,7 @@ public class PackageLookupFunction implements SkyFunction {
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
+
     SkyKey repositoryKey = RepositoryValue.key(id.getRepository());
     RepositoryValue repositoryValue;
     try {

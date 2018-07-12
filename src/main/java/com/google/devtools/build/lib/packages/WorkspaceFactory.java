@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -346,6 +347,12 @@ public class WorkspaceFactory {
                 } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
                   throw new EvalException(ast.getLocation(), e.getMessage());
                 }
+                // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
+                // treats references to @name as a separate external repo
+                builder.addRepositoryMappingEntry(
+                    RepositoryName.MAIN,
+                    RepositoryName.createFromValidStrippedName(name),
+                    RepositoryName.MAIN);
                 return NONE;
               }
             };
@@ -359,6 +366,7 @@ public class WorkspaceFactory {
               }
             };
           }
+
         }
       };
 
@@ -490,6 +498,17 @@ public class WorkspaceFactory {
                     + kwargs.get("name")
                     + "')");
           }
+          String externalRepoName = (String) kwargs.get("name");
+          // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
+          // @<mainRepoName> as a separate repository. This will be overridden if the main
+          // repository has a repo_mapping entry from <mainRepoName> to something.
+          if (!Strings.isNullOrEmpty(builder.pkg.getWorkspaceName())) {
+            builder.addRepositoryMappingEntry(
+                RepositoryName.createFromValidStrippedName(externalRepoName),
+                RepositoryName.createFromValidStrippedName(builder.pkg.getWorkspaceName()),
+                RepositoryName.MAIN
+            );
+          }
           if (env.getSemantics().experimentalEnableRepoMapping()) {
             if (kwargs.containsKey("repo_mapping")) {
               if (!(kwargs.get("repo_mapping") instanceof Map)) {
@@ -500,7 +519,6 @@ public class WorkspaceFactory {
               }
               @SuppressWarnings("unchecked")
               Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-              String externalRepoName = (String) kwargs.get("name");
               for (Map.Entry<String, String> e : map.entrySet()) {
                 builder.addRepositoryMappingEntry(
                     RepositoryName.createFromValidStrippedName(externalRepoName),

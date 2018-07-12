@@ -560,4 +560,66 @@ EOF
       || fail "Expected build to succeed"
 }
 
+function test_mainrepo_name_is_not_different_repo() {
+  # Repository a refers to @x
+  mkdir -p mainrepo
+  echo "workspace(name = 'mainrepo')" > mainrepo/WORKSPACE
+  cat > mainrepo/BUILD<<EOF
+load("//:def.bzl", "a")
+load("@mainrepo//:def.bzl", "a")
+EOF
+  cat > mainrepo/def.bzl<<EOF
+print("def.bzl loaded")
+a = 1
+EOF
+
+  cd mainrepo
+  bazel query //... &>"$TEST_log" || fail "Expected query to succeed"
+  expect_log "def.bzl loaded."
+  expect_not_log "external"
+}
+
+function test_mainrepo_name_remapped_properly() {
+  mkdir -p mainrepo
+  touch mainrepo/BUILD
+  cat > mainrepo/WORKSPACE<<EOF
+workspace(name = "mainrepo")
+local_repository(
+  name = "a",
+  path = "../a"
+)
+EOF
+  cat > mainrepo/def.bzl<<EOF
+print ("def.bzl loaded")
+x = 10
+EOF
+
+  mkdir -p a
+  touch a/WORKSPACE
+  echo "load('@mainrepo//:def.bzl', 'x')"> a/BUILD
+
+  # the bzl file should be loaded from the main workspace and 
+  # not as an external repository
+  cd mainrepo
+  bazel query @a//... &>"$TEST_log" || fail "Expected query to succeed"
+  expect_log "def.bzl loaded"
+  expect_not_log "external"
+
+  cd ..
+  cat > mainrepo/WORKSPACE<<EOF
+workspace(name = "mainrepo")
+local_repository(
+  name = "a",
+  path = "../a",
+  repo_mapping = {"@mainrepo" : "@newname"}
+)
+EOF
+  
+  # now that @mainrepo doesn't exist within workspace "a",
+  # the query should fail
+  cd mainrepo
+  bazel query --experimental_enable_repo_mapping @a//... &>"$TEST_log" \
+      && fail "Failure expected" || true
+}
+
 run_suite "workspace tests"
