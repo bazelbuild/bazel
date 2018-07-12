@@ -660,7 +660,6 @@ public final class BuildOptions implements Cloneable, Serializable {
           context.serialize(diff.differingOptions, bytesOut);
           context.serialize(diff.extraFirstFragmentClasses, bytesOut);
           context.serialize(diff.extraSecondFragments, bytesOut);
-          bytesOut.writeInt32NoTag(diff.baseFingerprint.length);
           bytesOut.writeByteArrayNoTag(diff.baseFingerprint);
           context.serialize(diff.checksum, bytesOut);
           bytesOut.flush();
@@ -693,8 +692,7 @@ public final class BuildOptions implements Cloneable, Serializable {
           ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses =
               context.deserialize(codedInput);
           ImmutableList<FragmentOptions> extraSecondFragments = context.deserialize(codedInput);
-          int fingerprintLength = codedInput.readInt32();
-          byte[] baseFingerprint = codedInput.readRawBytes(fingerprintLength);
+          byte[] baseFingerprint = codedInput.readByteArray();
           String checksum = context.deserialize(codedInput);
           diff =
               new OptionsDiffForReconstruction(
@@ -750,8 +748,12 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     @Override
     public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
-      diffToByteStringMap.put(diff, bytes);
+      // We need to insert data into map that will be used for deserialization first in case there
+      // is a race between two threads. This can occur when one thread has called this method
+      // and populates one map, giving the other thread a cache hit, but hasn't populated the
+      // other map yet so on deserialization there is a cache miss.
       byteStringToDiffMap.put(bytes, diff);
+      diffToByteStringMap.put(diff, bytes);
     }
 
     @Override
