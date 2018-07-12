@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -237,8 +236,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return Collections.unmodifiableSet(result);
   }
 
-  public Collection<HeaderInfo> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
-    List<HeaderInfo> result = new ArrayList<>();
+  public ImmutableSet<Artifact> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
+    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       // Do not add the module of the current rule for both:
       // 1. the module compile itself
@@ -249,12 +248,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       }
       for (Artifact header : transitiveHeaderInfo.modularHeaders) {
         if (usedHeaders.contains(header)) {
-          result.add(transitiveHeaderInfo);
+          result.add(transitiveHeaderInfo.getModule(usePic));
           break;
         }
       }
     }
-    return result;
+    return result.build();
   }
 
   /**

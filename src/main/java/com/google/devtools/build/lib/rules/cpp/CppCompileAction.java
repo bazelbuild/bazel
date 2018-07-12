@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
@@ -166,14 +165,14 @@ public class CppCompileAction extends AbstractAction
    *   <li><i>Action caching.</i> It is set when restoring from the action cache. It is queried
    *       immediately after restoration to populate the {@link
    *       com.google.devtools.build.lib.skyframe.ActionExecutionValue}.
-   *   <li><i>Input discovery</i>It is set by {@link discoverInputsStage2}. It is queried to
+   *   <li><i>Input discovery</i>It is set by {@link #discoverInputsStage2}. It is queried to
    *       populate the {@link com.google.devtools.build.lib.skyframe.ActionExecutionValue}.
    *   <li><i>Compilation</i>Compilation reads this field to know what needs to be staged.
    * </ul>
    */
   // TODO(djasper): investigate releasing memory used by this field as early as possible, for
   // example, by including these values in additionalInputs.
-  private ImmutableSet<Artifact> discoveredModules = null;
+  private ImmutableList<Artifact> discoveredModules = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -393,59 +392,46 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> foundHeaders = findUsedHeaders(actionExecutionContext);
+    additionalInputs = findUsedHeaders(actionExecutionContext);
     if (!shouldPruneModules) {
-      additionalInputs = foundHeaders;
       return additionalInputs;
     }
 
-    Set<Artifact> usedHeadersAndModules = Sets.newLinkedHashSet(foundHeaders);
     if (sourceFile.isFileType(CppFileTypes.CPP_MODULE)) {
       // If we are generating code from a module, the module is all we need.
       // TODO(djasper): Do we really need the source files?
       usedModules = ImmutableSet.of(sourceFile);
-      usedHeadersAndModules.add(sourceFile);
-    } else {
-      usedModules = Sets.newLinkedHashSet();
-      // usedHeadersAndModules only contains headers now, so we can pass it to getUsedModules()
-      // (and even if it contained other things, it's only used to check for the presence of headers
-      // so it would not matter)
-      for (HeaderInfo usedModule :
-          ccCompilationContext.getUsedModules(usePic, usedHeadersAndModules)) {
-        usedModules.add(usedModule.getModule(usePic));
-      }
-      usedHeadersAndModules.addAll(usedModules);
+      additionalInputs =
+          new ImmutableList.Builder<Artifact>().addAll(additionalInputs).add(sourceFile).build();
+      return additionalInputs;
     }
-    additionalInputs = usedHeadersAndModules;
-    return additionalInputs;
+
+    usedModules =
+        ccCompilationContext.getUsedModules(usePic, ImmutableSet.copyOf(additionalInputs));
+    return Iterables.concat(additionalInputs, usedModules);
   }
 
-  /** @return null when either {@link usedModules} was null or on Skyframe lookup failure */
+  /** @return null when either {@link #usedModules} was null or on Skyframe lookup failure */
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
       throws InterruptedException {
-    if (this.usedModules == null) {
+    if (usedModules == null) {
+      // No modules were used in this compilation, no need to do any work.
       return null;
     }
 
-    Set<Artifact> additionalModules = computeTransitivelyUsedModules(env, usedModules);
-    if (additionalModules == null) {
+    Set<Artifact> transitivelyUsedModules = computeTransitivelyUsedModules(env, usedModules);
+    if (transitivelyUsedModules == null) {
+      // Not all used modules available yet. ActionExecutionValues have been requested. Return so
+      // that this function can be re-executed when ready.
       return null;
     }
 
-    this.discoveredModules =
-        new ImmutableSet.Builder<Artifact>().addAll(usedModules).addAll(additionalModules).build();
-
-    ImmutableSet.Builder<Artifact> topLevelModules = ImmutableSet.builder();
-    for (Artifact artifact : this.usedModules) {
-      if (!additionalModules.contains(artifact)) {
-        topLevelModules.add(artifact);
-      }
-    }
-    this.usedModules = null;
-    this.topLevelModules = topLevelModules.build();
-    return additionalModules;
+    discoveredModules = ImmutableList.copyOf(Sets.union(usedModules, transitivelyUsedModules));
+    topLevelModules = ImmutableList.copyOf(Sets.difference(usedModules, transitivelyUsedModules));
+    usedModules = null;
+    return transitivelyUsedModules;
   }
 
   @Override
@@ -491,10 +477,10 @@ public class CppCompileAction extends AbstractAction
     return grepIncludes;
   }
 
-  /** Set by {@link discoverInputsStage2} */
+  /** Set by {@link #discoverInputsStage2} */
   @Override
   @Nullable
-  public ImmutableSet<Artifact> getDiscoveredModules() {
+  public ImmutableList<Artifact> getDiscoveredModules() {
     return discoveredModules;
   }
 
@@ -902,13 +888,13 @@ public class CppCompileAction extends AbstractAction
   /**
    * Called by {@link com.google.devtools.build.lib.actions.ActionCacheChecker}
    *
-   * <p>Restores the value of {@link discoveredModules}, which is used to create the {@link
+   * <p>Restores the value of {@link #discoveredModules}, which is used to create the {@link
    * com.google.devtools.build.lib.skyframe.ActionExecutionValue} after an action cache hit.
    */
   @Override
   public synchronized void updateInputs(Iterable<Artifact> inputs) {
     super.updateInputs(inputs);
-    ImmutableSet.Builder<Artifact> discoveredModules = ImmutableSet.builder();
+    ImmutableList.Builder<Artifact> discoveredModules = ImmutableList.builder();
     for (Artifact input : inputs) {
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         discoveredModules.add(input);
@@ -1264,7 +1250,8 @@ public class CppCompileAction extends AbstractAction
   /**
    * For the given {@code usedModules}, looks up modules discovered by their generating actions.
    *
-   * <p>The returned value contains elements of {@code usedModules}. It can be null when skyframe
+   * <p>The returned value only contains elements of {@code usedModules} if they happen to be
+   * transitively used from other elements of {@code usedModules}. It can be null when skyframe
    * lookups return null.
    */
   @Nullable

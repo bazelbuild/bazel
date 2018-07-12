@@ -19,7 +19,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -74,7 +73,7 @@ public class ActionExecutionValue implements SkyValue {
 
   @Nullable private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
-  @Nullable private final ImmutableSet<Artifact> discoveredModules;
+  @Nullable private final ImmutableList<Artifact> discoveredModules;
 
   /**
    * @param artifactData Map from Artifacts to corresponding FileValues.
@@ -92,7 +91,7 @@ public class ActionExecutionValue implements SkyValue {
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      @Nullable ImmutableSet<Artifact> discoveredModules) {
+      @Nullable ImmutableList<Artifact> discoveredModules) {
     this.artifactData = ImmutableMap.<Artifact, FileValue>copyOf(artifactData);
     this.additionalOutputData = ImmutableMap.copyOf(additionalOutputData);
     this.treeArtifactData = ImmutableMap.copyOf(treeArtifactData);
@@ -105,7 +104,7 @@ public class ActionExecutionValue implements SkyValue {
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      @Nullable ImmutableSet<Artifact> discoveredModules,
+      @Nullable ImmutableList<Artifact> discoveredModules,
       boolean notifyOnActionCacheHitAction) {
     return notifyOnActionCacheHitAction
         ? new CrossServerUnshareableActionExecutionValue(
@@ -167,7 +166,7 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   @Nullable
-  public ImmutableSet<Artifact> getDiscoveredModules() {
+  public ImmutableList<Artifact> getDiscoveredModules() {
     return discoveredModules;
   }
 
@@ -241,7 +240,7 @@ public class ActionExecutionValue implements SkyValue {
         Map<Artifact, TreeArtifactValue> treeArtifactData,
         Map<Artifact, FileArtifactValue> additionalOutputData,
         @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-        @Nullable ImmutableSet<Artifact> discoveredModules) {
+        @Nullable ImmutableList<Artifact> discoveredModules) {
       super(
           artifactData, treeArtifactData, additionalOutputData, outputSymlinks, discoveredModules);
     }
