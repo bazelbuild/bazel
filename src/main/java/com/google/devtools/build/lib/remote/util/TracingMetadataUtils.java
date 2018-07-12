@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.util;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.remoteexecution.v1test.RequestMetadata;
@@ -51,17 +52,42 @@ public class TracingMetadataUtils {
    */
   public static Context contextWithMetadata(
       String buildRequestId, String commandId, ActionKey actionKey) {
-    RequestMetadata metadata =
+    Preconditions.checkNotNull(buildRequestId);
+    Preconditions.checkNotNull(commandId);
+    Preconditions.checkNotNull(actionKey);
+    RequestMetadata.Builder metadata =
         RequestMetadata.newBuilder()
             .setCorrelatedInvocationsId(buildRequestId)
-            .setToolInvocationId(commandId)
-            .setActionId(actionKey.getDigest().getHash())
-            .setToolDetails(
-                ToolDetails.newBuilder()
-                    .setToolName("bazel")
-                    .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+            .setToolInvocationId(commandId);
+    metadata.setActionId(actionKey.getDigest().getHash());
+    metadata.setToolDetails(ToolDetails.newBuilder()
+            .setToolName("bazel")
+            .setToolVersion(BlazeVersionInfo.instance().getVersion()))
             .build();
-    return Context.current().withValue(CONTEXT_KEY, metadata);
+    return Context.current().withValue(CONTEXT_KEY, metadata.build());
+  }
+
+  /**
+   * Returns a new gRPC context derived from the current context, with {@link RequestMetadata}
+   * accessible by the {@link fromCurrentContext()} method.
+   *
+   * <p>The {@link RequestMetadata} is constructed using the provided arguments and the current tool
+   * version.
+   */
+  public static Context contextWithMetadata(
+      String buildRequestId, String commandId, String actionId) {
+    Preconditions.checkNotNull(buildRequestId);
+    Preconditions.checkNotNull(commandId);
+    RequestMetadata.Builder metadata =
+        RequestMetadata.newBuilder()
+            .setCorrelatedInvocationsId(buildRequestId)
+            .setToolInvocationId(commandId);
+    metadata.setActionId(actionId);
+    metadata.setToolDetails(ToolDetails.newBuilder()
+        .setToolName("bazel")
+        .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+        .build();
+    return Context.current().withValue(CONTEXT_KEY, metadata.build());
   }
 
   /**

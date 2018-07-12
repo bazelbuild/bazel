@@ -19,6 +19,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.grpc.CallCredentials;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
@@ -42,10 +43,12 @@ public final class GoogleAuthUtils {
    *
    * @throws IOException in case the channel can't be constructed.
    */
-  public static ManagedChannel newChannel(String target, AuthAndTLSOptions options)
+  public static ManagedChannel newChannel(String target, AuthAndTLSOptions options,
+      ClientInterceptor... interceptors)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
+    Preconditions.checkNotNull(interceptors);
 
     final SslContext sslContext =
         options.tlsEnabled ? createSSlContext(options.tlsCertificate) : null;
@@ -54,7 +57,8 @@ public final class GoogleAuthUtils {
       NettyChannelBuilder builder =
           NettyChannelBuilder.forTarget(target)
               .negotiationType(options.tlsEnabled ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
-              .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance());
+              .loadBalancerFactory(RoundRobinLoadBalancerFactory.getInstance())
+              .intercept(interceptors);
       if (sslContext != null) {
         builder.sslContext(sslContext);
         if (options.tlsAuthorityOverride != null) {

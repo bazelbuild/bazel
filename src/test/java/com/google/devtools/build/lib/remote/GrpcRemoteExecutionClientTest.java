@@ -80,7 +80,6 @@ import com.google.watcher.v1.Request;
 import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.BindableService;
 import io.grpc.CallCredentials;
-import io.grpc.Channel;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -258,13 +257,17 @@ public class GrpcRemoteExecutionClientTest {
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
             retryService,
             Retrier.ALLOW_ALL_CALLS);
-    Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel, null, remoteOptions.remoteTimeout, retrier);
+        new GrpcRemoteExecutor(channel.retain(), null, remoteOptions.remoteTimeout, retrier);
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
+            remoteOptions.remoteTimeout, retrier);
     GrpcRemoteCache remoteCache =
-        new GrpcRemoteCache(channel, creds, remoteOptions, retrier, DIGEST_UTIL);
+        new GrpcRemoteCache(channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -281,6 +284,7 @@ public class GrpcRemoteExecutionClientTest {
             DIGEST_UTIL,
             logDir);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
+    channel.release();
   }
 
   @After
