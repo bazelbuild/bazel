@@ -197,7 +197,8 @@ public class CcModule
         /* librariesToLink= */ null,
         asStringNestedSet(librarySearchDirectories),
         /* isLegacyFullyStaticLinkingMode= */ false,
-        isStaticLinkingMode);
+        isStaticLinkingMode,
+        /* addIfsoRelatedVariables= */ false);
   }
 
   @Override

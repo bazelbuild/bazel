@@ -951,7 +951,8 @@ public class CppLinkActionBuilder {
               collectedLibrariesToLink.getLibrariesToLink(),
               collectedLibrariesToLink.getLibrarySearchDirectories(),
               linkingMode.equals(LinkingMode.LEGACY_FULLY_STATIC),
-              linkingMode.equals(LinkingMode.STATIC));
+              linkingMode.equals(LinkingMode.STATIC),
+              /* addIfsoRelatedVariables= */ true);
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       variables = CcToolchainVariables.EMPTY;

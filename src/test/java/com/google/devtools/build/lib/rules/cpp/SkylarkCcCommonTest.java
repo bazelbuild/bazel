@@ -607,6 +607,34 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testIfsoRelatedVariablesAreNotExposed() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "feature {",
+            "  name: 'uses_ifso_variables'",
+            "  enabled: true",
+            "  flag_set {",
+            "    action: 'c++-link-dynamic-library'",
+            "    flag_group {",
+            "      expand_if_all_available: 'generate_interface_library'",
+            "      flag: '--generate_interface_library_was_available'",
+            "    }",
+            "  }",
+            "}");
+    useConfiguration();
+    assertThat(
+            commandLineForVariables(
+                CppActionNames.CPP_LINK_DYNAMIC_LIBRARY,
+                "cc_common.create_link_variables(",
+                "feature_configuration = feature_configuration,",
+                "cc_toolchain = toolchain,",
+                ")"))
+        .doesNotContain("--generate_interface_library_was_available");
+  }
+
+  @Test
   public void testOutputFileLinkVariables() throws Exception {
     assertThat(
             commandLineForVariables(

@@ -560,6 +560,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testInterfaceOutputForDynamicLibrary() throws Exception {
     FeatureConfiguration featureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
+                "supports_interface_shared_objects: true ",
                 "feature {",
                 "   name: 'build_interface_libraries'",
                 "   flag_set {",
