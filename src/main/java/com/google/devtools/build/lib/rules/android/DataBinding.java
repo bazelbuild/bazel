@@ -156,7 +156,16 @@ public final class DataBinding {
             ruleContext.getPrerequisite(
                 DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST));
 
-    attributes.addPlugin(plugin);
+    for (String name : plugin.getProcessorClasses()) {
+      // For header compilation (see JavaHeaderCompileAction):
+      attributes.addApiGeneratingProcessorName(name);
+      // For full compilation:
+      attributes.addProcessorName(name);
+    }
+    // For header compilation (see JavaHeaderCompileAction):
+    attributes.addApiGeneratingProcessorPath(plugin.getProcessorClasspath());
+    // For full compilation:
+    attributes.addProcessorPath(plugin.getProcessorClasspath());
     attributes.addAdditionalOutputs(getMetadataOutputs(ruleContext));
   }
 

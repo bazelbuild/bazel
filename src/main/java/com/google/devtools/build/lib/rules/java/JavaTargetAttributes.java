@@ -70,7 +70,14 @@ public class JavaTargetAttributes {
     private final List<Artifact> sourcePath = new ArrayList<>();
     private final List<Artifact> nativeLibraries = new ArrayList<>();
 
-    private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
+    private final NestedSetBuilder<Artifact> processorPath = NestedSetBuilder.naiveLinkOrder();
+    // Classpath directories can't be represented as artifacts (TreeArtifact isn't appropriate
+    // here since all we need is a path string to apply to the command line).
+    private final Set<String> processorNames = new LinkedHashSet<>();
+
+    private final NestedSetBuilder<Artifact> apiGeneratingProcessorPath =
+        NestedSetBuilder.naiveLinkOrder();
+    private final Set<String> apiGeneratingProcessorNames = new LinkedHashSet<>();
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
@@ -297,10 +304,27 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addPlugin(JavaPluginInfoProvider plugins) {
+    public Builder addProcessorName(String processor) {
       Preconditions.checkArgument(!built);
-      Preconditions.checkArgument(this.plugins.isEmpty());
-      this.plugins = plugins;
+      processorNames.add(processor);
+      return this;
+    }
+
+    public Builder addProcessorPath(NestedSet<Artifact> jars) {
+      Preconditions.checkArgument(!built);
+      processorPath.addTransitive(jars);
+      return this;
+    }
+
+    public Builder addApiGeneratingProcessorName(String processor) {
+      Preconditions.checkArgument(!built);
+      apiGeneratingProcessorNames.add(processor);
+      return this;
+    }
+
+    public Builder addApiGeneratingProcessorPath(NestedSet<Artifact> jars) {
+      Preconditions.checkArgument(!built);
+      apiGeneratingProcessorPath.addTransitive(jars);
       return this;
     }
 
@@ -334,7 +358,10 @@ public class JavaTargetAttributes {
           bootClassPath,
           sourcePath,
           nativeLibraries,
-          plugins,
+          processorPath.build(),
+          processorNames,
+          apiGeneratingProcessorPath.build(),
+          apiGeneratingProcessorNames,
           resources,
           resourceJars.build(),
           messages,
@@ -364,28 +391,19 @@ public class JavaTargetAttributes {
       return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
     }
 
-    /**
-     * @deprecated prefer to use a built {@link JavaTargetAttributes} instead of accessing mutable
-     *     state in the {@link Builder}.
-     */
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceFiles} */
     @Deprecated
     public boolean hasSourceFiles() {
       return !sourceFiles.isEmpty();
     }
 
-    /**
-     * @deprecated prefer to use a built {@link JavaTargetAttributes} instead of accessing mutable
-     *     state in the {@link Builder}.
-     */
+    /** @deprecated prefer {@link JavaTargetAttributes#getInstrumentationMetadata} */
     @Deprecated
     public List<Artifact> getInstrumentationMetadata() {
       return instrumentationMetadata;
     }
 
-    /**
-     * @deprecated prefer to use a built {@link JavaTargetAttributes} instead of accessing mutable
-     *     state in the {@link Builder}.
-     */
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceJars} */
     @Deprecated
     public boolean hasSourceJars() {
       return !sourceJars.isEmpty();
@@ -405,7 +423,11 @@ public class JavaTargetAttributes {
   private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
-  private final JavaPluginInfoProvider plugins;
+  private final NestedSet<Artifact> processorPath;
+  private final ImmutableSet<String> processorNames;
+
+  private final NestedSet<Artifact> apiGeneratingProcessorPath;
+  private final ImmutableSet<String> apiGeneratingProcessorNames;
 
   private final ImmutableMap<PathFragment, Artifact> resources;
   private final NestedSet<Artifact> resourceJars;
@@ -433,7 +455,10 @@ public class JavaTargetAttributes {
       List<Artifact> bootClassPath,
       List<Artifact> sourcePath,
       List<Artifact> nativeLibraries,
-      JavaPluginInfoProvider plugins,
+      NestedSet<Artifact> processorPath,
+      Set<String> processorNames,
+      NestedSet<Artifact> apiGeneratingProcessorPath,
+      Set<String> apiGeneratingProcessorNames,
       Map<PathFragment, Artifact> resources,
       NestedSet<Artifact> resourceJars,
       List<Artifact> messages,
@@ -457,7 +482,10 @@ public class JavaTargetAttributes {
     this.bootClassPath = ImmutableList.copyOf(bootClassPath);
     this.sourcePath = ImmutableList.copyOf(sourcePath);
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
-    this.plugins = plugins;
+    this.processorPath = processorPath;
+    this.processorNames = ImmutableSet.copyOf(processorNames);
+    this.apiGeneratingProcessorPath = apiGeneratingProcessorPath;
+    this.apiGeneratingProcessorNames = ImmutableSet.copyOf(apiGeneratingProcessorNames);
     this.resources = ImmutableMap.copyOf(resources);
     this.resourceJars = resourceJars;
     this.messages = ImmutableList.copyOf(messages);
@@ -561,8 +589,16 @@ public class JavaTargetAttributes {
     return sourcePath;
   }
 
-  public JavaPluginInfoProvider plugins() {
-    return plugins;
+  public NestedSet<Artifact> getProcessorPath() {
+    return processorPath;
+  }
+
+  public NestedSet<Artifact> getApiGeneratingProcessorPath() {
+    return apiGeneratingProcessorPath;
+  }
+
+  public ImmutableSet<String> getApiGeneratingProcessorNames() {
+    return apiGeneratingProcessorNames;
   }
 
   public ImmutableSet<Artifact> getSourceFiles() {
@@ -571,6 +607,10 @@ public class JavaTargetAttributes {
 
   public List<Artifact> getNativeLibraries() {
     return nativeLibraries;
+  }
+
+  public Collection<String> getProcessorNames() {
+    return processorNames;
   }
 
   public boolean hasSources() {

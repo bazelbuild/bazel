@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** The collection of gen jars from the transitive closure. */
@@ -46,7 +49,7 @@ public final class JavaGenJarsProvider
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
-      JavaPluginInfoProvider plugins,
+      List<JavaPluginInfoProvider> plugins,
       Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
     NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
@@ -61,12 +64,20 @@ public final class JavaGenJarsProvider
       classJarsBuilder.addTransitive(dep.getTransitiveGenClassJars());
       sourceJarsBuilder.addTransitive(dep.getTransitiveGenSourceJars());
     }
+
+    NestedSetBuilder<Artifact> processorClasspathsBuilder = NestedSetBuilder.naiveLinkOrder();
+    Set<String> processorNames = new LinkedHashSet<>();
+    for (JavaPluginInfoProvider plugin : plugins) {
+      processorClasspathsBuilder.addTransitive(plugin.getProcessorClasspath());
+      processorNames.addAll(plugin.getProcessorClasses());
+    }
+
     return new JavaGenJarsProvider(
         usesAnnotationProcessing,
         genClassJar,
         genSourceJar,
-        plugins.plugins().processorClasspath(),
-        ImmutableList.copyOf(plugins.plugins().processorClasses().toList()),
+        processorClasspathsBuilder.build(),
+        ImmutableList.copyOf(processorNames),
         classJarsBuilder.build(),
         sourceJarsBuilder.build());
   }

@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -34,6 +37,8 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   private final Collection<Artifact> jarFiles;
   private final Collection<Artifact> sourceJarsForJarFiles;
   private final Map<PathFragment, Artifact> resources;
+  private final Collection<String> processorNames;
+  private final NestedSet<Artifact> processorPath;
 
   @VisibleForSerialization
   JavaSourceInfoProvider(
@@ -41,12 +46,16 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       Collection<Artifact> sourceJars,
       Collection<Artifact> jarFiles,
       Collection<Artifact> sourceJarsForJarFiles,
-      Map<PathFragment, Artifact> resources) {
+      Map<PathFragment, Artifact> resources,
+      Collection<String> processorNames,
+      NestedSet<Artifact> processorPath) {
     this.sourceFiles = sourceFiles;
     this.sourceJars = sourceJars;
     this.jarFiles = jarFiles;
     this.sourceJarsForJarFiles = sourceJarsForJarFiles;
     this.resources = resources;
+    this.processorNames = processorNames;
+    this.processorPath = processorPath;
   }
 
   /** Gets the original Java source files provided as inputs to this rule. */
@@ -93,6 +102,16 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     return resources;
   }
 
+  /** Gets the names of the annotation processors which operate on this rule's sources. */
+  public Collection<String> getProcessorNames() {
+    return processorNames;
+  }
+
+  /** Gets the classpath for the annotation processors which operate on this rule's sources. */
+  public NestedSet<Artifact> getProcessorPath() {
+    return processorPath;
+  }
+
   /**
    * Constructs a JavaSourceInfoProvider using the sources in the given JavaTargetAttributes.
    *
@@ -105,6 +124,8 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
         .setSourceFiles(attributes.getSourceFiles())
         .setSourceJars(attributes.getSourceJars())
         .setResources(attributes.getResources())
+        .setProcessorNames(attributes.getProcessorNames())
+        .setProcessorPath(attributes.getProcessorPath())
         .build();
   }
 
@@ -115,6 +136,8 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     private Collection<Artifact> jarFiles = ImmutableList.<Artifact>of();
     private Collection<Artifact> sourceJarsForJarFiles = ImmutableList.<Artifact>of();
     private Map<PathFragment, Artifact> resources = ImmutableMap.<PathFragment, Artifact>of();
+    private Collection<String> processorNames = ImmutableList.<String>of();
+    private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
     /** Sets the source files included as part of the sources of this rule. */
     public Builder setSourceFiles(Collection<Artifact> sourceFiles) {
@@ -157,10 +180,29 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    /** Sets the names of the annotation processors used by this rule. */
+    public Builder setProcessorNames(Collection<String> processorNames) {
+      this.processorNames = Preconditions.checkNotNull(processorNames);
+      return this;
+    }
+
+    /** Sets the classpath used by this rule for annotation processing. */
+    public Builder setProcessorPath(NestedSet<Artifact> processorPath) {
+      Preconditions.checkNotNull(processorPath);
+      this.processorPath = processorPath;
+      return this;
+    }
+
     /** Constructs the JavaSourceInfoProvider from the provided Java sources. */
     public JavaSourceInfoProvider build() {
       return new JavaSourceInfoProvider(
-          sourceFiles, sourceJars, jarFiles, sourceJarsForJarFiles, resources);
+          sourceFiles,
+          sourceJars,
+          jarFiles,
+          sourceJarsForJarFiles,
+          resources,
+          processorNames,
+          processorPath);
     }
   }
 }

@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -212,7 +211,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private ImmutableList<String> javacOpts;
-    private JavaPluginInfo plugins = JavaPluginInfo.empty();
+    private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    private final List<String> processorNames = new ArrayList<>();
 
     private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private Artifact javacJar;
@@ -285,10 +285,16 @@ public class JavaHeaderCompileAction extends SpawnAction {
     }
 
     /** Sets the annotation processors classpath entries. */
-    public Builder setPlugins(JavaPluginInfo plugins) {
-      checkNotNull(plugins, "plugins must not be null");
-      checkState(this.plugins.isEmpty());
-      this.plugins = plugins;
+    public Builder setProcessorPaths(NestedSet<Artifact> processorPaths) {
+      checkNotNull(processorPaths, "processorPaths must not be null");
+      this.processorPath = processorPaths;
+      return this;
+    }
+
+    /** Sets the fully-qualified class names of annotation processors to run. */
+    public Builder addProcessorNames(Collection<String> processorNames) {
+      checkNotNull(processorNames, "processorNames must not be null");
+      this.processorNames.addAll(processorNames);
       return this;
     }
 
@@ -355,6 +361,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
       checkNotNull(
           compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
       checkNotNull(javacOpts, "javacOpts must not be null");
+      checkNotNull(processorPath, "processorPath must not be null");
+      checkNotNull(processorNames, "processorNames must not be null");
 
       // Invariant: if strictJavaDeps is OFF, then directJars and
       // dependencyArtifacts are ignored
@@ -365,7 +373,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
       // The compilation uses API-generating annotation processors and has to fall back to
       // javac-turbine.
-      boolean requiresAnnotationProcessing = !plugins.isEmpty();
+      boolean requiresAnnotationProcessing = !processorNames.isEmpty();
 
       NestedSet<Artifact> tools =
           NestedSetBuilder.<Artifact>stableOrder()
@@ -436,7 +444,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(baseInputs)
               .addTransitive(classpathEntries)
-              .addTransitive(plugins.processorClasspath())
+              .addTransitive(processorPath)
               .addTransitive(compileTimeDependencyArtifacts);
       final CommandLines commandLines;
 
@@ -524,7 +532,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
     private LazyString getProgressMessageWithAnnotationProcessors() {
       List<String> shortNames = new ArrayList<>();
-      for (String name : plugins.processorClasses()) {
+      for (String name : processorNames) {
         shortNames.add(name.substring(name.lastIndexOf('.') + 1));
       }
       String tail = " and running annotation processors (" + Joiner.on(", ").join(shortNames) + ")";
@@ -611,8 +619,12 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private CommandLine transitiveCommandLine() {
       CustomCommandLine.Builder result = CustomCommandLine.builder();
       baseCommandLine(result, classpathEntries);
-      result.addAll("--processors", plugins.processorClasses());
-      result.addExecPaths("--processorpath", plugins.processorClasspath());
+      if (!processorNames.isEmpty()) {
+        result.addAll("--processors", ImmutableList.copyOf(processorNames));
+      }
+      if (!processorPath.isEmpty()) {
+        result.addExecPaths("--processorpath", processorPath);
+      }
       if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
         result.addExecPaths("--direct_dependencies", directJars);
         if (!compileTimeDependencyArtifacts.isEmpty()) {
