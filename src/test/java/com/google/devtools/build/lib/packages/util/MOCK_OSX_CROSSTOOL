@@ -30,6 +30,10 @@ default_toolchain {
   toolchain_identifier: "darwin_x86_64"
 }
 default_toolchain {
+  cpu: "aarch64"
+  toolchain_identifier: "darwin_x86_64"
+}
+default_toolchain {
   cpu: "ios_x86_64"
   toolchain_identifier: "ios_x86_64"
 }

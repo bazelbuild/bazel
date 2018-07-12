@@ -205,6 +205,9 @@ filegroup(
         "//src/conditions:windows": [
             "@openjdk_win//file",
         ],
+        "//src/conditions:linux_aarch64": [
+            "@openjdk_linux_aarch64//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux//file",
         ],
