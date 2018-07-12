@@ -37,7 +37,6 @@
 
 namespace blaze_util {
 
-using std::pair;
 using std::string;
 
 // Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
