@@ -32,6 +32,17 @@ public class QueryOptions extends CommonQueryOptions {
   }
 
   @Option(
+      name = "output",
+      defaultValue = "label",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The format in which the query results should be printed. Allowed values for query are: "
+              + "build, graph, label, label_kind, locations, maxrank, minrank, package, proto, xml."
+  )
+  public String outputFormat;
+
+  @Option(
     name = "null",
     defaultValue = "null",
     expansion = {"--line_terminator_null=true"},
