@@ -139,6 +139,8 @@ function assert_process_wrapper_exec_time() {
       --stats="${stats_out_path}" \
       "${CPU_TIME_SPENDER}" "${user_time_low}" "${sys_time_low}" \
       &> "${TEST_log}" || code="$?"
+  sed -e 's,^subprocess stdout: ,,' "${stdout_path}" >>"${TEST_log}"
+  sed -e 's,^subprocess stderr: ,,' "${stderr_path}" >>"${TEST_log}"
   assert_equals 0 "${code}"
 
   assert_execution_time_in_range \

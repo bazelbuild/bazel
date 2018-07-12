@@ -74,9 +74,6 @@ platforms:
     - "//tools/android/..."
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4663
     - "-//src/test/shell/bazel/android:android_ndk_integration_test"
-    # Re-enable once fixed: b/110456205
-    - "-//src/test/java/com/google/devtools/build/lib/shell:ShellTests"
-    - "-//src/test/shell/integration:process_wrapper_test"
     # The below tests have been disabled because they are too slow on macOS.
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/4684
     - "-//src/test/shell/bazel:bazel_determinism_test"
