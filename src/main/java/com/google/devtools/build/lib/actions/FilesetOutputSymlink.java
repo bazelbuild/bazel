@@ -21,15 +21,15 @@ import javax.annotation.Nullable;
 
 /** Definition of a symlink in the output tree of a Fileset rule. */
 public abstract class FilesetOutputSymlink {
-  private static final String STRIPPED_METADATA = "<stripped-for-testing>";
+  private static final int STRIPPED_METADATA = -1;
   private final PathFragment name;
   private final PathFragment target;
-  private final String metadata;
+  private final int metadataHash;
 
-  FilesetOutputSymlink(PathFragment name, PathFragment target, String metadata) {
+  FilesetOutputSymlink(PathFragment name, PathFragment target, int metadataHash) {
     this.name = Preconditions.checkNotNull(name);
     this.target = Preconditions.checkNotNull(target);
-    this.metadata = Preconditions.checkNotNull(metadata);
+    this.metadataHash = metadataHash;
   }
 
   /** Final name of the symlink relative to the Fileset's output directory. */
@@ -45,9 +45,9 @@ public abstract class FilesetOutputSymlink {
     return target;
   }
 
-  /** Opaque metadata about the link and its target; should change if either of them changes. */
-  public String getMetadata() {
-    return metadata;
+  /** The hashcode of the target's file state. */
+  public int getMetadataHash() {
+    return metadataHash;
   }
 
   /** true if the target is a generated artifact */
@@ -71,7 +71,7 @@ public abstract class FilesetOutputSymlink {
     FilesetOutputSymlink o = (FilesetOutputSymlink) obj;
     return getName().equals(o.getName())
         && getTargetPath().equals(o.getTargetPath())
-        && getMetadata().equals(o.getMetadata())
+        && getMetadataHash() == o.getMetadataHash()
         && isGeneratedTarget() == o.isGeneratedTarget()
         && Objects.equals(getTargetArtifactValue(), o.getTargetArtifactValue());
   }
@@ -79,19 +79,23 @@ public abstract class FilesetOutputSymlink {
   @Override
   public int hashCode() {
     return Objects.hash(
-        getName(), getTargetPath(), getMetadata(), isGeneratedTarget(), getTargetArtifactValue());
+        getName(),
+        getTargetPath(),
+        getMetadataHash(),
+        isGeneratedTarget(),
+        getTargetArtifactValue());
   }
 
   @Override
   public String toString() {
-    if (getMetadata().equals(STRIPPED_METADATA)) {
+    if (getMetadataHash() == STRIPPED_METADATA) {
       return String.format(
           "FilesetOutputSymlink(%s -> %s)",
           getName().getPathString(), getTargetPath().getPathString());
     } else {
       return String.format(
-          "FilesetOutputSymlink(%s -> %s | metadata=%s)",
-          getName().getPathString(), getTargetPath().getPathString(), getMetadata());
+          "FilesetOutputSymlink(%s -> %s | metadataHash=%s)",
+          getName().getPathString(), getTargetPath().getPathString(), getMetadataHash());
     }
   }
 
@@ -104,28 +108,26 @@ public abstract class FilesetOutputSymlink {
    * @param name relative path under the Fileset's output directory, including FilesetEntry.destdir
    *     with and FilesetEntry.strip_prefix applied (if applicable)
    * @param target relative or absolute value of the link
-   * @param metadata opaque metadata about the link and its target; should change if either the link
-   *     or its target changes
+   * @param metadataHash hashcode of the target's file state
    */
   public static FilesetOutputSymlink createForSourceTarget(
-      PathFragment name, PathFragment target, String metadata) {
-    return new SourceOutputSymlink(name, target, metadata);
+      PathFragment name, PathFragment target, int metadataHash) {
+    return new SourceOutputSymlink(name, target, metadataHash);
   }
 
   /**
    * @param name relative path under the Fileset's output directory, including FilesetEntry.destdir
    *     with and FilesetEntry.strip_prefix applied (if applicable)
    * @param target relative or absolute value of the link
-   * @param metadata opaque metadata about the link and its target; should change if either the link
-   *     or its target changes
+   * @param metadataHash hashcode of the target's file state.
    * @param fileArtifactValue the {@link FileArtifactValue} corresponding to the target.
    */
   public static FilesetOutputSymlink createForDerivedTarget(
       PathFragment name,
       PathFragment target,
-      String metadata,
-      @Nullable FileArtifactValue fileArtifactValue) {
-    return new DerivedOutputSymlink(name, target, metadata, fileArtifactValue);
+      int metadataHash,
+      FileArtifactValue fileArtifactValue) {
+    return new DerivedOutputSymlink(name, target, metadataHash, fileArtifactValue);
   }
 
   private static class DerivedOutputSymlink extends FilesetOutputSymlink {
@@ -134,9 +136,9 @@ public abstract class FilesetOutputSymlink {
     DerivedOutputSymlink(
         PathFragment name,
         PathFragment target,
-        String metadata,
+        int metadataHash,
         FileArtifactValue fileArtifactValue) {
-      super(name, target, metadata);
+      super(name, target, metadataHash);
       this.fileArtifactValue = fileArtifactValue;
     }
 
@@ -152,8 +154,8 @@ public abstract class FilesetOutputSymlink {
   }
 
   private static class SourceOutputSymlink extends FilesetOutputSymlink {
-    SourceOutputSymlink(PathFragment name, PathFragment target, String metadata) {
-      super(name, target, metadata);
+    SourceOutputSymlink(PathFragment name, PathFragment target, int metadataHash) {
+      super(name, target, metadataHash);
     }
 
     @Override
