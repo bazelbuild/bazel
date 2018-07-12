@@ -1,19 +1,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
-import java.io.File;
-import java.io.FileOutputStream;
-
+import java.io.IOException;
+import java.nio.channels.WritableByteChannel;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.List;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.channels.FileChannel;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -21,14 +13,16 @@ import java.nio.file.Paths;
 import static java.lang.Math.max;
 
 public final class ClangHeaderMap {
-  // Logical representation of a bucket.
-  // The actual data is stored in the string pool.
-  private class HMapBucket {
-    String key;
-    String prefix;
-    String suffix;
 
-    HMapBucket(String key, String prefix, String suffix) {
+  /** Logical representation of a bucket.
+   The actual data is stored in the string pool.
+   */
+  private class HeaderMapBucket {
+    private final String key;
+    private final String prefix;
+    private final String suffix;
+
+    HeaderMapBucket(String key, String prefix, String suffix) {
       this.key = key;
       this.prefix = prefix;
       this.suffix = suffix;
@@ -45,15 +39,17 @@ public final class ClangHeaderMap {
 
   private static final int INT_SIZE = Integer.SIZE/8;
 
-  // Data stored in accordance to Clang's lexer types
   /**
+   Data stored in accordance to Clang's lexer types:
+
+   <pre>{@code
   enum {
       HMAP_HeaderMagicNumber = ('h' << 24) | ('m' << 16) | ('a' << 8) | 'p',
       HMAP_HeaderVersion = 1,
       HMAP_EmptyBucketKey = 0
     };
 
-    struct HMapBucket {
+    struct HeaderMapBucket {
       uint32_t Key;    // Offset (into strings) of key.
       uint32_t Prefix; // Offset (into strings) of value prefix.
       uint32_t Suffix; // Offset (into strings) of value suffix.
@@ -67,11 +63,12 @@ public final class ClangHeaderMap {
       uint32_t NumEntries;     // Number of entries in the string table.
       uint32_t NumBuckets;     // Number of buckets (always a power of 2).
       uint32_t MaxValueLength; // Length of longest result path (excluding nul).
-      // An array of 'NumBuckets' HMapBucket objects follows this header.
+      // An array of 'NumBuckets' HeaderMapBucket objects follows this header.
       // Strings follow the buckets, at StringsOffset.
     };
-  */
-  public ByteBuffer buff;
+  }</pre>
+   */
+  private ByteBuffer buffer;
 
   private int numBuckets;
   private int numUsedBuckets;
@@ -81,19 +78,21 @@ public final class ClangHeaderMap {
   private int maxStringsSize;
 
   // Used only for creation
-  private HMapBucket[] buckets;
+  private HeaderMapBucket[] buckets;
 
-  // Create a headermap from a raw Map of keys to strings
-  // Usage:
-  // A given path to a header is keyed by that header.
-  // .e. Header.h -> Path/To/Header.h
-  //
-  // Additionally, it is possible to alias custom paths to headers.
-  // For example, it is possible to namespace a given target
-  // i.e. MyTarget/Header.h -> Path/To/Header.h
-  //
-  // The HeaderMap format is defined by the lexer of Clang
-  // https://clang.llvm.org/doxygen/HeaderMap_8cpp_source.html
+  /**
+  Create a header map from a raw Map of keys to strings
+   Usage:
+   A given path to a header is keyed by that header.
+   i.e. Header.h -> Path/To/Header.h
+
+   Additionally, it's possible to alias custom paths to headers.
+   For example, it's possible to namespace a given target
+   i.e. MyTarget/Header.h -> Path/To/Header.h
+
+   The HeaderMap format is defined by the lexer of Clang
+   https://clang.llvm.org/doxygen/HeaderMap_8cpp_source.html
+   */
   ClangHeaderMap(Map<String, String> headerPathsByKeys) {
     int dataOffset = 1;
     setMap(headerPathsByKeys);
@@ -101,19 +100,19 @@ public final class ClangHeaderMap {
     int endBuckets = HEADER_SIZE + numBuckets * BUCKET_SIZE;
     stringsOffset = endBuckets - dataOffset;
     int totalBufferSize = endBuckets + maxStringsSize;
-    buff = ByteBuffer.wrap(new byte[totalBufferSize]).order(ByteOrder.LITTLE_ENDIAN);
+    buffer = ByteBuffer.wrap(new byte[totalBufferSize]).order(ByteOrder.LITTLE_ENDIAN);
 
     // Write out the header
-    buff.putInt(HEADER_MAGIC);
-    buff.putShort(HEADER_VERSION);
-    buff.putShort(HEADER_RESERVED);
-    buff.putInt(stringsOffset);
+    buffer.putInt(HEADER_MAGIC);
+    buffer.putShort(HEADER_VERSION);
+    buffer.putShort(HEADER_RESERVED);
+    buffer.putInt(stringsOffset);
 
     // For each entry, we write a key, suffix, and prefix
     int stringPoolSize = headerPathsByKeys.size() * 3;
-    buff.putInt(stringPoolSize);
-    buff.putInt(numBuckets);
-    buff.putInt(maxValueLength);
+    buffer.putInt(stringPoolSize);
+    buffer.putInt(numBuckets);
+    buffer.putInt(maxValueLength);
 
     // Write out buckets and compute string offsets
     byte[] stringBytes = new byte[maxStringsSize];
@@ -121,36 +120,45 @@ public final class ClangHeaderMap {
     // Used to compute the current offset
     stringsSize = 0;
     for (int i = 0; i < numBuckets; i++) {
-      HMapBucket bucket = buckets[i];
+      HeaderMapBucket bucket = buckets[i];
       if (bucket == null) {
-        buff.putInt(EMPTY_BUCKET_KEY);
-        buff.putInt(0);
-        buff.putInt(0);
+        buffer.putInt(EMPTY_BUCKET_KEY);
+        buffer.putInt(0);
+        buffer.putInt(0);
       } else {
         int keyOffset = stringsSize;
-        buff.putInt(keyOffset + dataOffset);
+        buffer.putInt(keyOffset + dataOffset);
         stringsSize = addString(bucket.key, stringsSize, stringBytes);
 
         int prefixOffset = stringsSize;
         stringsSize = addString(bucket.prefix, stringsSize, stringBytes);
-        buff.putInt(prefixOffset + dataOffset);
+        buffer.putInt(prefixOffset + dataOffset);
 
         int suffixOffset = stringsSize;
         stringsSize = addString(bucket.suffix, stringsSize, stringBytes);
-        buff.putInt(suffixOffset + dataOffset);
+        buffer.putInt(suffixOffset + dataOffset);
       }
     }
-    buff.put(stringBytes, 0, stringsSize);
+    buffer.put(stringBytes, 0, stringsSize);
   }
 
-  // For testing purposes. Implement a similiar algorithm as the clang
-  // lexer.
+  /*
+  Write header map to a channel
+   */
+  public void writeToChannel(WritableByteChannel channel) throws IOException {
+    buffer.flip();
+    channel.write(buffer);
+  }
+
+  /**
+   For testing purposes. Implement a similiar algorithm as the clang lexer.
+   */
   public String get(String key) {
     int bucketIdx = clangKeyHash(key) & (numBuckets - 1);
     while (bucketIdx < numBuckets) {
       // Buckets are right after the header
       int bucketOffset = HEADER_SIZE + (BUCKET_SIZE * bucketIdx);
-      int keyOffset = buff.getInt(bucketOffset);
+      int keyOffset = buffer.getInt(bucketOffset);
 
       // Note: the lexer does a case insensitive compare here but
       // it isn't necessary for test purposes
@@ -160,8 +168,8 @@ public final class ClangHeaderMap {
       }
 
       // Start reading bytes from the prefix
-      int prefixOffset = buff.getInt(bucketOffset + INT_SIZE);
-      int suffixOffset = buff.getInt(bucketOffset + INT_SIZE * 2);
+      int prefixOffset = buffer.getInt(bucketOffset + INT_SIZE);
+      int suffixOffset = buffer.getInt(bucketOffset + INT_SIZE * 2);
       return getString(prefixOffset) + getString(suffixOffset);
     }
     return null;
@@ -175,7 +183,7 @@ public final class ClangHeaderMap {
     int idx = readOffset;
     byte[] stringBytes = new byte[2048];
     while(idx < endStringsOffset) {
-      byte c = (byte)buff.getChar(idx);
+      byte c = (byte) buffer.getChar(idx);
       if (c == 0) {
         break;
       }
@@ -189,7 +197,7 @@ public final class ClangHeaderMap {
     }
   }
 
-  private void addBucket(HMapBucket bucket, HMapBucket[] buckets, int numBuckets) {
+  private void addBucket(HeaderMapBucket bucket, HeaderMapBucket[] buckets, int numBuckets) {
     // Use a load factor of 0.5
     if (((numUsedBuckets + 1) / numBuckets) > 0.5 == false) {
       int bucketIdx = clangKeyHash(bucket.key) & (numBuckets - 1);
@@ -216,13 +224,13 @@ public final class ClangHeaderMap {
 
     // If there are no more slots left, grow by a power of 2
     int newNumBuckets = numBuckets * 2;
-    HMapBucket[] newBuckets = new HMapBucket[newNumBuckets];
+    HeaderMapBucket[] newBuckets = new HeaderMapBucket[newNumBuckets];
 
-    HMapBucket[] oldBuckets = buckets;
+    HeaderMapBucket[] oldBuckets = buckets;
     this.buckets = newBuckets;
     this.numBuckets = newNumBuckets;
     this.numUsedBuckets = 0;
-    for(HMapBucket cpBucket: oldBuckets) {
+    for(HeaderMapBucket cpBucket: oldBuckets) {
       if (cpBucket != null) {
         addBucket(cpBucket, newBuckets, newNumBuckets);
       }
@@ -240,7 +248,7 @@ public final class ClangHeaderMap {
 
     // Per the format, buckets need to be powers of 2 in size
     numBuckets = getNextPowerOf2(headerPathsByKeys.size() + 1);
-    buckets = new HMapBucket[numBuckets];
+    buckets = new HeaderMapBucket[numBuckets];
 
     for(Map.Entry<String, String> entry: headerPathsByKeys.entrySet()){
       String key = entry.getKey();
@@ -259,7 +267,7 @@ public final class ClangHeaderMap {
         suffix = pathValue.getFileName().toString();
       }
 
-      HMapBucket bucket = new HMapBucket(key, prefix, suffix);
+      HeaderMapBucket bucket = new HeaderMapBucket(key, prefix, suffix);
       addBucket(bucket, buckets, numBuckets);
       int prefixLen = prefix.getBytes().length + 1;
       int suffixLen = suffix.getBytes().length + 1;
@@ -273,7 +281,6 @@ public final class ClangHeaderMap {
   }
 
   // Utils
-
   private static int addString(String str, int totalLength, byte[] stringBytes) {
     for (byte b : str.getBytes(StandardCharsets.UTF_8)) {
       stringBytes[totalLength] = b;
@@ -321,4 +328,3 @@ public final class ClangHeaderMap {
     return (c >= 'A') && (c <= 'Z');
   }
 }
-

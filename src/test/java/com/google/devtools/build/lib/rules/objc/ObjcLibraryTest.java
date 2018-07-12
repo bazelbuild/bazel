@@ -1809,6 +1809,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file(
         "x/headerb.h");
     scratch.file(
+        "x/y/z/nested_header.h");
+    scratch.file(
         "x/BUILD",
         "objc_library(",
         "   name = 'objc',",
@@ -1822,7 +1824,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "objc_library(",
         "   name = 'dep_libb',",
         "   include_prefix = 'some',",
-        "   hdrs = ['headerb.h'],",
+        "   flatten_virtual_headers = True,",
+        "   hdrs = ['headerb.h', 'y/z/nested_header.h'],",
         ")");
 
     assertThat(getConfiguredTarget("//x:objc")).isNotNull();

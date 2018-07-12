@@ -413,7 +413,7 @@ public final class CcCompilationHelper {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
-    
+
     this.privateHeaders.add(privateHeader);
     return this;
   }
@@ -1047,8 +1047,7 @@ public final class CcCompilationHelper {
       }
 
       // Merge all of the header map info from deps. The headers within a given
-      // target have precedence over over dep headers ( See
-      // HeaderMapInfo.build() ).
+      // target have precedence over over dep headers (See HeaderMapInfo.build()).
       if (ruleContext.attributes().has("deps")){
         for (HeaderMapInfoProvider hmapProvider : ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
           depHeaderMapInfo.mergeHeaderMapInfo(hmapProvider.getInfo());
@@ -1065,9 +1064,7 @@ public final class CcCompilationHelper {
       ccCompilationContextBuilder.addIncludeDir(depHeaderMap.getExecPath());
       headerMapsBuilder.add(depHeaderMap);
 
-      // If we have headermaps, then we need to add an include of
-      // the working directory ( i.e. exec root ) in this form
-      // and it must be after including the header map files
+      // If we have header maps we need to add an include of the working directory
       ccCompilationContextBuilder.addIncludeDir(PathFragment.create("."));
       ImmutableList headerMaps = headerMapsBuilder.build();
       ccCompilationContextBuilder.setHeaderMaps(headerMaps);

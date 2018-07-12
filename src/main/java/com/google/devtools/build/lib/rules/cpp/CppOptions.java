@@ -291,11 +291,15 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_enable_implicit_headermaps",
     defaultValue = "false",
     category = "semantics",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+    effectTags = {
+        OptionEffectTag.CHANGES_INPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.ACTION_COMMAND_LINES,
+    },
     help =
         "When building a target //a:a, generate a header map containing all of the headers that //a:a depends "
-            + "on (if header processing is enabled for the toolchain)."
+            + "on (if header maps are enabled for the toolchain)."
   )
   public boolean experimentalEnableImplicitHeaderMaps;
 

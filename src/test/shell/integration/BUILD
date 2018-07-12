@@ -230,6 +230,14 @@ sh_test(
 )
 
 sh_test(
+    name = "objc_test",
+    size = "small",
+    srcs = ["objc_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "action_env_test",
     size = "large",
     srcs = ["action_env_test.sh"],
