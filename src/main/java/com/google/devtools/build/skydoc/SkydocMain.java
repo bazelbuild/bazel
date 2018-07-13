@@ -188,6 +188,10 @@ public class SkydocMain {
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableList.Builder<RuleInfo> unknownNamedRules)
       throws InterruptedException, IOException {
+    if (path.isAbsolute()) {
+      path = Paths.get(PathFragment.create(path.toString()).toRelative().getPathString());
+    }
+
     List<RuleInfo> ruleInfoList = new ArrayList<>();
     Environment env = recursiveEval(path, ruleInfoList);
 
@@ -253,7 +257,7 @@ public class SkydocMain {
 
   private static Path fromPathFragment(Path fromPath, PathFragment pathFragment) {
     return pathFragment.isAbsolute()
-        ? Paths.get(pathFragment.getPathString())
+        ? Paths.get(pathFragment.toRelative().getPathString())
         : fromPath.resolveSibling(pathFragment.getPathString());
   }
 

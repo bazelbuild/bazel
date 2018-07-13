@@ -50,7 +50,7 @@ public final class SkydocTest extends SkylarkTestCase {
 
       @Override
       public ParserInputSource inputSource(String pathString) throws IOException {
-        Path path = fileSystem.getPath(pathString);
+        Path path = fileSystem.getPath("/" + pathString);
         byte[] bytes = FileSystemUtils.asByteSource(path).read();
         return ParserInputSource.create(bytes, path.asFragment());
       }
@@ -232,6 +232,6 @@ public final class SkydocTest extends SkylarkTestCase {
                 ruleInfoMapBuilder,
                 ImmutableList.builder()));
 
-    assertThat(expected).hasMessageThat().contains("cycle with /test/main.bzl");
+    assertThat(expected).hasMessageThat().contains("cycle with test/main.bzl");
   }
 }
