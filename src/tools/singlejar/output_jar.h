@@ -71,7 +71,7 @@ class OutputJar {
   // Add the contents of the given input jar.
   bool AddJar(int jar_path_index);
   // Returns the current output position.
-  ptrdiff_t Position();
+  off64_t Position();
   // Write Jar entry.
   void WriteEntry(void *local_header_and_payload);
   // Write META_INF/ entry (the first entry on output).
@@ -82,7 +82,7 @@ class OutputJar {
   // Create output Central Directory Header for the given input entry and
   // append it to CEN (Central Directory) buffer.
   void AppendToDirectoryBuffer(const CDH* cdh,
-                               ptrdiff_t local_header_offset,
+                               off64_t local_header_offset,
                                uint16_t normalized_time,
                                bool fix_timestamp);
   // Reserve space in CEN buffer.
@@ -95,7 +95,7 @@ class OutputJar {
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
   // Copy 'count' bytes starting at 'offset' from the given file.
-  ptrdiff_t AppendFile(int in_fd, ptrdiff_t offset, size_t count);
+  ptrdiff_t AppendFile(int in_fd, off64_t offset, size_t count);
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void *buffer, size_t count);
 
@@ -110,7 +110,7 @@ class OutputJar {
 
   std::unordered_map<std::string, struct EntryInfo> known_members_;
   FILE *file_;
-  ptrdiff_t outpos_;
+  off64_t outpos_;
   std::unique_ptr<char[]> buffer_;
   int entries_;
   int duplicate_entries_;
