@@ -417,7 +417,7 @@ public class CrosstoolConfigurationLoader {
     }
   }
 
-  public static CrosstoolConfig.CrosstoolRelease getCrosstoolReleaseProto(
+  protected static CrosstoolConfig.CrosstoolRelease getCrosstoolReleaseProto(
       ConfigurationEnvironment env,
       BuildOptions options,
       Label crosstoolTop,
