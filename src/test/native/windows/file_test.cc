@@ -177,7 +177,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotCreateJunctionFromExistingFile) {
             CreateJunctionResult::kAlreadyExistsButNotJunction);
 }
 
-TEST_F(WindowsFileOperationsTest, TestCannotCreateJunctionIfNameIsBusy) {
+TEST_F(WindowsFileOperationsTest, TestCannotCreateButCanCheckIfNameIsBusy) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring name = tmp + L"\\junc" WLINE;
   wstring target = tmp + L"\\target" WLINE;
@@ -188,7 +188,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotCreateJunctionIfNameIsBusy) {
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
   int actual = CreateJunction(name, target, nullptr);
   CloseHandle(h);
-  ASSERT_EQ(actual, CreateJunctionResult::kAccessDenied);
+  ASSERT_EQ(actual, CreateJunctionResult::kAlreadyExistsButNotJunction);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCanCreateJunctionIfTargetIsBusy) {
@@ -208,14 +208,14 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingFile) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring path = tmp + L"\\file" WLINE;
   EXPECT_TRUE(blaze_util::CreateDummyFile(path));
-  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_SUCCESS);
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DeletePathResult::kSuccess);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingDirectory) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring path = tmp + L"\\dir" WLINE;
   EXPECT_TRUE(CreateDirectoryW(path.c_str(), NULL));
-  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_SUCCESS);
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DeletePathResult::kSuccess);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunction) {
@@ -225,7 +225,7 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunction) {
   EXPECT_TRUE(CreateDirectoryW(target.c_str(), NULL));
   EXPECT_EQ(CreateJunction(name, target, nullptr),
             CreateJunctionResult::kSuccess);
-  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
+  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DeletePathResult::kSuccess);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunctionWithoutTarget) {
@@ -240,14 +240,14 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteExistingJunctionWithoutTarget) {
   EXPECT_NE(GetFileAttributesW(name.c_str()), INVALID_FILE_ATTRIBUTES);
   EXPECT_EQ(GetFileAttributesW(target.c_str()), INVALID_FILE_ATTRIBUTES);
   // We can delete the dangling junction.
-  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DELETE_PATH_SUCCESS);
+  ASSERT_EQ(DeletePath(name.c_str(), nullptr), DeletePathResult::kSuccess);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteNonExistentPath) {
   wstring tmp(kUncPrefix + GetTestTmpDirW());
   wstring path = tmp + L"\\dummy" WLINE;
   EXPECT_EQ(GetFileAttributesW(path.c_str()), INVALID_FILE_ATTRIBUTES);
-  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DELETE_PATH_DOES_NOT_EXIST);
+  ASSERT_EQ(DeletePath(path.c_str(), nullptr), DeletePathResult::kDoesNotExist);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeletePathWhereParentIsFile) {
@@ -255,7 +255,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeletePathWhereParentIsFile) {
   wstring parent = tmp + L"\\file" WLINE;
   wstring child = parent + L"\\file" WLINE;
   EXPECT_TRUE(blaze_util::CreateDummyFile(parent));
-  ASSERT_EQ(DeletePath(child.c_str(), nullptr), DELETE_PATH_DOES_NOT_EXIST);
+  ASSERT_EQ(DeletePath(child.c_str(), nullptr), DeletePathResult::kDoesNotExist);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteNonEmptyDirectory) {
@@ -265,7 +265,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteNonEmptyDirectory) {
   EXPECT_TRUE(CreateDirectoryW(parent.c_str(), NULL));
   EXPECT_TRUE(blaze_util::CreateDummyFile(child));
   ASSERT_EQ(DeletePath(parent.c_str(), nullptr),
-            DELETE_PATH_DIRECTORY_NOT_EMPTY);
+            DeletePathResult::kDirectoryNotEmpty);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyFile) {
@@ -277,7 +277,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyFile) {
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
   int actual = DeletePath(path.c_str(), nullptr);
   CloseHandle(h);
-  ASSERT_EQ(actual, DELETE_PATH_ACCESS_DENIED);
+  ASSERT_EQ(actual, DeletePathResult::kAccessDenied);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyDirectory) {
@@ -289,7 +289,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyDirectory) {
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
   int actual = DeletePath(path.c_str(), nullptr);
   CloseHandle(h);
-  ASSERT_EQ(actual, DELETE_PATH_ACCESS_DENIED);
+  ASSERT_EQ(actual, DeletePathResult::kAccessDenied);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyJunction) {
@@ -306,7 +306,7 @@ TEST_F(WindowsFileOperationsTest, TestCannotDeleteBusyJunction) {
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
   int actual = DeletePath(name.c_str(), nullptr);
   CloseHandle(h);
-  ASSERT_EQ(actual, DELETE_PATH_ACCESS_DENIED);
+  ASSERT_EQ(actual, DeletePathResult::kAccessDenied);
 }
 
 TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
@@ -322,7 +322,7 @@ TEST_F(WindowsFileOperationsTest, TestCanDeleteJunctionWhoseTargetIsBusy) {
   EXPECT_NE(h, INVALID_HANDLE_VALUE);
   int actual = DeletePath(name.c_str(), nullptr);
   CloseHandle(h);
-  ASSERT_EQ(actual, DELETE_PATH_SUCCESS);
+  ASSERT_EQ(actual, DeletePathResult::kSuccess);
 }
 
 #undef TOSTRING1
