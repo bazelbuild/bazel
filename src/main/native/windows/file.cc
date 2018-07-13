@@ -154,22 +154,25 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   }
 
   AutoHandle handle(CreateFileW(
-      name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
-      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL));
+      name.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL,
+      OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+      NULL));
   if (!handle.IsValid()) {
     DWORD err = GetLastError();
     // We can't open the directory for writing: either it disappeared, or turned
     // into a file, or another process holds it open without write-sharing.
-    // Either way, don't try to create the junction, just try opening it for
-    // reading and check its value.
+    // Either way, don't try to create the junction, just try opening it without
+    // any read or write access (we can still read its metadata) and maximum
+    // sharing, and check its target.
     create = false;
     handle = CreateFileW(
-        name.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING,
+        name.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL, OPEN_EXISTING,
         FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
     if (!handle.IsValid()) {
-      // We can't open the directory even for reading: either it disappeared, or
-      // it turned into a file, or another process holds it open without
-      // read-sharing. Give up.
+      // We can't open the directory at all: either it disappeared, or it turned
+      // into a file, or another process holds it open without any sharing.
+      // Give up.
       DWORD err = GetLastError();
       if (err == ERROR_SHARING_VIOLATION) {
         // The junction is held open by another process.
@@ -226,7 +229,23 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
       create = false;
       if (!(info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
         // The path is no longer a directory, and it's not a junction either.
-        return CreateJunctionResult::kAlreadyExistsButNotJunction;
+        // Though this is a case for kAlreadyExistsButNotJunction, let's instead
+        // print the attributes and return kError, to give more information to
+        // the user.
+        if (error) {
+          // Print the attributes as a 32-bit hexadecimal number.
+          WCHAR attr_str[9];
+          DWORD attr_value = info.dwFileAttributes;
+          attr_str[8] = 0;
+          for (int i = 0; i < 8; ++i) {
+            attr_str[7 - i] = L"0123456789abcdef"[attr_value & 0xF];
+            attr_value >>= 4;
+          }
+          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                    L"GetFileInformationByHandle",
+                                    name, wstring(L"attrs=0x") + attr_str);
+        }
+        return CreateJunctionResult::kError;
       }
     }
   }
@@ -334,18 +353,18 @@ int DeletePath(const wstring& path, wstring* error) {
     DWORD err = GetLastError();
     if (err == ERROR_SHARING_VIOLATION) {
       // The file or directory is in use by some process.
-      return DELETE_PATH_ACCESS_DENIED;
+      return DeletePathResult::kAccessDenied;
     } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
       // The file or directory does not exist, or a parent directory does not
       // exist, or a parent directory is actually a file.
-      return DELETE_PATH_DOES_NOT_EXIST;
+      return DeletePathResult::kDoesNotExist;
     } else if (err != ERROR_ACCESS_DENIED) {
       // Some unknown error occurred.
       if (error) {
         *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeleteFileW",
                                   path, err);
       }
-      return DELETE_PATH_ERROR;
+      return DeletePathResult::kError;
     }
 
     // DeleteFileW failed with access denied, because the file is read-only or
@@ -356,15 +375,30 @@ int DeletePath(const wstring& path, wstring* error) {
       if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
         // The file disappeared, or one of its parent directories disappeared,
         // or one of its parent directories is no longer a directory.
-        return DELETE_PATH_DOES_NOT_EXIST;
+        return DeletePathResult::kDoesNotExist;
+      } else if (err != ERROR_ACCESS_DENIED) {
+        // Some unknown error occurred.
+        if (error) {
+          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                    L"GetFileAttributesW", path, err);
+        }
+        return DeletePathResult::kError;
       }
 
-      // Some unknown error occurred.
-      if (error) {
-        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                  L"GetFileAttributesW", path, err);
+      // According to a comment in .NET CoreFX [1] (which is the only relevant
+      // information we found as of 2018-07-13) GetFileAttributesW may fail with
+      // ERROR_ACCESS_DENIED if the file is marked for deletion but not yet
+      // actually deleted, but FindFirstFileW should succeed even then.
+      //
+      // [1] https://github.com/dotnet/corefx/blob/f25eb288a449010574a6e95fe298f3ad880ada1e/src/System.IO.FileSystem/src/System/IO/FileSystem.Windows.cs#L205-L208
+      WIN32_FIND_DATAW find_data;
+      HANDLE find = FindFirstFileW(wpath, &find_data);
+      if (find == INVALID_HANDLE_VALUE) {
+        // The path is already deleted.
+        return DeletePathResult::kDoesNotExist;;
       }
-      return DELETE_PATH_ERROR;
+      FindClose(find);
+      attr = find_data.dwFileAttributes;
     }
 
     if (attr & FILE_ATTRIBUTE_DIRECTORY) {
@@ -374,14 +408,14 @@ int DeletePath(const wstring& path, wstring* error) {
         err = GetLastError();
         if (err == ERROR_SHARING_VIOLATION) {
           // The junction or directory is in use by another process.
-          return DELETE_PATH_ACCESS_DENIED;
+          return DeletePathResult::kAccessDenied;
         } else if (err == ERROR_DIR_NOT_EMPTY) {
           // The directory is not empty.
-          return DELETE_PATH_DIRECTORY_NOT_EMPTY;
+          return DeletePathResult::kDirectoryNotEmpty;
         } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
           // The directory or one of its directories disappeared or is no longer
           // a directory.
-          return DELETE_PATH_DOES_NOT_EXIST;
+          return DeletePathResult::kDoesNotExist;
         }
 
         // Some unknown error occurred.
@@ -389,7 +423,7 @@ int DeletePath(const wstring& path, wstring* error) {
           *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                     L"DeleteDirectoryW", path, err);
         }
-        return DELETE_PATH_ERROR;
+        return DeletePathResult::kError;
       }
     } else {
       // It's a file and it's probably read-only.
@@ -400,14 +434,14 @@ int DeletePath(const wstring& path, wstring* error) {
         if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
           // The file disappeared, or one of its parent directories disappeared,
           // or one of its parent directories is no longer a directory.
-          return DELETE_PATH_DOES_NOT_EXIST;
+          return DeletePathResult::kDoesNotExist;
         }
         // Some unknown error occurred.
         if (error) {
           *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                     L"SetFileAttributesW", path, err);
         }
-        return DELETE_PATH_ERROR;
+        return DeletePathResult::kError;
       }
 
       if (!DeleteFileW(wpath)) {
@@ -416,7 +450,7 @@ int DeletePath(const wstring& path, wstring* error) {
         if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
           // The file disappeared, or one of its parent directories disappeared,
           // or one of its parent directories is no longer a directory.
-          return DELETE_PATH_DOES_NOT_EXIST;
+          return DeletePathResult::kDoesNotExist;
         }
 
         // Some unknown error occurred.
@@ -424,11 +458,11 @@ int DeletePath(const wstring& path, wstring* error) {
           *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"DeleteFileW",
                                     path, err);
         }
-        return DELETE_PATH_ERROR;
+        return DeletePathResult::kError;
       }
     }
   }
-  return DELETE_PATH_SUCCESS;
+  return DeletePathResult::kSuccess;
 }
 
 }  // namespace windows
