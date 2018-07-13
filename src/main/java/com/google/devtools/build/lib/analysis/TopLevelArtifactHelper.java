@@ -16,14 +16,17 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.util.RegexFilter;
 import javax.annotation.Nullable;
 
 /**
@@ -115,47 +118,50 @@ public final class TopLevelArtifactHelper {
     // Prevent instantiation.
   }
 
-  /**
-   * Utility function to form a list of all test output Artifacts of the given targets to test.
-   */
-  public static ImmutableCollection<Artifact> getAllArtifactsToTest(
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    if (targets == null) {
-      return ImmutableList.of();
+  @VisibleForTesting
+  public static SetMultimap<Artifact, Label> makeTopLevelArtifactsToOwnerLabels(
+      AnalysisResult analysisResult, Iterable<AspectValue> aspects) {
+    SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels =
+        HashMultimap.create(analysisResult.getTopLevelArtifactsToOwnerLabels());
+    TopLevelArtifactContext artifactContext = analysisResult.getTopLevelContext();
+    for (ConfiguredTarget target : analysisResult.getTargetsToBuild()) {
+      addArtifactsWithOwnerLabel(
+          getAllArtifactsToBuild(target, artifactContext).getAllArtifacts(),
+          null,
+          target.getLabel(),
+          topLevelArtifactsToOwnerLabels);
     }
-    ImmutableList.Builder<Artifact> allTestArtifacts = ImmutableList.builder();
-    for (TransitiveInfoCollection target : targets) {
-      allTestArtifacts.addAll(TestProvider.getTestStatusArtifacts(target));
-    }
-    return allTestArtifacts.build();
-  }
-
-  /**
-   * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
-   */
-  public static ArtifactsToBuild getAllArtifactsToBuild(
-      Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext context) {
-    NestedSetBuilder<ArtifactsInOutputGroup> artifacts = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection target : targets) {
-      ArtifactsToBuild targetArtifacts = getAllArtifactsToBuild(target, context);
-      artifacts.addTransitive(targetArtifacts.getAllArtifactsByOutputGroup());
-    }
-    return new ArtifactsToBuild(artifacts.build());
-  }
-
-  /**
-   * Utility function to form a NestedSet of all top-level Artifacts of the given targets.
-   */
-  public static ArtifactsToBuild getAllArtifactsToBuildFromAspects(
-      Iterable<AspectValue> aspects, TopLevelArtifactContext context) {
-    NestedSetBuilder<ArtifactsInOutputGroup> artifacts = NestedSetBuilder.stableOrder();
     for (AspectValue aspect : aspects) {
-      ArtifactsToBuild aspectArtifacts = getAllArtifactsToBuild(aspect, context);
-      artifacts.addTransitive(aspectArtifacts.getAllArtifactsByOutputGroup());
+      addArtifactsWithOwnerLabel(
+          getAllArtifactsToBuild(aspect, artifactContext).getAllArtifacts(),
+          null,
+          aspect.getLabel(),
+          topLevelArtifactsToOwnerLabels);
     }
-    return new ArtifactsToBuild(artifacts.build());
+    if (analysisResult.getTargetsToTest() != null) {
+      for (ConfiguredTarget target : analysisResult.getTargetsToTest()) {
+        addArtifactsWithOwnerLabel(
+            TestProvider.getTestStatusArtifacts(target),
+            null,
+            target.getLabel(),
+            topLevelArtifactsToOwnerLabels);
+      }
+    }
+    // TODO(dslomov): Artifacts to test from aspects?
+    return topLevelArtifactsToOwnerLabels;
   }
 
+  public static void addArtifactsWithOwnerLabel(
+      Iterable<Artifact> artifacts,
+      @Nullable RegexFilter filter,
+      Label ownerLabel,
+      SetMultimap<Artifact, Label> artifactToTopLevelLabels) {
+    for (Artifact artifact : artifacts) {
+      if (filter == null || filter.isIncluded(artifact.getOwnerLabel().toString())) {
+        artifactToTopLevelLabels.put(artifact, ownerLabel);
+      }
+    }
+  }
 
   /**
    * Returns all artifacts to build if this target is requested as a top-level target. The resulting
@@ -184,7 +190,7 @@ public final class TopLevelArtifactHelper {
         context);
   }
 
-  public static ArtifactsToBuild getAllArtifactsToBuild(
+  static ArtifactsToBuild getAllArtifactsToBuild(
       @Nullable OutputGroupInfo outputGroupInfo,
       @Nullable FileProvider fileProvider,
       TopLevelArtifactContext context) {

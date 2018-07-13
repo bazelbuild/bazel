@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import java.util.Collection;
 import java.util.List;
@@ -35,7 +37,7 @@ public final class AnalysisResult {
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final String error;
   private final ActionGraph actionGraph;
-  private final ImmutableSet<Artifact> artifactsToBuild;
+  private final SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
@@ -52,7 +54,7 @@ public final class AnalysisResult {
       Collection<ConfiguredTarget> targetsToSkip,
       @Nullable String error,
       ActionGraph actionGraph,
-      Collection<Artifact> artifactsToBuild,
+      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels,
       Collection<ConfiguredTarget> parallelTests,
       Collection<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
@@ -66,7 +68,7 @@ public final class AnalysisResult {
     this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
     this.error = error;
     this.actionGraph = actionGraph;
-    this.artifactsToBuild = ImmutableSet.copyOf(artifactsToBuild);
+    this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
     this.parallelTests = ImmutableSet.copyOf(parallelTests);
     this.exclusiveTests = ImmutableSet.copyOf(exclusiveTests);
     this.topLevelContext = topLevelContext;
@@ -120,8 +122,8 @@ public final class AnalysisResult {
     return targetsToSkip;
   }
 
-  public ImmutableSet<Artifact> getAdditionalArtifactsToBuild() {
-    return artifactsToBuild;
+  public SetMultimap<Artifact, Label> getTopLevelArtifactsToOwnerLabels() {
+    return topLevelArtifactsToOwnerLabels;
   }
 
   public ImmutableSet<ConfiguredTarget> getExclusiveTests() {

@@ -14,18 +14,17 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.Iterables.concat;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -378,7 +377,7 @@ public class BuildView {
       allTargetsToTest = filterTestsByTargets(configuredTargets, testsToRun);
     }
 
-    Set<Artifact> artifactsToBuild = new HashSet<>();
+    SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels = HashMultimap.create();
     Set<ConfiguredTarget> parallelTests = new HashSet<>();
     Set<ConfiguredTarget> exclusiveTests = new HashSet<>();
 
@@ -386,15 +385,15 @@ public class BuildView {
     Collection<Artifact> buildInfoArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
-    artifactsToBuild.addAll(buildInfoArtifacts);
+    addArtifactsWithNoOwner(buildInfoArtifacts, topLevelArtifactsToOwnerLabels);
 
     // Extra actions
     addExtraActionsIfRequested(
-        viewOptions, configuredTargets, aspects, artifactsToBuild, eventHandler);
+        viewOptions, configuredTargets, aspects, topLevelArtifactsToOwnerLabels, eventHandler);
 
     // Coverage
-    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    Iterables.addAll(artifactsToBuild, baselineCoverageArtifacts);
+    NestedSet<Artifact> baselineCoverageArtifacts =
+        getBaselineCoverageArtifacts(configuredTargets, topLevelArtifactsToOwnerLabels);
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
       actionsWrapper =
@@ -409,7 +408,8 @@ public class BuildView {
       if (actionsWrapper != null) {
         ImmutableList<ActionAnalysisMetadata> actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);
-        artifactsToBuild.addAll(actionsWrapper.getCoverageOutputs());
+        addArtifactsWithNoOwner(
+            actionsWrapper.getCoverageOutputs(), topLevelArtifactsToOwnerLabels);
       }
     }
 
@@ -453,13 +453,18 @@ public class BuildView {
         targetsToSkip,
         error,
         actionGraph,
-        artifactsToBuild,
+        topLevelArtifactsToOwnerLabels,
         parallelTests,
         exclusiveTests,
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
         topLevelTargetsWithConfigs);
+  }
+
+  private static void addArtifactsWithNoOwner(
+      Collection<Artifact> artifacts, SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels) {
+    artifacts.forEach((a) -> topLevelArtifactsToOwnerLabels.put(a, a.getOwnerLabel()));
   }
 
   @Nullable
@@ -476,11 +481,17 @@ public class BuildView {
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
-      Collection<ConfiguredTarget> configuredTargets) {
+      Collection<ConfiguredTarget> configuredTargets,
+      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels) {
     NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesProvider provider = target.getProvider(InstrumentedFilesProvider.class);
       if (provider != null) {
+        TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
+            provider.getBaselineCoverageArtifacts(),
+            null,
+            target.getLabel(),
+            topLevelArtifactsToOwnerLabels);
         baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
       }
     }
@@ -491,28 +502,9 @@ public class BuildView {
       AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
-      Set<Artifact> artifactsToBuild,
+      SetMultimap<Artifact, Label> artifactsToTopLevelLabelsMap,
       ExtendedEventHandler eventHandler) {
-    Iterable<Artifact> extraActionArtifacts =
-        concat(
-            addExtraActionsFromTargets(viewOptions, configuredTargets, eventHandler),
-            addExtraActionsFromAspects(viewOptions, aspects));
-
     RegexFilter filter = viewOptions.extraActionFilter;
-    for (Artifact artifact : extraActionArtifacts) {
-      boolean filterMatches =
-          filter == null || filter.isIncluded(artifact.getOwnerLabel().toString());
-      if (filterMatches) {
-        artifactsToBuild.add(artifact);
-      }
-    }
-  }
-
-  private NestedSet<Artifact> addExtraActionsFromTargets(
-      AnalysisOptions viewOptions,
-      Collection<ConfiguredTarget> configuredTargets,
-      ExtendedEventHandler eventHandler) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       ExtraActionArtifactsProvider provider =
           target.getProvider(ExtraActionArtifactsProvider.class);
@@ -530,17 +522,46 @@ public class BuildView {
           for (Attribute attr : actualTarget.getAssociatedRule().getAttributes()) {
             aspectClasses.addAll(attr.getAspectClasses());
           }
-
-          builder.addTransitive(provider.getExtraActionArtifacts());
+          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
+              provider.getExtraActionArtifacts(),
+              filter,
+              target.getLabel(),
+              artifactsToTopLevelLabelsMap);
           if (!aspectClasses.isEmpty()) {
-            builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
+            TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
+                filterTransitiveExtraActions(provider, aspectClasses),
+                filter,
+                target.getLabel(),
+                artifactsToTopLevelLabelsMap);
           }
         } else {
-          builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
+          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
+              provider.getTransitiveExtraActionArtifacts(),
+              filter,
+              target.getLabel(),
+              artifactsToTopLevelLabelsMap);
         }
       }
     }
-    return builder.build();
+    for (AspectValue aspect : aspects) {
+      ExtraActionArtifactsProvider provider =
+          aspect.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class);
+      if (provider != null) {
+        if (viewOptions.extraActionTopLevelOnly) {
+          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
+              provider.getExtraActionArtifacts(),
+              filter,
+              aspect.getLabel(),
+              artifactsToTopLevelLabelsMap);
+        } else {
+          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
+              provider.getTransitiveExtraActionArtifacts(),
+              filter,
+              aspect.getLabel(),
+              artifactsToTopLevelLabelsMap);
+        }
+      }
+    }
   }
 
   /**
@@ -561,23 +582,6 @@ public class BuildView {
       }
     }
     return artifacts.build();
-  }
-
-  private NestedSet<Artifact> addExtraActionsFromAspects(
-      AnalysisOptions viewOptions, Collection<AspectValue> aspects) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (AspectValue aspect : aspects) {
-      ExtraActionArtifactsProvider provider =
-          aspect.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class);
-      if (provider != null) {
-        if (viewOptions.extraActionTopLevelOnly) {
-          builder.addTransitive(provider.getExtraActionArtifacts());
-        } else {
-          builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
-        }
-      }
-    }
-    return builder.build();
   }
 
   private static void scheduleTestsIfRequested(

@@ -1270,7 +1270,7 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult analysisResult = update("//x:a");
 
     List<String> owners = new ArrayList<>();
-    for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+    for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().keySet()) {
       if ("xa".equals(artifact.getExtension())) {
         owners.add(artifact.getOwnerLabel().toString());
       }
