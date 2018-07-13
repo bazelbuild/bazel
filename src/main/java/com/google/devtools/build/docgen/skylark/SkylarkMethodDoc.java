@@ -48,14 +48,8 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
 
   private String getParameterString(Method method) {
     SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(method);
-    int nbPositional = annotation.mandatoryPositionals();
-    if (annotation.parameters().length > 0 && nbPositional < 0) {
-      nbPositional = 0;
-    }
     List<String> argList = new ArrayList<>();
-    for (int i = 0; i < nbPositional; i++) {
-      argList.add("arg" + i + ":" + getTypeAnchor(method.getParameterTypes()[i]));
-    }
+
     boolean named = false;
     for (Param param : withoutSelfParam(annotation, method)) {
       if (param.named() && !param.positional() && !named) {

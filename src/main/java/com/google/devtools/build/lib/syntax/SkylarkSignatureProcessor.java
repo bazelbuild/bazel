@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -57,22 +56,10 @@ public class SkylarkSignatureProcessor {
     if (annotation.doc().isEmpty() && documented) {
       throw new RuntimeException(String.format("function %s is undocumented", name));
     }
-    ImmutableList.Builder<Parameter<Object, SkylarkType>> parameters = ImmutableList.builder();
-
-    Class<?>[] javaMethodSignatureParams = descriptor.getMethod().getParameterTypes();
-
-    for (int paramIndex = 0; paramIndex < annotation.mandatoryPositionals(); paramIndex++) {
-      Parameter<Object, SkylarkType> parameter =
-          new Parameter.Mandatory<Object, SkylarkType>(
-              Identifier.of("arg" + paramIndex),
-              SkylarkType.of(javaMethodSignatureParams[paramIndex]));
-      parameters.add(parameter);
-    }
 
     return getSignatureForCallable(
         name,
         documented,
-        parameters.build(),
         annotation.parameters(),
         annotation.extraPositionals(),
         annotation.extraKeywords(),
@@ -107,7 +94,6 @@ public class SkylarkSignatureProcessor {
       throw new RuntimeException(String.format("function %s is undocumented", name));
     }
     return getSignatureForCallable(name, documented,
-        /*mandatoryPositionals=*/ImmutableList.<Parameter<Object, SkylarkType>>of(),
         annotation.parameters(),
         annotation.extraPositionals(),
         annotation.extraKeywords(), defaultValues, paramDoc, enforcedTypesList);
@@ -119,13 +105,11 @@ public class SkylarkSignatureProcessor {
 
   private static FunctionSignature.WithValues<Object, SkylarkType> getSignatureForCallable(
       String name, boolean documented,
-      ImmutableList<Parameter<Object, SkylarkType>> mandatoryPositionals,
       Param[] parameters,
       @Nullable Param extraPositionals, @Nullable Param extraKeywords,
       @Nullable Iterable<Object> defaultValues,
       @Nullable List<String> paramDoc, @Nullable List<SkylarkType> enforcedTypesList) {
     ArrayList<Parameter<Object, SkylarkType>> paramList = new ArrayList<>();
-    paramList.addAll(mandatoryPositionals);
     HashMap<String, SkylarkType> enforcedTypes =
         enforcedTypesList == null ? null : new HashMap<>();
 

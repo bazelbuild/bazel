@@ -84,19 +84,7 @@ public @interface SkylarkCallable {
   boolean structField() default false;
 
   /**
-   * Number of parameters in the signature that are mandatory positional parameters. Any parameter
-   * after {@link #mandatoryPositionals()} must be specified in {@link #parameters()}. A negative
-   * value (default is {@code -1}), means that all arguments are mandatory positionals if {@link
-   * #parameters()} remains empty. If {@link #parameters()} is non empty, then a negative value for
-   * {@link #mandatoryPositionals()} is taken as 0.
-   *
-   * @deprecated specify parameters via the {@link #parameters} field instead
-   */
-  @Deprecated
-  int mandatoryPositionals() default -1;
-
-  /**
-   * List of parameters this function accept after the {@link #mandatoryPositionals()} parameters.
+   * List of parameters this function accepts.
    */
   Param[] parameters() default {};
 

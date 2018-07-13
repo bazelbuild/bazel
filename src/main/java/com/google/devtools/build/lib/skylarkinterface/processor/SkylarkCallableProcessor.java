@@ -265,8 +265,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     List<? extends VariableElement> methodSignatureParams = methodElement.getParameters();
     int numExtraInterpreterParams = numExpectedExtraInterpreterParams(annotation);
 
-    int numDeclaredArgs =
-        annotation.parameters().length + Math.max(0, annotation.mandatoryPositionals());
+    int numDeclaredArgs = annotation.parameters().length;
     if (methodSignatureParams.size() != numDeclaredArgs + numExtraInterpreterParams) {
       throw new SkylarkCallableProcessorException(
           methodElement,

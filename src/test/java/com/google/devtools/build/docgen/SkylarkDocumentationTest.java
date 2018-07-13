@@ -149,8 +149,8 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     @SkylarkCallable(
       name = "test",
       doc = "MockClassD#test",
-      mandatoryPositionals = 1,
       parameters = {
+        @Param(name = "a"),
         @Param(name = "b"),
         @Param(name = "c", named = true, positional = false),
         @Param(name = "d", named = true, positional = false, defaultValue = "1"),
@@ -379,10 +379,8 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test");
     assertThat(methodDoc.getSignature())
         .isEqualTo(
-            "<a class=\"anchor\" href=\"int.html\">int</a> "
-                + "MockClassD.test(arg0:<a class=\"anchor\" href=\"int.html\">int</a>, "
-                + "b, *, c, d=1)");
-    assertThat(methodDoc.getParams()).hasSize(3);
+            "<a class=\"anchor\" href=\"int.html\">int</a> MockClassD.test(a, b, *, c, d=1)");
+    assertThat(methodDoc.getParams()).hasSize(4);
   }
 
   @Test

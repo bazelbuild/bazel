@@ -209,8 +209,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     @SkylarkCallable(
       name = "with_params",
       documented = false,
-      mandatoryPositionals = 1,
       parameters = {
+        @Param(name = "pos1"),
         @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
         @Param(
           name = "posOrNamed",
@@ -306,8 +306,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     @SkylarkCallable(
       name = "with_params_and_extra",
       documented = false,
-      mandatoryPositionals = 1,
       parameters = {
+        @Param(name = "pos1"),
         @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
         @Param(
           name = "posOrNamed",

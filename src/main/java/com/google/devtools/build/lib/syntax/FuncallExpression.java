@@ -614,48 +614,10 @@ public final class FuncallExpression extends Expression {
     ImmutableMap.Builder<String, Object> extraKwargsBuilder = ImmutableMap.builder();
     boolean acceptsExtraArgs = !callable.extraPositionals().name().isEmpty();
     boolean acceptsExtraKwargs = !callable.extraKeywords().name().isEmpty();
-    Class<?>[] javaMethodSignatureParams = method.getMethod().getParameterTypes();
-    int numExtraInterpreterParams = 0;
-    numExtraInterpreterParams += acceptsExtraArgs ? 1 : 0;
-    numExtraInterpreterParams += acceptsExtraKwargs ? 1 : 0;
-    numExtraInterpreterParams += callable.useLocation() ? 1 : 0;
-    numExtraInterpreterParams += callable.useAst() ? 1 : 0;
-    numExtraInterpreterParams += callable.useEnvironment() ? 1 : 0;
-    numExtraInterpreterParams += callable.useSkylarkSemantics() ? 1 : 0;
 
-    int mandatoryPositionals = callable.mandatoryPositionals();
-    if (mandatoryPositionals < 0) {
-      if (callable.parameters().length > 0) {
-        mandatoryPositionals = 0;
-      } else {
-        mandatoryPositionals = javaMethodSignatureParams.length - numExtraInterpreterParams;
-      }
-    }
-    if (mandatoryPositionals > args.size()) {
-      return ArgumentListConversionResult.fromError("too few arguments");
-    }
-
-    // First process the legacy positional parameters.
     int argIndex = 0;
-    if (mandatoryPositionals > 0) {
-      for (Class<?> param : javaMethodSignatureParams) {
-        Object value = args.get(argIndex);
-        if (!param.isAssignableFrom(value.getClass())) {
-          return ArgumentListConversionResult.fromError(
-              String.format(
-                  "Cannot convert parameter at position %d from type %s to type %s",
-                  argIndex, EvalUtils.getDataTypeName(value), param.toString()));
-        }
-        builder.add(value);
-        argIndex++;
-        if (argIndex >= mandatoryPositionals) {
-          // Stops for specified parameters instead.
-          break;
-        }
-      }
-    }
 
-    // Then process parameters specified in callable.parameters()
+    // Process parameters specified in callable.parameters()
     Set<String> keys = new LinkedHashSet<>(kwargs.keySet());
     // Positional parameters are always enumerated before non-positional parameters,
     // And default-valued positional parameters are always enumerated after other positional
