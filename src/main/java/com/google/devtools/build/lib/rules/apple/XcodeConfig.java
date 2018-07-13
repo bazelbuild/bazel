@@ -180,7 +180,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         throw new XcodeConfigException(String.format(
             "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version. "
             + "available versions: [%2$s]. If you believe you have '%1$s' installed, try running "
-            + "\"blaze clean --expunge\", and then re-run your command.",
+            + "\"bazel clean --expunge\", and then re-run your command.",
             versionOverrideFlag, printableXcodeVersions(xcodeVersionRules)));
       }
     }
