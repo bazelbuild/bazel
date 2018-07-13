@@ -26,7 +26,7 @@ public class AttributeInfo {
 
   public AttributeInfo(String name, String docString, String typeString, boolean mandatory) {
     this.name = name;
-    this.docString = docString;
+    this.docString = docString.trim();
     this.typeString = typeString;
     this.mandatory = mandatory;
   }
