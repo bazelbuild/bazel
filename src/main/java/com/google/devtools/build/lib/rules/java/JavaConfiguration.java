@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 @AutoCodec
 @Immutable
 public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
+
   /** Values for the --java_classpath option */
   public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
@@ -151,6 +152,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean headerCompilationDisableJavacFallback;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
+  private final boolean protoGeneratedStrictDeps;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
@@ -200,6 +202,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
+    this.protoGeneratedStrictDeps = javaOptions.protoGeneratedStrictDeps;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
@@ -241,6 +244,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       boolean headerCompilationDisableJavacFallback,
       boolean generateJavaDeps,
       boolean strictDepsJavaProtos,
+      boolean protoGeneratedStrictDeps,
       OneVersionEnforcementLevel enforceOneVersion,
       boolean enforceOneVersionOnJavaTests,
       ImportDepsCheckingLevel importDepsCheckingLevel,
@@ -270,6 +274,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
     this.generateJavaDeps = generateJavaDeps;
     this.strictDepsJavaProtos = strictDepsJavaProtos;
+    this.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
     this.enforceOneVersion = enforceOneVersion;
     this.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = importDepsCheckingLevel;
@@ -495,6 +500,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean strictDepsJavaProtos() {
     return strictDepsJavaProtos;
+  }
+
+  public boolean isProtoGeneratedStrictDeps() {
+    return protoGeneratedStrictDeps;
   }
 
   public boolean jplPropagateCcLinkParamsStore() {
