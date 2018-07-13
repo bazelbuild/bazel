@@ -15,6 +15,9 @@
 #ifndef SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 #define SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 
+// Some platform (such as MacOS) needs this macro to get off64_t.
+#define _LARGEFILE64_SOURCE 1
+
 #include <stdio.h>
 
 #include <cinttypes>
