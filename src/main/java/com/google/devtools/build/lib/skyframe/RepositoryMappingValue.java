@@ -86,6 +86,11 @@ public class RepositoryMappingValue implements SkyValue {
     return Objects.hash(repositoryMapping);
   }
 
+  @Override
+  public String toString() {
+    return repositoryMapping.toString();
+  }
+
   /** {@link SkyKey} for {@link RepositoryMappingValue}. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
