@@ -64,7 +64,7 @@ public abstract class FilesetOutputSymlink {
    *     with and FilesetEntry.strip_prefix applied (if applicable)
    * @param target relative or absolute value of the link
    * @param metadata metadata corresponding to the target.
-   * @param isGeneratedTarget true of the target is generated.
+   * @param isGeneratedTarget true if the target is generated.
    */
   public static FilesetOutputSymlink create(
       PathFragment name, PathFragment target, Object metadata, boolean isGeneratedTarget) {
