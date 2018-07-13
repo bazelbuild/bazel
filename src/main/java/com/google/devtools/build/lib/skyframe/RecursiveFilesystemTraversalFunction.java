@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Collections2;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -200,22 +197,19 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   private static final class FileInfo {
     final FileType type;
-    final FileStateValue metadata;
+    final Object metadata;
     @Nullable final RootedPath realPath;
     @Nullable final PathFragment unresolvedSymlinkTarget;
-    @Nullable final FileArtifactValue fileArtifactValue;
 
     FileInfo(
         FileType type,
-        FileStateValue metadata,
+        Object metadata,
         @Nullable RootedPath realPath,
-        @Nullable PathFragment unresolvedSymlinkTarget,
-        @Nullable FileArtifactValue fileArtifactValue) {
+        @Nullable PathFragment unresolvedSymlinkTarget) {
       this.type = Preconditions.checkNotNull(type);
-      this.metadata = Preconditions.checkNotNull(metadata);
+      this.metadata = metadata;
       this.realPath = realPath;
       this.unresolvedSymlinkTarget = unresolvedSymlinkTarget;
-      this.fileArtifactValue = fileArtifactValue;
     }
 
     @Override
@@ -228,6 +222,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
     }
   }
+
+  private static final FileInfo NON_EXISTENT_FILE_INFO =
+      new FileInfo(FileType.NONEXISTENT, new Integer(0), null, null);
 
   private static FileInfo lookUpFileInfo(Environment env, TraversalRequest traversal)
       throws MissingDepException, IOException, InterruptedException {
@@ -244,7 +241,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         if (value instanceof FileArtifactValue) {
           fsVal = (FileArtifactValue) value;
         } else {
-          return new FileInfo(FileType.NONEXISTENT, null, null, null, null);
+          return NON_EXISTENT_FILE_INFO;
         }
       }
 
@@ -274,14 +271,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         type = followStat.isFile() ? FileType.SYMLINK_TO_FILE : FileType.SYMLINK_TO_DIRECTORY;
       }
       return new FileInfo(
-          type,
-          FileStateValue.createWithStatNoFollow(
-              traversal.root.asRootedPath(),
-              new StatWithDigest(noFollowStat, fsVal != null ? fsVal.getDigest() : null),
-              null),
-          realPath,
-          unresolvedLinkTarget,
-          fsVal);
+          type, fsVal != null ? fsVal : noFollowStat.hashCode(), realPath, unresolvedLinkTarget);
     } else {
       // Stat the file.
       FileValue fileValue =
@@ -302,19 +292,14 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           type = fileValue.isDirectory() ? FileType.DIRECTORY : FileType.FILE;
         }
         return new FileInfo(
-            type,
-            fileValue.realFileStateValue(),
-            fileValue.realRootedPath(),
-            unresolvedLinkTarget,
-            null);
+            type, fileValue.realFileStateValue(), fileValue.realRootedPath(), unresolvedLinkTarget);
       } else {
         // If it doesn't exist, or it's a dangling symlink, we still want to handle that gracefully.
         return new FileInfo(
             fileValue.isSymlink() ? FileType.DANGLING_SYMLINK : FileType.NONEXISTENT,
             fileValue.realFileStateValue(),
             null,
-            fileValue.isSymlink() ? fileValue.getUnresolvedLinkTarget() : null,
-            null);
+            fileValue.isSymlink() ? fileValue.getUnresolvedLinkTarget() : null);
       }
     }
   }
@@ -451,8 +436,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     Preconditions.checkState(info.type.isSymlink() && !info.type.exists(), "{%s} {%s}", linkName,
         info.type);
     return RecursiveFilesystemTraversalValue.of(
-        ResolvedFileFactory.danglingSymlink(
-            linkName, info.unresolvedSymlinkTarget, info.metadata, info.fileArtifactValue));
+        ResolvedFileFactory.danglingSymlink(linkName, info.unresolvedSymlinkTarget, info.metadata));
   }
 
   /**
@@ -468,14 +452,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     if (info.type.isSymlink()) {
       return RecursiveFilesystemTraversalValue.of(
           ResolvedFileFactory.symlinkToFile(
-              info.realPath,
-              path,
-              info.unresolvedSymlinkTarget,
-              info.metadata,
-              info.fileArtifactValue));
+              info.realPath, path, info.unresolvedSymlinkTarget, info.metadata));
     } else {
       return RecursiveFilesystemTraversalValue.of(
-          ResolvedFileFactory.regularFile(path, info.metadata, info.fileArtifactValue));
+          ResolvedFileFactory.regularFile(path, info.metadata));
     }
   }
 
@@ -494,8 +474,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
               rootInfo.realPath,
               traversal.root.asRootedPath(),
               rootInfo.unresolvedSymlinkTarget,
-              hashDirectorySymlink(children, rootInfo.metadata.hashCode()),
-              rootInfo.fileArtifactValue);
+              hashDirectorySymlink(children, rootInfo.metadata));
       paths = NestedSetBuilder.<ResolvedFile>stableOrder().addTransitive(children).add(root);
     } else {
       root = ResolvedFileFactory.directory(rootInfo.realPath);
@@ -503,8 +482,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return RecursiveFilesystemTraversalValue.of(root, paths.build());
   }
 
-  private static int hashDirectorySymlink(
-      Iterable<ResolvedFile> children, int symlinkHash) {
+  private static int hashDirectorySymlink(Iterable<ResolvedFile> children, Object metadata) {
     // If the root is a directory symlink, the associated FileStateValue does not change when the
     // linked directory's contents change, so we can't use the FileStateValue as metadata like we
     // do with other ResolvedFile kinds. Instead we compute a metadata hash from the child
@@ -513,9 +491,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     // Compute the hash using the method described in Effective Java, 2nd ed., Item 9.
     int result = 0;
     for (ResolvedFile c : children) {
-      result = 31 * result + c.getMetadataHash();
+      result = 31 * result + c.getMetadata().hashCode();
     }
-    return 31 * result + symlinkHash;
+    return 31 * result + metadata.hashCode();
   }
 
   private static SkyValue getDependentSkyValue(Environment env, SkyKey key)
@@ -551,13 +529,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       throw new MissingDepException();
     }
 
-    return Collections2.transform(values.values(),
-        new Function<SkyValue, RecursiveFilesystemTraversalValue>() {
-          @Override
-          public RecursiveFilesystemTraversalValue apply(SkyValue input) {
-            return (RecursiveFilesystemTraversalValue) input;
-          }
-        });
+    return Collections2.transform(values.values(), RecursiveFilesystemTraversalValue.class::cast);
   }
 
   /** Type information about the filesystem entry residing at a path. */
@@ -615,61 +587,5 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     boolean isSymlink() { return false; }
     boolean exists() { return false; }
     @Override public abstract String toString();
-  }
-
-  private static class StatWithDigest implements FileStatusWithDigest {
-    private final FileStatus noFollowStat;
-    private final byte[] digest;
-
-    public StatWithDigest(FileStatus noFollowStat, byte[] digest) {
-      this.noFollowStat = noFollowStat;
-      this.digest = digest;
-    }
-
-    @Nullable
-    @Override
-    public byte[] getDigest() throws IOException {
-      return digest;
-    }
-
-    @Override
-    public boolean isFile() {
-      return noFollowStat.isFile();
-    }
-
-    @Override
-    public boolean isDirectory() {
-      return noFollowStat.isDirectory();
-    }
-
-    @Override
-    public boolean isSymbolicLink() {
-      return noFollowStat.isSymbolicLink();
-    }
-
-    @Override
-    public boolean isSpecialFile() {
-      return noFollowStat.isSpecialFile();
-    }
-
-    @Override
-    public long getSize() throws IOException {
-      return noFollowStat.getSize();
-    }
-
-    @Override
-    public long getLastModifiedTime() throws IOException {
-      return noFollowStat.getLastModifiedTime();
-    }
-
-    @Override
-    public long getLastChangeTime() throws IOException {
-      return noFollowStat.getLastChangeTime();
-    }
-
-    @Override
-    public long getNodeId() throws IOException {
-      return noFollowStat.getNodeId();
-    }
   }
 }

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
@@ -189,16 +188,12 @@ public final class FilesetEntryFunction implements SkyFunction {
           throw new FilesetEntryFunctionException(e);
         }
 
-        // Metadata field must be present. It can only be absent when stripped by tests.
-        String metadata = Integer.toHexString(f.getMetadataHash());
-
         maybeStoreSymlink(
             linkName,
             targetName,
-            f.getMetadataHash(),
+            f.getMetadata(),
             t.getDestPath(),
             direct.isGenerated(),
-            f.getValueForDerivedArtifacts(),
             outputSymlinks);
       }
     }
@@ -214,10 +209,9 @@ public final class FilesetEntryFunction implements SkyFunction {
     maybeStoreSymlink(
         nestedLink.getName(),
         nestedLink.getTargetPath(),
-        nestedLink.getMetadataHash(),
+        nestedLink.getMetadata(),
         destPath,
         nestedLink.isGeneratedTarget(),
-        nestedLink.getTargetArtifactValue(),
         result);
   }
 
@@ -225,23 +219,14 @@ public final class FilesetEntryFunction implements SkyFunction {
   private static void maybeStoreSymlink(
       PathFragment linkName,
       PathFragment linkTarget,
-      int metadataHash,
+      Object metadata,
       PathFragment destPath,
       boolean isGenerated,
-      FileArtifactValue targetArtifactValue,
       Map<PathFragment, FilesetOutputSymlink> result) {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
-      if (isGenerated) {
-        result.put(
-            linkName,
-            FilesetOutputSymlink.createForDerivedTarget(
-                linkName, linkTarget, metadataHash, targetArtifactValue));
-      } else {
-        result.put(
-            linkName,
-            FilesetOutputSymlink.createForSourceTarget(linkName, linkTarget, metadataHash));
-      }
+      result.put(
+          linkName, FilesetOutputSymlink.create(linkName, linkTarget, metadata, isGenerated));
     }
   }
 
