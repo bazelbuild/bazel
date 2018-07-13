@@ -61,10 +61,10 @@ public class WindowsFileOperations {
 
   // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.cc.
   private static final int DELETE_PATH_SUCCESS = 0;
-  private static final int DELETE_PATH_DOES_NOT_EXIST = 1;
-  private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 2;
-  private static final int DELETE_PATH_ACCESS_DENIED = 3;
-  private static final int DELETE_PATH_ERROR = 4;
+  private static final int DELETE_PATH_ERROR = 1;
+  private static final int DELETE_PATH_DOES_NOT_EXIST = 2;
+  private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 3;
+  private static final int DELETE_PATH_ACCESS_DENIED = 4;
 
   private static native int nativeIsJunction(String path, String[] error);
 
