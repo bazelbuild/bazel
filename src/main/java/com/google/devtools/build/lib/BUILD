@@ -1261,7 +1261,6 @@ java_library(
     name = "server",
     srcs = [
         "server/GrpcServerImpl.java",
-        "server/IdleServerTasks.java",
     ],
     deps = [
         ":runtime",

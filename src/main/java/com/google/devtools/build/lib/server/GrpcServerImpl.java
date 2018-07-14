@@ -121,9 +121,6 @@ public class GrpcServerImpl implements RPCServer {
       thread = Thread.currentThread();
       id = UUID.randomUUID().toString();
       synchronized (runningCommands) {
-        if (runningCommands.isEmpty()) {
-          busy();
-        }
         runningCommands.put(id, this);
         runningCommands.notify();
       }
@@ -135,9 +132,6 @@ public class GrpcServerImpl implements RPCServer {
     public void close() {
       synchronized (runningCommands) {
         runningCommands.remove(id);
-        if (runningCommands.isEmpty()) {
-          idle();
-        }
         runningCommands.notify();
       }
 
@@ -514,7 +508,6 @@ public class GrpcServerImpl implements RPCServer {
   private final int port;
 
   private Server server;
-  private IdleServerTasks idleServerTasks;
   boolean serving;
 
   public GrpcServerImpl(BlazeCommandDispatcher dispatcher, Clock clock, int port,
@@ -555,20 +548,6 @@ public class GrpcServerImpl implements RPCServer {
 
     pidFileWatcherThread = new PidFileWatcherThread();
     pidFileWatcherThread.start();
-    idleServerTasks = new IdleServerTasks();
-    idleServerTasks.idle();
-  }
-
-  private void idle() {
-    Preconditions.checkState(idleServerTasks == null);
-    idleServerTasks = new IdleServerTasks();
-    idleServerTasks.idle();
-  }
-
-  private void busy() {
-    Preconditions.checkState(idleServerTasks != null);
-    idleServerTasks.busy();
-    idleServerTasks = null;
   }
 
   private static String generateCookie(SecureRandom random, int byteCount) {
