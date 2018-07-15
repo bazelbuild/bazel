@@ -12,7 +12,7 @@ See the instructions for installing Bazel on:
 *   [macOS](install-os-x.md)
 *   [Windows](install-windows.md)
 
-## Community Supported Platforms
+## Community-Supported Packages
 *   [Arch Linux](https://www.archlinux.org/packages/community/x86_64/bazel/)
 *   [Gentoo](https://packages.gentoo.org/packages/dev-util/bazel)
 *   [Linuxbrew](https://github.com/Linuxbrew/homebrew-core/blob/master/Formula/bazel.rb)
