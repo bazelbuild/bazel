@@ -1161,6 +1161,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
+  /** Returns true if the deprecated CcDynamicLibrariesForRuntime class should be used */
+  public boolean enableCcDynamicLibrariesForRuntime() {
+    return cppOptions.enableCcDynamicLibrariesForRuntime;
+  }
+
   private void checkForToolchainSkylarkApiAvailability() throws EvalException {
     if (!cppOptions.enableLegacyToolchainSkylarkApi) {
       throw new EvalException(null, "Information about the C++ toolchain API is not accessible "

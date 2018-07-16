@@ -531,10 +531,11 @@ public final class CcLinkingHelper {
     }
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
-        collectDynamicLibrariesForRuntimeArtifacts(
-            ccLinkingOutputs.getDynamicLibrariesForRuntime()));
-
+    if (cppConfiguration.enableCcDynamicLibrariesForRuntime()) {
+      ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
+          collectDynamicLibrariesForRuntimeArtifacts(
+              ccLinkingOutputs.getDynamicLibrariesForRuntime()));
+    }
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     boolean forcePic = cppConfiguration.forcePic();
     ccLinkingInfoBuilder.setCcLinkParamsStore(
