@@ -6,13 +6,7 @@ platforms:
       android_ndk_repository/android_ndk_repository/' WORKSPACE
     - rm -f WORKSPACE.bak
     build_targets:
-    - "--"
     - "//src:bazel"
-    - "//examples/..."
-    - "-//examples/android/java/bazel:jni"
-    - "-//examples/android/java/bazel:jni_dep"
-    - "-//examples/windows/..."
-    - "-//examples/java-native/src/main/java/com/example/myproject:hello-error-prone"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -27,13 +21,7 @@ platforms:
       android_ndk_repository/android_ndk_repository/' WORKSPACE
     - rm -f WORKSPACE.bak
     build_targets:
-    - "--"
     - "//src:bazel"
-    - "//examples/..."
-    - "-//examples/android/java/bazel:jni"
-    - "-//examples/android/java/bazel:jni_dep"
-    - "-//examples/windows/..."
-    - "-//examples/java-native/src/main/java/com/example/myproject:hello-error-prone"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -63,13 +51,7 @@ platforms:
       android_ndk_repository/android_ndk_repository/' WORKSPACE
     - rm -f WORKSPACE.bak
     build_targets:
-    - "--"
     - "//src:bazel"
-    - "//examples/..."
-    - "-//examples/android/java/bazel:jni"
-    - "-//examples/android/java/bazel:jni_dep"
-    - "-//examples/windows/..."
-    - "-//examples/java-native/src/main/java/com/example/myproject:hello-error-prone"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -79,19 +61,11 @@ platforms:
     - "//third_party/ijar/..."
     - "//tools/android/..."
   windows:
-    shell_commands:
-    - powershell -Command \"(gc WORKSPACE) -replace '# android_sdk_repository', 'android_sdk_repository' | Out-File WORKSPACE\"
-    - powershell -Command \"(gc WORKSPACE) -replace '# android_ndk_repository', 'android_ndk_repository' | Out-File WORKSPACE\"
     build_flags:
     - "--copt=-w"
     - "--host_copt=-w"
     build_targets:
-    - "--"
     - "//src:bazel"
-    - "//examples/..."
-    - "-//examples/android/java/bazel:jni"
-    - "-//examples/android/java/bazel:jni_dep"
-    - "-//examples/java-native/src/main/java/com/example/myproject:hello-error-prone"
     test_flags:
     - "--copt=-w"
     - "--host_copt=-w"
