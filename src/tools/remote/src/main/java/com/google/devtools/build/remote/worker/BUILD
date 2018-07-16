@@ -27,7 +27,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
-        "//third_party:hazelcast",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
