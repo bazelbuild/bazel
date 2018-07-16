@@ -63,6 +63,7 @@ java_test(
     name = "DebuggerSerializationTest",
     srcs = glob(["DebuggerSerializationTest.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:skylark_debugging_java_proto",
