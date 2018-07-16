@@ -33,11 +33,11 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
   /** Name of this info object. */
   public static String NAME = "AndroidPreDexJarInfo";
 
-  /** Returns the Java package. */
+  /** Returns the jar to be dexed. */
   @SkylarkCallable(name = "pre_dex_jar", structField = true, doc = "", documented = false)
   FileT getPreDexJar();
 
-  /** The provider implementing this can construct the AndroidIdeInfo provider. */
+  /** The provider implementing this can construct the AndroidPreDexJarInfo provider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)
   public interface Provider<FileT extends FileApi> extends ProviderApi {
 
