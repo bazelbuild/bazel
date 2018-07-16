@@ -1,8 +1,5 @@
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.vfs.Path;
-import java.util.Collection;
-import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,7 +22,7 @@ public class HeaderMapInfo {
   /** Builder for HeaderMapInfo */
   public static class Builder {
     private final ImmutableList.Builder<Artifact> basicHeaders = ImmutableList.builder();
-    private final ImmutableList.Builder<Artifact> includePrefixdHeaders = ImmutableList.builder();
+    private final ImmutableList.Builder<Artifact> includePrefixedHeaders = ImmutableList.builder();
     private final ImmutableList.Builder<HeaderMapInfo> mergedHeaderMapInfos = ImmutableList.builder();
     private String includePrefix = "";
 
@@ -47,8 +44,8 @@ public class HeaderMapInfo {
     }
 
     /** Signals that the build uses headers under the includePrefix. */
-    public Builder addIncludePrefixdHeaders(Iterable<Artifact> headers) {
-      this.includePrefixdHeaders.addAll(headers);
+    public Builder addIncludePrefixedHeaders(Iterable<Artifact> headers) {
+      this.includePrefixedHeaders.addAll(headers);
       return this;
     }
 
@@ -76,11 +73,11 @@ public class HeaderMapInfo {
 
       // If there is no includePrefix, don't add a slash
       if (includePrefix.equals("") == false) {
-        for (Artifact hdr : includePrefixdHeaders.build()) {
+        for (Artifact hdr : includePrefixedHeaders.build()) {
           // Set the include prefix:
           // IncludePrefix/Header.h -> Path/To/Header.h
-          String includePrefixdKey = includePrefix + "/" + hdr.getPath().getBaseName();
-          inputMap.put(includePrefixdKey, hdr.getExecPath().getPathString());
+          String includePrefixedKey = includePrefix + "/" + hdr.getPath().getBaseName();
+          inputMap.put(includePrefixedKey, hdr.getExecPath().getPathString());
         }
       }
       return new HeaderMapInfo(ImmutableMap.copyOf(inputMap));

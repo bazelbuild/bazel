@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_OBJC;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
@@ -64,7 +65,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.HeaderMapAction;
 import com.google.devtools.build.lib.rules.cpp.HeaderMapInfo;
 import com.google.devtools.build.lib.rules.cpp.HeaderMapInfoProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -83,10 +82,8 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -164,8 +161,6 @@ public final class ObjcCommon {
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private ImmutableSet.Builder<Artifact> textualHeaders = ImmutableSet.builder();
     private Iterable<ObjcProvider> depObjcProviders = ImmutableList.of();
-    private Iterable<HeaderMapInfoProvider> headerMapInfoProviders = ImmutableList.of();
-    private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> repropagatedModuleMapObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
@@ -371,7 +366,7 @@ public final class ObjcCommon {
       }
 
       headerMapInfo.setIncludePrefix(includePrefix);
-      headerMapInfo.addIncludePrefixdHeaders(hdrs);
+      headerMapInfo.addIncludePrefixedHeaders(hdrs);
 
       boolean flattenVirtualHeaders = ruleContext.attributes().has("flatten_virtual_headers") &&
           ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
@@ -474,6 +469,14 @@ public final class ObjcCommon {
         objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
         headerMapHeaders.addAll(filterFileset(headerProvider.getDeclaredIncludeSrcs()));
 
+        ImmutableList<Artifact> hm = headerProvider.getHeaderMaps();
+        if (hm != null) {
+          for (Artifact a : hm) {
+            System.out.println("ADDING: " + a.getPath());
+          }
+        } else {
+          System.out.println("No headerMaps found :-(");
+        }
         objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
         // TODO(bazel-team): This pulls in stl via
         // CppHelper.mergeToolchainDependentCcCompilationContext but
@@ -627,7 +630,13 @@ public final class ObjcCommon {
 
       HeaderMapInfoProvider headerMapProvider;
       if (context.isLegalFragment(CppConfiguration.class) && context.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
-        headerMapProvider = getHeaderMapInfoProvider(context, headerMapHeaders.build());
+        ImmutableList<Artifact> headerMaps = headerMapHeaders.build();
+        headerMapProvider = getHeaderMapInfoProvider(context, headerMaps);
+        // OB TODO: add to provider here?
+        System.out.println("Header maps here:");
+        for (Artifact a : headerMaps) {
+          System.out.println("----> " + a.getFilename());
+        }
       } else {
         headerMapProvider = HeaderMapInfoProvider.EMPTY;
       }

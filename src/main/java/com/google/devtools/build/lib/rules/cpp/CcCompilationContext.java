@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -339,6 +337,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return verificationModuleMap;
   }
 
+  /** @return the header map of the owner. */
+  public ImmutableList<Artifact> getHeaderMaps() { return headerMaps; }
+
   /**
    * The parts of the {@code CcCompilationContext} that influence the command line of compilation
    * actions.
@@ -626,8 +627,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    /** Sets the header map. */
     public Builder setHeaderMaps(ImmutableList<Artifact> headerMaps) {
       this.headerMaps = headerMaps;
+      System.out.println("Setting header maps: " + headerMaps.toString());
       return this;
     }
 

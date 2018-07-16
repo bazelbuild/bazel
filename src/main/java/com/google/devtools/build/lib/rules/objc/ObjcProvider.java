@@ -195,6 +195,12 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
       new Key<>(STABLE_ORDER, "module_map", Artifact.class);
 
   /**
+   * Clang header maps, used to change the namespace of the headers.
+   */
+  public static final Key<Artifact> HEADER_MAP =
+      new Key<>(STABLE_ORDER, "header_map", Artifact.class);
+
+  /**
    * Information about this provider's module map, in the form of a {@link CppModuleMap}. This
    * is intransitive, and can be used to get just the target's module map to pass to clang or to
    * get the module maps for direct but not transitive dependencies. You should only add module maps
@@ -517,6 +523,9 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
   public NestedSet<Artifact> moduleMap() {
     return get(MODULE_MAP);
   }
+
+  @Override
+  public NestedSet<Artifact> headerMap() { return get(HEADER_MAP); }
 
   @Override
   public NestedSet<Artifact> multiArchDynamicLibraries() {

@@ -177,6 +177,12 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StructApi {
   )
   public NestedSet<FileApiT> moduleMap();
 
+  @SkylarkCallable(name = "header_map",
+      structField = true,
+      doc = "Clang header maps, used to change the namespace of the headers."
+  )
+  public NestedSet<FileApiT> headerMap();
+
   @SkylarkCallable(name = "multi_arch_dynamic_libraries",
       structField = true,
       doc = "Combined-architecture dynamic libraries to include in the final bundle."

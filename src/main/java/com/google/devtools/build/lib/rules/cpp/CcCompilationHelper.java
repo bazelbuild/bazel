@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -1033,12 +1031,13 @@ public final class CcCompilationHelper {
       // the current target.
       HeaderMapInfo.Builder depHeaderMapInfo = new HeaderMapInfo.Builder();
       depHeaderMapInfo.setIncludePrefix(includePrefix);
-      depHeaderMapInfo.addIncludePrefixdHeaders(publicHeaders.getHeaders());
-      depHeaderMapInfo.addIncludePrefixdHeaders(privateHeaders);
-      depHeaderMapInfo.addIncludePrefixdHeaders(publicTextualHeaders);
+      depHeaderMapInfo.addIncludePrefixedHeaders(publicHeaders.getHeaders());
+      depHeaderMapInfo.addIncludePrefixedHeaders(privateHeaders);
+      depHeaderMapInfo.addIncludePrefixedHeaders(publicTextualHeaders);
 
       // Flatten virtual headers into the headermap.
-      boolean flattenVirtualHeaders = ruleContext.attributes().has("flatten_virtual_headers") &&
+      boolean flattenVirtualHeaders =
+          ruleContext.attributes().has("flatten_virtual_headers") &&
           ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
       if (flattenVirtualHeaders) {
         depHeaderMapInfo.addHeaders(publicTextualHeaders);
@@ -1049,11 +1048,13 @@ public final class CcCompilationHelper {
       // Merge all of the header map info from deps. The headers within a given
       // target have precedence over over dep headers (See HeaderMapInfo.build()).
       if (ruleContext.attributes().has("deps")){
-        for (HeaderMapInfoProvider hmapProvider : ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
+        for (HeaderMapInfoProvider hmapProvider :
+            ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
           depHeaderMapInfo.mergeHeaderMapInfo(hmapProvider.getInfo());
         }
       }
-      Artifact depHeaderMap = ruleContext.getPackageRelativeArtifact(PathFragment.create(targetName + ".hmap"),
+      Artifact depHeaderMap =
+          ruleContext.getPackageRelativeArtifact(PathFragment.create(targetName + ".hmap"),
                 ruleContext
                 .getConfiguration()
                 .getGenfilesDirectory(ruleContext.getRule().getRepository()));
@@ -1062,6 +1063,7 @@ public final class CcCompilationHelper {
             depHeaderMapInfo.build().getSources(),
             depHeaderMap));
       ccCompilationContextBuilder.addIncludeDir(depHeaderMap.getExecPath());
+      // OB TODO: Add depHeaderMap to the ccCompilationContext here???
       headerMapsBuilder.add(depHeaderMap);
 
       // If we have header maps we need to add an include of the working directory

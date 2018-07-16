@@ -151,7 +151,7 @@ public final class ClangHeaderMap {
   }
 
   /**
-   For testing purposes. Implement a similiar algorithm as the clang lexer.
+   For testing purposes. Implement a similar algorithm as the clang lexer.
    */
   public String get(String key) {
     int bucketIdx = clangKeyHash(key) & (numBuckets - 1);
@@ -162,7 +162,7 @@ public final class ClangHeaderMap {
 
       // Note: the lexer does a case insensitive compare here but
       // it isn't necessary for test purposes
-      if (key.equals(getString(keyOffset)) == false) {
+      if (!key.equals(getString(keyOffset))) {
         bucketIdx++;
         continue;
       }
