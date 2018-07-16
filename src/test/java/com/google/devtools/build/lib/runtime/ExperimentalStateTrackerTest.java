@@ -1022,94 +1022,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport3")));
     assertThat(output, containsString("success"));
     assertThat(output, containsString("complete"));
-    assertThat(output.split("\\n")).hasLength(2);
-  }
-  @Test
-  public void testCasesDataVisible() throws Exception {
-    // The test count should be visible in the status bar, as well as the short status bar
-    ManualClock clock = new ManualClock();
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setExitCondition(ExitCode.SUCCESS);
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    buildResult.setStopTime(clock.currentTimeMillis());
-
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
-    TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz");
-    ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
-    when(targetA.getLabel()).thenReturn(labelA);
-    ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
-    when(filteringComplete.getTestTargets()).thenReturn(ImmutableSet.of(targetA, targetB));
-    TestSummary testSummary = Mockito.mock(TestSummary.class);
-    when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED);
-    when(testSummary.getTarget()).thenReturn(targetA);
-    when(testSummary.getLabel()).thenReturn(labelA);
-    when(testSummary.getTotalTestCases()).thenReturn(5);
-    TestCase testCase =  TestCase.newBuilder().setStatus(Status.FAILED).build();
-    ArrayList<TestCase> testCases = new ArrayList<>();
-    testCases.add(testCase);
-    testCases.add(testCase);
-
-    when(testSummary.getFailedTestCases()).thenReturn(testCases);
-
-    stateTracker.testFilteringComplete(filteringComplete);
-    stateTracker.buildStarted(null);
-    stateTracker.testSummary(testSummary);
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
-
-
-    LoggingTerminalWriter terminalWriter =
-        new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    String output = terminalWriter.getTranscript();
-
-    assertWithMessage("Total number of failed test cases expected  in output:\n" + output)
-        .that(output.contains("2 test cases FAILED"))
-        .isTrue();
-    assertWithMessage("Total number of test cases expected  in output:\n" + output)
-        .that(output.contains("5 total test cases"))
-        .isTrue();
-  }
-
-  @Test
-  public void testCasesDataVisibleWhenNoFailures() throws Exception {
-    // The test count should be visible in the status bar, as well as the short status bar
-    ManualClock clock = new ManualClock();
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setExitCondition(ExitCode.SUCCESS);
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    buildResult.setStopTime(clock.currentTimeMillis());
-
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
-    TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz");
-    ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
-    when(targetA.getLabel()).thenReturn(labelA);
-    ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
-    when(filteringComplete.getTestTargets()).thenReturn(ImmutableSet.of(targetA, targetB));
-    TestSummary testSummary = Mockito.mock(TestSummary.class);
-    when(testSummary.getStatus()).thenReturn(BlazeTestStatus.PASSED);
-    when(testSummary.getTarget()).thenReturn(targetA);
-    when(testSummary.getLabel()).thenReturn(labelA);
-    when(testSummary.getTotalTestCases()).thenReturn(5);
-
-    stateTracker.testFilteringComplete(filteringComplete);
-    stateTracker.buildStarted(null);
-    stateTracker.testSummary(testSummary);
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
-
-    LoggingTerminalWriter terminalWriter =
-        new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    String output = terminalWriter.getTranscript();
-
-    assertWithMessage("Total number of failed test cases expected  in output:\n" + output)
-        .that(output.contains("0 test cases FAILED"))
-        .isFalse();
-
-    assertWithMessage("Total number of test cases expected  in output:\n" + output)
-        .that(output.contains("5 total test cases"))
-        .isTrue();
+    assertThat(output.split("\\n")).hasLength(1);
   }
 
   @Test
@@ -1149,7 +1062,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport")));
     assertThat(output, containsString("success"));
     assertThat(output, containsString("complete"));
-    assertThat(output.split("\\n")).hasLength(3);
+    assertThat(output.split("\\n")).hasLength(2);
   }
 
   private BuildEventTransport newBepTransport(String name) {

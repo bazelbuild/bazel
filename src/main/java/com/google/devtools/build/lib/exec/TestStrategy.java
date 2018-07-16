@@ -101,7 +101,8 @@ public abstract class TestStrategy implements TestActionContext {
     SHORT, // Print information only about tests.
     TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
     DETAILED, // Print information only about failed test cases.
-    NONE; // Do not print summary.
+    NONE, // Do not print summary.
+    TESTCASE; // Print summary in test case resolution, do not print detailed information about failed test cases.
 
     /** Converts to {@link TestSummaryFormat}. */
     public static class Converter extends EnumConverter<TestSummaryFormat> {
@@ -280,10 +281,12 @@ public abstract class TestStrategy implements TestActionContext {
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-   /* in order to provide the test cases resolution also in non-detailed mode - the file has to be parsed.
-   if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
-      return null;
-    }*/
+
+   if ((executionOptions.testSummary != TestSummaryFormat.DETAILED) &&
+       (executionOptions.testSummary != TestSummaryFormat.TESTCASE))
+    {
+     return null;
+   }
 
     try (InputStream fileStream = resultFile.getInputStream()) {
       return new TestXmlOutputParser().parseXmlIntoTestResult(fileStream);

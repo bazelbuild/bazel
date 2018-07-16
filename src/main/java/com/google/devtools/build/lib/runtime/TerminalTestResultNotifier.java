@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
+
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -46,10 +49,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     int noStatusCount;
     int numberOfExecutedTargets;
     boolean wasUnreportedWrongSize;
-    /*In case we want to expose test case resolution in statistics - enable:
-      int totalTestCases;
-      int totalFailedTestCases;
-      */
+
+    int totalTestCases;
+    int totalFailedTestCases;
   }
 
   /**
@@ -125,7 +127,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     boolean withConfig = duplicateLabels(summaries);
     for (TestSummary summary : summaries) {
       if ((summary.getStatus() != BlazeTestStatus.PASSED
-              && summary.getStatus() != BlazeTestStatus.NO_STATUS)
+          && summary.getStatus() != BlazeTestStatus.NO_STATUS)
           || showPassingTests) {
         TestSummaryPrinter.print(summary, printer, summaryOptions.verboseSummary, false,
             withConfig);
@@ -180,9 +182,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         stats.wasUnreportedWrongSize = true;
       }
 
-     /* In case we want to expose test case resolution in statistics - enable:
       stats.totalFailedTestCases += summary.getFailedTestCases().size();
-      stats.totalTestCases += summary.getTotalTestCases(); */
+      stats.totalTestCases += summary.getTotalTestCases();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
@@ -221,6 +222,21 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private void printStats(TestResultStats stats) {
+    TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
+    if ((testSummaryFormat == DETAILED) || (testSummaryFormat == TESTCASE)) {
+      Integer passCount = stats.totalTestCases - stats.totalFailedTestCases;
+      printer.printLn(String.format(
+          "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases%s",
+          passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
+          passCount,
+          AnsiTerminalPrinter.Mode.DEFAULT,
+          stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
+          stats.totalFailedTestCases,
+          AnsiTerminalPrinter.Mode.DEFAULT,
+          stats.totalTestCases,
+          AnsiTerminalPrinter.Mode.DEFAULT));
+    }
+
     if (!optionCheckTestsUpToDate()) {
       List<String> results = new ArrayList<>();
       if (stats.passCount == 1) {

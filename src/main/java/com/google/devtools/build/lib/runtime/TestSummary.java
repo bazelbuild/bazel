@@ -53,7 +53,6 @@ import java.util.TreeMap;
  */
 @VisibleForTesting // Ideally package-scoped.
 public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrderConstraint {
-
   /**
    * Builder class responsible for creating and altering TestSummary objects.
    */
@@ -77,6 +76,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       addPassedLogs(existingSummary.passedLogs);
       addFailedLogs(existingSummary.failedLogs);
       addTotalTestCases(existingSummary.totalTestCases);
+      addFailedTestCases(existingSummary.failedTestCases);
 
       if (existingSummary.failedTestCasesStatus != null) {
         addFailedTestCases(existingSummary.getFailedTestCases(),
@@ -149,6 +149,12 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     public Builder addTotalTestCases(int totalTestCases) {
       checkMutation(totalTestCases);
       summary.totalTestCases += totalTestCases;
+      return this;
+    }
+
+    public Builder addFailedTestCases(List<TestCase> failedTestCases) {
+      checkMutation(failedTestCases);
+      summary.failedTestCases.addAll(failedTestCases);
       return this;
     }
 
@@ -441,7 +447,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   public List<TestCase> getFailedTestCases() {
     return failedTestCases;
   }
-
 
   public int getTotalTestCases() {
     return totalTestCases;

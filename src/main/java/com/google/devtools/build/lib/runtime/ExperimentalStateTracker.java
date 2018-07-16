@@ -109,9 +109,6 @@ class ExperimentalStateTracker {
   private int failedTests;
   private boolean ok;
   private boolean buildComplete;
-  private int totalTestCasesExecuted;
-  private int totalTestCasesFailed;
-
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
@@ -217,12 +214,6 @@ class ExperimentalStateTracker {
                 + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
                 + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
       }
-
-       additionalMessage += System.lineSeparator()+ "["
-        + ((totalTestCasesFailed > 0) ?
-           toRegularPluralizedString(totalTestCasesFailed, "test case") + " FAILED, "
-           : "")
-            + toRegularPluralizedString(totalTestCasesExecuted, "total test case") + "]";
     } else {
       ok = false;
       status = "FAILED";
@@ -579,12 +570,10 @@ class ExperimentalStateTracker {
 
   public synchronized void testSummary(TestSummary summary) {
     completedTests++;
-    totalTestCasesExecuted += summary.getTotalTestCases();
 
     mostRecentTest = summary;
     if (summary.getStatus() != BlazeTestStatus.PASSED) {
       failedTests++;
-      totalTestCasesFailed += summary.getFailedTestCases().size();
     }
   }
 
