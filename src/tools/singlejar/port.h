@@ -26,6 +26,18 @@
 #include <stdio.h>
 #include <time.h>
 
+#ifdef _WIN64
+// MSVC by default defines stat and related functions to a version with 32-bit
+// st_size even for Win64. We want 64-bit st_size instead so that we can handle
+// large file.
+#undef stat
+#undef fstat
+#define stat _stat64
+#define fstat _fstat64
+#endif  // _WIN64
+
+typedef ptrdiff ssize_t;
+
 // Various MSVC polyfills for POSIX functions.
 
 inline tm* localtime_r(const time_t* tin, tm* tout) {
@@ -37,17 +49,7 @@ inline tm* localtime_r(const time_t* tin, tm* tout) {
 
 // Make sure that the file HANDLE associated with |fd| is created by CreateFile
 // with FILE_FLAG_OVERLAPPED flag for this function to work.
-ptrdiff_t pread(int fd, void* buf, size_t count, ptrdiff_t offset);
-
-#ifdef _WIN64
-// MSVC by default defines stat and related functions to a version with 32-bit
-// st_size even for Win64. We want 64-bit st_size instead so that we can handle
-// large file.
-#undef stat
-#undef fstat
-#define stat _stat64
-#define fstat _fstat64
-#endif  // _WIN64
+ssize_t pread(int fd, void* buf, size_t count, off64_t offset);
 
 #endif  // _WIN32
 

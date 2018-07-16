@@ -21,7 +21,7 @@
 #endif
 #include <windows.h>
 
-ptrdiff_t pread(int fd, void *buf, size_t count, ptrdiff_t offset) {
+ssize_t pread(int fd, void *buf, size_t count, off64_t offset) {
   DWORD ret = -1;
   HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   if (hFile) {
