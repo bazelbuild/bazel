@@ -291,16 +291,6 @@ filegroup(
 )
 
 java_import(
-    name = "bytebuddy",
-    jars = ["bytebuddy/byte-buddy-dep-0.7-rc6.jar"],
-    deps = [
-        ":asm",
-        ":asm-commons",
-        ":asm-util",
-    ],
-)
-
-java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
