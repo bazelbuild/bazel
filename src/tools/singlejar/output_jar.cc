@@ -117,7 +117,7 @@ int OutputJar::Doit(Options *options) {
     // TODO(asmundak):  Consider going back to sendfile() or reflink
     // (BTRFS_IOC_CLONE/XFS_IOC_CLONE) here.  The launcher preamble can
     // be very large for targets with many native deps.
-    ptrdiff_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
+    ssize_t byte_count = AppendFile(in_fd, 0, statbuf.st_size);
     if (byte_count < 0) {
       diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
                launcher_path, options_->output_jar.c_str());
@@ -890,7 +890,7 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
   }
 }
 
-ptrdiff_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
+ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   if (count == 0) {
     return 0;
   }
@@ -898,11 +898,11 @@ ptrdiff_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   if (buffer == nullptr) {
     diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
   }
-  ptrdiff_t total_written = 0;
+  ssize_t total_written = 0;
 
   while (static_cast<size_t>(total_written) < count) {
     size_t len = std::min(kBufferSize, count - total_written);
-    ptrdiff_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
+    ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
     if (n_read > 0) {
       if (!WriteBytes(buffer.get(), n_read)) {
         return -1;
