@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.skylarkbuildapi.android.ParsedAndroidAssetsApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** Parsed Android assets which can be merged together with assets from dependencies. */
-public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroidData {
+public class ParsedAndroidAssets extends AndroidAssets
+    implements MergableAndroidData, ParsedAndroidAssetsApi {
   private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
@@ -92,5 +94,4 @@ public class ParsedAndroidAssets extends AndroidAssets implements MergableAndroi
   public int hashCode() {
     return Objects.hash(super.hashCode(), symbols, label);
   }
-
 }
