@@ -50,7 +50,7 @@ ex_repo(name = "repo")
 EOF
 
   bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test"
-  executes=`grep "repos.bzl:2:3: Executing a command." $TEST_log | wc -l`
+  executes=`grep "location: .*repos.bzl:2:3" $TEST_log | wc -l`
   if [ "$executes" -ne "1" ]
   then
     fail "Expected exactly 1 occurrence of the given command, got $executes"
@@ -59,7 +59,7 @@ EOF
   # Cached executions are not replayed
   bazel build //:test --experimental_workspace_rules_logging=yes &> output || fail "could not build //:test"
   cat output &> $TEST_log
-  executes=`grep "repos.bzl:2:3: Executing a command." output | wc -l`
+  executes=`grep "location: .*repos.bzl:2:3" output | wc -l`
   if [ "$executes" -ne "0" ]
   then
     fail "Expected exactly 0 occurrence of the given command, got $executes"
@@ -107,7 +107,7 @@ a_repo(name = "another")
 EOF
 
   bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test"
-  executes=`grep "repos.bzl:2:3: Executing a command." $TEST_log | wc -l`
+  executes=`grep "location: .*repos.bzl:2:3" $TEST_log | wc -l`
   if [ "$executes" -le "2" ]
   then
     fail "Expected at least 2 occurrences of the given command, got $executes"

@@ -40,6 +40,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/debug:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
