@@ -29,7 +29,9 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.util.JsonFormat;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Reader;
 import org.junit.After;
 import org.junit.Before;
@@ -88,5 +90,79 @@ public class JsonFormatFileTransportTest {
       parser.merge(reader, builder);
       assertThat(builder.build()).isEqualTo(started);
     }
+  }
+
+  /**
+   * A thin wrapper around an OutputStream that counts number of bytes written and verifies flushes.
+   */
+  private static final class WrappedOutputStream extends OutputStream {
+    private final OutputStream out;
+    private long byteCount;
+    private int flushCount;
+
+    public WrappedOutputStream(OutputStream out) {
+      this.out = out;
+    }
+
+    public long getByteCount() {
+      return byteCount;
+    }
+
+    public int getFlushCount() {
+      return flushCount;
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      out.write(b);
+      byteCount++;
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      out.write(b);
+      byteCount += b.length;
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      out.write(b, off, len);
+      byteCount += len;
+    }
+
+    @Override
+    public void flush() throws IOException {
+      out.flush();
+      flushCount++;
+    }
+  }
+
+  @Test
+  public void testFlushesStreamAfterSmallWrites() throws Exception {
+    File output = tmp.newFile();
+
+    BuildEventStreamProtos.BuildEvent started =
+        BuildEventStreamProtos.BuildEvent.newBuilder()
+            .setStarted(BuildStarted.newBuilder().setCommand("build"))
+            .build();
+    when(buildEvent.asStreamProto(Matchers.<BuildEventContext>any())).thenReturn(started);
+    JsonFormatFileTransport transport =
+        new JsonFormatFileTransport(
+            output.getAbsolutePath(), defaultOpts, LOCAL_FILES_UPLOADER, (e) -> {});
+    WrappedOutputStream out = new WrappedOutputStream(transport.writer.out);
+    transport.writer.out = out;
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
+    Thread.sleep(FileTransport.SequentialWriter.FLUSH_INTERVAL.toMillis() * 3);
+
+    // Some users, e.g. Tulsi, use JSON build event output for interactive use and expect the stream
+    // to be flushed at regular short intervals.
+    assertThat(out.getFlushCount()).isGreaterThan(0);
+
+    // We know that large writes get flushed; test is valuable only if we check small writes,
+    // meaning smaller than 8192, the default buffer size used by BufferedOutputStream.
+    assertThat(out.getByteCount()).isLessThan(8192L);
+    assertThat(out.getByteCount()).isGreaterThan(0L);
+
+    transport.close().get();
   }
 }
