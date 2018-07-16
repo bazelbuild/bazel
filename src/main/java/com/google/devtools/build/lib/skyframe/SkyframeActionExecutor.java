@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -146,7 +147,8 @@ public final class SkyframeActionExecutor {
   // We don't want to execute the action again on the second entry to the SkyFunction.
   // In both cases, we store the already-computed ActionExecutionValue to avoid having to compute it
   // again.
-  private ConcurrentMap<Artifact, Pair<ActionLookupData, FutureTask<ActionExecutionValue>>>
+  private ConcurrentMap<
+          OwnerlessArtifactWrapper, Pair<ActionLookupData, FutureTask<ActionExecutionValue>>>
       buildActionMap;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
@@ -403,13 +405,16 @@ public final class SkyframeActionExecutor {
   }
 
   boolean probeActionExecution(Action action) {
-    return buildActionMap.containsKey(action.getPrimaryOutput());
+    return buildActionMap.containsKey(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   private boolean actionReallyExecuted(Action action, ActionLookupData actionLookupData) {
     Pair<ActionLookupData, ?> cachedRun =
         Preconditions.checkNotNull(
-            buildActionMap.get(action.getPrimaryOutput()), "%s %s", action, actionLookupData);
+            buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput())),
+            "%s %s",
+            action,
+            actionLookupData);
     return actionLookupData.equals(cachedRun.getFirst());
   }
 
@@ -449,7 +454,8 @@ public final class SkyframeActionExecutor {
                 actionLookupData));
     // Check to see if another action is already executing/has executed this value.
     Pair<ActionLookupData, FutureTask<ActionExecutionValue>> oldAction =
-        buildActionMap.putIfAbsent(primaryOutput, Pair.of(actionLookupData, actionTask));
+        buildActionMap.putIfAbsent(
+            new OwnerlessArtifactWrapper(primaryOutput), Pair.of(actionLookupData, actionTask));
     // true if this is a non-shared action or it's shared and to be executed.
     boolean isPrimaryActionForTheValue = oldAction == null;
 
@@ -460,7 +466,10 @@ public final class SkyframeActionExecutor {
       actionTask = oldAction.second;
     }
     try {
-      return actionTask.get();
+      ActionExecutionValue value = actionTask.get();
+      return isPrimaryActionForTheValue
+          ? value
+          : value.transformForSharedAction(action.getOutputs());
     } catch (ExecutionException e) {
       Throwables.propagateIfPossible(e.getCause(),
           ActionExecutionException.class, InterruptedException.class);
