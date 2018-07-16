@@ -47,6 +47,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     codedOut.writeBoolNoTag(semantics.incompatibleBzlDisallowLoadAfterStatement());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetIsNotIterable());
     codedOut.writeBoolNoTag(semantics.incompatibleDepsetUnion());
+    codedOut.writeBoolNoTag(semantics.incompatibleDisableDeprecatedAttrParams());
     codedOut.writeBoolNoTag(semantics.incompatibleDisableObjcProviderResources());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDataTransition());
     codedOut.writeBoolNoTag(semantics.incompatibleDisallowDictPlus());
@@ -74,6 +75,7 @@ public final class SkylarkSemanticsCodec implements ObjectCodec<SkylarkSemantics
     builder.incompatibleBzlDisallowLoadAfterStatement(codedIn.readBool());
     builder.incompatibleDepsetIsNotIterable(codedIn.readBool());
     builder.incompatibleDepsetUnion(codedIn.readBool());
+    builder.incompatibleDisableDeprecatedAttrParams(codedIn.readBool());
     builder.incompatibleDisableObjcProviderResources(codedIn.readBool());
     builder.incompatibleDisallowDataTransition(codedIn.readBool());
     builder.incompatibleDisallowDictPlus(codedIn.readBool());

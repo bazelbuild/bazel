@@ -199,6 +199,32 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testDisableDeprecatedParams() throws Exception {
+    ev = createEvaluationTestCase(
+        SkylarkSemantics.DEFAULT_SEMANTICS
+            .toBuilder()
+            .incompatibleDisableDeprecatedAttrParams(true)
+            .build());
+    ev.initialize();
+
+    // Verify 'single_file' deprecation.
+    EvalException expected =
+        assertThrows(EvalException.class, () -> eval("attr.label(single_file = True)"));
+    assertThat(expected).hasMessageThat().contains(
+        "'single_file' is no longer supported. use allow_single_file instead.");
+    Attribute attr = buildAttribute("a1", "attr.label(allow_single_file = ['.xml'])");
+    assertThat(attr.isSingleArtifact()).isTrue();
+
+    // Verify 'non_empty' deprecation.
+    expected =
+        assertThrows(EvalException.class, () -> eval("attr.string_list(non_empty=True)"));
+    assertThat(expected).hasMessageThat().contains(
+        "'non_empty' is no longer supported. use allow_empty instead.");
+    attr = buildAttribute("a2", "attr.string_list(allow_empty=False)");
+    assertThat(attr.isNonEmpty()).isTrue();
+  }
+
+  @Test
   public void testAttrAllowedSingleFileTypesWrongType() throws Exception {
     checkErrorContains(
         "allow_single_file should be a boolean or a string list",

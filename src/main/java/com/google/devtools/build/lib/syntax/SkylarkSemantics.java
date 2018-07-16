@@ -47,6 +47,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDepsetUnion();
 
+  public abstract boolean incompatibleDisableDeprecatedAttrParams();
+
   public abstract boolean incompatibleDisableObjcProviderResources();
 
   public abstract boolean incompatibleDisallowDataTransition();
@@ -96,6 +98,7 @@ public abstract class SkylarkSemantics {
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
+          .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
@@ -125,6 +128,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
+
+    public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
