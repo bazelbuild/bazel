@@ -1145,7 +1145,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/android/assets/values/orc.txt",
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
-    final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
+    final AndroidIdeInfoProvider provider = target.get(AndroidIdeInfoProvider.PROVIDER);
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1177,7 +1177,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget(
         "//research/handwriting/java/com/google/research/handwriting:r");
-    final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
+    final AndroidIdeInfoProvider provider = target.get(AndroidIdeInfoProvider.PROVIDER);
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1211,7 +1211,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/android/assets/values/orc.txt",
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
-    final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
+    final AndroidIdeInfoProvider provider = target.get(AndroidIdeInfoProvider.PROVIDER);
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(

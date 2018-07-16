@@ -714,8 +714,7 @@ public class AndroidCommon {
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .addProvider(
-            AndroidIdeInfoProvider.class,
+        .addNativeDeclaredProvider(
             createAndroidIdeInfoProvider(
                 ruleContext,
                 idlHelper,

@@ -52,7 +52,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   }
 
   private AndroidIdeInfoProvider getIdeInfoProvider() {
-    return getInfo().getProvider(AndroidIdeInfoProvider.class);
+    return getInfo().get(AndroidIdeInfoProvider.PROVIDER);
   }
 
   @Override
