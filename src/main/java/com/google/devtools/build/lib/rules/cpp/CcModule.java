@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -293,5 +295,38 @@ public class CcModule
       CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     }
     return new CcSkylarkInfo();
+  }
+
+  @SkylarkCallable(
+      name = "merge_cc_linking_infos",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "cc_linking_infos",
+            doc = "cc_linking_infos to be merged.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class)
+      })
+  public CcLinkingInfo mergeCcLinkingInfos(SkylarkList<CcLinkingInfo> ccLinkingInfos) {
+    return CcLinkingInfo.merge(ccLinkingInfos);
+  }
+
+  @SkylarkCallable(
+      name = "merge_cc_compilation_infos",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "cc_compilation_infos",
+            doc = "cc_compilation_infos to be merged.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class)
+      })
+  public CcCompilationInfo mergeCcCompilationInfos(
+      SkylarkList<CcCompilationInfo> ccCompilationInfos) {
+    return CcCompilationInfo.merge(ccCompilationInfos);
   }
 }

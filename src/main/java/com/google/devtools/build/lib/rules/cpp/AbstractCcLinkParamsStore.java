@@ -47,10 +47,10 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  * </pre>
  */
 public abstract class AbstractCcLinkParamsStore {
-  protected CcLinkParams staticSharedParams;
-  protected CcLinkParams staticNoSharedParams;
-  protected CcLinkParams noStaticSharedParams;
-  protected CcLinkParams noStaticNoSharedParams;
+  protected CcLinkParams staticModeParamsForDynamicLibrary;
+  protected CcLinkParams staticModeParamsForExecutable;
+  protected CcLinkParams dynamicModeParamsForDynamicLibrary;
+  protected CcLinkParams dynamicModeParamsForExecutable;
 
   private CcLinkParams compute(boolean linkingStatically, boolean linkShared) {
     CcLinkParams.Builder builder = CcLinkParams.builder(linkingStatically, linkShared);
@@ -76,9 +76,9 @@ public abstract class AbstractCcLinkParamsStore {
 
   private CcLinkParams lookup(boolean linkingStatically, boolean linkShared) {
     if (linkingStatically) {
-      return linkShared ? staticSharedParams : staticNoSharedParams;
+      return linkShared ? staticModeParamsForDynamicLibrary : staticModeParamsForExecutable;
     } else {
-      return linkShared ? noStaticSharedParams : noStaticNoSharedParams;
+      return linkShared ? dynamicModeParamsForDynamicLibrary : dynamicModeParamsForExecutable;
     }
   }
 
@@ -86,15 +86,15 @@ public abstract class AbstractCcLinkParamsStore {
     Preconditions.checkNotNull(params);
     if (linkingStatically) {
       if (linkShared) {
-        staticSharedParams = params;
+        staticModeParamsForDynamicLibrary = params;
       } else {
-        staticNoSharedParams = params;
+        staticModeParamsForExecutable = params;
       }
     } else {
       if (linkShared) {
-        noStaticSharedParams = params;
+        dynamicModeParamsForDynamicLibrary = params;
       } else {
-        noStaticNoSharedParams = params;
+        dynamicModeParamsForExecutable = params;
       }
     }
   }

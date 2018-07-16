@@ -36,4 +36,32 @@ public interface CcLinkingInfoApi extends StructApi {
       allowReturnNones = true,
       structField = true)
   public CcRunfilesApi getCcRunfiles();
+
+  @SkylarkCallable(
+      name = "static_mode_params_for_dynamic_library",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getStaticModeParamsForDynamicLibrary();
+
+  @SkylarkCallable(
+      name = "static_mode_params_for_executable",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getStaticModeParamsForExecutable();
+
+  @SkylarkCallable(
+      name = "dynamic_mode_params_for_dynamic_library",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getDynamicModeParamsForDynamicLibrary();
+
+  @SkylarkCallable(
+      name = "dynamic_mode_params_for_executable",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getDynamicModeParamsForExecutable();
 }

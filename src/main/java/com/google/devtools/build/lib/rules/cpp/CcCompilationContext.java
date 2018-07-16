@@ -483,19 +483,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Add multiple include directories to be added with "-I". These can be
-     * either relative to the exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. The
-     * entries are normalized before they are stored.
-     */
-    public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
-      for (PathFragment includeDir : includeDirs) {
-        addIncludeDir(includeDir);
-      }
-      return this;
-    }
-
-    /**
      * Add a single include directory to be added with "-iquote". It can be
      * either relative to the exec root (see {@link
      * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
@@ -507,13 +494,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Add a single include directory to be added with "-isystem". It can be
-     * either relative to the exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
-     * is stored, the include directory is normalized.
+     * Add a single include directory to be added with "-isystem". It can be either relative to the
+     * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot})
+     * or absolute. Before it is stored, the include directory is normalized.
      */
-    public Builder addSystemIncludeDir(PathFragment systemIncludeDir) {
-      systemIncludeDirs.add(systemIncludeDir);
+    public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
+      Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
       return this;
     }
 

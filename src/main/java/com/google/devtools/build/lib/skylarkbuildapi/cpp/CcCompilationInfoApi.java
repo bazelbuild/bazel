@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** Interface for a wrapper of every C++ compilation provider. */
 @SkylarkModule(
@@ -24,4 +26,25 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     documented = false,
     category = SkylarkModuleCategory.PROVIDER,
     doc = "Wrapper for every C++ compilation provider")
-public interface CcCompilationInfoApi extends StructApi {}
+public interface CcCompilationInfoApi extends StructApi {
+  @SkylarkCallable(
+      name = "defines",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkDefines();
+
+  @SkylarkCallable(
+      name = "headers",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkHeaders();
+
+  @SkylarkCallable(
+      name = "system_includes",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkDeclaredIncludeDirs();
+}

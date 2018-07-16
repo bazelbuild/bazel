@@ -64,14 +64,14 @@ public final class CcLinkParamsStore extends AbstractCcLinkParamsStore {
   @VisibleForSerialization
   @AutoCodec.Instantiator
   public CcLinkParamsStore(
-      CcLinkParams staticSharedParams,
-      CcLinkParams staticNoSharedParams,
-      CcLinkParams noStaticSharedParams,
-      CcLinkParams noStaticNoSharedParams) {
-    super.staticSharedParams = staticSharedParams;
-    super.staticNoSharedParams = staticNoSharedParams;
-    super.noStaticSharedParams = noStaticSharedParams;
-    super.noStaticNoSharedParams = noStaticNoSharedParams;
+      CcLinkParams staticModeParamsForDynamicLibrary,
+      CcLinkParams staticModeParamsForExecutable,
+      CcLinkParams dynamicModeParamsForDynamicLibrary,
+      CcLinkParams dynamicModeParamsForExecutable) {
+    super.staticModeParamsForDynamicLibrary = staticModeParamsForDynamicLibrary;
+    super.staticModeParamsForExecutable = staticModeParamsForExecutable;
+    super.dynamicModeParamsForDynamicLibrary = dynamicModeParamsForDynamicLibrary;
+    super.dynamicModeParamsForExecutable = dynamicModeParamsForExecutable;
   }
 
   public static com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore merge(

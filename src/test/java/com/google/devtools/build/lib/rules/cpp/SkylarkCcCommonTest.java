@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -903,27 +905,53 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "    srcs = ['lib.cc'],",
         "    deps = ['r']",
         ")",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['dep1.cc'],",
+        "    hdrs = ['dep1.h'],",
+        "    includes = ['dep1/baz'],",
+        "    defines = ['DEP1'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['dep2.cc'],",
+        "    hdrs = ['dep2.h'],",
+        "    includes = ['dep2/qux'],",
+        "    defines = ['DEP2'],",
+        ")",
         "crule(name='r')");
     scratch.file("tools/build_defs/cc/BUILD", "");
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "def _impl(ctx):",
-        "  cc_compilation_info = CcCompilationInfo(headers=depset([ctx.file._header]))",
-        "  return [",
-        "    cc_compilation_info, cc_common.create_cc_skylark_info(ctx=ctx),",
-        "  ]",
+        "  cc_compilation_info = CcCompilationInfo(headers=depset([ctx.file._header]),",
+        "    system_includes=depset([ctx.attr._include]), defines=depset([ctx.attr._define]))",
+        "  cc_compilation_infos = [cc_compilation_info]",
+        "  for dep in ctx.attr._deps:",
+        "      cc_compilation_infos.append(dep[CcCompilationInfo])",
+        "  merged_cc_compilation_info=cc_common.merge_cc_compilation_infos(",
+        "      cc_compilation_infos=cc_compilation_infos)",
+        "  return struct(",
+        "    providers=[cc_compilation_info, cc_common.create_cc_skylark_info(ctx=ctx)],",
+        "    merged_headers=merged_cc_compilation_info.headers,",
+        "    merged_system_includes=merged_cc_compilation_info.system_includes,",
+        "    merged_defines=merged_cc_compilation_info.defines",
+        "  )",
         "crule = rule(",
         "  _impl,",
         "  attrs = { ",
-        "    '_header': attr.label(allow_single_file=True, default=Label('//a:header.h'))",
+        "    '_header': attr.label(allow_single_file=True, default=Label('//a:header.h')),",
+        "    '_include': attr.string(default='foo/bar'),",
+        "    '_define': attr.string(default='MYDEFINE'),",
+        "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2'])",
         "  },",
         "  fragments = ['cpp'],",
         ");");
 
-    ConfiguredTarget r = getConfiguredTarget("//a:lib");
+    ConfiguredTarget lib = getConfiguredTarget("//a:lib");
     @SuppressWarnings("unchecked")
     CcCompilationContext ccCompilationContext =
-        r.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
+        lib.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
     assertThat(
             ccCompilationContext
                 .getDeclaredIncludeSrcs()
@@ -932,6 +960,25 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
                 .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("lib.h", "header.h");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+
+    List<Artifact> mergedHeaders =
+        ((SkylarkNestedSet) r.get("merged_headers")).getSet(Artifact.class).toList();
+    assertThat(
+            mergedHeaders
+                .stream()
+                .map(Artifact::getFilename)
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("header.h", "dep1.h", "dep2.h");
+
+    List<String> mergedDefines =
+        ((SkylarkNestedSet) r.get("merged_defines")).getSet(String.class).toList();
+    assertThat(mergedDefines).containsAllOf("MYDEFINE", "DEP1", "DEP2");
+
+    List<String> mergedIncludes =
+        ((SkylarkNestedSet) r.get("merged_system_includes")).getSet(String.class).toList();
+    assertThat(mergedIncludes).containsAllOf("foo/bar", "a/dep1/baz", "a/dep2/qux");
   }
 
   @Test
@@ -1031,37 +1078,118 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLinkingProviderParamsWithFlag() throws Exception {
+  public void testCcLinkingProvider() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "supports_interface_shared_objects: false");
+    useConfiguration("--experimental_enable_cc_skylark_api");
     setUpCcLinkingProviderParamsTest();
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    @SuppressWarnings("unchecked")
-    CcLinkParamsStore ccLinkParamsStore =
-        ((CcLinkingInfo) r.get("cc_linking_info")).getCcLinkParamsStore();
-    assertThat(ccLinkParamsStore).isNotNull();
+
+    List<String> staticSharedLinkopts =
+        ((SkylarkNestedSet) r.get("sd_linkopts")).getSet(String.class).toList();
+    List<String> staticNoSharedLinkopts =
+        ((SkylarkNestedSet) r.get("se_linkopts")).getSet(String.class).toList();
+    List<String> noStaticSharedLinkopts =
+        ((SkylarkNestedSet) r.get("dd_linkopts")).getSet(String.class).toList();
+    List<String> noStaticNoSharedLinkopts =
+        ((SkylarkNestedSet) r.get("de_linkopts")).getSet(String.class).toList();
+    assertThat(staticSharedLinkopts)
+        .containsAllOf("-static_for_dynamic", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
+    assertThat(staticNoSharedLinkopts)
+        .containsAllOf("-static_for_executable", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
+    assertThat(noStaticSharedLinkopts)
+        .containsAllOf("-dynamic_for_dynamic", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
+    assertThat(noStaticNoSharedLinkopts)
+        .containsAllOf("-dynamic_for_executable", "-DEP1_LINKOPT", "-DEP2_LINKOPT");
+
+    List<LibraryToLink> staticSharedLibs =
+        ((SkylarkNestedSet) r.get("sd_libs")).getSet(LibraryToLink.class).toList();
+    List<LibraryToLink> staticNoSharedLibs =
+        ((SkylarkNestedSet) r.get("se_libs")).getSet(LibraryToLink.class).toList();
+    List<LibraryToLink> noStaticSharedLibs =
+        ((SkylarkNestedSet) r.get("dd_libs")).getSet(LibraryToLink.class).toList();
+    List<LibraryToLink> noStaticNoSharedLibs =
+        ((SkylarkNestedSet) r.get("de_libs")).getSet(LibraryToLink.class).toList();
     assertThat(
-            ccLinkParamsStore
-                .get(/* linkingStatically= */ true, /* linkShared= */ true)
-                .flattenedLinkopts())
-        .containsExactly("-static_shared");
+            staticSharedLibs
+                .stream()
+                .map(x -> x.getOriginalLibraryArtifact().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("lib.a", "libdep1.a", "libdep2.a");
     assertThat(
-            ccLinkParamsStore
-                .get(/* linkingStatically= */ true, /* linkShared= */ false)
-                .flattenedLinkopts())
-        .containsExactly("-static_no_shared");
+            staticNoSharedLibs
+                .stream()
+                .map(x -> x.getOriginalLibraryArtifact().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("lib.a", "libdep1.a", "libdep2.a");
+
     assertThat(
-            ccLinkParamsStore
-                .get(/* linkingStatically= */ false, /* linkShared= */ true)
-                .flattenedLinkopts())
-        .containsExactly("-no_static_shared");
+            noStaticSharedLibs
+                .stream()
+                .map(x -> x.getOriginalLibraryArtifact().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("lib.so", "libdep1.so", "libdep2.so");
     assertThat(
-            ccLinkParamsStore
-                .get(/* linkingStatically= */ false, /* linkShared= */ false)
-                .flattenedLinkopts())
-        .containsExactly("-no_static_no_shared");
+            noStaticNoSharedLibs
+                .stream()
+                .map(x -> x.getOriginalLibraryArtifact().getFilename())
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("lib.so", "libdep1.so", "libdep2.so");
+
+    List<Artifact> staticSharedRunLibs =
+        ((SkylarkNestedSet) r.get("sd_runlibs")).getSet(Artifact.class).toList();
+    List<Artifact> staticNoSharedRunLibs =
+        ((SkylarkNestedSet) r.get("se_runlibs")).getSet(Artifact.class).toList();
+    List<Artifact> noStaticSharedRunLibs =
+        ((SkylarkNestedSet) r.get("dd_runlibs")).getSet(Artifact.class).toList();
+    List<Artifact> noStaticNoSharedRunLibs =
+        ((SkylarkNestedSet) r.get("de_runlibs")).getSet(Artifact.class).toList();
+    assertThat(
+            staticSharedRunLibs
+                .stream()
+                .map(Artifact::getFilename)
+                .collect(ImmutableList.toImmutableList()))
+        .isEmpty();
+    assertThat(
+            staticNoSharedRunLibs
+                .stream()
+                .map(Artifact::getFilename)
+                .collect(ImmutableList.toImmutableList()))
+        .isEmpty();
+    assertThat(
+            noStaticSharedRunLibs
+                .stream()
+                .map(Artifact::getFilename)
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("lib.so", "liba_Slibdep1.so", "liba_Slibdep2.so");
+    assertThat(
+            noStaticNoSharedRunLibs
+                .stream()
+                .map(Artifact::getFilename)
+                .collect(ImmutableList.toImmutableList()))
+        .containsAllOf("lib.so", "liba_Slibdep1.so", "liba_Slibdep2.so");
   }
 
   private void setUpCcLinkingProviderParamsTest() throws Exception {
-    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
+    scratch.file(
+        "a/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "crule(name='r')",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['dep1.cc'],",
+        "    hdrs = ['dep1.h'],",
+        "    linkopts = ['-DEP1_LINKOPT'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['dep2.cc'],",
+        "    hdrs = ['dep2.h'],",
+        "    linkopts = ['-DEP2_LINKOPT'],",
+        ")");
     scratch.file("a/lib.a", "");
     scratch.file("a/lib.so", "");
     scratch.file("tools/build_defs/cc/BUILD", "");
@@ -1074,21 +1202,45 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  liba = cc_common.create_library_to_link(ctx=ctx, library=ctx.file.liba,",
         "    artifact_category='static_library')",
-        "  ss = _create(ctx, [liba], [ctx.file.libso], ['-static_shared'])",
-        "  sns = _create(ctx, [liba], [ctx.file.libso], ['-static_no_shared'])",
-        "  nss = _create(ctx, [liba], [ctx.file.libso], ['-no_static_shared'])",
-        "  nsns = _create(ctx, [liba], [ctx.file.libso], ['-no_static_no_shared'])",
+        "  libso = cc_common.create_library_to_link(ctx=ctx, library=ctx.file.libso,",
+        "    artifact_category='dynamic_library')",
+        "  sd = _create(ctx, [liba], [], ['-static_for_dynamic'])",
+        "  se = _create(ctx, [liba], [], ['-static_for_executable'])",
+        "  dd = _create(ctx, [libso], [ctx.file.libso], ['-dynamic_for_dynamic'])",
+        "  de = _create(ctx, [libso], [ctx.file.libso], ['-dynamic_for_executable'])",
         "  cc_linking_info = CcLinkingInfo(",
-        "    static_shared_params=ss, static_no_shared_params=sns,",
-        "    no_static_shared_params=nss, no_static_no_shared_params=nsns)",
+        "    static_mode_params_for_dynamic_library=sd, static_mode_params_for_executable=se,",
+        "    dynamic_mode_params_for_dynamic_library=dd, dynamic_mode_params_for_executable=de)",
+        "  cc_linking_infos = [cc_linking_info]",
+        "  for dep in ctx.attr._deps:",
+        "      cc_linking_infos.append(dep[CcLinkingInfo])",
+        "  merged_cc_linking_info = cc_common.merge_cc_linking_infos(",
+        "      cc_linking_infos=cc_linking_infos)",
+        "  sd = merged_cc_linking_info.static_mode_params_for_dynamic_library",
+        "  se = merged_cc_linking_info.static_mode_params_for_executable",
+        "  dd = merged_cc_linking_info.dynamic_mode_params_for_dynamic_library",
+        "  de = merged_cc_linking_info.dynamic_mode_params_for_executable",
         "  return struct(",
         "    cc_linking_info = cc_linking_info,",
+        "    sd_linkopts = sd.linkopts,",
+        "    se_linkopts = se.linkopts,",
+        "    dd_linkopts = dd.linkopts,",
+        "    de_linkopts = de.linkopts,",
+        "    sd_libs = sd.libraries_to_link,",
+        "    se_libs = se.libraries_to_link,",
+        "    dd_libs = dd.libraries_to_link,",
+        "    de_libs = de.libraries_to_link,",
+        "    sd_runlibs = sd.dynamic_libraries_for_runtime,",
+        "    se_runlibs = se.dynamic_libraries_for_runtime,",
+        "    dd_runlibs = dd.dynamic_libraries_for_runtime,",
+        "    de_runlibs = de.dynamic_libraries_for_runtime,",
         "  )",
         "crule = rule(",
         "  _impl,",
         "  attrs = { ",
         "    'liba': attr.label(default='//a:lib.a', allow_single_file=True),",
         "    'libso': attr.label(default='//a:lib.so', allow_single_file=True),",
+        "    '_deps': attr.label_list(default=['//a:dep1', '//a:dep2']),",
         "  },",
         "  fragments = ['cpp'],",
         ");");

@@ -939,9 +939,8 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addQuoteIncludeDir(
         ruleContext.getConfiguration().getBinFragment().getRelative(repositoryPath));
 
-    for (PathFragment systemIncludeDir : systemIncludeDirs) {
-      ccCompilationContextBuilder.addSystemIncludeDir(systemIncludeDir);
-    }
+    ccCompilationContextBuilder.addSystemIncludeDirs(systemIncludeDirs);
+
     for (PathFragment includeDir : includeDirs) {
       ccCompilationContextBuilder.addIncludeDir(includeDir);
     }
