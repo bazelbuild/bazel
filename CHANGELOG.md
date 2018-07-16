@@ -1,3 +1,32 @@
+## Release 0.15.1 (2018-07-16)
+
+```
+Baseline: b93ae42e8e693ccbcc387841a17f58259966fa38
+
+Cherry picks:
+   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
+     Add option to enable Docker sandboxing.
+   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
+     Allow disabling the simple blob caches via CLI flag overrides.
+   + 4ec0a7524913ab2c4641368e3f8c09b347351a08:
+     Use BUILD.bazel instead of BUILD for external projects
+   + 2ff8c5fd919ad7316d06c6303e8d7b51315d4c61:
+     Release 0.15.0 (2018-06-26)
+   + 8ff87c164f48dbabe3b20becd00dde90c50d46f5:
+     Fix autodetection of linker flags
+   + c4622ac9205d2f1b42dac8c598e83113d39e7f11:
+     Fix autodetection of -z linker flags
+   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
+     remote: limit number of open tcp connections by default. Fixes
+     #5491
+```
+
+Important changes:
+
+  - In remote caching we limit the number of open
+    TCP connections to 100 by default. The number can be adjusted
+    by specifying the --remote_max_connections flag.
+
 ## Release 0.15.0 (2018-06-26)
 
 ```
@@ -2981,6 +3010,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
