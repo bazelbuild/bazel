@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -301,18 +302,17 @@ public class WorkspaceFactory {
   }
 
   @SkylarkSignature(
-    name = "workspace",
-    objectType = Object.class,
-    returnType = SkylarkList.class,
-    doc =
-        "Sets the name for this workspace. Workspace names should be a Java-package-style "
-            + "description of the project, using underscores as separators, e.g., "
-            + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
-            + "start with a letter and can only contain letters, numbers, and underscores.",
-    parameters = {@Param(name = "name", type = String.class, doc = "the name of the workspace.")},
-    useAst = true,
-    useEnvironment = true
-  )
+      name = "workspace",
+      objectType = Object.class,
+      returnType = SkylarkList.class,
+      doc =
+          "Sets the name for this workspace. Workspace names should be a Java-package-style "
+              + "description of the project, using underscores as separators, e.g., "
+              + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
+              + "start with a letter and can only contain letters, numbers, and underscores.",
+      parameters = {@Param(name = "name", type = String.class, doc = "the name of the workspace.")},
+      useAst = true,
+      useEnvironment = true)
   private static final BuiltinFunction.Factory newWorkspaceFunction =
       new BuiltinFunction.Factory("workspace") {
         public BuiltinFunction create(boolean allowOverride, final RuleFactory ruleFactory) {
@@ -344,6 +344,12 @@ public class WorkspaceFactory {
                 } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
                   throw new EvalException(ast.getLocation(), e.getMessage());
                 }
+                // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
+                // treats references to @name as a separate external repo
+                builder.addRepositoryMappingEntry(
+                    RepositoryName.MAIN,
+                    RepositoryName.createFromValidStrippedName(name),
+                    RepositoryName.MAIN);
                 return NONE;
               }
             };
@@ -488,17 +494,27 @@ public class WorkspaceFactory {
                     + kwargs.get("name")
                     + "')");
           }
+          String externalRepoName = (String) kwargs.get("name");
+          // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
+          // @<mainRepoName> as a separate repository. This will be overridden if the main
+          // repository has a repo_mapping entry from <mainRepoName> to something.
+          if (!Strings.isNullOrEmpty(builder.pkg.getWorkspaceName())) {
+            builder.addRepositoryMappingEntry(
+                RepositoryName.createFromValidStrippedName(externalRepoName),
+                RepositoryName.createFromValidStrippedName(builder.pkg.getWorkspaceName()),
+                RepositoryName.MAIN);
+          }
           if (env.getSemantics().experimentalEnableRepoMapping()) {
             if (kwargs.containsKey("repo_mapping")) {
               if (!(kwargs.get("repo_mapping") instanceof Map)) {
                 throw new EvalException(
                     ast.getLocation(),
-                    "Invalid value for 'repo_mapping': '" + kwargs.get("repo_mapping")
+                    "Invalid value for 'repo_mapping': '"
+                        + kwargs.get("repo_mapping")
                         + "'. Value must be a map.");
               }
               @SuppressWarnings("unchecked")
               Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-              String externalRepoName = (String) kwargs.get("name");
               for (Map.Entry<String, String> e : map.entrySet()) {
                 builder.addRepositoryMappingEntry(
                     RepositoryName.createFromValidStrippedName(externalRepoName),
