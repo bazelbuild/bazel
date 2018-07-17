@@ -17,6 +17,7 @@ FILES = [
     "android_deploy_info",
     "bazel_flags",
     "build",
+    "builtin",
     "bundlemerge",
     "command_server",
     "crosstool_config",
