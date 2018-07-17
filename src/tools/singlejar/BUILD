@@ -31,6 +31,8 @@ filegroup(
         "options.h",
         "output_jar.cc",
         "output_jar.h",
+        "port.cc",
+        "port.h",
         "singlejar_main.cc",
         "token_stream.h",
         "transient_bytes.h",
@@ -341,6 +343,13 @@ cc_library(
 cc_library(
     name = "diag",
     hdrs = ["diag.h"],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "port",
+    srcs = ["port.cc"],
+    hdrs = ["port.h"],
     visibility = ["//visibility:private"],
 )
 
