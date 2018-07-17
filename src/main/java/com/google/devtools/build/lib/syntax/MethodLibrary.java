@@ -621,7 +621,7 @@ public class MethodLibrary {
 
   @SkylarkSignature(
     name = "range",
-    returnType = MutableList.class,
+    returnType = SkylarkList.class,
     doc =
         "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
             + "<code>step</code> increment. If a single argument is provided, items will "
@@ -658,7 +658,7 @@ public class MethodLibrary {
   )
   private static final BuiltinFunction range =
       new BuiltinFunction("range") {
-        public MutableList<?> invoke(
+        public SkylarkList<Integer> invoke(
             Integer startOrStop, Object stopOrNone, Integer step, Location loc, Environment env)
             throws EvalException {
           int start;
@@ -673,19 +673,8 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          ArrayList<Integer> result = new ArrayList<>(Math.abs((stop - start) / step));
-          if (step > 0) {
-            while (start < stop) {
-              result.add(start);
-              start += step;
-            }
-          } else {
-            while (start > stop) {
-              result.add(start);
-              start += step;
-            }
-          }
-          return MutableList.wrapUnsafe(env, result);
+          RangeList range = RangeList.of(start, stop, step);
+          return env.getSemantics().incompatibleRangeType() ? range : range.toMutableList(env);
         }
       };
 

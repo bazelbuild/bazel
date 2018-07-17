@@ -486,6 +486,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(range(5, 0, -1))", "[5, 4, 3, 2, 1]")
         .testStatement("str(range(5, 0, -10))", "[5]")
         .testStatement("str(range(0, -3, -2))", "[0, -2]")
+        .testStatement("str(range(5)[1:])", "[1, 2, 3, 4]")
+        .testStatement("len(range(5)[1:])", 4)
+        .testStatement("str(range(5)[:2])", "[0, 1]")
+        .testStatement("str(range(10)[1:9:2])", "[1, 3, 5, 7]")
+        .testStatement("str(range(10)[1:10:2])", "[1, 3, 5, 7, 9]")
+        .testStatement("str(range(10)[1:11:2])", "[1, 3, 5, 7, 9]")
+        .testStatement("str(range(0, 10, 2)[::2])", "[0, 4, 8]")
+        .testStatement("str(range(0, 10, 2)[::-2])", "[8, 4, 0]")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)");
   }
 
@@ -497,6 +505,51 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // optimized to return lazy list-like values.
     runRangeIsListAssertions("range(3)");
     runRangeIsListAssertions("range(4)[:3]");
+  }
+
+  @Test
+  public void testRangeType() throws Exception {
+    new BothModesTest("--incompatible_range_type=true")
+        .setUp("a = range(3)")
+        .testStatement("len(a)", 3)
+        .testStatement("str(a)", "range(0, 3)")
+        .testStatement("str(range(1,2,3))", "range(1, 2, 3)")
+        .testStatement("repr(a)", "range(0, 3)")
+        .testStatement("repr(range(1,2,3))", "range(1, 2, 3)")
+        .testStatement("type(a)", "range")
+        .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
+        .testIfErrorContains("type 'range' has no method append(int)", "a.append(3)")
+        .testStatement("str(list(range(5)))", "[0, 1, 2, 3, 4]")
+        .testStatement("str(list(range(0)))", "[]")
+        .testStatement("str(list(range(1)))", "[0]")
+        .testStatement("str(list(range(-2)))", "[]")
+        .testStatement("str(list(range(-3, 2)))", "[-3, -2, -1, 0, 1]")
+        .testStatement("str(list(range(3, 2)))", "[]")
+        .testStatement("str(list(range(3, 3)))", "[]")
+        .testStatement("str(list(range(3, 4)))", "[3]")
+        .testStatement("str(list(range(3, 5)))", "[3, 4]")
+        .testStatement("str(list(range(-3, 5, 2)))", "[-3, -1, 1, 3]")
+        .testStatement("str(list(range(-3, 6, 2)))", "[-3, -1, 1, 3, 5]")
+        .testStatement("str(list(range(5, 0, -1)))", "[5, 4, 3, 2, 1]")
+        .testStatement("str(list(range(5, 0, -10)))", "[5]")
+        .testStatement("str(list(range(0, -3, -2)))", "[0, -2]")
+        .testStatement("range(3)[-1]", 2)
+        .testIfErrorContains(
+            "index out of range (index is 3, but sequence has 3 elements)", "range(3)[3]")
+        .testStatement("str(range(5)[1:])", "range(1, 5)")
+        .testStatement("len(range(5)[1:])", 4)
+        .testStatement("str(range(5)[:2])", "range(0, 2)")
+        .testStatement("str(range(10)[1:9:2])", "range(1, 9, 2)")
+        .testStatement("str(list(range(10)[1:9:2]))", "[1, 3, 5, 7]")
+        .testStatement("str(range(10)[1:10:2])", "range(1, 10, 2)")
+        .testStatement("str(range(10)[1:11:2])", "range(1, 10, 2)")
+        .testStatement("str(range(0, 10, 2)[::2])", "range(0, 10, 4)")
+        .testStatement("str(range(0, 10, 2)[::-2])", "range(8, -2, -4)")
+        .testStatement("str(range(5)[1::-1])", "range(1, -1, -1)")
+        .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
+        .testIfErrorContains(
+            "unsupported operand type(s) for *: 'range' and 'int'", "range(3) * 3");
+    ;
   }
 
   /**

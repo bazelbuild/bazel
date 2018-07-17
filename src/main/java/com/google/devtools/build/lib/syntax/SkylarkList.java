@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -25,9 +26,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.BaseMutableList;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import javax.annotation.Nullable;
 
@@ -116,7 +120,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   @Override
   public boolean equals(Object object) {
     return (this == object)
-        || ((object != null) && (this.getClass() == object.getClass())
+        || ((object != null)
+            && (this.getClass() == object.getClass())
             && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
   }
 
@@ -345,7 +350,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       return new MutableList<>(newContents, mutability);
     }
 
-    /**  More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
+    /** More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
     private static <T> void addAll(ArrayList<T> addTo, ArrayList<? extends T> addFrom) {
       // Hot code path, skip iterator.
       for (int i = 0; i < addFrom.size(); i++) {
@@ -614,7 +619,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      * Creates a {@code Tuple} from an {@link ImmutableList}, reusing the empty instance if
      * applicable.
      */
-    private static<T> Tuple<T> create(ImmutableList<T> contents) {
+    private static <T> Tuple<T> create(ImmutableList<T> contents) {
       if (contents.isEmpty()) {
         return empty();
       }
