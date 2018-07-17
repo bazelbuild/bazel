@@ -45,7 +45,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
+      @Nullable RunfilesSupplier runfilesSupplier,
       Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       ImmutableList<? extends ActionInput> inputs,
       ImmutableList<? extends ActionInput> tools,

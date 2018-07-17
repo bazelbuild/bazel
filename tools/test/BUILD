@@ -4,7 +4,10 @@ package(default_visibility = ["//visibility:public"])
 # TestRunnerAction#getRuntimeArtifact() will get confused.
 filegroup(
     name = "runtime",
-    srcs = ["test-setup.sh"],
+    srcs = [
+        "test-setup.sh",
+        "generate-xml.sh",
+    ],
 )
 
 filegroup(

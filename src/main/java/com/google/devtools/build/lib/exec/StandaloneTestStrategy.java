@@ -18,18 +18,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
@@ -50,6 +53,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -61,6 +65,9 @@ import java.util.TreeMap;
   name = {"standalone"}
 )
 public class StandaloneTestStrategy extends TestStrategy {
+  public static final String GENERATE_XML =
+      "external/bazel_tools/tools/test/generate-xml.sh";
+
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -299,7 +306,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             actionExecutionContext.getInputPath(action.getTestLog()),
             action.resolve(execRoot).getTestStderr())) {
       StandaloneTestResult standaloneTestResult =
-          executeTest(action, spawn, actionExecutionContext.withFileOutErr(fileOutErr));
+          executeTest(
+              action, spawn, actionExecutionContext.withFileOutErr(fileOutErr));
       appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
       if (!fileOutErr.hasRecordedOutput()) {
         // Touch the output file so that test.log can get created.
@@ -327,8 +335,10 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   protected StandaloneTestResult executeTest(
-      TestRunnerAction action, Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException, IOException {
+      TestRunnerAction action,
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext)
+          throws ExecException, InterruptedException, IOException {
     Closeable streamed = null;
     Path testLogPath = actionExecutionContext.getInputPath(action.getTestLog());
     TestResultData.Builder builder = TestResultData.newBuilder();
@@ -336,6 +346,9 @@ public class StandaloneTestStrategy extends TestStrategy {
     long startTime = actionExecutionContext.getClock().currentTimeMillis();
     SpawnActionContext spawnActionContext =
         actionExecutionContext.getContext(SpawnActionContext.class);
+    Path xmlOutputPath = action
+        .resolve(actionExecutionContext.getExecRoot())
+        .getXmlOutputPath();
     List<SpawnResult> spawnResults = ImmutableList.of();
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
@@ -347,28 +360,36 @@ public class StandaloneTestStrategy extends TestStrategy {
                   Reporter.outErrForReporter(actionExecutionContext.getEventHandler()),
                   testLogPath);
         }
-        spawnResults = spawnActionContext.exec(spawn, actionExecutionContext);
-
-        builder
-            .setTestPassed(true)
-            .setStatus(BlazeTestStatus.PASSED)
-            .setPassedLog(testLogPath.getPathString());
-      } catch (SpawnExecException e) {
-        // If this method returns normally, then the higher level will rerun the test (up to
-        // --flaky_test_attempts times).
-        if (e.isCatastrophic()) {
-          // Rethrow as the error was catastrophic and thus the build has to be halted.
-          throw e;
+        try {
+          spawnResults.addAll(spawnActionContext.exec(spawn, actionExecutionContext));
+          builder
+              .setTestPassed(true)
+              .setStatus(BlazeTestStatus.PASSED)
+              .setPassedLog(testLogPath.getPathString());
+        } catch (SpawnExecException e) {
+          // If this method returns normally, then the higher level will rerun the test (up to
+          // --flaky_test_attempts times).
+          if (e.isCatastrophic()) {
+            // Rethrow as the error was catastrophic and thus the build has to be halted.
+            throw e;
+          }
+          if (!e.getSpawnResult().setupSuccess()) {
+            // Rethrow as the test could not be run and thus there's no point in retrying.
+            throw e;
+          }
+          builder
+              .setTestPassed(false)
+              .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
+              .addFailedLogs(testLogPath.getPathString());
+          spawnResults.add(e.getSpawnResult());
         }
-        if (!e.getSpawnResult().setupSuccess()) {
-          // Rethrow as the test could not be run and thus there's no point in retrying.
-          throw e;
+        if (action.getTestLog().getPath().exists() && !xmlOutputPath.exists()) {
+          SpawnResult result = Iterables.getOnlyElement(spawnResults);
+          Spawn xmlGeneratingSpawn = getXmlGeneratingSpawn(action, result);
+          // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
+          // the test if this fails.
+          spawnResults.addAll(spawnActionContext.exec(xmlGeneratingSpawn, actionExecutionContext));
         }
-        builder
-            .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
-            .addFailedLogs(testLogPath.getPathString());
-        spawnResults = ImmutableList.of(e.getSpawnResult());
       } finally {
         long endTime = actionExecutionContext.getClock().currentTimeMillis();
         long duration = endTime - startTime;
@@ -390,11 +411,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         }
       }
 
-      TestCase details =
-          parseTestResult(
-              action
-                  .resolve(actionExecutionContext.getExecRoot())
-                  .getXmlOutputPath());
+      TestCase details = parseTestResult(xmlOutputPath);
       if (details != null) {
         builder.setTestCase(details);
       }
@@ -429,6 +446,35 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (spawnResult.getExecutorHostName() != null) {
       executionInfo.setHostname(spawnResult.getExecutorHostName());
     }
+  }
+
+  /**
+   * A spawn to generate a test.xml file from the test log. This is only used if the test does not
+   * generate a test.xml file itself.
+   */
+  private Spawn getXmlGeneratingSpawn(TestRunnerAction action, SpawnResult result)
+      throws ExecException {
+    Artifact xmlGenerator = action.getRuntimeArtifact("generate-xml.sh");
+    return new SimpleSpawn(
+        action,
+        ImmutableList.of(
+            GENERATE_XML,
+            action.getTestLog().getExecPathString(),
+            action.getXmlOutputPath().getPathString(),
+            Long.toString(result.getWallTime().get().getSeconds()),
+            Integer.toString(result.exitCode())),
+        ImmutableMap.of(
+            "PATH", "/usr/bin:/bin",
+            "TEST_SHARD_INDEX", Integer.toString(action.getShardNum()),
+            "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()),
+            "TEST_NAME", action.getTestName()),
+        ImmutableMap.of(),
+        null,
+        /*inputs=*/ ImmutableList.of(xmlGenerator, action.getTestLog()),
+        /*tools=*/ ImmutableList.<Artifact>of(),
+        /*filesetManifests=*/ ImmutableList.<Artifact>of(),
+        /*outputs=*/ ImmutableList.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        SpawnAction.DEFAULT_RESOURCE_SET);
   }
 
   /**
