@@ -101,6 +101,15 @@ set -ex
     ]).stdout
     return {"commit": actual_commit, "shallow_since": shallow_date}
 
+def _remove_dot_git(ctx):
+    # Remove the .git directory, if present
+    bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+    ctx.execute([
+        bash_exe,
+        "-c",
+        "rm -rf '{directory}'".format(directory = ctx.path(".git")),
+    ])
+
 def _update_commit(orig, keys, override):
     # Merge the override information into the dict, resulting by taking the
     # given keys, as well as the name, from orig (if present there).
@@ -147,11 +156,13 @@ def _new_git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
+    _remove_dot_git(ctx)
     return _update_commit(ctx.attr, _new_git_repository_attrs.keys(), update)
 
 def _git_repository_implementation(ctx):
     update = _clone_or_update(ctx)
     patch(ctx)
+    _remove_dot_git(ctx)
     return _update_commit(ctx.attr, _common_attrs.keys(), update)
 
 new_git_repository = repository_rule(
