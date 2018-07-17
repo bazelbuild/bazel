@@ -804,6 +804,52 @@ public class CppOptions extends FragmentOptions {
   public boolean enableCcSkylarkApi;
 
   @Option(
+      name = "experimental_disable_legacy_cc_linking_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, C++ Skylark API exposing linking flags will be disabled.")
+  public boolean disableLegacyLinkingApi;
+
+  @Option(
+      name = "experimental_disable_legacy_cc_compilation_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, C++ Skylark API exposing compilation flags will be disabled.")
+  public boolean disableLegacyCompilationApi;
+
+  @Option(
+      name = "experimental_disable_linking_mode_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, Bazel will not read crosstool flags from linking_mode_flags field.")
+  public boolean disableLinkingModeFlags;
+
+  @Option(
+      name = "experimental_disable_compilation_mode_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, Bazel will not read crosstool flags from compilation_mode_flags field.")
+  public boolean disableCompilationModeFlags;
+
+  @Option(
+      name = "experimental_disable_legacy_crosstool_fields",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, Bazel will not read crosstool flags from legacy crosstool fields (see #5187.")
+  public boolean disableLegacyCrosstoolFields;
+
+  @Option(
       name = "experimental_enable_cc_dynlibs_for_runtime",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
