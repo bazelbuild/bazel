@@ -543,38 +543,16 @@ java_import(
 )
 
 java_import(
-    name = "minlog_lib",
-    jars = ["minlog/minlog-1.2.jar"],
-)
-
-java_library(
-    name = "minlog",
-    exports = ["minlog_lib"],
-)
-
-java_import(
     name = "mockito",
     jars = ["mockito/mockito-all-1.10.19.jar"],
+    deps = [
+        ":objenesis",
+    ],
 )
 
 java_import(
-    name = "objenesis_lib",
-    jars = ["objenesis/objenesis-1_3.jar"],
-)
-
-java_library(
     name = "objenesis",
-    exports = ["objenesis_lib"],
-)
-
-java_import(
-    name = "reflectasm_lib",
-    jars = ["reflectasm/reflectasm-1.10.1.jar"],
-)
-
-java_library(
-    name = "reflectasm",
-    exports = ["reflectasm_lib"],
+    jars = ["objenesis/objenesis-1_3.jar"],
 )
 
 java_import(
