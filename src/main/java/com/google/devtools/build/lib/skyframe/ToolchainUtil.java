@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -44,7 +45,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,7 +120,10 @@ public class ToolchainUtil {
             .collect(toImmutableList());
 
     // Load the host and target platforms early, to check for errors.
-    getPlatformInfo(ImmutableList.of(hostPlatformKey, targetPlatformKey), env);
+    PlatformLookupUtil.getPlatformInfo(ImmutableList.of(hostPlatformKey, targetPlatformKey), env);
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     // Load all available execution platform keys. This will find any errors in the execution
     // platform definitions.
@@ -178,56 +181,6 @@ public class ToolchainUtil {
         return null;
       }
       return registeredExecutionPlatforms;
-  }
-
-  @Nullable
-  static Map<ConfiguredTargetKey, PlatformInfo> getPlatformInfo(
-      Iterable<ConfiguredTargetKey> platformKeys, Environment env)
-      throws InterruptedException, InvalidPlatformException {
-
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
-        env.getValuesOrThrow(platformKeys, ConfiguredValueCreationException.class);
-    boolean valuesMissing = env.valuesMissing();
-    Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
-      for (ConfiguredTargetKey key : platformKeys) {
-      PlatformInfo platformInfo = findPlatformInfo(key.getLabel(), values.get(key));
-        if (!valuesMissing && platformInfo != null) {
-          platforms.put(key, platformInfo);
-        }
-      }
-    if (valuesMissing) {
-      return null;
-    }
-    return platforms;
-  }
-
-  /**
-   * Returns the {@link PlatformInfo} provider from the {@link ConfiguredTarget} in the {@link
-   * ValueOrException}, or {@code null} if the {@link ConfiguredTarget} is not present. If the
-   * {@link ConfiguredTarget} does not have a {@link PlatformInfo} provider, a {@link
-   * InvalidPlatformException} is thrown.
-   */
-  @Nullable
-  private static PlatformInfo findPlatformInfo(
-      Label label, ValueOrException<ConfiguredValueCreationException> valueOrException)
-      throws InvalidPlatformException {
-
-    try {
-      ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
-      if (ctv == null) {
-        return null;
-      }
-
-      ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
-      PlatformInfo platformInfo = PlatformProviderUtils.platform(configuredTarget);
-      if (platformInfo == null) {
-        throw new InvalidPlatformException(label);
-      }
-
-      return platformInfo;
-    } catch (ConfiguredValueCreationException e) {
-      throw new InvalidPlatformException(label, e);
-    }
   }
 
   /** Data class to hold the result of resolving toolchain labels. */
@@ -391,7 +344,8 @@ public class ToolchainUtil {
       throws InterruptedException, InvalidPlatformException {
 
     Map<ConfiguredTargetKey, PlatformInfo> platforms =
-        getPlatformInfo(ImmutableList.of(executionPlatformKey, targetPlatformKey), env);
+        PlatformLookupUtil.getPlatformInfo(
+            ImmutableList.of(executionPlatformKey, targetPlatformKey), env);
 
     if (platforms == null) {
       return null;
@@ -460,7 +414,8 @@ public class ToolchainUtil {
       return platformKeys;
     }
 
-    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap = getPlatformInfo(platformKeys, env);
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
+        PlatformLookupUtil.getPlatformInfo(platformKeys, env);
     if (platformInfoMap == null) {
       return null;
     }
@@ -608,22 +563,6 @@ public class ToolchainUtil {
 
     public TargetParsingException getTpe() {
       return tpe;
-    }
-  }
-
-  /** Exception used when a platform label is not a valid platform. */
-  static final class InvalidPlatformException extends ToolchainException {
-    InvalidPlatformException(Label label) {
-      super(formatError(label));
-    }
-
-    InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label), e);
-    }
-
-    private static String formatError(Label label) {
-      return String.format(
-          "Target %s was referenced as a platform, but does not provide PlatformInfo", label);
     }
   }
 
