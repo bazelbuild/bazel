@@ -878,8 +878,9 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
 // A PureZipExtractorProcessor to extract the files from the blaze zip.
 class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
  public:
-  explicit ExtractBlazeZipProcessor(const string &embedded_binaries)
-      : embedded_binaries_(embedded_binaries) {}
+  explicit ExtractBlazeZipProcessor(const string &embedded_binaries,
+                                    blaze::embedded_binaries::Dumper* dumper)
+      : embedded_binaries_(embedded_binaries), dumper_(dumper) {}
 
   bool AcceptPure(const char *filename,
                   const devtools_ijar::u4 attr) const override {
@@ -892,29 +893,13 @@ class ExtractBlazeZipProcessor : public PureZipExtractorProcessor {
 
   void Process(const char *filename, const devtools_ijar::u4 attr,
                const devtools_ijar::u1 *data, const size_t size) override {
-    string path = blaze_util::JoinPath(embedded_binaries_, filename);
-    string dirname = blaze_util::Dirname(path);
-    // Performance optimization: memoize the paths we already created a
-    // directory for, to spare a stat in attempting to recreate an already
-    // existing directory. This optimization alone shaves off seconds from the
-    // extraction time on Windows.
-    if (created_directories_.insert(dirname).second) {
-      if (!blaze_util::MakeDirectories(dirname, 0777)) {
-        BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-            << "couldn't create '" << path << "': " << GetLastErrorString();
-      }
-    }
-
-    if (!blaze_util::WriteFile(data, size, path, 0755)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Failed to write zipped file '" << path
-          << "': " << GetLastErrorString();
-    }
+    dumper_->Dump(
+        data, size, blaze_util::JoinPath(embedded_binaries_, filename));
   }
 
  private:
   const string embedded_binaries_;
-  set<string> created_directories_;
+  blaze::embedded_binaries::Dumper* dumper_;
 };
 
 // Actually extracts the embedded data files into the tree whose root
@@ -923,7 +908,16 @@ static void ActuallyExtractData(const string &argv0,
                                 const string &embedded_binaries) {
   std::string install_md5;
   GetInstallKeyFileProcessor install_key_processor(&install_md5);
-  ExtractBlazeZipProcessor extract_blaze_processor(embedded_binaries);
+
+  std::string error;
+  std::unique_ptr<blaze::embedded_binaries::Dumper> dumper(
+      blaze::embedded_binaries::Create(&error));
+  if (dumper == nullptr) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << error;
+  }
+  ExtractBlazeZipProcessor extract_blaze_processor(embedded_binaries,
+                                                   dumper.get());
+
   CompoundZipProcessor processor({&extract_blaze_processor,
                                   &install_key_processor});
   if (!blaze_util::MakeDirectories(embedded_binaries, 0777)) {
@@ -946,6 +940,11 @@ static void ActuallyExtractData(const string &argv0,
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Failed to extract " << globals->options->product_name
         << " as a zip file: " << extractor->GetError();
+  }
+
+  if (!dumper->Finish(&error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Failed to extract embedded binaries: " << error;
   }
 
   if (install_md5 != globals->install_md5) {

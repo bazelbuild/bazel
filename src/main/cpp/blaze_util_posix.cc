@@ -36,6 +36,8 @@
 
 #include <cassert>
 #include <cinttypes>
+#include <set>
+#include <string>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/global_variables.h"
@@ -54,8 +56,73 @@ namespace blaze {
 using blaze_exit_code::INTERNAL_ERROR;
 using blaze_util::GetLastErrorString;
 
+using std::set;
 using std::string;
 using std::vector;
+
+namespace embedded_binaries {
+
+class PosixDumper : public Dumper {
+ public:
+  static PosixDumper* Create(string* error);
+  ~PosixDumper() { Finish(nullptr); }
+  virtual void Dump(const void* data, const size_t size, const string& path)
+      override;
+  virtual bool Finish(string* error) override;
+
+ private:
+  PosixDumper() : was_error_(false) {}
+
+  set<string> dir_cache_;
+  string error_msg_;
+  bool was_error_;
+};
+
+Dumper* Create(string* error) {
+  return PosixDumper::Create(error);
+}
+
+PosixDumper* PosixDumper::Create(string* error) {
+  return new PosixDumper();
+}
+
+void PosixDumper::Dump(const void* data, const size_t size,
+                       const string& path) {
+  if (was_error_) {
+    return;
+  }
+
+  string dirname = blaze_util::Dirname(path);
+  // Performance optimization: memoize the paths we already created a
+  // directory for, to spare a stat in attempting to recreate an already
+  // existing directory.
+  if (dir_cache_.insert(dirname).second) {
+    if (!blaze_util::MakeDirectories(dirname, 0777)) {
+      was_error_ = true;
+      string msg = GetLastErrorString();
+      error_msg_ = string("couldn't create '") + path + "': " + msg;
+    }
+  }
+
+  if (was_error_) {
+    return;
+  }
+
+  if (!blaze_util::WriteFile(data, size, path, 0755)) {
+    was_error_ = true;
+    string msg = GetLastErrorString();
+    error_msg_ = string("Failed to write zipped file '") + path + "': " + msg;
+  }
+}
+
+bool PosixDumper::Finish(string* error) {
+  if (was_error_ && error) {
+    *error = error_msg_;
+  }
+  return !was_error_;
+}
+
+}  // namespace embedded_binaries
 
 SignalHandler SignalHandler::INSTANCE;
 
