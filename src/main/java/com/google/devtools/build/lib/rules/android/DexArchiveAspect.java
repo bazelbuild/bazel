@@ -136,14 +136,14 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireSkylarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
             // Latch onto Skylark toolchains in case they have a "runtime" (b/78647825)
             .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
+            // For android_sdk rules, where we just want to get at aidl runtime deps.
+            .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
                     ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
-                    // For android_sdk rules, where we just want to get at aidl runtime deps.
-                    ImmutableSet.<Class<?>>of(AndroidSdkProvider.class)))
+                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
@@ -345,8 +345,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
       return ImmutableList.of(
           ruleContext
-              .getPrerequisite(":dex_archive_android_sdk", Mode.TARGET)
-              .getProvider(AndroidSdkProvider.class)
+              .getPrerequisite(":dex_archive_android_sdk", Mode.TARGET, AndroidSdkProvider.PROVIDER)
               .getAndroidJar());
     }
     return compilationInfo.getBootClasspath();

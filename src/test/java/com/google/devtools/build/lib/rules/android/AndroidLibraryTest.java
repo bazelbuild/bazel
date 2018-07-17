@@ -1541,7 +1541,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(linkAction.getInputs())
         .containsAllOf(
-            sdk.getConfiguredTarget().getProvider(AndroidSdkProvider.class).getAndroidJar(),
+            sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
                 a.getConfiguration(),
