@@ -44,6 +44,7 @@ This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
 Encyclopedia's [Workspace Rules](be/workspace.html).
 
+<a name="types"></a>
 ## Supported types of external dependencies
 
 A few basic types of external dependencies can be used:
@@ -120,6 +121,7 @@ files.
 <a name="external-packages"></a>
 ### Depending on external packages
 
+<a name="maven-repositories"></a>
 #### Maven repositories
 
 Use the rule [`maven_jar`](https://docs.bazel.build/be/workspace.html#maven_jar)
@@ -127,12 +129,14 @@ Use the rule [`maven_jar`](https://docs.bazel.build/be/workspace.html#maven_jar)
 to download a jar from a Maven repository and make it available as a Java
 dependency.
 
+<a name="fetching-dependencies"></a>
 ## Fetching dependencies
 
 By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to disable this behavior or prefetch dependencies, use
 [`bazel fetch`](http://docs.bazel.build/user-manual.html#fetch).
 
+<a name="shadowing-dependencies"></a>
 ## Shadowing dependencies
 
 Whenever possible, it is recommended to have a single version policy in your
@@ -209,6 +213,7 @@ This behavior is currently gated behind a flag,
 `--experimental_enable_repo_mapping`.
 
 
+<a name="using-proxies"></a>
 ## Using Proxies
 
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
@@ -228,11 +233,13 @@ Large `WORKSPACE` files can be generated using the tool `generate_workspace`.
 For details, see
 [Generate external dependencies from Maven projects](generate-workspace.md).
 
+<a name="caching"></a>
 ## Caching of external dependencies
 
 Bazel caches external dependencies and re-downloads or updates them when
 the `WORKSPACE` file changes.
 
+<a name="layout"></a>
 ## Layout
 
 External dependencies are all downloaded and symlinked under a directory named
