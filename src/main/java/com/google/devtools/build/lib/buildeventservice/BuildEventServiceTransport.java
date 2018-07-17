@@ -69,6 +69,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -118,7 +119,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    * previous call was successful, this field is null. This is useful for error reporting, when an
    * upload times out due to having had to retry several times.
    */
-  private volatile Exception lastKnownError;
+  private volatile Exception lastRetryError;
   /** Returns true if we already reported a warning or error to UI. */
   private volatile boolean errorsReported;
   /**
@@ -194,7 +195,16 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     // fix would be to remove the spinning loop from publishEventStream and instead implement the
     // loop by publishEventStream re-submitting itself to the executor.
     // TODO(buchgr): Fix it.
-    this.uploaderExecutorService = listeningDecorator(Executors.newFixedThreadPool(2));
+    this.uploaderExecutorService = listeningDecorator(Executors.newFixedThreadPool(2,
+        new ThreadFactory() {
+
+          private final AtomicInteger count = new AtomicInteger();
+
+          @Override
+          public Thread newThread(Runnable r) {
+            return new Thread(r, "bes-uploader-" + count.incrementAndGet());
+          }
+        }));
     this.protocolOptions = protocolOptions;
     this.invocationResult = UNKNOWN_STATUS;
     this.uploadTimeout = uploadTimeout;
@@ -334,13 +344,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     String message;
     if (t instanceof TimeoutException) {
       message = "Build Event Protocol upload timed out.";
-      Exception lastKnownError0 = lastKnownError;
-      if (lastKnownError0 != null) {
+      Exception lastRetryError0 = lastRetryError;
+      if (lastRetryError0 != null) {
         // We may at times get a timeout exception due to an underlying error that was retried
         // several times. If such an error exists, report it.
         message += " Transport errors caused the upload to be retried.";
         message += " Last known reason for retry: ";
-        message += besClient.userReadableError(lastKnownError0);
+        message += besClient.userReadableError(lastRetryError0);
         return message;
       }
       return message;
@@ -356,7 +366,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
   }
 
-  private void reportErrorAndFailBuild(Throwable t) {
+  protected void reportErrorAndFailBuild(Throwable t) {
     String message = errorMessageFromException(t);
     if (errorsShouldFailTheBuild) {
       commandLineReporter.handle(Event.error(message));
@@ -505,29 +515,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       do {
         orderedBuildEvent = pendingSend.pollFirst(STREAMING_RPC_POLL_IN_SECS, TimeUnit.SECONDS);
         if (orderedBuildEvent != null) {
-          PathConverter pathConverter;
-          try {
-            // Wait for the local file upload to have been completed.
-            pathConverter = orderedBuildEvent.localFileUploadProgress().get();
-          } catch (ExecutionException e) {
-            logger.log(
-                Level.WARNING,
-                String.format(
-                    "Aborting publishBuildToolEventStream RPC because of a failure to "
-                        + "upload referenced artifacts: %s",
-                    e.getMessage()),
-                e);
-            besClient.abortStream(Status.INTERNAL.augmentDescription(e.getMessage()));
-            throw e;
-          } catch (InterruptedException e) {
-            // By convention the interrupted flag should have been cleared,
-            // but just to be sure clear it.
-            Thread.interrupted();
-            String additionalDetails = "Uploading referenced artifacts";
-            besClient.abortStream(Status.CANCELLED.augmentDescription(additionalDetails));
-            throw e;
-          }
           pendingAck.add(orderedBuildEvent);
+          PathConverter pathConverter = waitForLocalFileUploads(orderedBuildEvent);
           besClient.sendOverStream(orderedBuildEvent.serialize(pathConverter));
         }
         checkState(besClient.isStreamActive(), "Stream was closed prematurely.");
@@ -575,6 +564,27 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
   }
 
+  private PathConverter waitForLocalFileUploads(InternalOrderedBuildEvent orderedBuildEvent)
+      throws LocalFileUploadException, InterruptedException {
+    try {
+      // Wait for the local file upload to have been completed.
+      return orderedBuildEvent.localFileUploadProgress().get();
+    } catch (ExecutionException e) {
+      logger.log(
+          Level.WARNING,
+          String.format(
+              "Failed to upload local files referenced by build event: %s", e.getMessage()), e);
+      throw new LocalFileUploadException(e.getCause());
+    }
+  }
+
+  private static class LocalFileUploadException extends Exception {
+
+    public LocalFileUploadException(Throwable cause) {
+      super(cause);
+    }
+  }
+
   private Function<PublishBuildToolEventStreamResponse, Void> ackCallback(
       final Deque<InternalOrderedBuildEvent> pendingAck, final BuildEventServiceClient besClient) {
     return ack -> {
@@ -608,10 +618,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       try {
         acksReceivedSinceLastRetry.set(0);
         c.call();
-        lastKnownError = null;
+        lastRetryError = null;
         return;
       } catch (InterruptedException e) {
         throw e;
+      } catch (LocalFileUploadException e) {
+        throw (Exception) e.getCause();
       } catch (Exception e) {
         if (acksReceivedSinceLastRetry.get() > 0) {
           logger.fine(
@@ -620,7 +632,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           tries = 0;
         }
         tries++;
-        lastKnownError = e;
+        lastRetryError = e;
         long sleepMillis;
         if (tries == 1) {
           sleepMillis = initialDelayMillis;
@@ -629,12 +641,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           sleepMillis = (long) (delayMillis * Math.pow(1.6, tries));
         }
         String message = String.format("Retrying RPC to BES. Backoff %s ms.", sleepMillis);
-        logger.log(Level.INFO, message, lastKnownError);
+        logger.log(Level.INFO, message, lastRetryError);
         sleeper.sleepMillis(sleepMillis);
       }
     }
-    Preconditions.checkNotNull(lastKnownError);
-    throw lastKnownError;
+    Preconditions.checkNotNull(lastRetryError);
+    throw lastRetryError;
   }
 
   private void report(EventKind eventKind, String msg, Object... parameters) {
