@@ -250,8 +250,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidProguardInfo(proguardLibrary.collectLocalProguardSpecs()))
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
-        .add(
-            AndroidLibraryResourceClassJarProvider.class,
+        .addNativeDeclaredProvider(
             AndroidLibraryResourceClassJarProvider.create(transitiveResourcesJars.build()));
 
     if (!JavaCommon.isNeverLink(ruleContext)) {
@@ -265,7 +264,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
     Iterable<AndroidLibraryResourceClassJarProvider> providers =
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.class);
+            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
     for (AndroidLibraryResourceClassJarProvider resourceJarProvider : providers) {
       builder.addTransitive(resourceJarProvider.getResourceClassJars());
     }
