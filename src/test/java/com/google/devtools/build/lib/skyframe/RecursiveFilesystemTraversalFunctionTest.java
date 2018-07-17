@@ -938,9 +938,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
+      ArtifactSkyKey artifactKey = (ArtifactSkyKey) skyKey.argument();
+      Artifact artifact = artifactKey.getArtifact();
       try {
-        return FileArtifactValue.create(
-            ArtifactSkyKey.artifact((SkyKey) skyKey.argument()).getPath());
+        return FileArtifactValue.create(artifact.getPath());
       } catch (IOException e) {
         throw new SkyFunctionException(e, Transience.PERSISTENT){};
       }
@@ -958,7 +959,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      return env.getValue(new NonHermeticArtifactSkyKey(skyKey));
+      return env.getValue(new NonHermeticArtifactSkyKey((ArtifactSkyKey) skyKey));
     }
 
     @Nullable
@@ -968,8 +969,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
-  private static class NonHermeticArtifactSkyKey extends AbstractSkyKey<SkyKey> {
-    private NonHermeticArtifactSkyKey(SkyKey arg) {
+  private static class NonHermeticArtifactSkyKey extends AbstractSkyKey<ArtifactSkyKey> {
+    private NonHermeticArtifactSkyKey(ArtifactSkyKey arg) {
       super(arg);
     }
 

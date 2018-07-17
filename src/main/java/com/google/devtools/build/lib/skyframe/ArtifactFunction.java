@@ -54,11 +54,11 @@ class ArtifactFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
-    Artifact artifact = ArtifactSkyKey.artifact(skyKey);
-    boolean isMandatory = ArtifactSkyKey.isMandatory(skyKey);
+    ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
+    Artifact artifact = artifactSkyKey.getArtifact();
     if (artifact.isSourceArtifact()) {
       try {
-        return createSourceValue(artifact, isMandatory, env);
+        return createSourceValue(artifact, artifactSkyKey.isMandatory(), env);
       } catch (MissingInputFileException e) {
         // The error is not necessarily truly transient, but we mark it as such because we have
         // the above side effect of posting an event to the EventBus. Importantly, that event
@@ -281,7 +281,8 @@ class ArtifactFunction implements SkyFunction {
       throws InterruptedException {
     // This artifact aggregates other artifacts. Keep track of them so callers can find them.
     ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> inputs = ImmutableList.builder();
-    for (Map.Entry<SkyKey, SkyValue> entry : env.getValues(action.getInputs()).entrySet()) {
+    for (Map.Entry<SkyKey, SkyValue> entry :
+        env.getValues(ArtifactSkyKey.mandatoryKeys(action.getInputs())).entrySet()) {
       Artifact input = ArtifactSkyKey.artifact(entry.getKey());
       SkyValue inputValue = entry.getValue();
       if (inputValue == null) {
@@ -322,7 +323,7 @@ class ArtifactFunction implements SkyFunction {
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(ArtifactSkyKey.artifact(skyKey).getOwner());
+    return Label.print(((ArtifactSkyKey) skyKey.argument()).getArtifact().getOwner());
   }
 
   static ActionLookupKey getActionLookupKey(Artifact artifact) {

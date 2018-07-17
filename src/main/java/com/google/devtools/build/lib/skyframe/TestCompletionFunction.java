@@ -19,6 +19,7 @@ import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -66,9 +67,10 @@ public final class TestCompletionFunction implements SkyFunction {
         }
       }
     } else {
-      Multimap<ActionLookupValue.ActionLookupKey, Artifact> keyToArtifactMap =
+      Multimap<ActionLookupValue.ActionLookupKey, ArtifactSkyKey> keyToArtifactMap =
           Multimaps.index(
-              TestProvider.getTestStatusArtifacts(ct), ArtifactFunction::getActionLookupKey);
+              ArtifactSkyKey.mandatoryKeys(TestProvider.getTestStatusArtifacts(ct)),
+              (val) -> ArtifactFunction.getActionLookupKey(val.getArtifact()));
       Map<SkyKey, SkyValue> actionLookupValues = env.getValues(keyToArtifactMap.keySet());
       if (env.valuesMissing()) {
         return null;
@@ -80,7 +82,7 @@ public final class TestCompletionFunction implements SkyFunction {
               .map(
                   entry ->
                       getActionLookupData(
-                          entry.getValue(),
+                          entry.getValue().getArtifact(),
                           entry.getKey(),
                           (ActionLookupValue) actionLookupValues.get(entry.getKey())))
               .distinct()
