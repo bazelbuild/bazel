@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.UPLOAD_FAILED_MESSAGE;
 import static java.lang.String.format;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -63,6 +62,20 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   private OutErr outErr;
 
   private Set<BuildEventTransport> transports = ImmutableSet.of();
+
+  /** Whether an error in the Build Event Service upload causes the build to fail. */
+  protected boolean errorsShouldFailTheBuild() {
+    return true;
+  }
+
+  /** Report errors in the command line and possibly fail the build. */
+  protected void reportError(
+      EventHandler commandLineReporter,
+      ModuleEnvironment moduleEnvironment,
+      AbruptExitException exception) {
+    commandLineReporter.handle(Event.error(exception.getMessage()));
+    moduleEnvironment.exit(exception);
+  }
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
@@ -161,8 +174,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                 startupOptionsProvider,
                 optionsProvider);
       } catch (Exception e) {
-        commandLineReporter.handle(Event.error(format(UPLOAD_FAILED_MESSAGE, e.getMessage())));
-        moduleEnvironment.exit(
+        reportError(
+            commandLineReporter,
+            moduleEnvironment,
             new AbruptExitException(
                 "Failed while creating BuildEventTransport", ExitCode.PUBLISH_ERROR));
         return null;
@@ -185,7 +199,10 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
         return new BuildEventStreamer(transports, reporter, buildEventStreamOptions);
       }
     } catch (Exception e) {
-      moduleEnvironment.exit(new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e));
+      reportError(
+          commandLineReporter,
+          moduleEnvironment,
+          new AbruptExitException(ExitCode.LOCAL_ENVIRONMENTAL_ERROR, e));
     }
     return null;
   }
@@ -261,7 +278,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               besOptions.projectId,
               keywords(besOptions, startupOptionsProvider),
               besResultsUrl,
-              artifactUploader);
+              artifactUploader,
+              errorsShouldFailTheBuild());
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }
