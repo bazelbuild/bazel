@@ -75,9 +75,6 @@ using bazel::windows::CreateJunctionResult;
 // stack.
 using blaze_util::GetLastErrorString;
 
-using std::atomic_bool;
-using std::mutex;
-using std::set;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
@@ -93,14 +90,15 @@ class WindowsDumper : public Dumper {
   virtual bool Finish(string* error) override;
 
  private:
-  WindowsDumper() : tp_(NULL), grp_(NULL), was_error_(false) {}
+  WindowsDumper()
+      : threadpool_(NULL), cleanup_group_(NULL), was_error_(false) {}
 
-  PTP_POOL tp_;
-  PTP_CLEANUP_GROUP grp_;
-  TP_CALLBACK_ENVIRON tp_env_;
-  mutex dir_cache_lock_;
-  set<string> dir_cache_;
-  atomic_bool was_error_;
+  PTP_POOL threadpool_;
+  PTP_CLEANUP_GROUP cleanup_group_;
+  TP_CALLBACK_ENVIRON threadpool_env_;
+  std::mutex dir_cache_lock_;
+  std::set<string> dir_cache_;
+  std::atomic_bool was_error_;
   string error_msg_;
 };
 
@@ -109,8 +107,8 @@ namespace {
 class DumpContext {
  public:
   DumpContext(unique_ptr<uint8_t[]> data, const size_t size, const string path,
-              mutex* dir_cache_lock, set<string>* dir_cache,
-              atomic_bool* was_error, string* error_msg);
+              std::mutex* dir_cache_lock, std::set<string>* dir_cache,
+              std::atomic_bool* was_error, string* error_msg);
   void Run();
 
  private:
@@ -119,9 +117,9 @@ class DumpContext {
   unique_ptr<uint8_t[]> data_;
   const size_t size_;
   const string path_;
-  mutex* dir_cache_lock_;
-  set<string>* dir_cache_;
-  atomic_bool* was_error_;
+  std::mutex* dir_cache_lock_;
+  std::set<string>* dir_cache_;
+  std::atomic_bool* was_error_;
   string* error_msg_;
 };
 
@@ -139,8 +137,8 @@ Dumper* Create(string* error) {
 WindowsDumper* WindowsDumper::Create(string* error) {
   unique_ptr<WindowsDumper> result(new WindowsDumper());
 
-  result->tp_ = CreateThreadpool(NULL);
-  if (result->tp_ == NULL) {
+  result->threadpool_ = CreateThreadpool(NULL);
+  if (result->threadpool_ == NULL) {
     if (error) {
       string msg = GetLastErrorString();
       *error = "CreateThreadpool failed: " + msg;
@@ -148,10 +146,10 @@ WindowsDumper* WindowsDumper::Create(string* error) {
     return nullptr;
   }
 
-  result->grp_ = CreateThreadpoolCleanupGroup();
-  if (result->grp_ == NULL) {
+  result->cleanup_group_ = CreateThreadpoolCleanupGroup();
+  if (result->cleanup_group_ == NULL) {
     string msg = GetLastErrorString();
-    CloseThreadpool(result->tp_);
+    CloseThreadpool(result->threadpool_);
     if (error) {
       string msg = GetLastErrorString();
       *error = "CreateThreadpoolCleanupGroup failed: " + msg;
@@ -162,12 +160,13 @@ WindowsDumper* WindowsDumper::Create(string* error) {
   // I (@laszlocsomor) experimented with different thread counts and found that
   // 8 threads provide a significant advantage over 1 thread, but adding more
   // threads provides only marginal speedup.
-  SetThreadpoolThreadMaximum(result->tp_, 16);
-  SetThreadpoolThreadMinimum(result->tp_, 8);
+  SetThreadpoolThreadMaximum(result->threadpool_, 16);
+  SetThreadpoolThreadMinimum(result->threadpool_, 8);
 
-  InitializeThreadpoolEnvironment(&result->tp_env_);
-  SetThreadpoolCallbackPool(&result->tp_env_, result->tp_);
-  SetThreadpoolCallbackCleanupGroup(&result->tp_env_, result->grp_, NULL);
+  InitializeThreadpoolEnvironment(&result->threadpool_env_);
+  SetThreadpoolCallbackPool(&result->threadpool_env_, result->threadpool_);
+  SetThreadpoolCallbackCleanupGroup(&result->threadpool_env_,
+                                    result->cleanup_group_, NULL);
 
   return result.release();  // release pointer ownership
 }
@@ -183,11 +182,17 @@ void WindowsDumper::Dump(const void* data, const size_t size,
   unique_ptr<DumpContext> ctx(
       new DumpContext(std::move(data_copy), size, path, &dir_cache_lock_,
                       &dir_cache_, &was_error_, &error_msg_));
-  PTP_WORK w = CreateThreadpoolWork(WorkCallback, ctx.get(), &tp_env_);
+  PTP_WORK w = CreateThreadpoolWork(WorkCallback, ctx.get(), &threadpool_env_);
   if (w == NULL) {
     string err = GetLastErrorString();
     if (!was_error_.exchange(true)) {
-      error_msg_ = string("Couldn't submit work: ") + err;
+      // Benign race condition: though we use no locks to access `error_msg_`,
+      // only one thread may ever flip `was_error_` from false to true and enter
+      // the body of this if-clause. Since `was_error_` is the same object as
+      // used by all other threads trying to write to `error_msg_` (see
+      // DumpContext::MaybeSignalError), using it provides adequate mutual
+      // exclusion to write `error_msg_`.
+      error_msg_ = string("WindowsDumper::Dump() couldn't submit work: ") + err;
     }
   } else {
     ctx.release();  // release pointer ownership
@@ -196,27 +201,28 @@ void WindowsDumper::Dump(const void* data, const size_t size,
 }
 
 bool WindowsDumper::Finish(string* error) {
-  if (tp_ == NULL) {
+  if (threadpool_ == NULL) {
     return true;
-  } else {
-    CloseThreadpoolCleanupGroupMembers(grp_, FALSE, NULL);
-    CloseThreadpoolCleanupGroup(grp_);
-    CloseThreadpool(tp_);
-    tp_ = NULL;
-    grp_ = NULL;
-    if (was_error_ && error) {
-      *error = error_msg_;
-    }
-    return !was_error_;
   }
+  CloseThreadpoolCleanupGroupMembers(cleanup_group_, FALSE, NULL);
+  CloseThreadpoolCleanupGroup(cleanup_group_);
+  CloseThreadpool(threadpool_);
+  threadpool_ = NULL;
+  cleanup_group_ = NULL;
+  if (was_error_ && error) {
+    // No race condition reading `error_msg_`: all worker threads terminated
+    // by now.
+    *error = error_msg_;
+  }
+  return !was_error_;
 }
 
 namespace {
 
 DumpContext::DumpContext(
     unique_ptr<uint8_t[]> data, const size_t size, const string path,
-    mutex* dir_cache_lock, set<string>* dir_cache, atomic_bool* was_error,
-    string* error_msg)
+    std::mutex* dir_cache_lock, std::set<string>* dir_cache,
+    std::atomic_bool* was_error, string* error_msg)
   : data_(std::move(data)), size_(size), path_(path),
     dir_cache_lock_(dir_cache_lock), dir_cache_(dir_cache),
     was_error_(was_error), error_msg_(error_msg) {}
@@ -230,7 +236,7 @@ void DumpContext::Run() {
   // existing directory. This optimization alone shaves off seconds from the
   // extraction time on Windows.
   {
-    std::lock_guard<mutex> guard(*dir_cache_lock_);
+    std::lock_guard<std::mutex> guard(*dir_cache_lock_);
     if (dir_cache_->insert(dirname).second) {
       success = blaze_util::MakeDirectories(dirname, 0777);
     }
@@ -238,15 +244,21 @@ void DumpContext::Run() {
 
   if (!success) {
     MaybeSignalError(string("Couldn't create directory '") + dirname + "'");
+    return;
   }
 
-  if (success && !blaze_util::WriteFile(data_.get(), size_, path_, 0755)) {
+  if (!blaze_util::WriteFile(data_.get(), size_, path_, 0755)) {
     MaybeSignalError(string("Failed to write zipped file '") + path_ + "'");
   }
 }
 
 void DumpContext::MaybeSignalError(const string& msg) {
   if (!was_error_->exchange(true)) {
+    // Benign race condition: though we use no locks to access `error_msg_`,
+    // only one thread may ever flip `was_error_` from false to true and enter
+    // the body of this if-clause. Since `was_error_` is the same object as used
+    // by all other threads and by WindowsDumper::Dump(), using it provides
+    // adequate mutual exclusion to write `error_msg_`.
     *error_msg_ = msg;
   }
 }

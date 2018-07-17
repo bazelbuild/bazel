@@ -95,8 +95,7 @@ void PosixDumper::Dump(const void* data, const size_t size,
   string dirname = blaze_util::Dirname(path);
   // Performance optimization: memoize the paths we already created a
   // directory for, to spare a stat in attempting to recreate an already
-  // existing directory. This optimization alone shaves off seconds from the
-  // extraction time on Windows.
+  // existing directory.
   if (dir_cache_.insert(dirname).second) {
     if (!blaze_util::MakeDirectories(dirname, 0777)) {
       was_error_ = true;
