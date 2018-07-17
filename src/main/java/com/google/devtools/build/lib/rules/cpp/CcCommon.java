@@ -109,7 +109,8 @@ public final class CcCommon {
   };
 
   private static final ImmutableList<PathFragment> WHITELISTED_PACKAGES =
-      ImmutableList.of(PathFragment.create("tools/build_defs"));
+      ImmutableList.of(
+          PathFragment.create("tools/build_defs"), PathFragment.create("experimental"));
 
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
