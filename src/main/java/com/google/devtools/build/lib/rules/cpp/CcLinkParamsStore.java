@@ -19,10 +19,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsStoreApi;
 
 /** An implementation class for the AbstractCcLinkParamsStore. */
 @AutoCodec
-public final class CcLinkParamsStore extends AbstractCcLinkParamsStore {
+public final class CcLinkParamsStore extends AbstractCcLinkParamsStore
+    implements CcLinkParamsStoreApi {
   public static final ObjectCodec<com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore> CODEC =
       new CcLinkParamsStore_AutoCodec();
   public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =

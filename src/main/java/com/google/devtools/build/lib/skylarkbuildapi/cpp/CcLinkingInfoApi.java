@@ -64,4 +64,11 @@ public interface CcLinkingInfoApi extends StructApi {
       allowReturnNones = true,
       structField = true)
   CcLinkParamsApi getDynamicModeParamsForExecutable();
+
+  @SkylarkCallable(
+      name = "cc_link_params_store",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  public CcLinkParamsStoreApi getCcLinkParamsStore();
 }
