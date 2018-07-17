@@ -57,11 +57,10 @@ struct CreateJunctionResult {
     kSuccess = 0,
     kError = 1,
     kTargetNameTooLong = 2,
-    kParentMissing = 3,
-    kAlreadyExistsWithDifferentTarget = 4,
-    kAlreadyExistsButNotJunction = 5,
-    kAccessDenied = 6,
-    kDisappeared = 7,
+    kAlreadyExistsWithDifferentTarget = 3,
+    kAlreadyExistsButNotJunction = 4,
+    kAccessDenied = 5,
+    kDisappeared = 6,
   };
 };
 
