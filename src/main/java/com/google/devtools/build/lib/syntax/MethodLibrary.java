@@ -620,45 +620,41 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "range",
-    returnType = MutableList.class,
-    doc =
-        "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
-            + "<code>step</code> increment. If a single argument is provided, items will "
-            + "range from 0 to that element."
-            + "<pre class=\"language-python\">range(4) == [0, 1, 2, 3]\n"
-            + "range(3, 9, 2) == [3, 5, 7]\n"
-            + "range(3, 0, -1) == [3, 2, 1]</pre>",
-    parameters = {
-      @Param(
-        name = "start_or_stop",
-        type = Integer.class,
-        doc =
-            "Value of the start element if stop is provided, "
-                + "otherwise value of stop and the actual start is 0"
-      ),
-      @Param(
-        name = "stop_or_none",
-        type = Integer.class,
-        noneable = true,
-        defaultValue = "None",
-        doc =
-            "optional index of the first item <i>not</i> to be included in the resulting "
-                + "list; generation of the list stops before <code>stop</code> is reached."
-      ),
-      @Param(
-        name = "step",
-        type = Integer.class,
-        defaultValue = "1",
-        doc = "The increment (default is 1). It may be negative."
-      )
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "range",
+      returnType = SkylarkList.class,
+      doc =
+          "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
+              + "<code>step</code> increment. If a single argument is provided, items will "
+              + "range from 0 to that element."
+              + "<pre class=\"language-python\">range(4) == [0, 1, 2, 3]\n"
+              + "range(3, 9, 2) == [3, 5, 7]\n"
+              + "range(3, 0, -1) == [3, 2, 1]</pre>",
+      parameters = {
+        @Param(
+            name = "start_or_stop",
+            type = Integer.class,
+            doc =
+                "Value of the start element if stop is provided, "
+                    + "otherwise value of stop and the actual start is 0"),
+        @Param(
+            name = "stop_or_none",
+            type = Integer.class,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "optional index of the first item <i>not</i> to be included in the resulting "
+                    + "list; generation of the list stops before <code>stop</code> is reached."),
+        @Param(
+            name = "step",
+            type = Integer.class,
+            defaultValue = "1",
+            doc = "The increment (default is 1). It may be negative.")
+      },
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction range =
       new BuiltinFunction("range") {
-        public MutableList<?> invoke(
+        public SkylarkList<Integer> invoke(
             Integer startOrStop, Object stopOrNone, Integer step, Location loc, Environment env)
             throws EvalException {
           int start;
@@ -673,19 +669,8 @@ public class MethodLibrary {
           if (step == 0) {
             throw new EvalException(loc, "step cannot be 0");
           }
-          ArrayList<Integer> result = new ArrayList<>(Math.abs((stop - start) / step));
-          if (step > 0) {
-            while (start < stop) {
-              result.add(start);
-              start += step;
-            }
-          } else {
-            while (start > stop) {
-              result.add(start);
-              start += step;
-            }
-          }
-          return MutableList.wrapUnsafe(env, result);
+          RangeList range = RangeList.of(start, stop, step);
+          return env.getSemantics().incompatibleRangeType() ? range : range.toMutableList(env);
         }
       };
 

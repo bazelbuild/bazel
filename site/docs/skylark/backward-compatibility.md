@@ -231,6 +231,15 @@ no user-visible impact.
 *   Default: `true`
 
 
+### Python 3 range behavior.
+When set, the result of `range(...)` function is a lazy `range` type instead of
+a `list`. Because of this repetitions using `*` operator are no longer
+supported and `range` slices are also lazy `range` instances.
+
+*   Flag: `--incompatible_range_type`
+*   Default: `false`
+
+
 ### Disable objc provider resources
 
 This flag disables certain deprecated resource fields on

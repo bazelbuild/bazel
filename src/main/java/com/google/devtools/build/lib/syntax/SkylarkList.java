@@ -116,7 +116,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   @Override
   public boolean equals(Object object) {
     return (this == object)
-        || ((object != null) && (this.getClass() == object.getClass())
+        || ((object != null)
+            && (this.getClass() == object.getClass())
             && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
   }
 
@@ -345,7 +346,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       return new MutableList<>(newContents, mutability);
     }
 
-    /**  More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
+    /** More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
     private static <T> void addAll(ArrayList<T> addTo, ArrayList<? extends T> addFrom) {
       // Hot code path, skip iterator.
       for (int i = 0; i < addFrom.size(); i++) {
@@ -614,7 +615,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      * Creates a {@code Tuple} from an {@link ImmutableList}, reusing the empty instance if
      * applicable.
      */
-    private static<T> Tuple<T> create(ImmutableList<T> contents) {
+    private static <T> Tuple<T> create(ImmutableList<T> contents) {
       if (contents.isEmpty()) {
         return empty();
       }

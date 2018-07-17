@@ -388,7 +388,7 @@ public final class BinaryOperatorExpression extends Expression {
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number));
-      } else if (otherFactor instanceof SkylarkList) {
+      } else if (otherFactor instanceof SkylarkList && !(otherFactor instanceof RangeList)) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return ((SkylarkList<?>) otherFactor).repeat(number, env.mutability());
       }
