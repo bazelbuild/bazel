@@ -253,7 +253,7 @@ public abstract class ProguardHelper {
         ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
             ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, Mode.TARGET).list()
             : ImmutableList.<Artifact>of(),
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class));
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
   }
 
   /**

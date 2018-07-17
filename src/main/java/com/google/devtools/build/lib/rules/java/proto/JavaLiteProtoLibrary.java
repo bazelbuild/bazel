@@ -92,9 +92,8 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addSkylarkTransitiveInfo(
             JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
-        .addOutputGroup(
-            OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-        .addProvider(getJavaLiteRuntimeSpec(ruleContext))
+        .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
+        .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()))
         .build();
@@ -110,7 +109,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
       return new ProguardSpecProvider(specs);
     }
 
-    ProguardSpecProvider specProvider = runtime.getProvider(ProguardSpecProvider.class);
+    ProguardSpecProvider specProvider = runtime.get(ProguardSpecProvider.PROVIDER);
     if (specProvider == null) {
       return new ProguardSpecProvider(specs);
     }

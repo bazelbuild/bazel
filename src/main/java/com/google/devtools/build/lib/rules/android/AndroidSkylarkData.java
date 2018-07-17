@@ -623,7 +623,7 @@ public abstract class AndroidSkylarkData
             binaryDataInfo.getManifestInfo().getManifest(),
             filesFromConfiguredTargets(localProguardSpecs),
             filesFromConfiguredTargets(extraProguardSpecs),
-            getProviders(deps, ProguardSpecProvider.class));
+            getProviders(deps, ProguardSpecProvider.PROVIDER));
 
     // TODO(asteinb): There should never be more than one direct resource exposed in the provider.
     // Can we adjust its structure to take this into account?
