@@ -74,6 +74,9 @@ java_import(
         "aether/aether-transport-file-1.0.0.v20140518.jar",
         "aether/aether-util-1.0.0.v20140518.jar",
     ],
+    deps = [
+        ":apache_httpclient",
+    ],
 )
 
 java_import(
@@ -141,7 +144,11 @@ java_import(
 java_import(
     name = "apache_httpclient",
     jars = ["apache_httpclient/httpclient-4.5.3.jar"],
-    deps = [":apache_commons_logging"],
+    deps = [
+        ":apache_commons_codec",
+        ":apache_commons_logging",
+        ":apache_httpcore",
+    ],
 )
 
 java_import(
