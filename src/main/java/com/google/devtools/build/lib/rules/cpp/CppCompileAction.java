@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -458,17 +459,9 @@ public class CppCompileAction extends AbstractAction
     return outputFile;
   }
 
-  @Override
-  public Map<Artifact, Artifact> getLegalGeneratedScannerFileMap() {
-    return ccCompilationContext.createLegalGeneratedScannerFileMap();
-  }
-
-  @Override
-  @Nullable
-  public Set<Artifact> getModularHeaders() {
-    return useHeaderModules && cppConfiguration.getPruneCppInputDiscovery()
-        ? ccCompilationContext.getModularHeaders(usePic)
-        : null;
+  public IncludeScanningHeaderData getIncludeScanningHeaderData() {
+    return ccCompilationContext.createIncludeScanningHeaderData(
+        usePic, useHeaderModules && cppConfiguration.getPruneCppInputDiscovery());
   }
 
   @Override
