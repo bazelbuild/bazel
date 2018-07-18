@@ -864,6 +864,8 @@ public class CppOptions extends FragmentOptions {
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
 
+    host.enableCcSkylarkApi = enableCcSkylarkApi;
+
     // The crosstool options are partially copied from the target configuration.
     if (hostCrosstoolTop == null) {
       host.cppCompiler = cppCompiler;

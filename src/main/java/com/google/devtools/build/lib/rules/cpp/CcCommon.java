@@ -209,8 +209,7 @@ public final class CcCommon {
       throws EvalException {
     RuleContext context = skylarkRuleContext.getRuleContext();
     Rule rule = context.getRule();
-    if (!context.getConfiguration().isHostConfiguration()
-        && !context.getFragment(CppConfiguration.class).getEnableCcSkylarkApi()) {
+    if (!context.getFragment(CppConfiguration.class).getEnableCcSkylarkApi()) {
       throw new EvalException(
           rule.getLocation(),
           "Pass --experimental_enable_cc_skylark_api in "
