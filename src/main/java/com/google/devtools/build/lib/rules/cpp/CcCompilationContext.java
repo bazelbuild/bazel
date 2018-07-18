@@ -388,7 +388,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
-    private ImmutableList<Artifact> headerMaps;
+    private CppHeaderMap internalHeaderMap;
+    private CppHeaderMap publicHeaderMap;
 
     private boolean propagateModuleMapAsActionInput = true;
 
@@ -627,10 +628,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
-    /** Sets the header map. */
-    public Builder setHeaderMaps(ImmutableList<Artifact> headerMaps) {
-      this.headerMaps = headerMaps;
-      System.out.println("Setting header maps: " + headerMaps.toString());
+    /** Sets the internal header map. */
+    public Builder setInternalHeaderMap(CppHeaderMap headerMap) {
+      this.internalHeaderMap = headerMap;
+      return this;
+    }
+
+    /** Sets the public header map. */
+    public Builder setPublicHeaderMap(CppHeaderMap headerMap) {
+      this.publicHeaderMap = headerMap;
       return this;
     }
 

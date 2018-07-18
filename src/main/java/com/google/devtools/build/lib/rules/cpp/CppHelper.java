@@ -705,6 +705,23 @@ public class CppHelper {
   }
 
   /**
+   * Creates a CppHeaderMap object for c++ builds. The header map artifact becomes a candidate
+   * input to a CppCompileAction.
+   */
+  public static CppHeaderMap createDefaultCppHeaderMap(RuleContext ruleContext, String suffix) {
+    // Create the header map artifact as a genfile.
+    Artifact headerMapFile =
+        ruleContext.getPackageRelativeArtifact(
+            ruleContext.getLabel().getName()
+                + suffix
+                + Iterables.getOnlyElement(CppFileTypes.CPP_HEADER_MAP.getExtensions()),
+            ruleContext
+                .getConfiguration()
+                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
+    return new CppHeaderMap(headerMapFile, ruleContext.getLabel().toString());
+  }
+
+  /**
    * Returns a middleman for all files to build for the given configured target, substituting shared
    * library artifacts with corresponding solib symlinks. If multiple calls are made, then it
    * returns the same artifact for configurations with the same internal directory.

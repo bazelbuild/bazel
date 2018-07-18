@@ -1000,19 +1000,15 @@ public final class CcCompilationHelper {
 
     // Setup Experimental implicit header maps if needed
     if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
-      ImmutableList.Builder<Artifact> headerMapsBuilder = ImmutableList.builder();
-      String targetName = ruleContext.getTarget().getName();
 
-      HeaderMapInfo.Builder internalHeaderMapInfo = new HeaderMapInfo.Builder();
-      internalHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
-      internalHeaderMapInfo.addHeaders(privateHeaders);
-      internalHeaderMapInfo.addHeaders(publicTextualHeaders);
-      Artifact internalHeaderMap = ruleContext.getPackageRelativeArtifact(PathFragment.create(targetName + "_internal.hmap"),
-                ruleContext
-                .getConfiguration()
-                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
+      CppHeaderMap internalHeaderMap =
+          CppHelper.createDefaultCppHeaderMap(ruleContext, /*suffix=*/ "_internal");
+
+      internalHeaderMap.addHeaders(publicHeaders.getHeaders());
+      internalHeaderMap.addHeaders(privateHeaders);
+      internalHeaderMap.addHeaders(publicTextualHeaders);
       ruleContext.registerAction(
-        new HeaderMapAction(ruleContext.getActionOwner(),
+        new CppHeaderMapAction(ruleContext.getActionOwner(),
             internalHeaderMapInfo.build().getSources(),
             internalHeaderMap));
       ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getExecPath());
@@ -1059,7 +1055,7 @@ public final class CcCompilationHelper {
                 .getConfiguration()
                 .getGenfilesDirectory(ruleContext.getRule().getRepository()));
       ruleContext.registerAction(
-        new HeaderMapAction(ruleContext.getActionOwner(),
+        new CppHeaderMapAction(ruleContext.getActionOwner(),
             depHeaderMapInfo.build().getSources(),
             depHeaderMap));
       ccCompilationContextBuilder.addIncludeDir(depHeaderMap.getExecPath());
@@ -1197,6 +1193,15 @@ public final class CcCompilationHelper {
         featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
         featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
         !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
+  }
+
+  private CppHeaderMapAction createHeaderMapAction(
+      CppHeaderMap headerMap,
+      Iterable<CppHeaderMap> dependentHeaderMaps) {
+    return new CppHeaderMapAction(
+        ruleContext.getActionOwner(),
+        headerMap,
+    );
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {

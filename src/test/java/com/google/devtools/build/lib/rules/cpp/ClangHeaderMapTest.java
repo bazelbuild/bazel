@@ -18,10 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 
 public class ClangHeaderMapTest extends FoundationTestCase {
@@ -32,7 +29,7 @@ public class ClangHeaderMapTest extends FoundationTestCase {
     paths.put("X/MyHeader2.h", "include/MyHeader2.h");
     paths.put("X/MyHeader3.h", "include/MyHeader3.h");
 
-    ClangHeaderMap hmap = new ClangHeaderMap(paths);
+    CppHeaderMap hmap = new CppHeaderMap(paths);
     assertThat(hmap.get("MyHeader.h")).isEqualTo("include/MyHeader.h");
     assertThat(hmap.get("X/MyHeader2.h")).isEqualTo("include/MyHeader2.h");
     assertThat(hmap.get("X/MyHeader3.h")).isEqualTo("include/MyHeader3.h");

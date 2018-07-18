@@ -38,7 +38,7 @@ public final class CppFileTypes {
       FileType.of(".h", ".hh", ".hpp", ".ipp", ".hxx", ".inc");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
-  
+
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");
@@ -189,6 +189,7 @@ public final class CppFileTypes {
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
   public static final FileType CPP_MODULE = FileType.of(".pcm");
+  public static final FileType CPP_HEADER_MAP = FileType.of(".hmap");
 
   // Output of the dwp tool
   public static final FileType DEBUG_INFO_PACKAGE = FileType.of(".dwp");

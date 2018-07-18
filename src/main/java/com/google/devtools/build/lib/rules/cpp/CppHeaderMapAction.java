@@ -13,8 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.lang.Math.max;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -22,41 +28,58 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;//?
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 
 @Immutable
-public final class HeaderMapAction extends AbstractFileWriteAction {
+public final class CppHeaderMapAction extends AbstractFileWriteAction {
 
-  private static final String GUID = "b9d8aba5-5dab-481d-a2e0-937589da336e";
+  private static final String GUID = "3f9eb099-e62d-4d3b-a08a-c478e188993d";
 
   // C++ header map of the current target
-  private final ImmutableMap <String, String> headerMap;
+  private final CppHeaderMap cppHeaderMap;
+  // Data required to build the actual header map
+  // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
+  private final ImmutableList<CppHeaderMap> dependencies;
+  private final String includePrefix = "";
 
-  public HeaderMapAction(
+  public CppHeaderMapAction(
       ActionOwner owner,
-      ImmutableMap <String, String> headerMap,
-      Artifact output
-      ) {
+      CppHeaderMap cppHeaderMap,
+      Iterable<CppHeaderMap> dependencies
+  ) {
     super(
         owner,
-        ImmutableList.of(),
-        output,
-        /* makeExecutable= */ false);
-    this.headerMap = headerMap;
+        ImmutableList.<Artifact>builder()
+        .addAll(Iterables.filter(privateHeaders, Artifact::isTreeArtifact))
+        .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
+        .build(),
+        cppHeaderMap.getArtifact(),
+        /*makeExecutable=*/ false);
+    this.cppHeaderMap = cppHeaderMap;
+    this.privateHeaders = ImmutableList.copyOf(privateHeaders);
+    this.publicHeaders = ImmutableList.copyOf(publicHeaders);
+    this.dependencies = ImmutableList.copyOf(dependencies);
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext context)  {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext context) {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        ClangHeaderMap headerMap1 = new ClangHeaderMap(headerMap);
+        ByteBuffer buffer = serializeHeaderMap(headerMap);
         WritableByteChannel channel = Channels.newChannel(out);
-        headerMap1.writeToChannel(channel);
+        buffer.flip();
+        channel.write(buffer);
         out.flush();
         out.close();
       }
@@ -71,10 +94,10 @@ public final class HeaderMapAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint f) {
     f.addString(GUID);
-    for(Map.Entry<String, String> entry: headerMap.entrySet()){
+    for (Map.Entry<String, String> entry : headerMap.entrySet()) {
       String key = entry.getKey();
       String path = entry.getValue();
       f.addString(key + path);
     }
   }
-}
+
