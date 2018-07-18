@@ -51,6 +51,7 @@ public class ApiExporter {
         // Include SkylarkModuleDoc in Builtins as a Value.
         Value.Builder value = Value.newBuilder();
         value.setName(mod.getName());
+        value.setType(mod.getName());
         value.setDoc(mod.getDocumentation());
         builtins.addGlobal(value);
 
@@ -100,3 +101,4 @@ public class ApiExporter {
     appendBuiltins(builtinsProtoFile);
   }
 }
+
