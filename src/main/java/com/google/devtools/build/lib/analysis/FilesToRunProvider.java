@@ -28,8 +28,7 @@ import javax.annotation.Nullable;
 /** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
 @AutoCodec
-public final class FilesToRunProvider
-    implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
+public final class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunProviderApi {
   /** The name of the field in Skylark used to access this class. */
   public static final String SKYLARK_NAME = "files_to_run";
 

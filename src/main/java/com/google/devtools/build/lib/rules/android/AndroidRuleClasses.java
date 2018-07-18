@@ -472,8 +472,7 @@ public final class AndroidRuleClasses {
                   .useOutputLicenses()
                   .allowedRuleClasses("java_toolchain")
                   .value(JavaSemantics.javaToolchainAttribute(environment)))
-          .advertiseSkylarkProvider(
-              SkylarkProviderIdentifier.forKey(AndroidSdkProvider.PROVIDER.getKey()))
+          .advertiseProvider(AndroidSdkProvider.class)
           .build();
     }
 

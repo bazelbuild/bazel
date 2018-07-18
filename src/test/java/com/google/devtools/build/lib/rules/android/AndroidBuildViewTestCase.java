@@ -293,7 +293,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
 
   private AndroidSdkProvider getAndroidSdk() {
     Label sdk = targetConfig.getFragment(AndroidConfiguration.class).getSdk();
-    return getConfiguredTarget(sdk, targetConfig).get(AndroidSdkProvider.PROVIDER);
+    return getConfiguredTarget(sdk, targetConfig).getProvider(AndroidSdkProvider.class);
   }
 
   protected void checkProguardUse(String target, String artifact, boolean expectMapping,

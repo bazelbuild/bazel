@@ -68,8 +68,9 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(
-            new AndroidSdkProvider(
+        .addProvider(
+            AndroidSdkProvider.class,
+            AndroidSdkProvider.create(
                 buildToolsVersion,
                 frameworkAidl,
                 aidlLib,
