@@ -32,9 +32,10 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.Linki
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
 @Immutable
-public class CrosstoolInfo extends NativeInfo {
-  public static final NativeProvider<CrosstoolInfo> PROVIDER =
-      new NativeProvider<CrosstoolInfo>(CrosstoolInfo.class, "CrosstoolInfo") {};
+public class CcToolchainConfigInfo extends NativeInfo {
+  public static final NativeProvider<CcToolchainConfigInfo> PROVIDER =
+      new NativeProvider<CcToolchainConfigInfo>(
+          CcToolchainConfigInfo.class, "CcToolchainConfigInfo") {};
 
   private final ImmutableList<ActionConfig> actionConfigs;
   private final ImmutableList<Feature> features;
@@ -87,7 +88,7 @@ public class CrosstoolInfo extends NativeInfo {
   private final boolean hasDynamicLinkingModeFlags;
 
   @AutoCodec.Instantiator
-  protected CrosstoolInfo(
+  protected CcToolchainConfigInfo(
       ImmutableList<ActionConfig> actionConfigs,
       ImmutableList<Feature> features,
       ImmutableList<ArtifactNamePattern> artifactNamePatterns,
@@ -187,7 +188,7 @@ public class CrosstoolInfo extends NativeInfo {
     this.hasDynamicLinkingModeFlags = hasDynamicLinkingModeFlags;
   }
 
-  public static CrosstoolInfo fromToolchain(
+  public static CcToolchainConfigInfo fromToolchain(
       CrosstoolRelease file, CToolchain toolchain, PathFragment crosstoolTop)
       throws InvalidConfigurationException {
 
@@ -263,7 +264,7 @@ public class CrosstoolInfo extends NativeInfo {
       }
     }
 
-    return new CrosstoolInfo(
+    return new CcToolchainConfigInfo(
         actionConfigBuilder.build(),
         featureBuilder.build(),
         artifactNamePatternBuilder.build(),

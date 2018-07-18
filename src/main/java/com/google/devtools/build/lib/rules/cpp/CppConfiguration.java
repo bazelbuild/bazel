@@ -237,7 +237,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         CppToolchainInfo.create(
             crosstoolTopPathFragment,
             params.ccToolchainLabel,
-            params.crosstoolInfo,
+            params.ccToolchainConfigInfo,
             cppOptions.disableLegacyCrosstoolFields,
             cppOptions.disableCompilationModeFlags,
             cppOptions.disableLinkingModeFlags);
