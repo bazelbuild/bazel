@@ -792,6 +792,13 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   string server_dir =
       blaze_util::JoinPath(globals->options->output_base, "server");
 
+  // Delete the old command_port file if it already exists. Otherwise we might
+  // run into the race condition that we read the old command_port file before
+  // the new server has written the new file and we try to connect to the old
+  // port, run into a timeout and try again.
+  (void)blaze_util::UnlinkPath(
+      blaze_util::JoinPath(server_dir, "command_port"));
+
   // The server dir has the socket, so we don't allow access by other
   // users.
   if (!blaze_util::MakeDirectories(server_dir, 0700)) {
