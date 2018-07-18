@@ -40,7 +40,6 @@ sh_test(
         ":objc-deps",
         "//:workspace-file",
         "//src/test/shell/bazel:test-deps",
-        "//tools/build_defs/apple/test:srcs",
     ],
     shard_count = 3,
 )
