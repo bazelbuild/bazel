@@ -37,7 +37,6 @@ pkg_tar(
     package_dir = "/usr/share/lib/bazel/tools",
     srcs = ["//tools:package-srcs"],
     mode = "0644",
-    modes = {"tools/build_defs/docker/build_test.sh": "0755"},
 )
 
 pkg_tar(

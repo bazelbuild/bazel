@@ -13,7 +13,6 @@ filegroup(
         "//tools/build_defs/apple:srcs",
         "//tools/build_defs/cc:srcs",
         "//tools/build_defs/apple/test:srcs",
-        "//tools/build_defs/docker:srcs",
         "//tools/build_defs/hash:srcs",
         "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/repo:srcs",
