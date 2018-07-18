@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
           + "<p>"
           + "Depsets are not implemented as hash sets and do not support fast membership tests. If "
           + "you need a general set datatype, you can simulate one using a dictionary where all "
-          + "keys map to <code>None</code>."
+          + "keys map to <code>True</code>."
           + "<p>"
           + "Depsets are immutable. They should be created using their "
           + "<a href=\"globals.html#depset\">constructor function</a> and merged or augmented with "
