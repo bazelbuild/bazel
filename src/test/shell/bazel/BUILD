@@ -321,17 +321,6 @@ sh_test(
 )
 
 sh_test(
-    name = "local_repository_test_jdk8",
-    size = "medium",
-    srcs = ["local_repository_test_jdk8.sh"],
-    data = [":test-deps"],
-    tags = [
-        "jdk8",
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "cross_repository_test",
     size = "large",
     srcs = ["cross_repository_test.sh"],
