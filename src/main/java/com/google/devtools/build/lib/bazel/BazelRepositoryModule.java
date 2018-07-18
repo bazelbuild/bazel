@@ -230,6 +230,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
+      repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalRepositoryCache != null) {
         Path repositoryCachePath;
         if (repoOptions.experimentalRepositoryCache.isAbsolute()) {

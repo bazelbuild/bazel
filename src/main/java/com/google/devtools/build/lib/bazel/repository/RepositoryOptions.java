@@ -47,6 +47,16 @@ public class RepositoryOptions extends OptionsBase {
   public PathFragment experimentalRepositoryCache;
 
   @Option(
+      name = "experimental_repository_cache_hardlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, the repository cache will hardlink the file in case of a"
+              + " cache hit, rather than copying. This is inteded to save disk space.")
+  public boolean useHardlinks;
+
+  @Option(
       name = "distdir",
       oldName = "experimental_distdir",
       defaultValue = "null",
