@@ -245,33 +245,38 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         }
       }
 
-      // FileArtifactValue does not currently track symlinks. If it did, we could potentially remove
-      // some of the filesystem operations we're doing here.
-      Path path = traversal.root.asRootedPath().asPath();
-      FileStatus noFollowStat = path.stat(Symlinks.NOFOLLOW);
-      FileStatus followStat = path.statIfFound(Symlinks.FOLLOW);
-      FileType type;
-      PathFragment unresolvedLinkTarget = null;
       RootedPath realPath = traversal.root.asRootedPath();
-      if (followStat == null) {
-        type = FileType.DANGLING_SYMLINK;
-        if (!noFollowStat.isSymbolicLink()) {
-          throw new IOException("Expected symlink for " + path + ", but got: " + noFollowStat);
-        }
-        unresolvedLinkTarget = path.readSymbolicLink();
-      } else if (noFollowStat.isFile()) {
-        type = FileType.FILE;
-      } else if (noFollowStat.isDirectory()) {
-        type = FileType.DIRECTORY;
+      if (traversal.strictOutputFiles) {
+        Preconditions.checkNotNull(fsVal, "Strict Fileset output tree has null FileArtifactValue");
+        return new FileInfo(FileType.FILE, fsVal, realPath, null);
       } else {
-        unresolvedLinkTarget = path.readSymbolicLink();
-        realPath = RootedPath.toRootedPath(
-            Root.absoluteRoot(path.getFileSystem()),
-            path.resolveSymbolicLinks());
-        type = followStat.isFile() ? FileType.SYMLINK_TO_FILE : FileType.SYMLINK_TO_DIRECTORY;
+        // FileArtifactValue does not currently track symlinks. If it did, we could potentially
+        // remove some of the filesystem operations we're doing here.
+        Path path = traversal.root.asRootedPath().asPath();
+        FileStatus noFollowStat = path.stat(Symlinks.NOFOLLOW);
+        FileStatus followStat = path.statIfFound(Symlinks.FOLLOW);
+        FileType type;
+        PathFragment unresolvedLinkTarget = null;
+        if (followStat == null) {
+          type = FileType.DANGLING_SYMLINK;
+          if (!noFollowStat.isSymbolicLink()) {
+            throw new IOException("Expected symlink for " + path + ", but got: " + noFollowStat);
+          }
+          unresolvedLinkTarget = path.readSymbolicLink();
+        } else if (noFollowStat.isFile()) {
+          type = FileType.FILE;
+        } else if (noFollowStat.isDirectory()) {
+          type = FileType.DIRECTORY;
+        } else {
+          unresolvedLinkTarget = path.readSymbolicLink();
+          realPath =
+              RootedPath.toRootedPath(
+                  Root.absoluteRoot(path.getFileSystem()), path.resolveSymbolicLinks());
+          type = followStat.isFile() ? FileType.SYMLINK_TO_FILE : FileType.SYMLINK_TO_DIRECTORY;
+        }
+        return new FileInfo(
+            type, fsVal != null ? fsVal : noFollowStat.hashCode(), realPath, unresolvedLinkTarget);
       }
-      return new FileInfo(
-          type, fsVal != null ? fsVal : noFollowStat.hashCode(), realPath, unresolvedLinkTarget);
     } else {
       // Stat the file.
       FileValue fileValue =

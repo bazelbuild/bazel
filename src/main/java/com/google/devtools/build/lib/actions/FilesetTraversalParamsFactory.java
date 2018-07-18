@@ -48,15 +48,16 @@ public final class FilesetTraversalParamsFactory {
    *     files in subdirectories cannot be excluded
    * @param symlinkBehaviorMode what to do with symlinks
    * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
-   *     subpackage (contains a BUILD file)
+   * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
    */
   public static FilesetTraversalParams recursiveTraversalOfPackage(Label ownerLabel,
       Artifact buildFile, PathFragment destPath, @Nullable Set<String> excludes,
-      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode) {
+      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode,
+      boolean strictFilesetOutput) {
     Preconditions.checkState(buildFile.isSourceArtifact(), "%s", buildFile);
     return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
         DirectTraversalRoot.forPackage(buildFile), true, destPath, excludes,
-        symlinkBehaviorMode, pkgBoundaryMode, true, false);
+        symlinkBehaviorMode, pkgBoundaryMode, strictFilesetOutput, true, false);
   }
 
   /**
@@ -73,14 +74,15 @@ public final class FilesetTraversalParamsFactory {
    *     subdirectories cannot be excluded
    * @param symlinkBehaviorMode what to do with symlinks
    * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
-   *     subpackage (contains a BUILD file)
+   * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
    */
   public static FilesetTraversalParams recursiveTraversalOfDirectory(Label ownerLabel,
       Artifact directoryToTraverse, PathFragment destPath, @Nullable Set<String> excludes,
-      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode) {
+      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode,
+      boolean strictFilesetOutput) {
     return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
         DirectTraversalRoot.forFileOrDirectory(directoryToTraverse), false, destPath,
-        excludes, symlinkBehaviorMode, pkgBoundaryMode, true,
+        excludes, symlinkBehaviorMode, pkgBoundaryMode, strictFilesetOutput, true,
         !directoryToTraverse.isSourceArtifact());
   }
 
@@ -96,14 +98,15 @@ public final class FilesetTraversalParamsFactory {
    *     respective symlink there, or the root of files found (in case this is a directory)
    * @param symlinkBehaviorMode what to do with symlinks
    * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
-   *     subpackage (contains a BUILD file)
+   * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
    */
   public static FilesetTraversalParams fileTraversal(Label ownerLabel, Artifact fileToTraverse,
       PathFragment destPath, SymlinkBehavior symlinkBehaviorMode,
-      PackageBoundaryMode pkgBoundaryMode) {
+      PackageBoundaryMode pkgBoundaryMode, boolean strictFilesetOutput) {
     return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
         DirectTraversalRoot.forFileOrDirectory(fileToTraverse), false, destPath, null,
-        symlinkBehaviorMode, pkgBoundaryMode, false, !fileToTraverse.isSourceArtifact());
+        symlinkBehaviorMode, pkgBoundaryMode, strictFilesetOutput, false,
+        !fileToTraverse.isSourceArtifact());
   }
 
   /**
@@ -175,11 +178,12 @@ public final class FilesetTraversalParamsFactory {
         @Nullable Set<String> excludes,
         SymlinkBehavior symlinkBehaviorMode,
         PackageBoundaryMode pkgBoundaryMode,
+        boolean strictFilesetOutput,
         boolean isRecursive,
         boolean isGenerated) {
       DirectTraversal traversal = DirectTraversal.getDirectTraversal(root, isPackage,
-          symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, isRecursive,
-          isGenerated);
+          symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, strictFilesetOutput,
+          isRecursive, isGenerated);
       return create(ownerLabel, destPath, getOrderedExcludes(excludes), Optional.of(traversal));
     }
 

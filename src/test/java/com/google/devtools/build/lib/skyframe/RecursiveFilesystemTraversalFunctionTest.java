@@ -245,19 +245,25 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     return path;
   }
 
-  private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
+  private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode,
+      boolean strictOutput) {
     return TraversalRequest.create(
         DirectTraversalRoot.forFileOrDirectory(file),
         !file.isSourceArtifact(),
         pkgBoundaryMode,
-        false,
+        strictOutput, false,
         null);
+  }
+
+  private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
+    return fileLikeRoot(file, pkgBoundaryMode, false);
   }
 
   private static TraversalRequest pkgRoot(
       RootedPath pkgDirectory, PackageBoundaryMode pkgBoundaryMode) {
     return TraversalRequest.create(
-        DirectTraversalRoot.forRootedPath(pkgDirectory), false, pkgBoundaryMode, true, null);
+        DirectTraversalRoot.forRootedPath(pkgDirectory), false, pkgBoundaryMode,
+        false, true, null);
   }
 
   private <T extends SkyValue> EvaluationResult<T> eval(SkyKey key) throws Exception {
@@ -416,8 +422,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertTraversalRootHashesAre(false, a, b);
   }
 
-  private void assertTraversalOfFile(Artifact rootArtifact) throws Exception {
-    TraversalRequest traversalRoot = fileLikeRoot(rootArtifact, DONT_CROSS);
+  private void assertTraversalOfFile(Artifact rootArtifact, boolean strictOutput) throws Exception {
+    TraversalRequest traversalRoot = fileLikeRoot(rootArtifact, DONT_CROSS, strictOutput);
     RootedPath rootedPath = createFile(rootedPath(rootArtifact), "foo");
 
     // Assert that the SkyValue is built and looks right.
@@ -440,13 +446,19 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   @Test
   public void testTraversalOfSourceFile() throws Exception {
-    assertTraversalOfFile(sourceArtifact("foo/bar.txt"));
+    assertTraversalOfFile(sourceArtifact("foo/bar.txt"), false);
   }
 
   @Test
   public void testTraversalOfGeneratedFile() throws Exception {
-    assertTraversalOfFile(derivedArtifact("foo/bar.txt"));
+    assertTraversalOfFile(derivedArtifact("foo/bar.txt"), false);
   }
+
+  @Test
+  public void testTraversalOfGeneratedFileWithStrictOutput() throws Exception {
+    assertTraversalOfFile(derivedArtifact("foo/bar.txt"), true);
+  }
+
 
   @Test
   public void testTraversalOfSymlinkToFile() throws Exception {

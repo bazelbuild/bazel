@@ -220,6 +220,9 @@ public interface FilesetTraversalParams {
     /** Returns the desired behavior when the traversal hits a subpackage. */
     public abstract PackageBoundaryMode getPackageBoundaryMode();
 
+    /** Returns whether Filesets treat outputs in a strict manner, assuming regular files. */
+    public abstract boolean isStrictFilesetOutput();
+
     @Memoized
     @Override
     public abstract int hashCode();
@@ -232,6 +235,7 @@ public interface FilesetTraversalParams {
       fp.addBoolean(isFollowingSymlinks());
       fp.addBoolean(isRecursive());
       fp.addBoolean(isGenerated());
+      fp.addBoolean(isStrictFilesetOutput());
       getPackageBoundaryMode().fingerprint(fp);
       return fp.digestAndReset();
     }
@@ -242,6 +246,7 @@ public interface FilesetTraversalParams {
         boolean isPackage,
         boolean followingSymlinks,
         PackageBoundaryMode packageBoundaryMode,
+        boolean isStrictFilesetOutput,
         boolean isRecursive,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
@@ -250,7 +255,8 @@ public interface FilesetTraversalParams {
           isRecursive,
           isGenerated,
           followingSymlinks,
-          packageBoundaryMode);
+          packageBoundaryMode,
+          isStrictFilesetOutput);
     }
   }
 
