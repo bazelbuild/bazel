@@ -18,7 +18,6 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
@@ -51,16 +50,6 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "d3-js",
-    srcs = glob(["javascript/d3/**/*.js"]),
-)
-
-filegroup(
-    name = "jquery",
-    srcs = glob(["javascript/jquery/**/*.jslib"]),
-)
-
 java_import(
     name = "aether",
     jars = [
@@ -73,6 +62,9 @@ java_import(
         "aether/aether-impl-1.0.0.v20140518.jar",
         "aether/aether-transport-file-1.0.0.v20140518.jar",
         "aether/aether-util-1.0.0.v20140518.jar",
+    ],
+    deps = [
+        ":apache_httpclient",
     ],
 )
 
@@ -141,7 +133,11 @@ java_import(
 java_import(
     name = "apache_httpclient",
     jars = ["apache_httpclient/httpclient-4.5.3.jar"],
-    deps = [":apache_commons_logging"],
+    deps = [
+        ":apache_commons_codec",
+        ":apache_commons_logging",
+        ":apache_httpcore",
+    ],
 )
 
 java_import(
@@ -302,16 +298,6 @@ filegroup(
 )
 
 java_import(
-    name = "bytebuddy",
-    jars = ["bytebuddy/byte-buddy-dep-0.7-rc6.jar"],
-    deps = [
-        ":asm",
-        ":asm-commons",
-        ":asm-util",
-    ],
-)
-
-java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
@@ -319,14 +305,6 @@ java_import(
 java_import(
     name = "gson",
     jars = ["gson/gson-2.2.4.jar"],
-)
-
-java_import(
-    name = "hazelcast",
-    jars = [
-        "hazelcast/hazelcast-3.6.4.jar",
-        "hazelcast/hazelcast-client-3.6.4.jar",
-    ],
 )
 
 java_import(
@@ -543,38 +521,16 @@ java_import(
 )
 
 java_import(
-    name = "minlog_lib",
-    jars = ["minlog/minlog-1.2.jar"],
-)
-
-java_library(
-    name = "minlog",
-    exports = ["minlog_lib"],
-)
-
-java_import(
     name = "mockito",
     jars = ["mockito/mockito-all-1.10.19.jar"],
+    deps = [
+        ":objenesis",
+    ],
 )
 
 java_import(
-    name = "objenesis_lib",
-    jars = ["objenesis/objenesis-1_3.jar"],
-)
-
-java_library(
     name = "objenesis",
-    exports = ["objenesis_lib"],
-)
-
-java_import(
-    name = "reflectasm_lib",
-    jars = ["reflectasm/reflectasm-1.10.1.jar"],
-)
-
-java_library(
-    name = "reflectasm",
-    exports = ["reflectasm_lib"],
+    jars = ["objenesis/objenesis-1_3.jar"],
 )
 
 java_import(
