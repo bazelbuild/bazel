@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CanonicalizeCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
@@ -58,6 +59,7 @@ public class BuiltinCommandModule extends BlazeModule {
         new ShutdownCommand(),
         new TestCommand(),
         new VersionCommand(),
+        new AqueryCommand(),
         new CqueryCommand());
     // Only enable the "license" command when this binary has an embedded LICENSE file.
     if (LicenseCommand.isSupported()) {

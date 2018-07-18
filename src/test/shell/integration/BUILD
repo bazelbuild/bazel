@@ -151,6 +151,14 @@ sh_test(
 )
 
 sh_test(
+    name = "aquery_test",
+    size = "large",
+    srcs = ["aquery_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_command_log_test",
     size = "medium",
     srcs = ["bazel_command_log_test.sh"],
