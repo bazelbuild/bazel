@@ -503,12 +503,12 @@ public class BuildViewForTesting {
 
     return new RuleContext.Builder(
             env,
-            (Rule) target,
+            target,
             ImmutableList.of(),
             targetConfig,
             configurations.getHostConfiguration(),
             ruleClassProvider.getPrerequisiteValidator(),
-            ((Rule) target).getRuleClassObject().getConfigurationFragmentPolicy())
+            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
