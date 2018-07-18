@@ -41,8 +41,6 @@ public class CrosstoolInfo extends NativeInfo {
   private final ImmutableList<ArtifactNamePattern> artifactNamePatterns;
   private final ImmutableList<String> cxxBuiltinIncludeDirectories;
 
-  private final String majorVersion;
-  private final String minorVersion;
   private final String toolchainIdentifier;
   private final String hostSystemName;
   private final String targetSystemName;
@@ -85,7 +83,6 @@ public class CrosstoolInfo extends NativeInfo {
   private final ImmutableList<Pair<String, String>> makeVariables;
   private final String builtinSysroot;
   private final String defaultGrteTop;
-  private final ImmutableList<String> debianExtraRequires;
   private final String ccTargetOs;
   private final boolean hasDynamicLinkingModeFlags;
 
@@ -95,8 +92,6 @@ public class CrosstoolInfo extends NativeInfo {
       ImmutableList<Feature> features,
       ImmutableList<ArtifactNamePattern> artifactNamePatterns,
       ImmutableList<String> cxxBuiltinIncludeDirectories,
-      String majorVersion,
-      String minorVersion,
       String toolchainIdentifier,
       String hostSystemName,
       String targetSystemName,
@@ -139,7 +134,6 @@ public class CrosstoolInfo extends NativeInfo {
       ImmutableList<Pair<String, String>> makeVariables,
       String builtinSysroot,
       String defaultGrteTop,
-      ImmutableList<String> debianExtraRequires,
       String ccTargetOs,
       boolean hasDynamicLinkingModeFlags) {
     super(PROVIDER);
@@ -147,8 +141,6 @@ public class CrosstoolInfo extends NativeInfo {
     this.features = features;
     this.artifactNamePatterns = artifactNamePatterns;
     this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
-    this.majorVersion = majorVersion;
-    this.minorVersion = minorVersion;
     this.toolchainIdentifier = toolchainIdentifier;
     this.hostSystemName = hostSystemName;
     this.targetSystemName = targetSystemName;
@@ -191,7 +183,6 @@ public class CrosstoolInfo extends NativeInfo {
     this.makeVariables = makeVariables;
     this.builtinSysroot = builtinSysroot;
     this.defaultGrteTop = defaultGrteTop;
-    this.debianExtraRequires = debianExtraRequires;
     this.ccTargetOs = ccTargetOs;
     this.hasDynamicLinkingModeFlags = hasDynamicLinkingModeFlags;
   }
@@ -277,8 +268,6 @@ public class CrosstoolInfo extends NativeInfo {
         featureBuilder.build(),
         artifactNamePatternBuilder.build(),
         ImmutableList.copyOf(toolchain.getCxxBuiltinIncludeDirectoryList()),
-        file.getMajorVersion(),
-        file.getMinorVersion(),
         toolchain.getToolchainIdentifier(),
         toolchain.getHostSystemName(),
         toolchain.getTargetSystemName(),
@@ -329,7 +318,6 @@ public class CrosstoolInfo extends NativeInfo {
             .collect(ImmutableList.toImmutableList()),
         toolchain.getBuiltinSysroot(),
         toolchain.getDefaultGrteTop(),
-        ImmutableList.copyOf(toolchain.getDebianExtraRequiresList()),
         toolchain.getCcTargetOs(),
         hasDynamicLinkingModeFlags);
   }
@@ -348,18 +336,6 @@ public class CrosstoolInfo extends NativeInfo {
 
   public ImmutableList<String> getCxxBuiltinIncludeDirectories() {
     return cxxBuiltinIncludeDirectories;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
-  public String getMajorVersion() {
-    return majorVersion;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
-  public String getMinorVersion() {
-    return minorVersion;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.
@@ -560,12 +536,6 @@ public class CrosstoolInfo extends NativeInfo {
   @Deprecated
   public String getDefaultGrteTop() {
     return defaultGrteTop;
-  }
-
-  // TODO(b/65151735): Remove once this field is migrated to features.
-  @Deprecated
-  public ImmutableList<String> getDebianExtraRequires() {
-    return debianExtraRequires;
   }
 
   // TODO(b/65151735): Remove once this field is migrated to features.
