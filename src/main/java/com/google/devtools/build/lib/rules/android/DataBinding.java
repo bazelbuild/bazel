@@ -254,8 +254,7 @@ public final class DataBinding {
       dataBindingMetadataOutputs.addAll(getTransitiveMetadata(ruleContext, "deps"));
     }
     if (!dataBindingMetadataOutputs.isEmpty()) {
-      builder.addProvider(
-          UsesDataBindingProvider.class, new UsesDataBindingProvider(dataBindingMetadataOutputs));
+      builder.addNativeDeclaredProvider(new UsesDataBindingProvider(dataBindingMetadataOutputs));
     }
   }
 
@@ -265,7 +264,7 @@ public final class DataBinding {
     if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
       for (UsesDataBindingProvider provider :
           ruleContext.getPrerequisites(
-              attr, RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.class)) {
+              attr, RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.PROVIDER)) {
         dataBindingMetadataOutputs.addAll(provider.getMetadataOutputs());
       }
     }

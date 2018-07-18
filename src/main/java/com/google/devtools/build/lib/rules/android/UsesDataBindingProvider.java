@@ -15,26 +15,48 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.Collection;
 
 /**
- * An Android rule that exposes this enables <a
+ * A provider that exposes this enables <a
  * href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a> on
  * its resource processing and Java compilation.
  */
-public final class UsesDataBindingProvider implements TransitiveInfoProvider {
+public final class UsesDataBindingProvider extends NativeInfo
+    implements UsesDataBindingProviderApi<Artifact> {
+
+  public static final String PROVIDER_NAME = "UsesDataBindingInfo";
+  public static final Provider PROVIDER = new Provider();
+
   private final ImmutableList<Artifact> metadataOutputs;
 
   public UsesDataBindingProvider(Collection<Artifact> metadataOutputs) {
+    super(PROVIDER);
     this.metadataOutputs = ImmutableList.copyOf(metadataOutputs);
   }
 
-  /**
-   * Returns the metadata outputs from this rule's annotation processing that describe how it
-   * applies data binding. See {@link DataBinding#getMetadataOutputs} for details.
-   */
+  @Override
   public ImmutableList<Artifact> getMetadataOutputs() {
     return metadataOutputs;
+  }
+
+  /** The provider can construct the UsesDataBindingInfo provider. */
+  public static class Provider extends BuiltinProvider<UsesDataBindingProvider>
+      implements UsesDataBindingProviderApi.Provider<Artifact> {
+
+    private Provider() {
+      super(PROVIDER_NAME, UsesDataBindingProvider.class);
+    }
+
+    @Override
+    public UsesDataBindingProvider createInfo(SkylarkList<Artifact> metadataOutputs)
+        throws EvalException {
+      return new UsesDataBindingProvider(metadataOutputs.getImmutableList());
+    }
   }
 }
