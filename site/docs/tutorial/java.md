@@ -27,6 +27,7 @@ In this tutorial you'll learn how to:
 
 *  [Before you begin](#before-you-begin)
    *  [Install Bazel](#install-bazel)
+   *  [Install the JDK](#install-the-jdk)
    *  [Get the sample project](#get-the-sample-project)
 *  [Build with Bazel](#build-with-bazel)
    *  [Set up the workspace](#set-up-the-workspace)
@@ -47,6 +48,22 @@ In this tutorial you'll learn how to:
 To prepare for the tutorial, first [Install Bazel](../install.md) if
 you don't have it installed already.
 
+### Install the JDK
+
+1.  Install Java 8 JDK.
+
+2.  Set the JAVA\_HOME environment variable to point to the JDK.
+    *   On Linux/macOS:
+
+            export JAVA_HOME="$(dirname $(dirname $(realpath $(which javac))))"
+    *   On Windows:
+        1.  Open the Control Panel
+        2.  Go to "System&nbsp;and&nbsp;Security" &gt; "System" &gt; "Advanced&nbsp;System&nbsp;Settings" &gt; "Advanced"&nbsp;tab &gt; "Environment&nbsp;Variables..." 
+        3.  Under the "User variables" list (the one on the top), click "New..."
+        4.  For "Variable name", enter `JAVA_HOME`
+        5.  Click "Browse Directory..."
+        6.  Navigate to the JDK directory (for example `C:\Program Files\Java\jdk1.8.0_152`), click "OK"
+
 ### Get the sample project
 
 Retrieve the sample project from Bazel's GitHub repository:
@@ -60,7 +77,6 @@ directory and is structured as follows:
 
 ```
 java-tutorial
-│
 ├── BUILD
 ├── src
 │   └── main

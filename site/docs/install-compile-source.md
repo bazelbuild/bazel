@@ -50,19 +50,22 @@ Ensure you have installed:
 *   **JDK 8.** You must install version 8 of the JDK. Versions other than 8 are
     *not* supported.
 
-*   **Python**. Versions 2 and 3 are supported. You *must* install the
+*   **Python**. Versions 2 and 3 are supported. You need the
     Windows-native version (downloadable from [https://www.python.org](https://www.python.org)).
     Versions installed via pacman in MSYS2 will not work.
 
-### 2.  Download and unpack Bazel's distribution archive
+### 2.  Download and unpack Bazel's source files (distribution archive)
 
-Download `bazel-<version>-dist.zip` from the [release page](https://github.com/bazelbuild/bazel/releases).
+Download `bazel-<version>-dist.zip` from [GitHub](https://github.com/bazelbuild/bazel/releases),
+e.g. `bazel-0.15.2-dist.zip`.
 
 **Note:** There is a **single, architecture-independent** distribution archive. There are no architecture-specific or OS-specific distribution archives.
 
-We recommend to also verify the signature made by our [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+**Note:** You have to use the distribution archive to build Bazel from source.
+You cannot use a source tree cloned from GitHub.
 
-The distribution archive contains generated files in addition to the versioned sources, so this step _cannot_ be short cut by checking out the source tree.
+We recommend to also verify the signature made by our
+[release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
 ### 3.  Bootstrap Bazel
 
@@ -88,7 +91,8 @@ Bazel binary, without an embedded JDK. You can copy it to a directory in the
     *   Either `BAZEL_VS` or `BAZEL_VC` (they are *not* the same): Set to the
         path to the Visual Studio directory (BAZEL\_V<b>S</b>) or to the Visual
         C++ directory (BAZEL\_V<b>C</b>). Setting one of them is enough.
-    *   `BAZEL_SH`: Set to the path of the MSYS2 `bash.exe`.
+    *   `BAZEL_SH`: Path of the MSYS2 `bash.exe`. See the command in the
+        examples below.
 
         Do not set this to `C:\Windows\System32\bash.exe`. (You have that file
         if you installed Windows Subsystem for Linux.) Bazel does not support
@@ -99,15 +103,14 @@ Bazel binary, without an embedded JDK. You can copy it to a directory in the
     For example (using BAZEL\_V<b>S</b>):
 
         export BAZEL_VS="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools"
-        export BAZEL_SH="C:/msys64/usr/bin/bash.exe"
+        export BAZEL_SH="$(cygpath -m $(realpath $(which bash)))"
         export PATH="/c/python27:$PATH"
         export JAVA_HOME="C:/Program Files/Java/jdk1.8.0_112"
-
 
     or (using BAZEL\_V<b>C</b>):
 
         export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
-        export BAZEL_SH="c:/msys64/usr/bin/bash.exe"
+        export BAZEL_SH="$(cygpath -m $(realpath $(which bash)))"
         export PATH="/c/python27:$PATH"
         export JAVA_HOME="C:/Program Files/Java/jdk1.8.0_112"
 
