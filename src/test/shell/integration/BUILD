@@ -79,7 +79,6 @@ sh_test(
     ],
     shard_count = 5,
     tags = [
-        "jdk8",
         "no_windows",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
@@ -298,7 +297,6 @@ sh_test(
     ],
     shard_count = 3,
     tags = [
-        "jdk8",
         "no_windows",
     ],
 )
@@ -319,7 +317,6 @@ sh_test(
     flaky = 1,
     shard_count = 3,
     tags = [
-        "jdk8",
         "no_windows",
     ],
 )
