@@ -28,14 +28,13 @@ namespace windows {
 using std::unique_ptr;
 using std::wstring;
 
-template <typename T>
-static std::basic_string<T> uint32asHexString(uint32_t value) {
-  T attr_str[8];
+static wstring uint32asHexString(uint32_t value) {
+  WCHAR attr_str[8];
   for (int i = 0; i < 8; ++i) {
-    attr_str[7 - i] = "0123456789abcdef"[value & 0xF];
+    attr_str[7 - i] = L"0123456789abcdef"[value & 0xF];
     value >>= 4;
   }
-  return std::basic_string<T>(attr_str, 8);
+  return wstring(attr_str, 8);
 }
 
 static DWORD GetAttributesOfMaybeMissingFile(const WCHAR* path) {
@@ -202,18 +201,19 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
       wstring err_str = uint32asHexString(err);
       // The path seems to exist yet we cannot open it for metadata-reading.
       // Report as much information as we have, then give up.
-      attr = GetAttributesOfMaybeMissingFile(name.c_str());
+      DWORD attr = GetAttributesOfMaybeMissingFile(name.c_str());
       if (attr == INVALID_FILE_ATTRIBUTES) {
         if (error) {
           *error = MakeErrorMessage(
               WSTR(__FILE__), __LINE__, L"CreateFileW", name,
-              "err=0x" + err_str + ", invalid attributes");
+              wstring(L"err=0x") + err_str + L", invalid attributes");
         }
       } else {
         if (error) {
           *error = MakeErrorMessage(
               WSTR(__FILE__), __LINE__, L"CreateFileW", name,
-              "err=0x" + err_str + ", attr=0x" + uint32asHexString(attr));
+              wstring(L"err=0x") + err_str + L", attr=0x" +
+                  uint32asHexString(attr));
         }
       }
       return CreateJunctionResult::kError;
