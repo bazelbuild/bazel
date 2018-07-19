@@ -79,6 +79,10 @@ public class HttpFileRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = http_file, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
+<p><strong>Deprecated.
+<code>load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")</code>
+for a drop-in replacement.</strong></p>
+
 <p>Downloads a file from a URL and makes it available to be used as a file group.</p>
 
 <h4 id="http_file_examples">Examples</h4>
