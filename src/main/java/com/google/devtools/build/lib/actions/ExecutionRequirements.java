@@ -184,4 +184,7 @@ public class ExecutionRequirements {
    * effect otherwise.
    */
   public static final String REQUIRES_FAKEROOT = "requires-fakeroot";
+
+  /** Suppress CLI reporting for this spawn - it's part of another action. */
+  public static final String DO_NOT_REPORT = "internal-do-not-report";
 }

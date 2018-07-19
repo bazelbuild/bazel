@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -70,6 +71,7 @@ public interface IncludeScanner {
       IncludeScanningHeaderData includeScanningHeaderData,
       List<String> cmdlineIncludes,
       Set<Artifact> includes,
+      ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException;
@@ -104,6 +106,7 @@ public interface IncludeScanner {
         IncludeScannable action,
         IncludeScannerSupplier includeScannerSupplier,
         IncludeScanningHeaderData includeScanningHeaderData,
+        ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         String profilerTaskName)
         throws ExecException, InterruptedException {
@@ -144,6 +147,7 @@ public interface IncludeScanner {
             includeScanningHeaderData,
             cmdlineIncludes,
             includes,
+            actionExecutionMetadata,
             actionExecutionContext,
             action.getGrepIncludes());
 
