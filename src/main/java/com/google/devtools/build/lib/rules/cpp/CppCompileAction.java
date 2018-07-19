@@ -605,11 +605,18 @@ public class CppCompileAction extends AbstractAction
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext) {
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
-    // TODO(djasper): We are getting discovered or transitive modules through the action's inputs
-    // here. For shorter command lines, we'd prefer to use topLevelModules here, but they are not
-    // computed in the codepaths leading here.
-    for (String option :
-        compileCommandLine.getCompilerOptions(getOverwrittenVariables(getInputs()))) {
+
+    // For actual extra actions, the shadowed action is fully executed and overwrittenVariables get
+    // computed. However, this function is also used for print_action and there, the action is
+    // retrieved from the cache, the modules are reconstructed via updateInputs and
+    // overwrittenVariables don't get computed.
+    List<String> options =
+        compileCommandLine.getCompilerOptions(
+            overwrittenVariables != null
+                ? overwrittenVariables
+                : getOverwrittenVariables(getInputs()));
+
+    for (String option : options) {
       info.addCompilerOption(option);
     }
     info.setOutputFile(outputFile.getExecPathString());
