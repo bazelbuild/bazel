@@ -329,7 +329,9 @@ public enum LinkBuildVariables {
       result.addAll(ccToolchainProvider.getTestOnlyLinkOptions());
     }
 
-    result.addAll(ccToolchainProvider.getLinkOptions());
+    if (!cppConfiguration.enableLinkoptsInUserLinkFlags()) {
+      result.addAll(ccToolchainProvider.getLinkOptions());
+    }
 
     // -pie is not compatible with shared and should be
     // removed when the latter is part of the link command. Should we need to further

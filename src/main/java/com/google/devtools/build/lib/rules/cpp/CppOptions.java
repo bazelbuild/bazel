@@ -860,6 +860,17 @@ public class CppOptions extends FragmentOptions {
               + "field of CcLinkingInfo. See b/111289526.")
   public boolean enableCcDynamicLibrariesForRuntime;
 
+  @Option(
+      name = "experimental_linkopts_in_user_link_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
+              + "crosstool variable.")
+  public boolean enableLinkoptsInUserLinkFlags;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();

@@ -104,6 +104,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLinkingModeFlags;
   }
 
+  public boolean enableLinkoptsInUserLinkFlags() {
+    return cppOptions.enableLinkoptsInUserLinkFlags;
+  }
+
   /**
    * An enumeration of all the tools that comprise a toolchain.
    */
