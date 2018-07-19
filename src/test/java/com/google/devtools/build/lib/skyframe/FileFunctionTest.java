@@ -898,69 +898,6 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesystemInconsistencies_ParentIsntADirectory() throws Exception {
-    file("a/b");
-    // Our custom filesystem says "a/b" exists but its parent "a" is a file.
-    FileStatus inconsistentParentFileStatus =
-        new FileStatus() {
-          @Override
-          public boolean isFile() {
-            return true;
-          }
-
-          @Override
-          public boolean isSpecialFile() {
-            return false;
-          }
-
-          @Override
-          public boolean isDirectory() {
-            return false;
-          }
-
-          @Override
-          public boolean isSymbolicLink() {
-            return false;
-          }
-
-          @Override
-          public long getSize() throws IOException {
-            return 0;
-          }
-
-          @Override
-          public long getLastModifiedTime() throws IOException {
-            return 0;
-          }
-
-          @Override
-          public long getLastChangeTime() throws IOException {
-            return 0;
-          }
-
-          @Override
-          public long getNodeId() throws IOException {
-            return 0;
-          }
-        };
-    fs.stubStat(path("a"), inconsistentParentFileStatus);
-    // Disable fast-path md5 so that we don't try try to md5 the "a" (since it actually physically
-    // is a directory).
-    fastDigest = false;
-    SequentialBuildDriver driver = makeDriver();
-    SkyKey skyKey = skyKey("a/b");
-    EvaluationResult<FileValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
-    assertThat(errorInfo.getException())
-        .hasMessageThat()
-        .contains("file /root/a/b exists but its parent path /root/a isn't an existing directory");
-  }
-
-  @Test
   public void testFilesystemInconsistencies_GetFastDigest() throws Exception {
     file("a");
     // Our custom filesystem says "a/b" exists but "a" does not exist.

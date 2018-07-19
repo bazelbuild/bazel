@@ -125,11 +125,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path fooBuildFile = scratch.file("foo/BUILD");
     Path fooDir = fooBuildFile.getParentDirectory();
 
-    // Our custom filesystem says "foo/BUILD" exists but its parent "foo" is a file.
-    FileStatus inconsistentParentFileStatus = new FileStatus() {
+    // Our custom filesystem says that fooDir is neither a file nor directory nor symlink
+    FileStatus inconsistentFileStatus = new FileStatus() {
       @Override
       public boolean isFile() {
-        return true;
+        return false;
       }
 
       @Override
@@ -167,13 +167,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
         return 0;
       }
     };
-    fs.stubStat(fooDir, inconsistentParentFileStatus);
+
+    fs.stubStat(fooBuildFile, inconsistentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
     SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, tsgm);
     differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "/workspace/foo/BUILD exists but its parent path /workspace/foo isn't "
-        + "an existing directory";
+    String expectedMessage = "according to stat, existing path /workspace/foo/BUILD is neither"
+        + " a file nor directory nor symlink.";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
     assertThat(result.hasError()).isTrue();
