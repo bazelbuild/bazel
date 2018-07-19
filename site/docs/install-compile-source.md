@@ -62,7 +62,9 @@ e.g. `bazel-0.15.2-dist.zip`.
 **Note:** There is a **single, architecture-independent** distribution archive. There are no architecture-specific or OS-specific distribution archives.
 
 **Note:** You have to use the distribution archive to build Bazel from source.
-You cannot use a source tree cloned from GitHub.
+You cannot use a source tree cloned from GitHub. (The distribution archive
+contains generated source files that are required for bootstrapping and are not
+part of the normal Git source tree.)
 
 We recommend to also verify the signature made by our
 [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.

@@ -57,12 +57,13 @@ you don't have it installed already.
 
             export JAVA_HOME="$(dirname $(dirname $(realpath $(which javac))))"
     *   On Windows:
-        1.  Open the Control Panel
-        2.  Go to "System&nbsp;and&nbsp;Security" &gt; "System" &gt; "Advanced&nbsp;System&nbsp;Settings" &gt; "Advanced"&nbsp;tab &gt; "Environment&nbsp;Variables..." 
-        3.  Under the "User variables" list (the one on the top), click "New..."
-        4.  For "Variable name", enter `JAVA_HOME`
-        5.  Click "Browse Directory..."
-        6.  Navigate to the JDK directory (for example `C:\Program Files\Java\jdk1.8.0_152`), click "OK"
+        1.  Open Control Panel.
+        2.  Go to "System&nbsp;and&nbsp;Security" &gt; "System" &gt; "Advanced&nbsp;System&nbsp;Settings" &gt; "Advanced"&nbsp;tab &gt; "Environment&nbsp;Variables..." .
+        3.  Under the "User&nbsp;variables" list (the one on the top), click "New...".
+        4.  In the "Variable&nbsp;name" field, enter `JAVA_HOME`.
+        5.  Click "Browse&nbsp;Directory...".
+        6.  Navigate to the JDK directory (for example `C:\Program&nbsp;Files\Java\jdk1.8.0_152`).
+        7.  Click "OK" on all dialog windows.
 
 ### Get the sample project
 
