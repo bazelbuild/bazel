@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
@@ -967,17 +965,6 @@ public class CcCommonTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//x:foo");
     assertContainsEvent("Symbol a is provided by all of the following features: a1 a2");
-  }
-
-  /**
-   * A {@code toolchain_type} rule for testing that only supports C++.
-   */
-  public static class OnlyCppToolchainType extends ToolchainType {
-    public OnlyCppToolchainType() {
-      super(
-          ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>of(),
-          ImmutableMap.<Label, ImmutableMap<String, String>>of());
-    }
   }
 
   /**
