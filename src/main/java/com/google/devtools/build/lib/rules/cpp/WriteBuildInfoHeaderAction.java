@@ -109,16 +109,11 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
         Writer writer = new OutputStreamWriter(out, UTF_8);
 
        for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
-          if (!key.getValue().isInLanguage("C++")) {
-            continue;
-          }
-
           String value = redacted ? key.getValue().getRedactedValue()
               : values.containsKey(key.getKey()) ? values.get(key.getKey())
               : key.getValue().getDefaultValue();
 
           switch (key.getValue().getType()) {
-            case VERBATIM:
             case INTEGER:
               break;
 
