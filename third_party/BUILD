@@ -563,25 +563,12 @@ filegroup(
     ],
 )
 
-config_setting(
-    name = "windows_mingw",
-    values = {"compiler": "windows_mingw"},
-)
+load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
-config_setting(
-    name = "windows_msys64",
-    values = {"compiler": "windows_msys64"},
-)
-
-config_setting(
-    name = "windows_msys64_mingw64",
-    values = {"compiler": "windows_msys64_mingw64"},
-)
-
-config_setting(
-    name = "windows_clang",
-    values = {"compiler": "windows_clang"},
-)
+create_compiler_config_setting(name = "windows_mingw", value = "windows_mingw")
+create_compiler_config_setting(name = "windows_msys64", value = "windows_msys64")
+create_compiler_config_setting(name = "windows_msys64_mingw64", value = "windows_msys64_mingw64")
+create_compiler_config_setting(name = "windows_clang", value = "windows_clang")
 
 config_setting(
     name = "darwin",
