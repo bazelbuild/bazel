@@ -14,19 +14,25 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -42,6 +48,11 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
@@ -53,6 +64,41 @@ public class CcModule
         LibraryToLink,
         CcLinkParams,
         CcSkylarkInfo> {
+
+  private enum RegisterActions {
+    ALWAYS,
+    NEVER,
+    CONDITIONALLY;
+
+    private final String skylarkName;
+
+    RegisterActions() {
+      this.skylarkName = toString().toLowerCase();
+    }
+
+    public String getSkylarkName() {
+      return skylarkName;
+    }
+
+    public static RegisterActions fromString(
+        String skylarkName, Location location, String fieldForError) throws EvalException {
+      for (RegisterActions registerActions : values()) {
+        if (registerActions.getSkylarkName().equals(skylarkName)) {
+          return registerActions;
+        }
+      }
+      throw new EvalException(
+          location,
+          String.format(
+              "Possibles values for %s: %s",
+              fieldForError,
+              Joiner.on(", ")
+                  .join(
+                      Arrays.stream(values())
+                          .map(RegisterActions::getSkylarkName)
+                          .collect(ImmutableList.toImmutableList()))));
+    }
+  }
 
   /**
    * C++ Skylark rules should have this provider so that native rules can depend on them. This will
@@ -328,5 +374,193 @@ public class CcModule
   public CcCompilationInfo mergeCcCompilationInfos(
       SkylarkList<CcCompilationInfo> ccCompilationInfos) {
     return CcCompilationInfo.merge(ccCompilationInfos);
+  }
+
+  protected static CompilationInfo compile(
+      CppSemantics cppSemantics,
+      SkylarkRuleContext skylarkRuleContext,
+      Object skylarkFeatureConfiguration,
+      Object skylarkCcToolchainProvider,
+      SkylarkList<Artifact> sources,
+      SkylarkList<Artifact> headers,
+      Object skylarkIncludes,
+      Object skylarkCopts,
+      String generateNoPicOutputs,
+      String generatePicOutputs,
+      Object skylarkAdditionalCompilationInputs,
+      Object skylarkAdditionalIncludeScanningRoots,
+      SkylarkList<CcCompilationInfo> ccCompilationInfos,
+      Object purpose)
+      throws EvalException {
+    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+    RuleContext ruleContext = skylarkRuleContext.getRuleContext();
+    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
+    if (ccToolchainProvider == null) {
+      ccToolchainProvider = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    }
+    FeatureConfiguration featureConfiguration =
+        convertFromNoneable(skylarkFeatureConfiguration, null);
+    if (featureConfiguration == null) {
+      featureConfiguration =
+          CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchainProvider);
+    }
+    Pair<List<Artifact>, List<Artifact>> separatedHeadersAndSources =
+        separateSourcesFromHeaders(sources);
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    // TODO(plf): Need to flatten the nested set to convert the Strings to PathFragment. This could
+    // be avoided if path fragments are ever added to Skylark or in the C++ code we take Strings
+    // instead of PathFragments.
+    List<String> includeDirs = convertSkylarkListOrNestedSetToList(skylarkIncludes, String.class);
+    CcCompilationHelper helper =
+        new CcCompilationHelper(
+                ruleContext,
+                cppSemantics,
+                featureConfiguration,
+                CcCompilationHelper.SourceCategory.CC,
+                ccToolchainProvider,
+                fdoSupport)
+            .addPublicHeaders(headers)
+            .addIncludeDirs(
+                includeDirs
+                    .stream()
+                    .map(PathFragment::create)
+                    .collect(ImmutableList.toImmutableList()))
+            .addPrivateHeaders(separatedHeadersAndSources.first)
+            .addSources(separatedHeadersAndSources.second)
+            .addCcCompilationInfos(ccCompilationInfos)
+            .setPurpose(convertFromNoneable(purpose, null));
+
+    SkylarkNestedSet additionalCompilationInputs =
+        convertFromNoneable(skylarkAdditionalCompilationInputs, null);
+    if (additionalCompilationInputs != null) {
+      helper.addAdditionalCompilationInputs(
+          additionalCompilationInputs.toCollection(Artifact.class));
+    }
+
+    SkylarkNestedSet additionalIncludeScanningRoots =
+        convertFromNoneable(skylarkAdditionalIncludeScanningRoots, null);
+    if (additionalIncludeScanningRoots != null) {
+      helper.addAditionalIncludeScanningRoots(
+          additionalIncludeScanningRoots.toCollection(Artifact.class));
+    }
+
+    SkylarkNestedSet copts = convertFromNoneable(skylarkCopts, null);
+    if (copts != null) {
+      helper.setCopts(copts.getSet(String.class));
+    }
+
+    Location location = ruleContext.getRule().getLocation();
+    RegisterActions generateNoPicOption =
+        RegisterActions.fromString(generateNoPicOutputs, location, "generate_no_pic_outputs");
+    if (!generateNoPicOption.equals(RegisterActions.CONDITIONALLY)) {
+      helper.setGenerateNoPicAction(generateNoPicOption == RegisterActions.ALWAYS);
+    }
+    RegisterActions generatePicOption =
+        RegisterActions.fromString(generatePicOutputs, location, "generate_pic_outputs");
+    if (!generatePicOption.equals(RegisterActions.CONDITIONALLY)) {
+      helper.setGeneratePicAction(generatePicOption == RegisterActions.ALWAYS);
+    }
+    try {
+      return helper.compile();
+    } catch (RuleErrorException e) {
+      throw new EvalException(ruleContext.getRule().getLocation(), e);
+    }
+  }
+
+  protected static LinkingInfo link(
+      CppSemantics cppSemantics,
+      SkylarkRuleContext skylarkRuleContext,
+      Object skylarkFeatureConfiguration,
+      Object skylarkCcToolchainProvider,
+      CcCompilationOutputs ccCompilationOutputs,
+      Object skylarkLinkopts,
+      boolean shouldCreateStaticLibraries,
+      Object dynamicLibrary,
+      SkylarkList<CcLinkingInfo> skylarkCcLinkingInfos,
+      boolean neverLink)
+      throws InterruptedException, EvalException {
+    CcCommon.checkRuleWhitelisted(skylarkRuleContext);
+    RuleContext ruleContext = skylarkRuleContext.getRuleContext();
+    CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
+    if (ccToolchainProvider == null) {
+      ccToolchainProvider = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    }
+    FeatureConfiguration featureConfiguration =
+        convertFromNoneable(skylarkFeatureConfiguration, null);
+    if (featureConfiguration == null) {
+      featureConfiguration =
+          CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchainProvider);
+    }
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    NestedSet<String> linkopts =
+        convertSkylarkListOrNestedSetToNestedSet(skylarkLinkopts, String.class);
+    CcLinkingHelper helper =
+        new CcLinkingHelper(
+                ruleContext,
+                cppSemantics,
+                featureConfiguration,
+                ccToolchainProvider,
+                fdoSupport,
+                ruleContext.getConfiguration())
+            .addLinkopts(linkopts)
+            .setShouldCreateStaticLibraries(shouldCreateStaticLibraries)
+            .setDynamicLibrary(convertFromNoneable(dynamicLibrary, null))
+            .addCcLinkingInfos(skylarkCcLinkingInfos)
+            .setNeverLink(neverLink);
+    try {
+      return helper.link(ccCompilationOutputs, CcCompilationContext.EMPTY);
+    } catch (RuleErrorException e) {
+      throw new EvalException(ruleContext.getRule().getLocation(), e);
+    }
+  }
+
+  /**
+   * TODO(plf): This method exists only temporarily. Once the existing C++ rules have been migrated,
+   * they should pass sources and headers separately.
+   */
+  private static Pair<List<Artifact>, List<Artifact>> separateSourcesFromHeaders(
+      Iterable<Artifact> artifacts) {
+    List<Artifact> headers = new ArrayList<>();
+    List<Artifact> sources = new ArrayList<>();
+    for (Artifact artifact : artifacts) {
+      if (CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
+        headers.add(artifact);
+      } else {
+        sources.add(artifact);
+      }
+    }
+    return Pair.of(headers, sources);
+  }
+
+  /** Converts an object that can be the either SkylarkNestedSet or None into NestedSet. */
+  @SuppressWarnings("unchecked")
+  protected Object skylarkListToSkylarkNestedSet(Object o) throws EvalException {
+    if (o instanceof SkylarkList) {
+      SkylarkList<String> list = (SkylarkList<String>) o;
+      SkylarkNestedSet.Builder builder =
+          SkylarkNestedSet.builder(Order.STABLE_ORDER, Location.BUILTIN);
+      for (Object entry : list) {
+        builder.addDirect(entry);
+      }
+      return builder.build();
+    }
+    return o;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> List<T> convertSkylarkListOrNestedSetToList(Object o, Class<T> type) {
+    return o instanceof SkylarkNestedSet
+        ? ((SkylarkNestedSet) o).getSet(type).toList()
+        : ((SkylarkList) o).getImmutableList();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> NestedSet<T> convertSkylarkListOrNestedSetToNestedSet(
+      Object o, Class<T> type) {
+    return o instanceof SkylarkNestedSet
+        ? ((SkylarkNestedSet) o).getSet(type)
+        : NestedSetBuilder.wrap(Order.COMPILE_ORDER, (SkylarkList<T>) o);
   }
 }
