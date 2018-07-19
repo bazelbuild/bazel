@@ -17,13 +17,19 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -31,9 +37,14 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
 /** Fake implementation of {@link CcModuleApi}. */
 public class FakeCcModule
-    implements CcModuleApi<
+    implements BazelCcModuleApi<
         CcToolchainProviderApi,
         FeatureConfigurationApi,
+        CompilationInfoApi,
+        CcCompilationInfoApi,
+        CcCompilationOutputsApi,
+        LinkingInfoApi,
+        CcLinkingInfoApi,
         CcToolchainVariablesApi,
         LibraryToLinkApi,
         CcLinkParamsApi,
@@ -124,6 +135,32 @@ public class FakeCcModule
   @Override
   public CcSkylarkInfoApi createCcSkylarkInfo(Object skylarkRuleContextObject)
       throws EvalException {
+    return null;
+  }
+
+  @Override
+  public CompilationInfoApi compile(
+      SkylarkRuleContext skylarkRuleContext,
+      FeatureConfigurationApi skylarkFeatureConfiguration,
+      CcToolchainProviderApi skylarkCcToolchainProvider,
+      SkylarkList<Artifact> sources,
+      SkylarkList<Artifact> headers,
+      Object skylarkIncludes,
+      Object skylarkCopts,
+      SkylarkList<CcCompilationInfoApi> ccCompilationInfos) {
+    return null;
+  }
+
+  @Override
+  public LinkingInfoApi link(
+      SkylarkRuleContext skylarkRuleContext,
+      FeatureConfigurationApi skylarkFeatureConfiguration,
+      CcToolchainProviderApi skylarkCcToolchainProvider,
+      CcCompilationOutputsApi ccCompilationOutputs,
+      Object skylarkLinkopts,
+      Object dynamicLibrary,
+      SkylarkList<CcLinkingInfoApi> skylarkCcLinkingInfos,
+      boolean neverLink) {
     return null;
   }
 }

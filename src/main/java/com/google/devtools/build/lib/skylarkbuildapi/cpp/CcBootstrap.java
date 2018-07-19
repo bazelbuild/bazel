@@ -22,9 +22,34 @@ import com.google.devtools.build.lib.skylarkbuildapi.Bootstrap;
  */
 public class CcBootstrap implements Bootstrap {
 
-  private final CcModuleApi ccModule;
+  private final BazelCcModuleApi<
+          ? extends CcToolchainProviderApi,
+          ? extends FeatureConfigurationApi,
+          ? extends CompilationInfoApi,
+          ? extends CcCompilationInfoApi,
+          ? extends CcCompilationOutputsApi,
+          ? extends LinkingInfoApi,
+          ? extends CcLinkingInfoApi,
+          ? extends CcToolchainVariablesApi,
+          ? extends LibraryToLinkApi,
+          ? extends CcLinkParamsApi,
+          ? extends CcSkylarkInfoApi>
+      ccModule;
 
-  public CcBootstrap(CcModuleApi ccModule) {
+  public CcBootstrap(
+      BazelCcModuleApi<
+              ? extends CcToolchainProviderApi,
+              ? extends FeatureConfigurationApi,
+              ? extends CompilationInfoApi,
+              ? extends CcCompilationInfoApi,
+              ? extends CcCompilationOutputsApi,
+              ? extends LinkingInfoApi,
+              ? extends CcLinkingInfoApi,
+              ? extends CcToolchainVariablesApi,
+              ? extends LibraryToLinkApi,
+              ? extends CcLinkParamsApi,
+              ? extends CcSkylarkInfoApi>
+          ccModule) {
     this.ccModule = ccModule;
   }
 

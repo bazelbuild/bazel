@@ -14,7 +14,10 @@ java_test(
     name = "cpp-rules-tests",
     srcs = glob(
         ["*.java"],
-        exclude = ["CcImportBaseConfiguredTargetTest.java"],
+        exclude = [
+            "CcImportBaseConfiguredTargetTest.java",
+            "SkylarkCcCommonTestHelper.java",
+        ],
     ) + ["proto/CcProtoLibraryTest.java"],
     resources = [
         "//tools/build_defs/cc:action_names.bzl",
@@ -25,6 +28,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":CcImportBaseConfiguredTargetTest",
+        ":SkylarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -43,6 +47,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -99,6 +104,15 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "SkylarkCcCommonTestHelper",
+    srcs = ["SkylarkCcCommonTestHelper.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 
