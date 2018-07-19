@@ -450,7 +450,11 @@ final class ProtobufSupport {
             .addInput(protoInputsFile)
             .addInputs(inputProtos)
             .addOutputs(getGeneratedProtoOutputs(outputProtos, HEADER_SUFFIX))
-            .addOutputs(getProtoSourceFilesForCompilation(outputProtos))
+            // We register all proto generated sources as output, even though we only compile a
+            // subset of them with getProtoSourceFilesForCompilation(), as we want blaze to track
+            // all generated files in the action, and avoid "Permission Denied" errors when the
+            // local file output cache is populated from a previous build.
+            .addOutputs(getGeneratedProtoOutputs(outputProtos, SOURCE_SUFFIX))
             .setExecutable(attributes.getProtoCompiler().getExecPath())
             .addCommandLine(getGenerationCommandLine(protoInputsFile))
             .build(ruleContext));
