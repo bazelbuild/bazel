@@ -962,7 +962,7 @@ toolchain {
         # Make C++ compilation deterministic. Use linkstamping instead of these
         # compiler symbols.
         # TODO: detect clang on Windows and use "-Wno-builtin-macro-redefined"
-        flag: "/wd4177" # Trying to define or undefine a predefined macro
+        flag: "/wd4117" # Trying to define or undefine a predefined macro
         flag: "-D__DATE__=\"redacted\""
         flag: "-D__TIMESTAMP__=\"redacted\""
         flag: "-D__TIME__=\"redacted\""
