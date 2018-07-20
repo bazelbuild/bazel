@@ -773,15 +773,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
-      name = "experimental_expand_linkopts_labels",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, entries in linkopts that are not preceded by - or $ will be expanded.")
-  public boolean expandLinkoptsLabels;
-
-  @Option(
       name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

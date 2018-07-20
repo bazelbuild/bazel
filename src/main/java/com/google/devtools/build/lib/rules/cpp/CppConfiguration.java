@@ -974,10 +974,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useInterfaceSharedObjects;
   }
 
-  public boolean getExpandLinkoptsLabels() {
-    return cppOptions.expandLinkoptsLabels;
-  }
-
   public boolean getEnableCcSkylarkApi() {
     return cppOptions.enableCcSkylarkApi;
   }

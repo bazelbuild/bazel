@@ -1489,24 +1489,4 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--experimental_stl=//a:stl");
     getConfiguredTarget("//a:a");
   }
-
-  @Test
-  public void testNoExpandLinkoptsLabels() throws Exception {
-    useConfiguration("--noexperimental_expand_linkopts_labels");
-    scratchConfiguredTarget(
-        "b", "b", "cc_library(", "    name = 'b',", "    linkopts=['//foo/bar'])");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testExpandLinkoptsLabels() throws Exception {
-    useConfiguration("--experimental_expand_linkopts_labels");
-    checkError(
-        "b",
-        "b",
-        "could not resolve label",
-        "cc_library(",
-        "    name = 'b',",
-        "    linkopts=['//foo/bar'])");
-  }
 }

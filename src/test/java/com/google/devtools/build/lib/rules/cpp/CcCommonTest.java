@@ -646,27 +646,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMissingLabelInLinkopts() throws Exception {
-    scratch.file(
-        "linklow/BUILD",
-        "genrule(name = 'linklow_linker_script',",
-        "  srcs = [ 'default_linker_script' ],",
-        "  tools = [ 'default_linker_script' ],",
-        "  outs = [ 'linklow.lds' ],",
-        "  cmd = 'cat  $< > $@')");
-    checkError(
-        "ocean/scoring2",
-        "ms-ascorer",
-        // error:
-        "could not resolve label '//linklow:linklow_linker_script'",
-        "cc_binary(name = 'ms-ascorer',",
-        "    srcs = [ ],",
-        "    deps = [ ':ascorer-servlet'],",
-        "    linkopts = [ '-static', '-Xlinker', '-script', '//linklow:linklow_linker_script'])",
-        "cc_library(name = 'ascorer-servlet')");
-  }
-
-  @Test
   public void testCcLibraryWithDashStatic() throws Exception {
     checkWarning(
         "badlib",
