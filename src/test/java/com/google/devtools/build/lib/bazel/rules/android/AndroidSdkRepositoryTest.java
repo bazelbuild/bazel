@@ -210,7 +210,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
 
     ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk");
     assertThat(androidSdk).isNotNull();
-    assertThat(androidSdk.getProvider(AndroidSdkProvider.class).getBuildToolsVersion())
+    assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getBuildToolsVersion())
         .isEqualTo("26.0.2");
   }
 
@@ -230,7 +230,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
 
     ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk");
     assertThat(androidSdk).isNotNull();
-    assertThat(androidSdk.getProvider(AndroidSdkProvider.class).getAndroidJar().getExecPathString())
+    assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar().getExecPathString())
         .isEqualTo("external/androidsdk/platforms/android-25/android.jar");
   }
 
@@ -253,8 +253,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     for (int apiLevel : apiLevels) {
       ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk-" + apiLevel);
       assertThat(androidSdk).isNotNull();
-      assertThat(
-          androidSdk.getProvider(AndroidSdkProvider.class).getAndroidJar().getExecPathString())
+      assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar().getExecPathString())
           .isEqualTo(
               String.format("external/androidsdk/platforms/android-%d/android.jar", apiLevel));
     }
