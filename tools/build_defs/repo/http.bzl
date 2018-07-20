@@ -55,25 +55,30 @@ def _http_archive_impl(ctx):
     patch(ctx)
     workspace_and_buildfile(ctx)
 
-_HTTP_FILE_BUILD = """
-package(default_visibility = ["//visibility:public"])
+_HTTP_FILE_FORBIDDEN_NAMES = ["WORKSPACE", "BUILD", "BUILD.bazel"]
 
+_HTTP_FILE_BUILD_TPL = """
+package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "file",
-    srcs = ["downloaded"],
+    srcs = ["%{DOWNLOAD_FILE_NAME}"],
 )
 """
 
 def _http_file_impl(ctx):
     """Implementation of the http_file rule."""
+    if ctx.attr.downloaded_file_name in _HTTP_FILE_FORBIDDEN_NAMES:
+      ctx.fail("%s cannot be used as downloaded_file_name in http_file" % ctx.attr.downloaded_file_name)
+    downloaded_file_name = ctx.attr.downloaded_file_name or "downloaded"
     ctx.download(
         ctx.attr.urls,
-        "file/downloaded",
+        "file/" + downloaded_file_name,
         ctx.attr.sha256,
         ctx.attr.executable,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
+    substitutions = {"%{DOWNLOAD_FILE_NAME}": downloaded_file_name}
+    ctx.template("file/BUILD", _HTTP_FILE_BUILD_TPL, substitutions)
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -242,6 +247,7 @@ http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = {
         "executable": attr.bool(),
+        "downloaded_file_name": attr.string(),
         "sha256": attr.string(),
         "urls": attr.string_list(mandatory = True),
     },
@@ -268,6 +274,7 @@ Args:
   name: A unique name for this rule.
   executable: If the downloaded file should be made executable. Defaults to
     False.
+  downloaded_file_name: Name assigned to the file downloaded.
   sha256: The expected SHA-256 of the file downloaded.
 
     This must match the SHA-256 of the file downloaded. _It is a security risk
