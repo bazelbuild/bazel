@@ -395,15 +395,8 @@ public class CcModule
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
-    if (ccToolchainProvider == null) {
-      ccToolchainProvider = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    }
     FeatureConfiguration featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    if (featureConfiguration == null) {
-      featureConfiguration =
-          CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchainProvider);
-    }
     Pair<List<Artifact>, List<Artifact>> separatedHeadersAndSources =
         separateSourcesFromHeaders(sources);
     FdoSupportProvider fdoSupport =
@@ -483,15 +476,8 @@ public class CcModule
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
-    if (ccToolchainProvider == null) {
-      ccToolchainProvider = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    }
     FeatureConfiguration featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    if (featureConfiguration == null) {
-      featureConfiguration =
-          CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchainProvider);
-    }
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     NestedSet<String> linkopts =
