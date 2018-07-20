@@ -78,6 +78,16 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
+        /* <!-- #BLAZE_RULE(java_binary).ATTRIBUTE(deploy_env) -->
+        A list of other <code>java_binary</code> targets which represent the deployment
+        environment for this binary.
+        Set this attribute when building a plugin which will be loaded by another
+        <code>java_binary</code>.<br/> Setting this attribute excludes all dependencies from
+        the runtime classpath (and the deploy jar) of this binary that are shared between this
+        binary and the targets specified in <code>deploy_env</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("deploy_env", LABEL_LIST).allowedRuleClasses("java_binary")
+            .allowedFileTypes(FileTypeSet.NO_FILE))
         .override(attr("$is_executable", BOOLEAN).nonconfigurable("automatic").value(
             new Attribute.ComputedDefault() {
               @Override
