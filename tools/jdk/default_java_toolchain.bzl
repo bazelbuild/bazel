@@ -19,6 +19,8 @@ JDK8_JVM_OPTS = [
 ]
 
 JDK9_JVM_OPTS = [
+    "-XX:+UseParallelOldGC",
+    "-XX:-CompactStrings",
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -36,6 +38,7 @@ JDK9_JVM_OPTS = [
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
 DEFAULT_JAVACOPTS = [
