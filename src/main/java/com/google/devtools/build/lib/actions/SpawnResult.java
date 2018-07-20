@@ -192,7 +192,8 @@ public interface SpawnResult {
 
   /**
    * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
-   * from this method if so.
+   * from this method if so. This behavior is optional, and can be triggered with
+   * {@link ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
    *
    * @param output
    */
