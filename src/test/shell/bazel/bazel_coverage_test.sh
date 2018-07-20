@@ -22,7 +22,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_cc_test_coverage() {
-  if [[ ! -x /usr/bin/lcov ]]; then
+  LCOV=$(which lcov)
+  if [[ ! -x $LCOV ]]; then
     echo "lcov not installed. Skipping test."
     return
   fi
@@ -93,7 +94,8 @@ EOF
 }
 
 function test_failed_coverage() {
-  if [[ ! -x /usr/bin/lcov ]]; then
+  LCOV=$(which lcov)
+  if [[ ! -x $LCOV ]]; then
     echo "lcov not installed. Skipping test."
     return
   fi

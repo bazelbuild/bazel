@@ -140,7 +140,7 @@ elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
   #                         the current directory
   # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
   # -o "${COVERAGE_OUTPUT_FILE}" - Output file
-  /usr/bin/lcov -c --no-external --ignore-errors graph -q \
+  lcov -c --no-external --ignore-errors graph -q \
       --gcov-tool "${GCOV}" -b /proc/self/cwd \
       -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
 
