@@ -25,15 +25,6 @@ Look for `bazel-<version>-windows-x86_64.exe`, e.g. `bazel-0.13.0-windows-x86_64
 that's on your `%PATH%` or add its directory to your `%PATH%`. This way you can run Bazel by
 typing `bazel` in any directory, without typing out the full path.
 
-**Note:** Bazel includes an embedded JDK so you don't need to install one separately. If you want
-to download Bazel without an embedded JDK, look for `bazel-<version>-without-jdk-windows-x86_64.exe`
-on the release page. To use it, you must install JDK 8 separately (older or newer versions are not
-supported), and set the `JAVA_HOME` environment variable, e.g.:
-
-    set JAVA_HOME=c:\Program Files\Java\jdk1.8.0_171
-
-Pay attention not to use quotes (") around the path (like you would on Unixes).
-
 ### Other ways to get Bazel
 
 You can also get Bazel by:

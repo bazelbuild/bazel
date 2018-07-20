@@ -66,11 +66,6 @@ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` file.
 
-**Note:** Bazel includes an embedded JDK, which can be used even if a JDK is already
-installed. `bazel-<version>-without-jdk-installer-linux-x86_64.sh` is a version of the installer
-without an embedded JDK. Only use this installer if you already have JDK 8 installed. Later JDK
-versions are not supported.
-
 ## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository
 
 ### Step 1: Install the JDK
