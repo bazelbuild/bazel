@@ -256,33 +256,29 @@ public enum CompileBuildVariables {
       // Module inputs will be set later when the action is executed.
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
     }
-    if (featureConfiguration.isEnabled(CppRuleClasses.INCLUDE_PATHS)) {
-      buildVariables.addStringSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
-      buildVariables.addStringSequenceVariable(
-          QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
-      buildVariables.addStringSequenceVariable(
-          SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
-    }
+    buildVariables.addStringSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
+    buildVariables.addStringSequenceVariable(
+        QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
+    buildVariables.addStringSequenceVariable(
+        SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
 
     if (!includes.isEmpty()) {
       buildVariables.addStringSequenceVariable(INCLUDES.getVariableName(), includes);
     }
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESSOR_DEFINES)) {
-      Iterable<String> allDefines;
-      if (fdoStamp != null) {
-        // Stamp FDO builds with FDO subtype string
-        allDefines =
-            ImmutableList.<String>builder()
-                .addAll(defines)
-                .add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\"")
-                .build();
-      } else {
-        allDefines = defines;
-      }
-
-      buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
+    Iterable<String> allDefines;
+    if (fdoStamp != null) {
+      // Stamp FDO builds with FDO subtype string
+      allDefines =
+          ImmutableList.<String>builder()
+              .addAll(defines)
+              .add(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\"")
+              .build();
+    } else {
+      allDefines = defines;
     }
+
+    buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
 
     if (usePic) {
       if (!featureConfiguration.isEnabled(CppRuleClasses.PIC)) {
