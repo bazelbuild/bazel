@@ -505,7 +505,11 @@ public class PackageFunction implements SkyFunction {
     try {
       pkgBuilder.buildPartial();
     } catch (NoSuchPackageException e) {
-      throw new PackageFunctionException(e, Transience.TRANSIENT);
+      throw new PackageFunctionException(
+          e,
+          e.getCause() instanceof SkyframeGlobbingIOException
+              ? Transience.PERSISTENT
+              : Transience.TRANSIENT);
     }
     try {
       // Since the Skyframe dependencies we request below in
@@ -1114,7 +1118,7 @@ public class PackageFunction implements SkyFunction {
                   ValueOrException3<
                       IOException, BuildFileNotFoundException, FileSymlinkCycleException>>
               globValueMap)
-          throws IOException {
+          throws SkyframeGlobbingIOException {
         ValueOrException3<IOException, BuildFileNotFoundException, FileSymlinkCycleException>
             valueOrException =
                 Preconditions.checkNotNull(globValueMap.get(globKey), "%s should not be missing",
@@ -1124,11 +1128,18 @@ public class PackageFunction implements SkyFunction {
               "%s should not be missing", globKey).getMatches();
         } catch (BuildFileNotFoundException e) {
           // Legacy package loading is only able to handle an IOException, so a rethrow here is the
-          // best we can do. But after legacy package loading, PackageFunction will go through all
-          // the skyframe deps and properly handle InconsistentFilesystemExceptions.
-          throw new IOException(e.getMessage());
+          // best we can do.
+          throw new SkyframeGlobbingIOException(e);
+        } catch (IOException e) {
+          throw new SkyframeGlobbingIOException(e);
         }
       }
+    }
+  }
+
+  private static class SkyframeGlobbingIOException extends IOException {
+    private SkyframeGlobbingIOException(Exception cause) {
+      super(cause);
     }
   }
 
