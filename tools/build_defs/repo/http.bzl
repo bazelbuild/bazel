@@ -57,11 +57,11 @@ def _http_archive_impl(ctx):
 
 _HTTP_FILE_FORBIDDEN_NAMES = ["WORKSPACE", "BUILD", "BUILD.bazel"]
 
-_HTTP_FILE_BUILD_TPL = """
+_HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "file",
-    srcs = ["%{DOWNLOAD_FILE_NAME}"],
+    srcs = ["%s"],
 )
 """
 
@@ -77,8 +77,7 @@ def _http_file_impl(ctx):
         ctx.attr.executable,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    substitutions = {"%{DOWNLOAD_FILE_NAME}": downloaded_file_name}
-    ctx.template("file/BUILD", _HTTP_FILE_BUILD_TPL, substitutions)
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD % downloaded_file_name)
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
