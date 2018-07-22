@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -57,6 +58,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.protobuf.Any;
 import io.grpc.Status;
+import io.grpc.Status.Code;
 import io.grpc.StatusException;
 import java.time.Duration;
 import java.util.Collection;
@@ -84,6 +86,9 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   static final String UPLOAD_FAILED_MESSAGE = "Build Event Protocol upload failed: %s";
   static final String UPLOAD_SUCCEEDED_MESSAGE =
       "Build Event Protocol upload finished successfully.";
+
+  static final Set<Code> CODES_NOT_TO_RETRY =
+      Sets.newHashSet(Code.INVALID_ARGUMENT, Code.FAILED_PRECONDITION);
 
   private static final Logger logger = Logger.getLogger(BuildEventServiceTransport.class.getName());
 
@@ -597,11 +602,13 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         c.call();
         lastRetryError = null;
         return;
-      } catch (InterruptedException e) {
-        throw e;
       } catch (LocalFileUploadException e) {
         throw (Exception) e.getCause();
       } catch (StatusException e) {
+        if (CODES_NOT_TO_RETRY.contains(e.getStatus().getCode())) {
+          throw e;
+        }
+
         if (acksReceivedSinceLastRetry.get() > 0) {
           logger.fine(
               String.format(
