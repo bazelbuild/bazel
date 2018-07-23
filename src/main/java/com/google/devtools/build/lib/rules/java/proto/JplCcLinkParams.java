@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,24 +43,27 @@ public class JplCcLinkParams {
    */
   public static JavaCcLinkParamsProvider createCcLinkParamsStore(
       final RuleContext ruleContext, final ImmutableList<TransitiveInfoCollection> protoRuntimes) {
-    List<AbstractCcLinkParamsStore> stores = new ArrayList<>();
+    List<JavaCcLinkParamsProvider> providers = new ArrayList<>();
     for (TransitiveInfoCollection t :
         ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET)) {
-      stores.add(t.getProvider(JavaProtoLibraryAspectProvider.class)
-          .getTransitiveInfoProviderMap()
-          .getProvider(JavaCcLinkParamsProvider.class)
-          .getLinkParams());
+      providers.add(
+          t.getProvider(JavaProtoLibraryAspectProvider.class)
+              .getTransitiveInfoProviderMap()
+              .getProvider(JavaCcLinkParamsProvider.class));
     }
-    return new JavaCcLinkParamsProvider(
-        new AbstractCcLinkParamsStore() {
-          @Override
-          protected void collect(
-              CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-            for (AbstractCcLinkParamsStore store : stores) {
-              builder.add(store);
-            }
-            builder.addTransitiveTargets(protoRuntimes);
-          }
-        });
+    CcLinkingInfo.Builder builder = CcLinkingInfo.Builder.create();
+    builder.setCcLinkParamsStore(
+        new CcLinkParamsStore(
+            new AbstractCcLinkParamsStore() {
+              @Override
+              protected void collect(
+                  CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+                for (JavaCcLinkParamsProvider provider : providers) {
+                  builder.add(provider.getCcLinkingInfo().getCcLinkParamsStore());
+                }
+                builder.addTransitiveTargets(protoRuntimes);
+              }
+            }));
+    return new JavaCcLinkParamsProvider(builder.build());
   }
 }

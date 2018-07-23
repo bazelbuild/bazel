@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsStoreApi;
 
 /** An implementation class for the AbstractCcLinkParamsStore. */
 @AutoCodec
+@Deprecated
+// TODO(plf): Remove class, use CcLinkParams instances individually.
 public final class CcLinkParamsStore extends AbstractCcLinkParamsStore
     implements CcLinkParamsStoreApi {
   public static final ObjectCodec<com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore> CODEC =
