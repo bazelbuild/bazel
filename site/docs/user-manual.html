@@ -1774,22 +1774,18 @@ The default is <code>armeabi-v7a</code>.
 
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>label</var>)</code></h4>
 <p>
-  This option sets the <i>label</i> of the base Java installation to
-  use for running JavaBuilder, SingleJar, for <i>bazel run</i> and <i>bazel
-  test</i>, and for Java binaries built by <code>java_binary</code> and <code>java_test</code>
-  rules.
-  The various  <a href='be/make-variables.html'>"Make" variables</a> for
-  Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
-  <code>JAR</code>) are derived from this option.
+  This option sets the <i>label</i> of the base Java installation to use for <i>bazel run</i>,
+  <i>bazel test</i>, and for Java binaries built by <code>java_binary</code> and
+  <code>java_test</code> rules. The <code>JAVABASE</code> and <code>JAVA</code>
+  <a href='be/make-variables.html'>"Make" variables</a> are derived from this option.
 </p>
 
 <h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
 <p>
-  If not specified, bazel uses the value of <code class='flag'>--javabase</code>
-  in the host configuration, i.e., for Java-based tools that run during the build.
-  The main purpose of this flag is to enable cross-compilation.
+  This option (sometimes referred to as the 'right-hand side' <code>host_javabase</code>)
+  sets the <i>label</i> of the base Java installation to use in the host configuration,
+  for example for host build tools including JavaBuilder and Singlejar.
 </p>
-
 <p>
   This does not select the Java compiler that is used to compile Java
   source files. The compiler can be selected by settings the
@@ -1798,7 +1794,8 @@ The default is <code>armeabi-v7a</code>.
 </p>
 <p>
   This option should not be confused with the startup option
-  <a href='#startup_flag--host_javabase'>--host_javabase</a>.
+  <a href='#startup_flag--host_javabase'>--host_javabase</a>
+  (sometimes known as the 'left-hand side'  <code>host_javabase</code>).
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>
