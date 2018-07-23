@@ -1836,7 +1836,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   /**
    * List of Android SDKs that contain runtimes that do not support the native multidexing
    * introduced in Android L. If someone tries to build an android_binary that has multidex=native
-   * set with an old SDK, we will exit with an error to alert the developer that his application
+   * set with an old SDK, we will exit with an error to alert the developer that their application
    * might not run on devices that the used SDK still supports.
    */
   private static final ImmutableSet<String> RUNTIMES_THAT_DONT_SUPPORT_NATIVE_MULTIDEXING =

@@ -1425,7 +1425,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(midKey).addDependency(errorKey).addDependency(cycleKey)
         .setComputedValue(CONCATENATE);
 
-    // We need to ensure that cycle value has finished his work, and we have recorded dependencies
+    // We need to ensure that cycle value has finished its work, and we have recorded dependencies
     CountDownLatch cycleFinish = new CountDownLatch(1);
     tester.getOrCreate(cycleKey).setBuilder(new ChainedFunction(null,
         null, cycleFinish, false, new StringValue(""), ImmutableSet.<SkyKey>of(midKey)));

@@ -111,7 +111,7 @@ public class ExperimentalEventHandler implements EventHandler {
    * steps.
    * <ul>
    *   <li>We limit progress updates to at most one per second; this is the granularity at which
-   *       times in he progress bar are shown. So the appearance won't look too bad. Hence we start
+   *       times in the progress bar are shown. So the appearance won't look too bad. Hence we start
    *       that measure relatively early.
    *   <li>We only show the short version of the progress bar, even if curses are enabled.
    *   <li>We reduce the update frequency of the progress bar to at most one update per 5s. This
