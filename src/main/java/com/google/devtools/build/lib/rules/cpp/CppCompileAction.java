@@ -389,11 +389,66 @@ public class CppCompileAction extends AbstractAction
         .build();
   }
 
+  /**
+   * Filters discovered headers according to declared rule inputs. This fundamentally mirrors the
+   * behavior of {@link #validateInclusions} and just removes inputs that would be considered
+   * invalid from {@code headers}. That way, the compiler does not get access to them (assuming a
+   * sand-boxed environment) and can diagnose the missing headers.
+   */
+  private Iterable<Artifact> filterDiscoveredHeaders(
+      ActionExecutionContext actionExecutionContext, Iterable<Artifact> headers) {
+    // Get the inputs we know about. Note that this (compared to validateInclusions) does not
+    // take mandatoryInputs into account. The reason is that these by definition get added to the
+    // action input and thus are available anyway. Not having to look at them here saves us from
+    // requiring and ArtifactExpander, which actionExecutionContext doesn't have at this point.
+    // This only works as long as mandatory inputs do not contain headers that are built into a
+    // module.
+    Set<Artifact> allowedIncludes =
+        new HashSet<>(ccCompilationContext.getDeclaredIncludeSrcs().toCollection());
+    allowedIncludes.addAll(additionalPrunableHeaders.toCollection());
+
+    // Whitelisted directories. Lazily initialize, so that compiles that properly declare all
+    // their files profit.
+    Set<PathFragment> declaredIncludeDirs = null;
+    Iterable<PathFragment> ignoreDirs = null;
+
+    // Create a filtered list of headers.
+    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
+    for (Artifact header : headers) {
+      if (allowedIncludes.contains(header)) {
+        result.add(header);
+        continue;
+      }
+      if (ignoreDirs == null) {
+        ignoreDirs =
+            cppConfiguration.isStrictSystemIncludes()
+                ? getBuiltInIncludeDirectories()
+                : getValidationIgnoredDirs();
+      }
+      if (FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)) {
+        result.add(header);
+        continue;
+      }
+      if (declaredIncludeDirs == null) {
+        declaredIncludeDirs =
+            new HashSet<>(ccCompilationContext.getDeclaredIncludeWarnDirs().toCollection());
+        declaredIncludeDirs.addAll(ccCompilationContext.getDeclaredIncludeDirs().toCollection());
+      }
+      if (isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
+        result.add(header);
+      }
+    }
+    return result.build();
+  }
+
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     additionalInputs = findUsedHeaders(actionExecutionContext);
+    if (!shouldScanDotdFiles()) {
+      additionalInputs = filterDiscoveredHeaders(actionExecutionContext, additionalInputs);
+    }
     if (!shouldPruneModules) {
       return additionalInputs;
     }
@@ -695,7 +750,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     Iterable<PathFragment> ignoreDirs =
-    cppConfiguration.isStrictSystemIncludes()
+        cppConfiguration.isStrictSystemIncludes()
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
 
@@ -704,15 +759,12 @@ public class CppCompileAction extends AbstractAction
     Set<PathFragment> declaredIncludeDirs = null;
     Set<PathFragment> warnIncludeDirs = null;
     for (Artifact input : inputsForValidation) {
-      // Module input validation is already done by the dotd-file discovery.
+      // Only declared modules are added to an action and so they are always valid.
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
         continue;
       }
-      // The transitive compilation prerequisites contain all declaredIncludeSrcs() and thus we
-      // don't need to check those separately.
-      if (ccCompilationContext.getTransitiveCompilationPrerequisites().contains(input)
-          || allowedIncludes.contains(input)) {
-        continue; // ignore our fixed source in mandatoryInput: we just want includes
+      if (allowedIncludes.contains(input)) {
+        continue;
       }
       // Ignore headers from built-in include directories.
       if (FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs)) {
@@ -970,17 +1022,14 @@ public class CppCompileAction extends AbstractAction
     fp.addInt(0);
     actionKeyContext.addNestedSetToFingerprint(fp, additionalPrunableHeaders);
 
-    fp.addBoolean(shouldScanDotdFiles());
-    if (shouldScanDotdFiles()) {
-      /**
-       * getArguments() above captures all changes which affect the compilation command and hence
-       * the contents of the object file. But we need to also make sure that we re-execute the
-       * action if any of the fields that affect whether {@link #validateInclusions} will report an
-       * error or warning have changed, otherwise we might miss some errors.
-       */
-      fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
-      fp.addPaths(ccCompilationContext.getDeclaredIncludeWarnDirs());
-    }
+    /**
+     * getArguments() above captures all changes which affect the compilation command and hence the
+     * contents of the object file. But we need to also make sure that we re-execute the action if
+     * any of the fields that affect whether {@link #validateInclusions} will report an error or
+     * warning have changed, otherwise we might miss some errors.
+     */
+    fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
+    fp.addPaths(ccCompilationContext.getDeclaredIncludeWarnDirs());
   }
 
   @Override
