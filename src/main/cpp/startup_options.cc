@@ -209,18 +209,21 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nodeep_execroot")) {
     deep_execroot = false;
     option_sources["deep_execroot"] = rcfile;
+  } else if (GetNullaryOption(arg, "--block_for_lock")) {
+    block_for_lock = true;
+    option_sources["block_for_lock"] = rcfile;
   } else if (GetNullaryOption(arg, "--noblock_for_lock")) {
     block_for_lock = false;
     option_sources["block_for_lock"] = rcfile;
   } else if (GetNullaryOption(arg, "--host_jvm_debug")) {
     host_jvm_debug = true;
     option_sources["host_jvm_debug"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--host_jvm_profile")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
+             NULL) {
     host_jvm_profile = value;
     option_sources["host_jvm_profile"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--host_javabase")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--host_javabase")) !=
+             NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
     host_javabase = blaze::AbsolutePathFromFlag(value);

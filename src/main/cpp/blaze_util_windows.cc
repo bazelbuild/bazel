@@ -1155,14 +1155,15 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
     if (GetLastError() == ERROR_SHARING_VIOLATION) {
       // Someone else has the lock.
+      BAZEL_LOG(USER) << "Another command holds the client lock";
       if (!block) {
-        BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-            << "Another command is running. Exiting immediately.";
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the lock is held and --noblock_for_lock was "
+               "given.";
       }
       if (first_lock_attempt) {
         first_lock_attempt = false;
-        BAZEL_LOG(USER)
-            << "Another command is running. Waiting for it to complete...";
+        BAZEL_LOG(USER) << "Waiting for it to complete...";
         fflush(stderr);
       }
       Sleep(/* dwMilliseconds */ 200);

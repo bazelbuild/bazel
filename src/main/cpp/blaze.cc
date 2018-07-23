@@ -1515,6 +1515,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
       new GrpcBlazeServer(globals->options->connect_timeout_secs));
 
   globals->command_wait_time = blaze_server->AcquireLock();
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
+                  << globals->command_wait_time << " milliseconds";
 
   WarnFilesystemType(globals->options->output_base);
 
@@ -1744,12 +1746,37 @@ void GrpcBlazeServer::KillRunningServer() {
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
+  BAZEL_LOG(INFO) << "Shutting running server with request ["
+                  << request.ShortDebugString() << "]";
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
 
+  // TODO(b/111179585): Swallowing these responses loses potential messages from
+  // the server, which may be useful in understanding why a shutdown failed.
+  // However, we don't want to spam the user in case the shutdown works
+  // perfectly fine, so we discard the information. For --noblock_for_lock, this
+  // means that we don't output the PID of the competing client, which isn't
+  // great. We could either store the stderr_output returned by the server and
+  // output it in the case of a failed shutdown, or we could add a
+  // special-cased field in RunResponse for this purpose.
   while (reader->Read(&response)) {
   }
 
+  // Check the final message from the server to see if it exited because another
+  // command holds the client lock.
+  if (response.finished()) {
+    if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
+      assert(!globals->options->block_for_lock);
+      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+          << "Exiting because the lock is held and --noblock_for_lock was "
+             "given.";
+    }
+  }
+
+  // If for any reason the shutdown request failed to initiate a termination,
+  // this is a bug. Yes, this means the server won't be forced to shut down,
+  // which might be the preferred behavior, but it will help identify the bug.
+  assert(response.termination_expected());
   // Wait for the server process to terminate (if we know the server PID).
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
@@ -1812,6 +1839,8 @@ unsigned int GrpcBlazeServer::Communicate() {
   // Release the server lock because the gRPC handles concurrent clients just
   // fine. Note that this may result in two "waiting for other client" messages
   // (one during server startup and one emitted by the server)
+  BAZEL_LOG(INFO)
+      << "Releasing client lock, let the server manage concurrent requests.";
   blaze::ReleaseLock(&blaze_lock_);
 
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
