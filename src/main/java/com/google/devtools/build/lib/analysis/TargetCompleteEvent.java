@@ -293,6 +293,14 @@ public final class TargetCompleteEvent
         }
       }
     }
+    if (baselineCoverageArtifacts != null) {
+      for (Artifact artifact : baselineCoverageArtifacts) {
+        builder.add(
+            new LocalFile(
+                artifact.getPath(),
+                artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
+      }
+    }
     return builder.build();
   }
 
