@@ -106,7 +106,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
             .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
       }
       env.getListener()
-          .post(new RepositoryResolvedEvent(rule, skylarkRepositoryContext.getAttr(), retValue));
+          .post(
+              new RepositoryResolvedEvent(
+                  rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue));
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
         // A dependency is missing, cleanup and returns null
