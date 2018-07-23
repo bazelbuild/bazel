@@ -139,16 +139,24 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /**
    * Values for the --hdrs_check option. Note that Bazel only supports and will default to "strict".
    */
-  public static enum HeadersCheckingMode {
+  public enum HeadersCheckingMode {
     /**
      * Legacy behavior: Silently allow any source header file in any of the directories of the
      * containing package to be included by sources in this rule and dependent rules.
      */
     LOOSE,
-    /** Warn about undeclared headers. */
-    WARN,
     /** Disallow undeclared headers. */
-    STRICT
+    STRICT;
+
+    public static HeadersCheckingMode getValue(String value) {
+      if (value.equalsIgnoreCase("loose") || value.equalsIgnoreCase("warn")) {
+        return LOOSE;
+      }
+      if (value.equalsIgnoreCase("strict")) {
+        return STRICT;
+      }
+      throw new IllegalArgumentException();
+    }
   }
 
   /**

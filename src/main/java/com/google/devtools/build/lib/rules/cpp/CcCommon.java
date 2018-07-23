@@ -583,7 +583,7 @@ public final class CcCommon {
 
   /**
    * Determines a list of loose include directories that are only allowed to be referenced when
-   * headers checking is {@link HeadersCheckingMode#LOOSE} or {@link HeadersCheckingMode#WARN}.
+   * headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
   Set<PathFragment> getLooseIncludeDirs() {
     ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();

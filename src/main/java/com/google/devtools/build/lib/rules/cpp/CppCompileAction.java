@@ -45,13 +45,11 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -89,8 +87,7 @@ public class CppCompileAction extends AbstractAction
 
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
-  private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
-  private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
+  private static final boolean VALIDATION_DEBUG_WARN = false;
 
   protected final Artifact outputFile;
   private final Artifact sourceFile;
@@ -430,9 +427,7 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
       if (declaredIncludeDirs == null) {
-        declaredIncludeDirs =
-            new HashSet<>(ccCompilationContext.getDeclaredIncludeWarnDirs().toCollection());
-        declaredIncludeDirs.addAll(ccCompilationContext.getDeclaredIncludeDirs().toCollection());
+        declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
       }
       if (isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
         result.add(header);
@@ -736,7 +731,6 @@ public class CppCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext, Iterable<Artifact> inputsForValidation)
       throws ActionExecutionException {
     IncludeProblems errors = new IncludeProblems();
-    IncludeProblems warnings = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
     for (Artifact input :
         Iterables.concat(
@@ -757,7 +751,6 @@ public class CppCompileAction extends AbstractAction
     // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
     Set<PathFragment> declaredIncludeDirs = null;
-    Set<PathFragment> warnIncludeDirs = null;
     for (Artifact input : inputsForValidation) {
       // Only declared modules are added to an action and so they are always valid.
       if (input.isFileType(CppFileTypes.CPP_MODULE)) {
@@ -774,24 +767,14 @@ public class CppCompileAction extends AbstractAction
         declaredIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeDirs());
       }
       if (!isDeclaredIn(actionExecutionContext, input, declaredIncludeDirs)) {
-        if (warnIncludeDirs == null) {
-          warnIncludeDirs = Sets.newHashSet(ccCompilationContext.getDeclaredIncludeWarnDirs());
-        }
-        // This call can never match the declared include sources (they would be matched above).
-        if (isDeclaredIn(actionExecutionContext, input, warnIncludeDirs)) {
-          warnings.add(input.getExecPath().toString());
-        } else {
-          errors.add(input.getExecPath().toString());
-        }
+        errors.add(input.getExecPath().toString());
       }
     }
     if (VALIDATION_DEBUG_WARN) {
       synchronized (System.err) {
-        if (VALIDATION_DEBUG >= 2 || errors.hasProblems() || warnings.hasProblems()) {
+        if (errors.hasProblems()) {
           if (errors.hasProblems()) {
             System.err.println("ERROR: Include(s) were not in declared srcs:");
-          } else if (warnings.hasProblems()) {
-            System.err.println("WARN: Include(s) were not in declared srcs:");
           } else {
             System.err.println("INFO: Include(s) were OK for '" + getSourceFile()
                 + "', declared srcs:");
@@ -803,25 +786,12 @@ public class CppCompileAction extends AbstractAction
           for (PathFragment f : Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeDirs())) {
             System.err.println("  '" + f + "'");
           }
-          System.err.println(" or under declared warn dirs:");
-          for (PathFragment f :
-              Sets.newTreeSet(ccCompilationContext.getDeclaredIncludeWarnDirs())) {
-            System.err.println("  '" + f + "'");
-          }
           System.err.println(" with prefixes:");
           for (PathFragment dirpath : ccCompilationContext.getQuoteIncludeDirs()) {
             System.err.println("  '" + dirpath + "'");
           }
         }
       }
-    }
-
-    if (warnings.hasProblems()) {
-      actionExecutionContext
-          .getEventHandler()
-          .handle(
-              Event.warn(getOwner().getLocation(), warnings.getMessage(this, getSourceFile()))
-                  .withTag(Label.print(getOwner().getLabel())));
     }
     errors.assertProblemFree(this, getSourceFile());
   }
@@ -976,14 +946,6 @@ public class CppCompileAction extends AbstractAction
     return ccCompilationContext.getDeclaredIncludeDirs();
   }
 
-  /**
-   * Return the directories in which to look for headers and issue a warning. (pertains to headers
-   * not specifically listed in {@code declaredIncludeSrcs}).
-   */
-  public NestedSet<PathFragment> getDeclaredIncludeWarnDirs() {
-    return ccCompilationContext.getDeclaredIncludeWarnDirs();
-  }
-
   /** Return explicitly listed header files. */
   @Override
   public NestedSet<Artifact> getDeclaredIncludeSrcs() {
@@ -1029,7 +991,6 @@ public class CppCompileAction extends AbstractAction
      * warning have changed, otherwise we might miss some errors.
      */
     fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
-    fp.addPaths(ccCompilationContext.getDeclaredIncludeWarnDirs());
   }
 
   @Override
