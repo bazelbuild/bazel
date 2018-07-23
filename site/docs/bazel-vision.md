@@ -1,8 +1,7 @@
---------------------------------------------------------------------------------
-
+---
 layout: documentation
-
-## title: Bazel Vision
+title: Bazel Vision
+---
 
 # Bazel Vision
 
