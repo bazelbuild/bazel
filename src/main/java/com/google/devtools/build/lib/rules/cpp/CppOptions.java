@@ -862,6 +862,15 @@ public class CppOptions extends FragmentOptions {
               + "crosstool variable.")
   public boolean enableLinkoptsInUserLinkFlags;
 
+  @Option(
+      name = "experimental_enable_cc_toolchain_label_from_crosstool_proto",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If false, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
+  public boolean enableCcToolchainFromCrosstool;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();

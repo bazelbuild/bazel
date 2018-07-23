@@ -183,6 +183,13 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
           NonconfigurableAttributeMapper.of(ccToolchainSuite)
               .get("toolchains", BuildType.LABEL_DICT_UNARY);
       ccToolchainLabel = toolchains.get(key);
+      String errorMessage =
+          String.format(
+              "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s'",
+              crosstoolTopLabel, desiredCpu);
+      if (cppOptions.cppCompiler != null) {
+        errorMessage = errorMessage + " and compiler " + cppOptions.cppCompiler;
+      }
       if (ccToolchainLabel == null) {
         // If the cc_toolchain_suite does not contain entry for --cpu|--compiler (or only --cpu if
         // --compiler is not present) we select the toolchain by looping through all the toolchains
@@ -193,15 +200,18 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
             CrosstoolConfigurationLoader.selectToolchain(
                 file.getProto(), options, cpuTransformer.getTransformer());
         ccToolchainLabel = toolchains.get(toolchain.getTargetCpu() + "|" + toolchain.getCompiler());
+        if (!cppOptions.enableCcToolchainFromCrosstool) {
+          throw new InvalidConfigurationException(
+              errorMessage
+                  + String.format(
+                      ", you may want to add an entry for '%s|%s' into toolchains and "
+                          + "toolchain_identifier '%s' into the corresponding cc_toolchain rule.",
+                      toolchain.getTargetCpu(),
+                      toolchain.getCompiler(),
+                      toolchain.getToolchainIdentifier()));
+        }
       }
       if (ccToolchainLabel == null) {
-        String errorMessage =
-            String.format(
-                "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s'",
-                crosstoolTopLabel, desiredCpu);
-        if (cppOptions.cppCompiler != null) {
-          errorMessage = errorMessage + " and compiler " + cppOptions.cppCompiler;
-        }
         throw new InvalidConfigurationException(errorMessage);
       }
     } else {
