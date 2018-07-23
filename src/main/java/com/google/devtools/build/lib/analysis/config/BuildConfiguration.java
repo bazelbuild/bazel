@@ -915,6 +915,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
       host.cpu = hostCpu;
+      host.deferParamFiles = deferParamFiles;
 
       // === Runfiles ===
       host.buildRunfilesManifests = buildRunfilesManifests;
