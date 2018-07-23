@@ -38,7 +38,9 @@ struct AutoHandle {
   bool IsValid() { return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL; }
 
   AutoHandle& operator=(const HANDLE& rhs) {
-    ::CloseHandle(handle_);
+    if (IsValid()) {
+      ::CloseHandle(handle_);
+    }
     handle_ = rhs;
     return *this;
   }
