@@ -401,6 +401,7 @@ cc_library(
         ":input_jar",
         ":mapped_file",
         ":options",
+        ":port",
         "//src/main/cpp/util",
         "//third_party/zlib",
     ],
