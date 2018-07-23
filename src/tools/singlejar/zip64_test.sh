@@ -47,12 +47,13 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$IS_WINDOWS"; then
-  singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar.exe")"
-  jartool="$(rlocation "local_jdk/bin/jar.exe")"
+  EXE_EXT=".exe"
 else
-  singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar")"
-  jartool="$(rlocation "local_jdk/bin/jar")"
+  EXE_EXT=""
 fi
+
+singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar${EXE_EXT}")"
+jartool="$(rlocation "local_jdk/bin/jar${EXE_EXT}")"
 
 # Test that an archive with >64K entries can be created.
 function test_65Kentries() {

@@ -47,10 +47,12 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$IS_WINDOWS"; then
-  singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar.exe")"
+  EXE_EXT=".exe"
 else
-  singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar")"
+  EXE_EXT=""
 fi
+
+singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar${EXE_EXT}")"
 
 
 # Test that the entries single jar creates can be extracted (that is, they do
