@@ -1915,6 +1915,10 @@ unsigned int GrpcBlazeServer::Communicate() {
           << "changing directory into " << request.working_directory()
           << " failed: " << GetLastErrorString();
     }
+
+    // Execute the requested program, but before doing so, flush everything
+    // we still have to say.
+    fflush(NULL);
     ExecuteProgram(request.argv(0), argv);
   }
 
