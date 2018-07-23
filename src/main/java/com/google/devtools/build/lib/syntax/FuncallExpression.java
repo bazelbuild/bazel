@@ -468,9 +468,24 @@ public final class FuncallExpression extends Expression {
    */
   public static List<Object> extraInterpreterArgs(
       MethodDescriptor method, @Nullable FuncallExpression ast, Location loc, Environment env) {
-
     ImmutableList.Builder<Object> builder = ImmutableList.builder();
+    appendExtraInterpreterArgs(builder, method, ast, loc, env);
+    return builder.build();
+  }
 
+  /**
+   * Same as {@link #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location,
+   * Environment)} but appends args to a passed {@code builder} to avoid unnecessary allocations of
+   * intermediate instances.
+   *
+   * @see #extraInterpreterArgs(MethodDescriptor, FuncallExpression, Location, Environment)
+   */
+  private static void appendExtraInterpreterArgs(
+      ImmutableList.Builder<Object> builder,
+      MethodDescriptor method,
+      @Nullable FuncallExpression ast,
+      Location loc,
+      Environment env) {
     if (method.isUseLocation()) {
       builder.add(loc);
     }
@@ -486,7 +501,6 @@ public final class FuncallExpression extends Expression {
     if (method.isUseSkylarkSemantics()) {
       builder.add(env.getSemantics());
     }
-    return builder.build();
   }
 
   /**
@@ -595,7 +609,7 @@ public final class FuncallExpression extends Expression {
     if (acceptsExtraKwargs) {
       builder.add(SkylarkDict.copyOf(environment, extraKwargs));
     }
-    builder.addAll(extraInterpreterArgs(method, this, getLocation(), environment));
+    appendExtraInterpreterArgs(builder, method, this, getLocation(), environment);
 
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }
