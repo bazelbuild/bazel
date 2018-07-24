@@ -306,6 +306,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(outputJar.getSrcJars()))
         .containsExactly("java/test/libdep-src.jar");
     assertThat(outputs.getJdeps().getFilename()).isEqualTo("libdep.jdeps");
+    assertThat(outputs.getNativeHeaders().getFilename()).isEqualTo("libdep-native-header.jar");
   }
 
   /**
