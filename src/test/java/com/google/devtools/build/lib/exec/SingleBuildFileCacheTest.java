@@ -67,10 +67,10 @@ public class SingleBuildFileCacheTest {
           }
 
           @Override
-          protected byte[] getDigest(Path path, DigestHashFunction hf) throws IOException {
-            assertThat(hf).isEqualTo(DigestHashFunction.MD5);
+          protected byte[] getDigest(Path path) throws IOException {
+            assertThat(getDigestFunction()).isEqualTo(DigestHashFunction.MD5);
             byte[] override = md5Overrides.get(path.getPathString());
-            return override != null ? override : super.getDigest(path, hf);
+            return override != null ? override : super.getDigest(path);
           }
         };
     underTest = new SingleBuildFileCache("/", fs);

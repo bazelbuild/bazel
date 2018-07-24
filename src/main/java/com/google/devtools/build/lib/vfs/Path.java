@@ -825,17 +825,6 @@ public class Path
   }
 
   /**
-   * Returns the digest of the file denoted by the current path and digest function, following
-   * symbolic links.
-   *
-   * @return a new byte array containing the file's digest
-   * @throws IOException if the digest could not be computed for any reason
-   */
-  public byte[] getDigest(DigestHashFunction hashFunction) throws IOException {
-    return fileSystem.getDigest(this, hashFunction);
-  }
-
-  /**
    * Opens the file denoted by this path, following symbolic links, for reading, and returns an
    * input stream to it.
    *

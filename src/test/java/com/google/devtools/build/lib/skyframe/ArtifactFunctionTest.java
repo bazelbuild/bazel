@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -108,10 +107,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public byte[] getDigest(Path path, DigestHashFunction hf) throws IOException {
-            return path.getBaseName().equals("unreadable")
-                ? expectedDigest
-                : super.getDigest(path, hf);
+          public byte[] getDigest(Path path) throws IOException {
+            return path.getBaseName().equals("unreadable") ? expectedDigest : super.getDigest(path);
           }
         });
 
