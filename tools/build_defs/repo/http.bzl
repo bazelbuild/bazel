@@ -55,8 +55,6 @@ def _http_archive_impl(ctx):
     patch(ctx)
     workspace_and_buildfile(ctx)
 
-_HTTP_FILE_FORBIDDEN_NAMES = ["WORKSPACE", "BUILD", "BUILD.bazel"]
-
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
