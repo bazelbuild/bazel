@@ -19,10 +19,10 @@
 // This macro is required to tell MSVC headers to also define POSIX names
 // without "_" prefix (such as "open" for "_open").
 #define _CRT_DECLARE_NONSTDC_NAMES 1
+#include <io.h>
 #endif
 
 #include <fcntl.h>
-#include <io.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -34,6 +34,7 @@ typedef off_t off64_t;
 #elif defined(_WIN32)
 typedef __int64 off64_t;
 #endif
+static_assert(sizeof(off64_t) == 8, "File offset type must be 64-bit");
 
 #ifdef _WIN32
 
