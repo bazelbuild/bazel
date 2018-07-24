@@ -935,6 +935,60 @@ public final class CcCompilationHelper {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         new CcCompilationContext.Builder(ruleContext);
 
+    PublicHeaders publicHeaders = computePublicHeaders();
+    if (publicHeaders.getVirtualIncludePath() != null) {
+      ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
+    }
+
+    // Setup Experimental implicit header maps if needed
+    if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
+
+      Iterable<Artifact> internalHeaders = Iterables.unmodifiableIterable(
+          Iterables.concat(publicHeaders.getHeaders(), privateHeaders, publicTextualHeaders));
+      CppHeaderMap internalHeaderMap =
+          CppHelper.createDefaultCppHeaderMap(ruleContext,
+              /*suffix=*/ "_internal",
+              /*includePrefix=*/ "",
+              /*flattenVirtualHeaders=*/ true,
+              internalHeaders);
+
+      ruleContext.registerAction(
+          createHeaderMapAction(internalHeaderMap, ImmutableList.of()));
+      ccCompilationContextBuilder.setInternalHeaderMap(internalHeaderMap);
+
+      ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getArtifact().getExecPath());
+
+      String includePrefix;
+      if (ruleContext.attributes().has("include_prefix")) {
+        includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
+      } else {
+        // OB TODO: Check what we get here... I think we get the rule name
+        includePrefix = ruleContext.getRule().getName();
+      }
+
+      // Flatten virtual headers into the headermap.
+      boolean flattenVirtualHeaders =
+          ruleContext.attributes().has("flatten_virtual_headers") &&
+              ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
+
+      CppHeaderMap publicHeaderMap =
+          CppHelper.createDefaultCppHeaderMap(ruleContext,
+              /*suffix=*/ "_public",
+              includePrefix,
+              flattenVirtualHeaders,
+              Iterables.unmodifiableIterable(
+                  Iterables.concat(publicHeaders.getHeaders(), publicTextualHeaders)));
+      Iterable<CppHeaderMap> dependentHeaderMaps = collectHeaderMaps();
+
+      ruleContext.registerAction(
+          createHeaderMapAction(publicHeaderMap, dependentHeaderMaps));
+
+      ccCompilationContextBuilder.setPublicHeaderMap(publicHeaderMap);
+
+      ccCompilationContextBuilder.addIncludeDir(publicHeaderMap.getArtifact().getExecPath());
+    }
+
+
     // Setup the include path; local include directories come before those inherited from deps or
     // from the toolchain; in case of aliasing (same include file found on different entries),
     // prefer the local include rather than the inherited one.
@@ -956,11 +1010,6 @@ public final class CcCompilationHelper {
     }
     for (PathFragment includeDir : includeDirs) {
       ccCompilationContextBuilder.addIncludeDir(includeDir);
-    }
-
-    PublicHeaders publicHeaders = computePublicHeaders();
-    if (publicHeaders.getVirtualIncludePath() != null) {
-      ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
     }
 
     if (useDeps) {
@@ -1008,54 +1057,6 @@ public final class CcCompilationHelper {
       for (PathFragment looseIncludeDir : looseIncludeDirs) {
         ccCompilationContextBuilder.addDeclaredIncludeDir(looseIncludeDir);
       }
-    }
-
-    // Setup Experimental implicit header maps if needed
-    if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
-
-      Iterable<Artifact> internalHeaders = Iterables.unmodifiableIterable(
-          Iterables.concat(publicHeaders.getHeaders(), privateHeaders, publicTextualHeaders));
-      CppHeaderMap internalHeaderMap =
-          CppHelper.createDefaultCppHeaderMap(ruleContext,
-              /*suffix=*/ "_internal",
-              /*includePrefix=*/ "",
-              /*flattenVirtualHeaders=*/ true,
-              internalHeaders);
-
-      ruleContext.registerAction(
-          createHeaderMapAction(internalHeaderMap, ImmutableList.of()));
-      ccCompilationContextBuilder.setInternalHeaderMap(internalHeaderMap);
-
-      ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getArtifact().getExecPath());
-
-      String includePrefix;
-      if (ruleContext.attributes().has("include_prefix")) {
-         includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
-      } else {
-        // OB TODO: Check what we get here... I think we get the rule name
-         includePrefix = ruleContext.getRule().getName();
-      }
-
-      // Flatten virtual headers into the headermap.
-      boolean flattenVirtualHeaders =
-          ruleContext.attributes().has("flatten_virtual_headers") &&
-          ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
-
-      CppHeaderMap publicHeaderMap =
-          CppHelper.createDefaultCppHeaderMap(ruleContext,
-              /*suffix=*/ "_public",
-              includePrefix,
-              flattenVirtualHeaders,
-              Iterables.unmodifiableIterable(
-                  Iterables.concat(publicHeaders.getHeaders(), publicTextualHeaders)));
-      Iterable<CppHeaderMap> dependentHeaderMaps = collectHeaderMaps();
-
-      ruleContext.registerAction(
-          createHeaderMapAction(publicHeaderMap, dependentHeaderMaps));
-
-      ccCompilationContextBuilder.setPublicHeaderMap(publicHeaderMap);
-
-      ccCompilationContextBuilder.addIncludeDir(publicHeaderMap.getArtifact().getExecPath());
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
@@ -1220,6 +1221,9 @@ public final class CcCompilationHelper {
     // Cpp header maps may be null for some rules. We filter the nulls out at the end.
     List<CppHeaderMap> result =
         deps.stream().map(CPP_DEPS_TO_HEADER_MAPS).collect(toCollection(ArrayList::new));
+    for (CppHeaderMap hm : result) {
+      System.out.println("DEP: ----> " + hm.toString());
+    }
     return Iterables.filter(result, Predicates.notNull());
   }
 

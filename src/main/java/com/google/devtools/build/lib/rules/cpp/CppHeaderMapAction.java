@@ -54,6 +54,7 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
   // Data required to build the actual header map
   // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
   private final ImmutableList<CppHeaderMap> dependencies;
+  private final ImmutableMap<String, PathFragment> mapping;
 
   public CppHeaderMapAction(
       ActionOwner owner,
@@ -67,6 +68,18 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
         /*makeExecutable=*/ false);
     this.cppHeaderMap = cppHeaderMap;
     this.dependencies = ImmutableList.copyOf(dependencies);
+    ImmutableMap.Builder builder = ImmutableMap.builder();
+    builder.putAll(cppHeaderMap.getMapping());
+    if (dependencies != null) {
+      System.out.println("Adding dependencies");
+      for (CppHeaderMap headerMap : dependencies) {
+        builder.putAll(headerMap.getMapping());
+        System.out.println("Adding dep: " + headerMap.toString());
+      }
+    } else {
+      System.out.println("Dependencies was NULL!");
+    }
+    this.mapping = builder.build();
   }
 
   @Override
@@ -74,15 +87,9 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        ImmutableMap.Builder builder = ImmutableMap.builder();
-        builder.putAll(cppHeaderMap.getMapping());
-        if (dependencies != null) {
-          for (CppHeaderMap headerMap : dependencies) {
-            builder.putAll(headerMap.getMapping());
-          }
-        }
-        ClangHeaderMapImpl clangHeaderMapImpl = new ClangHeaderMapImpl(builder.build());
-        ByteBuffer buffer = ByteBuffer.allocate(clangHeaderMapImpl.size());
+        ClangHeaderMapImpl clangHeaderMapImpl = new ClangHeaderMapImpl(mapping);
+        int size = clangHeaderMapImpl.getBufferSize();
+        ByteBuffer buffer = ByteBuffer.wrap(new byte[size]).order(ByteOrder.LITTLE_ENDIAN);
         clangHeaderMapImpl.serialize(buffer);
         buffer.flip();
         WritableByteChannel channel = Channels.newChannel(out);
@@ -101,12 +108,12 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint f) {
     f.addString(GUID);
-    // OB TODO: This is busted...
-//    for (Map.Entry<String, PathFragment> entry : cppHeaderMap.getMapping()) {
-//      String key = entry.getKey();
-//      String path = entry.getValue().getPathString();
-//      f.addString(key + path);
-//    }
+    mapping.forEach(
+        (key, value) -> {
+          f.addString(key);
+          f.addString(value.getPathString());
+        }
+    );
   }
 
   // Implementation of header map format follows
@@ -157,18 +164,18 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
      *
      * The HeaderMap format is defined by the lexer of Clang https://clang.llvm.org/doxygen/HeaderMap_8cpp_source.html
      */
-    ClangHeaderMapImpl(Map<String, Path> entries) {
+    ClangHeaderMapImpl(Map<String, PathFragment> entries) {
       Map<String, Bucket> bucketMap = new HashMap<>();
       Map<String, Integer> addedStrings = new HashMap<>();
       ByteArrayOutputStream stringTable = new ByteArrayOutputStream();
 
       // Pre-compute the buckets to de-duplicate paths
       entries.forEach(
-          (key, path) -> {
+          (key, pathFragment) -> {
             bucketMap.computeIfAbsent(
                 Ascii.toLowerCase(key),
                 lowercaseKey -> {
-                  String[] parts = splitPath(path);
+                  String[] parts = splitPath(pathFragment);
                   maxValueLength = max(maxValueLength, parts[0].length() + parts[1].length());
                   return new Bucket(
                       addString(stringTable, addedStrings, key),
@@ -206,19 +213,19 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
       this.numBuckets = bucketMap.size();
     }
 
-    private int size() {
-      return numBuckets * BUCKET_SIZE + stringBytes.length + HEADER_SIZE * 2;
+    private int getBufferSize() {
+      return HEADER_SIZE + buckets.length * BUCKET_SIZE + stringBytes.length;
     }
 
     @VisibleForTesting
-    private String[] splitPath(Path path) {
+    private String[] splitPath(PathFragment pathFragment) {
       String[] result = new String[2];
-      if (path.getNameCount() < 2) {
+      if (pathFragment.segmentCount() < 2) {
         result[0] = "";
-        result[1] = path.toString();
+        result[1] = pathFragment.toString();
       } else {
-        result[0] = path.getParent() + "/";
-        result[1] = path.getFileName().toString();
+        result[0] = pathFragment.getParentDirectory() + "/";
+        result[1] = pathFragment.getBaseName();
       }
       return result;
     }
@@ -264,7 +271,6 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
           buffer.putInt(bucket.suffix + dataOffset);
         }
       }
-
       // write string table
       buffer.put(stringBytes);
     }
