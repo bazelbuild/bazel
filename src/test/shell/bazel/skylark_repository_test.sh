@@ -851,7 +851,7 @@ EOF
     || fail "download_executable_file.sh is not executable"
 }
 
-function test_skylark_repository_context_downloads_return_sha() {
+function test_skylark_repository_context_downloads_return_struct() {
    # Prepare HTTP server with Python
   local server_dir="${TEST_TMPDIR}/server_dir"
   mkdir -p "${server_dir}"
@@ -892,10 +892,10 @@ def _impl(repository_ctx):
       "compressed_with_sha256.txt.zip",
       "${compressed_provided_sha256}")
 
-  file_content = "no_sha_return " + no_sha_return + "\n"
-  file_content += "with_sha_return " + with_sha_return + "\n"
-  file_content += "compressed_no_sha_return " + compressed_no_sha_return + "\n"
-  file_content += "compressed_with_sha_return " + compressed_with_sha_return
+  file_content = "no_sha_return " + no_sha_return["sha256"] + "\n"
+  file_content += "with_sha_return " + with_sha_return["sha256"] + "\n"
+  file_content += "compressed_no_sha_return " + compressed_no_sha_return["sha256"] + "\n"
+  file_content += "compressed_with_sha_return " + compressed_with_sha_return["sha256"]
   repository_ctx.file("returned_shas.txt", content = file_content, executable = False)  
   repository_ctx.file("BUILD")  # necessary directories should already created by download function
 repo = repository_rule(implementation=_impl, local=False)

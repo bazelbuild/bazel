@@ -288,7 +288,7 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public String download(Object url, Object output, String sha256, Boolean executable)
+  public Info download(Object url, Object output, String sha256, Boolean executable)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
@@ -322,11 +322,12 @@ public class SkylarkRepositoryContext
               "Couldn't hash downloaded file (" + downloadedPath.getPathString() + ")", e),
           Transience.PERSISTENT);
     }
-    return finalSha256;
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    return StructProvider.STRUCT.createStruct(dict, null);
   }
 
   @Override
-  public String downloadAndExtract(
+  public Info downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     validateSha256(sha256);
@@ -380,7 +381,8 @@ public class SkylarkRepositoryContext
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
-    return finalSha256;
+    SkylarkDict<String, Object> dict = SkylarkDict.of(null, "sha256", finalSha256);
+    return StructProvider.STRUCT.createStruct(dict, null);
   }
 
   private String calculateSha256(String originalSha, Path path) throws IOException {
