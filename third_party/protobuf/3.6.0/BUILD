@@ -101,7 +101,7 @@ COPTS = select({
     ],
 })
 
-load("//third_party:compiler_config_setting.bzl", "create_compiler_config_setting")
+load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 create_compiler_config_setting(name = "msvc", value = "msvc-cl")
 
