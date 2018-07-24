@@ -39,7 +39,9 @@ JDK9_JVM_OPTS = [
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
+    # and: https://github.com/bazelbuild/bazel/issues/5599
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
 DEFAULT_JAVACOPTS = [
