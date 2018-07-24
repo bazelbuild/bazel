@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Collection;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Wrapper for every C++ linking provider. */
@@ -110,6 +111,16 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
         }
       };
 
+  public static final CcLinkingInfo EMPTY =
+      CcLinkingInfo.Builder.create()
+          .setCcLinkParamsStore(
+              new CcLinkParamsStore(
+                  /* staticModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
+                  /* staticModeParamsForExecutable= */ CcLinkParams.EMPTY,
+                  /* dynamicModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
+                  /* dynamicModeParamsForExecutable= */ CcLinkParams.EMPTY))
+          .build();
+
   private final CcLinkParamsStore ccLinkParamsStore;
   // TODO(b/111289526): These providers are not useful. All the information they provide can be
   // obtained from CcLinkParams. CcRunfiles is already dead code and can be removed.
@@ -158,8 +169,7 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
     CcLinkingInfo.Builder builder = new CcLinkingInfo.Builder();
     builder.setCcLinkParamsStore(
         CcLinkParamsStore.merge(
-            ccLinkingInfos
-                .stream()
+            Stream.concat(Stream.of(CcLinkingInfo.EMPTY), ccLinkingInfos.stream())
                 .map(CcLinkingInfo::getCcLinkParamsStore)
                 .collect(ImmutableList.toImmutableList())));
     return builder.build();
