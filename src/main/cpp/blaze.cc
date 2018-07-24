@@ -419,7 +419,8 @@ static vector<string> GetArgumentArray(
                    blaze_util::PathAsJvmFlag(heap_crash_path));
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
-  if (!globals->options->GetEmbeddedJavabase().empty()) {
+  if (!globals->options->GetEmbeddedJavabase().empty() &&
+      globals->options->GetExplicitHostJavabase().empty()) {
     // In JDK9 we have seen a slow down when using the default G1 collector
     // and thus switch back to parallel gc.
     result.push_back("-XX:+UseParallelOldGC");
