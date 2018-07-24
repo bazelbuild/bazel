@@ -192,8 +192,8 @@ public interface AndroidSdkProviderApi<
               named = false,
               type = FilesToRunProviderApi.class),
           @Param(
-              name = "dx",
-              doc = "A files to run provider of Dx.",
+              name = "d8",
+              doc = "A files to run provider of D8.",
               positional = true,
               named = false,
               type = FilesToRunProviderApi.class),
@@ -260,6 +260,7 @@ public interface AndroidSdkProviderApi<
         FileT mainDexClasses,
         FilesToRunProviderT adb,
         FilesToRunProviderT dx,
+        FilesToRunProviderT d8,
         FilesToRunProviderT mainDexListCreator,
         FilesToRunProviderT aidl,
         FilesToRunProviderT aapt,
