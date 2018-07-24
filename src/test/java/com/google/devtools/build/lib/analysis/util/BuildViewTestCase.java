@@ -1736,8 +1736,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
             keepGoing,
-            /*determineTests=*/ false,
-            /*callback=*/ null);
+            /*determineTests=*/ false);
     if (!doAnalysis) {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;

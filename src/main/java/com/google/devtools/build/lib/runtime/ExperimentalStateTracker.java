@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
@@ -159,10 +160,10 @@ class ExperimentalStateTracker {
   }
 
   void loadingComplete(LoadingPhaseCompleteEvent event) {
-    int count = event.getTargets().size();
+    int count = event.getLabels().size();
     status = "Analyzing";
     if (count == 1) {
-      additionalMessage = "target " + event.getTargets().asList().get(0).getLabel();
+      additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
       additionalMessage = "" + count + " targets";
     }

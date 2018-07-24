@@ -354,8 +354,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
             keepGoing,
-            /*determineTests=*/ false,
-            /*callback=*/ null);
+            /*determineTests=*/ false);
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);

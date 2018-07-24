@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
@@ -202,7 +203,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             testsToRunLabels,
             targets.hasError(),
             expandedTargets.hasError() || workspaceError,
-            removedTargetLabels,
             workspaceName);
 
     env.getListener()
@@ -214,6 +214,8 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 options.getTargetPatterns(),
                 expandedTargets.getTargets(),
                 failedPatterns));
+    env.getListener()
+        .post(new LoadingPhaseCompleteEvent(result.getTargetLabels(), removedTargetLabels));
     return result;
   }
 

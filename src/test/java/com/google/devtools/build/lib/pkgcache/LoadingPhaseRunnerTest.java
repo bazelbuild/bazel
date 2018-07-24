@@ -127,21 +127,6 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
-  public void testSmokeWithCallback() throws Exception {
-    tester.addFile("base/BUILD",
-        "filegroup(name = 'hello', srcs = ['foo.txt'])");
-    final List<Target> targetsNotified = new ArrayList<>();
-    tester.setCallback(new LoadingCallback() {
-      @Override
-      public void notifyTargets(Collection<Target> targets) throws LoadingFailedException {
-        targetsNotified.addAll(targets);
-      }
-    });
-    assertNoErrors(tester.load("//base:hello"));
-    assertThat(targetsNotified).containsExactlyElementsIn(getTargets("//base:hello"));
-  }
-
-  @Test
   public void testNonExistentPackage() throws Exception {
     LoadingResult loadingResult = tester.loadKeepGoing("//base:missing");
     assertThat(loadingResult.hasTargetPatternError()).isTrue();
@@ -391,7 +376,7 @@ public class LoadingPhaseRunnerTest {
     assertThinTargetsEqualToTargets(
         tester.getOriginalTargets(), getTargets("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
-        .containsExactlyElementsIn(getTargets("//cc:tests"));
+        .containsExactly(Label.parseAbsoluteUnchecked("//cc:tests"));
   }
 
   @Test
@@ -724,7 +709,6 @@ public class LoadingPhaseRunnerTest {
 
     private LoadingOptions options;
     private final StoredEventHandler storedErrors;
-    private LoadingCallback loadingCallback;
 
     private TargetParsingCompleteEvent targetParsingCompleteEvent;
     private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
@@ -800,10 +784,6 @@ public class LoadingPhaseRunnerTest {
       this.options = Options.getDefaults(LoadingOptions.class);
     }
 
-    public void setCallback(LoadingCallback loadingCallback) {
-      this.loadingCallback = loadingCallback;
-    }
-
     public void useLoadingOptions(String... options) throws OptionsParsingException {
       OptionsParser parser = OptionsParser.newOptionsParser(LoadingOptions.class);
       parser.parse(ImmutableList.copyOf(options));
@@ -831,22 +811,16 @@ public class LoadingPhaseRunnerTest {
       sync();
       storedErrors.clear();
       LoadingResult result;
-      try {
-        result =
-            skyframeExecutor.loadTargetPatterns(
-                storedErrors,
-                ImmutableList.copyOf(patterns),
-                PathFragment.EMPTY_FRAGMENT,
-                options,
-                keepGoing,
-                determineTests,
-                loadingCallback);
-        this.targetParsingCompleteEvent = findPost(TargetParsingCompleteEvent.class);
-        this.loadingPhaseCompleteEvent = findPost(LoadingPhaseCompleteEvent.class);
-      } catch (LoadingFailedException e) {
-        System.err.println(storedErrors.getEvents());
-        throw e;
-      }
+      result =
+          skyframeExecutor.loadTargetPatterns(
+              storedErrors,
+              ImmutableList.copyOf(patterns),
+              PathFragment.EMPTY_FRAGMENT,
+              options,
+              keepGoing,
+              determineTests);
+      this.targetParsingCompleteEvent = findPost(TargetParsingCompleteEvent.class);
+      this.loadingPhaseCompleteEvent = findPost(LoadingPhaseCompleteEvent.class);
       if (!keepGoing) {
         assertThat(storedErrors.hasErrors()).isFalse();
       }
@@ -869,7 +843,7 @@ public class LoadingPhaseRunnerTest {
         currentPath = currentPath.getParentDirectory();
       }
 
-      FileSystemUtils.createDirectoryAndParents(buildFile.getParentDirectory());
+      buildFile.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.writeContentAsLatin1(buildFile, Joiner.on('\n').join(content));
     }
 
@@ -925,8 +899,8 @@ public class LoadingPhaseRunnerTest {
       return targetParsingCompleteEvent.getTargets();
     }
 
-    public ImmutableSet<Target> getTestSuiteTargets() {
-      return loadingPhaseCompleteEvent.getFilteredTargets();
+    public ImmutableSet<Label> getTestSuiteTargets() {
+      return loadingPhaseCompleteEvent.getFilteredLabels();
     }
 
     private Iterable<Event> filteredEvents() {

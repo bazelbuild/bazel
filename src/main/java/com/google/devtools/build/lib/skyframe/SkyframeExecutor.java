@@ -104,15 +104,10 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadingCallback;
-import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingPhaseTimeEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
@@ -2206,9 +2201,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PathFragment relativeWorkingDirectory,
       LoadingOptions options,
       boolean keepGoing,
-      boolean determineTests,
-      @Nullable LoadingCallback callback)
-      throws TargetParsingException, LoadingFailedException, InterruptedException {
+      boolean determineTests)
+      throws TargetParsingException, InterruptedException {
     Stopwatch timer = Stopwatch.createStarted();
     SkyKey key =
         TargetPatternPhaseValue.key(
@@ -2256,19 +2250,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw exc;
     }
     long timeMillis = timer.stop().elapsed(TimeUnit.MILLISECONDS);
+    eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
 
     TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-    eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
-    ImmutableSet<Target> targets = patternParsingValue.getTargets(eventHandler, packageManager);
-    if (callback != null) {
-      callback.notifyTargets(targets);
-    }
-    eventHandler.post(
-        new LoadingPhaseCompleteEvent(
-            targets,
-            patternParsingValue.getRemovedTargets(eventHandler, packageManager),
-            PackageManagerStatistics.ZERO,
-            /*timeInMs=*/ 0));
     return patternParsingValue.toLoadingResult(eventHandler, packageManager);
   }
 

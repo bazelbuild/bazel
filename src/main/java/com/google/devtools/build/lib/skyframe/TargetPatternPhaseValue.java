@@ -50,10 +50,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
-
-  // This field is only for the purposes of generating the LoadingPhaseCompleteEvent.
-  // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
-  private final ImmutableSet<Label> removedTargetLabels;
   private final String workspaceName;
 
   TargetPatternPhaseValue(
@@ -61,13 +57,11 @@ public final class TargetPatternPhaseValue implements SkyValue {
       ImmutableSet<Label> testsToRunLabels,
       boolean hasError,
       boolean hasPostExpansionError,
-      ImmutableSet<Label> removedTargetLabels,
       String workspaceName) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
-    this.removedTargetLabels = removedTargetLabels;
     this.workspaceName = workspaceName;
   }
 
@@ -103,28 +97,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public boolean hasPostExpansionError() {
     return hasPostExpansionError;
-  }
-
-  /**
-   * Returns a set of targets that were present on the command line but got expanded during the
-   * loading phase (currently these are only test suites; this set is always empty when <code>
-   * --expand_test_suites=false</code>.
-   */
-  public ImmutableSet<Target> getRemovedTargets(
-      ExtendedEventHandler eventHandler, PackageManager packageManager) {
-    return removedTargetLabels
-        .stream()
-        .map(
-            (label) -> {
-              try {
-                return packageManager
-                    .getPackage(eventHandler, label.getPackageIdentifier())
-                    .getTarget(label.getName());
-              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .collect(ImmutableSet.toImmutableSet());
   }
 
   public String getWorkspaceName() {
@@ -184,7 +156,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
     TargetPatternPhaseValue that = (TargetPatternPhaseValue) obj;
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
-        && Objects.equals(this.removedTargetLabels, that.removedTargetLabels)
         && Objects.equals(this.workspaceName, that.workspaceName)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
@@ -195,7 +166,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.hash(
         this.targetLabels,
         this.testsToRunLabels,
-        this.removedTargetLabels,
         this.workspaceName,
         this.hasError,
         this.hasPostExpansionError);
