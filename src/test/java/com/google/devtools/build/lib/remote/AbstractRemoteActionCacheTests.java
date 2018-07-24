@@ -16,18 +16,44 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.AbstractRemoteActionCache.UploadManifest;
+import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
+import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
+import com.google.devtools.remoteexecution.v1test.Command;
+import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.devtools.remoteexecution.v1test.OutputFile;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,11 +66,23 @@ public class AbstractRemoteActionCacheTests {
   private Path execRoot;
   private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
 
+  private static ListeningScheduledExecutorService retryService;
+
+  @BeforeClass
+  public static void beforeEverything() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
+
   @Before
   public void setUp() throws Exception {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectory();
+  }
+
+  @AfterClass
+  public static void afterEverything() {
+    retryService.shutdownNow();
   }
 
   @Test
@@ -91,5 +129,119 @@ public class AbstractRemoteActionCacheTests {
                         .addFiles(ImmutableList.of(link))))
         .hasMessageThat()
         .contains("Only regular files and directories may be uploaded to a remote cache.");
+  }
+
+  @Test
+  public void onErrorWaitForRemainingDownloadsToComplete()
+      throws InterruptedException, ExecException {
+    // If one or more downloads of output files / directories fail then the code should
+    // wait for all downloads to have been completed before it tries to clean up partially
+    // downloaded files.
+
+    Path stdout = fs.getPath("/execroot/stdout");
+    Path stderr = fs.getPath("/execroot/stderr");
+
+    Map<Digest, ListenableFuture<byte[]>> downloadResults = new HashMap<>();
+    Path file1 = fs.getPath("/execroot/file1");
+    Digest digest1 = digestUtil.compute("file1".getBytes());
+    downloadResults.put(digest1, Futures.immediateFuture("file1".getBytes()));
+    Path file2 = fs.getPath("/execroot/file2");
+    Digest digest2 = digestUtil.compute("file2".getBytes());
+    downloadResults.put(digest2, Futures.immediateFailedFuture(new IOException("download failed")));
+    Path file3 = fs.getPath("/execroot/file3");
+    Digest digest3 = digestUtil.compute("file3".getBytes());
+    downloadResults.put(digest3, Futures.immediateFuture("file3".getBytes()));
+
+    RemoteOptions options = new RemoteOptions();
+    RemoteRetrier retrier = new RemoteRetrier(options, (e) -> false, retryService,
+        Retrier.ALLOW_ALL_CALLS);
+    List<ListenableFuture<?>> blockingDownloads = new ArrayList<>();
+    AtomicInteger numSuccess = new AtomicInteger();
+    AtomicInteger numFailures = new AtomicInteger();
+    AbstractRemoteActionCache cache = new DefaultRemoteActionCache(options, digestUtil, retrier) {
+      @Override
+      public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+        SettableFuture<Void> result = SettableFuture.create();
+        Futures.addCallback(downloadResults.get(digest), new FutureCallback<byte[]>() {
+          @Override
+          public void onSuccess(byte[] bytes) {
+            numSuccess.incrementAndGet();
+            try {
+              out.write(bytes);
+              out.close();
+              result.set(null);
+            } catch (IOException e) {
+              result.setException(e);
+            }
+          }
+
+          @Override
+          public void onFailure(Throwable throwable) {
+            numFailures.incrementAndGet();
+            result.setException(throwable);
+          }
+        }, MoreExecutors.directExecutor());
+        return result;
+      }
+
+      @Override
+      protected <T> T getFromFuture(ListenableFuture<T> f)
+          throws IOException, InterruptedException {
+        blockingDownloads.add(f);
+        return Utils.getFromFuture(f);
+      }
+    };
+
+    ActionResult result = ActionResult.newBuilder()
+        .setExitCode(0)
+        .addOutputFiles(OutputFile.newBuilder().setPath(file1.getPathString()).setDigest(digest1))
+        .addOutputFiles(OutputFile.newBuilder().setPath(file2.getPathString()).setDigest(digest2))
+        .addOutputFiles(OutputFile.newBuilder().setPath(file3.getPathString()).setDigest(digest3))
+        .build();
+    try {
+      cache.download(result, execRoot, new FileOutErr(stdout, stderr));
+    } catch (IOException e) {
+      assertThat(numSuccess.get()).isEqualTo(2);
+      assertThat(numFailures.get()).isEqualTo(1);
+      assertThat(blockingDownloads).hasSize(3);
+      assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("download failed");
+    }
+  }
+
+  private static class DefaultRemoteActionCache extends AbstractRemoteActionCache {
+
+    public DefaultRemoteActionCache(RemoteOptions options,
+        DigestUtil digestUtil, Retrier retrier) {
+      super(options, digestUtil, retrier);
+    }
+
+    @Override
+    public void ensureInputsPresent(TreeNodeRepository repository, Path execRoot, TreeNode root,
+        Command command) throws IOException, InterruptedException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Nullable
+    @Override
+    ActionResult getCachedActionResult(ActionKey actionKey)
+        throws IOException, InterruptedException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr,
+        boolean uploadAction) throws ExecException, IOException, InterruptedException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void close() {
+      throw new UnsupportedOperationException();
+    }
   }
 }
