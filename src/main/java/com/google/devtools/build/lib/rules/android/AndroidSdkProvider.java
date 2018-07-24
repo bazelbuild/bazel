@@ -45,6 +45,7 @@ public final class AndroidSdkProvider extends NativeInfo
   private final Artifact mainDexClasses;
   private final FilesToRunProvider adb;
   private final FilesToRunProvider dx;
+  private final FilesToRunProvider d8;
   private final FilesToRunProvider mainDexListCreator;
   private final FilesToRunProvider aidl;
   private final FilesToRunProvider aapt;
@@ -64,6 +65,7 @@ public final class AndroidSdkProvider extends NativeInfo
       Artifact mainDexClasses,
       FilesToRunProvider adb,
       FilesToRunProvider dx,
+      FilesToRunProvider d8,
       FilesToRunProvider mainDexListCreator,
       FilesToRunProvider aidl,
       FilesToRunProvider aapt,
@@ -82,6 +84,7 @@ public final class AndroidSdkProvider extends NativeInfo
     this.mainDexClasses = mainDexClasses;
     this.adb = adb;
     this.dx = dx;
+    this.d8 = d8;
     this.mainDexListCreator = mainDexListCreator;
     this.aidl = aidl;
     this.aapt = aapt;
@@ -156,6 +159,11 @@ public final class AndroidSdkProvider extends NativeInfo
   }
 
   @Override
+  public FilesToRunProvider getD8() {
+    return d8;
+  }
+
+  @Override
   public FilesToRunProvider getMainDexListCreator() {
     return mainDexListCreator;
   }
@@ -217,6 +225,7 @@ public final class AndroidSdkProvider extends NativeInfo
         Artifact mainDexClasses,
         FilesToRunProvider adb,
         FilesToRunProvider dx,
+        FilesToRunProvider d8,
         FilesToRunProvider mainDexListCreator,
         FilesToRunProvider aidl,
         FilesToRunProvider aapt,
@@ -236,6 +245,7 @@ public final class AndroidSdkProvider extends NativeInfo
           mainDexClasses,
           adb,
           dx,
+          d8,
           mainDexListCreator,
           aidl,
           aapt,

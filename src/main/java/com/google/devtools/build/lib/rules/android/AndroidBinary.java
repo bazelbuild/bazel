@@ -1024,7 +1024,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             classesDex,
             dexopts,
             /*multidex=*/ false,
-            /*mainDexList=*/ null);
+            /*mainDexList=*/ null,
+            /*useD8=*/ AndroidCommon.getAndroidConfig(ruleContext).useD8());
         return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
       }
     } else {
@@ -1084,7 +1085,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 dexopts);
           } else {
             AndroidCommon.createDexAction(
-                ruleContext, shard, shardDex, dexopts, /*multidex=*/ true, /*mainDexList=*/ null);
+                ruleContext,
+                shard,
+                shardDex,
+                dexopts,
+                /*multidex=*/ true,
+                /*mainDexList=*/ null,
+                AndroidCommon.getAndroidConfig(ruleContext).useD8());
           }
         }
         ImmutableList<Artifact> shardDexes = shardDexesBuilder.build();
@@ -1140,7 +1147,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               classesDexIntermediate,
               dexopts,
               /*multidex=*/ true,
-              mainDexList);
+              mainDexList,
+              AndroidCommon.getAndroidConfig(ruleContext).useD8());
           createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
         }
         return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));

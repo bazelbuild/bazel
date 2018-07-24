@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -206,7 +207,8 @@ public class AndroidCommon {
       Artifact classesDex,
       List<String> dexOptions,
       boolean multidex,
-      Artifact mainDexList) {
+      Artifact mainDexList,
+      boolean useD8) {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     commandLine.add("--dex");
 
@@ -228,10 +230,15 @@ public class AndroidCommon {
     commandLine.addPrefixedExecPath("--output=", classesDex);
     commandLine.addExecPath(jarToDex);
 
+    FilesToRunProvider dexerExecutable =
+        useD8
+            ? AndroidSdkProvider.fromRuleContext(ruleContext).getD8()
+            : AndroidSdkProvider.fromRuleContext(ruleContext).getDx();
+
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
+            .setExecutable(dexerExecutable)
             .addInput(jarToDex)
             .addOutput(classesDex)
             .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
