@@ -9,9 +9,9 @@ exports_files(["LICENSE"])
 ################################################################################
 
 config_setting(
-    name = "jdk9",
+    name = "jdk10",
     values = {
-        "java_toolchain": "@bazel_tools//tools/jdk:toolchain_jdk9",
+        "java_toolchain": "@bazel_tools//tools/jdk:toolchain_jdk10",
     },
 )
 
