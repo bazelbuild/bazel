@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.sun.corba.se.impl.transport.ByteBufferPoolImpl;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;//?
@@ -53,7 +54,6 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
   // Data required to build the actual header map
   // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
   private final ImmutableList<CppHeaderMap> dependencies;
-  private final String includePrefix = "";
 
   public CppHeaderMapAction(
       ActionOwner owner,
@@ -62,15 +62,10 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
   ) {
     super(
         owner,
-        ImmutableList.<Artifact>builder()
-        .addAll(Iterables.filter(privateHeaders, Artifact::isTreeArtifact))
-        .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
-        .build(),
+        cppHeaderMap.getHeaders(),
         cppHeaderMap.getArtifact(),
         /*makeExecutable=*/ false);
     this.cppHeaderMap = cppHeaderMap;
-    this.privateHeaders = ImmutableList.copyOf(privateHeaders);
-    this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.dependencies = ImmutableList.copyOf(dependencies);
   }
 
@@ -79,9 +74,18 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        ByteBuffer buffer = serializeHeaderMap(headerMap);
-        WritableByteChannel channel = Channels.newChannel(out);
+        ImmutableMap.Builder builder = ImmutableMap.builder();
+        builder.putAll(cppHeaderMap.getMapping());
+        if (dependencies != null) {
+          for (CppHeaderMap headerMap : dependencies) {
+            builder.putAll(headerMap.getMapping());
+          }
+        }
+        ClangHeaderMapImpl clangHeaderMapImpl = new ClangHeaderMapImpl(builder.build());
+        ByteBuffer buffer = ByteBuffer.allocate(clangHeaderMapImpl.size());
+        clangHeaderMapImpl.serialize(buffer);
         buffer.flip();
+        WritableByteChannel channel = Channels.newChannel(out);
         channel.write(buffer);
         out.flush();
         out.close();
@@ -97,11 +101,12 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint f) {
     f.addString(GUID);
-    for (Map.Entry<String, String> entry : headerMap.entrySet()) {
-      String key = entry.getKey();
-      String path = entry.getValue();
-      f.addString(key + path);
-    }
+    // OB TODO: This is busted...
+//    for (Map.Entry<String, PathFragment> entry : cppHeaderMap.getMapping()) {
+//      String key = entry.getKey();
+//      String path = entry.getValue().getPathString();
+//      f.addString(key + path);
+//    }
   }
 
   // Implementation of header map format follows
@@ -201,8 +206,12 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
       this.numBuckets = bucketMap.size();
     }
 
+    private int size() {
+      return numBuckets * BUCKET_SIZE + stringBytes.length + HEADER_SIZE * 2;
+    }
+
     @VisibleForTesting
-    private static String[] splitPath(Path path) {
+    private String[] splitPath(Path path) {
       String[] result = new String[2];
       if (path.getNameCount() < 2) {
         result[0] = "";
@@ -214,7 +223,7 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
       return result;
     }
 
-    private static int addString(ByteArrayOutputStream stringTable, Map<String, Integer> addedStrings, String str) {
+    private int addString(ByteArrayOutputStream stringTable, Map<String, Integer> addedStrings, String str) {
       Integer seenOffset = addedStrings.get(str);
       if (seenOffset != null) {
         // we've already stored this string in the stringTable, reuse it
@@ -261,7 +270,7 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
     }
 
     // Utility Functions
-    private static long nextPowerOf2(long a) {
+    private long nextPowerOf2(long a) {
       return (a & (a - 1)) == 0
           ? a // power of 2
           : Long.highestOneBit(a) << 1; // next power of 2
@@ -269,7 +278,7 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
 
     // The same hashing algorithm as clang's Lexer.
     // Buckets must be inserted according to this.
-    private static int clangHash(String key) {
+    private int clangHash(String key) {
       // Keys are case insensitive.
       int hash = 0;
       for (byte c : Ascii.toLowerCase(key).getBytes(StandardCharsets.UTF_8)) {

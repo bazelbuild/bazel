@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.builder;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.ImmutableListCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -30,25 +34,64 @@ public final class CppHeaderMap {
   // NOTE: If you add a field here, you'll likely need to update CppHeaderMapAction.computeKey().
   private final Artifact artifact;
   private final String name;
-  private final Map<PathFragment, PathFragment> map;
+  private final String includePrefix;
+  private final boolean flattenVirtualHeaders;
+  private final ImmutableList<Artifact> headers;
 
-  CppHeaderMap(Artifact artifact, String name) {
+  CppHeaderMap(
+      Artifact artifact,
+      String name,
+      String includePrefix,
+      boolean flattenVirtualHeaders,
+      Iterable<Artifact> headers) {
     this.artifact = artifact;
     this.name = name;
-    this.map = ImmutableMap.of();
+    this.includePrefix = includePrefix;
+    this.flattenVirtualHeaders = flattenVirtualHeaders;
+    this.headers = ImmutableList.<Artifact>builder()
+        .addAll(headers)
+        .build();
   }
 
-  public Artifact getArtifact() { return artifact; }
+  public Artifact getArtifact() {
+    return artifact;
+  }
 
-  public String getName() { return name; }
+  public String getName() {
+    return name;
+  }
 
-  public String getIncludePrefix() { return includePrefix; }
+  public String getIncludePrefix() {
+    return includePrefix;
+  }
 
-  public void addStuff() {
-    map.put(PathFragment.create("Foo"), PathFragment.create("Bar"));
+  public ImmutableList<Artifact> getHeaders() {
+    return headers;
+  }
+
+  public ImmutableMap<String, PathFragment> getMapping() {
+    ImmutableMap.Builder builder = ImmutableMap.builder();
+    for (Artifact header : headers) {
+      String key;
+      if (flattenVirtualHeaders) {
+        String basename = header.getExecPath().getBaseName();
+        String prefix;
+        if (includePrefix.equals("")) {
+          prefix = includePrefix;
+        } else {
+          prefix = includePrefix + "/";
+        }
+        key = prefix + basename;
+      } else {
+        key = includePrefix + "/" + header.getExecPathString();
+      }
+      builder.put(key, header.getExecPath());
+    }
+    return builder.build();
   }
 
   @Override
-  public String toString() { return name + "@" + artifact; }
-
+  public String toString() {
+    return name + "@" + artifact;
+  }
 }

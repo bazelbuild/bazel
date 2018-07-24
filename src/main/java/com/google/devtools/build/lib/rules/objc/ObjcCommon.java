@@ -73,9 +73,8 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CppHeaderMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.HeaderMapInfo;
-import com.google.devtools.build.lib.rules.cpp.HeaderMapInfoProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -356,35 +355,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    public HeaderMapInfoProvider getHeaderMapInfoProvider(RuleContext ruleContext, ImmutableList<Artifact>hdrs){
-      HeaderMapInfo.Builder headerMapInfo = new HeaderMapInfo.Builder();
-      String includePrefix;
-      if (ruleContext.attributes().has("include_prefix")) {
-        includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
-      } else {
-        includePrefix = ruleContext.getRule().getName();
-      }
-
-      headerMapInfo.setIncludePrefix(includePrefix);
-      headerMapInfo.addIncludePrefixedHeaders(hdrs);
-
-      boolean flattenVirtualHeaders = ruleContext.attributes().has("flatten_virtual_headers") &&
-          ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
-      if (flattenVirtualHeaders) {
-        headerMapInfo.addHeaders(hdrs);
-      }
-
-      if (ruleContext.attributes().has("deps")){
-        // Propagate all of the dep sources
-        for (HeaderMapInfoProvider hmapProvider : ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
-          headerMapInfo.mergeHeaderMapInfo(hmapProvider.getInfo());
-        }
-      }
-      return new HeaderMapInfoProvider.Builder()
-        .setHeaderMapInfo(headerMapInfo.build()).build();
-    }
-
-
     /**
      * Specifies that this target has a clang module map. This should be called if this target
      * compiles sources or exposes headers for other targets to use. Note that this does not add
@@ -439,7 +409,6 @@ public final class ObjcCommon {
     ObjcCommon build() {
 
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
-      ImmutableList.Builder<Artifact> headerMapHeaders = ImmutableList.<Artifact>builder();
 
       ObjcProvider.Builder objcProvider =
           new ObjcProvider.Builder(semantics)
@@ -467,16 +436,7 @@ public final class ObjcCommon {
 
       for (CcCompilationContext headerProvider : depCcHeaderProviders) {
         objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
-        headerMapHeaders.addAll(filterFileset(headerProvider.getDeclaredIncludeSrcs()));
 
-        ImmutableList<Artifact> hm = headerProvider.getHeaderMaps();
-        if (hm != null) {
-          for (Artifact a : hm) {
-            System.out.println("ADDING: " + a.getPath());
-          }
-        } else {
-          System.out.println("No headerMaps found :-(");
-        }
         objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
         // TODO(bazel-team): This pulls in stl via
         // CppHelper.mergeToolchainDependentCcCompilationContext but
@@ -516,8 +476,6 @@ public final class ObjcCommon {
                     Iterables.transform(attributes.sdkIncludes(), PathFragment::getSafePathString)),
                 PathFragment::create);
 
-        headerMapHeaders.addAll(filterFileset(attributes.hdrs()));
-        headerMapHeaders.addAll(filterFileset(attributes.textualHdrs()));
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
@@ -560,7 +518,6 @@ public final class ObjcCommon {
             Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs());
         // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
         // them.
-        headerMapHeaders.addAll(artifacts.getPrivateHdrs());
         objcProvider
             .addAll(HEADER, filterFileset(artifacts.getAdditionalHdrs()))
             .addAll(LIBRARY, artifacts.getArchive().asSet())
@@ -624,24 +581,13 @@ public final class ObjcCommon {
         }
       }
 
+      // OB TODO: Add header map to objc info provider here...
+
       objcProvider
           .addAll(LINKED_BINARY, linkedBinary.asSet())
           .addAll(LINKMAP_FILE, linkmapFile.asSet());
 
-      HeaderMapInfoProvider headerMapProvider;
-      if (context.isLegalFragment(CppConfiguration.class) && context.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
-        ImmutableList<Artifact> headerMaps = headerMapHeaders.build();
-        headerMapProvider = getHeaderMapInfoProvider(context, headerMaps);
-        // OB TODO: add to provider here?
-        System.out.println("Header maps here:");
-        for (Artifact a : headerMaps) {
-          System.out.println("----> " + a.getFilename());
-        }
-      } else {
-        headerMapProvider = HeaderMapInfoProvider.EMPTY;
-      }
-
-      return new ObjcCommon(objcProvider.build(), headerMapProvider, compilationArtifacts, textualHeaders.build());
+      return new ObjcCommon(objcProvider.build(), compilationArtifacts, textualHeaders.build());
     }
 
     private static boolean useStrictObjcModuleMaps(RuleContext context) {
@@ -685,28 +631,21 @@ public final class ObjcCommon {
 
   public static final FileType FRAMEWORK_CONTAINER_TYPE = FileType.of(".framework");
   private final ObjcProvider objcProvider;
-  private final HeaderMapInfoProvider headerMapInfoProvider;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
   private final ImmutableSet<Artifact> textualHdrs;
 
   private ObjcCommon(
       ObjcProvider objcProvider,
-      HeaderMapInfoProvider headerMapInfoProvider,
       Optional<CompilationArtifacts> compilationArtifacts,
       ImmutableSet<Artifact> textualHdrs) {
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.headerMapInfoProvider = headerMapInfoProvider;
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
     this.textualHdrs = textualHdrs;
   }
 
   public ObjcProvider getObjcProvider() {
     return objcProvider;
-  }
-
-  public HeaderMapInfoProvider getHeaderMapInfoProvider() {
-    return headerMapInfoProvider;
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {

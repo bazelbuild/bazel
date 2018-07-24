@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.builder;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -73,7 +75,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   private final CppModuleMap cppModuleMap;
   private final CppModuleMap verificationModuleMap;
-  private final ImmutableList<Artifact> headerMaps;
+  private final CppHeaderMap internalCppHeaderMap;
+  private final CppHeaderMap publicCppHeaderMap;
 
   private final boolean propagateModuleMapAsActionInput;
 
@@ -97,7 +100,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
-      ImmutableList<Artifact> headerMaps) {
+      CppHeaderMap internalCppHeaderMap,
+      CppHeaderMap publicCppHeaderMap) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -109,7 +113,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.transitiveModules = transitiveModules;
     this.transitivePicModules = transitivePicModules;
     this.cppModuleMap = cppModuleMap;
-    this.headerMaps = headerMaps;
+    this.internalCppHeaderMap = internalCppHeaderMap;
+    this.publicCppHeaderMap = publicCppHeaderMap;
     this.nonCodeInputs = nonCodeInputs;
     this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
@@ -271,8 +276,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
-    if (headerMaps != null) {
-      builder.addAll(headerMaps);
+    if (internalCppHeaderMap != null) {
+      builder.add(internalCppHeaderMap.getArtifact());
+    }
+    if (publicCppHeaderMap != null) {
+      builder.add(publicCppHeaderMap.getArtifact());
     }
     return builder.build();
   }
@@ -324,7 +332,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.verificationModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.headerMaps);
+        ccCompilationContext.internalCppHeaderMap,
+        ccCompilationContext.publicCppHeaderMap);
   }
 
   /** @return the C++ module map of the owner. */
@@ -337,8 +346,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return verificationModuleMap;
   }
 
-  /** @return the header map of the owner. */
-  public ImmutableList<Artifact> getHeaderMaps() { return headerMaps; }
+  /** @return the internal header map of the owner */
+  public CppHeaderMap getInternalCppHeaderMap() { return internalCppHeaderMap; }
+
+  /** @return the public header map of the owner */
+  public CppHeaderMap getPublicCppHeaderMap() { return publicCppHeaderMap; }
 
   /**
    * The parts of the {@code CcCompilationContext} that influence the command line of compilation
@@ -388,8 +400,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
-    private CppHeaderMap internalHeaderMap;
-    private CppHeaderMap publicHeaderMap;
+    private CppHeaderMap internalCppHeaderMap;
+    private CppHeaderMap publicCppHeaderMap;
 
     private boolean propagateModuleMapAsActionInput = true;
 
@@ -629,14 +641,14 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /** Sets the internal header map. */
-    public Builder setInternalHeaderMap(CppHeaderMap headerMap) {
-      this.internalHeaderMap = headerMap;
+    public Builder setInternalHeaderMap(CppHeaderMap internalCppHeaderMap) {
+      this.internalCppHeaderMap = internalCppHeaderMap;
       return this;
     }
 
-    /** Sets the public header map. */
-    public Builder setPublicHeaderMap(CppHeaderMap headerMap) {
-      this.publicHeaderMap = headerMap;
+    /** Sets the public header map */
+    public Builder setPublicHeaderMap(CppHeaderMap publicCppHeaderMap) {
+      this.publicCppHeaderMap = publicCppHeaderMap;
       return this;
     }
 
@@ -710,7 +722,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           cppModuleMap,
           verificationModuleMap,
           propagateModuleMapAsActionInput,
-          headerMaps);
+          internalCppHeaderMap,
+          publicCppHeaderMap);
     }
 
     /**

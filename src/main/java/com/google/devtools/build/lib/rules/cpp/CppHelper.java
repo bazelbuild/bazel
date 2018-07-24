@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
@@ -708,7 +709,12 @@ public class CppHelper {
    * Creates a CppHeaderMap object for c++ builds. The header map artifact becomes a candidate
    * input to a CppCompileAction.
    */
-  public static CppHeaderMap createDefaultCppHeaderMap(RuleContext ruleContext, String suffix) {
+  public static CppHeaderMap createDefaultCppHeaderMap(
+      RuleContext ruleContext,
+      String suffix,
+      String includePrefix,
+      boolean flattenVirtualHeaders,
+      Iterable<Artifact> headers) {
     // Create the header map artifact as a genfile.
     Artifact headerMapFile =
         ruleContext.getPackageRelativeArtifact(
@@ -718,7 +724,12 @@ public class CppHelper {
             ruleContext
                 .getConfiguration()
                 .getGenfilesDirectory(ruleContext.getRule().getRepository()));
-    return new CppHeaderMap(headerMapFile, ruleContext.getLabel().toString());
+    return new CppHeaderMap(
+        headerMapFile,
+        ruleContext.getLabel().toString(),
+        includePrefix,
+        flattenVirtualHeaders,
+        headers);
   }
 
   /**

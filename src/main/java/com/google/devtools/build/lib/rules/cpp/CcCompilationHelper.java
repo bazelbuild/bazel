@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.Link.ArchiveType;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
@@ -130,6 +131,17 @@ public final class CcCompilationHelper {
           ccCompilationContext = ccCompilationInfo.getCcCompilationContext();
         }
         return ccCompilationContext == null ? null : ccCompilationContext.getCppModuleMap();
+      };
+
+  /** Function for extracting header maps from CppCompilationDependencies. */
+  private static final Function<TransitiveInfoCollection, CppHeaderMap> CPP_DEPS_TO_HEADER_MAPS =
+      dep -> {
+        CcCompilationInfo ccCompilationInfo = dep.get(CcCompilationInfo.PROVIDER);
+        CcCompilationContext ccCompilationContext = null;
+        if (ccCompilationInfo != null) {
+          ccCompilationContext = ccCompilationInfo.getCcCompilationContext();
+        }
+        return ccCompilationContext == null ? null : ccCompilationContext.getPublicCppHeaderMap();
       };
 
   /**
@@ -1001,71 +1013,49 @@ public final class CcCompilationHelper {
     // Setup Experimental implicit header maps if needed
     if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
 
+      Iterable<Artifact> internalHeaders = Iterables.unmodifiableIterable(
+          Iterables.concat(publicHeaders.getHeaders(), privateHeaders, publicTextualHeaders));
       CppHeaderMap internalHeaderMap =
-          CppHelper.createDefaultCppHeaderMap(ruleContext, /*suffix=*/ "_internal");
+          CppHelper.createDefaultCppHeaderMap(ruleContext,
+              /*suffix=*/ "_internal",
+              /*includePrefix=*/ "",
+              /*flattenVirtualHeaders=*/ true,
+              internalHeaders);
 
-      internalHeaderMap.addHeaders(publicHeaders.getHeaders());
-      internalHeaderMap.addHeaders(privateHeaders);
-      internalHeaderMap.addHeaders(publicTextualHeaders);
       ruleContext.registerAction(
-        new CppHeaderMapAction(ruleContext.getActionOwner(),
-            internalHeaderMapInfo.build().getSources(),
-            internalHeaderMap));
-      ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getExecPath());
-      headerMapsBuilder.add(internalHeaderMap);
+          createHeaderMapAction(internalHeaderMap, ImmutableList.of()));
+      ccCompilationContextBuilder.setInternalHeaderMap(internalHeaderMap);
+
+      ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getArtifact().getExecPath());
 
       String includePrefix;
       if (ruleContext.attributes().has("include_prefix")) {
          includePrefix = ruleContext.attributes().get("include_prefix", Type.STRING);
       } else {
+        // OB TODO: Check what we get here... I think we get the rule name
          includePrefix = ruleContext.getRule().getName();
       }
-
-      // Construct the dep headermap.
-      // This header map additionally contains include prefixed headers so that a user
-      // can import headers of the form IncludePrefix/Header.h from headers within
-      // the current target.
-      HeaderMapInfo.Builder depHeaderMapInfo = new HeaderMapInfo.Builder();
-      depHeaderMapInfo.setIncludePrefix(includePrefix);
-      depHeaderMapInfo.addIncludePrefixedHeaders(publicHeaders.getHeaders());
-      depHeaderMapInfo.addIncludePrefixedHeaders(privateHeaders);
-      depHeaderMapInfo.addIncludePrefixedHeaders(publicTextualHeaders);
 
       // Flatten virtual headers into the headermap.
       boolean flattenVirtualHeaders =
           ruleContext.attributes().has("flatten_virtual_headers") &&
           ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
-      if (flattenVirtualHeaders) {
-        depHeaderMapInfo.addHeaders(publicTextualHeaders);
-        depHeaderMapInfo.addHeaders(publicHeaders.getHeaders());
-        depHeaderMapInfo.addHeaders(privateHeaders);
-      }
 
-      // Merge all of the header map info from deps. The headers within a given
-      // target have precedence over over dep headers (See HeaderMapInfo.build()).
-      if (ruleContext.attributes().has("deps")){
-        for (HeaderMapInfoProvider hmapProvider :
-            ruleContext.getPrerequisites("deps", Mode.TARGET, HeaderMapInfoProvider.class)) {
-          depHeaderMapInfo.mergeHeaderMapInfo(hmapProvider.getInfo());
-        }
-      }
-      Artifact depHeaderMap =
-          ruleContext.getPackageRelativeArtifact(PathFragment.create(targetName + ".hmap"),
-                ruleContext
-                .getConfiguration()
-                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
+      CppHeaderMap publicHeaderMap =
+          CppHelper.createDefaultCppHeaderMap(ruleContext,
+              /*suffix=*/ "_public",
+              includePrefix,
+              flattenVirtualHeaders,
+              Iterables.unmodifiableIterable(
+                  Iterables.concat(publicHeaders.getHeaders(), publicTextualHeaders)));
+      Iterable<CppHeaderMap> dependentHeaderMaps = collectHeaderMaps();
+
       ruleContext.registerAction(
-        new CppHeaderMapAction(ruleContext.getActionOwner(),
-            depHeaderMapInfo.build().getSources(),
-            depHeaderMap));
-      ccCompilationContextBuilder.addIncludeDir(depHeaderMap.getExecPath());
-      // OB TODO: Add depHeaderMap to the ccCompilationContext here???
-      headerMapsBuilder.add(depHeaderMap);
+          createHeaderMapAction(publicHeaderMap, dependentHeaderMaps));
 
-      // If we have header maps we need to add an include of the working directory
-      ccCompilationContextBuilder.addIncludeDir(PathFragment.create("."));
-      ImmutableList headerMaps = headerMapsBuilder.build();
-      ccCompilationContextBuilder.setHeaderMaps(headerMaps);
+      ccCompilationContextBuilder.setPublicHeaderMap(publicHeaderMap);
+
+      ccCompilationContextBuilder.addIncludeDir(publicHeaderMap.getArtifact().getExecPath());
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
@@ -1201,7 +1191,7 @@ public final class CcCompilationHelper {
     return new CppHeaderMapAction(
         ruleContext.getActionOwner(),
         headerMap,
-    );
+        dependentHeaderMaps);
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {
@@ -1223,6 +1213,13 @@ public final class CcCompilationHelper {
       result.add(additionalCppModuleMap);
     }
 
+    return Iterables.filter(result, Predicates.notNull());
+  }
+
+  private Iterable<CppHeaderMap> collectHeaderMaps() {
+    // Cpp header maps may be null for some rules. We filter the nulls out at the end.
+    List<CppHeaderMap> result =
+        deps.stream().map(CPP_DEPS_TO_HEADER_MAPS).collect(toCollection(ArrayList::new));
     return Iterables.filter(result, Predicates.notNull());
   }
 
