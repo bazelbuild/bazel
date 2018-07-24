@@ -254,13 +254,16 @@ public final class JavaLibraryHelper {
       helper.createGenJarAction(output, manifestProtoOutput, genClassJar, hostJavabase);
     }
 
+    Artifact nativeHeaderOutput = helper.createNativeHeaderJar(output);
+
+
     helper.createCompileAction(
         output,
         manifestProtoOutput,
         genSourceJar,
         outputDepsProto,
         /* instrumentationMetadataJar= */ null,
-        /* nativeHeaderOutput= */ null);
+        nativeHeaderOutput);
 
     artifactsBuilder.addRuntimeJar(output);
     Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
@@ -273,7 +276,8 @@ public final class JavaLibraryHelper {
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
     outputJarsBuilder
         .addOutputJar(new OutputJar(output, iJar, outputSourceJars))
-        .setJdeps(outputDepsProto);
+        .setJdeps(outputDepsProto)
+        .setNativeHeaders(nativeHeaderOutput);
 
     JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
     if (javaInfoBuilder != null) {
