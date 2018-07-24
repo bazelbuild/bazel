@@ -35,9 +35,9 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_bu
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if not ctx.attr.url and not ctx.attr.urls:
-        ctx.fail("At least one of url and urls must be provided")
+        fail("At least one of url and urls must be provided")
     if ctx.attr.build_file and ctx.attr.build_file_content:
-        ctx.fail("Only one of build_file and build_file_content can be provided.")
+        fail("Only one of build_file and build_file_content can be provided.")
 
     all_urls = []
     if ctx.attr.urls:
@@ -61,15 +61,24 @@ _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "file",
-    srcs = ["%s"],
+    srcs = ["{}"],
 )
 """
 
 def _http_file_impl(ctx):
     """Implementation of the http_file rule."""
-    if ctx.attr.downloaded_file_name in _HTTP_FILE_FORBIDDEN_NAMES:
-      ctx.fail("%s cannot be used as downloaded_file_name in http_file" % ctx.attr.downloaded_file_name)
-    downloaded_file_name = ctx.attr.downloaded_file_name or "downloaded"
+    repo_root = ctx.path(".")
+    forbidden_files = [
+        repo_root,
+        ctx.path("WORKSPACE"),
+        ctx.path("BUILD"),
+        ctx.path("BUILD.bazel"),
+        ctx.path("file/BUILD"),
+        ctx.path("file/BUILD.bazel"),]
+    downloaded_file_name = ctx.attr.downloaded_file_name
+    download_path = ctx.path("file/" + downloaded_file_name)
+    if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
+      fail("'%s' cannot be used as downloaded_file_name in http_file" % ctx.attr.downloaded_file_name)
     ctx.download(
         ctx.attr.urls,
         "file/" + downloaded_file_name,
@@ -77,7 +86,7 @@ def _http_file_impl(ctx):
         ctx.attr.executable,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD % downloaded_file_name)
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_name))
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -246,7 +255,7 @@ http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = {
         "executable": attr.bool(),
-        "downloaded_file_name": attr.string(),
+        "downloaded_file_name": attr.string(default = "downloaded"),
         "sha256": attr.string(),
         "urls": attr.string_list(mandatory = True),
     },
