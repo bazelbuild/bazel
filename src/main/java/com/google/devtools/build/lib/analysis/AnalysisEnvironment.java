@@ -160,4 +160,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
   ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles();
 
   ActionKeyContext getActionKeyContext();
+
+  /** Informs Skyframe that the {@link ConfiguredTarget} accesses {@code source}. */
+  default void registerSourceDependency(Artifact.SourceArtifact source) {}
 }

@@ -174,6 +174,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -2252,6 +2253,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
     return patternParsingValue.toLoadingResult(eventHandler, packageManager);
+  }
+
+  public Consumer<Artifact.SourceArtifact> getSourceDependencyListener(SkyKey key) {
+    return unusedSource -> {}; // Default, no-op implementation.
   }
 
   /**

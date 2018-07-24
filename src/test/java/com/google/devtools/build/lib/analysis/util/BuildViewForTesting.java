@@ -461,7 +461,8 @@ public class BuildViewForTesting {
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,
-            /*env=*/ null);
+            /*env=*/ null,
+            /*sourceDependencyListener=*/ unused -> {});
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 
