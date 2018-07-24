@@ -4,7 +4,7 @@ load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
     "JDK8_JVM_OPTS",
-    "JDK9_JVM_OPTS",
+    "JDK10_JVM_OPTS",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -219,20 +219,30 @@ default_java_toolchain(
 )
 
 default_java_toolchain(
-    name = "toolchain_hostjdk9",
+    name = "toolchain_hostjdk10",
     bootclasspath = [":bootclasspath"],
     extclasspath = [":extclasspath"],
-    jvm_opts = JDK9_JVM_OPTS,
+    jvm_opts = JDK10_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
 
 default_java_toolchain(
     name = "toolchain_java9",
-    jvm_opts = JDK9_JVM_OPTS,
+    # We use the same flags for JDK9 and 10
+    jvm_opts = JDK10_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS + [
         "--release",
         "9",
+    ],
+)
+
+default_java_toolchain(
+    name = "toolchain_java10",
+    jvm_opts = JDK10_JVM_OPTS,
+    misc = DEFAULT_JAVACOPTS + [
+        "--release",
+        "10",
     ],
 )
 

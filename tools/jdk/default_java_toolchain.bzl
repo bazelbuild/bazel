@@ -18,7 +18,7 @@ JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
 ]
 
-JDK9_JVM_OPTS = [
+JDK10_JVM_OPTS = [
     # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
     # G1 collector and having compact strings enabled.
     "-XX:+UseParallelOldGC",
