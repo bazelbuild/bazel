@@ -57,6 +57,7 @@ def _http_archive_impl(ctx):
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
+
 filegroup(
     name = "file",
     srcs = ["{}"],
