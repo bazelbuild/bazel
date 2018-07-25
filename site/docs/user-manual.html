@@ -1777,8 +1777,7 @@ The default is <code>armeabi-v7a</code>.
 
 <h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
 <p>
-  This option (sometimes referred to as the 'right-hand side' <code>host_javabase</code>)
-  sets the <i>label</i> of the base Java installation to use in the host configuration,
+  This option sets the <i>label</i> of the base Java installation to use in the host configuration,
   for example for host build tools including JavaBuilder and Singlejar.
 </p>
 <p>
@@ -1786,11 +1785,6 @@ The default is <code>armeabi-v7a</code>.
   source files. The compiler can be selected by settings the
   <a href="#flag--java_toolchain"><code class='flag'>--java_toolchain</code></a>
   option.
-</p>
-<p>
-  This option should not be confused with the startup option
-  <a href='#startup_flag--host_javabase'>--host_javabase</a>
-  (sometimes known as the 'left-hand side'  <code>host_javabase</code>).
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>
@@ -3577,20 +3571,27 @@ adb -s deadbeef install ...
   base) if there is a better location in your filesystem layout.
 </p>
 
-<h4 id='startup_flag--host_javabase'><code class='flag'>--host_javabase=<var>dir</var></code></h4>
+<a name="startup_flag--host_javabase"></a>
+<h4 id='startup_flag--server_javabase'><code class='flag'>--server_javabase=<var>dir</var></code></h4>
 <p>
   Specifies the Java virtual machine in which <i>Bazel itself</i> runs. The value must be a path to
   the directory containing a JDK or JRE. It should not be a label.
   This option should appear before any bazel command, and not be confused with the build option
-  <a href='#flag--host_javabase'>--host_javabase</a>, for example:
+  <a href='#flag--server_javabase'>--server_javabase</a>, for example:
 </p>
 <pre>
-  % bazel --host_javabase=/usr/local/buildtools/java/jdk9 build //foo
+  % bazel --server_javabase=/usr/local/buildtools/java/jdk9 build //foo
 </pre>
 <p>
   This flag does <i>not</i> affect the JVMs used by Bazel subprocesses such as applications, tests,
   tools, and so on. Use build options <a href='#flag--javabase'>--javabase</a> or
   <a href='#flag--host_javabase'>--host_javabase</a> instead.
+</p>
+<p>
+  This flag was previously named <code>--host_javabase</code> (sometimes referred to as the
+  'left-hand side' <code>--host_javabase</code>), but was renamed to avoid confusion with the
+  build flag <a href='#flag--host_javabase'>--host_javabase</a> (sometimes referred to as the
+  'right-hand side' <code>--host_javabase</code>).
 </p>
 
 <h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>

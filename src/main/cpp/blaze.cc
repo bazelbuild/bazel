@@ -441,7 +441,7 @@ static vector<string> GetArgumentArray(
   // versions.
   string error;
   blaze_exit_code::ExitCode jvm_args_exit_code =
-      globals->options->AddJVMArguments(globals->options->GetHostJavabase(),
+      globals->options->AddJVMArguments(globals->options->GetServerJavabase(),
                                         &result, user_options, &error);
   if (jvm_args_exit_code != blaze_exit_code::SUCCESS) {
     BAZEL_DIE(jvm_args_exit_code) << error;
@@ -576,9 +576,9 @@ static vector<string> GetArgumentArray(
   // These flags are passed to the java process only for Blaze reporting
   // purposes; the real interpretation of the jvm flags occurs when we set up
   // the java command line.
-  if (!globals->options->GetExplicitHostJavabase().empty()) {
-    result.push_back("--host_javabase=" +
-                     globals->options->GetExplicitHostJavabase());
+  if (!globals->options->GetExplicitServerJavabase().empty()) {
+    result.push_back("--server_javabase=" +
+                     globals->options->GetExplicitServerJavabase());
   }
   if (globals->options->host_jvm_debug) {
     result.push_back("--host_jvm_debug");
