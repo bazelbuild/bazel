@@ -58,16 +58,75 @@ import javax.annotation.Nullable;
 public final class FuncallExpression extends Expression {
 
   /**
-   * A value class to store Methods with their corresponding SkylarkCallable annotations.
-   * This is needed because the annotation is sometimes in a superclass.
+   * A tuple of Param annotation to the skylark type it represents. While the type can be
+   * inferred completely by the Param annotation, this tuple allows for the type of a given
+   * parameter to be determined only once, as it is an expensive operation.
+   */
+  private static final class ParamInfo {
+    private final Param param;
+    private final SkylarkType type;
+
+    public ParamInfo(Param param) {
+      this.param = param;
+      this.type = getSkylarkType(param);
+    }
+
+    private static SkylarkType getSkylarkType(Param param) {
+      SkylarkType result = SkylarkType.BOTTOM;
+      if (param.allowedTypes().length > 0) {
+        Preconditions.checkState(Object.class.equals(param.type()));
+        for (ParamType paramType : param.allowedTypes()) {
+          SkylarkType t =
+              paramType.generic1() != Object.class
+                  ? SkylarkType.of(paramType.type(), paramType.generic1())
+                  : SkylarkType.of(paramType.type());
+          result = SkylarkType.Union.of(result, t);
+        }
+      } else {
+        result =
+            param.generic1() != Object.class
+                ? SkylarkType.of(param.type(), param.generic1())
+                : SkylarkType.of(param.type());
+      }
+
+      if (param.noneable()) {
+        result = SkylarkType.Union.of(result, SkylarkType.NONE);
+      }
+      return result;
+    }
+
+    public Param getParam() {
+      return param;
+    }
+
+    public SkylarkType getType() {
+      return type;
+    }
+  }
+
+  /**
+   * A value class to store Methods with their corresponding SkylarkCallable annotations and some
+   * information about the method.
    */
   public static final class MethodDescriptor {
+
     private final Method method;
+    private final ParamInfo[] methodParams;
     private final SkylarkCallable annotation;
 
     private MethodDescriptor(Method method, SkylarkCallable annotation) {
       this.method = method;
+      this.methodParams = methodParams(annotation);
       this.annotation = annotation;
+    }
+
+    private static ParamInfo[] methodParams(SkylarkCallable annotation) {
+      Param[] annotationParameters = annotation.parameters();
+      ParamInfo[] paramInfoArr = new ParamInfo[annotationParameters.length];
+      for (int i = 0; i < paramInfoArr.length; i++) {
+        paramInfoArr[i] = new ParamInfo(annotationParameters[i]);
+      }
+      return paramInfoArr;
     }
 
     Method getMethod() {
@@ -79,6 +138,13 @@ public final class FuncallExpression extends Expression {
      */
     public SkylarkCallable getAnnotation() {
       return annotation;
+    }
+
+    /**
+     * Returns an array of objects describing the parameters of this method.
+     */
+    public ParamInfo[] getMethodParams() {
+      return methodParams;
     }
   }
 
@@ -541,30 +607,6 @@ public final class FuncallExpression extends Expression {
     return matchingMethod;
   }
 
-  private static SkylarkType getType(Param param) {
-    SkylarkType result = SkylarkType.BOTTOM;
-    if (param.allowedTypes().length > 0) {
-      Preconditions.checkState(Object.class.equals(param.type()));
-      for (ParamType paramType : param.allowedTypes()) {
-        SkylarkType t =
-            paramType.generic1() != Object.class
-                ? SkylarkType.of(paramType.type(), paramType.generic1())
-                : SkylarkType.of(paramType.type());
-        result = SkylarkType.Union.of(result, t);
-      }
-    } else {
-      result =
-          param.generic1() != Object.class
-              ? SkylarkType.of(param.type(), param.generic1())
-              : SkylarkType.of(param.type());
-    }
-
-    if (param.noneable()) {
-      result = SkylarkType.Union.of(result, SkylarkType.NONE);
-    }
-    return result;
-  }
-
   private static boolean isParamNamed(Param param) {
     return param.named() || param.legacyNamed();
   }
@@ -622,8 +664,9 @@ public final class FuncallExpression extends Expression {
     // Positional parameters are always enumerated before non-positional parameters,
     // And default-valued positional parameters are always enumerated after other positional
     // parameters. These invariants are validated by the SkylarkCallable annotation processor.
-    for (Param param : callable.parameters()) {
-      SkylarkType type = getType(param);
+    for (ParamInfo paramInfo : method.getMethodParams()) {
+      SkylarkType type = paramInfo.getType();
+      Param param = paramInfo.getParam();
       Object value = null;
 
       if (argIndex < args.size() && param.positional()) { // Positional args and params remain.
