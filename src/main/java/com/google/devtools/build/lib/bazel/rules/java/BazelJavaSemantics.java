@@ -21,7 +21,9 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -42,9 +44,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
@@ -562,20 +561,19 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact gensrcJar,
       RuleConfiguredTargetBuilder ruleBuilder) {
     // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsStore(
-        new CcLinkParamsStore(
-            new AbstractCcLinkParamsStore() {
-              @Override
-              protected void collect(
-                  CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-                builder.addTransitiveTargets(
-                    javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
-                    JavaCcLinkParamsProvider.TO_LINK_PARAMS,
-                    CcLinkParamsStore.TO_LINK_PARAMS);
-              }
-            }));
-    ruleBuilder.addNativeDeclaredProvider(ccLinkingInfoBuilder.build());
+    ImmutableList<? extends TransitiveInfoCollection> deps =
+        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH);
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .addAll(
+                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.class))
+                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .build();
+
+    // TODO(plf): return empty CcLinkingInfo.
+    ruleBuilder.addNativeDeclaredProvider(CcLinkingInfo.merge(ccLinkingInfos));
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.
