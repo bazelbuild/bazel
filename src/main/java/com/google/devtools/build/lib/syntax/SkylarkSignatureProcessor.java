@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -225,25 +225,31 @@ public class SkylarkSignatureProcessor {
   }
 
   static Object getDefaultValue(Param param, Iterator<Object> iterator) {
+    return getDefaultValue(param.name(), param.defaultValue(), iterator);
+  }
+
+  static Object getDefaultValue(String paramName, String defaultValue, Iterator<Object> iterator) {
     if (iterator != null) {
       return iterator.next();
-    } else if (param.defaultValue().isEmpty()) {
-      return Runtime.NONE;
     } else {
-      try (Mutability mutability = Mutability.create("initialization")) {
-        // Note that this Skylark environment ignores command line flags.
-        Environment env =
-            Environment.builder(mutability)
-                .useDefaultSemantics()
-                .setGlobals(Environment.CONSTANTS_ONLY)
-                .setEventHandler(Environment.FAIL_FAST_HANDLER)
-                .build()
-                .update("unbound", Runtime.UNBOUND);
-        return BuildFileAST.eval(env, param.defaultValue());
-      } catch (Exception e) {
-        throw new RuntimeException(String.format(
-            "Exception while processing @SkylarkSignature.Param %s, default value %s",
-            param.name(), param.defaultValue()), e);
+      if (defaultValue.isEmpty()) {
+        return Runtime.NONE;
+      } else {
+        try (Mutability mutability = Mutability.create("initialization")) {
+          // Note that this Skylark environment ignores command line flags.
+          Environment env =
+              Environment.builder(mutability)
+                  .useDefaultSemantics()
+                  .setGlobals(Environment.CONSTANTS_ONLY)
+                  .setEventHandler(Environment.FAIL_FAST_HANDLER)
+                  .build()
+                  .update("unbound", Runtime.UNBOUND);
+          return BuildFileAST.eval(env, defaultValue);
+        } catch (Exception e) {
+          throw new RuntimeException(String.format(
+              "Exception while processing @SkylarkSignature.Param %s, default value %s",
+                  paramName, defaultValue), e);
+        }
       }
     }
   }
