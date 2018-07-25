@@ -1,5 +1,6 @@
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import java.util.Arrays;
@@ -18,6 +19,7 @@ public final class ParamDescriptor {
   private final boolean named;
   private final boolean legacyNamed;
   private final boolean positional;
+  private final SkylarkType skylarkType;
 
   private ParamDescriptor(
       String name,
@@ -30,7 +32,8 @@ public final class ParamDescriptor {
       boolean noneable,
       boolean named,
       boolean legacyNamed,
-      boolean positional) {
+      boolean positional,
+      SkylarkType skylarkType) {
     this.name = name;
     this.doc = doc;
     this.defaultValue = defaultValue;
@@ -42,23 +45,30 @@ public final class ParamDescriptor {
     this.named = named;
     this.legacyNamed = legacyNamed;
     this.positional = positional;
+    this.skylarkType = skylarkType;
   }
 
   static ParamDescriptor of(Param param) {
+    ImmutableList<ParamTypeDescriptor> allowedTypes =
+        Arrays.stream(param.allowedTypes())
+            .map(ParamTypeDescriptor::of)
+            .collect(ImmutableList.toImmutableList());
+    Class<?> type = param.type();
+    Class<?> generic = param.generic1();
+    boolean noneable = param.noneable();
     return new ParamDescriptor(
         param.name(),
         param.doc(),
         param.defaultValue(),
-        param.type(),
-        Arrays.stream(param.allowedTypes())
-            .map(ParamTypeDescriptor::of)
-            .collect(ImmutableList.toImmutableList()),
-        param.generic1(),
+        type,
+        allowedTypes,
+        generic,
         param.callbackEnabled(),
-        param.noneable(),
+        noneable,
         param.named(),
         param.legacyNamed(),
-        param.positional());
+        param.positional(),
+        getType(type, generic, allowedTypes, noneable));
   }
 
   /** @see Param#name() */
@@ -104,5 +114,34 @@ public final class ParamDescriptor {
   /** @see Param#defaultValue() */
   public String getDefaultValue() {
     return defaultValue;
+  }
+
+  private static SkylarkType getType(
+      Class<?> type,
+      Class<?> generic,
+      ImmutableList<ParamTypeDescriptor> allowedTypes,
+      boolean noneable) {
+    SkylarkType result = SkylarkType.BOTTOM;
+    if (!allowedTypes.isEmpty()) {
+      Preconditions.checkState(Object.class.equals(type));
+      for (ParamTypeDescriptor paramType : allowedTypes) {
+        SkylarkType t =
+            paramType.getGeneric1() != Object.class
+                ? SkylarkType.of(paramType.getType(), paramType.getGeneric1())
+                : SkylarkType.of(paramType.getType());
+        result = SkylarkType.Union.of(result, t);
+      }
+    } else {
+      result = generic != Object.class ? SkylarkType.of(type, generic) : SkylarkType.of(type);
+    }
+
+    if (noneable) {
+      result = SkylarkType.Union.of(result, SkylarkType.NONE);
+    }
+    return result;
+  }
+
+  SkylarkType getSkylarkType() {
+    return skylarkType;
   }
 }

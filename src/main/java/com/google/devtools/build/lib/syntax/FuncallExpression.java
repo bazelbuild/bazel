@@ -512,30 +512,6 @@ public final class FuncallExpression extends Expression {
     return matchingMethod;
   }
 
-  private static SkylarkType getType(ParamDescriptor param) {
-    SkylarkType result = SkylarkType.BOTTOM;
-    if (!param.getAllowedTypes().isEmpty()) {
-      Preconditions.checkState(Object.class.equals(param.getType()));
-      for (ParamTypeDescriptor paramType : param.getAllowedTypes()) {
-        SkylarkType t =
-            paramType.getGeneric1() != Object.class
-                ? SkylarkType.of(paramType.getType(), paramType.getGeneric1())
-                : SkylarkType.of(paramType.getType());
-        result = SkylarkType.Union.of(result, t);
-      }
-    } else {
-      result =
-          param.getGeneric1() != Object.class
-              ? SkylarkType.of(param.getType(), param.getGeneric1())
-              : SkylarkType.of(param.getType());
-    }
-
-    if (param.isNoneable()) {
-      result = SkylarkType.Union.of(result, SkylarkType.NONE);
-    }
-    return result;
-  }
-
   private static boolean isParamNamed(ParamDescriptor param) {
     return param.isNamed() || param.isLegacyNamed();
   }
@@ -593,7 +569,7 @@ public final class FuncallExpression extends Expression {
     // And default-valued positional parameters are always enumerated after other positional
     // parameters. These invariants are validated by the SkylarkCallable annotation processor.
     for (ParamDescriptor param : method.getParameters()) {
-      SkylarkType type = getType(param);
+      SkylarkType type = param.getSkylarkType();
       Object value = null;
 
       if (argIndex < args.size() && param.isPositional()) { // Positional args and params remain.
