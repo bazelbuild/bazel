@@ -612,6 +612,12 @@ public class JavaHeaderCompileAction extends SpawnAction {
         result.add("--injecting_rule_kind", injectingRuleKind);
       }
       result.addExecPaths("--classpath", classpathEntries);
+      if (strictJavaDeps != BuildConfiguration.StrictDepsMode.OFF) {
+        result.addExecPaths("--direct_dependencies", directJars);
+        if (!compileTimeDependencyArtifacts.isEmpty()) {
+          result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
+        }
+      }
       return result;
     }
 
