@@ -177,6 +177,15 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> processed_args = {"/usr/bin/xcrun", tool_name};
 
   std::string linked_binary, dsym_path, dsym_bundle_zip, bitcode_symbol_map;
+  std::string dest_dir;
+
+  std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
+                                                   std::free};
+  if (cwd == nullptr) {
+    std::cerr << "Error determining current working directory\n";
+    abort();
+  }
+
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
 
@@ -195,6 +204,9 @@ int main(int argc, char *argv[]) {
       // Touch bitcode_symbol_map.
       std::ofstream bitcode_symbol_map_file(bitcode_symbol_map);
       arg = bitcode_symbol_map;
+    }
+    if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
+      arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
     }
     FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
     FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
@@ -240,12 +252,6 @@ int main(int argc, char *argv[]) {
   RunSubProcess(dsymutil_args);
 
   if (dsyms_use_zip_file) {
-    std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
-                                                     std::free};
-    if (cwd == nullptr) {
-      std::cerr << "Error determining current working directory\n";
-      abort();
-    }
     std::vector<std::string> zip_args = {
         "/usr/bin/zip", "-q", "-r",
         std::string(cwd.get()) + "/" + dsym_bundle_zip, "."};
