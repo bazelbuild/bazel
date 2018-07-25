@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -385,9 +386,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return javaLauncherLabel;
   }
 
-  /**
-   * Returns the label provided with --proguard_top, if any.
-   */
+  /** Returns the label provided with --proguard_top, if any. */
+  @SkylarkConfigurationField(
+      name = "proguard_top",
+      doc = "Returns the label provided with --proguard_top, if any.",
+      defaultInToolRepository = true)
   @Nullable
   public Label getProguardBinary() {
     return proguardBinary;
@@ -421,9 +424,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return bundleTranslations == TriState.NO;
   }
 
-  /**
-   * Returns the label of the default java_toolchain rule
-   */
+  /** Returns the label of the default java_toolchain rule */
+  @SkylarkConfigurationField(
+      name = "java_toolchain",
+      doc = "Returns the label of the default java_toolchain rule.",
+      defaultLabel = "//tools/jdk:toolchain",
+      defaultInToolRepository = true)
   public Label getToolchainLabel() {
     return toolchainLabel;
   }
