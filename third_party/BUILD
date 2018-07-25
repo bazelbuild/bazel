@@ -522,6 +522,11 @@ filegroup(
 # Testing
 
 java_import(
+    name = "diffutils",
+    jars = ["diffutils/diffutils.jar"],
+)
+
+java_import(
     name = "guava-testlib",
     jars = ["guava/guava-testlib-25.1-jre.jar"],
 )
@@ -576,12 +581,15 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.36.jar"],
+    jars = ["truth/truth-0.42.jar"],
+    runtime_deps = [
+        ":diffutils",
+    ],
 )
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.36.jar"],
+    jars = ["truth8/truth-java8-extension-0.42.jar"],
 )
 
 java_import(
