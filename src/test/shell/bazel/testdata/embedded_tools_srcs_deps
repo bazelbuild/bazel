@@ -13,6 +13,7 @@
 //src/tools/singlejar:singlejar_local
 //src/tools/singlejar:output_jar
 //src/tools/singlejar:options
+//src/tools/singlejar:port
 //src/tools/singlejar:token_stream
 //src/tools/singlejar:input_jar
 //src/tools/singlejar:combiners
