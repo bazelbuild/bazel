@@ -836,15 +836,23 @@ public class CppCompileAction extends AbstractAction
     }
     // Still not found: see if it is in a subdir of a declared package.
     Root root = actionExecutionContext.getRoot(input);
+    // As we walk up along parent paths, we'll need to check whether Bazel build files exist, which
+    // would mean that the file is in a sub-package and not a subdir of a declared include
+    // directory. Do so lazily to avoid stats when this file doesn't lie beneath any declared
+    // include directory.
+    List<Path> packagesToCheckForBuildFiles = new ArrayList<>();
     for (Path dir = actionExecutionContext.getInputPath(input).getParentDirectory(); ; ) {
-      if (dir.getRelative(BUILD_PATH_FRAGMENT).exists()) {
-        return false;  // Bad: this is a sub-package, not a subdir of a declared package.
-      }
+      packagesToCheckForBuildFiles.add(dir);
       dir = dir.getParentDirectory();
       if (dir.equals(root.asPath())) {
         return false;  // Bad: at the top, give up.
       }
       if (declaredIncludeDirs.contains(root.relativize(dir))) {
+        for (Path dirOrPackage : packagesToCheckForBuildFiles) {
+          if (dirOrPackage.getRelative(BUILD_PATH_FRAGMENT).exists()) {
+            return false;  // Bad: this is a sub-package, not a subdir of a declared package.
+          }
+        }
         return true;  // OK: found under a declared dir.
       }
     }
