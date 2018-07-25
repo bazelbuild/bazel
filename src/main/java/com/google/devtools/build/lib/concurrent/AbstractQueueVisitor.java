@@ -218,45 +218,25 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   /** Schedules a call. Called in a worker thread. */
   @Override
   public final void execute(Runnable runnable) {
-    if (runConcurrently()) {
-      WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
-      try {
-        // It's impossible for this increment to result in remainingTasks.get <= 0 because
-        // remainingTasks is never negative. Therefore it isn't necessary to check its value for
-        // the purpose of updating zeroRemainingTasks.
-        long tasks = remainingTasks.incrementAndGet();
-        Preconditions.checkState(
-            tasks > 0,
-            "Incrementing remaining tasks counter resulted in impossible non-positive number.");
-        executeRunnable(wrappedRunnable);
-      } catch (Throwable e) {
-        if (!wrappedRunnable.ran) {
-          // Note that keeping track of ranTask is necessary to disambiguate the case where
-          // execute() itself failed, vs. a caller-runs policy on pool exhaustion, where the
-          // runnable threw. To be extra cautious, we decrement the task count in a finally
-          // block, even though the CountDownLatch is unlikely to throw.
-          recordError(e);
-        }
+    WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
+    try {
+      // It's impossible for this increment to result in remainingTasks.get <= 0 because
+      // remainingTasks is never negative. Therefore it isn't necessary to check its value for
+      // the purpose of updating zeroRemainingTasks.
+      long tasks = remainingTasks.incrementAndGet();
+      Preconditions.checkState(
+          tasks > 0,
+          "Incrementing remaining tasks counter resulted in impossible non-positive number.");
+      executeRunnable(wrappedRunnable);
+    } catch (Throwable e) {
+      if (!wrappedRunnable.ran) {
+        // Note that keeping track of ranTask is necessary to disambiguate the case where
+        // execute() itself failed, vs. a caller-runs policy on pool exhaustion, where the
+        // runnable threw. To be extra cautious, we decrement the task count in a finally
+        // block, even though the CountDownLatch is unlikely to throw.
+        recordError(e);
       }
-    } else {
-      runnable.run();
     }
-  }
-
-  /**
-   * Subclasses may override this to make dynamic decisions about whether to run tasks
-   * asynchronously versus in-thread.
-   */
-  protected boolean runConcurrently() {
-    return true;
-  }
-
-  /**
-   * Returns an approximate count of how many threads in the queue visitor's thread pool are
-   * occupied with tasks.
-   */
-  protected final int activeParallelTasks() {
-    return jobs.size();
   }
 
   protected void executeRunnable(Runnable runnable) {

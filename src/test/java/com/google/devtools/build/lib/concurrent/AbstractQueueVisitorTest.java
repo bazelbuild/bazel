@@ -50,7 +50,6 @@ public class AbstractQueueVisitorTest {
     counter.enqueue();
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
     assertThat(counter.getCount()).isSameAs(10);
-    assertThat(counter.activeParallelTasks()).isSameAs(0);
   }
 
   @Test
