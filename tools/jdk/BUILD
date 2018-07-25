@@ -20,24 +20,9 @@ java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
 
-config_setting(
-    name = "jdk7",
-    values = {"define": "JAVA_VERSION=1.7"},
-)
-
-genrule(
-    name = "BUILD-jdk7",
-    srcs = [":BUILD"],
-    outs = ["BUILD.jdk7"],
-    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' -e 's/forcibly_disable_header_compilation = 0/forcibly_disable_header_compilation = 1/g' -e 's/:JavaBuilder_deploy/:VanillaJavaBuilder_deploy/' $< > $@",
-)
-
 filegroup(
     name = "BUILD-jdk",
-    srcs = select({
-        ":jdk7": [":BUILD-jdk7"],
-        "//conditions:default": [":BUILD"],
-    }),
+    srcs = [":BUILD"],
 )
 
 # This is necessary to get the *host* Java runtime. Depending on
