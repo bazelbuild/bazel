@@ -514,4 +514,32 @@ EOF
   diff hashA.txt hashB.txt || fail "Expected hash to be reproducible"
 }
 
+test_non_reproducibility_detected() {
+    # Verify that a non-reproducible rule is detected by hash verification
+    mkdir repo
+    cd repo
+    touch BUILD
+    cat > rule.bzl <<'EOF'
+def _time_rule_impl(ctx):
+  ctx.execute(["bash", "-c", "date +%s > timestamp"])
+
+time_rule = repository_rule(
+  implementation = _time_rule_impl,
+  attrs = {},
+)
+EOF
+    cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "time_rule")
+
+time_rule(name="timestamprepo")
+EOF
+
+    bazel sync --experimental_repository_resolved_file=resolved.bzl
+    sync; sleep 10
+    bazel sync --experimental_repository_hash_file=`pwd`/resolved.bzl \
+          --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
+          > "${TEST_log}" 2>&1 && fail "expected failure" || :
+    expect_log "timestamprepo.*hash"
+}
+
 run_suite "workspace_resolved_test tests"

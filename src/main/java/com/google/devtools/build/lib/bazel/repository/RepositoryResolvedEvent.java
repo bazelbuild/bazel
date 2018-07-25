@@ -13,6 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_RULE_CLASS;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.OUTPUT_TREE_HASH;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
@@ -29,12 +36,6 @@ import java.util.Map;
  * Event indicating that a repository rule was executed, together with the return value of the rule.
  */
 public class RepositoryResolvedEvent implements ProgressLike {
-  public static final String ORIGINAL_RULE_CLASS = "original_rule_class";
-  public static final String ORIGINAL_ATTRIBUTES = "original_attributes";
-  public static final String RULE_CLASS = "rule_class";
-  public static final String ATTRIBUTES = "attributes";
-  public static final String OUTPUT_TREE_HASH = "output_tree_hash";
-  public static final String REPOSITORIES = "repositories";
 
   /**
    * The entry for WORSPACE.resolved corresponding to that rule invocation.

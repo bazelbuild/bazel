@@ -421,7 +421,7 @@ sh_test(
     size = "medium",
     srcs = ["workspace_resolved_test.sh"],
     data = [":test-deps"],
-    shard_count = 9,
+    shard_count = 10,
     tags = ["no_windows"],
 )
 
