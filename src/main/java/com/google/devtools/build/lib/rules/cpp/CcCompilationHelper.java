@@ -823,7 +823,7 @@ public final class CcCompilationHelper {
     }
   }
 
-  private PublicHeaders computePublicHeaders() {
+  private PublicHeaders computePublicHeaders(boolean headerMapsEnabled) {
     if (!ruleContext.attributes().has("strip_include_prefix", Type.STRING)
         || !ruleContext.attributes().has("include_prefix", Type.STRING)) {
       return new PublicHeaders(
@@ -896,6 +896,7 @@ public final class CcCompilationHelper {
         includePath = prefix.getRelative(includePath);
       }
 
+      // OB TODO skip symlinks when headerMapsEnabled is true
       if (!originalHeader.getExecPath().equals(includePath)) {
         Artifact virtualHeader =
             ruleContext.getUniqueDirectoryArtifact(
@@ -932,16 +933,21 @@ public final class CcCompilationHelper {
    * Create {@code CcCompilationContext} for cc compile action from generated inputs.
    */
   private CcCompilationContext initializeCcCompilationContext() {
+
+    boolean headerMapsEnabled =
+        ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps();
+
     CcCompilationContext.Builder ccCompilationContextBuilder =
         new CcCompilationContext.Builder(ruleContext);
 
-    PublicHeaders publicHeaders = computePublicHeaders();
-    if (publicHeaders.getVirtualIncludePath() != null) {
+    PublicHeaders publicHeaders = computePublicHeaders(headerMapsEnabled);
+
+    if (!headerMapsEnabled && publicHeaders.getVirtualIncludePath() != null) {
       ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
     }
 
     // Setup Experimental implicit header maps if needed
-    if (ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps()) {
+    if (headerMapsEnabled) {
 
       Iterable<Artifact> internalHeaders = Iterables.unmodifiableIterable(
           Iterables.concat(publicHeaders.getHeaders(), privateHeaders, publicTextualHeaders));
@@ -1221,9 +1227,6 @@ public final class CcCompilationHelper {
     // Cpp header maps may be null for some rules. We filter the nulls out at the end.
     List<CppHeaderMap> result =
         deps.stream().map(CPP_DEPS_TO_HEADER_MAPS).collect(toCollection(ArrayList::new));
-    for (CppHeaderMap hm : result) {
-      System.out.println("DEP: ----> " + hm.toString());
-    }
     return Iterables.filter(result, Predicates.notNull());
   }
 

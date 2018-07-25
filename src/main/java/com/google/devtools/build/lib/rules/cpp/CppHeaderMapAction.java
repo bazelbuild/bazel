@@ -71,13 +71,9 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
     ImmutableMap.Builder builder = ImmutableMap.builder();
     builder.putAll(cppHeaderMap.getMapping());
     if (dependencies != null) {
-      System.out.println("Adding dependencies");
       for (CppHeaderMap headerMap : dependencies) {
         builder.putAll(headerMap.getMapping());
-        System.out.println("Adding dep: " + headerMap.toString());
       }
-    } else {
-      System.out.println("Dependencies was NULL!");
     }
     this.mapping = builder.build();
   }
