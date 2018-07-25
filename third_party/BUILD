@@ -322,14 +322,6 @@ java_import(
 )
 
 java_import(
-    name = "hazelcast",
-    jars = [
-        "hazelcast/hazelcast-3.6.4.jar",
-        "hazelcast/hazelcast-client-3.6.4.jar",
-    ],
-)
-
-java_import(
     name = "hungarian_algorithm",
     jars = ["hungarian_algorithm/software-and-algorithms-1.0.jar"],
     srcjar = "hungarian_algorithm/software-and-algorithms-1.0-src.jar",
