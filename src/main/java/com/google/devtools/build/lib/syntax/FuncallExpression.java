@@ -836,16 +836,14 @@ public final class FuncallExpression extends Expression {
             : positionals.subList(1, positionals.size());
 
     if (function != null) {
-      return function.call(
-          positionalArgs, ImmutableMap.copyOf(keyWordArgs), call, env);
+      return function.call(positionalArgs, keyWordArgs, call, env);
     } else if (fieldValue != null) {
       if (!(fieldValue instanceof BaseFunction)) {
         throw new EvalException(
             location, String.format("struct field '%s' is not a function", method));
       }
       function = (BaseFunction) fieldValue;
-      return function.call(
-          positionalArgs, ImmutableMap.copyOf(keyWordArgs), call, env);
+      return function.call(positionalArgs, keyWordArgs, call, env);
     } else {
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'function' would fail.
