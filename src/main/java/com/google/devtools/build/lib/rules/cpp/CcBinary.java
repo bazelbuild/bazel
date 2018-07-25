@@ -886,6 +886,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
+    // TODO(b/111289526): Remove CcLinkingInfo provider from cc_binary as soon as the flag
+    // --experimental_enable_cc_dynlibs_for_runtime is flipped. An empty CcLinkParamsStore is not
+    // needed, but here we set it to avoid a null pointer exception in places where we're expecting
+    // it. In the future CcLinkParamsStore will be obligatory.
+    ccLinkingInfoBuilder.setCcLinkParamsStore(
+        new CcLinkParamsStore(
+            /* staticModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
+            /* staticModeParamsForExecutable= */ CcLinkParams.EMPTY,
+            /* dynamicModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
+            /* dynamicModeParamsForExecutable= */ CcLinkParams.EMPTY));
     if (cppConfiguration.enableCcDynamicLibrariesForRuntime()) {
       ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
           new CcDynamicLibrariesForRuntime(
