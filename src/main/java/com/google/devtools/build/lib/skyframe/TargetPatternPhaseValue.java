@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -82,6 +81,23 @@ public final class TargetPatternPhaseValue implements SkyValue {
         .collect(ImmutableSet.toImmutableSet());
   }
 
+  public ImmutableSet<Target> getTestsToRun(
+      ExtendedEventHandler eventHandler, PackageManager packageManager) {
+    return testsToRunLabels
+        .stream()
+        .map(
+            (label) -> {
+              try {
+                return packageManager
+                    .getPackage(eventHandler, label.getPackageIdentifier())
+                    .getTarget(label.getName());
+              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+                throw new RuntimeException("Failed to get package from TargetPatternPhaseValue", e);
+              }
+            })
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
   public ImmutableSet<Label> getTargetLabels() {
     return targetLabels;
   }
@@ -101,48 +117,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public String getWorkspaceName() {
     return workspaceName;
-  }
-
-  public LoadingResult toLoadingResult(
-      ExtendedEventHandler eventHandler, PackageManager packageManager) {
-    ImmutableSet<Target> targets =
-        getTargetLabels()
-            .stream()
-            .map(
-                (label) -> {
-                  try {
-                    return packageManager
-                        .getPackage(eventHandler, label.getPackageIdentifier())
-                        .getTarget(label.getName());
-                  } catch (NoSuchPackageException
-                      | NoSuchTargetException
-                      | InterruptedException e) {
-                    throw new RuntimeException(e);
-                  }
-                })
-            .collect(ImmutableSet.toImmutableSet());
-    ImmutableSet<Target> testsToRun = null;
-    if (testsToRunLabels != null) {
-      testsToRun =
-          getTestsToRunLabels()
-              .stream()
-              .map(
-                  (label) -> {
-                    try {
-                      return packageManager
-                          .getPackage(eventHandler, label.getPackageIdentifier())
-                          .getTarget(label.getName());
-                    } catch (NoSuchPackageException
-                        | NoSuchTargetException
-                        | InterruptedException e) {
-                      throw new RuntimeException(e);
-                    }
-                  })
-              .collect(ImmutableSet.toImmutableSet());
-    }
-
-    return new LoadingResult(
-        hasError(), hasPostExpansionError(), targets, testsToRun, getWorkspaceName());
   }
 
   @Override

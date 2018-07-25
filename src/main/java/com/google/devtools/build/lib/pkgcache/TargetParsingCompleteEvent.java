@@ -126,6 +126,14 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
     return Iterables.transform(targets, ThinTarget::getLabel);
   }
 
+  public Iterable<Label> getFilteredLabels() {
+    return Iterables.transform(filteredTargets, ThinTarget::getLabel);
+  }
+
+  public Iterable<Label> getTestFilteredLabels() {
+    return Iterables.transform(testFilteredTargets, ThinTarget::getLabel);
+  }
+
   /** @return the filtered targets (i.e., using -//foo:bar on the command-line) */
   public ImmutableSet<ThinTarget> getFilteredTargets() {
     return filteredTargets;

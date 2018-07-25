@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -2194,7 +2193,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public abstract void deleteOldNodes(long versionWindowForDirtyGc);
 
-  public LoadingResult loadTargetPatterns(
+  public TargetPatternPhaseValue loadTargetPatterns(
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
@@ -2252,7 +2251,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     eventHandler.post(new TargetParsingPhaseTimeEvent(timeMillis));
 
     TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-    return patternParsingValue.toLoadingResult(eventHandler, packageManager);
+    return patternParsingValue;
   }
 
   public Consumer<Artifact.SourceArtifact> getSourceDependencyListener(SkyKey key) {
