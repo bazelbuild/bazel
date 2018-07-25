@@ -19,7 +19,7 @@ package com.google.devtools.build.lib.actions;
  * <p>This implementation is used in command line item expansions that use formatting. We use a
  * custom implementation to improve performance and avoid GC.
  */
-public class CommandLineItemSimpleFormatter {
+public class SingleStringArgFormatter {
 
   /**
    * Returns true if the format string contains a single '%s'.

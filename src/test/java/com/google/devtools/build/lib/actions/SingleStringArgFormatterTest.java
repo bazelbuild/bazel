@@ -14,17 +14,17 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter.format;
-import static com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter.isValid;
+import static com.google.devtools.build.lib.actions.SingleStringArgFormatter.format;
+import static com.google.devtools.build.lib.actions.SingleStringArgFormatter.isValid;
 
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link CommandLineItemSimpleFormatter} */
+/** Tests for {@link SingleStringArgFormatter} */
 @RunWith(JUnit4.class)
-public class CommandLineItemSimpleFormatterTest {
+public class SingleStringArgFormatterTest {
 
   @Test
   public void testValidate() {

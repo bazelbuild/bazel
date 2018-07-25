@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -772,7 +772,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         throws EvalException {
       if (formatStr != null
           && skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
-          && !CommandLineItemSimpleFormatter.isValid(formatStr)) {
+          && !SingleStringArgFormatter.isValid(formatStr)) {
         throw new EvalException(
             null,
             String.format(
@@ -798,7 +798,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
-      if (!paramFileArg.contains("%s")) {
+      if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
             "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
