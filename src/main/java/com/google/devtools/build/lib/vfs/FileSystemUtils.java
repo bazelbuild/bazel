@@ -858,6 +858,24 @@ public class FileSystemUtils {
   }
 
   /**
+   * The type of {@link IOException} thrown by {@link #readWithKnownFileSize} when fewer bytes than
+   * expected are read.
+   */
+  public static class ShortReadIOException extends IOException {
+    public final Path path;
+    public final int fileSize;
+    public final int numBytesRead;
+
+    private ShortReadIOException(Path path, int fileSize, int numBytesRead) {
+      super("Unexpected short read from file '" + path + "' (expected " + fileSize + ", got "
+          + numBytesRead + " bytes)");
+      this.path = path;
+      this.fileSize = fileSize;
+      this.numBytesRead = numBytesRead;
+    }
+  }
+
+  /**
    * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
    * check on the number of bytes read.
    *
@@ -873,8 +891,7 @@ public class FileSystemUtils {
     int fileSizeInt = (int) fileSize;
     byte[] bytes = readContentWithLimit(path, fileSizeInt);
     if (fileSizeInt > bytes.length) {
-      throw new IOException("Unexpected short read from file '" + path
-          + "' (expected " + fileSizeInt + ", got " + bytes.length + " bytes)");
+      throw new ShortReadIOException(path, fileSizeInt, bytes.length);
     }
     return bytes;
   }
