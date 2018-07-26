@@ -210,15 +210,7 @@ public class BuildOptionsTest {
     OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
     OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
     assertThat(diff2).isEqualTo(diff1);
-    assertThat(
-            TestUtils.toBytes(
-                diff2,
-                ImmutableMap.of(
-                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())))
-        .isEqualTo(
-            TestUtils.toBytes(
-                diff1,
-                ImmutableMap.of(
-                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())));
+    assertThat(TestUtils.toBytes(diff2, ImmutableMap.of()))
+        .isEqualTo(TestUtils.toBytes(diff1, ImmutableMap.of()));
   }
 }
