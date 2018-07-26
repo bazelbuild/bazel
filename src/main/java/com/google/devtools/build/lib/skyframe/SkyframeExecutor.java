@@ -2200,6 +2200,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
       LoadingOptions options,
+      int threadCount,
       boolean keepGoing,
       boolean determineTests)
       throws TargetParsingException, InterruptedException {
@@ -2219,7 +2220,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
     evalResult =
         buildDriver.evaluate(
-            ImmutableList.of(key), keepGoing, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
+            ImmutableList.of(key), keepGoing, threadCount, eventHandler);
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(key);
       TargetParsingException exc;

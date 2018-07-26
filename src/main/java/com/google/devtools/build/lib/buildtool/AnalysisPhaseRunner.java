@@ -197,6 +197,7 @@ public final class AnalysisPhaseRunner {
                 request.getTargets(),
                 env.getRelativeWorkingDirectory(),
                 request.getLoadingOptions(),
+                request.getLoadingPhaseThreadCount(),
                 keepGoing,
                 request.shouldRunTests());
     if (validator != null) {

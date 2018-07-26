@@ -815,6 +815,8 @@ public class LoadingPhaseRunnerTest {
               ImmutableList.copyOf(patterns),
               PathFragment.EMPTY_FRAGMENT,
               options,
+              // We load very few packages, and everything is in memory; two should be plenty.
+              /* threadCount= */ 2,
               keepGoing,
               determineTests);
       this.targetParsingCompleteEvent = findPost(TargetParsingCompleteEvent.class);

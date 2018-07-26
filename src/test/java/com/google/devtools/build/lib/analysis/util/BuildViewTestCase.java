@@ -1746,6 +1746,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             targets,
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
+            loadingPhaseThreads,
             keepGoing,
             /*determineTests=*/ false);
     if (!doAnalysis) {

@@ -353,6 +353,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
+            LOADING_PHASE_THREADS,
             keepGoing,
             /*determineTests=*/ false);
 
