@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -71,11 +73,12 @@ public class ExecutionOptions extends OptionsBase {
     name = "subcommands",
     abbrev = 's',
     defaultValue = "false",
+    converter = ShowSubcommandsConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Display the subcommands executed during a build."
   )
-  public boolean showSubcommands;
+  public ShowSubcommands showSubcommands;
 
   @Option(
     name = "check_up_to_date",
@@ -363,4 +366,13 @@ public class ExecutionOptions extends OptionsBase {
           + "This flag may be passed more than once";
     }
   }
+
+  /** Converter for --subcommands */
+  public static class ShowSubcommandsConverter extends BoolOrEnumConverter<ShowSubcommands> {
+    public ShowSubcommandsConverter() {
+      super(
+          ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);
+    }
+  }
+
 }
