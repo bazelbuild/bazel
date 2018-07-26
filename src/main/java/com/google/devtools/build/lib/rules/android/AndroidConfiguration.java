@@ -711,9 +711,22 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help = "Build Android APKs with SingleJar."
+      help = "Build Android APKs with SingleJar. SingleJar is a bundled tool in Bazel for building "
+          + "and compressing JARs and APKs."
     )
     public boolean useSingleJarApkBuilder;
+
+    @Option(
+        name = "android_compress_apk_with_singlejar",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {
+            OptionEffectTag.AFFECTS_OUTPUTS
+        },
+        help =
+            "If enabled, the final APK will be compressed using SingleJar."
+    )
+    public boolean compressApkWithSinglejar;
 
     @Option(
       name = "experimental_android_compress_java_resources",
@@ -922,6 +935,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean decoupleDataProcessing;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  private final boolean compressApkWithSinglejar;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -963,6 +977,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.checkForMigrationTag = options.checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.compressApkWithSinglejar = options.compressApkWithSinglejar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1015,7 +1030,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
       boolean decoupleDataProcessing,
       boolean checkForMigrationTag,
-      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
+      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest,
+      boolean compressApkWithSinglejar) {
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1052,6 +1068,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.checkForMigrationTag = checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.compressApkWithSinglejar = compressApkWithSinglejar;
   }
 
   public String getCpu() {
@@ -1209,6 +1226,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  }
+
+  public boolean getCompressApkWithSinglejar() {
+    return compressApkWithSinglejar;
   }
 
   @Override
