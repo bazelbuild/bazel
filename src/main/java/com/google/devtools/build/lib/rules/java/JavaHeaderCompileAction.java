@@ -437,6 +437,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
               .addTransitive(baseInputs)
               .addTransitive(classpathEntries)
               .addTransitive(plugins.processorClasspath())
+              .addTransitive(plugins.data())
               .addTransitive(compileTimeDependencyArtifacts);
       final CommandLines commandLines;
 

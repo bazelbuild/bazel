@@ -38,14 +38,17 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
   public abstract static class JavaPluginInfo {
 
     public static JavaPluginInfo create(
-        NestedSet<String> processorClasses, NestedSet<Artifact> processorClasspath) {
+        NestedSet<String> processorClasses,
+        NestedSet<Artifact> processorClasspath,
+        NestedSet<Artifact> data) {
       return new AutoValue_JavaPluginInfoProvider_JavaPluginInfo(
-          processorClasses, processorClasspath);
+          processorClasses, processorClasspath, data);
     }
 
     @AutoCodec.Instantiator
     public static JavaPluginInfo empty() {
       return create(
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
     }
@@ -53,11 +56,13 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
     public static JavaPluginInfo merge(Iterable<JavaPluginInfo> plugins) {
       NestedSetBuilder<String> processorClasses = NestedSetBuilder.naiveLinkOrder();
       NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
+      NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
       for (JavaPluginInfo plugin : plugins) {
         processorClasses.addTransitive(plugin.processorClasses());
         processorClasspath.addTransitive(plugin.processorClasspath());
+        data.addTransitive(plugin.data());
       }
-      return create(processorClasses.build(), processorClasspath.build());
+      return create(processorClasses.build(), processorClasspath.build(), data.build());
     }
 
     /**
@@ -69,8 +74,10 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
     /** Returns the artifacts to add to the runtime classpath for this plugin. */
     public abstract NestedSet<Artifact> processorClasspath();
 
+    public abstract NestedSet<Artifact> data();
+
     public boolean isEmpty() {
-      return processorClasses().isEmpty() && processorClasspath().isEmpty();
+      return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
     }
   }
 
