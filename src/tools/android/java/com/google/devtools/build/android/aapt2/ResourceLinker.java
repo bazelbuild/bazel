@@ -203,14 +203,17 @@ public class ResourceLinker {
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.LIBRARY)
               .add("link")
+              .when(
+                  outputAsProto) // Used for testing: aapt2 does not output static libraries in
+                                 // proto format.
+              .thenAdd("--proto-format")
+              .when(!outputAsProto)
+              .thenAdd("--static-lib")
               .add("--manifest", compiled.getManifest())
-              .add("--static-lib")
               .add("--no-static-lib-packages")
               .add("--custom-package", customPackage)
               .whenVersionIsAtLeast(new Revision(23))
               .thenAdd("--no-version-vectors")
-              .when(outputAsProto)
-              .thenAdd("--proto-format")
               .addParameterableRepeated(
                   "-R", compiledResourcesToPaths(compiled, IS_FLAT_FILE), workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)

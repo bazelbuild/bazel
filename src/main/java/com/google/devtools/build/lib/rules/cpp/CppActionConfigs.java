@@ -53,6 +53,7 @@ public class CppActionConfigs {
               + "    action: 'c++-link-dynamic-library'"
               + "    action: 'c++-link-nodeps-dynamic-library'"
               + "    flag_group {"
+              + "      expand_if_all_available: 'generate_interface_library'"
               + "      flag: '"
               + cppLinkDynamicLibraryToolPath
               + "'"

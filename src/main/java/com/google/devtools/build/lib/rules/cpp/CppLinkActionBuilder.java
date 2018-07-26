@@ -926,6 +926,16 @@ public class CppLinkActionBuilder {
 
     CcToolchainVariables variables;
     try {
+      ImmutableList<String> userLinkFlags;
+      if (cppConfiguration.enableLinkoptsInUserLinkFlags()) {
+        userLinkFlags =
+            ImmutableList.<String>builder()
+                .addAll(linkopts)
+                .addAll(toolchain.getLinkOptions())
+                .build();
+      } else {
+        userLinkFlags = ImmutableList.copyOf(linkopts);
+      }
       variables =
           LinkBuildVariables.setupVariables(
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
@@ -941,7 +951,7 @@ public class CppLinkActionBuilder {
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,
-              ImmutableList.copyOf(linkopts),
+              userLinkFlags,
               toolchain.getInterfaceSoBuilder().getExecPathString(),
               interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
               ltoOutputRootPrefix,

@@ -177,7 +177,7 @@ public class BlazeCommandDispatcher {
           case ERROR_OUT:
             outErr.printErrLn(String.format("Another command (" + currentClientDescription + ") is "
                 + "running. Exiting immediately."));
-            return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+            return BlazeCommandResult.exitCode(ExitCode.LOCK_HELD_NOBLOCK_FOR_LOCK);
 
           default:
             throw new IllegalStateException();

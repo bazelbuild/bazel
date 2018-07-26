@@ -656,7 +656,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
 
     if (!block) {
-      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the lock is held and --noblock_for_lock was "
              "given.";
     }

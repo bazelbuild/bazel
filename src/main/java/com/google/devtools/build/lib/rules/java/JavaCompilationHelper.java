@@ -229,8 +229,8 @@ public final class JavaCompilationHelper {
     builder.setSourceGenDirectory(sourceGenDir(classJar));
     builder.setTempDirectory(tempDir(classJar));
     builder.setClassDirectory(classDir(classJar));
-    builder.setProcessorPaths(attributes.getProcessorPath());
-    builder.addProcessorNames(attributes.getProcessorNames());
+    builder.setPlugins(attributes.plugins().plugins());
+    builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setDirectJars(attributes.getDirectJars());
@@ -405,8 +405,10 @@ public final class JavaCompilationHelper {
         ImmutableList.copyOf(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
 
     // only run API-generating annotation processors during header compilation
-    builder.setProcessorPaths(attributes.getApiGeneratingProcessorPath());
-    builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
+    builder.setPlugins(attributes.plugins().apiGeneratingPlugins());
+    // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
+    // It is used to allow Error Prone checks to load additional data,
+    // and Error Prone doesn't run during header compilation.
     builder.setJavacOpts(getJavacOpts());
     builder.setTempDirectory(tempDir(headerJar));
     builder.setOutputJar(headerJar);
@@ -459,7 +461,10 @@ public final class JavaCompilationHelper {
    */
   public boolean usesAnnotationProcessing() {
     JavaTargetAttributes attributes = getAttributes();
-    return getJavacOpts().contains("-processor") || !attributes.getProcessorNames().isEmpty();
+    return getJavacOpts().contains("-processor")
+        // The target may have a processorpath even if no annotation processors are enabled,
+        // so check for processor names.
+        || !attributes.plugins().plugins().processorClasses().isEmpty();
   }
 
   /**

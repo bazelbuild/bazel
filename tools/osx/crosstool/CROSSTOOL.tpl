@@ -201,6 +201,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -1827,6 +1845,24 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
     }
   }
   feature {
@@ -3475,6 +3511,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -5120,6 +5174,24 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
     }
   }
   feature {
@@ -6798,6 +6870,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -8443,6 +8533,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -10073,6 +10181,24 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
     }
   }
   feature {
@@ -11709,6 +11835,24 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
     }
   }
   feature {
@@ -13375,6 +13519,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -15006,6 +15168,24 @@ toolchain {
         iterate_over: "legacy_compile_flags"
       }
       expand_if_all_available: "legacy_compile_flags"
+    }
+  }
+  feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
     }
   }
   feature {

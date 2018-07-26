@@ -211,12 +211,10 @@ cc_test(
 sh_test(
     name = "output_jar_bash_test",
     srcs = ["output_jar_shell_test.sh"],
-    args = [
-        "src/test/shell",
-        "$(location :singlejar)",
-    ],
     data = [
         ":singlejar",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     deps = ["//src/test/shell:bashunit"],
 )
@@ -304,13 +302,10 @@ cc_test(
 sh_test(
     name = "zip64_test",
     srcs = ["zip64_test.sh"],
-    args = [
-        "src/test/shell",
-        "$(location :singlejar)",
-        "$(location @local_jdk//:jar)",
-    ],
     data = [
         ":singlejar",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
         "@bazel_tools//tools/jdk:current_java_runtime",
         "@local_jdk//:jar",
     ],

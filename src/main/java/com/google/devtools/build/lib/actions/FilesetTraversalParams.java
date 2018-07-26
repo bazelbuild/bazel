@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -111,9 +112,7 @@ public interface FilesetTraversalParams {
       if (o instanceof FilesetTraversalParams.DirectTraversalRoot) {
         FilesetTraversalParams.DirectTraversalRoot that =
             (FilesetTraversalParams.DirectTraversalRoot) o;
-        // Careful! We must compare the artifact owners, which the default {@link Artifact#equals()}
-        // method does not do. See the comments on {@link ArtifactSkyKey} and http://b/73738481.
-        return Artifact.equalWithOwner(this.getOutputArtifact(), that.getOutputArtifact())
+        return Objects.equals(this.getOutputArtifact(), that.getOutputArtifact())
             && (this.getRootPart().equals(that.getRootPart()))
             && (this.getRelativePart().equals(that.getRelativePart()));
       }
@@ -220,6 +219,9 @@ public interface FilesetTraversalParams {
     /** Returns the desired behavior when the traversal hits a subpackage. */
     public abstract PackageBoundaryMode getPackageBoundaryMode();
 
+    /** Returns whether Filesets treat outputs in a strict manner, assuming regular files. */
+    public abstract boolean isStrictFilesetOutput();
+
     @Memoized
     @Override
     public abstract int hashCode();
@@ -232,6 +234,7 @@ public interface FilesetTraversalParams {
       fp.addBoolean(isFollowingSymlinks());
       fp.addBoolean(isRecursive());
       fp.addBoolean(isGenerated());
+      fp.addBoolean(isStrictFilesetOutput());
       getPackageBoundaryMode().fingerprint(fp);
       return fp.digestAndReset();
     }
@@ -242,6 +245,7 @@ public interface FilesetTraversalParams {
         boolean isPackage,
         boolean followingSymlinks,
         PackageBoundaryMode packageBoundaryMode,
+        boolean isStrictFilesetOutput,
         boolean isRecursive,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
@@ -250,7 +254,8 @@ public interface FilesetTraversalParams {
           isRecursive,
           isGenerated,
           followingSymlinks,
-          packageBoundaryMode);
+          packageBoundaryMode,
+          isStrictFilesetOutput);
     }
   }
 

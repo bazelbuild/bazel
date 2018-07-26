@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.actiongraph;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -58,6 +59,10 @@ public class ActionGraphDump {
   private final KnownAspectDescriptors knownAspectDescriptors;
   private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
   private final boolean includeActionCmdLine;
+
+  public ActionGraphDump(boolean includeActionCmdLine) {
+    this(/* actionGraphTargets= */ ImmutableList.of("..."), includeActionCmdLine);
+  }
 
   public ActionGraphDump(List<String> actionGraphTargets, boolean includeActionCmdLine) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);

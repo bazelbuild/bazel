@@ -60,8 +60,9 @@ public interface StructApi extends SkylarkValue {
       name = "to_json",
       doc =
           "Creates a JSON string from the struct parameter. This method only works if all "
-              + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-              + "list of these types. Quotes and new lines in strings are escaped. "
+              + "struct elements (recursively) are strings, ints, booleans, other structs, a "
+              + "list of these types or a dictionary with string keys and values of these types. "
+              + "Quotes and new lines in strings are escaped. "
               + "Examples:<br><pre class=language-python>"
               + "struct(key=123).to_json()\n# {\"key\":123}\n\n"
               + "struct(key=True).to_json()\n# {\"key\":true}\n\n"

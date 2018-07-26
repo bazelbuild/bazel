@@ -124,6 +124,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     /** Whether traversal should descend into directories that are roots of subpackages. */
     final PackageBoundaryMode crossPkgBoundaries;
 
+    /** Whether Fileset assumes that output Artifacts are regular files. */
+    final boolean strictOutputFiles;
+
     /**
      * Whether to skip checking if the root (if it's a directory) contains a BUILD file.
      *
@@ -140,11 +143,13 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
         DirectTraversalRoot root,
         boolean isRootGenerated,
         PackageBoundaryMode crossPkgBoundaries,
+        boolean strictOutputFiles,
         boolean skipTestingForSubpackage,
         @Nullable String errorInfo) {
       this.root = root;
       this.isRootGenerated = isRootGenerated;
       this.crossPkgBoundaries = crossPkgBoundaries;
+      this.strictOutputFiles = strictOutputFiles;
       this.skipTestingForSubpackage = skipTestingForSubpackage;
       this.errorInfo = errorInfo;
     }
@@ -155,17 +160,20 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
         DirectTraversalRoot root,
         boolean isRootGenerated,
         PackageBoundaryMode crossPkgBoundaries,
+        boolean strictOutputFiles,
         boolean skipTestingForSubpackage,
         @Nullable String errorInfo) {
       return interner.intern(
           new TraversalRequest(
-              root, isRootGenerated, crossPkgBoundaries, skipTestingForSubpackage, errorInfo));
+              root, isRootGenerated, crossPkgBoundaries, strictOutputFiles,
+              skipTestingForSubpackage, errorInfo));
     }
 
     private TraversalRequest duplicate(DirectTraversalRoot newRoot,
         boolean newSkipTestingForSubpackage) {
       return create(
-          newRoot, isRootGenerated, crossPkgBoundaries, newSkipTestingForSubpackage, errorInfo);
+          newRoot, isRootGenerated, crossPkgBoundaries, strictOutputFiles,
+          newSkipTestingForSubpackage, errorInfo);
     }
 
     /** Creates a new request to traverse a child element in the current directory (the root). */
@@ -198,20 +206,23 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       return root.equals(o.root)
           && isRootGenerated == o.isRootGenerated
           && crossPkgBoundaries == o.crossPkgBoundaries
+          && strictOutputFiles == o.strictOutputFiles
           && skipTestingForSubpackage == o.skipTestingForSubpackage;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root, isRootGenerated, crossPkgBoundaries, skipTestingForSubpackage);
+      return Objects.hashCode(root, isRootGenerated, crossPkgBoundaries, strictOutputFiles,
+          skipTestingForSubpackage);
     }
 
     @Override
     public String toString() {
       return String.format(
           "TraversalParams(root=%s, is_generated=%d, skip_testing_for_subpkg=%d,"
-              + " pkg_boundaries=%s)",
-          root, isRootGenerated ? 1 : 0, skipTestingForSubpackage ? 1 : 0, crossPkgBoundaries);
+              + " pkg_boundaries=%s, strictOutputFiles=%d)",
+          root, isRootGenerated ? 1 : 0, skipTestingForSubpackage ? 1 : 0, crossPkgBoundaries,
+          strictOutputFiles ? 1 : 0);
     }
 
     @Override

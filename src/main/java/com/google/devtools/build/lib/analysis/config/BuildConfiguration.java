@@ -420,6 +420,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean strictFilesets;
 
     @Option(
+        name = "experimental_strict_fileset_output",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help =
+            "If this option is enabled, filesets will treat all output artifacts as regular files. "
+              + "They will not traverse directories or be sensitive to symlinks."
+    )
+    public boolean strictFilesetOutput;
+
+    @Option(
       name = "stamp",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -904,6 +915,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
       host.cpu = hostCpu;
+      host.deferParamFiles = deferParamFiles;
 
       // === Runfiles ===
       host.buildRunfilesManifests = buildRunfilesManifests;
@@ -1473,6 +1485,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean isStrictFilesets() {
     return options.strictFilesets;
+  }
+
+  public boolean isStrictFilesetOutput() {
+    return options.strictFilesetOutput;
   }
 
   public String getMainRepositoryName() {

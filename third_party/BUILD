@@ -322,14 +322,6 @@ java_import(
 )
 
 java_import(
-    name = "hazelcast",
-    jars = [
-        "hazelcast/hazelcast-3.6.4.jar",
-        "hazelcast/hazelcast-client-3.6.4.jar",
-    ],
-)
-
-java_import(
     name = "hungarian_algorithm",
     jars = ["hungarian_algorithm/software-and-algorithms-1.0.jar"],
     srcjar = "hungarian_algorithm/software-and-algorithms-1.0-src.jar",
@@ -391,7 +383,7 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "guava/guava-24.1-jre.jar",
+        "guava/guava-25.1-jre.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
     ],
@@ -399,7 +391,7 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-24.1-jre.jar"],
+    jars = ["guava/guava-25.1-jre.jar"],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -425,7 +417,7 @@ java_import(
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-24.1-jre.jar"],
+    srcs = ["guava/guava-25.1-jre.jar"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -531,7 +523,7 @@ filegroup(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-24.1-jre.jar"],
+    jars = ["guava/guava-testlib-25.1-jre.jar"],
 )
 
 java_import(

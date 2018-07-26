@@ -270,6 +270,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'android_runtest', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_entry_point', srcs = ['empty.sh'])")
         .add("java_plugin(name = 'databinding_annotation_processor',")
+        .add("    generates_api = 1,")
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")

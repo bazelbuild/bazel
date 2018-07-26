@@ -306,10 +306,6 @@ public final class LinkCommandLine extends CommandLine {
         paramFileArgs.add("--start-lib");
       } else if (arg.equals("-Wl,--end-lib")) {
         paramFileArgs.add("--end-lib");
-      } else if (arg.equals("--incremental-unchanged")) {
-        paramFileArgs.add(arg);
-      } else if (arg.equals("--incremental-changed")) {
-        paramFileArgs.add(arg);
       } else if (arg.charAt(0) == '-') {
         if (arg.startsWith("-l")) {
           paramFileArgs.add(arg);

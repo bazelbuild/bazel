@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Striped;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -163,26 +164,27 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
+  public SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
     Preconditions.checkArgument(
         execPath.isAbsolute() == root.isAbsolute(), "%s %s %s", execPath, root, owner);
     Preconditions.checkNotNull(owner, "%s %s", execPath, root);
     Preconditions.checkNotNull(
         sourceArtifactRoots, "Not initialized for %s %s %s", execPath, root, owner);
-    return getArtifact(
-        Preconditions.checkNotNull(
-            sourceArtifactRoots.get(root),
-            "%s has no ArtifactRoot (%s) in %s",
-            root,
+    return (SourceArtifact)
+        getArtifact(
+            Preconditions.checkNotNull(
+                sourceArtifactRoots.get(root),
+                "%s has no ArtifactRoot (%s) in %s",
+                root,
+                execPath,
+                sourceArtifactRoots),
             execPath,
-            sourceArtifactRoots),
-        execPath,
-        owner,
-        null);
+            owner,
+            null);
   }
 
   @Override
-  public Artifact getSourceArtifact(PathFragment execPath, Root root) {
+  public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
     return getSourceArtifact(execPath, root, ArtifactOwner.NullArtifactOwner.INSTANCE);
   }
 

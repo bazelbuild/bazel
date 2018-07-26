@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 
@@ -55,6 +56,10 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
+    JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
+        new JavaStrictCompilationArgsProvider(
+            constructJcapFromAspectDeps(
+                ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true));
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path
@@ -81,6 +86,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
     JavaInfo javaInfo =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
+            .addProvider(JavaStrictCompilationArgsProvider.class, strictDependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)

@@ -104,6 +104,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLinkingModeFlags;
   }
 
+  public boolean enableLinkoptsInUserLinkFlags() {
+    return cppOptions.enableLinkoptsInUserLinkFlags;
+  }
+
   /**
    * An enumeration of all the tools that comprise a toolchain.
    */
@@ -135,16 +139,24 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /**
    * Values for the --hdrs_check option. Note that Bazel only supports and will default to "strict".
    */
-  public static enum HeadersCheckingMode {
+  public enum HeadersCheckingMode {
     /**
      * Legacy behavior: Silently allow any source header file in any of the directories of the
      * containing package to be included by sources in this rule and dependent rules.
      */
     LOOSE,
-    /** Warn about undeclared headers. */
-    WARN,
     /** Disallow undeclared headers. */
-    STRICT
+    STRICT;
+
+    public static HeadersCheckingMode getValue(String value) {
+      if (value.equalsIgnoreCase("loose") || value.equalsIgnoreCase("warn")) {
+        return LOOSE;
+      }
+      if (value.equalsIgnoreCase("strict")) {
+        return STRICT;
+      }
+      throw new IllegalArgumentException();
+    }
   }
 
   /**
@@ -237,7 +249,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         CppToolchainInfo.create(
             crosstoolTopPathFragment,
             params.ccToolchainLabel,
-            params.crosstoolInfo,
+            params.ccToolchainConfigInfo,
             cppOptions.disableLegacyCrosstoolFields,
             cppOptions.disableCompilationModeFlags,
             cppOptions.disableLinkingModeFlags);
@@ -968,10 +980,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean getUseInterfaceSharedObjects() {
     return cppOptions.useInterfaceSharedObjects;
-  }
-
-  public boolean getExpandLinkoptsLabels() {
-    return cppOptions.expandLinkoptsLabels;
   }
 
   public boolean getEnableCcSkylarkApi() {

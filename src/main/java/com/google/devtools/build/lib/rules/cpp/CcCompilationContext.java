@@ -57,7 +57,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
   private final NestedSet<PathFragment> declaredIncludeDirs;
-  private final NestedSet<PathFragment> declaredIncludeWarnDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
 
   /** Module maps from direct dependencies. */
@@ -85,7 +84,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       CommandLineCcCompilationContext commandLineCcCompilationContext,
       ImmutableSet<Artifact> compilationPrerequisites,
       NestedSet<PathFragment> declaredIncludeDirs,
-      NestedSet<PathFragment> declaredIncludeWarnDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -99,7 +97,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
-    this.declaredIncludeWarnDirs = declaredIncludeWarnDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
     this.headerInfo = headerInfo;
@@ -175,14 +172,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    */
   public NestedSet<PathFragment> getDeclaredIncludeDirs() {
     return declaredIncludeDirs;
-  }
-
-  /**
-   * Returns the immutable set of include directories, relative to a "-I" or "-iquote" directory",
-   * from which inclusion will produce a warning (possibly empty but never null).
-   */
-  public NestedSet<PathFragment> getDeclaredIncludeWarnDirs() {
-    return declaredIncludeWarnDirs;
   }
 
   /**
@@ -299,15 +288,13 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext}
-   * but returns empty sets for {@link #getDeclaredIncludeDirs()} and {@link
-   * #getDeclaredIncludeWarnDirs()}.
+   * but returns empty sets for {@link #getDeclaredIncludeDirs()}.
    */
   public static CcCompilationContext disallowUndeclaredHeaders(
       CcCompilationContext ccCompilationContext) {
     return new CcCompilationContext(
         ccCompilationContext.commandLineCcCompilationContext,
         ccCompilationContext.compilationPrerequisites,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         ccCompilationContext.declaredIncludeSrcs,
         ccCompilationContext.nonCodeInputs,
@@ -365,8 +352,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
     private final NestedSetBuilder<PathFragment> declaredIncludeDirs =
         NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<PathFragment> declaredIncludeWarnDirs =
-        NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs =
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
@@ -420,7 +405,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
       declaredIncludeDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeDirs());
-      declaredIncludeWarnDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeWarnDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       transitiveHeaderInfo.addTransitive(otherCcCompilationContext.transitiveHeaderInfos);
       transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
@@ -505,21 +489,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
-    /**
-     * Add a single declared include dir, relative to a "-I" or "-iquote"
-     * directory".
-     */
+    /** Add a single declared include dir, relative to a "-I" or "-iquote" directory". */
     public Builder addDeclaredIncludeDir(PathFragment dir) {
       declaredIncludeDirs.add(dir);
-      return this;
-    }
-
-    /**
-     * Add a single declared include directory, relative to a "-I" or "-iquote"
-     * directory", from which inclusion will produce a warning.
-     */
-    public Builder addDeclaredIncludeWarnDir(PathFragment dir) {
-      declaredIncludeWarnDirs.add(dir);
       return this;
     }
 
@@ -661,7 +633,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ? ImmutableSet.copyOf(compilationPrerequisites)
               : ImmutableSet.of(prerequisiteStampFile),
           declaredIncludeDirs.build(),
-          declaredIncludeWarnDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
           headerInfo,

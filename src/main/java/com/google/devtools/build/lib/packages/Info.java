@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.protobuf.TextFormat;
@@ -218,8 +219,8 @@ public abstract class Info implements ClassObject, StructApi, Serializable {
     return sb.toString();
   }
 
-  private void printProtoTextMessage(
-      ClassObject object, StringBuilder sb, int indent, Location loc) throws EvalException {
+  private void printProtoTextMessage(ClassObject object, StringBuilder sb, int indent, Location loc)
+      throws EvalException {
     // For determinism sort the fields alphabetically.
     List<String> fields = new ArrayList<>(object.getFieldNames());
     Collections.sort(fields);
@@ -260,8 +261,7 @@ public abstract class Info implements ClassObject, StructApi, Serializable {
   }
 
   private void printProtoTextMessage(
-      String key, Object value, StringBuilder sb, int indent, Location loc)
-      throws EvalException {
+      String key, Object value, StringBuilder sb, int indent, Location loc) throws EvalException {
     if (value instanceof SkylarkList) {
       for (Object item : ((SkylarkList) value)) {
         // TODO(bazel-team): There should be some constraint on the fields of the structs
@@ -297,8 +297,7 @@ public abstract class Info implements ClassObject, StructApi, Serializable {
     return sb.toString();
   }
 
-  private void printJson(
-      Object value, StringBuilder sb, Location loc, String container, String key)
+  private void printJson(Object value, StringBuilder sb, Location loc, String container, String key)
       throws EvalException {
     if (value == Runtime.NONE) {
       sb.append("null");
@@ -313,6 +312,29 @@ public abstract class Info implements ClassObject, StructApi, Serializable {
         sb.append(field);
         sb.append("\":");
         printJson(((ClassObject) value).getValue(field), sb, loc, "struct field", field);
+      }
+      sb.append("}");
+    } else if (value instanceof SkylarkDict) {
+      sb.append("{");
+      String join = "";
+      for (Map.Entry<?, ?> entry : ((SkylarkDict<?, ?>) value).entrySet()) {
+        sb.append(join);
+        join = ",";
+        if (!(entry.getKey() instanceof String)) {
+          String errorMessage =
+              "Keys must be a string but got a "
+                  + EvalUtils.getDataTypeName(entry.getKey())
+                  + " for "
+                  + container;
+          if (key != null) {
+            errorMessage += " '" + key + "'";
+          }
+          throw new EvalException(loc, errorMessage);
+        }
+        sb.append("\"");
+        sb.append(entry.getKey());
+        sb.append("\":");
+        printJson(entry.getValue(), sb, loc, "dict value", String.valueOf(entry.getKey()));
       }
       sb.append("}");
     } else if (value instanceof List) {

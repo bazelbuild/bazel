@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -40,6 +42,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -59,6 +62,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<String> DEPENDENCY_FOR_UNCONDITIONAL_FETCHING =
       new Precomputed<>(
           PrecomputedValue.Key.create("dependency_for_unconditional_repository_fetching"));
+
+  public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_FOR_VERIFICATION =
+      new Precomputed<>(
+          PrecomputedValue.Key.create("resolved_file_for_external_repository_verification"));
+
+  public static final Precomputed<Set<String>> OUTPUT_VERIFICATION_REPOSITORY_RULES =
+      new Precomputed<>(PrecomputedValue.Key.create("output_verification_repository_rules"));
 
   public static final String DONT_FETCH_UNCONDITIONALLY = "";
 

@@ -162,16 +162,26 @@ public class MemoizingEvaluatorTest {
    * <p>Returns a concurrent {@link Set} containing {@link InconsistencyData}s discovered during
    * evaluation. Callers should assert the desired properties on the returned set.
    */
-  protected Set<InconsistencyData> setupGraphInconsistencyReceiver() {
+  protected Set<InconsistencyData> setupGraphInconsistencyReceiver(boolean allowDuplicates) {
     Set<InconsistencyData> inconsistencies = Sets.newConcurrentHashSet();
     tester.setGraphInconsistencyReceiver(
         (key, otherKey, inconsistency) ->
             Preconditions.checkState(
-                inconsistencies.add(InconsistencyData.create(key, otherKey, inconsistency))));
+                inconsistencies.add(InconsistencyData.create(key, otherKey, inconsistency))
+                    || allowDuplicates,
+                "Duplicate inconsistency: (%s, %s, %s)\nexisting = %s",
+                key,
+                otherKey,
+                inconsistency,
+                inconsistencies));
     // #initialize must be called after setting the GraphInconsistencyReceiver for the receiver to
     // be registered with the test's memoizing evaluator.
     tester.initialize(/*keepEdges=*/ true);
     return inconsistencies;
+  }
+
+  protected Set<InconsistencyData> setupGraphInconsistencyReceiver() {
+    return setupGraphInconsistencyReceiver(/*allowDuplicates=*/ false);
   }
 
   @Test

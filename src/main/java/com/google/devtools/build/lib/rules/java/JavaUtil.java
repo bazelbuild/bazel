@@ -32,7 +32,7 @@ public final class JavaUtil {
    *
    * This way of figuring out Java source roots is basically
    * broken. I think we need to support these two use cases:
-   * (1) A user puts his / her shell into a directory named java.
+   * (1) A user puts their shell into a directory named java.
    * (2) Someplace in the tree, there's a package named java.
    *
    * (1) is more important than (2); and (2) cannot always be guaranteed

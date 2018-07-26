@@ -61,7 +61,11 @@ public interface ProtoSourcesProviderApi<FileT extends FileApi> {
 
   @SkylarkCallable(
     name = "direct_descriptor_set",
-    doc = "The FileDescriptorSet of the direct sources. If no srcs, contains an empty file. ",
+    doc =
+        "The <a href=\""
+            + "https://github.com/google/protobuf/search?q=%22message+FileDescriptorSet%22+path%3A%2Fsrc"
+            + "\">FileDescriptorSet</a> of the direct sources. "
+            + "If no srcs, contains an empty file.",
     structField = true
   )
   public FileT directDescriptorSet();
@@ -69,9 +73,12 @@ public interface ProtoSourcesProviderApi<FileT extends FileApi> {
   @SkylarkCallable(
     name = "transitive_descriptor_sets",
     doc =
-        "A set of FileDescriptorSet files of all dependent proto_library rules, and this one's. "
+        "A set of <a href=\""
+            + "https://github.com/google/protobuf/search?q=%22message+FileDescriptorSet%22+path%3A%2Fsrc"
+            + "\">FileDescriptorSet</a> files of all dependent proto_library rules, "
+            + "and this one's. "
             + "This is not the same as passing --include_imports to proto-compiler. "
-            + "Will be empty if no dependencies. ",
+            + "Will be empty if no dependencies.",
     structField = true
   )
   public NestedSet<FileT> transitiveDescriptorSets();

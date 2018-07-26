@@ -399,14 +399,14 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getDigest(Path path, DigestHashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(Path path) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      if (hashFunction == DigestHashFunction.MD5) {
+      if (getDigestFunction() == DigestHashFunction.MD5) {
         return NativePosixFiles.md5sum(name).asBytes();
       }
-      return super.getDigest(path, hashFunction);
+      return super.getDigest(path);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }

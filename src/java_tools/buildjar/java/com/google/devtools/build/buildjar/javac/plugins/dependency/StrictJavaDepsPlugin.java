@@ -19,7 +19,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -41,7 +40,6 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Log.WriterKind;
 import com.sun.tools.javac.util.Name;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -51,7 +49,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
@@ -72,10 +69,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static final Attributes.Name INJECTING_RULE_KIND =
       new Attributes.Name("Injecting-Rule-Kind");
 
-  @VisibleForTesting
-  static String targetMapping =
-      "com/google/devtools/build/buildjar/javac/resources/target.properties";
-
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
   private final DependencyModule dependencyModule;
@@ -88,8 +81,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private final Set<JarOwner> missingTargets;
   /** Strict deps diagnostics. */
   private final List<SjdDiagnostic> diagnostics;
-
-  private static Properties targetMap;
 
   private PrintWriter errWriter;
 
@@ -120,7 +111,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     this.dependencyModule = dependencyModule;
     toplevels = new HashSet<>();
     trees = new HashSet<>();
-    targetMap = new Properties();
     missingTargets = new HashSet<>();
     diagnostics = new ArrayList<>();
   }
@@ -140,17 +130,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       checkingTreeScanner =
           new CheckingTreeScanner(dependencyModule, diagnostics, missingTargets, platformJars);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
-    }
-    initTargetMap();
-  }
-
-  private void initTargetMap() {
-    try (InputStream is = getClass().getClassLoader().getResourceAsStream(targetMapping)) {
-      if (is != null) {
-        targetMap.load(is);
-      }
-    } catch (IOException ex) {
-      throw new AssertionError("Error loading Strict Java Deps mapping file: " + targetMapping, ex);
     }
   }
 
@@ -216,10 +195,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               .sorted(Comparator.comparing((JarOwner owner) -> owner.label().get()))
               // for dependencies that are missing we canonicalize and remap the target so we don't
               // suggest private build labels.
-              .map(
-                  owner ->
-                      owner.withLabel(
-                          owner.label().map(label -> canonicalizeTarget(remapTarget(label)))))
+              .map(owner -> owner.withLabel(owner.label().map(label -> canonicalizeTarget(label))))
               .collect(toImmutableSet());
       errWriter.print(
           dependencyModule.getFixMessage().get(canonicalizedMissing, canonicalizedLabel));
@@ -310,7 +286,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
             // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is
             // optional.
             Optional<String> canonicalTargetName =
-                owner.label().map(label -> canonicalizeTarget(remapTarget(label)));
+                owner.label().map(label -> canonicalizeTarget(label));
             missingTargets.add(owner);
             String toolInfo =
                 owner.aspect().isPresent()
@@ -482,15 +458,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
                     },
                     null));
     return suppressions.build();
-  }
-
-  /** Replace the given target with a configured replacement. Package private for testing. */
-  static String remapTarget(String target) {
-    String replacement = targetMap.getProperty(target);
-    if (replacement != null) {
-      return replacement;
-    }
-    return target;
   }
 
   /** Returns the canonical version of the target name. Package private for testing. */

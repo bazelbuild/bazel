@@ -413,4 +413,99 @@ EOF
   cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
 }
 
+function test_sh_test_coverage() {
+  cat <<EOF > BUILD
+sh_test(
+    name = "orange-sh",
+    srcs = ["orange-test.sh"],
+    data = ["//java/com/google/orange:orange-bin"]
+)
+EOF
+  cat <<EOF > orange-test.sh
+#!/bin/bash
+
+java/com/google/orange/orange-bin
+EOF
+  chmod +x orange-test.sh
+
+  mkdir -p java/com/google/orange
+
+  cat <<EOF > java/com/google/orange/BUILD
+package(default_visibility = ["//visibility:public"])
+
+java_binary(
+    name = "orange-bin",
+    srcs = ["orangeBin.java"],
+    main_class = "com.google.orange.orangeBin",
+    deps = [":orange-lib"],
+)
+
+java_library(
+    name = "orange-lib",
+    srcs = ["orangeLib.java"],
+)
+EOF
+
+  cat <<EOF > java/com/google/orange/orangeLib.java
+package com.google.orange;
+
+public class orangeLib {
+
+  public void print() {
+    System.out.println("orange prints a message!");
+  }
+}
+EOF
+
+  cat <<EOF > java/com/google/orange/orangeBin.java
+package com.google.orange;
+
+public class orangeBin {
+  public static void main(String[] args) {
+    orangeLib orange = new orangeLib();
+    orange.print();
+  }
+}
+EOF
+
+  bazel coverage //:orange-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+
+  ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
+
+  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  [ -e $coverage_file_path ] || fail "Coverage output file not exists!"
+
+  cat <<EOF > result.dat
+SF:com/google/orange/orangeBin.java
+FN:3,com/google/orange/orangeBin::<init> ()V
+FN:5,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
+FNDA:0,com/google/orange/orangeBin::<init> ()V
+FNDA:1,com/google/orange/orangeBin::main ([Ljava/lang/String;)V
+FNF:2
+FNH:1
+DA:3,0
+DA:5,4
+DA:6,2
+DA:7,1
+LH:3
+LF:4
+end_of_record
+SF:com/google/orange/orangeLib.java
+FN:3,com/google/orange/orangeLib::<init> ()V
+FN:6,com/google/orange/orangeLib::print ()V
+FNDA:1,com/google/orange/orangeLib::<init> ()V
+FNDA:1,com/google/orange/orangeLib::print ()V
+FNF:2
+FNH:2
+DA:3,3
+DA:6,3
+DA:7,1
+LH:3
+LF:3
+end_of_record
+EOF
+  diff result.dat "$coverage_file_path" >> $TEST_log
+  cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
+}
+
 run_suite "test tests"

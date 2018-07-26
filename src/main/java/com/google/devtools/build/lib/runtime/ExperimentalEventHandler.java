@@ -56,6 +56,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /** An experimental new output stream. */
 public class ExperimentalEventHandler implements EventHandler {
@@ -111,7 +112,7 @@ public class ExperimentalEventHandler implements EventHandler {
    * steps.
    * <ul>
    *   <li>We limit progress updates to at most one per second; this is the granularity at which
-   *       times in he progress bar are shown. So the appearance won't look too bad. Hence we start
+   *       times in the progress bar are shown. So the appearance won't look too bad. Hence we start
    *       that measure relatively early.
    *   <li>We only show the short version of the progress bar, even if curses are enabled.
    *   <li>We reduce the update frequency of the progress bar to at most one update per 5s. This
@@ -141,55 +142,36 @@ public class ExperimentalEventHandler implements EventHandler {
 
   public final int terminalWidth;
 
-  static class CountingOutputStream extends OutputStream {
-    private final OutputStream stream;
-    private final AtomicLong counter;
-
-    CountingOutputStream(OutputStream stream, AtomicLong counter) {
-      this.stream = stream;
-      this.counter = counter;
-    }
-
-    @Override
-    public void write(int b) throws IOException {
-      if (counter.decrementAndGet() >= 0) {
-        stream.write(b);
-      }
-    }
-
-    @Override
-    public void flush() throws IOException {
-      stream.flush();
-    }
-
-    @Override
-    public void close() throws IOException {
-      stream.close();
-    }
-  }
-
   /**
    * An output stream that wraps another output stream and that fully buffers writes until flushed.
+   * Additionally, it optionally takes into account a budget for the number of bytes it may still
+   * write to the wrapped stream.
    */
-  private static class FullyBufferedOutputStream extends ByteArrayOutputStream {
+  private static class FullyBufferedOutputStreamMaybeWithCounting extends ByteArrayOutputStream {
     /** The (possibly unbuffered) stream wrapped by this one. */
     private final OutputStream wrapped;
+    /** The counter for the amount of bytes we're still allowed to write */
+    @Nullable private final AtomicLong counter;
 
     /**
      * Constructs a new fully-buffered output stream that wraps an unbuffered one.
      *
      * @param wrapped the (possibly unbuffered) stream wrapped by this one
+     * @param counter a counter specifying the number of bytes the stream may still write
      */
-    FullyBufferedOutputStream(OutputStream wrapped) {
+    FullyBufferedOutputStreamMaybeWithCounting(OutputStream wrapped, @Nullable AtomicLong counter) {
       this.wrapped = wrapped;
+      this.counter = counter;
     }
 
     @Override
     public void flush() throws IOException {
       super.flush();
       try {
-        writeTo(wrapped);
-        wrapped.flush();
+        if (counter == null || counter.addAndGet(-count) >= 0) {
+          writeTo(wrapped);
+          wrapped.flush();
+        }
       } finally {
         // If we failed to write our current buffered contents to the output, there is not much
         // we can do because reporting an error would require another write, and that write would
@@ -207,18 +189,19 @@ public class ExperimentalEventHandler implements EventHandler {
     if (outputLimit > 0) {
       this.outErr =
           OutErr.create(
-              new CountingOutputStream(outErr.getOutputStream(), this.counter),
-              new CountingOutputStream(outErr.getErrorStream(), this.counter));
+              new FullyBufferedOutputStreamMaybeWithCounting(
+                  outErr.getOutputStream(), this.counter),
+              new FullyBufferedOutputStreamMaybeWithCounting(
+                  outErr.getErrorStream(), this.counter));
     } else {
-      // unlimited output; no need to count and limit
-      this.outErr = outErr;
+      // unlimited output; no need to count, but still fully buffer
+      this.outErr =
+          OutErr.create(
+              new FullyBufferedOutputStreamMaybeWithCounting(outErr.getOutputStream(), null),
+              new FullyBufferedOutputStreamMaybeWithCounting(outErr.getErrorStream(), null));
     }
     this.cursorControl = options.useCursorControl();
-    // This class constructs complex, multi-line ANSI terminal sequences. Sending each individual
-    // write to the console directly causes flicker, so we use a fully-buffered stream to ensure
-    // each update is sent with just one write. (This means that the implementation in this file
-    // must be explicit about calling terminal.flush() every time an update has to be presented.)
-    this.terminal = new AnsiTerminal(new FullyBufferedOutputStream(this.outErr.getErrorStream()));
+    this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();

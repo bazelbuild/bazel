@@ -133,7 +133,8 @@ public class BuildViewTest extends BuildViewTestBase {
     targets =
         Lists.<ConfiguredTarget>newArrayList(
             BuildView.filterTestsByTargets(
-                targets, Sets.newHashSet(test1.getTarget(), suite.getTarget())));
+                targets,
+                Sets.newHashSet(test1.getTarget().getLabel(), suite.getTarget().getLabel())));
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1CT, suiteCT));
   }
 

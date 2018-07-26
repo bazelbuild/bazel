@@ -14,76 +14,100 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Provider for users of Java plugins. */
 @AutoCodec
 @Immutable
-public final class JavaPluginInfoProvider implements TransitiveInfoProvider {
+@AutoValue
+public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
+
+  /** Information about a Java plugin, except for whether it generates API. */
+  @AutoCodec
+  @Immutable
+  @AutoValue
+  public abstract static class JavaPluginInfo {
+
+    public static JavaPluginInfo create(
+        NestedSet<String> processorClasses,
+        NestedSet<Artifact> processorClasspath,
+        NestedSet<Artifact> data) {
+      return new AutoValue_JavaPluginInfoProvider_JavaPluginInfo(
+          processorClasses, processorClasspath, data);
+    }
+
+    @AutoCodec.Instantiator
+    public static JavaPluginInfo empty() {
+      return create(
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
+    }
+
+    public static JavaPluginInfo merge(Iterable<JavaPluginInfo> plugins) {
+      NestedSetBuilder<String> processorClasses = NestedSetBuilder.naiveLinkOrder();
+      NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
+      NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
+      for (JavaPluginInfo plugin : plugins) {
+        processorClasses.addTransitive(plugin.processorClasses());
+        processorClasspath.addTransitive(plugin.processorClasspath());
+        data.addTransitive(plugin.data());
+      }
+      return create(processorClasses.build(), processorClasspath.build(), data.build());
+    }
+
+    /**
+     * Returns the class that should be passed to javac in order to run the annotation processor
+     * this class represents.
+     */
+    public abstract NestedSet<String> processorClasses();
+
+    /** Returns the artifacts to add to the runtime classpath for this plugin. */
+    public abstract NestedSet<Artifact> processorClasspath();
+
+    public abstract NestedSet<Artifact> data();
+
+    public boolean isEmpty() {
+      return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
+    }
+  }
 
   public static JavaPluginInfoProvider merge(Iterable<JavaPluginInfoProvider> providers) {
-    ImmutableSet.Builder<String> processorClasses = ImmutableSet.builder();
-    NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
-    ImmutableSet.Builder<String> apiGeneratingProcessorClasses = ImmutableSet.builder();
-    NestedSetBuilder<Artifact> apiGeneratingProcessorClasspath = NestedSetBuilder.naiveLinkOrder();
-
+    List<JavaPluginInfo> plugins = new ArrayList<>();
+    List<JavaPluginInfo> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfoProvider provider : providers) {
-      processorClasses.addAll(provider.getProcessorClasses());
-      processorClasspath.addTransitive(provider.getProcessorClasspath());
-      apiGeneratingProcessorClasses.addAll(provider.getApiGeneratingProcessorClasses());
-      apiGeneratingProcessorClasspath.addTransitive(provider.getApiGeneratingProcessorClasspath());
+      plugins.add(provider.plugins());
+      apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
     }
-    return new JavaPluginInfoProvider(
-        processorClasses.build(),
-        processorClasspath.build(),
-        apiGeneratingProcessorClasses.build(),
-        apiGeneratingProcessorClasspath.build());
+    return new AutoValue_JavaPluginInfoProvider(
+        JavaPluginInfo.merge(plugins), JavaPluginInfo.merge(apiGeneratingPlugins));
   }
 
-  private final ImmutableSet<String> processorClasses;
-  private final NestedSet<Artifact> processorClasspath;
-  private final ImmutableSet<String> apiGeneratingProcessorClasses;
-  private final NestedSet<Artifact> apiGeneratingProcessorClasspath;
-
-  public JavaPluginInfoProvider(
-      ImmutableSet<String> processorClasses,
-      NestedSet<Artifact> processorClasspath,
-      ImmutableSet<String> apiGeneratingProcessorClasses,
-      NestedSet<Artifact> apiGeneratingProcessorClasspath) {
-    this.processorClasses = processorClasses;
-    this.processorClasspath = processorClasspath;
-    this.apiGeneratingProcessorClasses = apiGeneratingProcessorClasses;
-    this.apiGeneratingProcessorClasspath = apiGeneratingProcessorClasspath;
+  public static JavaPluginInfoProvider create(JavaPluginInfo javaPluginInfo, Boolean generatesApi) {
+    return new AutoValue_JavaPluginInfoProvider(
+        javaPluginInfo, generatesApi ? javaPluginInfo : JavaPluginInfo.empty());
   }
 
-  /**
-   * Returns the class that should be passed to javac in order
-   * to run the annotation processor this class represents.
-   */
-  public ImmutableSet<String> getProcessorClasses() {
-    return processorClasses;
+  @AutoCodec.Instantiator
+  public static JavaPluginInfoProvider empty() {
+    return new AutoValue_JavaPluginInfoProvider(JavaPluginInfo.empty(), JavaPluginInfo.empty());
   }
 
-  /**
-   * Returns the artifacts to add to the runtime classpath for this plugin.
-   */
-  public NestedSet<Artifact> getProcessorClasspath() {
-    return processorClasspath;
-  }
+  public abstract JavaPluginInfo plugins();
 
-  /** Returns the class names of API-generating annotation processors. */
-  public ImmutableSet<String> getApiGeneratingProcessorClasses() {
-    return apiGeneratingProcessorClasses;
-  }
+  public abstract JavaPluginInfo apiGeneratingPlugins();
 
-  /** Returns the artifacts to add to the runtime classpath of the API-generating processors. */
-  public NestedSet<Artifact> getApiGeneratingProcessorClasspath() {
-    return apiGeneratingProcessorClasspath;
+  public boolean isEmpty() {
+    // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
+    return plugins().isEmpty();
   }
 }

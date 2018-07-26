@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvid
 import static java.util.stream.Stream.concat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -466,8 +467,11 @@ final class JavaInfoBuildHelper {
     helper.addAllExports(exportsCompilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode.toUpperCase()));
 
-    helper.addAllPlugins(JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
-    helper.addAllPlugins(JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
+    helper.setPlugins(
+        JavaPluginInfoProvider.merge(
+            Iterables.concat(
+                JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class),
+                JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class))));
     helper.setNeverlink(neverlink);
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();

@@ -21,7 +21,6 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -162,13 +161,12 @@ public class FileArtifactValueTest {
     FileSystem fs =
         new InMemoryFileSystem() {
           @Override
-          public byte[] getDigest(Path path, DigestHashFunction hf) throws IOException {
+          public byte[] getDigest(Path path) throws IOException {
             throw exception;
           }
 
           @Override
-          protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction)
-              throws IOException {
+          protected byte[] getFastDigest(Path path) throws IOException {
             throw exception;
           }
         };

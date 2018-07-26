@@ -94,7 +94,7 @@ public class CcToolchainFeaturesTest extends FoundationTestCase {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CrosstoolInfo.fromToolchain(
+        CcToolchainConfigInfo.fromToolchain(
             CrosstoolRelease.getDefaultInstance(),
             toolchainBuilder.buildPartial(),
             PathFragment.create("crosstool/")));

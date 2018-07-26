@@ -341,18 +341,23 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 .collect(Collectors.toList());
       }
     }
-    if (settings.contains(Setting.NO_IMPLICIT_DEPS) && target instanceof RuleConfiguredTarget) {
-      Set<ConfiguredTargetKey> implicitDeps = ((RuleConfiguredTarget) target).getImplicitDeps();
-      deps =
-          deps.stream()
-              .filter(
-                  dep ->
-                      !implicitDeps.contains(
-                          ConfiguredTargetKey.of(getCorrectLabel(dep), getConfiguration(dep))))
-              .collect(Collectors.toList());
+    if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
+      RuleConfiguredTarget ruleConfiguredTarget = getRuleConfiguredTarget(target);
+      if (ruleConfiguredTarget != null) {
+        Set<ConfiguredTargetKey> implicitDeps = ruleConfiguredTarget.getImplicitDeps();
+        deps =
+            deps.stream()
+                .filter(
+                    dep ->
+                        !implicitDeps.contains(
+                            ConfiguredTargetKey.of(getCorrectLabel(dep), getConfiguration(dep))))
+                .collect(Collectors.toList());
+      }
     }
     return deps;
   }
+
+  protected abstract RuleConfiguredTarget getRuleConfiguredTarget(T target);
 
   protected Map<SkyKey, Collection<T>> targetifyValues(
       Map<SkyKey, ? extends Iterable<SkyKey>> input) throws InterruptedException {

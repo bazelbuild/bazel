@@ -28,6 +28,25 @@ import javax.annotation.Nullable;
  */
 @ThreadCompatible
 public class AbstractCriticalPathComponent<C extends AbstractCriticalPathComponent<C>> {
+  /**
+   * Converts from nanos to millis since the epoch. In particular, note that {@link System#nanoTime}
+   * does not specify any particular time reference but only notes that returned values are only
+   * meaningful when taking in relation to each other.
+   */
+  public interface NanosToEpochConverter {
+    /** Converts from nanos to millis since the epoch. */
+    long toEpoch(long timeNanos);
+  }
+
+  /**
+   * Creates a {@link NanosToEpochConverter} from clock by taking the current time in millis and the
+   * current time in nanos to compute the appropriate offset.
+   */
+  public static NanosToEpochConverter fromClock(Clock clock) {
+    long nowInMillis = clock.currentTimeMillis();
+    long nowInNanos = clock.nanoTime();
+    return (startNanos) -> nowInMillis - TimeUnit.NANOSECONDS.toMillis((nowInNanos - startNanos));
+  }
 
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
@@ -113,12 +132,16 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     }
   }
 
-  public long getElapsedTimeMillis() {
-    return TimeUnit.NANOSECONDS.toMillis(getElapsedTimeNanos());
+  public long getStartTimeNanos() {
+    return startNanos;
   }
 
-  long getStartNanos() {
-    return startNanos;
+  public long getStartTimeMillisSinceEpoch(NanosToEpochConverter converter) {
+    return converter.toEpoch(startNanos);
+  }
+
+  public Duration getElapsedTime() {
+    return Duration.ofNanos(getElapsedTimeNanos());
   }
 
   long getElapsedTimeNanos() {
@@ -175,17 +198,6 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s ";
     }
     return currentTime + getActionString();
-  }
-
-  /**
-   * When {@code clock} is the same {@link Clock} that was used for computing
-   * {@link #relativeStartNanos}, it returns the wall time since epoch representing when
-   * the action was started.
-   */
-  public long getStartWallTimeMillis(Clock clock) {
-    long millis = clock.currentTimeMillis();
-    long nanoElapsed = clock.nanoTime();
-    return millis - TimeUnit.NANOSECONDS.toMillis((nanoElapsed - startNanos));
   }
 }
 

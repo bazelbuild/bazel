@@ -138,7 +138,9 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
+  // TODO(b/5568649): remove this deprecated alias for server_javabase
   RegisterUnaryStartupFlag("host_javabase");
+  RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
   RegisterUnaryStartupFlag("invocation_policy");
@@ -209,22 +211,29 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nodeep_execroot")) {
     deep_execroot = false;
     option_sources["deep_execroot"] = rcfile;
+  } else if (GetNullaryOption(arg, "--block_for_lock")) {
+    block_for_lock = true;
+    option_sources["block_for_lock"] = rcfile;
   } else if (GetNullaryOption(arg, "--noblock_for_lock")) {
     block_for_lock = false;
     option_sources["block_for_lock"] = rcfile;
   } else if (GetNullaryOption(arg, "--host_jvm_debug")) {
     host_jvm_debug = true;
     option_sources["host_jvm_debug"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--host_jvm_profile")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
+             NULL) {
     host_jvm_profile = value;
     option_sources["host_jvm_profile"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--host_javabase")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--server_javabase")) !=
+             NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    host_javabase = blaze::AbsolutePathFromFlag(value);
-    option_sources["host_javabase"] = rcfile;
+    ProcessServerJavabase(value, rcfile);
+  } else if ((value = GetUnaryOption(arg, next_arg, "--host_javabase")) !=
+             NULL) {
+    ProcessServerJavabase(value, rcfile);
+    BAZEL_LOG(WARNING) << "The startup option --host_javabase is "
+                          "deprecated; prefer --server_javabase.";
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
     host_jvm_args.push_back(value);
@@ -376,6 +385,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   return blaze_exit_code::SUCCESS;
 }
 
+void StartupOptions::ProcessServerJavabase(const char *value,
+                                           const string &rcfile) {
+  server_javabase_ = blaze::AbsolutePathFromFlag(value);
+  option_sources["server_javabase"] = rcfile;
+}
+
 blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
     const std::vector<RcStartupFlag>& rcstartup_flags,
     std::string *error) {
@@ -424,16 +439,16 @@ string StartupOptions::GetEmbeddedJavabase() {
   return "";
 }
 
-string StartupOptions::GetHostJavabase() {
-  // 1) Allow overriding the host_javabase via --host_javabase.
-  if (!host_javabase.empty()) {
-    return host_javabase;
+string StartupOptions::GetServerJavabase() {
+  // 1) Allow overriding the server_javabase via --server_javabase.
+  if (!server_javabase_.empty()) {
+    return server_javabase_;
   }
-  if (default_host_javabase.empty()) {
+  if (default_server_javabase_.empty()) {
     string bundled_jre_path = GetEmbeddedJavabase();
     if (!bundled_jre_path.empty()) {
       // 2) Use a bundled JVM if we have one.
-      default_host_javabase = bundled_jre_path;
+      default_server_javabase_ = bundled_jre_path;
     } else {
       // 3) Otherwise fall back to using the default system JVM.
       string system_javabase = GetSystemJavabase();
@@ -442,19 +457,19 @@ string StartupOptions::GetHostJavabase() {
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
                "javac is on your PATH.";
       }
-      default_host_javabase = system_javabase;
+      default_server_javabase_ = system_javabase;
     }
   }
-  return default_host_javabase;
+  return default_server_javabase_;
 }
 
-string StartupOptions::GetExplicitHostJavabase() const {
-  return host_javabase;
+string StartupOptions::GetExplicitServerJavabase() const {
+  return server_javabase_;
 }
 
 string StartupOptions::GetJvm() {
   string java_program =
-      blaze_util::JoinPath(GetHostJavabase(), GetJavaBinaryUnderJavabase());
+      blaze_util::JoinPath(GetServerJavabase(), GetJavaBinaryUnderJavabase());
   if (!blaze_util::CanExecuteFile(java_program)) {
     if (!blaze_util::PathExists(java_program)) {
       BAZEL_LOG(ERROR) << "Couldn't find java at '" << java_program << "'.";
@@ -466,12 +481,14 @@ string StartupOptions::GetJvm() {
     exit(1);
   }
   // If the full JDK is installed
-  string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
+  string jdk_rt_jar =
+      blaze_util::JoinPath(GetServerJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
-  string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
+  string jre_rt_jar = blaze_util::JoinPath(GetServerJavabase(), "lib/rt.jar");
   // rt.jar does not exist in java 9+ so check for java instead
-  string jre_java = blaze_util::JoinPath(GetHostJavabase(), "bin/java");
-  string jre_java_exe = blaze_util::JoinPath(GetHostJavabase(), "bin/java.exe");
+  string jre_java = blaze_util::JoinPath(GetServerJavabase(), "bin/java");
+  string jre_java_exe =
+      blaze_util::JoinPath(GetServerJavabase(), "bin/java.exe");
   if (blaze_util::CanReadFile(jdk_rt_jar) ||
       blaze_util::CanReadFile(jre_rt_jar) ||
       blaze_util::CanReadFile(jre_java) ||
@@ -480,7 +497,7 @@ string StartupOptions::GetJvm() {
   }
   BAZEL_LOG(ERROR) << "Problem with java installation: couldn't find/access "
                       "rt.jar or java in "
-                   << GetHostJavabase();
+                   << GetServerJavabase();
   exit(1);
 }
 
@@ -501,10 +518,10 @@ void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
-    const string &host_javabase, std::vector<string> *result,
+    const string &server_javabase, std::vector<string> *result,
     const vector<string> &user_options, string *error) const {
   AddJVMLoggingArguments(result);
-  return AddJVMMemoryArguments(host_javabase, result, user_options, error);
+  return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }
 
 void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
@@ -531,8 +548,8 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMMemoryArguments(
-    const string &host_javabase, std::vector<string> *result,
-    const vector<string> &user_options, string *error) const {
+    const string &, std::vector<string> *, const vector<string> &,
+    string *) const {
   return blaze_exit_code::SUCCESS;
 }
 

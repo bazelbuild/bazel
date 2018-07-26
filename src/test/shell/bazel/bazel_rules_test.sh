@@ -289,10 +289,10 @@ EOF
     fail "Could not create new temporary directory ${new_tmpdir}"
   export PATH="$PATH_TO_BAZEL_WRAPPER:/bin:/usr/bin:/random/path"
   if is_windows; then
-    local old_tmpdir="$TMP"
+    local old_tmpdir="${TMP:-}"
     export TMP="${new_tmpdir}"
   else
-    local old_tmpdir="$TMPDIR"
+    local old_tmpdir="${TMPDIR:-}"
     export TMPDIR="${new_tmpdir}"
   fi
   # shut down to force reload of the environment

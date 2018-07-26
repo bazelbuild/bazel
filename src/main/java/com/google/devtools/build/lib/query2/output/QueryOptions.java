@@ -126,6 +126,16 @@ public class QueryOptions extends CommonQueryOptions {
   public int graphNodeStringLimit;
 
   @Option(
+      name = "graph:conditional_edges_limit",
+      defaultValue = "4",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The maximum number of condition labels to show. -1 means no truncation and 0 means no "
+              + "annotation. This option is only applicable to --output=graph.")
+  public int graphConditionalEdgesLimit;
+
+  @Option(
     name = "graph:factored",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.QUERY,

@@ -145,6 +145,7 @@ in your final binary. But for cases where this isn't true, it is possible to
 shadow dependencies. Consider the following scenario:
 
 myproject/WORKSPACE
+
 ```python
 local_repository(
     name = "A",
@@ -157,6 +158,7 @@ local_repository(
 ```
 
 A/WORKSPACE
+
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -167,6 +169,7 @@ http_archive(
 ```
 
 B/WORKSPACE
+
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -181,6 +184,7 @@ different versions of `testrunner`. There is no reason for these test runners to
 not peacefully coexist within `myproject`, however they will clash with each
 other since they have the same name. To declare both dependencies,
 update myproject/WORKSPACE:
+
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(

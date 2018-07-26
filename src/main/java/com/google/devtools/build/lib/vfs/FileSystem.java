@@ -238,17 +238,8 @@ public abstract class FileSystem {
    * one available or the filesystem doesn't support them. This digest should be suitable for
    * detecting changes to the file.
    */
-  protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction) throws IOException {
+  protected byte[] getFastDigest(Path path) throws IOException {
     return null;
-  }
-
-  /**
-   * Gets a fast digest for the given path, or {@code null} if there isn't one available or the
-   * filesystem doesn't support them. This digest should be suitable for detecting changes to the
-   * file.
-   */
-  protected final byte[] getFastDigest(Path path) throws IOException {
-    return getFastDigest(path, digestFunction);
   }
 
   /**
@@ -259,31 +250,20 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the digest of the file denoted by the path, following symbolic links, for the given
-   * hash digest function.
+   * Returns the digest of the file denoted by the path, following symbolic links.
    *
-   * <p>Subclasses may (and do) optimize this computation for particular digest functions.
+   * <p>Subclasses may (and do) optimize this computation for a particular digest functions.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  protected byte[] getDigest(final Path path, DigestHashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(final Path path) throws IOException {
     return new ByteSource() {
       @Override
       public InputStream openStream() throws IOException {
         return getInputStream(path);
       }
-    }.hash(hashFunction.getHash()).asBytes();
-  }
-
-  /**
-   * Returns the digest of the file denoted by the path, following symbolic links.
-   *
-   * @return a new byte array containing the file's digest
-   * @throws IOException if the digest could not be computed for any reason
-   */
-  protected final byte[] getDigest(final Path path) throws IOException {
-    return getDigest(path, digestFunction);
+    }.hash(digestFunction.getHash()).asBytes();
   }
 
   /**

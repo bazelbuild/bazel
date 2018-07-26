@@ -49,7 +49,7 @@ public final class StructProvider extends BuiltinProvider<Info>
   }
 
   /**
-   * Creates a struct with the he given field values and message format for unknown fields.
+   * Creates a struct with the given field values and message format for unknown fields.
    *
    * <p>The custom message is useful for objects that have fields but aren't exactly used as
    * providers, such as the {@code native} object, and the struct fields of {@code ctx} like

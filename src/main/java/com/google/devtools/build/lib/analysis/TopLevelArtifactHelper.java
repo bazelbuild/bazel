@@ -67,7 +67,7 @@ public final class TopLevelArtifactHelper {
    * The set of artifacts to build.
    *
    * <p>There are two kinds: the ones that the user cares about (e.g. files to build) and the ones
-   * she doesn't (e.g. baseline coverage artifacts). The latter type doesn't get reported on various
+   * they don't (e.g. baseline coverage artifacts). The latter type doesn't get reported on various
    * outputs, e.g. on the console output listing the output artifacts of targets on the command
    * line.
    */

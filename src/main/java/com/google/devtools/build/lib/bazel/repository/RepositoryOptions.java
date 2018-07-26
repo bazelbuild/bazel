@@ -81,6 +81,28 @@ public class RepositoryOptions extends OptionsBase {
   )
   public List<RepositoryOverride> repositoryOverrides;
 
+  @Option(
+      name = "experimental_repository_hash_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If non-empty, specifies a file containing a resolved value, against which"
+              + " the repository directory hashes should be verified")
+  public String repositoryHashFile;
+
+  @Option(
+      name = "experimental_verify_repository_rules",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If list of repository rules for which the hash of the output directory should be"
+              + " verified, provided a file is specified by"
+              + " --experimental_respository_hash_file.")
+  public List<String> experimentalVerifyRepositoryRules;
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */

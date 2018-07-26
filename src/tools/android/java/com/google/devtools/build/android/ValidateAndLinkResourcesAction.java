@@ -14,7 +14,9 @@
 // Copyright 2017 The Bazel Authors. All rights reserved.
 package com.google.devtools.build.android;
 
+import com.android.builder.core.VariantConfiguration;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
@@ -37,121 +39,111 @@ public class ValidateAndLinkResourcesAction {
   /** Action configuration options. */
   public static class Options extends OptionsBase {
     @Option(
-      name = "compiled",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.ExistingPathConverter.class,
-      category = "input",
-      help = "Compiled resources to link.",
-      deprecationWarning = "Use --resources."
-    )
+        name = "compiled",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.ExistingPathConverter.class,
+        category = "input",
+        help = "Compiled resources to link.",
+        deprecationWarning = "Use --resources.")
     // TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
     @Deprecated
     public Path compiled;
 
     @Option(
-      name = "compiledDep",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "",
-      converter = Converters.PathListConverter.class,
-      category = "input",
-      allowMultiple = true,
-      help = "Compiled resource dependencies to link."
-    )
+        name = "compiledDep",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "",
+        converter = Converters.PathListConverter.class,
+        category = "input",
+        allowMultiple = true,
+        help = "Compiled resource dependencies to link.")
     public List<Path> compiledDeps;
 
     @Option(
-      name = "manifest",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.ExistingPathConverter.class,
-      category = "input",
-      help = "Manifest for the library.",
-      deprecationWarning = "Use --resources."
-    )
+        name = "manifest",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.ExistingPathConverter.class,
+        category = "input",
+        help = "Manifest for the library.",
+        deprecationWarning = "Use --resources.")
     // TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
     @Deprecated
     public Path manifest;
 
     @Option(
-      name = "resources",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.CompiledResourcesConverter.class,
-      category = "input",
-      help = "Compiled resources to link."
-    )
+        name = "resources",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.CompiledResourcesConverter.class,
+        category = "input",
+        help = "Compiled resources to link.")
     public CompiledResources resources;
 
     // TODO(b/64570523): remove this flag when it is no longer used.
     @Option(
-      name = "libraries",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.StaticLibraryListConverter.class,
-      category = "input",
-      help = "Static libraries to link against. Deprecated, use --library"
-    )
+        name = "libraries",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.StaticLibraryListConverter.class,
+        category = "input",
+        help = "Static libraries to link against. Deprecated, use --library")
     public List<StaticLibrary> deprecatedLibraries;
 
     @Option(
-      name = "library",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.StaticLibraryConverter.class,
-      category = "input",
-      allowMultiple = true,
-      help = "Static libraries to link against."
-    )
+        name = "library",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.StaticLibraryConverter.class,
+        category = "input",
+        allowMultiple = true,
+        help = "Static libraries to link against.")
     public List<StaticLibrary> libraries;
 
     @Option(
-      name = "packageForR",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      category = "input",
-      help = "Package for the resources."
-    )
+        name = "packageForR",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        category = "input",
+        help = "Package for the resources.")
     public String packageForR;
 
     @Option(
-      name = "staticLibraryOut",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.PathConverter.class,
-      category = "output",
-      help = "Static library produced."
-    )
+        name = "staticLibraryOut",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.PathConverter.class,
+        category = "output",
+        help = "Static library produced.")
     public Path staticLibraryOut;
 
     @Option(
-      name = "rTxtOut",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "null",
-      converter = Converters.PathConverter.class,
-      category = "output",
-      help = "R.txt out."
-    )
+        name = "rTxtOut",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "null",
+        converter = Converters.PathConverter.class,
+        category = "output",
+        help = "R.txt out.")
     public Path rTxtOut;
 
     @Option(
-      name = "sourceJarOut",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = Converters.PathConverter.class,
-      defaultValue = "null",
-      category = "output",
-      help = "Generated java classes from the resources."
-    )
+        name = "sourceJarOut",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = Converters.PathConverter.class,
+        defaultValue = "null",
+        category = "output",
+        help = "Generated java classes from the resources.")
     public Path sourceJarOut;
   }
 
@@ -180,10 +172,15 @@ public class ValidateAndLinkResourcesAction {
               // We need to make the manifest aapt safe (w.r.t., placeholders). For now, just stub
               // it out.
               .processManifest(
-                  manifest ->
-                      AndroidManifestProcessor.writeDummyManifestForAapt(
-                          scopedTmp.getPath().resolve("manifest-aapt-dummy/AndroidManifest.xml"),
-                          options.packageForR));
+                  manifest -> {
+                    final String packageForR =
+                        Strings.isNullOrEmpty(options.packageForR)
+                            ? VariantConfiguration.getManifestPackage(manifest.toFile())
+                            : options.packageForR;
+                    return AndroidManifestProcessor.writeDummyManifestForAapt(
+                        scopedTmp.getPath().resolve("manifest-aapt-dummy/AndroidManifest.xml"),
+                        packageForR);
+                  });
       profiler.recordEndOf("manifest").startTask("link");
       ResourceLinker.create(aapt2Options.aapt2, executorService, scopedTmp.getPath())
           .profileUsing(profiler)
@@ -195,6 +192,7 @@ public class ValidateAndLinkResourcesAction {
                   .map(CompiledResources::from)
                   .collect(Collectors.toList()))
           .buildVersion(aapt2Options.buildToolsVersion)
+          .outputAsProto(aapt2Options.resourceTableAsProto)
           .linkStatically(resources)
           .copyLibraryTo(options.staticLibraryOut)
           .copySourceJarTo(options.sourceJarOut)

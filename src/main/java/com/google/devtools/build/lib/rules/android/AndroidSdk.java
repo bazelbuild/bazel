@@ -35,7 +35,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     // If the user didn't specify --proguard_top, go with the proguard attribute in the android_sdk
-    // rule. Otherwise, use what she told us to.
+    // rule. Otherwise, use what they told us to.
     FilesToRunProvider proguard =
         ruleContext.getFragment(JavaConfiguration.class).getProguardBinary() == null
             ? ruleContext.getExecutablePrerequisite("proguard", Mode.HOST)

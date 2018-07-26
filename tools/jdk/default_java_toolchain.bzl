@@ -18,7 +18,11 @@ JDK8_JVM_OPTS = [
     "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
 ]
 
-JDK9_JVM_OPTS = [
+JDK10_JVM_OPTS = [
+    # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+    # G1 collector and having compact strings enabled.
+    "-XX:+UseParallelOldGC",
+    "-XX:-CompactStrings",
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -35,7 +39,9 @@ JDK9_JVM_OPTS = [
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
+    # and: https://github.com/bazelbuild/bazel/issues/5599
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
 DEFAULT_JAVACOPTS = [

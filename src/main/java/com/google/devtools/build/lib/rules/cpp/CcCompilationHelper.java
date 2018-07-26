@@ -587,8 +587,7 @@ public final class CcCompilationHelper {
 
   /**
    * Sets the given directories to by loose include directories that are only allowed to be
-   * referenced when headers checking is {@link HeadersCheckingMode#LOOSE} or {@link
-   * HeadersCheckingMode#WARN}.
+   * referenced when headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
   private void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
     this.looseIncludeDirs = looseIncludeDirs;
@@ -983,13 +982,7 @@ public final class CcCompilationHelper {
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.
-    if (headersCheckingMode == HeadersCheckingMode.WARN) {
-      ccCompilationContextBuilder.addDeclaredIncludeWarnDir(
-          ruleContext.getLabel().getPackageFragment());
-      for (PathFragment looseIncludeDir : looseIncludeDirs) {
-        ccCompilationContextBuilder.addDeclaredIncludeWarnDir(looseIncludeDir);
-      }
-    } else if (headersCheckingMode == HeadersCheckingMode.LOOSE) {
+    if (headersCheckingMode == HeadersCheckingMode.LOOSE) {
       ccCompilationContextBuilder.addDeclaredIncludeDir(
           ruleContext.getLabel().getPackageFragment());
       for (PathFragment looseIncludeDir : looseIncludeDirs) {

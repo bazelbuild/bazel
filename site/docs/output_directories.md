@@ -16,7 +16,7 @@ Requirements for an output directory layout:
 * Be easy to access.
 * Be easy to clean, even selectively.
 * Is unambiguous, even if the user relies on symbolic links when changing into
-  his/her client directory.
+  their client directory.
 * All the build state per user should be underneath one directory ("I'd like to
   clean all the .o files from all my clients.")
 

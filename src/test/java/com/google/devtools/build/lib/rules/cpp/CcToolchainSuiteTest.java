@@ -692,4 +692,132 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
                   + "  --compiler: right-compiler, toolchain.compiler: wrong-compiler");
     }
   }
+
+  @Test
+  public void testDisableCcToolchainLabelFromCrosstoolFile() throws Exception {
+    scratch.file(
+        "cc/BUILD",
+        "filegroup(name='empty')",
+        "filegroup(name='everything')",
+        "TOOLCHAIN_NAMES = [",
+        "  'darwin',",
+        "  'windows',",
+        "  'k8',",
+        "  'ppc-compiler',",
+        "  'ppc']",
+        "[cc_toolchain(",
+        "    name = NAME,",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        ") for NAME in TOOLCHAIN_NAMES]",
+        "cc_toolchain_suite(",
+        "    name = 'suite',",
+        "    toolchains = {",
+        "       'ppc': ':ppc',",
+        "       'ppc|compiler': ':ppc-compiler',",
+        "       'k8': ':k8',",
+        "       'x64_windows' : ':windows',",
+        "       'darwin' : ':darwin',",
+        "       'x64_windows|compiler' : ':windows',",
+        "       'darwin|compiler' : ':darwin',",
+        "    },",
+        "    proto = \"\"\"",
+        "major_version: 'v1'",
+        "minor_version: '0'",
+        "default_target_cpu: 'k8'",
+        "default_toolchain {",
+        "  cpu: 'k8'",
+        "  toolchain_identifier: 'k8-from-crosstool'",
+        "}",
+        "default_toolchain {",
+        "  cpu: 'ppc'",
+        "  toolchain_identifier: 'ppc-from-crosstool'",
+        "}",
+        "default_toolchain {",
+        "  cpu: 'darwin'",
+        "  toolchain_identifier: 'darwin-from-crosstool'",
+        "}",
+        "default_toolchain {",
+        "  cpu: 'x64_windows'",
+        "  toolchain_identifier: 'windows-from-crosstool'",
+        "}",
+        "toolchain {",
+        "  compiler: 'compiler'",
+        "  target_cpu: 'k8'",
+        "  toolchain_identifier: 'k8-from-crosstool'",
+        "  host_system_name: 'linux'",
+        "  target_system_name: 'linux'",
+        "  abi_version: 'cpu-abi'",
+        "  abi_libc_version: ''",
+        "  target_libc: 'local'",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "}",
+        "toolchain {",
+        "  compiler: 'compiler'",
+        "  target_cpu: 'ppc'",
+        "  toolchain_identifier: 'ppc-from-crosstool'",
+        "  host_system_name: 'linux'",
+        "  target_system_name: 'linux'",
+        "  abi_version: 'cpu-abi'",
+        "  abi_libc_version: ''",
+        "  target_libc: 'local'",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "}",
+        "toolchain {",
+        "  compiler: 'compiler'",
+        "  target_cpu: 'darwin'",
+        "  toolchain_identifier: 'darwin-from-crosstool'",
+        "  host_system_name: 'linux'",
+        "  target_system_name: 'linux'",
+        "  abi_version: ''",
+        "  abi_libc_version: ''",
+        "  target_libc: ''",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "}",
+        "toolchain {",
+        "  compiler: 'compiler'",
+        "  target_cpu: 'x64_windows'",
+        "  toolchain_identifier: 'windows-from-crosstool'",
+        "  host_system_name: 'windows'",
+        "  target_system_name: 'windows'",
+        "  abi_version: ''",
+        "  abi_libc_version: ''",
+        "  target_libc: ''",
+        "  builtin_sysroot: 'sysroot'",
+        "  default_grte_top: '//cc:grtetop'",
+        "}",
+        "\"\"\"",
+        ")");
+
+    scratch.file("a/BUILD", "cc_binary(name='b', srcs=['b.cc'])");
+
+    try {
+      useConfiguration(
+          "--crosstool_top=//cc:suite",
+          "--cpu=k8",
+          "--compiler=compiler",
+          "--experimental_enable_cc_toolchain_label_from_crosstool_proto=false");
+      getConfiguredTarget("//a:b");
+      fail("Expected failure because selecting cc_toolchain label from CROSSTOOL is disabled");
+    } catch (InvalidConfigurationException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "you may want to add an entry for 'k8|compiler' into toolchains and "
+                  + "toolchain_identifier 'k8-from-crosstool' into the corresponding "
+                  + "cc_toolchain rule");
+    }
+  }
 }

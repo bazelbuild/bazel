@@ -184,4 +184,10 @@ public class ExecutionRequirements {
    * effect otherwise.
    */
   public static final String REQUIRES_FAKEROOT = "requires-fakeroot";
+
+  /** Suppress CLI reporting for this spawn - it's part of another action. */
+  public static final String DO_NOT_REPORT = "internal-do-not-report";
+
+  /** Use this to request eager fetching of a single remote output into local memory. */
+  public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
 }
