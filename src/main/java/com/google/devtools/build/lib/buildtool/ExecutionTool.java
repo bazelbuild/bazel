@@ -302,8 +302,6 @@ public class ExecutionTool {
     Set<AspectKey> builtAspects = new HashSet<>();
     Collection<AspectValue> aspects = analysisResult.getAspects();
 
-    SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels =
-        TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult, aspects);
     if (request.isRunningInEmacs()) {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
       request
@@ -313,12 +311,16 @@ public class ExecutionTool {
     }
     boolean buildCompleted = false;
     try {
+      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels =
+          TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult, aspects);
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         try (SilentCloseable c =
             Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
           actionContextProvider.executionPhaseStarting(actionGraph, topLevelArtifactsToOwnerLabels);
         }
       }
+      // Don't retain memory.
+      topLevelArtifactsToOwnerLabels = null;
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
 
