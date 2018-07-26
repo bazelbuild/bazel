@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -79,6 +80,10 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
     public boolean isEmpty() {
       return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
     }
+  }
+
+  public static JavaPluginInfoProvider merge(JavaPluginInfoProvider a, JavaPluginInfoProvider b) {
+    return a.isEmpty() ? b : b.isEmpty() ? a : merge(ImmutableList.of(a, b));
   }
 
   public static JavaPluginInfoProvider merge(Iterable<JavaPluginInfoProvider> providers) {
