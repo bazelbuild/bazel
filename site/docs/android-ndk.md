@@ -313,7 +313,7 @@ flags.
 
 For example:
 
-```shell
+```
 bazel build //my/cc/jni:target \
       --crosstool_top=@androidndk//:default_crosstool \
       --cpu=<abi> \
@@ -355,7 +355,7 @@ common:android_<abi> --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
 Then, to build a `cc_library` for `x86` for example, run:
 
-```shell
+```
 bazel build //my/cc/jni:target --config=android_x86
 ```
 
