@@ -192,6 +192,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     switch (configurationDistinguisher) {
       case UNKNOWN:
         return String.format("%s-out/ios_%s-%s/", TestConstants.PRODUCT_NAME, arch, modeSegment);
+      case APPLE_CROSSTOOL:
+        return String.format("%1$s-out/apl-ios_%2$s%3$s-%4$s/",
+            TestConstants.PRODUCT_NAME,
+            arch,
+            minOsSegment,
+            modeSegment);
       case APPLEBIN_IOS:
         return String.format(
             "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
@@ -2107,7 +2113,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void checkCustomModuleMap(RuleType ruleType, boolean targetUnderTestShouldPropagate)
       throws Exception {
     useConfiguration(
-        "--experimental_objc_enable_module_maps", "--incompatible_strict_objc_module_maps");
+        "--apple_crosstool_in_output_directory_name",
+        "--experimental_objc_enable_module_maps",
+        "--incompatible_strict_objc_module_maps");
     ruleType.scratchTarget(scratch, "deps", "['//z:a']");
     scratch.file("z/a.m");
     scratch.file("z/a.h");
@@ -2139,7 +2147,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
     String x8664Genfiles =
-        configurationGenfiles("x86_64", ConfigurationDistinguisher.UNKNOWN, null);
+        configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLE_CROSSTOOL, null);
 
     // The target with the module map should propagate it to its direct dependers...
     ObjcProvider provider = providerForTarget("//z:testModuleMap");
