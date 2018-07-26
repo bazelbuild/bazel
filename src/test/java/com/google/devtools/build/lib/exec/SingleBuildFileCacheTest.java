@@ -72,6 +72,11 @@ public class SingleBuildFileCacheTest {
             byte[] override = md5Overrides.get(path.getPathString());
             return override != null ? override : super.getDigest(path);
           }
+
+          @Override
+          protected byte[] getFastDigest(Path path) throws IOException {
+            return null;
+          }
         };
     underTest = new SingleBuildFileCache("/", fs);
     FileSystemUtils.createEmptyFile(fs.getPath("/empty"));

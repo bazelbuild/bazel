@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryAndParents;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -789,20 +787,21 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private void createOutputDirectories(Action action) throws ActionExecutionException {
+  private void createOutputDirectories(Action action, ActionExecutionContext context)
+      throws ActionExecutionException {
     try {
       Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
       for (Artifact outputFile : action.getOutputs()) {
         Path outputDir;
         if (outputFile.isTreeArtifact()) {
-          outputDir = outputFile.getPath();
+          outputDir = context.getPathResolver().toPath(outputFile);
         } else {
-          outputDir = outputFile.getPath().getParentDirectory();
+          outputDir = context.getPathResolver().toPath(outputFile).getParentDirectory();
         }
 
         if (done.add(outputDir)) {
           try {
-            createDirectoryAndParents(outputDir);
+            outputDir.createDirectoryAndParents();
             continue;
           } catch (IOException e) {
             /* Fall through to plan B. */
@@ -855,7 +854,7 @@ public final class SkyframeActionExecutor {
 
               p = p.getParentDirectory();
             }
-            createDirectoryAndParents(outputDir);
+            outputDir.createDirectoryAndParents();
           } catch (IOException e) {
             throw new ActionExecutionException(
                 "failed to create output directory '" + outputDir + "'", e, action, false);
@@ -896,17 +895,25 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
-    // ActionFileSystem constructs directories implicitly, so no need to delete the old outputs
-    // and ensure directories exist in this case.
-    if (!usesActionFileSystem()) {
-      // Delete the outputs before executing the action, just to ensure that
-      // the action really does produce the outputs.
-      try {
+    // Delete the outputs before executing the action, just to ensure that
+    // the action really does produce the outputs.
+    try {
+      if (!usesActionFileSystem()) {
         action.prepare(context.getFileSystem(), context.getExecRoot());
-        createOutputDirectories(action);
-      } catch (IOException e) {
-        reportError("failed to delete output files before executing action", e, action, null);
+      } else {
+        try {
+          context.getFileOutErr().getOutputPath().getParentDirectory().createDirectoryAndParents();
+          context.getFileOutErr().getErrorPath().getParentDirectory().createDirectoryAndParents();
+        } catch (IOException e) {
+          throw new ActionExecutionException(
+              "failed to create output directory for output streams'"
+                  + context.getFileOutErr().getErrorPath() + "'",
+              e, action, false);
+        }
       }
+      createOutputDirectories(action, context);
+    } catch (IOException e) {
+      reportError("failed to delete output files before executing action", e, action, null);
     }
 
     eventHandler.post(new ActionStartedEvent(action, actionStartTime));

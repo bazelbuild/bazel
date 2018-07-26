@@ -181,13 +181,13 @@ class TreeArtifactValue implements SkyValue {
         }
       };
 
-  private static void explodeDirectory(Artifact treeArtifact,
+  private static void explodeDirectory(Path treeArtifactPath,
       PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
       throws IOException {
-    for (Path subpath : treeArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
+    for (Path subpath : treeArtifactPath.getRelative(pathToExplode).getDirectoryEntries()) {
       PathFragment canonicalSubpathFragment = pathToExplode.getChild(subpath.getBaseName());
       if (subpath.isDirectory()) {
-        explodeDirectory(treeArtifact,
+        explodeDirectory(treeArtifactPath,
             pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
       } else if (subpath.isSymbolicLink()) {
         PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
@@ -229,9 +229,9 @@ class TreeArtifactValue implements SkyValue {
    * @throws IOException if there is any problem reading or validating outputs under the given
    *     tree artifact.
    */
-  static Set<PathFragment> explodeDirectory(Artifact treeArtifact) throws IOException {
+  static Set<PathFragment> explodeDirectory(Path treeArtifactPath) throws IOException {
     ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
-    explodeDirectory(treeArtifact, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
+    explodeDirectory(treeArtifactPath, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
     return explodedDirectory.build();
   }
 }
