@@ -441,11 +441,11 @@ git diff-index --quiet HEAD -- || {
 
 progname=$0
 cmd=${1-}
-shift || usage $progname
+shift || __usage $progname
 
 case $cmd in
   create)
-    (( $# >= 2 )) || usage $progname
+    (( $# >= 2 )) || __usage $progname
     __create_release "$@"
     ;;
   push)
