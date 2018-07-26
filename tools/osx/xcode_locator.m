@@ -129,7 +129,8 @@ int main(int argc, const char * argv[]) {
       }
     }
     if (versionArg == nil) {
-      printf(
+      fprintf(
+          stderr,
           "xcode-locator [-v|<version_number>]"
           "\n\n"
           "Given a version number, or partial version number in x.y.z format, "
@@ -155,20 +156,20 @@ int main(int argc, const char * argv[]) {
         CFSTR("com.apple.dt.Xcode"), &cfError));
     if (array == nil) {
       NSError *nsError = (__bridge NSError *)cfError;
-      printf("error: %s\n", nsError.description.UTF8String);
+      fprintf(stderr, "error: %s\n", nsError.description.UTF8String);
       return 1;
     }
     for (NSURL *url in array) {
       NSBundle *bundle = [NSBundle bundleWithURL:url];
       if (!bundle) {
-        printf("error: Unable to open bundle at URL: %s\n",
-               url.description.UTF8String);
+        fprintf(stderr, "error: Unable to open bundle at URL: %s\n",
+                url.description.UTF8String);
         return 1;
       }
       NSString *version = bundle.infoDictionary[@"CFBundleShortVersionString"];
       if (!version) {
-        printf("error: Unable to extract CFBundleShortVersionString from URL: "
-               "%s\n", url.description.UTF8String);
+        fprintf(stderr, "error: Unable to extract CFBundleShortVersionString "
+                "from URL: %s\n", url.description.UTF8String);
         return 1;
       }
       version = ExpandVersion(version);
