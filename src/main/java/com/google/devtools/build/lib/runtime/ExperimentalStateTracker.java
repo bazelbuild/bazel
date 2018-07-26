@@ -193,10 +193,6 @@ class ExperimentalStateTracker {
     executionProgressReceiver = event.getExecutionProgressReceiver();
   }
 
-  private String toRegularPluralizedString(int val, String msg) {
-    return String.format("%d %s%s", val, msg, ((val==1) ?"" : "s"));
-  }
-
   void buildComplete(BuildCompleteEvent event, String additionalInfo) {
     buildComplete = true;
     // Build event protocol transports are closed right after the build complete event.
@@ -211,8 +207,8 @@ class ExperimentalStateTracker {
       } else {
         additionalMessage =
             additionalInfo + "Build completed, "
-                + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
-                + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
+            + failedTests + " test" + (failedTests == 1 ? "" : "s") + " FAILED, "
+            + actionsCompleted + " total action" + (actionsCompleted == 1 ? "" : "s");
       }
     } else {
       ok = false;
@@ -570,7 +566,6 @@ class ExperimentalStateTracker {
 
   public synchronized void testSummary(TestSummary summary) {
     completedTests++;
-
     mostRecentTest = summary;
     if (summary.getStatus() != BlazeTestStatus.PASSED) {
       failedTests++;

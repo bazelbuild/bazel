@@ -226,15 +226,14 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     if ((testSummaryFormat == DETAILED) || (testSummaryFormat == TESTCASE)) {
       Integer passCount = stats.totalTestCases - stats.totalFailedTestCases;
       printer.printLn(String.format(
-          "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases%s",
+          "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
           passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
           passCount,
           AnsiTerminalPrinter.Mode.DEFAULT,
           stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
           stats.totalFailedTestCases,
           AnsiTerminalPrinter.Mode.DEFAULT,
-          stats.totalTestCases,
-          AnsiTerminalPrinter.Mode.DEFAULT));
+          stats.totalTestCases));
     }
 
     if (!optionCheckTestsUpToDate()) {

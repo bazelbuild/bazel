@@ -18,6 +18,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
@@ -35,6 +36,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
+/**
+ * Tests {@link TerminalTestResultNotifier}.
+ */
 @RunWith(JUnit4.class)
 public class TerminalTestResultNotifierTest {
 
@@ -68,7 +72,7 @@ public class TerminalTestResultNotifierTest {
       testCases.add(failedTestCase);
     }
 
-    Label labelA = Label.parseAbsolute("//foo/bar:baz");
+    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     when(testSummary.getFailedTestCases()).thenReturn(testCases);
     when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED);
     when(testSummary.getLabel()).thenReturn(labelA);
@@ -79,15 +83,14 @@ public class TerminalTestResultNotifierTest {
 
     String summaryMessage =
         String.format(
-            "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases%s",
+            "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
             numOfSuccessfullTestCases > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
             numOfSuccessfullTestCases,
             AnsiTerminalPrinter.Mode.DEFAULT,
             numOfFailedCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
             numOfFailedCases,
             AnsiTerminalPrinter.Mode.DEFAULT,
-            numOfTotalTestCases,
-            AnsiTerminalPrinter.Mode.DEFAULT);
+            numOfTotalTestCases);
 
     if (shouldPrintTestCaseSummary) {
       verify(ansiTerminalPrinter).printLn(summaryMessage);
