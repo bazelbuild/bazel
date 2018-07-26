@@ -39,6 +39,9 @@ import java.util.List;
 public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   public UnixFileSystem() {
+    // TODO(b/109764197): remove this parameter-less constructor, so that no one uses MD5 by
+    // default.
+    super(DigestHashFunction.MD5);
   }
 
   public UnixFileSystem(DigestHashFunction hashFunction) {

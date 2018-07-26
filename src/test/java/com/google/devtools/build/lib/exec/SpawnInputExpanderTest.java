@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -62,7 +63,7 @@ public class SpawnInputExpanderTest {
 
   @Before
   public final void createSpawnInputExpander() throws Exception  {
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(DigestHashFunction.MD5);
     execRoot = fs.getPath("/root");
     expander = new SpawnInputExpander(execRoot, /*strict=*/ true);
     inputMappings = Maps.newHashMap();

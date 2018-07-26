@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -273,7 +274,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*ioUsage=*/1, /*localTestCount=*/1));
-    return new InMemoryFileSystem();
+    return new InMemoryFileSystem(DigestHashFunction.MD5);
   }
 
   /**

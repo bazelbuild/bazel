@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -65,7 +66,7 @@ public class AbstractSpawnStrategyTest {
   private static final Spawn SIMPLE_SPAWN =
       new SpawnBuilder("/bin/echo", "Hi!").withEnvironment("VARIABLE", "value").build();
 
-  private final FileSystem fs = new InMemoryFileSystem();
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.MD5);
   private final Path execRoot = fs.getPath("/execroot");
   private Scratch scratch;
   private ArtifactRoot rootDir;

@@ -224,7 +224,7 @@ public class DigestUtilsTest {
     final AtomicInteger getDigestCounter = new AtomicInteger(0);
 
     FileSystem tracingFileSystem =
-        new InMemoryFileSystem(BlazeClock.instance()) {
+        new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5) {
           @Override
           protected byte[] getFastDigest(Path path) throws IOException {
             getFastDigestCounter.incrementAndGet();

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -95,7 +96,7 @@ public abstract class FoundationTestCase {
    * Creates the file system; override to inject FS behavior.
    */
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance());
+    return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
   }
 
   // Mix-in assertions:

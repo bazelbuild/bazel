@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -37,7 +38,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class HeaderDiscoveryTest {
 
-  private final FileSystem fs = new InMemoryFileSystem();
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.MD5);
   private final Path execRoot = fs.getPath("/execroot");
   private final Path derivedRoot = execRoot.getRelative("derived");
   private final ArtifactRoot artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, derivedRoot);

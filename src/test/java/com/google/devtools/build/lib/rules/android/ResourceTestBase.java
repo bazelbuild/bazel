@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -184,7 +185,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   @Before
   public void setup() {
     errorConsumer = new FakeRuleErrorConsumer();
-    fileSystem = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem(DigestHashFunction.MD5);
     root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
   }
 

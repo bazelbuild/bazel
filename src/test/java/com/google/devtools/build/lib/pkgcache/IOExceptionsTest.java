@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -82,7 +83,8 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
+    return new InMemoryFileSystem(
+        BlazeClock.instance(), PathFragment.create(FS_ROOT), DigestHashFunction.MD5) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);

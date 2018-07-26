@@ -17,6 +17,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,7 +39,7 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance()) {
+    return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5) {
       @Override
       protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
         if (path.toString().contains("causes_interrupt")) {

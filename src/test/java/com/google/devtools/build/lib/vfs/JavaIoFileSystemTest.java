@@ -50,7 +50,7 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
   @Override
   public FileSystem getFreshFileSystem() {
     clock = new ManualClock();
-    return new JavaIoFileSystem(clock);
+    return new JavaIoFileSystem(clock, DigestHashFunction.MD5);
   }
 
   // Tests are inherited from the FileSystemTest

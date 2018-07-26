@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.ByteArrayOutputStream;
@@ -43,7 +44,7 @@ public class ShowIncludesFilterTest {
     showIncludesFilter = new ShowIncludesFilter("foo.cpp");
     output = new ByteArrayOutputStream();
     filterOutputStream = showIncludesFilter.getFilteredOutputStream(output);
-    fs = new InMemoryFileSystem();
+    fs = new InMemoryFileSystem(DigestHashFunction.MD5);
     fs.getPath("/out").createDirectory();
   }
 

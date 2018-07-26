@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
@@ -58,20 +59,20 @@ public class InMemoryFileSystem extends FileSystem {
   // Maximum number of traversals before ELOOP is thrown.
   private static final int MAX_TRAVERSALS = 256;
 
-  /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
-   * within scope) and a default clock.
-   */
+  // TODO(b/109764197): Remove the no-arg constructor from Jadep and then remove it here.
+  @VisibleForTesting
   public InMemoryFileSystem() {
-    this(new JavaClock());
+    this(new JavaClock(), DigestHashFunction.MD5);
   }
 
   /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all
-   * paths are considered to be within scope).
+   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
+   * within scope) and a default clock.
+   *
+   * @param hashFunction
    */
-  public InMemoryFileSystem(Clock clock) {
-    this(clock, (PathFragment) null);
+  public InMemoryFileSystem(DigestHashFunction hashFunction) {
+    this(new JavaClock(), hashFunction);
   }
 
   /**
@@ -89,7 +90,8 @@ public class InMemoryFileSystem extends FileSystem {
    * Creates a new InMemoryFileSystem with scope checking bound to scopeRoot, i.e. any path that's
    * not below scopeRoot is considered to be out of scope.
    */
-  public InMemoryFileSystem(Clock clock, PathFragment scopeRoot) {
+  public InMemoryFileSystem(Clock clock, PathFragment scopeRoot, DigestHashFunction hashFunction) {
+    super(hashFunction);
     this.scopeRoot = scopeRoot;
     this.clock = clock;
     this.rootInode = newRootInode(clock);

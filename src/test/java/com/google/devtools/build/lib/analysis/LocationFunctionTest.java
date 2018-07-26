@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -196,7 +197,7 @@ final class LocationFunctionBuilder {
   }
 
   private static Artifact makeArtifact(String path) {
-    FileSystem fs = new InMemoryFileSystem();
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.MD5);
     if (path.startsWith("/exec/out")) {
       return new Artifact(
           fs.getPath(path),

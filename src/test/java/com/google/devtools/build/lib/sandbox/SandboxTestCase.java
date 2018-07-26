@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -26,7 +27,7 @@ public class SandboxTestCase {
 
   @Before
   public final void createTestRoot() throws Exception {
-    fileSystem = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem(DigestHashFunction.MD5);
     testRoot = fileSystem.getPath(TestUtils.tmpDir());
     testRoot.createDirectoryAndParents();
   }

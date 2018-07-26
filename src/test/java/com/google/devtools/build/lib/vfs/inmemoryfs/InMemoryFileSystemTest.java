@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,7 +45,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   public FileSystem getFreshFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance());
+    return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
   }
 
   @Override

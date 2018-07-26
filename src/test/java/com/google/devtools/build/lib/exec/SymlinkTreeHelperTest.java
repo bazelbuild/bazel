@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -34,7 +35,7 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link SymlinkTreeHelper}. */
 @RunWith(JUnit4.class)
 public final class SymlinkTreeHelperTest {
-  private final FileSystem fs = new InMemoryFileSystem();
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.MD5);
 
   @Test
   public void checkCreatedSpawn() {

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
@@ -47,7 +48,7 @@ public class BlazeExecutorTest {
 
   @Before
   public final void setUpDirectoriesAndTools() throws Exception {
-    fileSystem = new InMemoryFileSystem();
+    fileSystem = new InMemoryFileSystem(DigestHashFunction.MD5);
     directories =
         new BlazeDirectories(
             new ServerDirectories(

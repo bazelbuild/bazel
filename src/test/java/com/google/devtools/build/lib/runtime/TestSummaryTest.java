@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -63,7 +64,7 @@ public class TestSummaryTest {
 
   @Before
   public final void createFileSystem() throws Exception  {
-    fs = new InMemoryFileSystem(BlazeClock.instance());
+    fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
     stubTarget = stubTarget();
     basicBuilder = getTemplateBuilder();
   }

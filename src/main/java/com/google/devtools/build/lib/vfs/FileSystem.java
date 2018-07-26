@@ -38,10 +38,6 @@ public abstract class FileSystem {
 
   private final DigestHashFunction digestFunction;
 
-  public FileSystem() {
-    this(DigestHashFunction.MD5);
-  }
-
   public FileSystem(DigestHashFunction digestFunction) {
     this.digestFunction = Preconditions.checkNotNull(digestFunction);
   }

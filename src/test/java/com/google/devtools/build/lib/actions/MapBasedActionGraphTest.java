@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActio
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -36,7 +37,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class MapBasedActionGraphTest {
-  private final FileSystem fileSystem = new InMemoryFileSystem();
+  private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.MD5);
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Test

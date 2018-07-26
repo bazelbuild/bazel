@@ -31,7 +31,7 @@ public class RootedPathTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    filesystem = new InMemoryFileSystem(BlazeClock.instance());
+    filesystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
     root = filesystem.getPath("/");
   }
 
