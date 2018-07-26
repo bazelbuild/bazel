@@ -685,8 +685,28 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("module_map", LABEL).allowedFileTypes(FileType.of(".modulemap")))
 
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(strip_include_prefix) -->
+          The prefix to strip from the paths of the headers of this rule.
+
+          <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+          at their path with this prefix cut off.
+
+          <p>If it's a relative path, it's taken as a package-relative one. If it's an absolute one,
+          it's understood as a repository-relative path.
+
+          <p>The prefix in the <code>include_prefix</code> attribute is added after this prefix is
+          stripped.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("strip_include_prefix", STRING))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(include_prefix) -->
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          The prefix to add to the paths of the headers of this rule.
+
+          <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+          at is the value of this attribute prepended to their repository-relative path.
+
+          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed before this
+          prefix is added.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("include_prefix", STRING))
 
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(flatten_virtual_headers) -->
