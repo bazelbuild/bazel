@@ -66,7 +66,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final ImmutableList<Artifact> directModuleMaps;
 
   /** Header maps from direct dependencies. */
-  private final ImmutableList<CppHeaderMap> directHeaderMaps;
+  private final ImmutableList<Artifact> directHeaderMaps;
 
   /** Non-code mandatory compilation inputs. */
   private final NestedSet<Artifact> nonCodeInputs;
@@ -103,7 +103,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
-      ImmutableList<CppHeaderMap> directHeaderMaps,
+      ImmutableList<Artifact> directHeaderMaps,
       CppHeaderMap internalCppHeaderMap,
       CppHeaderMap publicCppHeaderMap) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
@@ -277,10 +277,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     builder.addAll(directModuleMaps);
-    directHeaderMaps.forEach(
-        (headerMap) -> {
-          builder.addAll(headerMap.getHeaders());
-        });
+    builder.addAll(directHeaderMaps);
     builder.addTransitive(nonCodeInputs);
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
@@ -300,7 +297,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   /** @return header maps from direct dependencies. */
-  public Iterable<CppHeaderMap> getDirectHeaderMaps() { return directHeaderMaps; }
+  public Iterable<Artifact> getDirectHeaderMaps() { return directHeaderMaps; }
 
   /**
    * @return all declared headers of the current module if the current target
@@ -413,7 +410,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
-    private final Set<CppHeaderMap> directHeaderMaps = new LinkedHashSet<>();
+    private final Set<Artifact> directHeaderMaps = new LinkedHashSet<>();
     private CppHeaderMap internalCppHeaderMap;
     private CppHeaderMap publicCppHeaderMap;
 
@@ -479,7 +476,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       }
 
       if (otherCcCompilationContext.getPublicCppHeaderMap() != null) {
-        directHeaderMaps.add(otherCcCompilationContext.getPublicCppHeaderMap());
+        directHeaderMaps.add(otherCcCompilationContext.getPublicCppHeaderMap().getArtifact());
       }
       defines.addAll(otherCcCompilationContext.getDefines());
       return this;

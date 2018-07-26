@@ -896,8 +896,8 @@ public final class CcCompilationHelper {
         includePath = prefix.getRelative(includePath);
       }
 
-      // OB TODO skip symlinks when headerMapsEnabled is true
-      if (!originalHeader.getExecPath().equals(includePath)) {
+      // Don't create symlinks if we are using header maps
+      if (!originalHeader.getExecPath().equals(includePath) && !headerMapsEnabled) {
         Artifact virtualHeader =
             ruleContext.getUniqueDirectoryArtifact(
                 "_virtual_includes", includePath, ruleContext.getBinOrGenfilesDirectory());
@@ -948,7 +948,6 @@ public final class CcCompilationHelper {
 
     // Setup Experimental implicit header maps if needed
     if (headerMapsEnabled) {
-
       Iterable<Artifact> internalHeaders = Iterables.unmodifiableIterable(
           Iterables.concat(publicHeaders.getHeaders(), privateHeaders, publicTextualHeaders));
       CppHeaderMap internalHeaderMap =
