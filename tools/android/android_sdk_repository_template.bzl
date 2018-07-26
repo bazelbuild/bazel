@@ -115,8 +115,8 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
                 "//conditions:default": ":aapt2_binary",
             }),
-            dx = ":dx_binary",
             d8 = ":d8_binary",
+            dx = ":dx_binary",
             main_dex_list_creator = ":main_dex_list_creator",
             adb = select({
                 ":windows": "platform-tools/adb.exe",
