@@ -418,7 +418,11 @@ public final class Profiler {
         return !type.isVfs()
             // Exclude the critical path - it's not useful in the Json trace output.
             && type != ProfilerTask.CRITICAL_PATH
-            && type != ProfilerTask.CRITICAL_PATH_COMPONENT;
+            && type != ProfilerTask.CRITICAL_PATH_COMPONENT
+            && type != ProfilerTask.SKYFUNCTION
+            && type != ProfilerTask.ACTION_EXECUTE
+            && type != ProfilerTask.ACTION_COMPLETE
+            && !type.isSkylark();
       }
     },
 

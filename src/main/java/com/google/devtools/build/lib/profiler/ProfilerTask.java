@@ -108,8 +108,8 @@ public enum ProfilerTask {
   /** True if the metric records VFS operations */
   private final boolean vfs;
 
-  private ProfilerTask(String description, long minDuration, int color, int slowestInstanceCount,
-      boolean vfs) {
+  private ProfilerTask(
+      String description, long minDuration, int color, int slowestInstanceCount, boolean vfs) {
     this.description = description;
     this.minDuration = minDuration;
     this.color = color;
@@ -150,5 +150,9 @@ public enum ProfilerTask {
 
   public boolean isVfs() {
     return vfs;
+  }
+
+  public boolean isSkylark() {
+    return description.startsWith("Skylark ");
   }
 }
