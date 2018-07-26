@@ -164,7 +164,7 @@ public final class ImportDepsChecker implements Closeable {
         }
       } else {
         builder.append("*** Missing strict dependencies. Run the following command to fix ***\n\n");
-        builder.append("    /google/data/ro/projects/demolition/add_depgo ");
+        builder.append("    add_dep ");
         for (String indirectLabel : labels) {
           builder.append(indirectLabel).append(" ");
         }
