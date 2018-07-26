@@ -523,7 +523,7 @@ filegroup(
 
 java_import(
     name = "diffutils",
-    jars = ["diffutils/diffutils.jar"],
+    jars = ["diffutils/diffutils-1.3.0.jar"],
 )
 
 java_import(
