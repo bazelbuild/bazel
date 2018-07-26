@@ -19,12 +19,11 @@
 // This macro is required to tell MSVC headers to also define POSIX names
 // without "_" prefix (such as "open" for "_open").
 #define _CRT_DECLARE_NONSTDC_NAMES 1
+#include <fcntl.h>
 #include <io.h>
 #endif
 
-#include <fcntl.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
