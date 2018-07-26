@@ -717,6 +717,11 @@ public final class CustomCommandLine extends CommandLine {
       return arguments.isEmpty();
     }
 
+    private final ImmutableList.Builder<Artifact> treeArtifactInputs =
+        new ImmutableList.Builder<>();
+
+    private boolean treeArtifactsRequested = false;
+
     /**
      * Adds a constant-value string.
      *
@@ -1022,6 +1027,8 @@ public final class CustomCommandLine extends CommandLine {
      */
     public Builder addPlaceholderTreeArtifactExecPath(@Nullable Artifact treeArtifact) {
       if (treeArtifact != null) {
+        Preconditions.checkState(!treeArtifactsRequested);
+        treeArtifactInputs.add(treeArtifact);
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
       return this;
@@ -1039,6 +1046,8 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addPlaceholderTreeArtifactExecPath(String arg, @Nullable Artifact treeArtifact) {
       Preconditions.checkNotNull(arg);
       if (treeArtifact != null) {
+        Preconditions.checkState(!treeArtifactsRequested);
+        treeArtifactInputs.add(treeArtifact);
         arguments.add(arg);
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
@@ -1052,6 +1061,8 @@ public final class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      */
     public Builder addExpandedTreeArtifactExecPaths(Artifact treeArtifact) {
+      Preconditions.checkState(!treeArtifactsRequested);
+      treeArtifactInputs.add(treeArtifact);
       Preconditions.checkNotNull(treeArtifact);
       arguments.add(new ExpandedTreeArtifactArg(treeArtifact));
       return this;
@@ -1060,6 +1071,8 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addExpandedTreeArtifactExecPaths(String arg, Artifact treeArtifact) {
       Preconditions.checkNotNull(arg);
       Preconditions.checkNotNull(treeArtifact);
+      Preconditions.checkState(!treeArtifactsRequested);
+      treeArtifactInputs.add(treeArtifact);
       arguments.add(
           new ExpandedTreeArtifactArg(
               treeArtifact, artifact -> ImmutableList.of(arg, artifact.getExecPathString())));
@@ -1077,8 +1090,16 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addExpandedTreeArtifact(
         Artifact treeArtifact, Function<Artifact, Iterable<String>> expandFunction) {
       Preconditions.checkNotNull(treeArtifact);
+      Preconditions.checkState(!treeArtifactsRequested);
+      treeArtifactInputs.add(treeArtifact);
       arguments.add(new ExpandedTreeArtifactArg(treeArtifact, expandFunction));
       return this;
+    }
+
+    /** Gets all the tree artifact inputs for command line */
+    public Iterable<Artifact> getTreeArtifactInputs() {
+      treeArtifactsRequested = true;
+      return treeArtifactInputs.build();
     }
 
     public CustomCommandLine build() {

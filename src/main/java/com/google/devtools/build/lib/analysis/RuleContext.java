@@ -1831,6 +1831,9 @@ public final class RuleContext extends TargetContext
           if (allowedFileTypes.apply(sourceArtifact.getFilename())) {
             return;
           }
+          if (sourceArtifact.isTreeArtifact()) {
+            return;
+          }
         }
         attributeError(
             attribute.getName(),
