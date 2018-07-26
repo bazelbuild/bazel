@@ -62,7 +62,7 @@ set -ex
         remote = ctx.attr.remote,
         ref = ref,
         shallow = shallow,
-    )])
+    )], environment = ctx.os.environ)
 
     if st.return_code:
         fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
@@ -80,7 +80,7 @@ set -ex
     git submodule update --init --checkout --force )
   """.format(
             directory = ctx.path("."),
-        )])
+        )], environment = ctx.os.environ)
     if st.return_code:
         fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
 
