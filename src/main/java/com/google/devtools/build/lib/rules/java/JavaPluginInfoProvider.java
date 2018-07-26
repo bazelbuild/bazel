@@ -111,8 +111,18 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
 
   public abstract JavaPluginInfo apiGeneratingPlugins();
 
+  /** Returns true if the provider has no associated data. */
   public boolean isEmpty() {
     // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
     return plugins().isEmpty();
+  }
+
+  /**
+   * Returns true if the provider has any associated annotation processors (regardless of whether it
+   * has a classpath or data).
+   */
+  public boolean hasProcessors() {
+    // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
+    return !plugins().processorClasses().isEmpty();
   }
 }

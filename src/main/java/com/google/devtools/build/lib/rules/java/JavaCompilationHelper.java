@@ -461,10 +461,7 @@ public final class JavaCompilationHelper {
    */
   public boolean usesAnnotationProcessing() {
     JavaTargetAttributes attributes = getAttributes();
-    return getJavacOpts().contains("-processor")
-        // The target may have a processorpath even if no annotation processors are enabled,
-        // so check for processor names.
-        || !attributes.plugins().plugins().processorClasses().isEmpty();
+    return getJavacOpts().contains("-processor") || attributes.plugins().hasProcessors();
   }
 
   /**
