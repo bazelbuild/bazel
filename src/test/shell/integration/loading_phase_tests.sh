@@ -18,13 +18,47 @@
 # that use only the loading or analysis phases.
 #
 
-# Our tests use the static crosstool, so make it the default.
-add_to_bazelrc "build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+# Our tests use the static crosstool, so make it the default.
+# add_to_bazelrc "build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
 
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
@@ -42,6 +76,10 @@ function tear_down() {
 #### TESTS #############################################################
 
 function test_query_buildfiles_with_load() {
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+    touch WORKSPACE
+
     mkdir -p x || fail "mkdir x failed"
     echo "load('//y:rules.bzl', 'a')" >x/BUILD
     echo "cc_library(name='x')"   >>x/BUILD
@@ -72,6 +110,10 @@ function test_query_buildfiles_with_load() {
 # "Skyframe does not build targets that transitively depend on non-rule targets
 # that live in packages with errors".
 function test_non_error_target_in_bad_pkg() {
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+    touch WORKSPACE
+
     mkdir -p a || fail "mkdir a failed"
     mkdir -p b || fail "mkdir b failed"
 
@@ -92,6 +134,10 @@ function test_non_error_target_in_bad_pkg() {
 # past, options have been declared multiple times, making a command
 # unusable.
 function test_options_errors() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+  touch WORKSPACE
+
   # Enumerate bazel commands...
   bazel help 2>/dev/null |
       grep  '^  [a-z]' |
@@ -107,24 +153,32 @@ function test_options_errors() {
 }
 
 function test_bazelrc_option() {
-    cp ${bazelrc} ${new_workspace_dir}/.${PRODUCT_NAME}rc
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+    touch WORKSPACE
 
-    echo "build --cpu=armeabi-v7a" >>.${PRODUCT_NAME}rc    # default bazelrc
+    cp "${bazelrc}" ".${PRODUCT_NAME}rc"
+
+    echo "build --subcommands" >>".${PRODUCT_NAME}rc"    # default bazelrc
     $PATH_TO_BAZEL_BIN info --announce_rc >/dev/null 2>$TEST_log
-    expect_log "Reading.*$(pwd)/.${PRODUCT_NAME}rc:
-.*--cpu=armeabi-v7a"
+    expect_log "Reading.*$pkg[/\\\\].${PRODUCT_NAME}rc:
+.*--subcommands"
 
     cp .${PRODUCT_NAME}rc foo
-    echo "build --cpu=armeabi-v7a"   >>foo         # non-default bazelrc
+    echo "build --nosubcommands"   >>foo         # non-default bazelrc
     $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info --announce_rc >/dev/null \
       2>$TEST_log
-    expect_log "Reading.*$(pwd)/foo:
-.*--cpu=armeabi-v7a"
+    expect_log "Reading.*$pkg[/\\\\]foo:
+.*--nosubcommands"
 }
 
 # This exercises the production-code assertion in AbstractCommand.java
 # that all help texts mention their %{options}.
 function test_all_help_topics_succeed() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+  touch WORKSPACE
+
   topics=($(bazel help 2>/dev/null |
               grep '^  [a-z]' |
               grep -v '^  '${PRODUCT_NAME}' ' |
@@ -142,6 +196,10 @@ function test_all_help_topics_succeed() {
 
 # Regression for "Sticky error during analysis phase when input is cyclic".
 function test_regress_cycle_during_analysis_phase() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+  touch WORKSPACE
+
   mkdir -p cycle main
   cat >main/BUILD <<EOF
 genrule(name='mygenrule', outs=['baz.h'], srcs=['//cycle:foo.h'], cmd=':')
@@ -164,6 +222,10 @@ EOF
 
 # glob function should not return values that are outside the package
 function test_glob_with_subpackage() {
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+    touch WORKSPACE
+
     mkdir -p p/subpkg || fail "mkdir p/subpkg failed"
     mkdir -p p/dir || fail "mkdir p/dir failed"
 
@@ -204,6 +266,10 @@ function test_glob_with_subpackage() {
 }
 
 function test_glob_with_subpackage2() {
+    local -r pkg="${FUNCNAME}"
+    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+    touch WORKSPACE
+
     mkdir -p p/q/subpkg || fail "mkdir p/q/subpkg failed"
     mkdir -p p/q/dir || fail "mkdir p/q/dir failed"
 
@@ -222,52 +288,13 @@ function test_glob_with_subpackage2() {
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
-function test_glob_with_io_error() {
-  mkdir -p t/u
-  touch t/u/v
-
-  echo "filegroup(name='t', srcs=glob(['u/*']))" > t/BUILD
-  chmod 000 t/u
-
-  bazel query '//t:*' >& $TEST_log && fail "Expected failure"
-  expect_log 'error globbing.*Permission denied'
-
-  chmod 755 t/u
-  bazel query '//t:*' >& $TEST_log || fail "Expected success"
-  expect_not_log 'error globbing.*Permission denied'
-  expect_log '//t:u'
-  expect_log '//t:u/v'
-}
-
-function test_build_file_symlinks() {
-  mkdir b || fail "couldn't make b"
-  ln -s b a || fail "couldn't link a to b"
-
-  bazel query a:all >& $TEST_log && fail "Expected failure"
-  expect_log "no such package 'a'"
-
-  touch b/BUILD
-  bazel query a:all >& $TEST_log || fail "Expected success"
-  expect_log "Empty results"
-
-  unlink a || fail "couldn't unlink a"
-  ln -s c a
-  bazel query a:all >& $TEST_log && fail "Expected failure"
-  expect_log "no such package 'a'"
-
-  mkdir c || fail "couldn't make c"
-  ln -s foo c/BUILD || "couldn't link c/BUILD to c/foo"
-  bazel query a:all >& $TEST_log && fail "Expected failure"
-  expect_log "no such package 'a'"
-
-  touch c/foo
-  bazel query a:all >& $TEST_log || fail "Expected success"
-  expect_log "Empty results"
-}
-
 # Regression test for bug "ASTFileLookupFunction has an unnoted
 # dependency on the PathPackageLocator".
 function test_incremental_deleting_package_roots() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+  touch WORKSPACE
+
   local other_root=$TEST_TMPDIR/other_root/${WORKSPACE_NAME}
   mkdir -p $other_root/a
   touch $other_root/WORKSPACE
@@ -292,6 +319,10 @@ function test_incremental_deleting_package_roots() {
 }
 
 function test_no_package_loading_on_benign_workspace_file_changes() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
+  touch WORKSPACE
+
   mkdir foo
 
   echo 'workspace(name="wsname1")' > WORKSPACE
