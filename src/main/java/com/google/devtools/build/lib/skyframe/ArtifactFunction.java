@@ -17,7 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -159,7 +159,7 @@ class ArtifactFunction implements SkyFunction {
 
     // Aggregate the ArtifactValues for individual TreeFileArtifacts into a TreeArtifactValue for
     // the parent TreeArtifact.
-    ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> map = ImmutableMap.builder();
+    ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> map = ImmutableSortedMap.naturalOrder();
     for (int i = 0; i < expansionValue.getNumActions(); i++) {
       final ActionExecutionValue actionExecutionValue =
           (ActionExecutionValue)

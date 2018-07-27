@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -62,6 +63,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
@@ -237,7 +240,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   private SpecialArtifact createAndPopulateTreeArtifact(String path, String... childRelativePaths)
       throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact(path);
-    Map<TreeFileArtifact, FileArtifactValue> treeFileArtifactMap = new LinkedHashMap<>();
+    SortedMap<TreeFileArtifact, FileArtifactValue> treeFileArtifactMap = new TreeMap<>();
 
     for (String childRelativePath : childRelativePaths) {
       TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(
@@ -248,7 +251,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     artifactValueMap.put(
-        treeArtifact, TreeArtifactValue.create(ImmutableMap.copyOf(treeFileArtifactMap)));
+        treeArtifact, TreeArtifactValue.create(ImmutableSortedMap.copyOf(treeFileArtifactMap)));
 
     return treeArtifact;
   }

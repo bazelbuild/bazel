@@ -56,8 +56,11 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -198,6 +201,21 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     }
   }
 
+  @Test
+  public void testTreeArtifactOrder() throws Exception {
+    Artifact treeArtifact = createTreeArtifact("out");
+    ImmutableList<PathFragment> children =
+            ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"), PathFragment.create("three"));
+    TreeArtifactValue value = evaluateTreeArtifact(treeArtifact, children);
+
+    Iterator<TreeFileArtifact> evaluated_children = value.getChildren().iterator();
+
+    // Check if TreeArtifacts are sorted in alphabetical order
+    assertThat(evaluated_children.next().getFilename()).isEqualTo("one");
+    assertThat(evaluated_children.next().getFilename()).isEqualTo("three");
+    assertThat(evaluated_children.next().getFilename()).isEqualTo("two");
+  }
+
   private void file(Path path, String contents) throws Exception {
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     writeFile(path, contents);
@@ -252,7 +270,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       Map<Artifact, FileValue> fileData = new HashMap<>();
-      Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
+      SortedMap<TreeFileArtifact, FileArtifactValue> treeArtifactData = new TreeMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
           (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());

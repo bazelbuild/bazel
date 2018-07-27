@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
@@ -413,7 +414,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               (SpecialArtifact) output, PathFragment.create("child1"));
           TreeFileArtifact treeFileArtifact2 = ActionInputHelper.treeFileArtifact(
               (SpecialArtifact) output, PathFragment.create("child2"));
-          TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(ImmutableMap.of(
+          TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(ImmutableSortedMap.of(
               treeFileArtifact1, FileArtifactValue.create(treeFileArtifact1),
               treeFileArtifact2, FileArtifactValue.create(treeFileArtifact2)));
           treeArtifactData.put(output, treeArtifactValue);
