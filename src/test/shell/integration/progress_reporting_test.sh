@@ -58,8 +58,8 @@ if is_windows; then
   touch "$WORKSPACE_STATUS"
 else
   declare -r WORKSPACE_STATUS="$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.sh"
-  chmod +x "$WORKSPACE_STATUS"
   echo "#!$(which true)" > "$WORKSPACE_STATUS"
+  chmod +x "$WORKSPACE_STATUS"
 fi
 
 # TODO(b/37617303): make tests UI-independent
