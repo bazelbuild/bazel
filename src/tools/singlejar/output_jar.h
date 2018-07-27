@@ -24,14 +24,11 @@
 #include <unordered_map>
 #include <vector>
 
+// Must be included before anything else.
+#include "src/tools/singlejar/port.h"
+
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/options.h"
-
-#if defined(__APPLE__)
-typedef off_t off64_t;
-#elif defined(_WIN32)
-typedef __int64 off64_t;
-#endif
 
 /*
  * Jar file we are writing.
