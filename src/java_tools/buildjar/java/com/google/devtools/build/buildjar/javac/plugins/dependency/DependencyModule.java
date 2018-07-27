@@ -72,6 +72,7 @@ public final class DependencyModule {
   private final String targetLabel;
   private final Path outputDepsProtoFile;
   private final Set<Path> usedClasspath;
+  private boolean hasMissingTargets;
   private final Map<Path, Dependency> explicitDependenciesMap;
   private final Map<Path, Dependency> implicitDependenciesMap;
   private final ImmutableSet<Path> platformJars;
@@ -221,6 +222,15 @@ public final class DependencyModule {
   /** Returns whether classpath reduction is enabled for this invocation. */
   public boolean reduceClasspath() {
     return strictClasspathMode;
+  }
+
+  void setHasMissingTargets() {
+    hasMissingTargets = true;
+  }
+
+  /** Returns true if any missing transitive dependencies were reported. */
+  public boolean hasMissingTargets() {
+    return hasMissingTargets;
   }
 
   /**

@@ -90,4 +90,9 @@ public abstract class BlazeJavaCompilerPlugin {
     this.log = log;
     this.compiler = compiler;
   }
+
+  /** Returns true if the plugin should run on compilations with attribution errors. */
+  public boolean runOnAttributionErrors() {
+    return false;
+  }
 }
