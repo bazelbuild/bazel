@@ -7,6 +7,10 @@
 
 # Syntax: https://help.github.com/articles/about-codeowners/
 
+# Use individual usernames instead of teams (like @bazelbuild/android) for
+# auto-assignment to work, unless everyone in the team has write permissions to the repository.
+# See https://github.community/t5/How-to-use-Git-and-GitHub/CODEOWNERS-works-with-users-but-not-teams/td-p/4986
+
 # Global owners
 # -------------
 
@@ -24,7 +28,15 @@
 # Android
 
 # android/ directory anywhere in the repository
-android/ @bazelbuild/android
+android/ @ahumesky @jin
+
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @jin @kevin1e100
+
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
+
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @jin @kevin1e100
 
 # Apple
 
@@ -37,12 +49,6 @@ android/ @bazelbuild/android
 /site @spomorski
 
 # Java
-
-/src/test/java/com/google/devtools/build/android/desugar/ @bazelbuild/java-team
-
-/tools/android/java/com/google/devtools/build/android/dexer/ @bazelbuild/java-team
-
-/src/test/java/com/google/devtools/build/android/dexer/ @bazelbuild/java-team
 
 /src/java_tools/buildjar/ @bazelbuild/java-team
 
