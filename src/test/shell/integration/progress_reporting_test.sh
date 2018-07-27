@@ -97,7 +97,7 @@ function wait_for_command() {
   return 1
 }
 
-function DIS_test_respects_progress_interval() {
+function test_respects_progress_interval() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -146,13 +146,13 @@ EOF
   fi
 }
 
-function DIS_test_show_task_finish() {
+function test_show_task_finish() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   assert_show_task_finish "show" "$pkg"
 }
 
-function DIS_test_noshow_task_finish() {
+function test_noshow_task_finish() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   assert_show_task_finish "noshow" "$pkg"
@@ -232,7 +232,7 @@ EOF
   expect_log "\b\(stable-status\|build-info\).txt\b.*, [0-9] s"
 }
 
-function DIS_test_counts_cached_actions_as_completed_ones() {
+function test_counts_cached_actions_as_completed_ones() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -289,7 +289,7 @@ EOF
   expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 2
 }
 
-function DIS_test_failed_actions_with_keep_going() {
+function test_failed_actions_with_keep_going() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -330,7 +330,7 @@ EOF
   expect_log "^ *Executing genrule //${pkg}:longrun"
 }
 
-function DIS_test_seemingly_too_many_total_actions_due_to_change_pruning() {
+function test_seemingly_too_many_total_actions_due_to_change_pruning() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -383,7 +383,7 @@ EOF
   expect_log_once "Executing genrule .* DONE"
 }
 
-function DIS_test_counts_exclusive_tests_in_total_work() {
+function test_counts_exclusive_tests_in_total_work() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
