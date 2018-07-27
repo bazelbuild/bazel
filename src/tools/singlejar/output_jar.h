@@ -15,9 +15,6 @@
 #ifndef SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 #define SRC_TOOLS_SINGLEJAR_COMBINED_JAR_H_
 
-// Must be included before anything else.
-#include "src/tools/singlejar/port.h"
-
 #include <stdio.h>
 
 #include <cinttypes>
@@ -26,6 +23,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+// Must be included before anything else.
+#include "src/tools/singlejar/port.h"
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/options.h"
