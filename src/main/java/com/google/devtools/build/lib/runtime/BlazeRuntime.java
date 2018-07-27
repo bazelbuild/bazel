@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.Profiler.Format;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -274,14 +275,24 @@ public final class BlazeRuntime {
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
     try {
       if (options.enableTracer) {
-        Path profilePath = options.profilePath != null
-            ? workspace.getWorkspace().getRelative(options.profilePath)
-            : workspace.getOutputBase().getRelative("command.profile");
+        format =
+            options.enableTracerCompression
+                ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
+                : Profiler.Format.JSON_TRACE_FILE_FORMAT;
+        Path profilePath;
+        if (options.profilePath != null) {
+          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+        } else {
+          String profileName = "command.profile";
+          if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
+            profileName = "command.profile.gz";
+          }
+          profilePath = workspace.getOutputBase().getRelative(profileName);
+        }
         recordFullProfilerData = false;
         out = profilePath.getOutputStream();
         eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
-        format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
       } else if (options.profilePath != null) {
         Path profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 

@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Blaze internal profiler. Provides facility to report various Blaze tasks and store them
@@ -139,9 +140,10 @@ public final class Profiler {
   private static final TaskData POISON_PILL = new TaskData(0, 0, null, null, "poison pill");
 
   /** File format enum. */
-  public static enum Format {
+  public enum Format {
     BINARY_BAZEL_FORMAT,
-    JSON_TRACE_FILE_FORMAT;
+    JSON_TRACE_FILE_FORMAT,
+    JSON_TRACE_FILE_COMPRESSED_FORMAT;
   }
 
   /** A task that was very slow. */
@@ -528,9 +530,8 @@ public final class Profiler {
   /**
    * Enable profiling.
    *
-   * <p>Subsequent calls to beginTask/endTask will be recorded
-   * in the provided output stream. Please note that stream performance is
-   * extremely important and buffered streams should be utilized.
+   * <p>Subsequent calls to beginTask/endTask will be recorded in the provided output stream. Please
+   * note that stream performance is extremely important and buffered streams should be utilized.
    *
    * @param profiledTaskKinds which kinds of {@link ProfilerTask}s to track
    * @param stream output stream to store profile data. Note: passing unbuffered stream object
@@ -548,7 +549,8 @@ public final class Profiler {
       String comment,
       boolean recordAllDurations,
       Clock clock,
-      long execStartTimeNanos) {
+      long execStartTimeNanos)
+      throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
 
@@ -565,14 +567,18 @@ public final class Profiler {
     this.recordAllDurations = recordAllDurations;
     this.taskStack = new TaskStack();
     FileWriter writer = null;
-    if (stream != null) {
-      if (format == Format.BINARY_BAZEL_FORMAT) {
-        writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
-        writer.start();
-      } else if (format == Format.JSON_TRACE_FILE_FORMAT) {
-        writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
-        writer.start();
+    if (stream != null && format != null) {
+      switch (format) {
+        case BINARY_BAZEL_FORMAT:
+          writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
+          break;
+        case JSON_TRACE_FILE_FORMAT:
+          writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
+          break;
+        case JSON_TRACE_FILE_COMPRESSED_FORMAT:
+          writer = new JsonTraceFileWriter(new GZIPOutputStream(stream), execStartTimeNanos);
       }
+      writer.start();
     }
     this.writerRef.set(writer);
 
