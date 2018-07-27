@@ -17,7 +17,6 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -37,7 +36,7 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5) {
+    return new InMemoryFileSystem(BlazeClock.instance()) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);

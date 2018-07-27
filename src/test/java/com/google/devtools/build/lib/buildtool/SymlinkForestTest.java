@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,7 +56,7 @@ public class SymlinkForestTest {
   @Before
   public final void initializeFileSystem() throws Exception {
     ManualClock clock = new ManualClock();
-    fileSystem = new InMemoryFileSystem(clock, DigestHashFunction.MD5);
+    fileSystem = new InMemoryFileSystem(clock);
     linkRoot = fileSystem.getPath("/linkRoot");
     createDirectoryAndParents(linkRoot);
   }

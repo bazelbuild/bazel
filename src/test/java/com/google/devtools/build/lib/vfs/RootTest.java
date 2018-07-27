@@ -35,12 +35,12 @@ public class RootTest {
 
   @Before
   public final void initializeFileSystem() throws Exception {
-    fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
+    fs = new InMemoryFileSystem(BlazeClock.instance());
   }
 
   @Test
   public void testEqualsAndHashCodeContract() throws Exception {
-    FileSystem otherFs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
+    FileSystem otherFs = new InMemoryFileSystem(BlazeClock.instance());
     new EqualsTester()
         .addEqualityGroup(Root.absoluteRoot(fs), Root.absoluteRoot(fs))
         .addEqualityGroup(Root.absoluteRoot(otherFs), Root.absoluteRoot(otherFs))
@@ -68,7 +68,7 @@ public class RootTest {
 
   @Test
   public void testFilesystemTransform() throws Exception {
-    FileSystem fs2 = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5);
+    FileSystem fs2 = new InMemoryFileSystem(BlazeClock.instance());
     Root root = Root.fromPath(fs.getPath("/foo"));
     Root root2 = Root.toFileSystem(root, fs2);
     assertThat(root2.asPath().getFileSystem()).isSameAs(fs2);

@@ -53,7 +53,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
 
   public JavaIoFileSystem() {
-    this(new JavaClock(), DigestHashFunction.MD5);
+    this(new JavaClock());
   }
 
   public JavaIoFileSystem(DigestHashFunction hashFunction) {
@@ -62,8 +62,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @VisibleForTesting
-  JavaIoFileSystem(Clock clock, DigestHashFunction hashFunction) {
-    super(hashFunction);
+  JavaIoFileSystem(Clock clock) {
     this.clock = clock;
   }
 

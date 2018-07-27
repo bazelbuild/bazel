@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -146,7 +145,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     private Map<Path, IOException> stubbedStatExceptions = Maps.newHashMap();
 
     public CustomInMemoryFs() {
-      super(BlazeClock.instance(), DigestHashFunction.MD5);
+      super(BlazeClock.instance());
     }
 
     public void stubStatIOException(Path path, IOException stubbedResult) {

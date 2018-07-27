@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,7 +44,7 @@ public class FilesetManifestTest {
 
   @Before
   public final void createSpawnInputExpander() throws Exception  {
-    fs = new InMemoryFileSystem(DigestHashFunction.MD5);
+    fs = new InMemoryFileSystem();
     execRoot = fs.getPath("/root");
   }
 

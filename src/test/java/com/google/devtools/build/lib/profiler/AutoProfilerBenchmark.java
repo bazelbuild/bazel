@@ -17,7 +17,6 @@ import com.google.caliper.BeforeExperiment;
 import com.google.caliper.Benchmark;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
 /**
@@ -28,15 +27,14 @@ public class AutoProfilerBenchmark {
 
   @BeforeExperiment
   void startProfiler() throws Exception {
-    Profiler.instance()
-        .start(
-            ProfiledTaskKinds.ALL,
-            new InMemoryFileSystem(DigestHashFunction.MD5).getPath("/out.dat").getOutputStream(),
-            Profiler.Format.BINARY_BAZEL_FORMAT,
-            "benchmark",
-            false,
-            BlazeClock.instance(),
-            BlazeClock.instance().nanoTime());
+    Profiler.instance().start(
+        ProfiledTaskKinds.ALL,
+        new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
+        Profiler.Format.BINARY_BAZEL_FORMAT,
+        "benchmark",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.instance().nanoTime());
   }
 
   @BeforeExperiment

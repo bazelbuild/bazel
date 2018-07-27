@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.FileType.HasFileType;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -84,7 +83,7 @@ public class FileTypeTest {
 
   @Test
   public void handlesPathObjects() {
-    Path readme = new InMemoryFileSystem(DigestHashFunction.MD5).getPath("/readme.txt");
+    Path readme = new InMemoryFileSystem().getPath("/readme.txt");
     assertThat(TEXT.matches(readme)).isTrue();
   }
 

@@ -22,6 +22,8 @@ import java.io.IOException;
  */
 public abstract class AbstractFileSystemWithCustomStat extends AbstractFileSystem {
 
+  public AbstractFileSystemWithCustomStat() {}
+
   public AbstractFileSystemWithCustomStat(DigestHashFunction hashFunction) {
     super(hashFunction);
   }

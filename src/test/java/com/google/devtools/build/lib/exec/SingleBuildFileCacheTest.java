@@ -57,7 +57,7 @@ public class SingleBuildFileCacheTest {
     calls = new HashMap<>();
     md5Overrides = new HashMap<>();
     fs =
-        new InMemoryFileSystem(DigestHashFunction.MD5) {
+        new InMemoryFileSystem() {
           @Override
           protected InputStream getInputStream(Path path) throws IOException {
             int c = calls.containsKey(path.toString()) ? calls.get(path.toString()) : 0;

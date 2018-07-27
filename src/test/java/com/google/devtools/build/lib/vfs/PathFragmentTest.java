@@ -40,7 +40,7 @@ public class PathFragmentTest {
 
   @Test
   public void testEqualsAndHashCode() {
-    InMemoryFileSystem filesystem = new InMemoryFileSystem(DigestHashFunction.MD5);
+    InMemoryFileSystem filesystem = new InMemoryFileSystem();
 
     new EqualsTester()
         .addEqualityGroup(

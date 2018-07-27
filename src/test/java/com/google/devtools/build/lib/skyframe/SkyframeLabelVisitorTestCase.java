@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -247,7 +246,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
-      super(manualClock, DigestHashFunction.MD5);
+      super(manualClock);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {

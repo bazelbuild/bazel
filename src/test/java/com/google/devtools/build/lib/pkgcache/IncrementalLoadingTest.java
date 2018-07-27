@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -87,7 +86,7 @@ public class IncrementalLoadingTest {
   public final void createTester() throws Exception {
     ManualClock clock = new ManualClock();
     FileSystem fs =
-        new InMemoryFileSystem(clock, DigestHashFunction.MD5) {
+        new InMemoryFileSystem(clock) {
           @Override
           public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
             if (path.equals(throwOnReaddir)) {

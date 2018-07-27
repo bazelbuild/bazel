@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -35,7 +34,7 @@ public final class ProcessWrapperUtilTest {
 
   @Before
   public final void createFileSystem() {
-    testFS = new InMemoryFileSystem(DigestHashFunction.MD5);
+    testFS = new InMemoryFileSystem();
   }
 
   @Test

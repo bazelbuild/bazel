@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -716,7 +715,7 @@ public class LoadingPhaseRunnerTest {
     private MockToolsConfig mockToolsConfig;
 
     public LoadingPhaseTester() throws IOException {
-      FileSystem fs = new InMemoryFileSystem(clock, DigestHashFunction.MD5);
+      FileSystem fs = new InMemoryFileSystem(clock);
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);

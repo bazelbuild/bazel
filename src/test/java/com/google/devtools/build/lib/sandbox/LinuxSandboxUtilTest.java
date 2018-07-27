@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -38,7 +37,7 @@ public final class LinuxSandboxUtilTest {
 
   @Before
   public final void createFileSystem() {
-    testFS = new InMemoryFileSystem(DigestHashFunction.MD5);
+    testFS = new InMemoryFileSystem();
   }
 
   @Test
@@ -98,7 +97,7 @@ public final class LinuxSandboxUtilTest {
     boolean useFakeHostname = true;
     boolean useDebugMode = true;
 
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.MD5);
+    FileSystem fileSystem = new InMemoryFileSystem();
     Path workDir = fileSystem.getPath("/work");
     Path concreteDir = workDir.getRelative("concrete");
     Path sandboxDir = workDir.getRelative("sandbox");

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -162,11 +161,6 @@ abstract class ArtifactFunctionTestCase {
 
   /** InMemoryFileSystem that can pretend to do a fast digest. */
   protected class CustomInMemoryFs extends InMemoryFileSystem {
-
-    CustomInMemoryFs() {
-      super(DigestHashFunction.MD5);
-    }
-
     @Override
     protected byte[] getFastDigest(Path path) throws IOException {
       return fastDigest ? getDigest(path) : null;

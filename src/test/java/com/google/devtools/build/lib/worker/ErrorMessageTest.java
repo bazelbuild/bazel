@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -86,7 +85,7 @@ public class ErrorMessageTest {
 
   @Test
   public void testErrorMessageWithLogFile() throws Exception {
-    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.MD5);
+    InMemoryFileSystem fs = new InMemoryFileSystem();
     Path logFile = fs.getPath("/log.txt");
     FileSystemUtils.writeContent(logFile, UTF_8, logText);
     ErrorMessage errorMessage =
@@ -105,7 +104,7 @@ public class ErrorMessageTest {
       // TODO(#3536): This test is failing on Windows, probably due to line breaks. Fix it!
       return;
     }
-    InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.MD5);
+    InMemoryFileSystem fs = new InMemoryFileSystem();
     // This file does not exist.
     Path logFile = fs.getPath("/nope.txt");
     ErrorMessage errorMessage =

@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
@@ -840,7 +839,7 @@ public class FilesystemValueCheckerTest {
     boolean readlinkThrowsIoException;
 
     MockFileSystem() {
-      super(DigestHashFunction.MD5);
+      super();
     }
 
     @Override

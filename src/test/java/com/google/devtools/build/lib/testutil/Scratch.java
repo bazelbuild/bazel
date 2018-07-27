@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,14 +41,14 @@ public final class Scratch {
    * Create a new ScratchFileSystem using the {@link InMemoryFileSystem}
    */
   public Scratch() {
-    this(new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5), "/");
+    this(new InMemoryFileSystem(BlazeClock.instance()), "/");
   }
 
   /**
    * Create a new ScratchFileSystem using the {@link InMemoryFileSystem}
    */
   public Scratch(String workingDir) {
-    this(new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.MD5), workingDir);
+    this(new InMemoryFileSystem(BlazeClock.instance()), workingDir);
   }
 
   /**

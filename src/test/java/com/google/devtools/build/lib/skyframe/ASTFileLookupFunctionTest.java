@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,10 +43,6 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
 
   private class MockFileSystem extends InMemoryFileSystem {
     boolean statThrowsIoException;
-
-    private MockFileSystem() {
-      super(DigestHashFunction.MD5);
-    }
 
     @Override
     public FileStatus stat(Path path, boolean followSymlinks) throws IOException {

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import javax.annotation.Nullable;
@@ -46,8 +45,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ProtoCompileActionBuilderTest {
 
-  private static final InMemoryFileSystem FILE_SYSTEM =
-      new InMemoryFileSystem(DigestHashFunction.MD5);
+  private static final InMemoryFileSystem FILE_SYSTEM = new InMemoryFileSystem();
   private final ArtifactRoot root =
       ArtifactRoot.asSourceRoot(Root.fromPath(FILE_SYSTEM.getPath("/")));
   private final ArtifactRoot derivedRoot =
