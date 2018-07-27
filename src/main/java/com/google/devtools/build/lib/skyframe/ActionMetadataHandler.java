@@ -431,8 +431,9 @@ public class ActionMetadataHandler implements MetadataHandler {
       throws IOException {
     Preconditions.checkState(artifact.isTreeArtifact(), artifact);
 
-    if (!artifactPathResolver.toPath(artifact).isDirectory()
-        || artifactPathResolver.toPath(artifact).isSymbolicLink()) {
+    // Make sure the tree artifact root is a regular directory. Note that this is how the Action
+    // is initialized, so this should hold unless the Action itself has deleted the root.
+    if (!artifactPathResolver.toPath(artifact).isDirectory(Symlinks.NOFOLLOW)) {
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
