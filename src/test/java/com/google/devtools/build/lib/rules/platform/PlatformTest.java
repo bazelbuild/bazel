@@ -120,6 +120,25 @@ public class PlatformTest extends BuildViewTestCase {
   }
 
   @Test
+  public void hostPlatformRemoteProperties_fromFlag() throws Exception {
+    useConfiguration("--host_platform_remote_properties_override='flag properties'");
+
+    scratch.file(
+        "autoconfig/BUILD",
+        "platform(name = 'host_platform',",
+        "    host_platform = True,",
+        ")");
+
+    // Check the host platform.
+    ConfiguredTarget hostPlatform = getConfiguredTarget("//autoconfig:host_platform");
+    assertThat(hostPlatform).isNotNull();
+
+    PlatformInfo hostPlatformProvider = PlatformProviderUtils.platform(hostPlatform);
+    assertThat(hostPlatformProvider).isNotNull();
+    assertThat(hostPlatformProvider.remoteExecutionProperties()).isEqualTo("'flag properties'");
+  }
+
+  @Test
   public void testPlatform_overlappingConstraintValueError() throws Exception {
     checkError(
         "constraint/overlap",
