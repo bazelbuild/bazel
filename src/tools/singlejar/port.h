@@ -21,10 +21,23 @@
 #define _CRT_DECLARE_NONSTDC_NAMES 1
 #include <fcntl.h>
 #include <io.h>
+#endif  // _WIN32
+
 #include <stddef.h>
-#include <stdio.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+
+#if defined(__APPLE__)
+typedef off_t off64_t;
+#elif defined(_WIN32)
+typedef __int64 off64_t;
+#endif
+static_assert(sizeof(off64_t) == 8, "File offset type must be 64-bit");
+
+#ifdef _WIN32
+
+#define F_OK 0
 
 #ifdef _WIN64
 // MSVC by default defines stat and related functions to a version with 32-bit
@@ -36,7 +49,7 @@
 #define fstat _fstat64
 #endif  // _WIN64
 
-typedef ptrdiff ssize_t;
+typedef ptrdiff_t ssize_t;
 
 // Various MSVC polyfills for POSIX functions.
 
@@ -52,4 +65,4 @@ ssize_t pread(int fd, void* buf, size_t count, off64_t offset);
 
 #endif  // _WIN32
 
-#endif  //   BAZEL_SRC_TOOLS_SINGLEJAR_PORT_H_
+#endif  // BAZEL_SRC_TOOLS_SINGLEJAR_PORT_H_

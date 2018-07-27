@@ -24,14 +24,12 @@
 #include <unordered_map>
 #include <vector>
 
+// Must be included before <io.h> (on Windows) and <fcntl.h>.
+#include "src/tools/singlejar/port.h"
+// Need newline so clang-format won't alpha-sort with other headers.
+
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/options.h"
-
-#if defined(__APPLE__)
-typedef off_t off64_t;
-#elif defined(_WIN32)
-typedef __int64 off64_t;
-#endif
 
 /*
  * Jar file we are writing.

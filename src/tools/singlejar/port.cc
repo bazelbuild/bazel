@@ -18,7 +18,7 @@
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#endif
+#endif  // WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 ssize_t pread(int fd, void *buf, size_t count, off64_t offset) {
