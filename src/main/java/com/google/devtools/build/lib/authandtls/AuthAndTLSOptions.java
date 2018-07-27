@@ -24,6 +24,7 @@ import java.util.List;
 
 /**
  * Common options for authentication and TLS.
+ *
  */
 public class AuthAndTLSOptions extends OptionsBase {
   @Option(
