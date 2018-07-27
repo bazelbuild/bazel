@@ -55,8 +55,10 @@ sh_test(
     name = "execution_phase_tests",
     size = "large",
     srcs = ["execution_phase_tests.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
