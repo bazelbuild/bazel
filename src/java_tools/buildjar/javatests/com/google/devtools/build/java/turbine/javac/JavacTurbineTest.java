@@ -1235,6 +1235,7 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
       result = turbine.compile();
     }
     assertThat(errOutput.toString()).doesNotContain("[strict]");
+    assertThat(errOutput.toString()).doesNotContain("** Please add the following dependencies:");
     assertThat(result).isEqualTo(Result.ERROR);
   }
 
@@ -1511,4 +1512,3 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
     assertThat(output.toString()).contains("A.java:2: error: class, interface, or enum expected");
   }
 }
-

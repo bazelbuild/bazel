@@ -22,6 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 import com.sun.tools.javac.code.Flags;
@@ -200,9 +201,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               // suggest private build labels.
               .map(owner -> owner.withLabel(owner.label().map(label -> canonicalizeTarget(label))))
               .collect(toImmutableSet());
-      errWriter.print(
-          dependencyModule.getFixMessage().get(canonicalizedMissing, canonicalizedLabel));
-      dependencyModule.setHasMissingTargets();
+      if (dependencyModule.getStrictJavaDeps() != StrictJavaDeps.OFF) {
+        errWriter.print(
+            dependencyModule.getFixMessage().get(canonicalizedMissing, canonicalizedLabel));
+        dependencyModule.setHasMissingTargets();
+      }
     }
   }
 
