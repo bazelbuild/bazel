@@ -60,52 +60,50 @@ function tear_down() {
 
 function test_glob_with_io_error() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-  mkdir -p t/u
-  touch t/u/v
+  mkdir -p $pkg/t/u
+  touch $pkg/t/u/v
 
-  echo "filegroup(name='t', srcs=glob(['u/*']))" > t/BUILD
-  chmod 000 t/u
+  echo "filegroup(name='t', srcs=glob(['u/*']))" > $pkg/t/BUILD
+  chmod 000 $pkg/t/u
 
-  bazel query '//t:*' >& $TEST_log && fail "Expected failure"
+  bazel query "//$pkg/t:*" >& $TEST_log && fail "Expected failure"
   expect_log 'error globbing.*Permission denied'
 
-  chmod 755 t/u
-  bazel query '//t:*' >& $TEST_log || fail "Expected success"
+  chmod 755 $pkg/t/u
+  bazel query "//$pkg/t:*" >& $TEST_log || fail "Expected success"
   expect_not_log 'error globbing.*Permission denied'
-  expect_log '//t:u'
-  expect_log '//t:u/v'
+  expect_log "//$pkg/t:u"
+  expect_log "//$pkg/t:u/v"
 }
 
 function test_build_file_symlinks() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-  mkdir b || fail "couldn't make b"
-  ln -s b a || fail "couldn't link a to b"
+  mkdir $pkg/b || fail "couldn't make $pkg/b"
+  ln -s b $pkg/a || fail "couldn't link $pkg/a to b"
 
-  bazel query a:all >& $TEST_log && fail "Expected failure"
-  expect_log "no such package 'a'"
+  bazel query $pkg/a:all >& $TEST_log && fail "Expected failure"
+  expect_log "no such package '$pkg/a'"
 
-  touch b/BUILD
-  bazel query a:all >& $TEST_log || fail "Expected success"
+  touch $pkg/b/BUILD
+  bazel query $pkg/a:all >& $TEST_log || fail "Expected success"
   expect_log "Empty results"
 
-  unlink a || fail "couldn't unlink a"
-  ln -s c a
-  bazel query a:all >& $TEST_log && fail "Expected failure"
-  expect_log "no such package 'a'"
+  unlink $pkg/a || fail "couldn't unlink a"
+  ln -s c $pkg/a
+  bazel query $pkg/a:all >& $TEST_log && fail "Expected failure"
+  expect_log "no such package '$pkg/a'"
 
-  mkdir c || fail "couldn't make c"
-  ln -s foo c/BUILD || "couldn't link c/BUILD to c/foo"
-  bazel query a:all >& $TEST_log && fail "Expected failure"
-  expect_log "no such package 'a'"
+  mkdir $pkg/c || fail "couldn't make c"
+  ln -s foo $pkg/c/BUILD || "couldn't link $pkg/c/BUILD to foo"
+  bazel query $pkg/a:all >& $TEST_log && fail "Expected failure"
+  expect_log "no such package '$pkg/a'"
 
-  touch c/foo
-  bazel query a:all >& $TEST_log || fail "Expected success"
+  touch $pkg/c/foo
+  bazel query $pkg/a:all >& $TEST_log || fail "Expected success"
   expect_log "Empty results"
 }
 

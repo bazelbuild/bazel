@@ -77,33 +77,32 @@ function tear_down() {
 
 function test_query_buildfiles_with_load() {
     local -r pkg="${FUNCNAME}"
-    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-    touch WORKSPACE
+    mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    mkdir -p x || fail "mkdir x failed"
-    echo "load('//y:rules.bzl', 'a')" >x/BUILD
-    echo "cc_library(name='x')"   >>x/BUILD
-    mkdir -p y || fail "mkdir y failed"
-    touch y/BUILD
-    echo "a=1" >y/rules.bzl
+    mkdir -p $pkg/x || fail "mkdir $pkg/x failed"
+    echo "load('//$pkg/y:rules.bzl', 'a')" >$pkg/x/BUILD
+    echo "cc_library(name='x')"   >>$pkg/x/BUILD
+    mkdir -p $pkg/y || fail "mkdir $pkg/y failed"
+    touch $pkg/y/BUILD
+    echo "a=1" >$pkg/y/rules.bzl
 
-    bazel query --noshow_progress 'buildfiles(//x)' >$TEST_log ||
+    bazel query --noshow_progress "buildfiles(//$pkg/x)" >$TEST_log ||
         fail "Expected success"
-    expect_log //x:BUILD
-    expect_log //y:BUILD
-    expect_log //y:rules.bzl
+    expect_log //$pkg/x:BUILD
+    expect_log //$pkg/y:BUILD
+    expect_log //$pkg/y:rules.bzl
 
     # null terminated:
-    bazel query --noshow_progress --null 'buildfiles(//x)' >null.log ||
+    bazel query --noshow_progress --null "buildfiles(//$pkg/x)" >$pkg/null.log ||
         fail "Expected null success"
-    printf '//y:rules.bzl\0//y:BUILD\0//x:BUILD\0' >null.ref.log
-    cmp null.ref.log null.log || fail "Expected match"
+    printf "//$pkg/y:rules.bzl\0//$pkg/y:BUILD\0//$pkg/x:BUILD\0" >$pkg/null.ref.log
+    cmp $pkg/null.ref.log $pkg/null.log || fail "Expected match"
 
     # Missing skylark file:
-    rm -f y/rules.bzl
-    bazel query --noshow_progress 'buildfiles(//x)' 2>$TEST_log &&
+    rm -f $pkg/y/rules.bzl
+    bazel query --noshow_progress "buildfiles(//$pkg/x)" 2>$TEST_log &&
         fail "Expected error"
-    expect_log "Extension file not found. Unable to load file '//y:rules.bzl'"
+    expect_log "Extension file not found. Unable to load file '//$pkg/y:rules.bzl'"
 }
 
 # Regression test for:
@@ -111,18 +110,17 @@ function test_query_buildfiles_with_load() {
 # that live in packages with errors".
 function test_non_error_target_in_bad_pkg() {
     local -r pkg="${FUNCNAME}"
-    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-    touch WORKSPACE
+    mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    mkdir -p a || fail "mkdir a failed"
-    mkdir -p b || fail "mkdir b failed"
+    mkdir -p $pkg/a || fail "mkdir $pkg/a failed"
+    mkdir -p $pkg/b || fail "mkdir $pkg/b failed"
 
-    echo "sh_library(name = 'a', data = ['//b'])" > a/BUILD
-    echo "exports_files(['b'])" > b/BUILD
-    echo "genrule(name='r1', cmd = '', outs = ['conflict'])" >> b/BUILD
-    echo "genrule(name='r2', cmd = '', outs = ['conflict'])" >> b/BUILD
+    echo "sh_library(name = 'a', data = ['//$pkg/b'])" > $pkg/a/BUILD
+    echo "exports_files(['b'])" > $pkg/b/BUILD
+    echo "genrule(name='r1', cmd = '', outs = ['conflict'])" >> $pkg/b/BUILD
+    echo "genrule(name='r2', cmd = '', outs = ['conflict'])" >> $pkg/b/BUILD
 
-    bazel build --nobuild -k //a >& $TEST_log && fail "Expected failure"
+    bazel build --nobuild -k //$pkg/a >& $TEST_log && fail "Expected failure"
     expect_log "'conflict' in rule"
     expect_not_log "Loading failed"
     expect_log "but there were loading phase errors"
@@ -135,8 +133,7 @@ function test_non_error_target_in_bad_pkg() {
 # unusable.
 function test_options_errors() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
   # Enumerate bazel commands...
   bazel help 2>/dev/null |
@@ -154,8 +151,7 @@ function test_options_errors() {
 
 function test_bazelrc_option() {
     local -r pkg="${FUNCNAME}"
-    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-    touch WORKSPACE
+    mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
     cp "${bazelrc}" ".${PRODUCT_NAME}rc"
 
@@ -164,9 +160,9 @@ function test_bazelrc_option() {
     expect_log "Reading.*$pkg[/\\\\].${PRODUCT_NAME}rc:
 .*--subcommands"
 
-    cp .${PRODUCT_NAME}rc foo
-    echo "build --nosubcommands"   >>foo         # non-default bazelrc
-    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info --announce_rc >/dev/null \
+    cp .${PRODUCT_NAME}rc $pkg/foo
+    echo "build --nosubcommands"   >>$pkg/foo         # non-default bazelrc
+    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=$pkg/foo info --announce_rc >/dev/null \
       2>$TEST_log
     expect_log "Reading.*$pkg[/\\\\]foo:
 .*--nosubcommands"
@@ -176,8 +172,7 @@ function test_bazelrc_option() {
 # that all help texts mention their %{options}.
 function test_all_help_topics_succeed() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
   topics=($(bazel help 2>/dev/null |
               grep '^  [a-z]' |
@@ -197,93 +192,90 @@ function test_all_help_topics_succeed() {
 # Regression for "Sticky error during analysis phase when input is cyclic".
 function test_regress_cycle_during_analysis_phase() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-  mkdir -p cycle main
-  cat >main/BUILD <<EOF
-genrule(name='mygenrule', outs=['baz.h'], srcs=['//cycle:foo.h'], cmd=':')
+  mkdir -p $pkg/cycle $pkg/main
+  cat >$pkg/main/BUILD <<EOF
+genrule(name='mygenrule', outs=['baz.h'], srcs=['//$pkg/cycle:foo.h'], cmd=':')
 EOF
-  cat >cycle/BUILD <<EOF
+  cat >$pkg/cycle/BUILD <<EOF
 genrule(name='foo.h', outs=['bar.h'], srcs=['foo.h'], cmd=':')
 EOF
-  bazel build --nobuild //cycle:foo.h >$TEST_log 2>&1 || true
-  expect_log "in genrule rule //cycle:foo.h: .*dependency graph"
-  expect_log "//cycle:foo.h.*self-edge"
+  bazel build --nobuild //$pkg/cycle:foo.h >$TEST_log 2>&1 || true
+  expect_log "in genrule rule //$pkg/cycle:foo.h: .*dependency graph"
+  expect_log "//$pkg/cycle:foo.h.*self-edge"
 
-  bazel build --nobuild //main:mygenrule >$TEST_log 2>&1 || true
-  expect_log "in genrule rule //cycle:foo.h: .*dependency graph"
-  expect_log "//cycle:foo.h.*self-edge"
+  bazel build --nobuild //$pkg/main:mygenrule >$TEST_log 2>&1 || true
+  expect_log "in genrule rule //$pkg/cycle:foo.h: .*dependency graph"
+  expect_log "//$pkg/cycle:foo.h.*self-edge"
 
-  bazel build --nobuild //cycle:foo.h >$TEST_log 2>&1 || true
-  expect_log "in genrule rule //cycle:foo.h: .*dependency graph"
-  expect_log "//cycle:foo.h.*self-edge"
+  bazel build --nobuild //$pkg/cycle:foo.h >$TEST_log 2>&1 || true
+  expect_log "in genrule rule //$pkg/cycle:foo.h: .*dependency graph"
+  expect_log "//$pkg/cycle:foo.h.*self-edge"
 }
 
 # glob function should not return values that are outside the package
 function test_glob_with_subpackage() {
     local -r pkg="${FUNCNAME}"
-    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-    touch WORKSPACE
+    mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    mkdir -p p/subpkg || fail "mkdir p/subpkg failed"
-    mkdir -p p/dir || fail "mkdir p/dir failed"
+    mkdir -p $pkg/p/subpkg || fail "mkdir $pkg/p/subpkg failed"
+    mkdir -p $pkg/p/dir || fail "mkdir $pkg/p/dir failed"
 
-    echo "exports_files(glob(['**/*.txt']))" >p/BUILD
-    echo "# Empty" >p/subpkg/BUILD
+    echo "exports_files(glob(['**/*.txt']))" >$pkg/p/BUILD
+    echo "# Empty" >$pkg/p/subpkg/BUILD
 
-    echo "p/t1.txt" > p/t1.txt
-    echo "p/dir/t2.txt" > p/dir/t2.txt
-    echo "p/subpkg/t3.txt" > p/subpkg/t3.txt
+    echo "$pkg/p/t1.txt" > $pkg/p/t1.txt
+    echo "$pkg/p/dir/t2.txt" > $pkg/p/dir/t2.txt
+    echo "$pkg/p/subpkg/t3.txt" > $pkg/p/subpkg/t3.txt
 
-    bazel query 'p:*' >$TEST_log || fail "Expected success"
-    expect_log '//p:t1\.txt'
-    expect_log '//p:dir/t2\.txt'
-    expect_log '//p:BUILD'
+    bazel query "$pkg/p:*" >$TEST_log || fail "Expected success"
+    expect_log "//$pkg/p:t1\.txt"
+    expect_log "//$pkg/p:dir/t2\.txt"
+    expect_log "//$pkg/p:BUILD"
     expect_not_log 't3\.txt'
     assert_equals "3" $(wc -l "$TEST_log")
 
     # glob returns an empty list, because t3.txt is outside the package
-    echo "exports_files(glob(['subpkg/t3.txt']))" >p/BUILD
-    bazel query 'p:*' -k >$TEST_log || fail "Expected success"
-    expect_log '//p:BUILD'
+    echo "exports_files(glob(['subpkg/t3.txt']))" >$pkg/p/BUILD
+    bazel query "$pkg/p:*" -k >$TEST_log || fail "Expected success"
+    expect_log "//$pkg/p:BUILD"
     assert_equals "1" $(wc -l "$TEST_log")
 
     # same test, with a nonexisting file
-    echo "exports_files(glob(['subpkg/no_glob.txt']))" >p/BUILD
-    bazel query 'p:*' -k >$TEST_log || fail "Expected success"
-    expect_log '//p:BUILD'
+    echo "exports_files(glob(['subpkg/no_glob.txt']))" >$pkg/p/BUILD
+    bazel query "$pkg/p:*" -k >$TEST_log || fail "Expected success"
+    expect_log "//$pkg/p:BUILD"
     assert_equals "1" $(wc -l "$TEST_log")
 
     # Non-recursive wildcard gives the same result as the recursive wildcard
-    echo "exports_files(glob(['*.txt', '*/*.txt']))" >p/BUILD
-    bazel query 'p:*' >$TEST_log || fail "Expected success"
-    expect_log '//p:t1\.txt'
-    expect_log '//p:dir/t2\.txt'
-    expect_log '//p:BUILD'
+    echo "exports_files(glob(['*.txt', '*/*.txt']))" >$pkg/p/BUILD
+    bazel query "$pkg/p:*" >$TEST_log || fail "Expected success"
+    expect_log "//$pkg/p:t1\.txt"
+    expect_log "//$pkg/p:dir/t2\.txt"
+    expect_log "//$pkg/p:BUILD"
     expect_not_log 't3\.txt'
     assert_equals "3" $(wc -l "$TEST_log")
 }
 
 function test_glob_with_subpackage2() {
     local -r pkg="${FUNCNAME}"
-    mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-    touch WORKSPACE
+    mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    mkdir -p p/q/subpkg || fail "mkdir p/q/subpkg failed"
-    mkdir -p p/q/dir || fail "mkdir p/q/dir failed"
+    mkdir -p $pkg/p/q/subpkg || fail "mkdir $pkg/p/q/subpkg failed"
+    mkdir -p $pkg/p/q/dir || fail "mkdir $pkg/p/q/dir failed"
 
-    echo "exports_files(glob(['**/*.txt']))" >p/q/BUILD
-    echo "# Empty" >p/q/subpkg/BUILD
+    echo "exports_files(glob(['**/*.txt']))" >$pkg/p/q/BUILD
+    echo "# Empty" >$pkg/p/q/subpkg/BUILD
 
-    echo "p/q/t1.txt" > p/q/t1.txt
-    echo "p/q/dir/t2.txt" > p/q/dir/t2.txt
-    echo "p/q/subpkg/t3.txt" > p/q/subpkg/t3.txt
+    echo "$pkg/p/q/t1.txt" > $pkg/p/q/t1.txt
+    echo "$pkg/p/q/dir/t2.txt" > $pkg/p/q/dir/t2.txt
+    echo "$pkg/p/q/subpkg/t3.txt" > $pkg/p/q/subpkg/t3.txt
 
-    bazel query 'p/q:*' >$TEST_log || fail "Expected success"
-    expect_log '//p/q:t1\.txt'
-    expect_log '//p/q:dir/t2\.txt'
-    expect_log '//p/q:BUILD'
+    bazel query "$pkg/p/q:*" >$TEST_log || fail "Expected success"
+    expect_log "//$pkg/p/q:t1\.txt"
+    expect_log "//$pkg/p/q:dir/t2\.txt"
+    expect_log "//$pkg/p/q:BUILD"
     expect_not_log 't3\.txt'
     assert_equals "3" $(wc -l "$TEST_log")
 }
@@ -292,68 +284,66 @@ function test_glob_with_subpackage2() {
 # dependency on the PathPackageLocator".
 function test_incremental_deleting_package_roots() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
   local other_root=$TEST_TMPDIR/other_root/${WORKSPACE_NAME}
-  mkdir -p $other_root/a
+  mkdir -p $other_root/$pkg/a
   touch $other_root/WORKSPACE
-  echo 'sh_library(name="external")' > $other_root/a/BUILD
-  mkdir -p a
-  echo 'sh_library(name="internal")' > a/BUILD
+  echo 'sh_library(name="external")' > $other_root/$pkg/a/BUILD
+  mkdir -p $pkg/a
+  echo 'sh_library(name="internal")' > $pkg/a/BUILD
 
-  bazel query --package_path=$other_root:. a:all >& $TEST_log \
+  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
-  expect_log "//a:external"
-  expect_not_log "//a:internal"
+  expect_log "//$pkg/a:external"
+  expect_not_log "//$pkg/a:internal"
   rm -r $other_root
-  bazel query --package_path=$other_root:. a:all >& $TEST_log \
+  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
-  expect_log "//a:internal"
-  expect_not_log "//a:external"
+  expect_log "//$pkg/a:internal"
+  expect_not_log "//$pkg/a:external"
   mkdir -p $other_root
-  bazel query --package_path=$other_root:. a:all >& $TEST_log \
+  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
-  expect_log "//a:internal"
-  expect_not_log "//a:external"
+  expect_log "//$pkg/a:internal"
+  expect_not_log "//$pkg/a:external"
 }
 
 function test_no_package_loading_on_benign_workspace_file_changes() {
   local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" && cd "$pkg" || fail "could not create and cd \"$pkg\""
-  touch WORKSPACE
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-  mkdir foo
+  mkdir $pkg/foo
 
   echo 'workspace(name="wsname1")' > WORKSPACE
-  echo 'sh_library(name="shname1")' > foo/BUILD
+  echo 'sh_library(name="shname1")' > $pkg/foo/BUILD
   # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
-  expect_log "Loading package: foo"
-  expect_log "//foo:shname1"
+  expect_log "Loading package: $pkg/foo"
+  expect_log "//$pkg/foo:shname1"
 
-  echo 'sh_library(name="shname2")' > foo/BUILD
+  echo 'sh_library(name="shname2")' > $pkg/foo/BUILD
   # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
-  expect_log "Loading package: foo"
-  expect_log "//foo:shname2"
+  expect_log "Loading package: $pkg/foo"
+  expect_log "//$pkg/foo:shname2"
 
   # Test that comment changes do not cause package reloading
   echo '#benign comment' >> WORKSPACE
   # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
-  expect_not_log "Loading package: foo"
-  expect_log "//foo:shname2"
+  expect_not_log "Loading package: $pkg/foo"
+  expect_log "//$pkg/foo:shname2"
 
   echo 'workspace(name="wsname2")' > WORKSPACE
   # TODO(b/37617303): make tests UI-independent
-  bazel query --noexperimental_ui //foo:all >& "$TEST_log" \
+  bazel query --noexperimental_ui //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
-  expect_log "Loading package: foo"
-  expect_log "//foo:shname2"
+  expect_log "Loading package: $pkg/foo"
+  expect_log "//$pkg/foo:shname2"
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."
