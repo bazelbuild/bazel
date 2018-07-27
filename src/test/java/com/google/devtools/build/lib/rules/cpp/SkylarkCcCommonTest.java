@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -1057,25 +1056,23 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  },",
         "  fragments = ['cpp'],",
         ");");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Possible values for artifact_category: static_library, alwayslink_static_library, "
-                + "dynamic_library, interface_library");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent(
+        "Possible values for artifact_category: static_library, "
+            + "alwayslink_static_library, dynamic_library, interface_library");
   }
 
   @Test
   public void testCcLinkingProviderParamsWithoutFlag() throws Exception {
     useConfiguration("--noexperimental_enable_cc_skylark_api");
     setUpCcLinkingProviderParamsTest();
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Pass --experimental_enable_cc_skylark_api in order to "
-                + "use the C++ API. Beware that we will be making breaking changes to this API "
-                + "without prior warning.");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent(
+        "Pass --experimental_enable_cc_skylark_api in order to "
+            + "use the C++ API. Beware that we will be making breaking changes to this API "
+            + "without prior warning.");
   }
 
   @Test
@@ -1256,8 +1253,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testWhitelist() throws Exception {
     SkylarkCcCommonTestHelper.createFiles(scratch, "foo/bar");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-    assertThat(e).hasMessageThat().contains("C++ Skylark API is for the time being");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:bin");
+    assertContainsEvent("C++ Skylark API is for the time being");
   }
 
   @Test
@@ -1358,10 +1356,9 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "crule = rule(",
         "  _impl,",
         ");");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Every CcLinkParams parameter must be passed to CcLinkingInfo.");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("Every CcLinkParams parameter must be passed to CcLinkingInfo.");
   }
 
   private CppLinkAction setUpNeverlinkTest(String value) throws Exception {
