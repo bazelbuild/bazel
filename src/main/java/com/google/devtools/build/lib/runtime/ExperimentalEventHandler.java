@@ -103,6 +103,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private byte[] stderrBuffer;
 
   private final long outputLimit;
+  private long reservedOutputCapacity;
   private final AtomicLong counter;
   /**
    * The following constants determine how the output limiting is done gracefully. They are all
@@ -110,6 +111,7 @@ public class ExperimentalEventHandler implements EventHandler {
    *
    * <p>The degrading of progress updates to stay within output limit is done in the following
    * steps.
+   *
    * <ul>
    *   <li>We limit progress updates to at most one per second; this is the granularity at which
    *       times in the progress bar are shown. So the appearance won't look too bad. Hence we start
@@ -121,24 +123,36 @@ public class ExperimentalEventHandler implements EventHandler {
    *   <li>We start decreasing the update frequency to what we would do, if curses were not allowed.
    *       Note that now the time between updates is at least a fixed fraction of the time that
    *       passed so far; so the time between progress updates will continue to increase.
+   *   <li>The last small fraction of the output, we reserve for a post-build status messages (in
+   *       particular test summaries).
    * </ul>
    */
-  private static final double CAPACITY_INCREASE_UPDATE_DELAY = 0.7;
+  private static final double CAPACITY_INCREASE_UPDATE_DELAY = 0.6;
 
-  private static final double CAPACITY_SHORT_PROGRESS_BAR = 0.5;
-  private static final double CAPACITY_UPDATE_DELAY_5_SECONDS = 0.4;
-  private static final double CAPACITY_UPDATE_DELAY_AS_NO_CURSES = 0.3;
+  private static final double CAPACITY_SHORT_PROGRESS_BAR = 0.4;
+  private static final double CAPACITY_UPDATE_DELAY_5_SECONDS = 0.3;
+  private static final double CAPACITY_UPDATE_DELAY_AS_NO_CURSES = 0.2;
   /**
    * The degrading of printing stdout/stderr is achieved by limiting the output for an individual
    * event if printing it fully would get us above the threshold. If limited, at most a given
    * fraction of the remaining capacity my be used by any such event; larger events are truncated to
    * their end (this is what the user would anyway only see on the terminal if the output is very
    * large). In any case, we always allow at least twice the terminal width, to make the output at
-   * least somewhat useful.
+   * least somewhat useful. From a given threshold onwards, we always restrict to at most twice the
+   * terminal width.
    */
-  private static final double CAPACITY_LIMIT_OUT_ERR_EVENTS = 0.6;
+  private static final double CAPACITY_STRONG_LIMIT_OUT_ERR_EVENTS = 0.7;
+  private static final double CAPACITY_LIMIT_OUT_ERR_EVENTS = 0.5;
+  private static final double RELATIVE_OUT_ERR_LIMIT = 0.05;
 
-  private static final double RELATIVE_OUT_ERR_LIMIT = 0.1;
+  /**
+   * The reservation of output capacity for the final status is computed as follows: we always
+   * reserve at least a certain numer of lines, and at least a certain fraction of the overall
+   * capacity, to show more status in scenarios where we have a bigger limit.
+   */
+  private static final long MINIMAL_POST_BUILD_OUTPUT_LINES = 12;
+
+  private static final double MINIMAL_POST_BUILD_OUTPUT_CAPACITY = 0.05;
 
   public final int terminalWidth;
 
@@ -184,6 +198,7 @@ public class ExperimentalEventHandler implements EventHandler {
 
   public ExperimentalEventHandler(
       OutErr outErr, BlazeCommandEventHandler.Options options, Clock clock) {
+    this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.outputLimit = options.experimentalUiLimitConsoleOutput;
     this.counter = new AtomicLong(outputLimit);
     if (outputLimit > 0) {
@@ -193,6 +208,10 @@ public class ExperimentalEventHandler implements EventHandler {
                   outErr.getOutputStream(), this.counter),
               new FullyBufferedOutputStreamMaybeWithCounting(
                   outErr.getErrorStream(), this.counter));
+      reservedOutputCapacity =
+          Math.max(
+              MINIMAL_POST_BUILD_OUTPUT_LINES * this.terminalWidth,
+              Math.round(MINIMAL_POST_BUILD_OUTPUT_CAPACITY * outputLimit));
     } else {
       // unlimited output; no need to count, but still fully buffer
       this.outErr =
@@ -202,7 +221,6 @@ public class ExperimentalEventHandler implements EventHandler {
     }
     this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
-    this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
     this.showTimestamp = options.showTimestamp;
@@ -247,7 +265,7 @@ public class ExperimentalEventHandler implements EventHandler {
       // how much we write.
       return 1.0;
     }
-    return (counter.get() - wantWrite) / (double) outputLimit;
+    return (counter.get() - wantWrite - reservedOutputCapacity) / (double) outputLimit;
   }
 
   private double remainingCapacity() {
@@ -318,10 +336,17 @@ public class ExperimentalEventHandler implements EventHandler {
               stream.flush();
             } else {
               byte[] message = event.getMessageBytes();
-              if (remainingCapacity(message.length) < CAPACITY_LIMIT_OUT_ERR_EVENTS) {
+              double cap = remainingCapacity(message.length);
+              if (cap < 0) {
+                return;
+              }
+              if (cap < CAPACITY_LIMIT_OUT_ERR_EVENTS) {
                 // Have to ensure the message is not too large.
                 long allowedLength =
                     Math.max(2 * terminalWidth, Math.round(RELATIVE_OUT_ERR_LIMIT * counter.get()));
+                if (cap < CAPACITY_STRONG_LIMIT_OUT_ERR_EVENTS) {
+                  allowedLength = Math.min(allowedLength, 2 * terminalWidth);
+                }
                 if (message.length > allowedLength) {
                   // Have to truncate the message
                   message =
@@ -372,6 +397,10 @@ public class ExperimentalEventHandler implements EventHandler {
             incompleteLine = flushStdOutStdErrBuffers();
             if (incompleteLine) {
               crlf();
+            }
+            if (remainingCapacity() < 0) {
+              terminal.flush();
+              return;
             }
             if (showTimestamp) {
               terminal.writeString(
@@ -489,6 +518,7 @@ public class ExperimentalEventHandler implements EventHandler {
     boolean done = false;
     synchronized (this) {
       stateTracker.buildComplete(event);
+      reservedOutputCapacity = 0;
       ignoreRefreshLimitOnce();
       refresh();
 
@@ -842,6 +872,9 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   private synchronized void addProgressBar() throws IOException {
+    if (remainingCapacity() < 0) {
+      return;
+    }
     LineCountingAnsiTerminalWriter countingTerminalWriter =
         new LineCountingAnsiTerminalWriter(terminal);
     AnsiTerminalWriter terminalWriter = countingTerminalWriter;
