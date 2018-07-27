@@ -153,7 +153,9 @@ function test_bazelrc_option() {
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-    cp "${bazelrc}" ".${PRODUCT_NAME}rc"
+    if [[ "$(realpath "${bazelrc}")" != "$(realpath ".${PRODUCT_NAME}rc")" ]]; then
+      cp "${bazelrc}" ".${PRODUCT_NAME}rc"
+    fi
 
     echo "build --subcommands" >>".${PRODUCT_NAME}rc"    # default bazelrc
     $PATH_TO_BAZEL_BIN info --announce_rc >/dev/null 2>$TEST_log
