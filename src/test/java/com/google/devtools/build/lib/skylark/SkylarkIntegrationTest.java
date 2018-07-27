@@ -1185,6 +1185,25 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testConflictingProviderKeys() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return struct(providers = [my_provider(x = 1), other_provider(), my_provider()])",
+        "my_rule = rule(_impl)"
+    );
+
+    checkError(
+        "test",
+        "r",
+        "Multiple conflicting returned providers with key my_provider",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')");
+  }
+
+  @Test
   public void testRecursionDetection() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
