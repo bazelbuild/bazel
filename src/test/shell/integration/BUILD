@@ -18,9 +18,11 @@ sh_test(
     name = "progress_reporting_test",
     size = "large",
     srcs = ["progress_reporting_test.sh"],
-    data = [":test-deps"],
-    shard_count = 8,
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 4,
 )
 
 sh_test(
