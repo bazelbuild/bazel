@@ -295,5 +295,39 @@ class TarFileWriterTest(unittest.TestCase):
     ]
     self.assertTarFileContent(self.tempfile, content)
 
+  def testChangingRootDirectory(self):
+    with archive.TarFileWriter(self.tempfile, root_directory="root") as f:
+      f.add_file("d", tarfile.DIRTYPE)
+      f.add_file("d/f")
+
+      f.add_file("a", tarfile.DIRTYPE)
+      f.add_file("a/b", tarfile.DIRTYPE)
+      f.add_file("a/b", tarfile.DIRTYPE)
+      f.add_file("a/b/", tarfile.DIRTYPE)
+      f.add_file("a/b/c/f")
+
+      f.add_file("x/y/f")
+      f.add_file("x", tarfile.DIRTYPE)
+    content = [
+        {"name": "root",
+         "mode": 0o755},
+        {"name": "root/d",
+         "mode": 0o755},
+        {"name": "root/d/f"},
+        {"name": "root/a",
+         "mode": 0o755},
+        {"name": "root/a/b",
+         "mode": 0o755},
+        {"name": "root/a/b/c",
+         "mode": 0o755},
+        {"name": "root/a/b/c/f"},
+        {"name": "root/x",
+         "mode": 0o755},
+        {"name": "root/x/y",
+         "mode": 0o755},
+        {"name": "root/x/y/f"},
+    ]
+    self.assertTarFileContent(self.tempfile, content)
+
 if __name__ == "__main__":
   unittest.main()
