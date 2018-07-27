@@ -309,6 +309,17 @@ public class ExecutionOptions extends OptionsBase {
   )
   public String executionLogFile;
 
+  @Option(
+    name = "experimental_split_xml_generation",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help = "If this flag is set, and a test action does not generate a test.xml file, then "
+        + "Bazel uses a separate action to generate a dummy test.xml file containing the test log. "
+        + "Otherwise, Bazel generates the test.xml as part of the test action."
+  )
+  public boolean splitXmlGeneration;
+
   /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
     private static final int MIN_VALUE = 1;

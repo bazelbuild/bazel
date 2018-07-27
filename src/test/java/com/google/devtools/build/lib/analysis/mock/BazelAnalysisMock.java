@@ -126,8 +126,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
 
     config.create("/bazel_tools_workspace/tools/test/BUILD",
-        "filegroup(name = 'runtime', srcs = ['test-setup.sh'])",
+        "filegroup(name = 'runtime', srcs = ['test-setup.sh', 'test-xml-generator.sh'])",
         "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
+        "filegroup(name = 'test_xml_generator', srcs = ['test-xml-generator.sh'])",
         "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
         "filegroup(name='coverage_support', srcs=['collect_coverage.sh'])",
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
