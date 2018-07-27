@@ -57,22 +57,11 @@ public final class DependencyModule {
 
   public static enum StrictJavaDeps {
     /** Legacy behavior: Silently allow referencing transitive dependencies. */
-    OFF(false),
+    OFF,
     /** Warn about transitive dependencies being used directly. */
-    WARN(true),
+    WARN,
     /** Fail the build when transitive dependencies are used directly. */
-    ERROR(true);
-
-    private final boolean enabled;
-
-    StrictJavaDeps(boolean enabled) {
-      this.enabled = enabled;
-    }
-
-    /** Convenience method for just checking if it's not OFF */
-    public boolean isEnabled() {
-      return enabled;
-    }
+    ERROR
   }
 
   private final StrictJavaDeps strictJavaDeps;
@@ -167,11 +156,6 @@ public final class DependencyModule {
       }
     }
     return deps.build();
-  }
-
-  /** Returns whether strict dependency checks (strictJavaDeps) are enabled. */
-  public boolean isStrictDepsEnabled() {
-    return strictJavaDeps.isEnabled();
   }
 
   /** Returns the paths of direct dependencies. */

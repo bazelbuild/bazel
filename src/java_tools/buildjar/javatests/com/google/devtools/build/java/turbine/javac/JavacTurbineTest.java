@@ -1208,6 +1208,37 @@ public class JavacTurbineTest extends AbstractJavacTurbineCompilationTest {
   }
 
   @Test
+  public void ignoreStrictDepsErrorsForFailingCompilations() throws Exception {
+
+    Path lib =
+        createClassJar(
+            "deps.jar",
+            AbstractJavacTurbineCompilationTest.class,
+            JavacTurbineTest.class,
+            Lib.class);
+
+    addSourceLines(
+        "Hello.java",
+        "import " + Lib.class.getCanonicalName() + ";",
+        "import no.such.Class;",
+        "class Hello extends Lib {",
+        "}");
+
+    optionsBuilder.addClassPathEntries(ImmutableList.of(lib.toString()));
+
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter errOutput = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+    assertThat(errOutput.toString()).doesNotContain("[strict]");
+    assertThat(result).isEqualTo(Result.ERROR);
+  }
+
+  @Test
   public void clinit() throws Exception {
     addSourceLines(
         "Hello.java",
