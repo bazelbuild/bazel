@@ -14,7 +14,6 @@ title: Functions
 <div class="toc">
   <h1>Contents</h1>
   <ul>
-    <li><a href="#load">load</a></li>
     <li><a href="#package">package</a></li>
     <li><a href="#package_group">package_group</a></li>
     <li><a href="#licenses">licenses</a></li>
