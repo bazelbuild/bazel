@@ -26,20 +26,23 @@ import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Helper class that computes the TTV-only DTC of some given TTV keys, via BFS following all
- * TTV->TTV dep edges.
+ * TTV->TTV dep edges. Disallowed edge filtering is *not* performed.
  */
-class TransitiveTraversalValueDTCVisitor extends ParallelVisitor<SkyKey, SkyKey> {
+// TODO(nharmata): Unify with UnfilteredUnboundedDepsSkyKeyVisitor.
+class UnfilteredTransitiveTraversalValueDTCVisitor extends AbstractSkyKeyParallelVisitor<SkyKey> {
   private final SkyQueryEnvironment env;
-  private final Uniquifier<SkyKey> uniquifier;
 
-  private TransitiveTraversalValueDTCVisitor(
+  private UnfilteredTransitiveTraversalValueDTCVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       int processResultsBatchSize,
       AggregateAllCallback<SkyKey, ImmutableSet<SkyKey>> aggregateAllCallback) {
-    super(aggregateAllCallback, ParallelSkyQueryUtils.VISIT_BATCH_SIZE, processResultsBatchSize);
+    super(
+        uniquifier,
+        aggregateAllCallback,
+        ParallelSkyQueryUtils.VISIT_BATCH_SIZE,
+        processResultsBatchSize);
     this.env = env;
-    this.uniquifier = uniquifier;
   }
 
   static class Factory implements ParallelVisitor.Factory {
@@ -61,7 +64,7 @@ class TransitiveTraversalValueDTCVisitor extends ParallelVisitor<SkyKey, SkyKey>
 
     @Override
     public ParallelVisitor<SkyKey, SkyKey> create() {
-      return new TransitiveTraversalValueDTCVisitor(
+      return new UnfilteredTransitiveTraversalValueDTCVisitor(
           env, uniquifier, processResultsBatchSize, aggregateAllCallback);
     }
   }
@@ -75,7 +78,7 @@ class TransitiveTraversalValueDTCVisitor extends ParallelVisitor<SkyKey, SkyKey>
 
   @Override
   protected Visit getVisitResult(Iterable<SkyKey> ttvKeys) throws InterruptedException {
-    Multimap<SkyKey, SkyKey> deps = env.getDirectDepsOfSkyKeys(ttvKeys);
+    Multimap<SkyKey, SkyKey> deps = env.getUnfilteredDirectDepsOfSkyKeys(ttvKeys);
     return new Visit(
         /*keysToUseForResult=*/ deps.keySet(),
         /*keysToVisit=*/ deps.values()
@@ -89,10 +92,5 @@ class TransitiveTraversalValueDTCVisitor extends ParallelVisitor<SkyKey, SkyKey>
     // ParallelVisitorCallback passes in TTV keys.
     Preconditions.checkState(Iterables.all(keys, SkyQueryEnvironment.IS_TTV), keys);
     return keys;
-  }
-
-  @Override
-  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> values) throws QueryException {
-    return uniquifier.unique(values);
   }
 }
