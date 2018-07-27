@@ -55,9 +55,6 @@ esac
 if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
-#  declare -r EXE_EXT=".exe"
-#else
-#  declare -r EXE_EXT=""
 fi
 
 #### HELPER FUNCTIONS ##################################################
