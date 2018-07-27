@@ -42,7 +42,8 @@ public class AutoRegistry {
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.vfs",
-          "com.google.devtools.build.lib.actions.ArtifactFactory");
+          "com.google.devtools.build.lib.actions.ArtifactFactory",
+          "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction");
 
   /** Classes outside {@link AutoRegistry#PACKAGE_PREFIX} that need to be serialized. */
   private static final ImmutableList<String> EXTERNAL_CLASS_NAMES_TO_REGISTER =
