@@ -27,6 +27,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -36,6 +40,10 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,6 +58,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -60,6 +70,7 @@ import javax.annotation.Nullable;
 public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
+  private static final Logger logger = Logger.getLogger(BuildOptions.class.getName());
 
   /**
    * Creates a BuildOptions object with all options set to their default values, processed by the
@@ -524,7 +535,6 @@ public final class BuildOptions implements Cloneable, Serializable {
    * another: the full fragments of the second one, the fragment classes of the first that should be
    * omitted, and the values of any fields that should be changed.
    */
-  @AutoCodec
   public static class OptionsDiffForReconstruction {
     private final Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions;
     private final ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses;
@@ -607,6 +617,187 @@ public final class BuildOptions implements Cloneable, Serializable {
     @Override
     public int hashCode() {
       return 31 * Arrays.hashCode(baseFingerprint) + checksum.hashCode();
+    }
+
+    private static class Codec implements ObjectCodec<OptionsDiffForReconstruction> {
+
+      @Override
+      public Class<OptionsDiffForReconstruction> getEncodedClass() {
+        return OptionsDiffForReconstruction.class;
+      }
+
+      @Override
+      public void serialize(
+          SerializationContext context,
+          OptionsDiffForReconstruction diff,
+          CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        OptionsDiffCache cache = context.getDependency(OptionsDiffCache.class);
+        ByteString bytes = cache.getBytesFromOptionsDiff(diff);
+        if (bytes == null) {
+          context = context.getNewNonMemoizingContext();
+          ByteString.Output byteStringOut = ByteString.newOutput();
+          CodedOutputStream bytesOut = CodedOutputStream.newInstance(byteStringOut);
+          context.serialize(diff.differingOptions, bytesOut);
+          context.serialize(diff.extraFirstFragmentClasses, bytesOut);
+          context.serialize(diff.extraSecondFragments, bytesOut);
+          bytesOut.writeByteArrayNoTag(diff.baseFingerprint);
+          context.serialize(diff.checksum, bytesOut);
+          bytesOut.flush();
+          byteStringOut.flush();
+          int optionsDiffSize = byteStringOut.size();
+          bytes = byteStringOut.toByteString();
+          cache.putBytesFromOptionsDiff(diff, bytes);
+          logger.info(
+              "Serialized OptionsDiffForReconstruction "
+                  + diff.toString()
+                  + ". Diff took "
+                  + optionsDiffSize
+                  + " bytes.");
+        }
+        codedOut.writeBytesNoTag(bytes);
+      }
+
+      @Override
+      public OptionsDiffForReconstruction deserialize(
+          DeserializationContext context, CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        OptionsDiffCache cache = context.getDependency(OptionsDiffCache.class);
+        ByteString bytes = codedIn.readBytes();
+        OptionsDiffForReconstruction diff = cache.getOptionsDiffFromBytes(bytes);
+        if (diff == null) {
+          CodedInputStream codedInput = bytes.newCodedInput();
+          context = context.getNewNonMemoizingContext();
+          Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
+              context.deserialize(codedInput);
+          ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses =
+              context.deserialize(codedInput);
+          ImmutableList<FragmentOptions> extraSecondFragments = context.deserialize(codedInput);
+          byte[] baseFingerprint = codedInput.readByteArray();
+          String checksum = context.deserialize(codedInput);
+          diff =
+              new OptionsDiffForReconstruction(
+                  differingOptions,
+                  extraFirstFragmentClasses,
+                  extraSecondFragments,
+                  baseFingerprint,
+                  checksum);
+          cache.putBytesFromOptionsDiff(diff, bytes);
+        }
+        return diff;
+      }
+    }
+  }
+
+  /**
+   * Injected cache for {@code Codec}, so that we don't have to repeatedly serialize the same
+   * object. We still incur the over-the-wire cost of the bytes, but we don't use CPU to repeatedly
+   * compute it.
+   *
+   * <p>We provide the cache as an injected dependency so that different serializers' caches are
+   * isolated.
+   *
+   * <p>Used when configured targets are serialized: the more compact {@link
+   * FingerprintingKDiffToByteStringCache} cache below cannot be easily used because a configured
+   * target may have an edge to a configured target in a different configuration, and with only the
+   * checksum there would be no way to compute that configuration (although it is very likely in the
+   * graph already).
+   */
+  public interface OptionsDiffCache {
+    ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff);
+
+    void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes);
+
+    OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes);
+  }
+
+  /**
+   * Implementation of the {@link OptionsDiffCache} that acts as a {@code BiMap} utilizing two
+   * {@code ConcurrentHashMaps}.
+   */
+  public static class DiffToByteCache implements OptionsDiffCache {
+    // We expect there to be very few elements so keeping the reverse map as well as the forward
+    // map should be very cheap.
+    private static final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
+        diffToByteStringMap = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
+        byteStringToDiffMap = new ConcurrentHashMap<>();
+
+    @VisibleForTesting
+    public DiffToByteCache() {}
+
+    @Override
+    public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
+      return diffToByteStringMap.get(diff);
+    }
+
+    @Override
+    public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
+      // We need to insert data into map that will be used for deserialization first in case there
+      // is a race between two threads. If we populated the diffToByteStringMap first, another
+      // thread could get the result above and race ahead, but then get a cache miss on
+      // deserialization.
+      byteStringToDiffMap.put(bytes, diff);
+      diffToByteStringMap.put(diff, bytes);
+    }
+
+    @Override
+    public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
+      return byteStringToDiffMap.get(bytes);
+    }
+  }
+
+  /**
+   * {@link BuildOptions.OptionsDiffForReconstruction} serialization cache that relies on only
+   * serializing the checksum string instead of the full OptionsDiffForReconstruction.
+   *
+   * <p>This requires that every {@link BuildOptions.OptionsDiffForReconstruction} instance
+   * encountered is serialized <i>before</i> it is ever deserialized. When not serializing
+   * configured targets, this holds because every configuration present in the build is looked up in
+   * the graph using a {@code BuildConfigurationValue.Key}, which contains its {@link
+   * BuildOptions.OptionsDiffForReconstruction}. This requires that {@code BuildConfigurationValue}
+   * instances must always be serialized.
+   */
+  public static class FingerprintingKDiffToByteStringCache
+      implements BuildOptions.OptionsDiffCache {
+    private static final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
+        diffToByteStringCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
+        byteStringToDiffMap = new ConcurrentHashMap<>();
+
+    @Override
+    public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
+      ByteString checksumString = diffToByteStringCache.get(diff);
+      if (checksumString != null) {
+        // Fast path to avoid ByteString creation churn and unnecessary map insertions.
+        return checksumString;
+      }
+      checksumString = ByteString.copyFromUtf8(diff.getChecksum());
+      // We need to insert data into map that will be used for deserialization first in case there
+      // is a race between two threads. If we populated the diffToByteStringCache first, another
+      // thread could get checksumString above during serialization and race ahead, but then get a
+      // cache miss on deserialization.
+      byteStringToDiffMap.put(checksumString, diff);
+      diffToByteStringCache.put(diff, checksumString);
+      return checksumString;
+    }
+
+    @Override
+    public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
+      throw new UnsupportedOperationException(
+          "diff "
+              + diff
+              + " should have not been serialized: "
+              + diffToByteStringCache
+              + ", "
+              + byteStringToDiffMap);
+    }
+
+    @Override
+    public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
+      return Preconditions.checkNotNull(
+          byteStringToDiffMap.get(bytes),
+          "Missing bytes " + bytes + ": " + diffToByteStringCache + ", " + byteStringToDiffMap);
     }
   }
 }

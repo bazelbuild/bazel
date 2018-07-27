@@ -210,7 +210,26 @@ public class BuildOptionsTest {
     OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
     OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
     assertThat(diff2).isEqualTo(diff1);
-    assertThat(TestUtils.toBytes(diff2, ImmutableMap.of()))
-        .isEqualTo(TestUtils.toBytes(diff1, ImmutableMap.of()));
+    assertThat(
+            TestUtils.toBytes(
+                diff2,
+                ImmutableMap.of(
+                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())))
+        .isEqualTo(
+            TestUtils.toBytes(
+                diff1,
+                ImmutableMap.of(
+                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())));
+  }
+
+  @Test
+  public void repeatedCodec() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(one, two);
+    BuildOptions.OptionsDiffCache cache = new BuildOptions.FingerprintingKDiffToByteStringCache();
+    assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
+        .isEqualTo(
+            TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
   }
 }
