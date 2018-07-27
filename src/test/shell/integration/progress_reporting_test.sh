@@ -51,7 +51,7 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if is_windows; then
+if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
   declare -r WORKSPACE_STATUS="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
@@ -97,7 +97,7 @@ function wait_for_command() {
   return 1
 }
 
-function test_respects_progress_interval() {
+function DIS_test_respects_progress_interval() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -146,13 +146,13 @@ EOF
   fi
 }
 
-function test_show_task_finish() {
+function DIS_test_show_task_finish() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   assert_show_task_finish "show" "$pkg"
 }
 
-function test_noshow_task_finish() {
+function DIS_test_noshow_task_finish() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
   assert_show_task_finish "noshow" "$pkg"
@@ -188,8 +188,19 @@ EOF
   # waiting" message. Do not modify the workspace status writer action
   # implementation to have a progress message, because it breaks all kinds of
   # things.
+  if "$is_windows"; then
+    local -r wsc="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
+    # Wait for an event that never comes, give up after 5 seconds (exits with
+    # nonzero), then "cd ." to reset %ERRORLEVEL%.
+    echo "%SYSTEMROOT%\\system32\\waitfor.exe DummyEventToWaitFor /T 5 2>NUL & cd ." > "$wsc"
+  else
+    local -r wsc="$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.sh"
+    echo -e "#!$(which sh)\nsleep 5" > "$wsc"
+    chmod +x "$wsc"
+  fi
+
   bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
-      --workspace_status_command="sleep 5" \
+      --workspace_status_command="$wsc" \
       --progress_report_interval=1 \
       >& "$TEST_log" || fail "build failed"
 
@@ -221,7 +232,7 @@ EOF
   expect_log "\b\(stable-status\|build-info\).txt\b.*, [0-9] s"
 }
 
-function test_counts_cached_actions_as_completed_ones() {
+function DIS_test_counts_cached_actions_as_completed_ones() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -278,7 +289,7 @@ EOF
   expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 2
 }
 
-function test_failed_actions_with_keep_going() {
+function DIS_test_failed_actions_with_keep_going() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -319,7 +330,7 @@ EOF
   expect_log "^ *Executing genrule //${pkg}:longrun"
 }
 
-function test_seemingly_too_many_total_actions_due_to_change_pruning() {
+function DIS_test_seemingly_too_many_total_actions_due_to_change_pruning() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
@@ -372,7 +383,7 @@ EOF
   expect_log_once "Executing genrule .* DONE"
 }
 
-function test_counts_exclusive_tests_in_total_work() {
+function DIS_test_counts_exclusive_tests_in_total_work() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
