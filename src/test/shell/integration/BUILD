@@ -32,6 +32,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "local",
+        # no_windows: this test exercises the symlink-based runfiles tree.
         "no_windows",
     ],
 )
@@ -40,8 +41,10 @@ sh_test(
     name = "python_test",
     size = "medium",
     srcs = ["python_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
