@@ -627,6 +627,16 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       return create(ImmutableList.<T>copyOf(contents));
     }
 
+    /**
+     * Returns a {@code Tuple} whose items are given by an immutable list.
+     *
+     * <p>This method is a specialization of a {@link #copyOf(Iterable)} that avoids an unnecessary
+     * {@code copyOf} invocation.
+     */
+    public static <T> Tuple<T> copyOf(ImmutableList<T> contents) {
+      return create(contents);
+    }
+
     /** Returns a {@code Tuple} with the given items. */
     public static <T> Tuple<T> of(T... elements) {
       return Tuple.create(ImmutableList.copyOf(elements));
