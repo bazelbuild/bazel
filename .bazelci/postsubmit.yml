@@ -7,6 +7,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "@io_bazel//src:bazel"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -22,6 +23,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "@io_bazel//src:bazel"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -37,6 +39,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "@io_bazel//src:bazel"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -52,6 +55,7 @@ platforms:
     - rm -f WORKSPACE.bak
     build_targets:
     - "//src:bazel"
+    - "@io_bazel//src:bazel"
     test_flags:
     - "--test_timeout=1200"
     test_targets:
@@ -66,6 +70,7 @@ platforms:
     - "--host_copt=-w"
     build_targets:
     - "//src:bazel"
+    - "@io_bazel//src:bazel"
     test_flags:
     - "--copt=-w"
     - "--host_copt=-w"

@@ -68,8 +68,13 @@ output_paths = [
 
 
 def get_output_path(path):
+  unixpath = path.replace('\\', '/')
+  if fnmatch.fnmatch(unixpath, 'external/io_bazel/*'):
+    l = len('external/io_bazel/')
+    path = path[l:]
+    unixpath = unixpath[l:]
   for pattern, transformer in output_paths:
-    if fnmatch.fnmatch(path.replace('\\', '/'), pattern):
+    if fnmatch.fnmatch(unixpath, pattern):
       # BUILD.tools are stored as BUILD files.
       return transformer(path).replace('/BUILD.tools', '/BUILD')
 

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # This is a quick and dirty rule to make Bazel compile itself.  It
-# only supports Java.
+# only supports C++.
 
 proto_filetype = [".proto"]
 
@@ -30,7 +30,10 @@ def cc_grpc_library(name, src):
             "    --plugin=protoc-gen-grpc=$(location " + cpp_plugin_label + ")",
             "    --cpp_out=$(GENDIR)",
             "    --grpc_out=$(GENDIR)",
-            "    $(location " + src + ")",
+            "    $(location " + src + ") &&",
+            "sed -i -e ",
+            "    's/^#include \"external\\/io_bazel\\//#include \"/'",
+            "    $(OUTS)",
         ]),
         outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"],
     )

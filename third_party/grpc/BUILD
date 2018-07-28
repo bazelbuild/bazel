@@ -61,6 +61,8 @@ cc_binary(
     copts = [
         "-Ithird_party/grpc/include",
         "-Ithird_party/grpc",
+        "-Iexternal/io_bazel/third_party/grpc/include",
+        "-Iexternal/io_bazel/third_party/grpc",
     ],
     linkopts = [
         "-lm",
