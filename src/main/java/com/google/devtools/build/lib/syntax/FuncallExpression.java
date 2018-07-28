@@ -514,10 +514,6 @@ public final class FuncallExpression extends Expression {
     return matchingMethod;
   }
 
-  private static boolean isParamNamed(ParamDescriptor param) {
-    return param.isNamed() || param.isLegacyNamed();
-  }
-
   /**
    * Returns the extra interpreter arguments for the given {@link SkylarkCallable}, to be added at
    * the end of the argument list for the callable.
@@ -581,13 +577,13 @@ public final class FuncallExpression extends Expression {
                   "expected value of type '%s' for parameter '%s'",
                   type.toString(), param.getName()));
         }
-        if (isParamNamed(param) && keys.contains(param.getName())) {
+        if (param.isNamed() && keys.contains(param.getName())) {
           return ArgumentListConversionResult.fromError(
               String.format("got multiple values for keyword argument '%s'", param.getName()));
         }
         argIndex++;
       } else { // No more positional arguments, or no more positional parameters.
-        if (isParamNamed(param) && keys.remove(param.getName())) {
+        if (param.isNamed() && keys.remove(param.getName())) {
           // Param specified by keyword argument.
           value = kwargs.get(param.getName());
           if (!type.contains(value)) {
