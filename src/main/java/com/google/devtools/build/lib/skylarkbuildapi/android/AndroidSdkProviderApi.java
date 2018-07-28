@@ -84,6 +84,9 @@ public interface AndroidSdkProviderApi<
   @SkylarkCallable(name = "dx", structField = true, doc = "", documented = false)
   FilesToRunProviderT getDx();
 
+  @SkylarkCallable(name = "d8", structField = true, doc = "", documented = false)
+  FilesToRunProviderT getD8();
+
   @SkylarkCallable(name = "main_dex_list_creator", structField = true, doc = "", documented = false)
   FilesToRunProviderT getMainDexListCreator();
 
@@ -189,6 +192,12 @@ public interface AndroidSdkProviderApi<
               named = false,
               type = FilesToRunProviderApi.class),
           @Param(
+              name = "d8",
+              doc = "A files to run provider of D8.",
+              positional = true,
+              named = false,
+              type = FilesToRunProviderApi.class),
+          @Param(
               name = "main_dex_list_creator",
               doc = "A files to run provider of the main dex list creator.",
               positional = true,
@@ -251,6 +260,7 @@ public interface AndroidSdkProviderApi<
         FileT mainDexClasses,
         FilesToRunProviderT adb,
         FilesToRunProviderT dx,
+        FilesToRunProviderT d8,
         FilesToRunProviderT mainDexListCreator,
         FilesToRunProviderT aidl,
         FilesToRunProviderT aapt,

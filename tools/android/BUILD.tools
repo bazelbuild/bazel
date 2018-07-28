@@ -386,6 +386,7 @@ android_sdk(
     name = "poison_pill_android_sdk",
     proguard = ":error_message",
     aapt = ":error_message",
+    d8 = ":error_message",
     dx = ":error_message",
     main_dex_list_creator = ":error_message",
     adb = ":error_message",

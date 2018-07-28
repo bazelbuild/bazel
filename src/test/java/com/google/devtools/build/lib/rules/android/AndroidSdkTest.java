@@ -37,6 +37,7 @@ public class AndroidSdkTest extends BuildViewTestCase {
         "    android_jar = 'android.jar',",
         "    source_properties = 'platforms/android-25/source.properties',",
         "    apksigner = 'apksigner',",
+        "    d8 = 'd8',",
         "    dx = 'dx',",
         "    main_dex_classes = 'mainDexClasses.rules',",
         "    main_dex_list_creator = 'main_dex_list_creator',",

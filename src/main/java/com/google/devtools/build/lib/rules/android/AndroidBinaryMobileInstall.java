@@ -398,7 +398,13 @@ public final class AndroidBinaryMobileInstall {
             ruleContext,
             split ? "split_stub_application/classes.dex" : "stub_application/classes.dex");
     AndroidCommon.createDexAction(
-        ruleContext, stubDeployJar, stubDex, ImmutableList.<String>of(), false, null);
+        ruleContext,
+        stubDeployJar,
+        stubDex,
+        ImmutableList.<String>of(),
+        false,
+        null,
+        AndroidCommon.getAndroidConfig(ruleContext).useD8());
 
     return stubDex;
   }

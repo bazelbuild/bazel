@@ -115,6 +115,7 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
                 "//conditions:default": ":aapt2_binary",
             }),
+            d8 = ":d8_binary",
             dx = ":dx_binary",
             main_dex_list_creator = ":main_dex_list_creator",
             adb = select({
@@ -261,6 +262,17 @@ def create_android_sdk_rules(
     native.java_import(
         name = "dx_jar_import",
         jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
+    )
+
+    native.java_binary(
+        name = "d8_binary",
+        main_class = "com.android.tools.r8.compatdx.CompatDx",
+        runtime_deps = [":d8_jar_import"],
+    )
+
+    native.java_import(
+        name = "d8_jar_import",
+        jars = ["build-tools/%s/lib/d8.jar" % build_tools_directory],
     )
 
 TAGDIR_TO_TAG_MAP = {

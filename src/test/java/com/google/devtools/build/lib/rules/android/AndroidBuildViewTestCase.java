@@ -416,6 +416,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         "    aidl = 'aidl',",
         "    android_jar = 'android.jar',",
         "    apksigner = 'apksigner',",
+        "    d8 = 'd8',",
         "    dx = 'dx',",
         "    framework_aidl = 'framework_aidl',",
         "    main_dex_classes = 'main_dex_classes',",

@@ -44,6 +44,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -360,20 +361,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public Label androidLibcTopLabel;
 
     @Option(
-        name = "android_dynamic_mode",
-        defaultValue = "off",
-        converter = DynamicModeConverter.class,
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "Determines whether C++ deps of Android rules will be linked dynamically when a "
-                + "cc_binary does not explicitly create a shared library. "
-                + "'default' means bazel will choose whether to link dynamically.  "
-                + "'fully' means all libraries will be linked dynamically. "
-                + "'off' means that all libraries will be linked in mostly static mode.")
+      name = "android_dynamic_mode",
+      defaultValue = "off",
+      converter = DynamicModeConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      help =
+          "Determines whether C++ deps of Android rules will be linked dynamically when a "
+              + "cc_binary does not explicitly create a shared library. "
+              + "'default' means bazel will choose whether to link dynamically.  "
+              + "'fully' means all libraries will be linked dynamically. "
+              + "'off' means that all libraries will be linked in mostly static mode."
+    )
     public DynamicMode dynamicMode;
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
@@ -802,16 +804,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
 
     @Option(
-        name = "android_decouple_data_processing",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.ACTION_COMMAND_LINES
-        },
-        help =
-            "If true, Android data (assets, resources, and manifests) will be processed seperately "
-                + "when possible. Otherwise, they will all be processed together.")
+      name = "android_decouple_data_processing",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.ACTION_COMMAND_LINES
+      },
+      help =
+          "If true, Android data (assets, resources, and manifests) will be processed seperately "
+              + "when possible. Otherwise, they will all be processed together."
+    )
     public boolean decoupleDataProcessing;
 
     @Option(
@@ -840,6 +843,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     )
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
+    @Option(
+      name = "experimental_android_use_d8",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      },
+      help = "If enabled, use D8 as the dexer for Android builds."
+    )
+    public boolean useD8;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -864,6 +880,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+      host.useD8 = useD8;
       return host;
     }
   }
@@ -922,6 +939,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean decoupleDataProcessing;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  private final boolean useD8;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -963,6 +981,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.checkForMigrationTag = options.checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.useD8 = options.useD8;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -976,6 +995,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     if (desugarJava8Libs && !desugarJava8) {
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
+    }
+
+    if (incrementalDexing && useD8) {
+      throw new InvalidConfigurationException(
+          "Incremental dexing is currently not supported with D8. "
+              + "Disable incremental dexing with --noincremental_dexing.");
     }
   }
 
@@ -1015,7 +1040,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
       boolean decoupleDataProcessing,
       boolean checkForMigrationTag,
-      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
+      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest,
+      boolean useD8) {
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1052,6 +1078,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.checkForMigrationTag = checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.useD8 = useD8;
   }
 
   public String getCpu() {
@@ -1059,10 +1086,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   }
 
   @SkylarkConfigurationField(
-      name = "android_sdk_label",
-      doc = "Returns the target denoted by the value of the --android_sdk flag",
-      defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
-      defaultInToolRepository = true)
+    name = "android_sdk_label",
+    doc = "Returns the target denoted by the value of the --android_sdk flag",
+    defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
+    defaultInToolRepository = true
+  )
   public Label getSdk() {
     return sdk;
   }
@@ -1209,6 +1237,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  }
+
+  public boolean useD8() {
+    return useD8;
   }
 
   @Override

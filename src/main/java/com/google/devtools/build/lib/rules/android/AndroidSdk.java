@@ -52,6 +52,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
 
     FilesToRunProvider adb = ruleContext.getExecutablePrerequisite("adb", Mode.HOST);
     FilesToRunProvider dx = ruleContext.getExecutablePrerequisite("dx", Mode.HOST);
+    FilesToRunProvider d8 = ruleContext.getExecutablePrerequisite("d8", Mode.HOST);
     FilesToRunProvider mainDexListCreator =
         ruleContext.getExecutablePrerequisite("main_dex_list_creator", Mode.HOST);
     FilesToRunProvider zipalign = ruleContext.getExecutablePrerequisite("zipalign", Mode.HOST);
@@ -79,6 +80,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 mainDexClasses,
                 adb,
                 dx,
+                d8,
                 mainDexListCreator,
                 aidl,
                 aapt,

@@ -403,6 +403,12 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(ANY_FILE)
                   .exec())
           .add(
+              attr("d8", LABEL)
+                  .mandatory()
+                  .cfg(HostTransition.INSTANCE)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
+          .add(
               attr("main_dex_list_creator", LABEL)
                   .mandatory()
                   .cfg(HostTransition.INSTANCE)
