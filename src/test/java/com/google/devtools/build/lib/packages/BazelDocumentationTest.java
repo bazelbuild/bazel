@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.util.DocumentationTestUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
+import java.io.FileNotFoundException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,10 +43,18 @@ public class BazelDocumentationTest {
     if (OS.getCurrent() == OS.WINDOWS) {
       documentationFilePath = WindowsTestUtil.getRunfile("io_bazel/" + documentationFilePath);
     }
-    final File documentationFile = new File(documentationFilePath);
-    DocumentationTestUtil.validateUserManual(
-        Bazel.BAZEL_MODULES,
-        BazelRuleClassProvider.create(),
-        Files.asCharSource(documentationFile, UTF_8).read());
+    try {
+      final File documentationFile = new File(documentationFilePath);
+      DocumentationTestUtil.validateUserManual(
+          Bazel.BAZEL_MODULES,
+          BazelRuleClassProvider.create(),
+          Files.asCharSource(documentationFile, UTF_8).read());
+    } catch (FileNotFoundException e) {
+      final File documentationFile = new File("external/io_bazel/" + documentationFilePath);
+      DocumentationTestUtil.validateUserManual(
+          Bazel.BAZEL_MODULES,
+          BazelRuleClassProvider.create(),
+          Files.asCharSource(documentationFile, UTF_8).read());
+    }
   }
 }
