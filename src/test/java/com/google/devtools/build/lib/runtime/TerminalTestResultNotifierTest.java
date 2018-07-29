@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Random;
 import org.junit.Test;
@@ -42,9 +43,9 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class TerminalTestResultNotifierTest {
 
-  private OptionsProvider optionsProvider = Mockito.mock(OptionsProvider.class);
-  private AnsiTerminalPrinter ansiTerminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
-  private Random random = new Random();
+  private final OptionsProvider optionsProvider = Mockito.mock(OptionsProvider.class);
+  private final AnsiTerminalPrinter ansiTerminalPrinter = Mockito.mock(AnsiTerminalPrinter.class);
+  private final Random random = new Random();
 
   private void givenExecutionOption(TestSummaryFormat format) {
     ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
@@ -59,7 +60,7 @@ public class TerminalTestResultNotifierTest {
   private void runTest(Boolean shouldPrintTestCaseSummary) throws Exception {
     int numOfTotalTestCases = random.nextInt(10) + 1;
     int numOfFailedCases = random.nextInt(numOfTotalTestCases);
-    int numOfSuccessfullTestCases = numOfTotalTestCases - numOfFailedCases;
+    int numOfSuccessfulTestCases = numOfTotalTestCases - numOfFailedCases;
 
     TerminalTestResultNotifier terminalTestResultNotifier =
         new TerminalTestResultNotifier(ansiTerminalPrinter, optionsProvider);
@@ -67,10 +68,7 @@ public class TerminalTestResultNotifierTest {
     TestSummary testSummary = Mockito.mock(TestSummary.class);
     when(testSummary.getTotalTestCases()).thenReturn(numOfTotalTestCases);
     TestCase failedTestCase = TestCase.newBuilder().setStatus(Status.FAILED).build();
-    ArrayList<TestCase> testCases = new ArrayList<>();
-    for (int i = 0; i < numOfFailedCases; i++) {
-      testCases.add(failedTestCase);
-    }
+    ArrayList<TestCase> testCases = new ArrayList<>(Collections.nCopies(numOfFailedCases, failedTestCase));
 
     Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     when(testSummary.getFailedTestCases()).thenReturn(testCases);
@@ -84,8 +82,8 @@ public class TerminalTestResultNotifierTest {
     String summaryMessage =
         String.format(
             "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
-            numOfSuccessfullTestCases > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
-            numOfSuccessfullTestCases,
+            numOfSuccessfulTestCases > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
+            numOfSuccessfulTestCases,
             AnsiTerminalPrinter.Mode.DEFAULT,
             numOfFailedCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
             numOfFailedCases,

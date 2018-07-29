@@ -202,6 +202,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         printShortSummary(summaries, /* showPassingTests= */ false);
         break;
 
+      case TESTCASE:
       case NONE:
         break;
     }
