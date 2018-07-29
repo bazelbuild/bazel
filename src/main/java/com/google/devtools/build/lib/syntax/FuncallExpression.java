@@ -394,60 +394,7 @@ public final class FuncallExpression extends Expression {
             || !methodDescriptor.isUseSkylarkSemantics()
             || !methodDescriptor.isUseLocation(),
         "Cannot be invoked on structField callables with extra interpreter params");
-    return callMethod(methodDescriptor, fieldName, obj, new Object[0], Location.BUILTIN, null);
-  }
-
-  static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,
-      Object[] args, Location loc, Environment env) throws EvalException, InterruptedException {
-    try {
-      Method method = methodDescriptor.getMethod();
-      if (obj == null && !Modifier.isStatic(method.getModifiers())) {
-        throw new EvalException(loc, "method '" + methodName + "' is not static");
-      }
-      // This happens when the interface is public but the implementation classes
-      // have reduced visibility.
-      method.setAccessible(true);
-      Object result = method.invoke(obj, args);
-      if (method.getReturnType().equals(Void.TYPE)) {
-        return Runtime.NONE;
-      }
-      if (result == null) {
-        if (methodDescriptor.isAllowReturnNones()) {
-          return Runtime.NONE;
-        } else {
-          throw new EvalException(
-              loc,
-              "method invocation returned None, please file a bug report: "
-                  + methodName
-                  + Printer.printAbbreviatedList(
-                  ImmutableList.copyOf(args), "(", ", ", ")", null));
-        }
-      }
-      // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
-      result = SkylarkType.convertToSkylark(result, method, env);
-      if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
-        throw new EvalException(
-            loc,
-            Printer.format(
-                "method '%s' returns an object of invalid type %r", methodName, result.getClass()));
-      }
-      return result;
-    } catch (IllegalAccessException e) {
-      // TODO(bazel-team): Print a nice error message. Maybe the method exists
-      // and an argument is missing or has the wrong type.
-      throw new EvalException(loc, "Method invocation failed: " + e);
-    } catch (InvocationTargetException e) {
-      if (e.getCause() instanceof FuncallException) {
-        throw new EvalException(loc, e.getCause().getMessage());
-      } else if (e.getCause() != null) {
-        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-
-        throw new EvalExceptionWithJavaCause(loc, e.getCause());
-      } else {
-        // This is unlikely to happen
-        throw new EvalException(loc, "method invocation failed: " + e);
-      }
-    }
+    return methodDescriptor.call(obj, new Object[0], Location.BUILTIN, null);
   }
 
   // TODO(bazel-team): If there's exactly one usable method, this works. If there are multiple
@@ -820,7 +767,7 @@ public final class FuncallExpression extends Expression {
       if (javaMethod.first.isStructField()) {
         // Not a method but a callable attribute
         try {
-          return callFunction(javaMethod.first.getMethod().invoke(obj), env);
+          return callFunction(javaMethod.first.invoke(obj), env);
         } catch (IllegalAccessException e) {
           throw new EvalException(getLocation(), "method invocation failed: " + e);
         } catch (InvocationTargetException e) {
@@ -834,7 +781,7 @@ public final class FuncallExpression extends Expression {
           }
         }
       }
-      return callMethod(javaMethod.first, method, obj, javaMethod.second.toArray(), location, env);
+      return javaMethod.first.call(obj, javaMethod.second.toArray(), location, env);
     }
   }
 
