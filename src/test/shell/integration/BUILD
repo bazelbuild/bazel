@@ -83,9 +83,11 @@ sh_test(
     name = "experimental_ui_test",
     size = "large",
     srcs = ["experimental_ui_test.sh"],
-    data = [":test-deps"],
-    shard_count = 11,
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 4,
 )
 
 sh_test(
