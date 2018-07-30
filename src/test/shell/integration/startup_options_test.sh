@@ -56,9 +56,9 @@ if "$is_windows"; then
 fi
 
 function test_different_startup_options() {
-  pid=$(bazel --host_jvm_args=-Xmx1400m info server_pid 2> $TEST_log)
+  pid=$(bazel --nobatch info server_pid 2> $TEST_log)
   [[ -n $pid ]] || fail "Couldn't run ${PRODUCT_NAME}"
-  newpid=$(bazel --host_jvm_args=-Xmx1300m info server_pid 2> $TEST_log)
+  newpid=$(bazel --batch info server_pid 2> $TEST_log)
   expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the startup options are different."
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
   if ! "$is_windows"; then
