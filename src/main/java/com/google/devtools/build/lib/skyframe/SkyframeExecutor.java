@@ -2324,4 +2324,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     modifiedFilesDuringPreviousBuild = 0;
     return result;
   }
+
+  protected boolean allowsAnalysisDuringExecution() {
+    return false;
+  }
 }

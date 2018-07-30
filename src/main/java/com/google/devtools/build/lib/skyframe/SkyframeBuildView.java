@@ -588,8 +588,11 @@ public final class SkyframeBuildView {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
-    Preconditions.checkState(enableAnalysis,
-        "Already in execution phase %s %s", target, configuration);
+    Preconditions.checkState(
+        enableAnalysis || skyframeExecutor.allowsAnalysisDuringExecution(),
+        "Already in execution phase %s %s",
+        target,
+        configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
