@@ -68,10 +68,10 @@ public final class NativeLibs {
     for (Map.Entry<String, Collection<TransitiveInfoCollection>> entry :
         getSplitDepsByArchitecture(ruleContext, depsAttributes).asMap().entrySet()) {
       CcLinkParams linkParams =
-          AndroidCommon.getCcLinkingInfo(
+          AndroidCommon.getCcLinkParamsStore(
                   entry.getValue(),
                   ImmutableList.of("-Wl,-soname=lib" + ruleContext.getLabel().getName()))
-              .getStaticModeParamsForDynamicLibrary();
+              .get(/* linkingStatically */ true, /* linkShared */ true);
 
       Artifact nativeDepsLibrary =
           NativeDepsHelper.linkAndroidNativeDepsIfPresent(

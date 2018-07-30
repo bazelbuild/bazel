@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import java.util.ArrayList;
@@ -49,16 +51,19 @@ public class JplCcLinkParams {
               .getTransitiveInfoProviderMap()
               .getProvider(JavaCcLinkParamsProvider.class));
     }
-    ImmutableList<CcLinkingInfo> ccLinkingInfos =
-        ImmutableList.<CcLinkingInfo>builder()
-            .addAll(
-                providers
-                    .stream()
-                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
-                    .collect(ImmutableList.toImmutableList()))
-            .addAll(AnalysisUtils.getProviders(protoRuntimes, CcLinkingInfo.PROVIDER))
-            .build();
-
-    return new JavaCcLinkParamsProvider(CcLinkingInfo.merge(ccLinkingInfos));
+    CcLinkingInfo.Builder builder = CcLinkingInfo.Builder.create();
+    builder.setCcLinkParamsStore(
+        new CcLinkParamsStore(
+            new AbstractCcLinkParamsStore() {
+              @Override
+              protected void collect(
+                  CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+                for (JavaCcLinkParamsProvider provider : providers) {
+                  builder.add(provider.getCcLinkingInfo().getCcLinkParamsStore());
+                }
+                builder.addTransitiveTargets(protoRuntimes);
+              }
+            }));
+    return new JavaCcLinkParamsProvider(builder.build());
   }
 }

@@ -1345,22 +1345,6 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     assertThat(setUpNeverlinkTest("False").getArguments()).contains("-NEVERLINK_OPTION");
   }
 
-  @Test
-  public void testEmptyCcLinkingInfoError() throws Exception {
-    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
-    scratch.file("tools/build_defs/cc/BUILD", "");
-    scratch.file(
-        "tools/build_defs/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  return [CcLinkingInfo()]",
-        "crule = rule(",
-        "  _impl,",
-        ");");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:r");
-    assertContainsEvent("Every CcLinkParams parameter must be passed to CcLinkingInfo.");
-  }
-
   private CppLinkAction setUpNeverlinkTest(String value) throws Exception {
     SkylarkCcCommonTestHelper.createFilesForTestingLinking(
         scratch,
