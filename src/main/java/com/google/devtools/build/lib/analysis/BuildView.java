@@ -18,13 +18,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -377,7 +375,8 @@ public class BuildView {
       allTargetsToTest = filterTestsByTargets(configuredTargets, testsToRun);
     }
 
-    SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels = HashMultimap.create();
+    ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder =
+        new ArtifactsToOwnerLabels.Builder();
     Set<ConfiguredTarget> parallelTests = new HashSet<>();
     Set<ConfiguredTarget> exclusiveTests = new HashSet<>();
 
@@ -385,15 +384,15 @@ public class BuildView {
     Collection<Artifact> buildInfoArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
-    addArtifactsWithNoOwner(buildInfoArtifacts, topLevelArtifactsToOwnerLabels);
+    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
 
     // Extra actions
     addExtraActionsIfRequested(
-        viewOptions, configuredTargets, aspects, topLevelArtifactsToOwnerLabels, eventHandler);
+        viewOptions, configuredTargets, aspects, artifactsToOwnerLabelsBuilder, eventHandler);
 
     // Coverage
     NestedSet<Artifact> baselineCoverageArtifacts =
-        getBaselineCoverageArtifacts(configuredTargets, topLevelArtifactsToOwnerLabels);
+        getBaselineCoverageArtifacts(configuredTargets, artifactsToOwnerLabelsBuilder);
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
       actionsWrapper =
@@ -408,8 +407,7 @@ public class BuildView {
       if (actionsWrapper != null) {
         ImmutableList<ActionAnalysisMetadata> actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);
-        addArtifactsWithNoOwner(
-            actionsWrapper.getCoverageOutputs(), topLevelArtifactsToOwnerLabels);
+        actionsWrapper.getCoverageOutputs().forEach(artifactsToOwnerLabelsBuilder::addArtifact);
       }
     }
 
@@ -453,18 +451,13 @@ public class BuildView {
         targetsToSkip,
         error,
         actionGraph,
-        topLevelArtifactsToOwnerLabels,
+        artifactsToOwnerLabelsBuilder.build(),
         parallelTests,
         exclusiveTests,
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
         topLevelTargetsWithConfigs);
-  }
-
-  private static void addArtifactsWithNoOwner(
-      Collection<Artifact> artifacts, SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels) {
-    artifacts.forEach((a) -> topLevelArtifactsToOwnerLabels.put(a, a.getOwnerLabel()));
   }
 
   @Nullable
@@ -483,7 +476,7 @@ public class BuildView {
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
       Collection<ConfiguredTarget> configuredTargets,
-      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels) {
+      ArtifactsToOwnerLabels.Builder topLevelArtifactsToOwnerLabels) {
     NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesProvider provider = target.getProvider(InstrumentedFilesProvider.class);
@@ -503,7 +496,7 @@ public class BuildView {
       AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
-      SetMultimap<Artifact, Label> artifactsToTopLevelLabelsMap,
+      ArtifactsToOwnerLabels.Builder artifactsToTopLevelLabelsMap,
       ExtendedEventHandler eventHandler) {
     RegexFilter filter = viewOptions.extraActionFilter;
     for (ConfiguredTarget target : configuredTargets) {

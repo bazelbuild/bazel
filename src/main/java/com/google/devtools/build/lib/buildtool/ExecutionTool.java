@@ -18,15 +18,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -311,16 +309,17 @@ public class ExecutionTool {
     }
     boolean buildCompleted = false;
     try {
-      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels =
-          TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult, aspects);
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         try (SilentCloseable c =
             Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
-          actionContextProvider.executionPhaseStarting(actionGraph, topLevelArtifactsToOwnerLabels);
+          actionContextProvider.executionPhaseStarting(
+              actionGraph,
+              Suppliers.memoize(
+                  () ->
+                      TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
+                          analysisResult, aspects)));
         }
       }
-      // Don't retain memory.
-      topLevelArtifactsToOwnerLabels = null;
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();
 
@@ -341,7 +340,7 @@ public class ExecutionTool {
 
       builder.buildArtifacts(
           env.getReporter(),
-          analysisResult.getTopLevelArtifactsToOwnerLabels().keySet(),
+          analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
           analysisResult.getParallelTests(),
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
