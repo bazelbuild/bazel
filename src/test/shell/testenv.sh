@@ -400,14 +400,11 @@ function setup_clean_workspace() {
 
   # On macOS, mktemp expects the template to have the Xs at the end.
   # On Linux, the Xs may be anywhere.
-  local -r bazel_stdout="$(mktemp "${TEST_TMPDIR}/XXXXXXXX")"
-  local -r bazel_stderr="${bazel_stdout}.err"
   _BAZEL_INSTALL_BASE=$(bazel info install_base 2>/dev/null)
   # Shut down this server in case the tests will run Bazel in a different output
   # root, otherwise we could not clean up $WORKSPACE_DIR (under $TEST_TMPDIR)
   # once the test is finished.
   bazel shutdown >&/dev/null
-  try_with_timeout rm -f "$bazel_stdout" "$bazel_stderr"
 
   if is_windows; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
