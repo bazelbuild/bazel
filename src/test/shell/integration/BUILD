@@ -110,8 +110,10 @@ sh_test(
     name = "startup_options_test",
     size = "medium",
     srcs = ["startup_options_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
