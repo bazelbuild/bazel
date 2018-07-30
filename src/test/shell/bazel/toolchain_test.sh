@@ -168,6 +168,25 @@ EOF
   expect_log 'extra_str = "bar"'
 }
 
+function test_toolchain_build_with_target_configuration {
+  write_test_toolchain
+  write_test_rule
+  write_register_toolchain
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel cquery 'kind("test_toolchain", deps(//demo:use))' | grep -Fv HOST \
+    &> $TEST_log || fail "cquery failed"
+  expect_log "//:test_toolchain_impl_1"
+}
+
 function test_toolchain_use_in_rule {
   write_test_toolchain
   write_test_rule

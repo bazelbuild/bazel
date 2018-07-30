@@ -236,7 +236,8 @@ public abstract class DependencyResolver {
 
     Attribute toolchainsAttribute =
         attributeMap.getAttributeDefinition(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR);
-    resolveToolchainDependencies(outgoingEdges.get(toolchainsAttribute), toolchainLabels);
+    resolveToolchainDependencies(
+        outgoingEdges.get(toolchainsAttribute), toolchainLabels, ruleConfig);
   }
 
   /**
@@ -447,11 +448,10 @@ public abstract class DependencyResolver {
   }
 
   private void resolveToolchainDependencies(
-      Set<Dependency> dependencies, ImmutableSet<Label> toolchainLabels) {
+      Set<Dependency> dependencies, ImmutableSet<Label> toolchainLabels,
+      BuildConfiguration ruleConfig) {
     for (Label label : toolchainLabels) {
-      Dependency dependency =
-          Dependency.withTransitionAndAspects(
-              label, HostTransition.INSTANCE, AspectCollection.EMPTY);
+      Dependency dependency = Dependency.withConfiguration(label, ruleConfig);
       dependencies.add(dependency);
     }
   }
