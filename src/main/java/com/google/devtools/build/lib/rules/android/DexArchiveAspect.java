@@ -341,7 +341,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static ImmutableList<Artifact> getBootclasspath(
       ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationInfoProvider compilationInfo =
-        base.getProvider(JavaCompilationInfoProvider.class);
+        JavaInfo.getProvider(JavaCompilationInfoProvider.class, base);
     if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
       return ImmutableList.of(
           ruleContext

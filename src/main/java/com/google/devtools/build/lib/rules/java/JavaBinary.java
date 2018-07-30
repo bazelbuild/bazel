@@ -438,7 +438,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
     common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
+    common.addGenJarsProvider(javaInfoBuilder, genClassJar, genSourceJar);
 
     JavaInfo javaInfo = javaInfoBuilder
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
