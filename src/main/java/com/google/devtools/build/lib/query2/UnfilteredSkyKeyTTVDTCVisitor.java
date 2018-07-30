@@ -13,11 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
@@ -25,24 +21,21 @@ import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * Helper class that computes the TTV-only DTC of some given TTV keys, via BFS following all
- * TTV->TTV dep edges. Disallowed edge filtering is *not* performed.
+ * Helper class for visiting the TTV-only DTC of some given TTV keys, and feeding those TTVs to a
+ * callback.
  */
-// TODO(nharmata): Unify with UnfilteredUnboundedDepsSkyKeyVisitor.
-class UnfilteredTransitiveTraversalValueDTCVisitor extends AbstractSkyKeyParallelVisitor<SkyKey> {
-  private final SkyQueryEnvironment env;
-
-  private UnfilteredTransitiveTraversalValueDTCVisitor(
+class UnfilteredSkyKeyTTVDTCVisitor extends AbstractUnfilteredTTVDTCVisitor<SkyKey> {
+  private UnfilteredSkyKeyTTVDTCVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> uniquifier,
       int processResultsBatchSize,
       AggregateAllCallback<SkyKey, ImmutableSet<SkyKey>> aggregateAllCallback) {
     super(
+        env,
         uniquifier,
-        aggregateAllCallback,
         ParallelSkyQueryUtils.VISIT_BATCH_SIZE,
-        processResultsBatchSize);
-    this.env = env;
+        processResultsBatchSize,
+        aggregateAllCallback);
   }
 
   static class Factory implements ParallelVisitor.Factory {
@@ -64,7 +57,7 @@ class UnfilteredTransitiveTraversalValueDTCVisitor extends AbstractSkyKeyParalle
 
     @Override
     public ParallelVisitor<SkyKey, SkyKey> create() {
-      return new UnfilteredTransitiveTraversalValueDTCVisitor(
+      return new UnfilteredSkyKeyTTVDTCVisitor(
           env, uniquifier, processResultsBatchSize, aggregateAllCallback);
     }
   }
@@ -74,23 +67,5 @@ class UnfilteredTransitiveTraversalValueDTCVisitor extends AbstractSkyKeyParalle
       Iterable<SkyKey> keysToUseForResult, Callback<SkyKey> callback)
       throws QueryException, InterruptedException {
     callback.process(keysToUseForResult);
-  }
-
-  @Override
-  protected Visit getVisitResult(Iterable<SkyKey> ttvKeys) throws InterruptedException {
-    Multimap<SkyKey, SkyKey> deps = env.getUnfilteredDirectDepsOfSkyKeys(ttvKeys);
-    return new Visit(
-        /*keysToUseForResult=*/ deps.keySet(),
-        /*keysToVisit=*/ deps.values()
-            .stream()
-            .filter(SkyQueryEnvironment.IS_TTV)
-            .collect(ImmutableList.toImmutableList()));
-  }
-
-  @Override
-  protected Iterable<SkyKey> preprocessInitialVisit(Iterable<SkyKey> keys) {
-    // ParallelVisitorCallback passes in TTV keys.
-    Preconditions.checkState(Iterables.all(keys, SkyQueryEnvironment.IS_TTV), keys);
-    return keys;
   }
 }

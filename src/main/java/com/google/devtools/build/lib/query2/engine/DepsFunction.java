@@ -62,10 +62,11 @@ final class DepsFunction implements QueryFunction {
       return streamableEnv.getDepsUnboundedParallel(
           queryExpression,
           context,
-          callback,
-          targets -> {
+          /*callback=*/ partialResult -> {
+            callback.process(partialResult);
             ThreadSafeMutableSet<T> set = env.createThreadSafeMutableSet();
-            Iterables.addAll(set, targets);
+            Iterables.addAll(set, partialResult);
+            // Ensure the proper error messages are reported.
             env.buildTransitiveClosure(expression, set, /*maxDepth=*/ 1);
           });
     }
