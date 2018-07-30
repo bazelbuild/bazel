@@ -171,6 +171,54 @@ EOF
   # TODO(ulfjack): Check that the test failure gets reported correctly.
 }
 
+function test_local_fallback_works_with_local_strategy() {
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_local_fallback_strategy=local \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "1 process: 1 local"
+}
+
+function test_local_fallback_works_with_sandboxed_strategy() {
+  mkdir -p gen2
+  cat > gen2/BUILD <<'EOF'
+genrule(
+name = "gen2",
+srcs = [],
+outs = ["out2"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_local_fallback_strategy=sandboxed \
+      --build_event_text_file=gen2.log \
+      //gen2 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen2.log $TEST_log
+  expect_log "1 process: 1 .*-sandbox"
+}
+
 function is_file_uploaded() {
   h=$(shasum -a256 < $1)
   if [ -e "$cas_path/${h:0:64}" ]; then return 0; else return 1; fi

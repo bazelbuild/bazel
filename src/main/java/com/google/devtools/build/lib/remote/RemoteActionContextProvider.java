@@ -15,22 +15,24 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
-import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
-import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -43,6 +45,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   private final RemoteRetrier retrier;
   private final DigestUtil digestUtil;
   private final Path logDir;
+  private final AtomicReference<SpawnRunner> fallbackRunner = new AtomicReference<>();
 
   RemoteActionContextProvider(
       CommandEnvironment env,
@@ -64,7 +67,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
-    String buildRequestId = env.getBuildRequestId().toString();
+    String buildRequestId = env.getBuildRequestId();
     String commandId = env.getCommandId().toString();
 
     if (executor == null && cache != null) {
@@ -84,7 +87,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
               env.getExecRoot(),
               remoteOptions,
               env.getOptions().getOptions(ExecutionOptions.class),
-              createFallbackRunner(env),
+              fallbackRunner,
               executionOptions.verboseFailures,
               env.getReporter(),
               buildRequestId,
@@ -98,21 +101,37 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     }
   }
 
-  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider =
-        OS.getCurrent() == OS.DARWIN
-            ? new XcodeLocalEnvProvider(env.getClientEnv())
-            : (OS.getCurrent() == OS.WINDOWS
-                ? new WindowsLocalEnvProvider(env.getClientEnv())
-                : new PosixLocalEnvProvider(env.getClientEnv()));
-    return
-        new LocalSpawnRunner(
-            env.getExecRoot(),
-            localExecutionOptions,
-            ResourceManager.instance(),
-            localEnvProvider);
+  @Override
+  public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {
+    SortedSet<String> validStrategies = new TreeSet<>();
+    fallbackRunner.set(null);
+
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    String strategyName = remoteOptions.remoteLocalFallbackStrategy;
+
+    for (ActionContext context : usedContexts) {
+      if (context instanceof AbstractSpawnStrategy) {
+        ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
+        if (annotation != null) {
+          Collections.addAll(validStrategies, annotation.name());
+          if (!strategyName.equals("remote")
+              && Arrays.asList(annotation.name()).contains(strategyName)) {
+            AbstractSpawnStrategy spawnStrategy = (AbstractSpawnStrategy) context;
+            SpawnRunner spawnRunner = Preconditions.checkNotNull(spawnStrategy.getSpawnRunner());
+            fallbackRunner.set(spawnRunner);
+          }
+        }
+      }
+    }
+
+    if (fallbackRunner.get() == null) {
+      validStrategies.remove("remote");
+      throw new ExecutorInitException(
+          String.format(
+              "'%s' is an invalid value for --remote_local_fallback_strategy. Valid values are: %s",
+              strategyName, validStrategies),
+          ExitCode.COMMAND_LINE_ERROR);
+    }
   }
 
   @Override
