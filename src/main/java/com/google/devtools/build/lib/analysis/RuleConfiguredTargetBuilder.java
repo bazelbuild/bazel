@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Builder class for analyzed rule instances.
@@ -79,7 +80,11 @@ public final class RuleConfiguredTargetBuilder {
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
-  /** Constructs the RuleConfiguredTarget instance based on the values set for this Builder. */
+  /**
+   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
+   * Returns null if there were rule errors reported.
+   */
+  @Nullable
   public ConfiguredTarget build() throws ActionConflictException {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
