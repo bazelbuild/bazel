@@ -402,17 +402,7 @@ function setup_clean_workspace() {
   # On Linux, the Xs may be anywhere.
   local -r bazel_stdout="$(mktemp "${TEST_TMPDIR}/XXXXXXXX")"
   local -r bazel_stderr="${bazel_stdout}.err"
-  # On Windows, we mustn't run Bazel in a subshell because of
-  # https://github.com/bazelbuild/bazel/issues/3148.
-  bazel info install_base >"$bazel_stdout" 2>"$bazel_stderr" \
-    && export BAZEL_INSTALL_BASE=$(cat "$bazel_stdout") \
-    || log_fatal "'bazel info install_base' failed, stderr: $(cat "$bazel_stderr")"
-  bazel info bazel-genfiles >"$bazel_stdout" 2>"$bazel_stderr" \
-    && export BAZEL_GENFILES_DIR=$(cat "$bazel_stdout") \
-    || log_fatal "'bazel info bazel-genfiles' failed, stderr: $(cat "$bazel_stderr")"
-  bazel info bazel-bin >"$bazel_stdout" 2>"$bazel_stderr" \
-    && export BAZEL_BIN_DIR=$(cat "$bazel_stdout") \
-    || log_fatal "'bazel info bazel-bin' failed, stderr: $(cat "$bazel_stderr")"
+  _BAZEL_INSTALL_BASE=$(bazel info install_base 2>/dev/null)
   # Shut down this server in case the tests will run Bazel in a different output
   # root, otherwise we could not clean up $WORKSPACE_DIR (under $TEST_TMPDIR)
   # once the test is finished.
@@ -451,11 +441,11 @@ function cleanup_workspace() {
 
 # Clean-up the bazel install base
 function cleanup() {
-  if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
-    log_info "Cleaning up BAZEL_INSTALL_BASE under $BAZEL_INSTALL_BASE"
+  if [ -d "${_BAZEL_INSTALL_BASE:-/dev/null}" ]; then
+    log_info "Cleaning up _BAZEL_INSTALL_BASE under $_BAZEL_INSTALL_BASE"
     # Windows takes its time to shut down Bazel and we can't delete A-server.jar
     # until then, so just give it time and keep trying for 2 minutes.
-    try_with_timeout rm -fr "${BAZEL_INSTALL_BASE}" >&/dev/null
+    try_with_timeout rm -fr "${_BAZEL_INSTALL_BASE}" >&/dev/null
   fi
 }
 

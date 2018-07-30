@@ -27,6 +27,9 @@ source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
 source ${CURRENT_DIR}/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
+BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
+
 cat >>$TEST_TMPDIR/bazelrc <<'EOF'
 # Testing the sandboxed strategy requires using the sandboxed strategy. While it is the default,
 # we want to make sure that this explicitly fails when the strategy is not available on the system
