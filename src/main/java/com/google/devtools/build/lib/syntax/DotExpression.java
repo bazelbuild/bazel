@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
 import java.util.Optional;
@@ -126,19 +125,14 @@ public final class DotExpression extends Expression {
 
     if (methods != null) {
       Optional<MethodDescriptor> method =
-          Streams.stream(methods)
-              .filter(methodDescriptor -> methodDescriptor.getAnnotation().structField())
-              .findFirst();
-      if (method.isPresent() && method.get().getAnnotation().structField()) {
+          Streams.stream(methods).filter(MethodDescriptor::isStructField).findFirst();
+      if (method.isPresent() && method.get().isStructField()) {
         return FuncallExpression.callMethod(
             method.get(),
             name,
             objValue,
-            FuncallExpression.extraInterpreterArgs(
-                method.get().getAnnotation(),
-                /* ast = */ null,
-                loc,
-                env).toArray(),
+            FuncallExpression.extraInterpreterArgs(method.get(), /* ast = */ null, loc, env)
+                .toArray(),
             loc,
             env);
       }

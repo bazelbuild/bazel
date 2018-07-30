@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
+import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import java.util.Map;
 
 /** Base class for native implementations of {@link Info}. */
