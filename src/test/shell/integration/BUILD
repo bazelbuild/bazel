@@ -50,10 +50,25 @@ sh_test(
 sh_test(
     name = "loading_phase_tests",
     size = "large",
-    srcs = ["loading_phase_tests.sh"],
-    data = [":test-deps"],
+    srcs = ["loading_phase_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     shard_count = 4,
-    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "loading_phase_posix_tests",
+    size = "large",
+    srcs = ["loading_phase_posix_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",  # test uses symlinks and chmod
+    ],
 )
 
 sh_test(
