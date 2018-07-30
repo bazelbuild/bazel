@@ -400,7 +400,7 @@ function setup_clean_workspace() {
 
   # On macOS, mktemp expects the template to have the Xs at the end.
   # On Linux, the Xs may be anywhere.
-  _BAZEL_INSTALL_BASE=$(bazel info install_base 2>/dev/null)
+  export _BAZEL_INSTALL_BASE=$(bazel info install_base 2>/dev/null)
   # Shut down this server in case the tests will run Bazel in a different output
   # root, otherwise we could not clean up $WORKSPACE_DIR (under $TEST_TMPDIR)
   # once the test is finished.
