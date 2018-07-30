@@ -196,7 +196,7 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(outputJar, compileJar, sourceJars)
+            .addOutputJar(outputJar, compileJar, null /* manifestProto */, sourceJars)
             .setJdeps(jdeps)
             .build();
     javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);

@@ -129,9 +129,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .addSourceJar(srcJar)
         .addAllTransitiveSourceJars(common.collectTransitiveSourceJars(srcJar));
     Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
-        JavaRuleOutputJarsProvider.builder().addOutputJar(
-            classJar, null /* iJar */, ImmutableList.of(srcJar));
+        JavaRuleOutputJarsProvider.builder()
+            .addOutputJar(classJar, null /* iJar */, manifestProtoOutput, ImmutableList.of(srcJar));
 
     CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
         CppConfiguration.class);
@@ -222,8 +223,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
-
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.

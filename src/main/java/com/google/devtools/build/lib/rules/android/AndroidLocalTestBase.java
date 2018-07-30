@@ -191,6 +191,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       return null;
     }
 
+    JavaCompilationHelper helper =
+        getJavaCompilationHelperWithDependencies(
+            ruleContext, javaSemantics, javaCommon, attributesBuilder);
+
     Artifact srcJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_SOURCE_JAR);
     JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder =
         JavaSourceJarsProvider.builder()
@@ -198,17 +202,18 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             .addAllTransitiveSourceJars(javaCommon.collectTransitiveSourceJars(srcJar));
 
     Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
+
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
+
     JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
             .addOutputJar(
                 classJar,
                 classJar,
+                manifestProtoOutput,
                 srcJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(srcJar));
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
-    JavaCompilationHelper helper =
-        getJavaCompilationHelperWithDependencies(
-            ruleContext, javaSemantics, javaCommon, attributesBuilder);
     Artifact instrumentationMetadata =
         helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
     Artifact executable; // the artifact for the rule itself
@@ -248,8 +253,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
-
     Artifact genClassJar = null;
     Artifact genSourceJar = null;
     if (helper.usesAnnotationProcessing()) {

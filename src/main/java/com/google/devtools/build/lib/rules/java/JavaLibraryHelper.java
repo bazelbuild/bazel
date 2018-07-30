@@ -277,7 +277,7 @@ public final class JavaLibraryHelper {
     ImmutableList<Artifact> outputSourceJars =
         outputSourceJar == null ? ImmutableList.of() : ImmutableList.of(outputSourceJar);
     outputJarsBuilder
-        .addOutputJar(new OutputJar(output, iJar, outputSourceJars))
+        .addOutputJar(new OutputJar(output, iJar, manifestProtoOutput, outputSourceJars))
         .setJdeps(outputDepsProto)
         .setNativeHeaders(nativeHeaderOutput);
 

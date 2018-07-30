@@ -1928,4 +1928,44 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(provider.getCompileTimeJavaDependencyArtifacts()))
         .containsExactly("java/test/amazing-hjar.jdeps", "java/test/libdep-hjar.jdeps");
   }
+
+  @Test
+  public void testCompileOutputJarHasManifestProto() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "foo/java_custom_library.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib%s.jar' % ctx.label.name)",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct(",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java'],",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':java_custom_library.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'b', srcs = ['java/B.java'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:b");
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    JavaRuleOutputJarsProvider outputs = info.getOutputJars();
+    assertThat(outputs.getOutputJars()).hasSize(1);
+    OutputJar output = outputs.getOutputJars().get(0);
+    assertThat(output.getManifestProto().getFilename()).isEqualTo("libb.jar_manifest_proto");
+  }
 }

@@ -139,7 +139,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     }
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, iJar, ImmutableList.of(srcJar))
+            .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
             .setJdeps(outputDepsProto)
             .setNativeHeaders(nativeHeaderOutput);
 

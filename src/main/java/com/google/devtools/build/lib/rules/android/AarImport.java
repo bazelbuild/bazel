@@ -147,7 +147,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(createAarNativeLibsFilterActions(ruleContext, aar, nativeLibs));
 
     JavaRuleOutputJarsProvider.Builder jarProviderBuilder =
-        new JavaRuleOutputJarsProvider.Builder().addOutputJar(mergedJar, null, ImmutableList.of());
+        new JavaRuleOutputJarsProvider.Builder()
+            .addOutputJar(mergedJar, null /* ijar */, null /* manifestProto */, ImmutableList.of());
 
     ImmutableList<TransitiveInfoCollection> targets =
         ImmutableList.<TransitiveInfoCollection>builder()
