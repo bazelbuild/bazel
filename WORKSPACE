@@ -139,6 +139,15 @@ http_file(
     ],
 )
 
+http_file(
+    name = "openjdk_linux_aarch64",
+    sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
+    urls = [
+        "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
+    ],
+)
+
+
 http_archive(
   name = "bazel_toolchains",
   urls = [
