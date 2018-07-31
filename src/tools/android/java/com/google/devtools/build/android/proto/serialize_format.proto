@@ -87,3 +87,11 @@ message DataValueXml {
   map<string, string> attribute = 8;
   map<string, string> namespace = 9;
 }
+
+// Container for serialized attributes.
+message ToolAttributes {
+  message ToolAttributeValues {
+    repeated string values = 1;
+  }
+  map<string, ToolAttributeValues> attributes = 1;
+}

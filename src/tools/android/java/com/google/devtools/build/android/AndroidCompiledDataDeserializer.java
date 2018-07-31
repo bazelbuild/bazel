@@ -16,6 +16,7 @@ package com.google.devtools.build.android;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 import android.aapt.pb.internal.ResourcesInternal.CompiledFile;
 import com.android.SdkConstants;
@@ -78,6 +79,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
+import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
 import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
@@ -88,9 +90,11 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -99,9 +103,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -574,11 +581,14 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   }
 
   private void readAttributesFile(
-      InputStream resourceFileStream, FileSystem fileSystem, KeyValueConsumers consumers)
+      InputStream resourceFileStream,
+      FileSystem fileSystem,
+      BiConsumer<DataKey, DataResource> combine,
+      BiConsumer<DataKey, DataResource> overwrite)
       throws IOException {
 
     Header header = Header.parseDelimitedFrom(resourceFileStream);
-    List<DataKey> fullyQualifiedNames = new ArrayList<>();
+    List<FullyQualifiedName> fullyQualifiedNames = new ArrayList<>();
     for (int i = 0; i < header.getEntryCount(); i++) {
       SerializeFormat.DataKey protoKey =
           SerializeFormat.DataKey.parseDelimitedFrom(resourceFileStream);
@@ -587,7 +597,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
     DataSourceTable sourceTable = DataSourceTable.read(resourceFileStream, fileSystem, header);
 
-    for (DataKey fullyQualifiedName : fullyQualifiedNames) {
+    for (FullyQualifiedName fullyQualifiedName : fullyQualifiedNames) {
       SerializeFormat.DataValue protoValue =
           SerializeFormat.DataValue.parseDelimitedFrom(resourceFileStream);
       DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
@@ -595,10 +605,37 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       AttributeType attributeType = AttributeType.valueOf(protoValue.getXmlValue().getValueType());
 
       if (attributeType.isCombining()) {
-        consumers.combiningConsumer.accept(fullyQualifiedName, dataResourceXml);
+        combine.accept(fullyQualifiedName, dataResourceXml);
       } else {
-        consumers.overwritingConsumer.accept(fullyQualifiedName, dataResourceXml);
+        overwrite.accept(fullyQualifiedName, dataResourceXml);
       }
+    }
+  }
+
+  public Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
+    try (ZipFile zipFile = new ZipFile(resources.getZip().toFile())) {
+      return zipFile
+          .stream()
+          .filter(e -> e.getName().endsWith(".attributes"))
+          .flatMap(
+              entry -> {
+                try {
+                  final Stream.Builder<Entry<DataKey, DataResource>> builder = Stream.builder();
+                  final BiConsumer<DataKey, DataResource> consumeToStream =
+                      (k, v) -> builder.add(new SimpleImmutableEntry<>(k, v));
+                  readAttributesFile(
+                      zipFile.getInputStream(entry),
+                      FileSystems.getDefault(),
+                      consumeToStream,
+                      consumeToStream);
+                  return builder.build();
+                } catch (IOException e) {
+                  throw new DeserializationException(e);
+                }
+              })
+          .collect(toMap(Entry::getKey, Entry::getValue));
+    } catch (IOException e) {
+      throw new DeserializationException(e);
     }
   }
 
@@ -640,7 +677,11 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           Factory fqnFactory = Factory.fromDirectoryName(dirNameAndQualifiers);
 
           if (fileZipPath.endsWith(".attributes")) {
-            readAttributesFile(resourceFileStream, inPath.getFileSystem(), consumers);
+            readAttributesFile(
+                resourceFileStream,
+                inPath.getFileSystem(),
+                consumers.combiningConsumer,
+                consumers.overwritingConsumer);
           } else {
             LittleEndianDataInputStream dataInputStream =
                 new LittleEndianDataInputStream(resourceFileStream);

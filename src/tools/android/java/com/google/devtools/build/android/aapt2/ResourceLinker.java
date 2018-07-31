@@ -21,26 +21,39 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
+import com.google.devtools.build.android.AndroidCompiledDataDeserializer;
+import com.google.devtools.build.android.AndroidDataWritingVisitor;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceOutputs;
+import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.Profiler;
 import com.google.devtools.build.android.aapt2.ResourceCompiler.CompiledType;
+import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
+import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.ziputils.DirectoryEntry;
 import com.google.devtools.build.android.ziputils.ZipIn;
 import com.google.devtools.build.android.ziputils.ZipOut;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Function;
@@ -263,7 +276,7 @@ public class ResourceLinker {
   }
 
   private List<String> compiledResourcesToPaths(
-      CompiledResources compiled, Predicate<DirectoryEntry> shouldKeep) throws IOException {
+      CompiledResources compiled, Predicate<DirectoryEntry> shouldKeep) {
     // Using sequential streams to maintain the overlay order for aapt2.
     return Stream.concat(include.stream(), Stream.of(compiled))
         .sequential()
@@ -323,9 +336,61 @@ public class ResourceLinker {
     R apply(T arg) throws Throwable;
   }
 
+  private String replaceExtension(String fileName, String newExtension) {
+    int lastIndex = fileName.lastIndexOf('.');
+    if (lastIndex == -1) {
+      return fileName.concat(".").concat(newExtension);
+    }
+    return fileName.substring(0, lastIndex).concat(".").concat(newExtension);
+  }
+
+  public Path convertToBinary(Path protoApk) {
+    try {
+      profiler.startTask("convertToBinary");
+      final Path outPath =
+          workingDirectory.resolveSibling(
+              replaceExtension(protoApk.getFileName().toString(), "apk"));
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .add("convert")
+              .add("-o", outPath)
+              .add("--output-format", "binary")
+              .add(protoApk.toString())
+              .execute("Converting " + protoApk));
+      profiler.recordEndOf("convertToBinary");
+      return outPath;
+    } catch (IOException e) {
+      throw new LinkError(e);
+    }
+  }
+
+  public Path optimizeApk(Path apk) {
+    try {
+      profiler.startTask("optimizeApk");
+      final Path outPath =
+          workingDirectory.resolveSibling(
+              replaceExtension(apk.getFileName().toString(), ".optimized.apk"));
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(VariantType.DEFAULT)
+              .add("optimize")
+              .when(Objects.equals(logger.getLevel(), Level.FINE))
+              .thenAdd("-v")
+              .add("-o", outPath)
+              .add(apk.toString())
+              .execute(String.format("Optimizing %s", apk)));
+      return outPath;
+    } catch (IOException e) {
+      throw new LinkError(e);
+    } finally {
+      profiler.recordEndOf("optimizeApk");
+    }
+  }
+
   public PackagedResources link(CompiledResources compiled) {
     try {
-      final Path outPath = workingDirectory.resolve("bin.apk");
+      final Path outPath = workingDirectory.resolve("bin.pb");
       Path rTxt = workingDirectory.resolve("R.txt");
       Path proguardConfig = workingDirectory.resolve("proguard.cfg");
       Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
@@ -342,8 +407,7 @@ public class ResourceLinker {
               .thenAdd("--no-version-vectors")
               // Turn off namespaced resources
               .add("--no-static-lib-packages")
-              .when(outputAsProto)
-              .thenAdd("--proto-format")
+              .add("--proto-format")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")
               .add("--manifest", compiled.getManifest())
@@ -387,13 +451,35 @@ public class ResourceLinker {
               .thenAdd("--proguard-conditional-keep-rules")
               .add("-o", outPath)
               .execute(String.format("Linking %s", compiled.getManifest())));
-      profiler.recordEndOf("fulllink");
-      profiler.startTask("optimize");
+      profiler.recordEndOf("fulllink").startTask("attributes");
+
+      final Path attributes = workingDirectory.resolve("tool.attributes");
+      // extract tool annotations from the compile resources.
+      final ToolProtoWriter writer = new ToolProtoWriter(attributes);
+      Stream.concat(include.stream(), Stream.of(compiled))
+          .parallel()
+          .map(AndroidCompiledDataDeserializer.create()::readAttributes)
+          .map(Map::entrySet)
+          .flatMap(Set::stream)
+          .distinct()
+          .forEach(e -> e.getValue().writeResource((FullyQualifiedName) e.getKey(), writer));
+      writer.flush();
+
+      profiler.recordEndOf("attributes");
       if (densities.size() < 2) {
         return PackagedResources.of(
-            outPath, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds);
+            outputAsProto ? outPath : convertToBinary(outPath), // convert proto to apk
+            outPath,
+            rTxt,
+            proguardConfig,
+            mainDexProguard,
+            javaSourceDirectory,
+            resourceIds,
+            attributes);
       }
-      final Path optimized = workingDirectory.resolve("optimized.apk");
+
+      profiler.startTask("optimize");
+      final Path optimized = workingDirectory.resolve("optimized.pb");
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
@@ -406,8 +492,16 @@ public class ResourceLinker {
               .add(outPath.toString())
               .execute(String.format("Optimizing %s", compiled.getManifest())));
       profiler.recordEndOf("optimize");
+
       return PackagedResources.of(
-          optimized, rTxt, proguardConfig, mainDexProguard, javaSourceDirectory, resourceIds);
+          outputAsProto ? optimized : convertToBinary(optimized),
+          optimized,
+          rTxt,
+          proguardConfig,
+          mainDexProguard,
+          javaSourceDirectory,
+          resourceIds,
+          attributes);
     } catch (IOException e) {
       throw new LinkError(e);
     }
@@ -441,5 +535,64 @@ public class ResourceLinker {
         .add("resourceConfigs", resourceConfigs)
         .add("baseApk", baseApk)
         .toString();
+  }
+
+  private static class ToolProtoWriter implements AndroidDataWritingVisitor {
+
+    final Multimap<String, String> attributes = HashMultimap.create();
+    private final Path out;
+
+    ToolProtoWriter(Path out) {
+      this.out = out;
+    }
+
+    @Override
+    public void flush() throws IOException {
+      ToolAttributes.Builder builder = ToolAttributes.newBuilder();
+      for (Entry<String, Collection<String>> entry : attributes.asMap().entrySet()) {
+        builder.putAttributes(
+            entry.getKey(),
+            ToolAttributes.ToolAttributeValues.newBuilder().addAllValues(entry.getValue()).build());
+      }
+      try (OutputStream stream = new BufferedOutputStream(Files.newOutputStream(out))) {
+        builder.build().writeTo(stream);
+      }
+    }
+
+    @Override
+    public Path copyManifest(Path sourceManifest) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void copyAsset(Path source, String relativeDestinationPath) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void copyResource(Path source, String relativeDestinationPath) throws MergingException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void defineAttribute(FullyQualifiedName fqn, String name, String value) {
+      attributes.put(removeNamespace(name), value);
+    }
+
+    private String removeNamespace(String qualifiedName) {
+      int indexColon = qualifiedName.indexOf(':');
+      if (indexColon == -1) {
+        return qualifiedName;
+      }
+      return qualifiedName.substring(indexColon);
+    }
+
+    @Override
+    public void defineNamespacesFor(FullyQualifiedName fqn, Namespaces namespaces) {}
+
+    @Override
+    public ValueResourceDefinitionMetadata define(FullyQualifiedName fqn) {
+      throw new UnsupportedOperationException();
+    }
   }
 }
