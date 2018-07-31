@@ -66,7 +66,13 @@ android/ @ahumesky @jin
 /src/main/java/com/google/devtools/build/lib/unix/ @philwo
 /src/main/java/com/google/devtools/build/lib/vfs/ @philwo
 /src/main/java/com/google/devtools/build/lib/worker/ @philwo
+/src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @mhhlopko
+/src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
 # Skylark
 
 /src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @dkelmer @dslomov @laurentlb @vladmos
+
+/tools/coverage/ @iirina
+/tools/test/ @iirina
