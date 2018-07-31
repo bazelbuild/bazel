@@ -437,9 +437,14 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     additionalInputs = findUsedHeaders(actionExecutionContext);
+    if (!shouldScanIncludes) {
+      return additionalInputs;
+    }
+
     if (!shouldScanDotdFiles()) {
       additionalInputs = filterDiscoveredHeaders(actionExecutionContext, additionalInputs);
     }
+
     if (!shouldPruneModules) {
       return additionalInputs;
     }
