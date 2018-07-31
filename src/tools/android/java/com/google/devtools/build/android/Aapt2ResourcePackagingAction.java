@@ -60,7 +60,7 @@ public class Aapt2ResourcePackagingAction {
   private static Options options;
 
   public static void main(String[] args) throws Exception {
-    Profiler profiler = LoggingProfiler.createAndStart("setup");
+    InMemoryProfiler profiler = InMemoryProfiler.createAndStart("setup");
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
     optionsParser.enableParamsFileSupport(

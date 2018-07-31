@@ -77,8 +77,7 @@ public class ResourcesZip {
    * @param apkWithAssets The apk containing assets.
    * @param resourceIds Optional path to a file containing the resource ids.
    */
-  public static ResourcesZip fromApk(
-      Path resourcesRoot, Path apkWithAssets, @Nullable Path resourceIds) {
+  public static ResourcesZip fromApk(Path resourcesRoot, Path apkWithAssets, Path resourceIds) {
     return new ResourcesZip(
         resourcesRoot,
         /* assetsRoot= */ null,
@@ -157,13 +156,12 @@ public class ResourcesZip {
         Files.walkFileTree(assetsRoot, visitor);
         visitor.writeEntries();
       }
-
-      if (ids != null) {
-        try {
+      try {
+        if (ids != null) {
           zip.addEntry("ids.txt", Files.readAllBytes(ids), ZipEntry.STORED);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
         }
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
     }
   }
