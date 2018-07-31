@@ -1920,9 +1920,10 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
 
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(
-            JavaCompilationArgsProvider.class, getConfiguredTarget("//java/test:custom"));
+    JavaInfo info = getConfiguredTarget("//java/test:custom").get(JavaInfo.PROVIDER);
+    assertThat(prettyArtifactNames(info.getTransitiveSourceJars()))
+        .containsExactly("java/test/amazing-src.jar", "java/test/libdep-src.jar");
+    JavaCompilationArgsProvider provider = info.getProvider(JavaCompilationArgsProvider.class);
     assertThat(prettyArtifactNames(provider.getDirectCompileTimeJars()))
         .containsExactly("java/test/amazing-hjar.jar", "java/test/libdep-hjar.jar");
     assertThat(prettyArtifactNames(provider.getCompileTimeJavaDependencyArtifacts()))
