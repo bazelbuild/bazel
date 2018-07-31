@@ -1968,4 +1968,49 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     OutputJar output = outputs.getOutputJars().get(0);
     assertThat(output.getManifestProto().getFilename()).isEqualTo("libb.jar_manifest_proto");
   }
+
+  @Test
+  public void testCompileWithNeverlinkDeps() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "foo/java_custom_library.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib%s.jar' % ctx.label.name)",
+        "  deps = [deps[JavaInfo] for deps in ctx.attr.deps]",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    deps = deps,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct(",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'deps': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java'],",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':java_custom_library.bzl', 'java_custom_library')",
+        "java_library(name = 'b', srcs = ['java/B.java'], neverlink = 1)",
+        "java_custom_library(name = 'a', srcs = ['java/A.java'], deps = [':b'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:a");
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    assertThat(artifactFilesNames(info.getTransitiveRuntimeJars().toCollection(Artifact.class)))
+        .containsExactly("liba.jar");
+    assertThat(artifactFilesNames(info.getTransitiveSourceJars())).containsExactly("liba-src.jar");
+    assertThat(artifactFilesNames(info.getTransitiveCompileTimeJars().toCollection(Artifact.class)))
+        .containsExactly("liba-hjar.jar", "libb-hjar.jar");
+  }
 }

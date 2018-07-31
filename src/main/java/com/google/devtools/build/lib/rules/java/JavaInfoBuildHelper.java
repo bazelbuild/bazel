@@ -528,10 +528,13 @@ final class JavaInfoBuildHelper {
 
     NestedSetBuilder<Artifact> transitiveSourceJars =
         NestedSetBuilder.<Artifact>stableOrder().addAll(outputSourceJars);
-    for (JavaSourceJarsProvider sourceJarsProvider :
-        JavaInfo.getProvidersFromListOfJavaProviders(JavaSourceJarsProvider.class, deps)) {
-      transitiveSourceJars.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
-    }
+    deps.stream()
+        .filter(javaInfo -> !javaInfo.isNeverlink())
+        .filter(javaInfo -> javaInfo.getProvider(JavaSourceJarsProvider.class) != null)
+        .map(javaInfo -> javaInfo.getProvider(JavaSourceJarsProvider.class))
+        .forEach(
+            sourceJarsP ->
+                transitiveSourceJars.addTransitive(sourceJarsP.getTransitiveSourceJars()));
 
     return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
