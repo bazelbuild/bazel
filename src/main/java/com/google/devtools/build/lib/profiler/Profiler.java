@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -1033,54 +1034,48 @@ public final class Profiler {
     public void run() {
       try {
         boolean receivedPoisonPill = false;
-        try (OutputStreamWriter out =
-            // The buffer size of 262144 is chosen at random. We might also want to use compression
-            // in the future.
-            new OutputStreamWriter(
-                new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8)) {
-          out.append("[\n");
-          boolean first = true;
+        try (JsonWriter writer =
+            new JsonWriter(
+                // The buffer size of 262144 is chosen at random.
+                new OutputStreamWriter(
+                    new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
+          writer.beginArray();
           TaskData data;
           while ((data = queue.take()) != POISON_PILL) {
             if (data.duration == 0 && data.type != ProfilerTask.THREAD_NAME) {
               continue;
             }
-            if (first) {
-              first = false;
-            } else {
-              out.append(",\n");
-            }
             if (data.type == ProfilerTask.THREAD_NAME) {
-              out.append("{");
-              out.append("\"name\":\"thread_name\",");
-              out.append("\"ph\":\"M\",");
-              out.append("\"pid\":1,");
-              out.append("\"tid\":").append(Long.toString(data.threadId)).append(",");
-              out.append("\"args\": {\"name\":\"").append(data.description).append("\"}");
-              out.append("}");
+              writer.beginObject();
+              writer.name("name").value("thread_name");
+              writer.name("ph").value("M");
+              writer.name("pid").value(1);
+              writer.name("tid").value(data.threadId);
+              writer.name("args");
+
+              writer.beginObject();
+              writer.name("name").value(data.description);
+              writer.endObject();
+
+              writer.endObject();
               continue;
             }
-            char eventType = data.duration == 0 ? 'i' : 'X';
-            out.append("{");
-            out.append("\"cat\":\"").append(data.type.description).append("\",");
-            out.append("\"name\":\"").append(data.description).append("\",");
-            out.append("\"ph\":\"").append(eventType).append("\",");
-            out.append("\"ts\":")
-                .append(
-                    Long.toString(
-                        TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos)))
-                .append(",");
+            String eventType = data.duration == 0 ? "i" : "X";
+            writer.beginObject();
+            writer.name("cat").value(data.type.description);
+            writer.name("name").value(data.description);
+            writer.name("ph").value(eventType);
+            writer.name("ts")
+                .value(TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos));
             if (data.duration != 0) {
-              out.append("\"dur\":")
-                  .append(Long.toString(TimeUnit.NANOSECONDS.toMicros(data.duration)))
-                  .append(",");
+              writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
             }
-            out.append("\"pid\":1,");
-            out.append("\"tid\":").append(Long.toString(data.threadId));
-            out.append("}");
+            writer.name("pid").value(1);
+            writer.name("tid").value(data.threadId);
+            writer.endObject();
           }
           receivedPoisonPill = true;
-          out.append("\n]");
+          writer.endArray();
         } catch (IOException e) {
           this.savedException = e;
           if (!receivedPoisonPill) {
