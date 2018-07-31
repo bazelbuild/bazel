@@ -139,6 +139,17 @@ http_file(
     ],
 )
 
+# The source-code for this OpenJDK can be found at:
+# https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
+http_file(
+    name = "openjdk_linux_aarch64",
+    sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
+    urls = [
+        # When you update this, also update the link to the source-code above.
+        "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
+    ],
+)
+
 http_archive(
   name = "bazel_toolchains",
   urls = [
