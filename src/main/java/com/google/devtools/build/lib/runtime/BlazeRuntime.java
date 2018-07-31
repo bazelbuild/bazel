@@ -263,7 +263,7 @@ public final class BlazeRuntime {
   }
 
   /** Configure profiling based on the provided options. */
-  void initProfiler(
+  Path initProfiler(
       EventHandler eventHandler,
       BlazeWorkspace workspace,
       CommonCommandOptions options,
@@ -273,13 +273,13 @@ public final class BlazeRuntime {
     boolean recordFullProfilerData = false;
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
+    Path profilePath = null;
     try {
       if (options.enableTracer) {
         format =
             options.enableTracerCompression
                 ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                 : Profiler.Format.JSON_TRACE_FILE_FORMAT;
-        Path profilePath;
         if (options.profilePath != null) {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
         } else {
@@ -294,7 +294,7 @@ public final class BlazeRuntime {
         eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
       } else if (options.profilePath != null) {
-        Path profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+        profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
         recordFullProfilerData = options.recordFullProfilerData;
         out = profilePath.getOutputStream();
@@ -335,6 +335,7 @@ public final class BlazeRuntime {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
+    return profilePath;
   }
 
   public FileSystem getFileSystem() {
