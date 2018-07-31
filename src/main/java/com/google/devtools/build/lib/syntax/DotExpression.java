@@ -127,14 +127,14 @@ public final class DotExpression extends Expression {
       Optional<MethodDescriptor> method =
           Streams.stream(methods).filter(MethodDescriptor::isStructField).findFirst();
       if (method.isPresent() && method.get().isStructField()) {
-        return FuncallExpression.callMethod(
-            method.get(),
-            name,
-            objValue,
-            FuncallExpression.extraInterpreterArgs(method.get(), /* ast = */ null, loc, env)
-                .toArray(),
-            loc,
-            env);
+        return method
+            .get()
+            .call(
+                objValue,
+                FuncallExpression.extraInterpreterArgs(method.get(), /* ast = */ null, loc, env)
+                    .toArray(),
+                loc,
+                env);
       }
     }
 

@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
 /**
@@ -77,10 +81,6 @@ public final class MethodDescriptor {
     this.useSkylarkSemantics = useSkylarkSemantics;
   }
 
-  Method getMethod() {
-    return method;
-  }
-
   /** Returns the SkylarkCallable annotation corresponding to this method. */
   public SkylarkCallable getAnnotation() {
     return annotation;
@@ -88,6 +88,9 @@ public final class MethodDescriptor {
 
   /** @return Skylark method descriptor for provided Java method and signature annotation. */
   public static MethodDescriptor of(Method method, SkylarkCallable annotation) {
+    // This happens when the interface is public but the implementation classes
+    // have reduced visibility.
+    method.setAccessible(true);
     return new MethodDescriptor(
         method,
         annotation,
@@ -108,6 +111,64 @@ public final class MethodDescriptor {
         annotation.useSkylarkSemantics());
   }
 
+  /** @return The result of this method invocation on the {@code obj} as a target. */
+  public Object invoke(Object obj) throws InvocationTargetException, IllegalAccessException {
+    return method.invoke(obj);
+  }
+
+  /**
+   * Invokes this method using {@code obj} as a target and {@code args} as arguments.
+   *
+   * <p>{@code obj} may be {@code null} in case this method is static. Methods with {@code void}
+   * return type return {@code None} following Python convention.
+   */
+  public Object call(Object obj, Object[] args, Location loc, Environment env)
+      throws EvalException, InterruptedException {
+    try {
+      if (obj == null && !Modifier.isStatic(method.getModifiers())) {
+        throw new EvalException(loc, "method '" + getName() + "' is not static");
+      }
+      Object result = method.invoke(obj, args);
+      if (method.getReturnType().equals(Void.TYPE)) {
+        return Runtime.NONE;
+      }
+      if (result == null) {
+        if (isAllowReturnNones()) {
+          return Runtime.NONE;
+        } else {
+          throw new EvalException(
+              loc,
+              "method invocation returned None, please file a bug report: "
+                  + getName()
+                  + Printer.printAbbreviatedList(ImmutableList.copyOf(args), "(", ", ", ")", null));
+        }
+      }
+      // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
+      result = SkylarkType.convertToSkylark(result, method, env);
+      if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
+        throw new EvalException(
+            loc,
+            Printer.format(
+                "method '%s' returns an object of invalid type %r", getName(), result.getClass()));
+      }
+      return result;
+    } catch (IllegalAccessException e) {
+      // TODO(bazel-team): Print a nice error message. Maybe the method exists
+      // and an argument is missing or has the wrong type.
+      throw new EvalException(loc, "Method invocation failed: " + e);
+    } catch (InvocationTargetException e) {
+      if (e.getCause() instanceof FuncallExpression.FuncallException) {
+        throw new EvalException(loc, e.getCause().getMessage());
+      } else if (e.getCause() != null) {
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        throw new EvalException.EvalExceptionWithJavaCause(loc, e.getCause());
+      } else {
+        // This is unlikely to happen
+        throw new EvalException(loc, "method invocation failed: " + e);
+      }
+    }
+  }
+
   /** @see SkylarkCallable#name() */
   public String getName() {
     return name;
@@ -124,7 +185,7 @@ public final class MethodDescriptor {
   }
 
   /** @see SkylarkCallable#useSkylarkSemantics() */
-  public boolean isUseSkylarkSemantics() {
+  boolean isUseSkylarkSemantics() {
     return useSkylarkSemantics;
   }
 
@@ -153,12 +214,12 @@ public final class MethodDescriptor {
   }
 
   /** @return {@code true} if this method accepts extra arguments ({@code *args}) */
-  public boolean isAcceptsExtraArgs() {
+  boolean isAcceptsExtraArgs() {
     return !getExtraPositionals().getName().isEmpty();
   }
 
   /** @see SkylarkCallable#extraKeywords() */
-  public boolean isAcceptsExtraKwargs() {
+  boolean isAcceptsExtraKwargs() {
     return !getExtraKeywords().getName().isEmpty();
   }
 
