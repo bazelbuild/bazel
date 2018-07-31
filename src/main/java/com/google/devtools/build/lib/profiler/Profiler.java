@@ -1046,7 +1046,9 @@ public final class Profiler {
               continue;
             }
             if (data.type == ProfilerTask.THREAD_NAME) {
+              writer.setIndent("  ");
               writer.beginObject();
+              writer.setIndent("");
               writer.name("name").value("thread_name");
               writer.name("ph").value("M");
               writer.name("pid").value(1);
@@ -1061,7 +1063,9 @@ public final class Profiler {
               continue;
             }
             String eventType = data.duration == 0 ? "i" : "X";
+            writer.setIndent("  ");
             writer.beginObject();
+            writer.setIndent("");
             writer.name("cat").value(data.type.description);
             writer.name("name").value(data.description);
             writer.name("ph").value(eventType);
@@ -1075,6 +1079,7 @@ public final class Profiler {
             writer.endObject();
           }
           receivedPoisonPill = true;
+          writer.setIndent("  ");
           writer.endArray();
         } catch (IOException e) {
           this.savedException = e;
