@@ -2014,4 +2014,53 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(artifactFilesNames(info.getTransitiveCompileTimeJars().toCollection(Artifact.class)))
         .containsExactly("liba-hjar.jar", "libb-hjar.jar");
   }
+
+  @Test
+  public void testCompileOutputJarNotInRuntimePathWithoutAnySourcesDefined() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "foo/java_custom_library.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib%s.jar' % ctx.label.name)",
+        "  exports = [export[JavaInfo] for export in ctx.attr.exports]",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    exports = exports,",
+        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    host_javabase = ctx.attr._host_javabase",
+        "  )",
+        "  return struct(",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'exports': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "    '_host_javabase': attr.label(",
+        "        default = Label('" + HOST_JAVA_RUNTIME_LABEL + "'))",
+        "  },",
+        "  fragments = ['java'],",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':java_custom_library.bzl', 'java_custom_library')",
+        "java_library(name = 'b', srcs = ['java/B.java'])",
+        "java_custom_library(name = 'c', srcs = [], exports = [':b'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:c");
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    assertThat(artifactFilesNames(info.getTransitiveRuntimeJars().toCollection(Artifact.class)))
+        .containsExactly("libb.jar");
+    assertThat(artifactFilesNames(info.getTransitiveCompileTimeJars().toCollection(Artifact.class)))
+        .containsExactly("libb-hjar.jar");
+    JavaRuleOutputJarsProvider outputs = info.getOutputJars();
+    assertThat(outputs.getOutputJars()).hasSize(1);
+    OutputJar output = outputs.getOutputJars().get(0);
+    assertThat(output.getClassJar().getFilename()).isEqualTo("libc.jar");
+    assertThat(output.getIJar()).isNull();
+  }
 }

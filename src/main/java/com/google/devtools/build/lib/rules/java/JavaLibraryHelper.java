@@ -267,8 +267,11 @@ public final class JavaLibraryHelper {
         /* instrumentationMetadataJar= */ null,
         nativeHeaderOutput);
 
-    artifactsBuilder.addRuntimeJar(output);
-    Artifact iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+    Artifact iJar = null;
+    if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
+      artifactsBuilder.addRuntimeJar(output);
+      iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+    }
 
     if (createOutputSourceJar) {
       helper.createSourceJarAction(
