@@ -67,7 +67,7 @@ android/ @ahumesky @jin
 /src/main/java/com/google/devtools/build/lib/vfs/ @philwo
 /src/main/java/com/google/devtools/build/lib/worker/ @philwo
 /src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @mhlopko
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @mhhlopko
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
 # Skylark
