@@ -381,6 +381,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .addProvider(JavaSourceInfoProvider.class,
+                    JavaSourceInfoProvider.fromJavaTargetAttributes(
+                            helper.getAttributes(), javaSemantics))
             .build();
 
     return builder
@@ -401,9 +404,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(javaCommon.getRuntimeClasspath()))
         .addProvider(JavaPrimaryClassProvider.class, new JavaPrimaryClassProvider(testClass))
-        .addProvider(
-            JavaSourceInfoProvider.class,
-            JavaSourceInfoProvider.fromJavaTargetAttributes(helper.getAttributes(), javaSemantics))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
   }

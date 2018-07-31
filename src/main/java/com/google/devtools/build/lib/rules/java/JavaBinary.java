@@ -443,6 +443,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaInfo javaInfo = javaInfoBuilder
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceInfoProvider.class,
+                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .build();
 
     return builder
@@ -460,9 +462,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .add(
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
-        .add(
-            JavaSourceInfoProvider.class,
-            JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
   }

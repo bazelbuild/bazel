@@ -1048,6 +1048,7 @@ java_library(
         "rules/java/JavaSemantics.java",
         "rules/java/JavaSkylarkApiProvider.java",
         "rules/java/JavaSkylarkCommon.java",
+        "rules/java/JavaSourceInfoProvider.java",
         "rules/java/JavaSourceJarsProvider.java",
         "rules/java/JavaStrictCompilationArgsProvider.java",
         "rules/java/JavaTargetAttributes.java",

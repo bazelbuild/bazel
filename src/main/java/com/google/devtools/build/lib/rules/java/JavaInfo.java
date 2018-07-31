@@ -77,7 +77,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
-          JavaStrictCompilationArgsProvider.class);
+          JavaStrictCompilationArgsProvider.class,
+          JavaSourceInfoProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
