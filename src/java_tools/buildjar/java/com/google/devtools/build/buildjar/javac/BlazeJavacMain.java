@@ -146,7 +146,10 @@ public class BlazeJavacMain {
           "compiler.note.unchecked.recompile",
           "compiler.note.unchecked.filename.additional",
           "compiler.note.unchecked.plural.additional",
-          "compiler.warn.sun.proprietary");
+          "compiler.warn.sun.proprietary",
+          // avoid warning spam when enabling processor options for an entire tree, only a subset
+          // of which actually runs the processor
+          "compiler.warn.proc.unmatched.processor.options");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
       ImmutableList<FormattedDiagnostic> diagnostics) {
