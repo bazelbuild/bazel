@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -83,10 +84,11 @@ public class SkylarkSemanticsConsistencyTest {
    */
   @Test
   public void serializationRoundTrip() throws Exception {
-    SkylarkSemanticsCodec codec = new SkylarkSemanticsCodec();
+    DynamicCodec codec = new DynamicCodec(buildRandomSemantics(new Random(2)).getClass());
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       SkylarkSemantics semantics = buildRandomSemantics(new Random(i));
       SkylarkSemantics deserialized =
+          (SkylarkSemantics)
           TestUtils.fromBytes(
               new DeserializationContext(ImmutableMap.of()),
               codec,
