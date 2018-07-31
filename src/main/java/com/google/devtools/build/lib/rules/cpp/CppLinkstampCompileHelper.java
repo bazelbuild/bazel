@@ -75,6 +75,7 @@ public class CppLinkstampCompileHelper {
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
             .setCppConfiguration(cppConfiguration)
+            .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     return builder.buildOrThrowIllegalStateException();

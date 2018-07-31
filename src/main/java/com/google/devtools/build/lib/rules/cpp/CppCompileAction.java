@@ -131,9 +131,6 @@ public class CppCompileAction extends AbstractAction
    */
   private final UUID actionClassId;
 
-  /** Whether this action needs to discover inputs. */
-  private final boolean discoversInputs;
-
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
 
   /**
@@ -275,7 +272,6 @@ public class CppCompileAction extends AbstractAction
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
     this.includeProcessing = cppSemantics.getIncludeProcessing();
     this.actionClassId = actionClassId;
-    this.discoversInputs = shouldScanIncludes || cppSemantics.needsDotdInputPruning();
     this.builtInIncludeDirectories =
         ImmutableList.copyOf(cppProvider.getBuiltInIncludeDirectories());
     this.additionalInputs = null;
@@ -346,7 +342,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public boolean discoversInputs() {
-    return discoversInputs;
+    return shouldScanIncludes || needsDotdInputPruning;
   }
 
   @Override
