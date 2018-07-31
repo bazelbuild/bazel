@@ -27,7 +27,7 @@ function test_basic_aquery() {
   cat > "$pkg/BUILD" <<'EOF'
 genrule(
     name = "foo",
-    srcs = ["in.txt"],
+    srcs = [":bar"],
     outs = ["foo_out.txt"],
     cmd = "cat $(SRCS) > $(OUTS)",
 )
@@ -42,10 +42,12 @@ EOF
   echo "hello aquery" > "$pkg/in.txt"
 
   bazel aquery "//$pkg:foo" > output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:foo"
-  assert_not_contains "//$pkg:bar"
+  assert_contains "//$pkg:foo" output
+  assert_not_contains "//$pkg:bar" output
 
   bazel aquery "deps(//$pkg:foo)" > output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:foo"
-  assert_contains "//$pkg:bar"
+  assert_contains "//$pkg:foo" output
+  assert_contains "//$pkg:bar" output
 }
+
+run_suite "${PRODUCT_NAME} action graph query tests"
