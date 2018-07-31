@@ -26,11 +26,23 @@ source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
 function test_build_bazel_using_docker()  {
     unzip -qo "${DISTFILE}" &> $TEST_log || fail "Could not unzip Bazel's distfile"
 
+    # The first set of flags comes from the instructions on the bazel-toolchains
+    # website: https://releases.bazel.build/bazel-toolchains.html
+    #
+    # The second set of flags enables the Docker sandbox in Bazel.
     bazel build \
-      --host_javabase=@bazel_toolchains//configs/debian8_clang/0.3.0:jdk8 \
-      --javabase=@bazel_toolchains//configs/debian8_clang/0.3.0:jdk8 \
-      --crosstool_top=@bazel_toolchains//configs/debian8_clang/0.3.0/bazel_0.10.0:toolchain \
-      --experimental_remote_platform_override='properties:{ name:"container-image" value:"docker://gcr.io/cloud-marketplace/google/rbe-debian8@sha256:1ede2a929b44d629ec5abe86eee6d7ffea1d5a4d247489a8867d46cfde3e38bd" }' \
+      --host_javabase=@bazel_toolchains//configs/ubuntu16_04_clang/1.0:jdk8 \
+      --javabase=@bazel_toolchains//configs/ubuntu16_04_clang/1.0:jdk8 \
+      --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8 \
+      --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8 \
+      --crosstool_top=@bazel_toolchains//configs/ubuntu16_04_clang/1.0/bazel_0.15.0/default:toolchain \
+      --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 \
+      --extra_toolchains=@bazel_toolchains//configs/ubuntu16_04_clang/1.0/bazel_0.15.0/cpp:cc-toolchain-clang-x86_64-default \
+      --extra_execution_platforms=@bazel_toolchains//configs/ubuntu16_04_clang/1.0:rbe_ubuntu1604 \
+      --host_platform=@bazel_toolchains//configs/ubuntu16_04_clang/1.0:rbe_ubuntu1604 \
+      --platforms=@bazel_toolchains//configs/ubuntu16_04_clang/1.0:rbe_ubuntu1604 \
+      \
+      --experimental_enable_docker_sandbox --experimental_docker_verbose \
       --spawn_strategy=docker --strategy=Javac=docker --genrule_strategy=sandboxed \
       --define=EXECUTOR=remote \
       //src:bazel \
