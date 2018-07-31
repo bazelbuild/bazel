@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -232,13 +233,17 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "    name = 'linux-files',",
         "    srcs = ['linux-marker', 'everything'])");
 
-    scratch.file("a/BUILD",
-        "genrule(name='a', srcs=[], outs=['ao'], tools=['//tools/defaults:crosstool'], cmd='x')");
+    scratch.file(
+        "a/BUILD",
+        "genrule(name='a', srcs=[], outs=['ao'],",
+        "  tools=['" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:crosstool'],",
+        "  cmd='x'",
+        ")");
     invalidatePackages();
-    useConfiguration("--crosstool_top=//cc:suite", "--cpu=k8");
+    useConfiguration(
+        "--crosstool_top=//cc:suite", "--cpu=ppc", "--host_cpu=ppc", "--compiler=compiler");
     Action action = getGeneratingAction(getConfiguredTarget("//a:a"), "a/ao");
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAllOf("k8-marker", "darwin-marker", "windows-marker", "linux-marker");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("linux-marker");
 
     NestedSet<Artifact> suiteFiles = getFilesToBuild(getConfiguredTarget("//cc:suite"));
     assertThat(ActionsTestUtil.baseArtifactNames(suiteFiles))
