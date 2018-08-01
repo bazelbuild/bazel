@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -315,12 +319,17 @@ public final class BusyBoxActionBuilder {
    * @param mnemonic a mnemonic used to indicate the tool being run, for example, "BusyBoxTool".
    */
   public void buildAndRegister(String message, String mnemonic) {
+//    if (!mnemonic.equalsIgnoreCase("AndroidResourceMerger")
+//        && !mnemonic.equalsIgnoreCase("AndroidCompiledResourceMerger") && !mnemonic.equalsIgnoreCase("ManifestMerger")) {
+//        mnemonic = "ResourceProcessorBusyBox";
+//    }
     dataContext.registerAction(
         spawnActionBuilder
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
-            .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
+            .addCommandLine(commandLine.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
             .setExecutable(dataContext.getBusybox())
             .setProgressMessage("%s for %s", message, dataContext.getLabel())
             .setMnemonic(mnemonic));
