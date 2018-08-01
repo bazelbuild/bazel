@@ -87,6 +87,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       new ActionExecutedEvent(
           new ActionsTestUtil.NullAction(),
           /* exception= */ null,
+          ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
           /* stdout= */ null,
           /* stderr= */ null,
           ErrorTiming.NO_ERROR);
@@ -912,6 +913,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new ActionExecutedEvent(
             new ActionsTestUtil.NullAction(),
             new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
+            ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
             ErrorTiming.BEFORE_EXECUTION);
@@ -941,6 +943,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new ActionExecutedEvent(
             new ActionsTestUtil.NullAction(),
             new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
+            ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
             ErrorTiming.BEFORE_EXECUTION);
