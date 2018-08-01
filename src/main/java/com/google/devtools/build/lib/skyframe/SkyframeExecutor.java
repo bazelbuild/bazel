@@ -160,7 +160,6 @@ import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1090,7 +1089,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
-      Map<String, String> actionEnv,
       TimestampGranularityMonitor tsgm) {
     Preconditions.checkNotNull(pkgLocator);
     Preconditions.checkNotNull(tsgm);
@@ -1098,7 +1096,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     this.tsgm.set(tsgm);
     setCommandId(commandId);
-    PrecomputedValue.ACTION_ENV.set(injectable(), actionEnv);
     this.clientEnv.set(clientEnv);
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);
@@ -2116,14 +2113,30 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       TimestampGranularityMonitor tsgm,
       OptionsClassProvider options)
       throws InterruptedException, AbruptExitException {
-    // ImmutableMap does not support null values, so use a LinkedHashMap instead.
-    LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
-    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
-    if (opt != null) {
-      for (Map.Entry<String, String> v : opt.actionEnvironment) {
-        actionEnvironment.put(v.getKey(), v.getValue());
-      }
-    }
+    getActionEnvFromOptions(options);
+    syncPackageLoading(
+        eventHandler,
+        packageCacheOptions,
+        skylarkSemanticsOptions,
+        outputBase,
+        workingDirectory,
+        defaultsPackageContents,
+        commandId,
+        clientEnv,
+        tsgm);
+  }
+
+  private void syncPackageLoading(
+      ExtendedEventHandler eventHandler,
+      PackageCacheOptions packageCacheOptions,
+      SkylarkSemanticsOptions skylarkSemanticsOptions,
+      Path outputBase,
+      Path workingDirectory,
+      String defaultsPackageContents,
+      UUID commandId,
+      Map<String, String> clientEnv,
+      TimestampGranularityMonitor tsgm)
+      throws AbruptExitException {
     preparePackageLoading(
         createPackageLocator(
             eventHandler,
@@ -2136,12 +2149,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         defaultsPackageContents,
         commandId,
         clientEnv,
-        Collections.unmodifiableMap(actionEnvironment),
         tsgm);
     setDeletedPackages(packageCacheOptions.getDeletedPackages());
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
     invalidateTransientErrors();
+  }
+
+  private void getActionEnvFromOptions(OptionsClassProvider options) {
+    // ImmutableMap does not support null values, so use a LinkedHashMap instead.
+    LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
+    BuildConfiguration.Options opt = options.getOptions(BuildConfiguration.Options.class);
+    if (opt != null) {
+      for (Map.Entry<String, String> v : opt.actionEnvironment) {
+        actionEnvironment.put(v.getKey(), v.getValue());
+      }
+    }
+    setActionEnv(actionEnvironment);
+  }
+
+  @VisibleForTesting
+  public void setActionEnv(Map<String, String> actionEnv) {
+    PrecomputedValue.ACTION_ENV.set(injectable(), actionEnv);
   }
 
   protected PathPackageLocator createPackageLocator(

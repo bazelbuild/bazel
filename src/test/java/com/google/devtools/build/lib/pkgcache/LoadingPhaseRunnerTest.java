@@ -778,8 +778,8 @@ public class LoadingPhaseRunnerTest {
           analysisMock.getDefaultsPackageContent(),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(clock));
+      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
       this.options = Options.getDefaults(LoadingOptions.class);
     }
 
