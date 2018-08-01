@@ -195,7 +195,7 @@ public class CppCompileAction extends AbstractAction
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
    * @param cppSemantics C++ compilation semantics
-   * @param cppProvider - CcToolchainProvider with configuration-dependent information.
+   * @param builtInIncludeDirectories - list of toolchain-defined builtin include directories.
    */
   CppCompileAction(
       ActionOwner owner,
@@ -225,7 +225,7 @@ public class CppCompileAction extends AbstractAction
       ImmutableMap<String, String> executionInfo,
       String actionName,
       CppSemantics cppSemantics,
-      CcToolchainProvider cppProvider,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable Artifact grepIncludes) {
     super(
         owner,
@@ -270,8 +270,7 @@ public class CppCompileAction extends AbstractAction
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
     this.includeProcessing = cppSemantics.getIncludeProcessing();
     this.actionClassId = actionClassId;
-    this.builtInIncludeDirectories =
-        ImmutableList.copyOf(cppProvider.getBuiltInIncludeDirectories());
+    this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.additionalInputs = null;
     this.usedModules = null;
     this.topLevelModules = null;
@@ -984,6 +983,7 @@ public class CppCompileAction extends AbstractAction
      * warning have changed, otherwise we might miss some errors.
      */
     fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
+    fp.addPaths(builtInIncludeDirectories);
   }
 
   @Override
