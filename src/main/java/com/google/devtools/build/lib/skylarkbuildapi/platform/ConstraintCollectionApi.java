@@ -14,44 +14,44 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import javax.annotation.Nullable;
 
 /** Info object representing data about a specific platform. */
 @SkylarkModule(
-    name = "PlatformInfo",
-    doc =
-        "Provides access to data about a specific platform. "
-            + PlatformInfoApi.EXPERIMENTAL_WARNING,
+    name = "ConstraintCollection",
+    doc = "Provides access to data about a collection of ConstraintValueInfo providers.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface PlatformInfoApi<
+public interface ConstraintCollectionApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
         ConstraintValueInfoT extends ConstraintValueInfoApi>
-    extends StructApi {
-
-  static final String EXPERIMENTAL_WARNING =
-      "<i>Note: This API is experimental and may change at any time.</i>";
+    extends SkylarkIndexable, SkylarkValue {
 
   @SkylarkCallable(
-      name = "label",
-      doc = "The label of the target that created this platform.",
+      name = "constraintSettings",
+      doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true)
-  Label label();
+  ImmutableSet<ConstraintSettingInfoT> constraintSettings();
 
   @SkylarkCallable(
-      name = "constraints",
-      doc =
-          "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
-              + "this platform.",
-      structField = true)
-  ConstraintCollectionApi<ConstraintSettingInfoT, ConstraintValueInfoT> constraints();
-
-  @SkylarkCallable(
-      name = "remoteExecutionProperties",
-      doc = "Properties that are available for the use of remote execution.",
-      structField = true)
-  String remoteExecutionProperties();
+      name = "get",
+      doc = "Returns the specific ConstraintValueInfo for a specific ConstraintSettingInfo.",
+      allowReturnNones = true,
+      parameters = {
+        @Param(
+            name = "constraint",
+            type = ConstraintSettingInfoApi.class,
+            defaultValue = "None",
+            noneable = true,
+            named = true,
+            doc = "The constraint setting to fetch the value for.")
+      })
+  @Nullable
+  ConstraintValueInfoT get(ConstraintSettingInfoT constraint);
 }

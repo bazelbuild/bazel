@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,18 +30,19 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @Immutable
 @AutoCodec
-public class PlatformInfo extends NativeInfo implements PlatformInfoApi<ConstraintValueInfo> {
+public class PlatformInfo extends NativeInfo
+    implements PlatformInfoApi<ConstraintSettingInfo, ConstraintValueInfo> {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
 
@@ -51,14 +51,14 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
       new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME) {};
 
   private final Label label;
-  private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
+  private final ConstraintCollection constraints;
   private final String remoteExecutionProperties;
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
   PlatformInfo(
       Label label,
-      ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints,
+      ConstraintCollection constraints,
       String remoteExecutionProperties,
       Location location) {
     super(
@@ -70,36 +70,14 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
     this.remoteExecutionProperties = remoteExecutionProperties;
   }
 
-  static PlatformInfo create(
-      Label label,
-      ImmutableList<ConstraintValueInfo> constraints,
-      String remoteExecutionProperties,
-      Location location) {
-    ImmutableMap.Builder<ConstraintSettingInfo, ConstraintValueInfo> constraintsBuilder =
-        new ImmutableMap.Builder<>();
-    for (ConstraintValueInfo constraint : constraints) {
-      constraintsBuilder.put(constraint.constraint(), constraint);
-    }
-    return new PlatformInfo(label, constraintsBuilder.build(), remoteExecutionProperties, location);
-  }
-
   @Override
   public Label label() {
     return label;
   }
 
   @Override
-  public Iterable<ConstraintValueInfo> constraints() {
-    return constraints.values().asList();
-  }
-
-  /**
-   * Returns the {@link ConstraintValueInfo} for the given {@link ConstraintSettingInfo}, or {@code
-   * null} if none exists.
-   */
-  @Nullable
-  public ConstraintValueInfo getConstraint(ConstraintSettingInfo constraint) {
-    return constraints.get(constraint);
+  public ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> constraints() {
+    return constraints;
   }
 
   @Override
@@ -116,8 +94,7 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
     fp.addNullableString(remoteExecutionProperties);
-    fp.addInt(constraints.size());
-    constraints.values().forEach(constraintValue -> constraintValue.addTo(fp));
+    constraints.addToFingerprint(fp);
   }
 
   /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
@@ -198,7 +175,8 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
      */
     public PlatformInfo build() throws DuplicateConstraintException {
       ImmutableList<ConstraintValueInfo> validatedConstraints = validateConstraints(constraints);
-      return PlatformInfo.create(label, validatedConstraints, remoteExecutionProperties, location);
+      ConstraintCollection platformConstraints = new ConstraintCollection(validatedConstraints);
+      return new PlatformInfo(label, platformConstraints, remoteExecutionProperties, location);
     }
 
     public static ImmutableList<ConstraintValueInfo> validateConstraints(
@@ -235,7 +213,7 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
     private final ImmutableListMultimap<ConstraintSettingInfo, ConstraintValueInfo>
         duplicateConstraints;
 
-    public DuplicateConstraintException(
+    DuplicateConstraintException(
         ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
       super(formatError(duplicateConstraints));
       this.duplicateConstraints = ImmutableListMultimap.copyOf(duplicateConstraints);
@@ -250,11 +228,8 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
         ListMultimap<ConstraintSettingInfo, ConstraintValueInfo> duplicateConstraints) {
       return String.format(
           "Duplicate constraint_values detected: %s",
-          duplicateConstraints
-              .asMap()
-              .entrySet()
-              .stream()
-              .map(e -> describeSingleDuplicateConstraintSetting(e))
+          duplicateConstraints.asMap().entrySet().stream()
+              .map(DuplicateConstraintException::describeSingleDuplicateConstraintSetting)
               .collect(joining(", ")));
     }
 
