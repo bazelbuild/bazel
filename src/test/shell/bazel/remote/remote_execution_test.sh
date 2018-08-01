@@ -576,6 +576,71 @@ EOF
     expect_log "/l is a symbolic link"
 }
 
+function test_treeartifact_in_runfiles() {
+     mkdir -p a
+    cat > a/BUILD <<'EOF'
+load(":output_directory.bzl", "gen_output_dir", "gen_output_dir_test")
+
+gen_output_dir(
+    name = "skylark_output_dir",
+    outdir = "dir",
+)
+
+gen_output_dir_test(
+    name = "skylark_output_dir_test",
+    dir = ":skylark_output_dir",
+)
+EOF
+     cat > a/output_directory.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+  output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+  ctx.actions.run_shell(
+      outputs = [output_dir],
+      inputs = [],
+      command = """
+        mkdir -p $1/sub; \
+        echo "foo" > $1/foo; \
+        echo "bar" > $1/sub/bar
+      """,
+      arguments = [output_dir.path],
+  )
+  return [
+      DefaultInfo(files=depset(direct=[output_dir]),
+                  runfiles = ctx.runfiles(files = [output_dir]))
+  ]
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+def _gen_output_dir_test_impl(ctx):
+    test = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(test, "echo hello world")
+    myrunfiles = ctx.runfiles(files=ctx.attr.dir.default_runfiles.files.to_list())
+    return [
+        DefaultInfo(
+            executable = test,
+            runfiles = myrunfiles,
+        ),
+    ]
+gen_output_dir_test = rule(
+    implementation = _gen_output_dir_test_impl,
+    test = True,
+    attrs = {
+        "dir":  attr.label(mandatory = True),
+    },
+)
+EOF
+
+     bazel test \
+           --spawn_strategy=remote \
+           --remote_executor=localhost:${worker_port} \
+           //a:skylark_output_dir_test \
+           || fail "Failed to run //a:skylark_output_dir_test with remote execution"
+}
+
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 

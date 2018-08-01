@@ -23,17 +23,24 @@ import java.util.Collection;
 /** Value for aggregating artifacts, which must be expanded to a set of other artifacts. */
 class AggregatingArtifactValue implements SkyValue {
   private final FileArtifactValue selfData;
-  private final ImmutableList<Pair<Artifact, FileArtifactValue>> inputs;
+  private final ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs;
+  private final ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs;
 
-  AggregatingArtifactValue(ImmutableList<Pair<Artifact, FileArtifactValue>> inputs,
+  AggregatingArtifactValue(ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs,
+      ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs,
       FileArtifactValue selfData) {
-    this.inputs = inputs;
+    this.fileInputs = fileInputs;
+    this.directoryInputs = directoryInputs;
     this.selfData = selfData;
   }
 
   /** Returns the artifacts that this artifact expands to, together with their data. */
-  Collection<Pair<Artifact, FileArtifactValue>> getInputs() {
-    return inputs;
+  Collection<Pair<Artifact, FileArtifactValue>> getFileInputs() {
+    return fileInputs;
+  }
+
+  Collection<Pair<Artifact, TreeArtifactValue>> getDirectoryInputs() {
+    return directoryInputs;
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
