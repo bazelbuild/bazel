@@ -37,6 +37,16 @@ android/ @ahumesky @jin
 
 /site @spomorski
 
+# C++
+
+/src/tools/cpp @mhlopko @scentini @oquenchil
+
+/src/test/shell/bazel/cpp @mhlopko @scentini @oquenchil
+
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @mhlopko @scentini @oquenchil
+
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @mhlopko @scentini @oquenchil
+
 # Java
 
 /src/java_tools/buildjar/ @bazelbuild/java-team
@@ -67,7 +77,6 @@ android/ @ahumesky @jin
 /src/main/java/com/google/devtools/build/lib/vfs/ @philwo
 /src/main/java/com/google/devtools/build/lib/worker/ @philwo
 /src/main/java/com/google/devtools/build/lib/rules/java/ @iirina
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @mhhlopko
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
 
 # Skylark
