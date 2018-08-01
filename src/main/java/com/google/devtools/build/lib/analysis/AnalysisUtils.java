@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -222,6 +223,7 @@ public final class AnalysisUtils {
             nodes, asDeps, eventHandler, skyframeExecutor));
   }
 
+  @VisibleForTesting
   public static Multimap<BuildConfiguration, Dependency> targetsToDeps(
       LinkedHashSet<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
     Multimap<BuildConfiguration, Dependency> asDeps =

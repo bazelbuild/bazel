@@ -24,6 +24,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -34,9 +35,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
@@ -67,7 +70,6 @@ import javax.annotation.Nullable;
  *   <li>If {@link BuildConfiguration#trimConfigurations} is true, trimming configuration fragments
  *       to only those needed by the destination target and its transitive dependencies
  *   <li>Getting the destination configuration from Skyframe
- *   </li>
  *   </ol>
  *
  * <p>For the work of determining the transition requests themselves, see
@@ -524,36 +526,46 @@ public final class ConfigurationResolver {
   /**
    * This method allows resolution of configurations outside of a skyfunction call.
    *
-   * <p>If {@link BuildConfiguration.Options#trimConfigurations()} is true, transforms a collection
-   * of <Target, Configuration> pairs by trimming each target's configuration to only the fragments
-   * the target and its transitive dependencies need.
+   * Unlike {@link #resolveConfigurations}, this doesn't expect the current context to be evaluating
+   * dependencies of a parent target. So this method is also suitable for top-level targets.
    *
-   * <p>Else returns configurations that unconditionally include all fragments.
+   * Resolution consists of two steps:
+   *
+   * <ol>
+   *   <li>Apply the per-target transitions specified in {@code asDeps}. This can be used, e.g., to
+   *       apply {@link RuleTransitionFactory}s over global top-level configurations.
+   *   <li>(Optionally) trim configurations to only the fragments the targets actually need. This
+   *       is triggered by {@link BuildConfiguration.Options#trimConfigurations}.
+   * </ol>
    *
    * <p>Preserves the original input order (but merges duplicate nodes that might occur due to
-   * top-level configuration transitions) . Uses original (untrimmed) configurations for targets
-   * that can't be evaluated (e.g. due to loading phase errors).
+   * top-level configuration transitions) . Uses original (untrimmed, pre-transition) configurations
+   * for targets that can't be evaluated (e.g. due to loading phase errors).
    *
    * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle {@link
    * ConfiguredTarget}s should have exactly as much information in their configurations as they need
    * to evaluate and no more (e.g. there's no need for Android settings in a C++ configured target).
    *
-   * @param inputs the original targets and configurations
-   * @param asDeps the inputs repackaged as dependencies
-   * @param eventHandler
-   * @param skyframeExecutor
+   * @param defaultContext the original targets and starting configurations before applying rule
+   *   transitions and trimming. When actual configurations can't be evaluated, these values are
+   *   returned as defaults. See TODO below.
+   * @param targetsToEvaluate the inputs repackaged as dependencies, including rule-specific
+   *   transitions
+   * @param eventHandler the error event handler
+   * @param skyframeExecutor the executor used for resolving Skyframe keys
    */
-  // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
-  // never make it through analysis (and especially not seed ConfiguredTargetValues)
+  // TODO(bazel-team): error out early for targets that fail - failed configuration evaluations
+  //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
+  // TODO(gregce): merge this more with resolveConfigurations? One crucial difference is
+  //   resolveConfigurations can null-return on missing deps since it executes inside Skyfunctions.
   public static LinkedHashSet<TargetAndConfiguration> getConfigurationsFromExecutor(
-      Iterable<TargetAndConfiguration> inputs,
-      Multimap<BuildConfiguration, Dependency> asDeps,
+      Iterable<TargetAndConfiguration> defaultContext,
+      Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor)
-      throws InterruptedException {
+      SkyframeExecutor skyframeExecutor) {
 
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
-    for (TargetAndConfiguration targetAndConfig : inputs) {
+    for (TargetAndConfiguration targetAndConfig : defaultContext) {
       labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
     }
 
@@ -561,24 +573,25 @@ public final class ConfigurationResolver {
     // could be successfully Skyframe-evaluated.
     Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
         new LinkedHashMap<>();
-    if (!asDeps.isEmpty()) {
-      for (BuildConfiguration fromConfig : asDeps.keySet()) {
-        Multimap<Dependency, BuildConfiguration> trimmedTargets =
+    if (!targetsToEvaluate.isEmpty()) {
+      for (BuildConfiguration fromConfig : targetsToEvaluate.keySet()) {
+        Multimap<Dependency, BuildConfiguration> evaluatedTargets =
             skyframeExecutor.getConfigurations(
-                eventHandler, fromConfig.getOptions(), asDeps.get(fromConfig));
-        for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entries()) {
-          Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
+                eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
+        for (Map.Entry<Dependency, BuildConfiguration> evaluatedTarget :
+            evaluatedTargets.entries()) {
+          Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(
               new TargetAndConfiguration(target, fromConfig),
-              new TargetAndConfiguration(target, trimmedTarget.getValue()));
+              new TargetAndConfiguration(target, evaluatedTarget.getValue()));
         }
       }
     }
 
     LinkedHashSet<TargetAndConfiguration> result = new LinkedHashSet<>();
-    for (TargetAndConfiguration originalInput : inputs) {
+    for (TargetAndConfiguration originalInput : defaultContext) {
       if (successfullyEvaluatedTargets.containsKey(originalInput)) {
-        // The configuration was successfully trimmed.
+        // The configuration was successfully evaluated.
         result.add(successfullyEvaluatedTargets.get(originalInput));
       } else {
         // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
