@@ -97,7 +97,7 @@ void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
     fprintf(stderr, "Interfaces w/ default methods: %zu\n",
             has_default_methods_.size());
   }
-  for (auto needed : needed_deps_) {
+  for (const auto &needed : needed_deps_) {
     if (verbose_) {
       fprintf(stderr, "Looking for %s\n", needed.first.c_str());
     }
@@ -113,7 +113,7 @@ void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
     }
   }
 
-  for (auto missing : missing_interfaces_) {
+  for (const auto &missing : missing_interfaces_) {
     if (verbose_) {
       fprintf(stderr, "Checking %s\n", missing.first.c_str());
     }
