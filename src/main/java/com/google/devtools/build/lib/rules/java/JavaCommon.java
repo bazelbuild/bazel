@@ -720,7 +720,13 @@ public class JavaCommon {
             activePlugins,
             getDependencies(JavaGenJarsProvider.class));
 
-    builder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
+    NestedSetBuilder<Artifact> genJarsBuilder = NestedSetBuilder.stableOrder();
+    genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
+    genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
+
+    builder
+        .addProvider(JavaGenJarsProvider.class, genJarsProvider)
+        .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());
 
     javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
   }
