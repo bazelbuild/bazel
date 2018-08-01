@@ -28,7 +28,8 @@ namespace blaze_util {
 BazelLogHandler::BazelLogHandler()
     : output_stream_set_(false),
       logging_deactivated_(false),
-      buffer_stream_(new std::stringstream()),
+      user_buffer_stream_(new std::stringstream()),
+      debug_buffer_stream_(new std::stringstream()),
       output_stream_(),
       owned_output_stream_() {}
 
@@ -38,8 +39,8 @@ BazelLogHandler::~BazelLogHandler() {
     // otherwise, flush the stream.
     if (output_stream_ != nullptr) {
       output_stream_->flush();
-    } else if (buffer_stream_ != nullptr) {
-      std::cerr << buffer_stream_->rdbuf();
+    } else if (debug_buffer_stream_ != nullptr) {
+      std::cerr << debug_buffer_stream_->rdbuf();
     } else {
       std::cerr << "Illegal state - neither a logfile nor a logbuffer "
                 << "existed at program end." << std::endl;
@@ -47,41 +48,66 @@ BazelLogHandler::~BazelLogHandler() {
   }
 }
 
+// Messages intended for the user (level USER, along with WARNINGs an ERRORs)
+// should be printed even if debug level logging was not requested.
+void PrintUserLevelMessageToStream(std::ostream* stream, LogLevel level,
+                                   const std::string& message) {
+  if (level == LOGLEVEL_USER) {
+    (*stream) << message << std::endl;
+  } else if (level > LOGLEVEL_USER) {
+    (*stream) << LogLevelName(level) << ": " << message << std::endl;
+  }
+  // If level < USER, this is an INFO message. It's useful for debugging but
+  // should not be printed to the user unless the user has asked for debugging
+  // output. We ignore it here.
+}
+
+// For debug logs, print all logs, both debug logging and USER logs and above,
+// along with information about where the log message came from.
+void PrintDebugLevelMessageToStream(std::ostream* stream,
+                                    const std::string& filename, int line,
+                                    LogLevel level,
+                                    const std::string& message) {
+  (*stream) << "[bazel " << LogLevelName(level) << " " << filename << ":"
+            << line << "] " << message << std::endl;
+}
+
 void BazelLogHandler::HandleMessage(LogLevel level, const std::string& filename,
                                     int line, const std::string& message,
                                     int exit_code) {
-  // Select the appropriate stream to log to.
-  std::ostream* log_stream;
   if (logging_deactivated_) {
     // If the output stream was explicitly deactivated, never print INFO
     // messages, but messages of level USER and above should always be printed,
     // as should warnings and errors. Omit the debug-level file and line number
     // information, though.
-    if (level == LOGLEVEL_USER) {
-      std::cerr << message << std::endl;
-    } else if (level > LOGLEVEL_USER) {
-      std::cerr << LogLevelName(level) << ": " << message << std::endl;
-    }
-
+    PrintUserLevelMessageToStream(&std::cerr, level, message);
     if (level == LOGLEVEL_FATAL) {
       std::exit(exit_code);
     }
     return;
-  } else if (output_stream_ == nullptr) {
-    log_stream = buffer_stream_.get();
-  } else {
-    log_stream = output_stream_;
   }
-  (*log_stream) << "[bazel " << LogLevelName(level) << " " << filename << ":"
-                << line << "] " << message << std::endl;
+  if (output_stream_ == nullptr) {
+    // If we haven't decided whether messages should be logged to debug levels
+    // or not, buffer each version. This is redundant for USER levels and above,
+    // but is to make sure we can provide the right output to the user once we
+    // know that they do or do not want debug level information.
+    PrintUserLevelMessageToStream(user_buffer_stream_.get(), level, message);
+    PrintDebugLevelMessageToStream(debug_buffer_stream_.get(), filename, line,
+                                   level, message);
+  } else {
+    // If an output stream has been specifically set, it is for the full suite
+    // of log messages. We don't print the user messages separately here as they
+    // are included.
+    PrintDebugLevelMessageToStream(output_stream_, filename, line, level,
+                                   message);
+  }
 
   // If we have a fatal message, exit with the provided error code.
   if (level == LOGLEVEL_FATAL) {
     if (owned_output_stream_ != nullptr) {
       // If this is is not being printed to stderr but to a custom stream,
       // also print the error message to stderr.
-      std::cerr << "[bazel " << LogLevelName(level) << " " << filename << ":"
-                << line << "] " << message << std::endl;
+      PrintUserLevelMessageToStream(&std::cerr, level, message);
     }
     std::exit(exit_code);
   }
@@ -94,7 +120,11 @@ void BazelLogHandler::SetOutputStreamToStderr() {
   BAZEL_CHECK(!output_stream_set_) << "Tried to set log output a second time";
   output_stream_set_ = true;
 
-  FlushBufferToNewStreamAndSet(&std::cerr);
+  FlushBufferToNewStreamAndSet(debug_buffer_stream_.get(), &std::cerr);
+  debug_buffer_stream_ = nullptr;
+  // The user asked for debug level information, which includes the user
+  // messages. We can discard the separate buffer at this point.
+  user_buffer_stream_ = nullptr;
 }
 
 void BazelLogHandler::SetOutputStream(
@@ -107,29 +137,39 @@ void BazelLogHandler::SetOutputStream(
 
   if (new_output_stream == nullptr) {
     logging_deactivated_ = true;
-    buffer_stream_ = nullptr;
+    // Flush the buffered user-level messages to stderr - these are messages
+    // that are meant for the user even when debug logging is not set.
+    FlushBufferToNewStreamAndSet(user_buffer_stream_.get(), &std::cerr);
+
+    user_buffer_stream_ = nullptr;
+    // We discard the debug level logs, the user level ones were enough to
+    // inform the user and debug logging was not requested.
+    debug_buffer_stream_ = nullptr;
     return;
   }
   owned_output_stream_ = std::move(new_output_stream);
-  FlushBufferToNewStreamAndSet(owned_output_stream_.get());
+  if (owned_output_stream_->fail()) {
+    // If opening the stream failed, continue buffering and have the logs
+    // dump to stderr at shutdown.
+    BAZEL_LOG(ERROR) << "Provided stream failed.";
+    return;
+  }
+  FlushBufferToNewStreamAndSet(debug_buffer_stream_.get(),
+                               owned_output_stream_.get());
+  debug_buffer_stream_ = nullptr;
+  // The user asked for debug level information, which includes the user
+  // messages. We can discard the separate buffer at this point.
+  user_buffer_stream_ = nullptr;
 }
 
 void BazelLogHandler::FlushBufferToNewStreamAndSet(
-    std::ostream* new_output_stream) {
+    std::stringstream* buffer, std::ostream* new_output_stream) {
   // Flush the buffer to the new stream, and print new log lines to it.
   output_stream_ = new_output_stream;
-  if (output_stream_->fail()) {
-    // If opening the stream failed, continue buffering and have the logs
-    // dump to stderr at shutdown.
-    output_stream_ = nullptr;
-    BAZEL_LOG(ERROR) << "Provided stream failed.";
-  } else {
     // Transfer the contents of the buffer to the new stream, then remove the
     // buffer.
-    (*output_stream_) << buffer_stream_->str();
-    buffer_stream_ = nullptr;
-    output_stream_->flush();
-  }
+  (*output_stream_) << buffer->str();
+  output_stream_->flush();
 }
 
 }  // namespace blaze_util

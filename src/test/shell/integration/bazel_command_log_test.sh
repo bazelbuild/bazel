@@ -31,6 +31,8 @@ function strip_lines_from_bazel_cc() {
   # file). In newer versions of gnu sed there is a -i option to edit in place.
 
   # different sandbox_root result in different startup options
+  # TODO(b/5568649): Remove host_javabase from tests and stop removing the
+  # warning from the stderr output.
   clean_log=$(\
     sed \
     -e "/^INFO: Reading 'startup' options from /d" \
@@ -41,6 +43,7 @@ function strip_lines_from_bazel_cc() {
     -e '/^Killed non-responsive server process/d' \
     -e '/server needs to be killed, because the startup options are different/d' \
     -e '/^WARNING: Waiting for server process to terminate (waited 5 seconds, waiting at most 60)$/d' \
+    -e '/^WARNING: The startup option --host_javabase is deprecated; prefer --server_javabase.$/d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log
