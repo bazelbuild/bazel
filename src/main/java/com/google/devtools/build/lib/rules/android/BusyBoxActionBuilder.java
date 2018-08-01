@@ -319,6 +319,10 @@ public final class BusyBoxActionBuilder {
    * @param mnemonic a mnemonic used to indicate the tool being run, for example, "BusyBoxTool".
    */
   public void buildAndRegister(String message, String mnemonic) {
+//    if (!mnemonic.equalsIgnoreCase("AndroidResourceMerger")
+//        && !mnemonic.equalsIgnoreCase("AndroidCompiledResourceMerger") && !mnemonic.equalsIgnoreCase("ManifestMerger")) {
+//        mnemonic = "ResourceProcessorBusyBox";
+//    }
     dataContext.registerAction(
         spawnActionBuilder
             .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
