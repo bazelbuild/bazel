@@ -2010,7 +2010,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     assertThat(artifactFilesNames(info.getTransitiveRuntimeJars().toCollection(Artifact.class)))
         .containsExactly("liba.jar");
-    assertThat(artifactFilesNames(info.getTransitiveSourceJars())).containsExactly("liba-src.jar");
+    assertThat(artifactFilesNames(info.getTransitiveSourceJars()))
+        .containsExactly("liba-src.jar", "libb-src.jar");
     assertThat(artifactFilesNames(info.getTransitiveCompileTimeJars().toCollection(Artifact.class)))
         .containsExactly("liba-hjar.jar", "libb-hjar.jar");
   }
