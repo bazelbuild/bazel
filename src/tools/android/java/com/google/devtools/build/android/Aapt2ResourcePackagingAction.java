@@ -60,7 +60,7 @@ public class Aapt2ResourcePackagingAction {
   private static Options options;
 
   public static void main(String[] args) throws Exception {
-    InMemoryProfiler profiler = InMemoryProfiler.createAndStart("setup");
+    Profiler profiler = InMemoryProfiler.createAndStart("setup");
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
     optionsParser.enableParamsFileSupport(
@@ -192,11 +192,9 @@ public class Aapt2ResourcePackagingAction {
               .copyRTxtTo(options.rOutput);
       profiler.recordEndOf("link");
       if (options.resourcesOutput != null) {
-        // The compiled resources and the merged resources should be the same.
-        // TODO(corysmith): Decompile or otherwise provide the exact resources in the apk.
         packagedResources
             .packageWith(mergedAndroidData.getResourceDir())
-            .writeTo(options.resourcesOutput, false);
+            .writeTo(options.resourcesOutput, /* compress= */ false);
       }
     }
   }

@@ -200,8 +200,6 @@ public class ResourceLinker {
   /**
    * Statically links the {@link CompiledResources} with the dependencies to produce a {@link
    * StaticLibrary}.
-   *
-   * @throws IOException
    */
   public StaticLibrary linkStatically(CompiledResources compiled) {
     try {
