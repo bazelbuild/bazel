@@ -62,8 +62,9 @@
 //    precedence over installed versions.)
 //
 // 2. Not older (at least as high version number).
-static void AddEntryToDictionary(XcodeVersionEntry *entry,
-                                 NSMutableDictionary *dict) {
+static void AddEntryToDictionary(
+  XcodeVersionEntry *entry,
+  NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
   BOOL inApplications =
       [entry.url.path rangeOfString:@"/Applications/"].location != NSNotFound;
   NSString *entryVersion = entry.version;
@@ -113,10 +114,12 @@ static NSString *ExpandVersion(NSString *version) {
 //
 // If there is a problem locating the Xcodes, prints one or more error messages
 // and returns nil.
-static NSMutableDictionary *FindXcodes() __attribute((ns_returns_retained)) {
+static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
+  __attribute((ns_returns_retained)) {
   CFStringRef bundleID = CFSTR("com.apple.dt.Xcode");
 
-  NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
+  NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict =
+      [[NSMutableDictionary alloc] init];
   CFErrorRef cfError;
   NSArray *array = CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(
       bundleID, &cfError));
@@ -171,17 +174,22 @@ static NSMutableDictionary *FindXcodes() __attribute((ns_returns_retained)) {
 
 // Prints out the located Xcodes as a set of lines where each line contains the
 // list of versions for a given Xcode and its location on disk.
-static void DumpAsVersionsOnly(FILE *output, NSMutableDictionary *dict) {
-  NSSet *distinctValues = [[NSSet alloc] initWithArray:[dict allValues]];
-  NSMutableDictionary *aliasDict = [[NSMutableDictionary alloc] init];
-  for (XcodeVersionEntry *value in distinctValues) {
-    NSString *versionString = value.version;
+static void DumpAsVersionsOnly(
+  FILE *output,
+  NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
+  NSSet<XcodeVersionEntry *> *distinctValues =
+      [[NSSet alloc] initWithArray:dict.allValues];
+  NSMutableDictionary<NSString *, NSMutableSet <NSString *> *> *aliasDict =
+      [[NSMutableDictionary alloc] init];
+  [dict enumerateKeysAndObjectsUsingBlock:^(NSString *aliasVersion,
+                                            XcodeVersionEntry *entry,
+                                            BOOL *stop) {
+    NSString *versionString = entry.version;
     if (aliasDict[versionString] == nil) {
       aliasDict[versionString] = [[NSMutableSet alloc] init];
     }
-    [aliasDict[versionString]
-        addObjectsFromArray:[dict allKeysForObject:value]];
-  }
+    [aliasDict[versionString] addObject:aliasVersion];
+  }];
   for (NSString *version in aliasDict) {
     XcodeVersionEntry *entry = dict[version];
     fprintf(output, "%s:%s:%s\n",
@@ -193,7 +201,9 @@ static void DumpAsVersionsOnly(FILE *output, NSMutableDictionary *dict) {
 }
 
 // Prints out the located Xcodes in JSON format.
-static void DumpAsJson(FILE *output, NSMutableDictionary *dict) {
+static void DumpAsJson(
+  FILE *output,
+  NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict) {
   fprintf(output, "{\n");
   for (NSString *version in dict) {
     XcodeVersionEntry *entry = dict[version];
@@ -250,7 +260,7 @@ int main(int argc, const char * argv[]) {
       return 1;
     }
 
-    NSMutableDictionary *dict = FindXcodes();
+    NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict = FindXcodes();
     if (dict == nil) {
       return 1;
     }
