@@ -841,6 +841,26 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     )
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
+    @Option(
+        name = "experimental_persistent_android_resource_processor",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Enable the experimental persistent Android resource processor.",
+        expansion = {
+          "--strategy=AaptPackage=worker",
+          "--strategy=AndroidResourceParser=worker",
+          "--strategy=AndroidResourceValidator=worker",
+          "--strategy=AndroidResourceCompiler=worker",
+          "--strategy=RClassGenerator=worker",
+          "--strategy=AndroidResourceLink=worker",
+          "--strategy=AndroidAapt2=worker",
+          "--strategy=AndroidAssetMerger=worker",
+          "--strategy=AndroidResourceMerger=worker",
+          "--strategy=AndroidCompiledResourceMerger=worker",
+        })
+    public Void persistentResourceProcessor;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -865,6 +885,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+      host.persistentResourceProcessor = persistentResourceProcessor;
       return host;
     }
   }
@@ -923,6 +944,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
+  private final boolean persistentResourceProcessor;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -964,6 +986,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
+    this.persistentResourceProcessor = options.persistentResourceProcessor;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(

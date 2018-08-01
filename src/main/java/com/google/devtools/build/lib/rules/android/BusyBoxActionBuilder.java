@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -44,7 +47,8 @@ public final class BusyBoxActionBuilder {
   // platform-safe character (= comma).
   private static final ParamFileInfo FORCED_PARAM_FILE_INFO =
       ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED)
-          .setUseAlways(OS.getCurrent() == OS.WINDOWS)
+          // .setUseAlways(OS.getCurrent() == OS.WINDOWS) // TODO use parameter file only when using workers or on Windows
+          .setUseAlways(true) // TODO use parameter file only when using workers or on Windows
           .build();
 
   private final AndroidDataContext dataContext;
@@ -317,9 +321,12 @@ public final class BusyBoxActionBuilder {
   public void buildAndRegister(String message, String mnemonic) {
     dataContext.registerAction(
         spawnActionBuilder
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
+            // .addCommandLine(
+            //     commandLine.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
             .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
             .setExecutable(dataContext.getBusybox())
             .setProgressMessage("%s for %s", message, dataContext.getLabel())
