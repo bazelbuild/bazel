@@ -268,7 +268,8 @@ public class CppCompileAction extends AbstractAction
     this.executionInfo = executionInfo;
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
-    this.needsDotdInputPruning = cppSemantics.needsDotdInputPruning();
+    this.needsDotdInputPruning =
+        cppSemantics.needsDotdInputPruning() && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
     this.includeProcessing = cppSemantics.getIncludeProcessing();
     this.actionClassId = actionClassId;
@@ -436,6 +437,8 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    Preconditions.checkArgument(!sourceFile.isFileType(CppFileTypes.CPP_MODULE));
+
     additionalInputs = findUsedHeaders(actionExecutionContext);
     if (!shouldScanIncludes) {
       return additionalInputs;
@@ -446,15 +449,6 @@ public class CppCompileAction extends AbstractAction
     }
 
     if (!shouldPruneModules) {
-      return additionalInputs;
-    }
-
-    if (sourceFile.isFileType(CppFileTypes.CPP_MODULE)) {
-      // If we are generating code from a module, the module is all we need.
-      // TODO(djasper): Do we really need the source files?
-      usedModules = ImmutableSet.of(sourceFile);
-      additionalInputs =
-          new ImmutableList.Builder<Artifact>().addAll(additionalInputs).add(sourceFile).build();
       return additionalInputs;
     }
 
