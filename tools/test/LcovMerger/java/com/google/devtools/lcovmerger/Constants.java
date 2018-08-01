@@ -15,10 +15,12 @@
 package com.google.devtools.lcovmerger;
 
 /**
- * Stores markers used by the lcov tracefile. See
- * <a href="http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php"> lcov documentation</a>
+ * Stores markers used by the lcov tracefile and gcov intermediate format file. See <a
+ * href="http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php">lcov documentation</a> and the flag
+ * {@code --intermediate-format} in <a href="https://gcc.gnu.org/onlinedocs/gcc/Invoking-Gcov.html">
+ * gcov documentation</a>.
  */
-class LcovConstants {
+class Constants {
   static final String SF_MARKER = "SF:";
   static final String FN_MARKER = "FN:";
   static final String FNDA_MARKER = "FNDA:";
@@ -32,7 +34,17 @@ class LcovConstants {
   static final String LH_MARKER = "LH:";
   static final String LF_MARKER = "LF:";
   static final String END_OF_RECORD_MARKER = "end_of_record";
-  static final String LCOV_DELIMITER = ",";
   static final String TAKEN = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
+  static final String DELIMITER = ",";
+  static final String GCOV_EXTENSION = ".gcov";
+  static final String GCOV_VERSION_MARKER = "version:";
+  static final String GCOV_CWD_MARKER = "cwd:";
+  static final String GCOV_FILE_MARKER = "file:";
+  static final String GCOV_FUNCTION_MARKER = "function:";
+  static final String GCOV_LINE_MARKER = "lcount:";
+  static final String GCOV_BRANCH_MARKER = "branch:";
+  static final String GCOV_BRANCH_NOTEXEC = "notexec";
+  static final String GCOV_BRANCH_NOTTAKEN = "taken";
+  static final String GCOV_BRANCH_TAKEN = "nottaken";
 }

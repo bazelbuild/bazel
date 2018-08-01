@@ -237,6 +237,10 @@ class SourceFileCoverage {
   }
 
   void addBranch(Integer lineNumber, BranchCoverage branch) {
+    if (this.branches.get(lineNumber) != null) {
+      this.branches.put(lineNumber, BranchCoverage.merge(this.branches.get(lineNumber), branch));
+      return;
+    }
     this.branches.put(lineNumber, branch);
   }
 
@@ -245,6 +249,10 @@ class SourceFileCoverage {
   }
 
   void addLine(Integer lineNumber, LineCoverage line) {
+    if (this.lines.get(lineNumber) != null) {
+      this.lines.put(lineNumber, LineCoverage.merge(line, this.lines.get(lineNumber)));
+      return;
+    }
     this.lines.put(lineNumber, line);
   }
 

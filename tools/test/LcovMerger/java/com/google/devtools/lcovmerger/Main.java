@@ -14,7 +14,8 @@
 
 package com.google.devtools.lcovmerger;
 
-import static com.google.devtools.lcovmerger.LcovConstants.TRACEFILE_EXTENSION;
+import static com.google.devtools.lcovmerger.Constants.GCOV_EXTENSION;
+import static com.google.devtools.lcovmerger.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -28,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,65 +53,107 @@ public class Main {
       System.exit(1);
     }
 
-    List<File> lcovTracefiles = new ArrayList<>();
-    if (flags.containsKey("coverage_dir")) {
-      logger.log(Level.SEVERE, "Retrieving tracefiles from coverage_dir.");
-      lcovTracefiles = getLcovTracefilesFromDir(flags.get("coverage_dir"));
-    } else if (flags.containsKey("reports_file")) {
-      logger.log(Level.SEVERE, "Retrieving tracefiles from reports_file.");
-      lcovTracefiles = getLcovTracefilesFromFile(flags.get("reports_file"));
-    }
-    if (lcovTracefiles.isEmpty()) {
-      logger.log(Level.SEVERE, "No lcov file found.");
+    List<File> filesInCoverageDir =
+        flags.containsKey("coverage_dir")
+            ? getCoverageFilesInDir(flags.get("coverage_dir"))
+            : Collections.emptyList();
+    Coverage coverage =
+        Coverage.merge(
+            parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
+            parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
+
+    if (coverage.isEmpty()) {
+      logger.log(Level.SEVERE, "There was no coverage found.");
       System.exit(1);
     }
-    logger.log(Level.SEVERE, "Found " + lcovTracefiles.size() + " tracefiles.");
-    Coverage coverage = new Coverage();
-    for (File tracefile : lcovTracefiles) {
-      try {
-        logger.log(Level.SEVERE, "Parsing tracefile " + tracefile.toString());
-        List<SourceFileCoverage> sourceFilesCoverage =
-            LcovParser.parse(new FileInputStream(tracefile));
-        for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
-          coverage.add(sourceFileCoverage);
-        }
-      } catch (IOException e) {
-        logger.log(Level.SEVERE, "Tracefile " + tracefile.getAbsolutePath() + " was deleted");
-        System.exit(1);
-      }
-    }
+
     int exitStatus = 0;
     String outputFile = flags.get("output_file");
     try {
-      File coverageFile = new File(outputFile);
-      LcovPrinter.print(new FileOutputStream(coverageFile), coverage);
+      LcovPrinter.print(new FileOutputStream(new File(outputFile)), coverage);
     } catch (IOException e) {
-      logger.log(Level.SEVERE,
+      logger.log(
+          Level.SEVERE,
           "Could not write to output file " + outputFile + " due to " + e.getMessage());
       exitStatus = 1;
     }
     System.exit(exitStatus);
   }
 
-  /**
-   * Returns a list of all the files with a “.dat” extension found recursively under the given
-   * directory.
-   */
-  @VisibleForTesting
-  static List<File> getLcovTracefilesFromDir(String coverageDir) {
-    List<File> datFiles = new ArrayList<>();
-    try (Stream<Path> stream = Files.walk(Paths.get(coverageDir))) {
-      datFiles = stream.filter(p -> p.toString().endsWith(TRACEFILE_EXTENSION))
-          .map(path -> path.toFile())
-          .collect(Collectors.toList());
-    } catch (IOException ex) {
-      logger.log(Level.SEVERE, "Error reading folder " + coverageDir + ": " + ex.getMessage());
+  private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
+    List<File> gcovFiles = getFilesWithExtension(filesInCoverageDir, GCOV_EXTENSION);
+    if (gcovFiles.isEmpty()) {
+      logger.log(Level.SEVERE, "No gcov info file found.");
+    } else {
+      logger.log(Level.INFO, "Found " + gcovFiles.size() + " gcov info files.");
     }
-
-    return datFiles;
+    return gcovFiles;
   }
 
-  static List<File> getLcovTracefilesFromFile(String reportsFile) {
+  private static List<File> getTracefiles(
+      Map<String, String> flags, List<File> filesInCoverageDir) {
+    List<File> lcovTracefiles = new ArrayList<>();
+    if (flags.containsKey("coverage_dir")) {
+      lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);
+    } else if (flags.containsKey("reports_file")) {
+      lcovTracefiles = getTracefilesFromFile(flags.get("reports_file"));
+    }
+    if (lcovTracefiles.isEmpty()) {
+      logger.log(Level.SEVERE, "No lcov file found.");
+    } else {
+      logger.log(Level.INFO, "Found " + lcovTracefiles.size() + " tracefiles.");
+    }
+    return lcovTracefiles;
+  }
+
+  private static Coverage parseFiles(List<File> files, Parser parser) {
+    Coverage coverage = new Coverage();
+    for (File file : files) {
+      try {
+        logger.log(Level.SEVERE, "Parsing file " + file.toString());
+        List<SourceFileCoverage> sourceFilesCoverage = parser.parse(new FileInputStream(file));
+        for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
+          coverage.add(sourceFileCoverage);
+        }
+      } catch (IOException e) {
+        logger.log(
+            Level.SEVERE,
+            "File " + file.getAbsolutePath() + " could not be parsed due to: " + e.getMessage());
+        System.exit(1);
+      }
+    }
+    return coverage;
+  }
+
+  /**
+   * Returns a list of all the files with the given extension found recursively under the given dir.
+   */
+  @VisibleForTesting
+  static List<File> getCoverageFilesInDir(String dir) {
+    List<File> files = new ArrayList<>();
+    try (Stream<Path> stream = Files.walk(Paths.get(dir))) {
+      files =
+          stream
+              .filter(
+                  p ->
+                      p.toString().endsWith(TRACEFILE_EXTENSION)
+                          || p.toString().endsWith(GCOV_EXTENSION))
+              .map(path -> path.toFile())
+              .collect(Collectors.toList());
+    } catch (IOException ex) {
+      logger.log(Level.SEVERE, "Error reading folder " + dir + ": " + ex.getMessage());
+    }
+    return files;
+  }
+
+  static List<File> getFilesWithExtension(List<File> files, String extension) {
+    return files
+        .stream()
+        .filter(file -> file.toString().endsWith(extension))
+        .collect(Collectors.toList());
+  }
+
+  static List<File> getTracefilesFromFile(String reportsFile) {
     List<File> datFiles = new ArrayList<>();
     try (FileInputStream inputStream = new FileInputStream(reportsFile)) {
       InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
