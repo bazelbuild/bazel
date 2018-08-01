@@ -184,7 +184,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
     common.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
-    common.addGenJarsProvider(javaInfoBuilder, genClassJar, genSourceJar);
+    common.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 

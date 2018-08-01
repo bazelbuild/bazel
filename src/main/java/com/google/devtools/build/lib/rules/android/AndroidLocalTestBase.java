@@ -365,7 +365,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
 
     javaCommon.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
-    javaCommon.addGenJarsProvider(javaInfoBuilder, genClassJar, genSourceJar);
+    javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     // Just confirming that there are no aliases being used here.
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);

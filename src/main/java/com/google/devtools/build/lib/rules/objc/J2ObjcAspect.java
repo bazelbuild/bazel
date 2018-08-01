@@ -308,7 +308,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
     JavaSourceInfoProvider sourceInfoProvider =
             JavaInfo.getProvider(JavaSourceInfoProvider.class, base);
-    JavaGenJarsProvider genJarProvider = JavaInfo.getProvider(JavaGenJarsProvider.class, base);
+    JavaGenJarsProvider genJarProvider = base.getProvider(JavaGenJarsProvider.class);
     ImmutableSet.Builder<Artifact> javaSourceFilesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<Artifact> javaSourceJarsBuilder = ImmutableSet.builder();
     if (sourceInfoProvider != null) {

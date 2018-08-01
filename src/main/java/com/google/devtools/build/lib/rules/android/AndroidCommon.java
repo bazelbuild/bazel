@@ -694,7 +694,7 @@ public class AndroidCommon {
     javaCommon.addTransitiveInfoProviders(
         builder, javaInfoBuilder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
 
-    javaCommon.addGenJarsProvider(javaInfoBuilder, genClassJar, genSourceJar);
+    javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
     DataBinding.maybeAddProvider(builder, ruleContext);
     JavaInfo javaInfo =
