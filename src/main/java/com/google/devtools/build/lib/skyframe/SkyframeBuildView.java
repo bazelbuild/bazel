@@ -81,6 +81,8 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -133,6 +135,9 @@ public final class SkyframeBuildView {
    * running Skyframe full, we should clear the legacy data since it is out-of-sync.
    */
   private boolean skyframeAnalysisWasDiscarded;
+
+  private ImmutableSet<SkyKey> topLevelKeys = ImmutableSet.of();
+  private boolean topLevelTargetsChanged;
 
   public SkyframeBuildView(BlazeDirectories directories,
       SkyframeExecutor skyframeExecutor, ConfiguredRuleClassProvider ruleClassProvider) {
@@ -267,7 +272,17 @@ public final class SkyframeBuildView {
     ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions;
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
-      badActions = skyframeExecutor.findArtifactConflicts();
+      setTopLevelTargetKeysForArtifactConflictChecking(values, aspectKeys);
+      badActions =
+          skyframeExecutor.findArtifactConflicts(
+              () ->
+                  // If we do not track incremental state we do not have graph edges,
+                  // so we cannot traverse the graph and find only actions in the current build.
+                  // In this case we can simply return all ActionLookupValues in the graph,
+                  // since the graph's lifetime is a single build anyway.
+                  skyframeExecutor.tracksStateForIncrementality()
+                      ? getActionLookupValuesInBuild(values, aspectKeys)
+                      : getActionLookupValuesInGraph());
     }
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
@@ -684,28 +699,34 @@ public final class SkyframeBuildView {
     anyConfiguredTargetDeleted = false;
   }
 
-  public boolean isSomeConfiguredTargetInvalidated() {
-    return anyConfiguredTargetDeleted || !dirtiedConfiguredTargetKeys.isEmpty();
+  private void setTopLevelTargetKeysForArtifactConflictChecking(
+      Collection<ConfiguredTargetKey> ctKeys, Collection<AspectValueKey> aspectKeys) {
+    ImmutableSet<SkyKey> newKeys =
+        ImmutableSet.<SkyKey>builder().addAll(ctKeys).addAll(aspectKeys).build();
+    topLevelTargetsChanged = !topLevelKeys.equals(newKeys);
+    topLevelKeys = newKeys;
   }
 
   /**
    * Called from SkyframeExecutor to see whether the graph needs to be checked for artifact
-   * conflicts. Returns true if some configured target has been evaluated since the last time the
-   * graph was checked for artifact conflicts (with that last time marked by a call to
-   * {@link #resetEvaluatedConfiguredTargetFlag()}).
+   * conflicts.
    */
-  boolean isSomeConfiguredTargetEvaluated() {
+  boolean shouldCheckArtifactConflicts() {
     Preconditions.checkState(!enableAnalysis);
-    return someConfiguredTargetEvaluated;
+    return topLevelTargetsChanged
+        || someConfiguredTargetEvaluated
+        || anyConfiguredTargetDeleted
+        || !dirtiedConfiguredTargetKeys.isEmpty();
   }
 
   /**
-   * Called from SkyframeExecutor after the graph is checked for artifact conflicts so that
-   * the next time {@link #isSomeConfiguredTargetEvaluated} is called, it will return true only if
-   * some configured target has been evaluated since the last check for artifact conflicts.
+   * Called from SkyframeExecutor after the graph is checked for artifact conflicts so that the next
+   * time {@link #shouldCheckArtifactConflicts} is called, it will return true only if some
+   * configured target has been evaluated since the last check for artifact conflicts.
    */
-  void resetEvaluatedConfiguredTargetFlag() {
+  void resetArtifactConflictState() {
     someConfiguredTargetEvaluated = false;
+    topLevelTargetsChanged = false;
   }
 
   /**
@@ -769,5 +790,49 @@ public final class SkyframeBuildView {
         evaluatedActionCount.addAndGet(((AspectValue) value).getNumActions());
       }
     }
+  }
+
+  // Finds every ActionLookupValue reachable from the top-level targets of the current build
+  private Iterable<ActionLookupValue> getActionLookupValuesInBuild(
+      Iterable<ConfiguredTargetKey> ctKeys, Iterable<AspectValueKey> aspectKeys)
+      throws InterruptedException {
+    WalkableGraph walkableGraph = SkyframeExecutorWrappingWalkableGraph.of(skyframeExecutor);
+    Set<SkyKey> seen = new HashSet<>();
+    List<ActionLookupValue> result = new ArrayList<>();
+    for (ConfiguredTargetKey key : ctKeys) {
+      findActionsRecursively(walkableGraph, key, seen, result);
+    }
+    for (AspectValueKey key : aspectKeys) {
+      findActionsRecursively(walkableGraph, key, seen, result);
+    }
+    return result;
+  }
+
+  private static void findActionsRecursively(
+      WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, List<ActionLookupValue> result)
+      throws InterruptedException {
+    if (!seen.add(key)) {
+      return;
+    }
+    SkyValue value = walkableGraph.getValue(key);
+    if (value == null) {
+      // This means the value failed to evaluate
+      return;
+    }
+    if (value instanceof ActionLookupValue) {
+      result.add((ActionLookupValue) value);
+    }
+    for (Map.Entry<SkyKey, Iterable<SkyKey>> deps :
+        walkableGraph.getDirectDeps(ImmutableList.of(key)).entrySet()) {
+      for (SkyKey dep : deps.getValue()) {
+        findActionsRecursively(walkableGraph, dep, seen, result);
+      }
+    }
+  }
+
+  // Returns every ActionLookupValue currently contained in the whole action graph
+  private Iterable<ActionLookupValue> getActionLookupValuesInGraph() {
+    return Iterables.filter(
+        skyframeExecutor.memoizingEvaluator.getDoneValues().values(), ActionLookupValue.class);
   }
 }

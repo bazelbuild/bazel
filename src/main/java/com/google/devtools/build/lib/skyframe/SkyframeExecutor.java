@@ -1243,15 +1243,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return multiCpuOptions.build();
   }
 
-  private Iterable<ActionLookupValue> getActionLookupValues() {
-    // This filter keeps subclasses of ActionLookupValue.
-    return Iterables.filter(memoizingEvaluator.getDoneValues().values(), ActionLookupValue.class);
-  }
-
   @SuppressWarnings({"unchecked", "rawtypes"})
   Map<SkyKey, ActionLookupValue> getActionLookupValueMap() {
     return (Map) Maps.filterValues(memoizingEvaluator.getDoneValues(),
         Predicates.instanceOf(ActionLookupValue.class));
+  }
+
+  /** A supplier that can throw {@link InterruptedException}. */
+  protected interface ActionLookupValueSupplier {
+    Iterable<ActionLookupValue> get() throws InterruptedException;
   }
 
   /**
@@ -1260,14 +1260,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * conflicts found will only be reported during execution.
    */
   protected ImmutableMap<ActionAnalysisMetadata, SkyframeActionExecutor.ConflictException>
-      findArtifactConflicts() throws InterruptedException {
-    if (skyframeBuildView.isSomeConfiguredTargetEvaluated()
-        || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
+      findArtifactConflicts(ActionLookupValueSupplier actionLookupValues)
+          throws InterruptedException {
+    if (skyframeBuildView.shouldCheckArtifactConflicts()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
       // some way -- either we analyzed a new target or we invalidated an old one.
       try (AutoProfiler p = AutoProfiler.logged("discovering artifact conflicts", logger)) {
-        skyframeActionExecutor.findAndStoreArtifactConflicts(getActionLookupValues());
-        skyframeBuildView.resetEvaluatedConfiguredTargetFlag();
+        skyframeActionExecutor.findAndStoreArtifactConflicts(actionLookupValues.get());
+        skyframeBuildView.resetArtifactConflictState();
         // The invalidated configured targets flag will be reset later in the evaluate() call.
       }
     }
