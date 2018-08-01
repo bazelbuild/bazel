@@ -30,8 +30,8 @@ public class EnableDefaultsPackageOptionTest extends BuildViewTestCase {
 
   @Test
   public void testEnableDefaultsPackageOptionWorks() throws Exception {
-    // do not need that as value is true by default.
-    // setPackageCacheOptions("--experimental_enable_tools_defaults_package=true");
+
+    setPackageCacheOptions("--experimental_enable_tools_defaults_package=true");
 
     ConfiguredTarget target = getConfiguredTarget("//tools/defaults:jdk");
 
