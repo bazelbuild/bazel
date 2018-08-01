@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -191,12 +190,6 @@ public abstract class AbstractAction implements Action, ActionApi {
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
-  }
-
-  @Override
-  public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
-      throws ActionExecutionException, InterruptedException {
-    return null;
   }
 
   @Override
