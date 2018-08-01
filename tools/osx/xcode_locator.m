@@ -111,39 +111,62 @@ static NSString *ExpandVersion(NSString *version) {
 // maps version identifiers of any form (X, X.Y, and X.Y.Z) to the directory
 // where the Xcode bundle lives.
 //
-// If there is a problem locating the Xcodes, prints an error message and
-// returns nil.
+// If there is a problem locating the Xcodes, prints one or more error messages
+// and returns nil.
 static NSMutableDictionary *FindXcodes() __attribute((ns_returns_retained)) {
+  CFStringRef bundleID = CFSTR("com.apple.dt.Xcode");
+
   NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
   CFErrorRef cfError;
   NSArray *array = CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(
-      CFSTR("com.apple.dt.Xcode"), &cfError));
+      bundleID, &cfError));
   if (array == nil) {
     NSError *nsError = (__bridge NSError *)cfError;
     fprintf(stderr, "error: %s\n", nsError.description.UTF8String);
     return nil;
   }
+
+  // Scan all bundles but delay returning in case of errors until we are
+  // done. This is to let us log details about all the bundles that were
+  // processed so that a faulty bundle doesn't hide useful information about
+  // other bundles that were found.
+  BOOL errors = NO;
   for (NSURL *url in array) {
+    NSArray *contents = [
+      [NSFileManager defaultManager] contentsOfDirectoryAtURL:url
+                                   includingPropertiesForKeys:nil
+                                                      options:0
+                                                        error:nil];
+    NSLog(@"Found bundle %@ in %@; contents on disk: %@",
+          bundleID, url, contents);
+
     NSBundle *bundle = [NSBundle bundleWithURL:url];
-    if (!bundle) {
-      fprintf(stderr, "error: Unable to open bundle at URL: %s\n",
-              url.description.UTF8String);
-      return nil;
+    if (bundle == nil) {
+      NSLog(@"ERROR: Unable to open bundle at URL: %@\n", url);
+      errors = YES;
+      continue;
     }
-    NSString *version = bundle.infoDictionary[@"CFBundleShortVersionString"];
-    if (!version) {
-      fprintf(stderr, "error: Unable to extract CFBundleShortVersionString "
-              "from URL: %s\n", url.description.UTF8String);
-      return nil;
+
+    NSString *versionKey = @"CFBundleShortVersionString";
+    NSString *version = [bundle.infoDictionary objectForKey:versionKey];
+    if (version == nil) {
+      NSLog(@"ERROR: Cannot find %@ in info for bundle %@; info: %@\n",
+            versionKey, url, bundle.infoDictionary);
+      errors = YES;
+      continue;
     }
-    version = ExpandVersion(version);
+    NSString *expandedVersion = ExpandVersion(version);
+    NSLog(@"Version strings for %@: short=%@, expanded=%@",
+          url, version, expandedVersion);
+
     NSURL *developerDir =
         [url URLByAppendingPathComponent:@"Contents/Developer"];
     XcodeVersionEntry *entry =
-        [[XcodeVersionEntry alloc] initWithVersion:version url:developerDir];
+        [[XcodeVersionEntry alloc] initWithVersion:expandedVersion
+                                               url:developerDir];
     AddEntryToDictionary(entry, dict);
   }
-  return dict;
+  return errors ? nil : dict;
 }
 
 // Prints out the located Xcodes as a set of lines where each line contains the
