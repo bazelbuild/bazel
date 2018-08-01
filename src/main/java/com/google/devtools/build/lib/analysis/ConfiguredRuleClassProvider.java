@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -829,6 +830,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
     SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
+    SkylarkUtils.setRepositoryMapping(env, ImmutableMap.of(RepositoryName.createFromValidStrippedName("a"), RepositoryName.createFromValidStrippedName("b")));
     return env;
   }
 

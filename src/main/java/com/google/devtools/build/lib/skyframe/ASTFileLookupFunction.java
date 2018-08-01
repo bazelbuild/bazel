@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -119,10 +122,12 @@ public class ASTFileLookupFunction implements SkyFunction {
                     /*importMap=*/ null)
                 .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
                 .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE);
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
+            SkylarkUtils.getRepositoryMapping(validationEnv);
         byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);
         ast =
             BuildFileAST.parseSkylarkFile(
-                bytes, path.getDigest(), path.asFragment(), env.getListener());
+                bytes, path.getDigest(), path.asFragment(), env.getListener(), repositoryMapping);
           ast = ast.validate(validationEnv, env.getListener());
         }
     } catch (IOException e) {

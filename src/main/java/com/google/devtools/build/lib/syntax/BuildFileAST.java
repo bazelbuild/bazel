@@ -291,7 +291,7 @@ public class BuildFileAST extends ASTNode {
   }
 
   public static BuildFileAST parseSkylarkFile(
-      byte[] bytes, byte[] digest, PathFragment path, EventHandler eventHandler)
+      byte[] bytes, byte[] digest, PathFragment path, EventHandler eventHandler, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws IOException {
     ParserInputSource input = ParserInputSource.create(bytes, path);
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
@@ -299,7 +299,7 @@ public class BuildFileAST extends ASTNode {
         /* preludeStatements= */ ImmutableList.of(),
         result,
         HashCode.fromBytes(digest).toString(),
-        /* repositoryMapping= */ ImmutableMap.of(),
+        repositoryMapping,
         eventHandler);
   }
 

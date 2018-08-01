@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Objects;
 
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
@@ -24,6 +25,7 @@ public final class SkylarkUtils {
   private static class BazelInfo {
     String toolsRepository;
     ImmutableMap<String, Class<?>> fragmentNameToClass;
+    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
     @Override
     public boolean equals(Object obj) {
@@ -35,12 +37,13 @@ public final class SkylarkUtils {
       }
       BazelInfo that = (BazelInfo) obj;
       return Objects.equals(this.toolsRepository, that.toolsRepository)
-          && Objects.equals(this.fragmentNameToClass, that.fragmentNameToClass);
+          && Objects.equals(this.fragmentNameToClass, that.fragmentNameToClass)
+          && Objects.equals(this.repositoryMapping, that.repositoryMapping);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(toolsRepository, fragmentNameToClass);
+      return Objects.hash(toolsRepository, fragmentNameToClass, repositoryMapping);
     }
   }
 
@@ -84,5 +87,15 @@ public final class SkylarkUtils {
    */
   public static ImmutableMap<String, Class<?>> getFragmentMap(Environment env) {
     return getInfo(env).fragmentNameToClass;
+  }
+
+  /** Sets the map of repository names to be changed as specified in the main WORKSPACE file. */
+  public static void setRepositoryMapping(Environment env, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+    getInfo(env).repositoryMapping = repositoryMapping;
+  }
+
+  /** Returns the map of repository names to be changed as specified in the main WORKSPACE file. */
+  public static ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(Environment env) {
+    return getInfo(env).repositoryMapping;
   }
 }
