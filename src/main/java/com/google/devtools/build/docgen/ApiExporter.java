@@ -74,7 +74,6 @@ public class ApiExporter {
     field.setName(meth.getName());
     field.setDoc(meth.getDocumentation());
     // TODO(andreeabican): Add type string.
-
     if (!meth.getParams().isEmpty()) {
       Callable.Builder callable = Callable.newBuilder();
       for (SkylarkParamDoc par : meth.getParams()) {
@@ -84,7 +83,7 @@ public class ApiExporter {
         param.setDoc(par.getDocumentation());
         callable.addParam(param);
       }
-      // TODO(andreeabican): Add type string.
+      callable.setReturnType(meth.getReturnType());
       field.setCallable(callable);
     }
     return field;

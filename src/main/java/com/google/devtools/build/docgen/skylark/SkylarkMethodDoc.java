@@ -39,6 +39,13 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
     return "";
   }
 
+    /**
+   * Returns a string containing a name for the method's return type.
+   */
+  public String getReturnType() {
+    return "";
+  }
+
   /**
    * Returns a list containing the documentation for each of the method's parameters.
    */

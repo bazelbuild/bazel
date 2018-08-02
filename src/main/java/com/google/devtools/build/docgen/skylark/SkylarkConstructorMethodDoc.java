@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen.skylark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -72,6 +73,11 @@ public final class SkylarkConstructorMethodDoc extends SkylarkMethodDoc {
       return " May return <code>None</code>.\n";
     }
     return "";
+  }
+
+  @Override
+  public String getReturnType() {
+    return EvalUtils.getDataTypeNameFromClass(method.getReturnType());
   }
 
   @Override
