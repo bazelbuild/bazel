@@ -115,7 +115,6 @@ public interface OutputService {
    * @param sourceRoots list of directories on the package path (from {@link
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
-   * @param allowedInputs optional inputs that might be added during input discovery
    * @param outputArtifacts required outputs of the action
    * @return an action-scoped filesystem if {@link supportsActionFileSystem} is true
    */
@@ -126,7 +125,6 @@ public interface OutputService {
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> allowedInputs,
       Iterable<Artifact> outputArtifacts) {
     return null;
   }

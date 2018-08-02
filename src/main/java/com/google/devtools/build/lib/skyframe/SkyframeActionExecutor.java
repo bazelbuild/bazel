@@ -377,7 +377,6 @@ public final class SkyframeActionExecutor {
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> allowedInputs,
       Iterable<Artifact> outputArtifacts) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
@@ -385,7 +384,6 @@ public final class SkyframeActionExecutor {
         relativeOutputPath,
         sourceRootSupplier.get(),
         inputArtifactData,
-        allowedInputs,
         outputArtifacts);
   }
 

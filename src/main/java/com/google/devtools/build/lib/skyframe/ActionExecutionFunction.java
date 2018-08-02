@@ -201,28 +201,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       state.inputArtifactData = checkedInputs.first;
       state.expandedArtifacts = checkedInputs.second;
       if (skyframeActionExecutor.usesActionFileSystem()) {
-        Iterable<Artifact> optionalInputs;
-        if (action.discoversInputs()) {
-          if (action instanceof IncludeScannable) {
-            // This is a performance optimization to minimize nested set traversals for cpp
-            // compilation. CppCompileAction.getAllowedDerivedInputs iterates over mandatory inputs,
-            // prunable inputs, declared include srcs, transitive compilation prerequisites and
-            // transitive modules.
-            //
-            // The only one of those sets known to be needed is the declared include srcs.
-            optionalInputs = ((IncludeScannable) action).getDeclaredIncludeSrcs();
-          } else {
-            // This might be reachable by LtoBackendAction and ExtraAction.
-            optionalInputs = action.getAllowedDerivedInputs();
-          }
-        } else {
-          optionalInputs = ImmutableList.of();
-        }
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
                 checkedInputs.first,
-                optionalInputs,
                 action.getOutputs());
       }
     }
