@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -169,7 +170,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     if (!missingActionInputs.isEmpty()) {
       MetadataProvider inputFileCache = repository.getInputFileCache();
       for (ActionInput actionInput : missingActionInputs) {
-        toUpload.add(new Chunker(actionInput, inputFileCache, execRoot, digestUtil));
+        if (actionInput instanceof VirtualActionInput) {
+          toUpload.add(new Chunker((VirtualActionInput) actionInput, digestUtil));
+        } else {
+          toUpload.add(new Chunker(actionInput, inputFileCache, execRoot, digestUtil));
+        }
       }
     }
     uploader.uploadBlobs(toUpload, true);
@@ -322,22 +327,6 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
       uploader.uploadBlob(new Chunker(file), true);
-    }
-    return digest;
-  }
-
-  /**
-   * Put the file contents cache if it is not already in it. No-op if the file is already stored in
-   * cache. The given path must be a full absolute path.
-   *
-   * @return The key for fetching the file contents blob from cache.
-   */
-  Digest uploadFileContents(ActionInput input, Path execRoot, MetadataProvider inputCache)
-      throws IOException, InterruptedException {
-    Digest digest = DigestUtil.getFromInputCache(input, inputCache);
-    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
-    if (!missing.isEmpty()) {
-      uploader.uploadBlob(new Chunker(input, inputCache, execRoot, digestUtil), true);
     }
     return digest;
   }

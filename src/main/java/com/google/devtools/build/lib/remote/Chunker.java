@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -144,6 +145,10 @@ public final class Chunker {
       ActionInput actionInput, MetadataProvider inputCache, Path execRoot, DigestUtil digestUtil)
       throws IOException {
     this(actionInput, inputCache, execRoot, getDefaultChunkSize(), digestUtil);
+  }
+
+  public Chunker(VirtualActionInput actionInput, DigestUtil digestUtil) throws IOException {
+    this(actionInput.getBytes().toByteArray(), digestUtil);
   }
 
   public Chunker(
