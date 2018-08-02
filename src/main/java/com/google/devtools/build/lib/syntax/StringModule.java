@@ -454,36 +454,29 @@ public final class StringModule {
    * @return A three-tuple (List) of the form [part_before_separator, separator,
    *     part_after_separator].
    */
-  private static List<String> stringPartition(String input, String separator, boolean forward) {
+  private static ImmutableList<String> stringPartition(
+      String input, String separator, boolean forward) {
     if (separator.isEmpty()) {
       throw new IllegalArgumentException("Empty separator");
     }
 
-    int partitionSize = 3;
-    ArrayList<String> result = new ArrayList<>(partitionSize);
     int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
 
     if (pos < 0) {
-      for (int i = 0; i < partitionSize; ++i) {
-        result.add("");
-      }
-
       // Following Python's implementation of str.partition() and str.rpartition(),
       // the input string is copied to either the first or the last position in the
       // list, depending on the value of the forward flag.
-      result.set(forward ? 0 : partitionSize - 1, input);
+      return forward ? ImmutableList.of(input, "", "") : ImmutableList.of("", "", input);
     } else {
-      result.add(input.substring(0, pos));
-      result.add(separator);
-
-      // pos + sep.length() is at most equal to input.length(). This worst-case
-      // happens when the separator is at the end of the input string. However,
-      // substring() will return an empty string in this scenario, thus making
-      // any additional safety checks obsolete.
-      result.add(input.substring(pos + separator.length()));
+      return ImmutableList.of(
+          input.substring(0, pos),
+          separator,
+          // pos + sep.length() is at most equal to input.length(). This worst-case
+          // happens when the separator is at the end of the input string. However,
+          // substring() will return an empty string in this scenario, thus making
+          // any additional safety checks obsolete.
+          input.substring(pos + separator.length()));
     }
-
-    return result;
   }
 
   @SkylarkCallable(
