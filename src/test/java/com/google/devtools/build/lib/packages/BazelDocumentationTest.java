@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.bazel.Bazel;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
@@ -46,6 +47,7 @@ public class BazelDocumentationTest {
     DocumentationTestUtil.validateUserManual(
         Bazel.BAZEL_MODULES,
         BazelRuleClassProvider.create(),
-        Files.asCharSource(documentationFile, UTF_8).read());
+        Files.asCharSource(documentationFile, UTF_8).read(),
+        ImmutableSet.of());
   }
 }

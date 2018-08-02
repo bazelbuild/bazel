@@ -34,6 +34,10 @@ class BazelStartupOptions : public StartupOptions {
 
  private:
   std::string user_bazelrc_;
+  bool use_system_rc;
+  bool use_workspace_rc;
+  bool use_home_rc;
+  // TODO(b/36168162): Remove the master rc flag.
   bool use_master_bazelrc_;
 };
 

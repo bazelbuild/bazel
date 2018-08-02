@@ -115,23 +115,16 @@ class OptionProcessor {
       const std::vector<std::unique_ptr<RcFile>>& blazercs,
       const std::vector<std::string>& env);
 
-  // Finds and parses the appropriate RcFiles.
-  // TODO(#4502) Change where the bazelrcs are read from.
+  // Finds and parses the appropriate RcFiles:
+  //   - system rc (unless --nosystem_rc)
+  //   - workspace, %workspace%/.bazelrc (unless --noworkspace_rc)
+  //   - user, $HOME/.bazelrc (unless --nohome_rc)
+  //   - command-line provided, if a value is passed with --bazelrc.
   virtual blaze_exit_code::ExitCode GetRcFiles(
       const WorkspaceLayout* workspace_layout, const std::string& workspace,
       const std::string& cwd, const CommandLine* cmd_line,
       std::vector<std::unique_ptr<RcFile>>* result_rc_files,
       std::string* error) const;
-
- protected:
-  // Return the path to the user's rc file.  If cmd_line_rc_file != NULL,
-  // use it, dying if it is not readable.  Otherwise, return the first
-  // readable file called rc_basename from [workspace, $HOME]
-  //
-  // If no readable .blazerc file is found, return the empty string.
-  virtual blaze_exit_code::ExitCode FindUserBlazerc(
-      const char* cmd_line_rc_file, const std::string& workspace,
-      std::string* user_blazerc_file, std::string* error) const;
 
  private:
   blaze_exit_code::ExitCode ParseStartupOptions(
