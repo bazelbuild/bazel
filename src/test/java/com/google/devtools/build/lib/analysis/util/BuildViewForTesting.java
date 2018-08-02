@@ -140,7 +140,8 @@ public class BuildViewForTesting {
   @ThreadCompatible
   public AnalysisResult update(
       TargetPatternPhaseValue loadingResult,
-      BuildConfigurationCollection configurations,
+      BuildOptions targetOptions,
+      Set<String> multiCpu,
       List<String> aspects,
       AnalysisOptions viewOptions,
       boolean keepGoing,
@@ -148,10 +149,11 @@ public class BuildViewForTesting {
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
-      throws ViewCreationFailedException, InterruptedException {
+      throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException {
     return buildView.update(
         loadingResult,
-        configurations,
+        targetOptions,
+        multiCpu,
         aspects,
         viewOptions,
         keepGoing,
@@ -186,8 +188,7 @@ public class BuildViewForTesting {
    */
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
-      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
-      throws InterruptedException {
+      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler) {
     List<TargetAndConfiguration> node =
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config));
     LinkedHashSet<TargetAndConfiguration> configs =

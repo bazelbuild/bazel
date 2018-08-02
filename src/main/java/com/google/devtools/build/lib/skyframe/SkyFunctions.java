@@ -79,6 +79,8 @@ public final class SkyFunctions {
   // Non-hermetic because accesses package locator
   static final SkyFunctionName TARGET_PATTERN_PHASE =
       SkyFunctionName.createNonHermetic("TARGET_PATTERN_PHASE");
+  static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
+      SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
   static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.createHermetic("RECURSIVE_PKG");
   static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.createHermetic("TRANSITIVE_TARGET");

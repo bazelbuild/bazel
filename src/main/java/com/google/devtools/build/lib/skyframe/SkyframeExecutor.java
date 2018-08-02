@@ -432,6 +432,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestsInSuiteFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestSuiteExpansionFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
+    map.put(
+        SkyFunctions.PREPARE_ANALYSIS_PHASE,
+        new PrepareAnalysisPhaseFunction(ruleClassProvider, defaultBuildOptions));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
@@ -1195,16 +1198,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
    */
+  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   public BuildConfigurationCollection createConfigurations(
       ExtendedEventHandler eventHandler,
-      List<ConfigurationFragmentFactory> configurationFragmentFactories,
       BuildOptions buildOptions,
       Set<String> multiCpu,
       boolean keepGoing)
-      throws InvalidConfigurationException, InterruptedException {
-    setConfigurationFragmentFactories(configurationFragmentFactories);
+      throws InvalidConfigurationException {
     List<BuildConfiguration> topLevelTargetConfigs =
-        getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), keepGoing);
+        getConfigurations(
+            eventHandler,
+            PrepareAnalysisPhaseFunction.getTopLevelBuildOptions(buildOptions, multiCpu),
+            keepGoing);
 
     BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
 
@@ -1223,24 +1228,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw new InvalidConfigurationException("Build options are invalid");
     }
     return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
-  }
-
-  /**
-   * Returns the {@link BuildOptions} to apply to the top-level build configurations. This can be
-   * plural because of {@code multiCpu}.
-   */
-  private static List<BuildOptions> getTopLevelBuildOptions(BuildOptions buildOptions,
-      Set<String> multiCpu) {
-    if (multiCpu.isEmpty()) {
-      return ImmutableList.of(buildOptions);
-    }
-    ImmutableList.Builder<BuildOptions> multiCpuOptions = ImmutableList.builder();
-    for (String cpu : multiCpu) {
-      BuildOptions clonedOptions = buildOptions.clone();
-      clonedOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-      multiCpuOptions.add(clonedOptions);
-    }
-    return multiCpuOptions.build();
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1552,7 +1539,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public Map<BuildConfigurationValue.Key, BuildConfiguration> getConfigurations(
-      ExtendedEventHandler eventHandler, ImmutableSet<BuildConfigurationValue.Key> keys) {
+      ExtendedEventHandler eventHandler, Collection<BuildConfigurationValue.Key> keys) {
     EvaluationResult<SkyValue> evaluationResult = evaluateSkyKeys(eventHandler, keys);
     return keys.stream()
         .collect(
@@ -1566,8 +1553,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
-  public List<BuildConfiguration> getConfigurations(ExtendedEventHandler eventHandler,
-      List<BuildOptions> optionsList, boolean keepGoing) throws InvalidConfigurationException {
+  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
+  public List<BuildConfiguration> getConfigurations(
+      ExtendedEventHandler eventHandler, List<BuildOptions> optionsList, boolean keepGoing)
+          throws InvalidConfigurationException {
     Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
 
     // Prepare the Skyframe inputs.
@@ -1625,6 +1614,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>Skips targets with loading phase errors.
    */
+  // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
+  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   public Multimap<Dependency, BuildConfiguration> getConfigurations(
       ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys) {
     Multimap<Dependency, BuildConfiguration> builder =
@@ -2284,6 +2275,55 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
     return patternParsingValue;
+  }
+
+  public PrepareAnalysisPhaseValue prepareAnalysisPhase(
+      ExtendedEventHandler eventHandler,
+      BuildOptions buildOptions,
+      Set<String> multiCpu,
+      Collection<Label> labels)
+      throws InvalidConfigurationException, InterruptedException {
+    FragmentClassSet allFragments =
+        FragmentClassSet.of(
+            configurationFragments
+                .get()
+                .stream()
+                .map(factory -> factory.creates())
+                .collect(
+                    ImmutableSortedSet.toImmutableSortedSet(
+                        BuildConfiguration.lexicalFragmentSorter)));
+    SkyKey key =
+        PrepareAnalysisPhaseValue.key(
+            allFragments,
+            BuildOptions.diffForReconstruction(defaultBuildOptions, buildOptions),
+            multiCpu,
+            labels);
+    EvaluationResult<PrepareAnalysisPhaseValue> evalResult;
+    evalResult =
+        buildDriver.evaluate(
+            ImmutableList.of(key),
+            /* keepGoing= */ true,
+            /*numThreads=*/ DEFAULT_THREAD_COUNT,
+            eventHandler);
+    if (evalResult.hasError()) {
+      ErrorInfo errorInfo = evalResult.getError(key);
+      Exception e = errorInfo.getException();
+      if (e == null && !Iterables.isEmpty(errorInfo.getCycleInfo())) {
+        getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
+        e = new InvalidConfigurationException(
+            "cannot load build configuration because of this cycle");
+      } else if (e instanceof NoSuchThingException) {
+        e = new InvalidConfigurationException(e);
+      }
+      if (e != null) {
+        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
+      }
+      throw new IllegalStateException(
+          "Unknown error during configuration creation evaluation", e);
+    }
+
+    PrepareAnalysisPhaseValue prepareAnalysisPhaseValue = evalResult.get(key);
+    return prepareAnalysisPhaseValue;
   }
 
   public Consumer<Artifact.SourceArtifact> getSourceDependencyListener(SkyKey key) {

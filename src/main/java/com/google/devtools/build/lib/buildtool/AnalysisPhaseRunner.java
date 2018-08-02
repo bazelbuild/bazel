@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
-import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
@@ -112,45 +110,22 @@ public final class AnalysisPhaseRunner {
     // Exit if there are any pending exceptions from modules.
     env.throwPendingException();
 
-    // Configuration creation.
-    // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
-    // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
-    BuildConfigurationCollection configurations;
-    try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
-      configurations =
-          env.getSkyframeExecutor()
-              .createConfigurations(
-                  env.getReporter(),
-                  env.getRuntime().getConfigurationFragmentFactories(),
-                  buildOptions,
-                  request.getMultiCpus(),
-                  request.getKeepGoing());
-    }
-
-    env.throwPendingException();
-    if (configurations.getTargetConfigurations().size() == 1) {
-      // TODO(bazel-team): This is not optimal - we retain backwards compatibility in the case
-      // where there's only a single configuration, but we don't send an event in the multi-config
-      // case. Can we do better? [multi-config]
-      env.getEventBus()
-          .post(
-              new MakeEnvironmentEvent(
-                  configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
-    }
-    logger.info("Configurations created");
+    env.getSkyframeExecutor().setConfigurationFragmentFactories(
+        env.getRuntime().getConfigurationFragmentFactories());
 
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult = runAnalysisPhase(request, loadingResult, configurations);
+        analysisResult =
+            runAnalysisPhase(request, loadingResult, buildOptions, request.getMultiCpus());
       }
 
       // Check licenses.
       // We check licenses if the first target configuration has license checking enabled. Right
       // now, it is not possible to have multiple target configurations with different settings
       // for this flag, which allows us to take this short cut.
-      boolean checkLicenses = configurations.getTargetConfigurations().get(0).checkLicenses();
+      boolean checkLicenses = buildOptions.get(BuildConfiguration.Options.class).checkLicenses;
       if (checkLicenses) {
         Profiler.instance().markPhase(ProfilePhase.LICENSE);
         try (SilentCloseable c = Profiler.instance().profile("validateLicensingForTargets")) {
@@ -221,8 +196,9 @@ public final class AnalysisPhaseRunner {
   private AnalysisResult runAnalysisPhase(
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildConfigurationCollection configurations)
-      throws InterruptedException, ViewCreationFailedException {
+      BuildOptions targetOptions,
+      Set<String> multiCpu)
+      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
@@ -235,7 +211,8 @@ public final class AnalysisPhaseRunner {
     AnalysisResult analysisResult =
         view.update(
             loadingResult,
-            configurations,
+            targetOptions,
+            multiCpu,
             request.getAspects(),
             request.getViewOptions(),
             request.getKeepGoing(),

@@ -351,9 +351,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     skyframeExecutor.resetConfigurationCollectionForTesting();
+    skyframeExecutor.setConfigurationFragmentFactories(
+        ruleClassProvider.getConfigurationFragments());
     return skyframeExecutor.createConfigurations(
-        reporter, ruleClassProvider.getConfigurationFragments(), buildOptions,
-        ImmutableSet.<String>of(), false);
+        reporter, buildOptions, ImmutableSet.<String>of(), false);
   }
 
   protected Target getTarget(String label)
@@ -1755,7 +1756,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
     return view.update(
         loadingResult,
-        masterConfig,
+        targetConfig.getOptions(),
+        /* multiCpu= */ ImmutableSet.of(),
         aspects,
         viewOptions,
         keepGoing,

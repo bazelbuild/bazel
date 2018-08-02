@@ -558,6 +558,7 @@ public final class ConfigurationResolver {
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
   // TODO(gregce): merge this more with resolveConfigurations? One crucial difference is
   //   resolveConfigurations can null-return on missing deps since it executes inside Skyfunctions.
+  // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
   public static LinkedHashSet<TargetAndConfiguration> getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
       Multimap<BuildConfiguration, Dependency> targetsToEvaluate,

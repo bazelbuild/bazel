@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -83,8 +84,9 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       WalkableGraph walkableGraph);
 
   private BuildConfiguration getBuildConfiguration(
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs, QueryExpression queryExpression)
-      throws QueryException {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      QueryExpression queryExpression)
+          throws QueryException {
     // Currently, CTQE assumes that all top level targets take on the same default config and we
     // don't have the ability to map multiple configs to multiple top level targets.
     // So for now, we only allow multiple targets when they all carry the same config.
@@ -115,7 +117,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
   private void doPostAnalysisQuery(
       BuildRequest request,
       BuildConfiguration hostConfiguration,
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
       QueryExpression queryExpression)
       throws InterruptedException, QueryException, IOException {
     BuildConfiguration targetConfig =
