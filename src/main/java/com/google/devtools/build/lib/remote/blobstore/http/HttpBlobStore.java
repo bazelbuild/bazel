@@ -108,6 +108,11 @@ public final class HttpBlobStore implements SimpleBlobStore {
   private final URI uri;
   private final int timeoutMillis;
 
+  private final Object closeLock = new Object();
+
+  @GuardedBy("closeLock")
+  private boolean isClosed;
+
   private final Object credentialsLock = new Object();
 
   @GuardedBy("credentialsLock")
@@ -522,8 +527,15 @@ public final class HttpBlobStore implements SimpleBlobStore {
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
   public void close() {
-    channelPool.close();
-    eventLoop.shutdownGracefully();
+    synchronized (closeLock) {
+      if (isClosed) {
+        return;
+      }
+
+      isClosed = true;
+      channelPool.close();
+      eventLoop.shutdownGracefully();
+    }
   }
 
   private boolean cacheMiss(HttpResponseStatus status) {
