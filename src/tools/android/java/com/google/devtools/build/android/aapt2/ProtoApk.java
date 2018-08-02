@@ -434,7 +434,7 @@ public class ProtoApk implements Closeable {
     } else if (!ref.getName().isEmpty()) {
       visitor.accept(ref.getName());
     } else {
-      throw new IllegalStateException("Reference without number or id in :" + ref);
+      visitor.acceptNullReference();
     }
   }
 
@@ -495,8 +495,8 @@ public class ProtoApk implements Closeable {
     /** Called when a reference is defined by id (full id, with package and type.) */
     void accept(int value);
 
-    /** Called when a reference has no id or name. */
-    default void acceptEmptyReference() {
+    /** Called when a reference is null. */
+    default void acceptNullReference() {
       // pass
     }
   }

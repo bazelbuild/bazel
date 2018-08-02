@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.android.aapt2;
 
+import static java.util.stream.Collectors.joining;
+
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.android.resources.ResourceType;
 import com.android.tools.lint.checks.ResourceUsageModel;
 import com.android.tools.lint.checks.ResourceUsageModel.Resource;
 import com.android.tools.lint.detector.api.LintUtils;
+import com.android.utils.XmlUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -27,17 +30,20 @@ import com.google.devtools.build.android.aapt2.ProtoApk.ReferenceVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourcePackageVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.logging.Logger;
 import javax.xml.parsers.ParserConfigurationException;
+import org.w3c.dom.Attr;
 import org.w3c.dom.DOMException;
+import org.w3c.dom.NamedNodeMap;
+import org.xml.sax.SAXException;
 
 /** A resource usage analyzer tha functions on apks in protocol buffer format. */
 public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
@@ -63,8 +69,16 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
    * @param apk An apk in the aapt2 proto format.
    * @param classes The associated classes for the apk.
    * @param destination Where to write the reduced resources.
+   * @param keep A list of resource urls to keep, unused or not.
+   * @param discard A list of resource urls to always discard.
    */
-  public void shrink(ProtoApk apk, Path classes, Path destination) throws IOException {
+  public void shrink(
+      ProtoApk apk,
+      Path classes,
+      Path destination,
+      Collection<String> keep,
+      Collection<String> discard)
+      throws IOException, ParserConfigurationException, SAXException {
 
     // record resources and manifest
     apk.visitResources(
@@ -74,6 +88,22 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         apk.visitResources(new ResourceDeclarationVisitor(model())).toUsageVisitor());
 
     recordClassUsages(classes);
+
+    // Have to give the model xml attributes with keep and discard urls.
+    final NamedNodeMap toolAttributes =
+        XmlUtils.parseDocument(
+                String.format(
+                    "<resources xmlns:tools='http://schemas.android.com/tools' tools:keep='%s'"
+                        + " tools:discard='%s'></resources>",
+                    keep.stream().collect(joining(",")), discard.stream().collect(joining(","))),
+                true)
+            .getDocumentElement()
+            .getAttributes();
+
+    for (int i = 0; i < toolAttributes.getLength(); i++) {
+      model().recordToolsAttributes((Attr) toolAttributes.item(i));
+    }
+    model().processToolsAttributes();
 
     keepPossiblyReferencedResources();
 
@@ -187,7 +217,6 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
     @Override
     public ReferenceVisitor entering(Path path) {
-      declaredResource.addLocation(new File(path.toString()));
       return this;
     }
 

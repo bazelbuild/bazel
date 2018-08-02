@@ -14,9 +14,13 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.base.Predicates.not;
+import static java.util.stream.Collectors.toMap;
 
+import com.android.SdkConstants;
+import com.android.annotations.VisibleForTesting;
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilder;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilderVisitorWithDirectories;
@@ -25,12 +29,15 @@ import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ProtoResourceUsageAnalyzer;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
+import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
@@ -245,11 +252,26 @@ public class ResourcesZip {
       throws ParserConfigurationException, IOException, SAXException {
     final Path shrunkApkProto = workingDirectory.resolve("shrunk.apk.pb");
     try (final ProtoApk apk = ProtoApk.readFrom(proto)) {
+      final Map<String, Set<String>> toolAttributes = toAttributes();
       // record resources and manifest
       new ProtoResourceUsageAnalyzer(packages, proguardMapping, logFile)
-          .shrink(apk, classJar, shrunkApkProto);
+          .shrink(
+              apk,
+              classJar,
+              shrunkApkProto,
+              toolAttributes.getOrDefault(SdkConstants.ATTR_KEEP, ImmutableSet.of()),
+              toolAttributes.getOrDefault(SdkConstants.ATTR_DISCARD, ImmutableSet.of()));
       return new ShrunkProtoApk(shrunkApkProto, logFile);
     }
+  }
+
+  @VisibleForTesting
+  public Map<String, Set<String>> toAttributes() throws IOException {
+    return ToolAttributes.parseFrom(Files.readAllBytes(attributes))
+        .getAttributesMap()
+        .entrySet()
+        .stream()
+        .collect(toMap(Entry::getKey, e -> ImmutableSet.copyOf(e.getValue().getValuesList())));
   }
 
   static class ShrunkProtoApk {

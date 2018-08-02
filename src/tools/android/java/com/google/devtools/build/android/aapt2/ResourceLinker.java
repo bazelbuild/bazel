@@ -21,28 +21,20 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AaptCommandBuilder;
 import com.google.devtools.build.android.AndroidCompiledDataDeserializer;
-import com.google.devtools.build.android.AndroidDataWritingVisitor;
-import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceOutputs;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.Profiler;
 import com.google.devtools.build.android.aapt2.ResourceCompiler.CompiledType;
-import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
-import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.ziputils.DirectoryEntry;
 import com.google.devtools.build.android.ziputils.ZipIn;
 import com.google.devtools.build.android.ziputils.ZipOut;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,7 +42,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -452,7 +443,7 @@ public class ResourceLinker {
 
       final Path attributes = workingDirectory.resolve("tool.attributes");
       // extract tool annotations from the compile resources.
-      final ToolProtoWriter writer = new ToolProtoWriter(attributes);
+      final SdkToolAttributeWriter writer = new SdkToolAttributeWriter(attributes);
       Stream.concat(include.stream(), Stream.of(compiled))
           .parallel()
           .map(AndroidCompiledDataDeserializer.create()::readAttributes)
@@ -532,64 +523,5 @@ public class ResourceLinker {
         .add("resourceConfigs", resourceConfigs)
         .add("baseApk", baseApk)
         .toString();
-  }
-
-  private static class ToolProtoWriter implements AndroidDataWritingVisitor {
-
-    final Multimap<String, String> attributes = HashMultimap.create();
-    private final Path out;
-
-    ToolProtoWriter(Path out) {
-      this.out = out;
-    }
-
-    @Override
-    public void flush() throws IOException {
-      ToolAttributes.Builder builder = ToolAttributes.newBuilder();
-      for (Entry<String, Collection<String>> entry : attributes.asMap().entrySet()) {
-        builder.putAttributes(
-            entry.getKey(),
-            ToolAttributes.ToolAttributeValues.newBuilder().addAllValues(entry.getValue()).build());
-      }
-      try (OutputStream stream = new BufferedOutputStream(Files.newOutputStream(out))) {
-        builder.build().writeTo(stream);
-      }
-    }
-
-    @Override
-    public Path copyManifest(Path sourceManifest) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void copyAsset(Path source, String relativeDestinationPath) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void copyResource(Path source, String relativeDestinationPath) throws MergingException {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void defineAttribute(FullyQualifiedName fqn, String name, String value) {
-      attributes.put(removeNamespace(name), value);
-    }
-
-    private String removeNamespace(String qualifiedName) {
-      int indexColon = qualifiedName.indexOf(':');
-      if (indexColon == -1) {
-        return qualifiedName;
-      }
-      return qualifiedName.substring(indexColon);
-    }
-
-    @Override
-    public void defineNamespacesFor(FullyQualifiedName fqn, Namespaces namespaces) {}
-
-    @Override
-    public ValueResourceDefinitionMetadata define(FullyQualifiedName fqn) {
-      throw new UnsupportedOperationException();
-    }
   }
 }
