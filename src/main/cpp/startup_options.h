@@ -298,6 +298,9 @@ class StartupOptions {
 
   bool expand_configs_in_place;
 
+  // The hash function to use when computing file digests.
+  std::string digest_function;
+
   // The startup options as received from the user and rc files, tagged with
   // their origin. This is populated by ProcessArgs.
   std::vector<RcStartupFlag> original_startup_options_;

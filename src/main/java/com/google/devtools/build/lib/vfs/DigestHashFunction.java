@@ -26,13 +26,15 @@ import java.util.Map.Entry;
 /** Type of hash function to use for digesting files. */
 // The underlying HashFunctions are immutable and thread safe.
 public class DigestHashFunction {
+  // This map must be declared first to make sure that calls to register() have it ready.
   private static final HashMap<String, DigestHashFunction> hashFunctionRegistry = new HashMap<>();
 
-  public static final DigestHashFunction MD5 = DigestHashFunction.register(Hashing.md5(), "MD5");
-  public static final DigestHashFunction SHA1 =
-      DigestHashFunction.register(Hashing.sha1(), "SHA-1", "SHA1");
-  public static final DigestHashFunction SHA256 =
-      DigestHashFunction.register(Hashing.sha256(), "SHA-256", "SHA256");
+  public static final DigestHashFunction MD5 = register(Hashing.md5(), "MD5");
+  public static final DigestHashFunction SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1");
+  public static final DigestHashFunction SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256");
+
+  private static DigestHashFunction defaultHash;
+  private static boolean defaultHasBeenSet = false;
 
   private final HashFunction hash;
   private final String name;
@@ -79,6 +81,55 @@ public class DigestHashFunction {
       }
     }
     return hashFunction;
+  }
+
+  /**
+   * Returns the default DigestHashFunction for this instance of Bazel.
+   *
+   * <p>Note: This is a synchronized function, to make sure it does not occur concurrently with
+   * {@link #setDefault(DigestHashFunction)}. Once this value is set, it's a constant, so to prevent
+   * blocking calls, users should cache this value if needed.
+   *
+   * @throws DefaultNotSetException if the default has not yet been set by a previous call to {@link
+   *     #setDefault}.
+   */
+  public static synchronized DigestHashFunction getDefault() throws DefaultNotSetException {
+    if (!defaultHasBeenSet) {
+      throw new DefaultNotSetException("DigestHashFunction default has not been set");
+    }
+    return defaultHash;
+  }
+
+  /** Indicates that the default has not been initialized. */
+  public static final class DefaultNotSetException extends Exception {
+    DefaultNotSetException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * Sets the default DigestHashFunction for this instance of Bazel - can only be set once to
+   * prevent incongruities.
+   *
+   * @throws DefaultAlreadySetException if it was already set.
+   */
+  public static synchronized void setDefault(DigestHashFunction hash)
+      throws DefaultAlreadySetException {
+    if (defaultHasBeenSet) {
+      throw new DefaultAlreadySetException(
+          String.format(
+              "setDefault(%s) failed. The default has already been set to %s, you cannot reset it.",
+              hash.name, defaultHash.name));
+    }
+    defaultHash = hash;
+    defaultHasBeenSet = true;
+  }
+
+  /** Failure to set the default if the default already being set. */
+  public static final class DefaultAlreadySetException extends Exception {
+    DefaultAlreadySetException(String message) {
+      super(message);
+    }
   }
 
   /** Converts a string to its registered {@link DigestHashFunction}. */

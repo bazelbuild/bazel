@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
@@ -395,13 +396,27 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean clientDebug;
 
   @Option(
-    name = "connect_timeout_secs",
-    defaultValue = "30", // NOTE: only for documentation, value is set and used by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "The amount of time the client waits for each attempt to connect to the server"
-  )
+      name = "connect_timeout_secs",
+      defaultValue = "30", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The amount of time the client waits for each attempt to connect to the server")
   public int connectTimeoutSecs;
+
+  // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
+  // experimental tag once this has been tested and is ready for use.
+  @Option(
+      name = "digest_function",
+      defaultValue = "null",
+      converter = DigestHashFunction.DigestFunctionConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      help = "The hash function to use when computing file digests.")
+  public DigestHashFunction digestHashFunction;
 
   @Deprecated
   @Option(

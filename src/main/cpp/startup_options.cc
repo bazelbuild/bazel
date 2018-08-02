@@ -92,6 +92,7 @@ StartupOptions::StartupOptions(const string &product_name,
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
       expand_configs_in_place(true),
+      digest_function(),
       original_startup_options_(std::vector<RcStartupFlag>()) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
@@ -137,6 +138,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("write_command_log");
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
+  RegisterUnaryStartupFlag("digest_function");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
   // TODO(b/5568649): remove this deprecated alias for server_javabase
   RegisterUnaryStartupFlag("host_javabase");
@@ -343,6 +345,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["connect_timeout_secs"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--digest_function")) !=
+             NULL) {
+    digest_function = value;
+    option_sources["digest_function"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
              NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
