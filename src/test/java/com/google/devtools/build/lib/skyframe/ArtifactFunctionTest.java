@@ -55,6 +55,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -142,8 +143,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
     SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
-    file(createFakeTreeFileArtifact(tree, "child1", "hello1").getPath(), "src1");
-    file(createFakeTreeFileArtifact(tree, "child2", "hello2").getPath(), "src2");
+    TreeFileArtifact treeFile1 = createFakeTreeFileArtifact(tree, "child1", "hello1");
+    TreeFileArtifact treeFile2 = createFakeTreeFileArtifact(tree, "child2", "hello2");
+    file(treeFile1.getPath(), "src1");
+    file(treeFile2.getPath(), "src2");
     Action action =
         new DummyAction(
             ImmutableList.of(input1, input2, tree), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
@@ -152,11 +155,14 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(input1.getPath(), "source contents");
     evaluate(Iterables.toArray(ImmutableSet.of(input2, input1, input2, tree), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
-    assertThat(((AggregatingArtifactValue) value).getInputs())
+    ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
+    inputs.addAll(((AggregatingArtifactValue) value).getFileArtifacts());
+    inputs.addAll(((AggregatingArtifactValue) value).getTreeArtifacts());
+    assertThat(inputs)
         .containsExactly(
             Pair.of(input1, create(input1)),
             Pair.of(input2, create(input2)),
-            Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree)).getSelfData()));
+            Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree))));
   }
 
   /**
