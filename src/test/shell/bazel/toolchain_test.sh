@@ -914,4 +914,88 @@ EOF
     expect_log "Selected execution platform //platforms:platform2_4"
 }
 
+function test_default_constraint_values {
+  # Add test constraints and platforms.
+  mkdir -p platforms
+  cat >> platforms/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting1', default_constraint_value = ':value_foo')
+constraint_value(name = 'value_foo', constraint_setting = ':setting1')
+constraint_value(name = 'value_bar', constraint_setting = ':setting1')
+
+platform(
+    name = 'platform_default',
+    constraint_values = [])
+platform(
+    name = 'platform_no_default',
+    constraint_values = [':value_bar'])
+EOF
+
+  # Add test toolchains using the constraints.
+  write_test_toolchain
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchains.
+test_toolchain(
+    name = 'test_toolchain_impl_foo',
+    extra_str = 'foo',
+    visibility = ['//visibility:public'])
+
+test_toolchain(
+    name = 'test_toolchain_impl_bar',
+    extra_str = 'bar',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchains.
+toolchain(
+    name = 'test_toolchain_foo',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [
+      # No constraint set, takes the default.
+    ],
+    toolchain = ':test_toolchain_impl_foo',
+    visibility = ['//visibility:public'])
+toolchain(
+    name = 'test_toolchain_bar',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [
+      # Explicitly sets a non-default value.
+      '//platforms:value_bar',
+    ],
+    toolchain = ':test_toolchain_impl_bar',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Register the toolchains
+  cat >> WORKSPACE <<EOF
+register_toolchains('//:test_toolchain_foo', '//:test_toolchain_bar')
+EOF
+
+  write_test_rule
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  # Test some builds and verify which was used.
+  # This should use the default value.
+  bazel build \
+    --platforms=//platforms:platform_default \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'toolchain extra_str: "foo"'
+
+  # This should use the explicit value.
+  bazel build \
+    --platforms=//platforms:platform_no_default \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'toolchain extra_str: "bar"'
+}
+
 run_suite "toolchain tests"

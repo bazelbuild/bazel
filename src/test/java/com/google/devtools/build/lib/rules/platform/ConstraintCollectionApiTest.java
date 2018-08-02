@@ -40,9 +40,11 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
 
   @Test
   public void testConstraintSettings() throws Exception {
-    platformBuilder().addConstraint("s1", "value1").addConstraint("s2", "value2").build();
+    constraintBuilder("//foo:s1").addConstraintValue("value1").write();
+    constraintBuilder("//foo:s2").addConstraintValue("value2").write();
+    platformBuilder("//foo:my_platform").addConstraint("value1").addConstraint("value2").write();
 
-    ConstraintCollection constraintCollection = fetchConstraintCollection();
+    ConstraintCollection constraintCollection = fetchConstraintCollection("//foo:my_platform");
     assertThat(constraintCollection).isNotNull();
 
     assertThat(collectLabels(constraintCollection.constraintSettings()))
@@ -52,9 +54,11 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
 
   @Test
   public void testGet() throws Exception {
-    platformBuilder().addConstraint("s1", "value1").addConstraint("s2", "value2").build();
+    constraintBuilder("//foo:s1").addConstraintValue("value1").write();
+    constraintBuilder("//foo:s2").addConstraintValue("value2").write();
+    platformBuilder("//foo:my_platform").addConstraint("value1").addConstraint("value2").write();
 
-    ConstraintCollection constraintCollection = fetchConstraintCollection();
+    ConstraintCollection constraintCollection = fetchConstraintCollection("//foo:my_platform");
     assertThat(constraintCollection).isNotNull();
 
     ConstraintSettingInfo setting =
@@ -66,7 +70,9 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
 
   @Test
   public void testGet_starlark() throws Exception {
-    platformBuilder().addConstraint("s1", "value1").addConstraint("s2", "value2").build();
+    constraintBuilder("//foo:s1").addConstraintValue("value1").write();
+    constraintBuilder("//foo:s2").addConstraintValue("value2").write();
+    platformBuilder("//foo:my_platform").addConstraint("value1").addConstraint("value2").write();
 
     scratch.file(
         "verify/verify.bzl",
@@ -130,13 +136,43 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
             ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2")));
   }
 
+  @Test
+  public void testGet_defaultConstraintValues() throws Exception {
+    constraintBuilder("//constraint/default:basic")
+        .defaultConstraintValue("foo")
+        .addConstraintValue("bar")
+        .write();
+    constraintBuilder("//constraint/default:other").write();
+
+    platformBuilder("//constraint/default:plat_with_default").write();
+    platformBuilder("//constraint/default:plat_without_default").addConstraint("bar").write();
+
+    ConstraintSettingInfo basicConstraintSetting =
+        fetchConstraintSettingInfo("//constraint/default:basic");
+    ConstraintSettingInfo otherConstraintSetting =
+        fetchConstraintSettingInfo("//constraint/default:other");
+
+    ConstraintCollection constraintCollectionWithDefault = fetchConstraintCollection("//constraint/default:plat_with_default");
+    assertThat(constraintCollectionWithDefault).isNotNull();
+    assertThat(constraintCollectionWithDefault.get(basicConstraintSetting)).isNotNull();
+    assertThat(constraintCollectionWithDefault.get(basicConstraintSetting).label())
+        .isEqualTo(makeLabel("//constraint/default:foo"));
+    assertThat(constraintCollectionWithDefault.get(otherConstraintSetting)).isNull();
+
+    ConstraintCollection constraintCollectionWithoutDefault = fetchConstraintCollection("//constraint/default:plat_without_default");
+    assertThat(constraintCollectionWithoutDefault).isNotNull();
+    assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting)).isNotNull();
+    assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting).label())
+        .isEqualTo(makeLabel("//constraint/default:bar"));
+  }
+
   private Set<Label> collectLabels(Collection<? extends ConstraintSettingInfo> settings) {
     return settings.stream().map(ConstraintSettingInfo::label).collect(Collectors.toSet());
   }
 
   @Nullable
-  private ConstraintCollection fetchConstraintCollection() throws Exception {
-    PlatformInfo platformInfo = fetchPlatformInfo();
+  private ConstraintCollection fetchConstraintCollection(String platformLabel) throws Exception {
+    PlatformInfo platformInfo = fetchPlatformInfo(platformLabel);
     if (platformInfo == null) {
       return null;
     }
