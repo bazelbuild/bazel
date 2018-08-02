@@ -132,13 +132,6 @@ public interface JavaSemantics {
   String SOURCE_JARS_OUTPUT_GROUP =
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
-  /**
-   * Name of the output group used for gen jars (the jars containing the class files for sources
-   * generated from annotation processors).
-   */
-  String GENERATED_JARS_OUTPUT_GROUP =
-      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
-
   /** Implementation for the :jvm attribute. */
   static LabelLateBoundDefault<JavaConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
     return LabelLateBoundDefault.fromTargetConfiguration(
