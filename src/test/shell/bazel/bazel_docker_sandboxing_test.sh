@@ -23,6 +23,10 @@ source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 # Test that Bazel can be build itself with Docker sandboxing.
+#
+# This test has to be run with "bazel test --action_env=PATH --action_env=HOME", because the inner
+# Bazel needs to be able to pass $HOME and $PATH to "docker" so that it can download the container
+# from gcr.io.
 function test_build_bazel_using_docker()  {
     unzip -qo "${DISTFILE}" &> $TEST_log || fail "Could not unzip Bazel's distfile"
 
