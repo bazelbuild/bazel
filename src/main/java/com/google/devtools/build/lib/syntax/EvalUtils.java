@@ -413,7 +413,7 @@ public final class EvalUtils {
               + "--incompatible_string_is_not_iterable=false to temporarily disable this check.");
     }
 
-    ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+    ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(value.length());
     for (char c : value.toCharArray()) {
       builder.add(String.valueOf(c));
     }

@@ -512,8 +512,9 @@ public final class FuncallExpression extends Expression {
       Map<String, Object> kwargs,
       MethodDescriptor method,
       Environment environment) {
+    ImmutableList<ParamDescriptor> parameters = method.getParameters();
     ImmutableList.Builder<Object> builder =
-        ImmutableList.builderWithExpectedSize(method.getParameters().size() + EXTRA_ARGS_COUNT);
+        ImmutableList.builderWithExpectedSize(parameters.size() + EXTRA_ARGS_COUNT);
     boolean acceptsExtraArgs = method.isAcceptsExtraArgs();
     boolean acceptsExtraKwargs = method.isAcceptsExtraKwargs();
 
@@ -524,9 +525,11 @@ public final class FuncallExpression extends Expression {
     // Positional parameters are always enumerated before non-positional parameters,
     // And default-valued positional parameters are always enumerated after other positional
     // parameters. These invariants are validated by the SkylarkCallable annotation processor.
-    for (ParamDescriptor param : method.getParameters()) {
+    // Index is used deliberately, since usage of iterators adds a significant overhead
+    for (int i = 0; i < parameters.size(); ++i) {
+      ParamDescriptor param = parameters.get(i);
       SkylarkType type = param.getSkylarkType();
-      Object value = null;
+      Object value;
 
       if (argIndex < args.size() && param.isPositional()) { // Positional args and params remain.
         value = args.get(argIndex);
