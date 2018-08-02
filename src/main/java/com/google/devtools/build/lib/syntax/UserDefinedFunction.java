@@ -71,9 +71,9 @@ public class UserDefinedFunction extends BaseFunction {
       env.enterScope(this, lexicalFrame, ast, definitionGlobals);
 
       // Registering the functions's arguments as variables in the local Environment
-      int i = 0;
-      for (String name : names) {
-        env.update(name, arguments[i++]);
+      // foreach loop is not used to avoid iterator overhead
+      for (int i = 0; i < names.size(); ++i) {
+        env.update(names.get(i), arguments[i]);
       }
 
       Eval eval = Eval.fromEnvironment(env);
