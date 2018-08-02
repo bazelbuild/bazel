@@ -400,7 +400,7 @@ public class JavaCommon {
     builder.addAll(Iterables.transform(currentRuleExports, TransitiveInfoCollection::getLabel));
 
     for (TransitiveInfoCollection dep : currentRuleExports) {
-      JavaExportsProvider exportsProvider = dep.getProvider(JavaExportsProvider.class);
+      JavaExportsProvider exportsProvider = JavaInfo.getProvider(JavaExportsProvider.class, dep);
 
       if (exportsProvider != null) {
         builder.addTransitive(exportsProvider.getTransitiveExports());
@@ -687,9 +687,7 @@ public class JavaCommon {
         .add(
             InstrumentedFilesProvider.class,
             getInstrumentationFilesProvider(ruleContext, filesToBuild, instrumentationSpec))
-        .add(JavaExportsProvider.class, exportsProvider)
-        .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar))
-        .add(JavaCompilationInfoProvider.class, compilationInfoProvider);
+        .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
     javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);

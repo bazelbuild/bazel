@@ -477,8 +477,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    srcs = ['dummy4.java'])");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/exports:dummy");
-    List<Label> exports = ImmutableList.copyOf(
-        target.getProvider(JavaExportsProvider.class).getTransitiveExports());
+    List<Label> exports =
+        ImmutableList.copyOf(
+            JavaInfo.getProvider(JavaExportsProvider.class, target).getTransitiveExports());
     assertThat(exports)
         .containsExactly(
             Label.parseAbsolute("//java/com/google/exports:dummy2", ImmutableMap.of()),
@@ -1750,11 +1751,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     Iterable<String> c1Jars =
         ActionsTestUtil.baseArtifactNames(
-            c1Target.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, c1Target)
+                .getCompilationClasspath());
 
     Iterable<String> c2Jars =
         ActionsTestUtil.baseArtifactNames(
-            c2Target.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, c2Target)
+                .getCompilationClasspath());
 
     assertThat(c1Jars).containsExactly("liba-hjar.jar");
     assertThat(c2Jars).containsExactly("liba-hjar.jar");
@@ -1774,10 +1777,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     ImmutableList<Artifact> bClasspath =
         ImmutableList.copyOf(
-            bTarget.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, bTarget)
+                .getCompilationClasspath());
     ImmutableList<Artifact> cClasspath =
         ImmutableList.copyOf(
-            cTarget.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, cTarget)
+                .getCompilationClasspath());
 
     assertThat(bClasspath).isEmpty();
     assertThat(cClasspath)
