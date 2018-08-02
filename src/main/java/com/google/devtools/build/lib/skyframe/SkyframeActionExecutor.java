@@ -527,6 +527,7 @@ public final class SkyframeActionExecutor {
    * tasks related to that action.
    */
   public ActionExecutionContext getContext(
+      MetadataProvider graphFileCache,
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
       ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
@@ -535,7 +536,7 @@ public final class SkyframeActionExecutor {
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot()));
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(metadataHandler, actionFileSystem),
+        createFileCache(graphFileCache, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -655,6 +656,7 @@ public final class SkyframeActionExecutor {
    */
   Iterable<Artifact> discoverInputs(
       Action action,
+      PerActionFileCache graphFileCache,
       MetadataHandler metadataHandler,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -662,7 +664,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(metadataHandler, actionFileSystem),
+            createFileCache(graphFileCache, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,

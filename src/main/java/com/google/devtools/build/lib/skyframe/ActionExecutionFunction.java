@@ -385,13 +385,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           actionLookupData,
           /* inputDiscoveryRan= */ false);
     }
-    // The metadata handler is recreated below if the action performs input discovery.
-    ActionMetadataHandler metadataHandler = new ActionMetadataHandler(
-        state.inputArtifactData,
-        /* missingArtifactsAllowed= */ action.discoversInputs(),
-        action.getOutputs(),
-        tsgm.get(),
-        pathResolver(state.actionFileSystem));
+    // This may be recreated if we discover inputs.
+    ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
+        action.getOutputs(), tsgm.get(), pathResolver(state.actionFileSystem));
     long actionStartTime = BlazeClock.nanoTime();
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
@@ -426,15 +422,19 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
     metadataHandler.discardOutputMetadata();
 
+    // This may be recreated if we discover inputs.
     // TODO(shahan): this isn't used when using ActionFileSystem so we can avoid creating some
     // unused objects.
+    PerActionFileCache perActionFileCache =
+        new PerActionFileCache(
+            state.inputArtifactData, /*missingArtifactsAllowed=*/ action.discoversInputs());
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
           state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
-                  action, metadataHandler, env, state.actionFileSystem);
+                  action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
           Preconditions.checkState(
               env.valuesMissing() == (state.discoveredInputs == null),
               "discoverInputs() must return null iff requesting more dependencies.");
@@ -451,13 +451,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (env.valuesMissing()) {
         return null;
       }
+      perActionFileCache =
+          new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
 
       metadataHandler =
-          new ActionMetadataHandler(
-              state.inputArtifactData,
-              /* missingArtifactsAllowed= */ false,
-              action.getOutputs(),
-              tsgm.get(),
+          new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get(),
               pathResolver(state.actionFileSystem));
       // Set the MetadataHandler to accept output information.
       metadataHandler.discardOutputMetadata();
@@ -489,6 +487,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
+            perActionFileCache,
             metadataHandler,
             Collections.unmodifiableMap(state.expandedArtifacts),
             filesetMappings.build(),
@@ -530,11 +529,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // markOmitted is only called for remote execution, and this code only gets executed for
         // local execution.
         metadataHandler =
-            new ActionMetadataHandler(
-                state.inputArtifactData,
-                /*missingArtifactsAllowed=*/ false,
-                action.getOutputs(),
-                tsgm.get(),
+            new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get(),
                 pathResolver(state.actionFileSystem));
       }
     }
