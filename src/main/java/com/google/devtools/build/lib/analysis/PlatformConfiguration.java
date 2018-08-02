@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** A configuration fragment describing the current platform configuration. */
 @AutoCodec
@@ -58,6 +60,17 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
    */
   public ImmutableList<String> getExtraExecutionPlatforms() {
     return extraExecutionPlatforms;
+  }
+
+  /**
+   * Returns the single target platform used in this configuration. The flag is multi-valued for
+   * future handling of multiple target platforms but any given configuration should only be
+   * concerned with a single target platform.
+   */
+  @Nullable
+  @Override
+  public Label getTargetPlatform() {
+    return Iterables.getFirst(targetPlatforms, null);
   }
 
   @Override
