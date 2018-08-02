@@ -163,7 +163,7 @@ Any test that does not specify a recognized size will default to being a medium
 test.</p>
 
 <p>Tests can be parallelized via test sharding. See
-<a href="command-line-reference.html#flag--test_sharding_strategy"><code>--test_sharding_strategy</code></a>
+<a href="user-manual.html#sharding-strategy"><code>--test_sharding_strategy</code></a>
 and
 <a href="be/common-definitions.html#common-attributes-tests"><code>shard_count</code></a>
 to enable test sharding. When sharding is enabled, the test runner is launched
@@ -243,7 +243,7 @@ test unless the user explicitly requests it.</p>
 
     </td><td>optional</td></tr>
     <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
-    <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="command-line-reference.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
+    <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="user-manual.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
 
     <tr><td><code>TZ</code></td><td><code>UTC</code></td><td>required</td></tr>
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
