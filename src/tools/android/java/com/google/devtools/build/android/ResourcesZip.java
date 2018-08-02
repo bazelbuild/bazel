@@ -21,6 +21,8 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilder;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilderVisitorWithDirectories;
 import com.google.devtools.build.android.aapt2.CompiledResources;
+import com.google.devtools.build.android.aapt2.ProtoApk;
+import com.google.devtools.build.android.aapt2.ProtoResourceUsageAnalyzer;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import java.io.FileOutputStream;
@@ -142,10 +144,13 @@ public class ResourcesZip {
                 throw new RuntimeException(e);
               }
             });
-    return from(
+    return new ResourcesZip(
         Files.createDirectories(workingDirectory.resolve("res")),
         Files.createDirectories(workingDirectory.resolve("assets")),
-        workingDirectory.resolve("ids.txt"));
+        workingDirectory.resolve("ids.txt"),
+        null,
+        workingDirectory.resolve("apk.pb"),
+        workingDirectory.resolve("tools.attributes.pb"));
   }
 
   /**
@@ -233,14 +238,18 @@ public class ResourcesZip {
 
   public ShrunkProtoApk shrinkUsingProto(
       Set<String> packages,
-      Path rTxt,
       Path classJar,
-      Path primaryManifest,
       Path proguardMapping,
       Path logFile,
       Path workingDirectory)
-      throws ParserConfigurationException {
-    throw new UnsupportedOperationException();
+      throws ParserConfigurationException, IOException, SAXException {
+    final Path shrunkApkProto = workingDirectory.resolve("shrunk.apk.pb");
+    try (final ProtoApk apk = ProtoApk.readFrom(proto)) {
+      // record resources and manifest
+      new ProtoResourceUsageAnalyzer(packages, proguardMapping, logFile)
+          .shrink(apk, classJar, shrunkApkProto);
+      return new ShrunkProtoApk(shrunkApkProto, logFile);
+    }
   }
 
   static class ShrunkProtoApk {
@@ -252,8 +261,12 @@ public class ResourcesZip {
       this.report = report;
     }
 
-    ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut) throws IOException {
-      Files.copy(linker.convertToBinary(apk), binaryOut, StandardCopyOption.REPLACE_EXISTING);
+    ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
+        throws IOException {
+      Files.copy(
+          writeAsProto ? apk : linker.optimizeApk(linker.convertToBinary(apk)),
+          binaryOut,
+          StandardCopyOption.REPLACE_EXISTING);
       return this;
     }
 
@@ -262,7 +275,7 @@ public class ResourcesZip {
       return this;
     }
 
-    ShrunkProtoApk writeResourceToZip(Path resourcesZip) throws IOException {
+    ShrunkProtoApk writeResourcesToZip(Path resourcesZip) throws IOException {
       try (final ZipBuilder zip = ZipBuilder.createFor(resourcesZip)) {
         zip.addEntry("apk.pb", Files.readAllBytes(apk), ZipEntry.STORED);
       }

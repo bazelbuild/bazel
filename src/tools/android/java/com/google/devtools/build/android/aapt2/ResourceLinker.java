@@ -214,9 +214,8 @@ public class ResourceLinker {
               .forBuildToolsVersion(buildToolsVersion)
               .forVariantType(VariantType.LIBRARY)
               .add("link")
-              .when(
-                  outputAsProto) // Used for testing: aapt2 does not output static libraries in
-                                 // proto format.
+              .when(outputAsProto) // Used for testing: aapt2 does not output static libraries in
+              // proto format.
               .thenAdd("--proto-format")
               .when(!outputAsProto)
               .thenAdd("--static-lib")

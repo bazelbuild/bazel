@@ -54,6 +54,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiPredicate;
+import javax.annotation.Nullable;
 
 /**
  * Provides an interface to an apk in proto format. Since the apk is backed by a zip, it is
@@ -169,6 +170,7 @@ public class ProtoApk implements Closeable {
     }
   }
 
+  /** Traverses the resource table and compiled xml resource using the {@link ResourceVisitor}. */
   public <T extends ResourceVisitor> T visitResources(T visitor) throws IOException {
 
     // visit manifest
@@ -184,17 +186,24 @@ public class ProtoApk implements Closeable {
             : ImmutableList.of();
 
     for (Package pkg : resourceTable.getPackageList()) {
-      ResourcePackageVisitor pkgVisitor = visitor.enteringPackage(pkg.getPackageId().getId());
-      for (Resources.Type type : pkg.getTypeList()) {
-        ResourceTypeVisitor typeVisitor =
-            pkgVisitor.enteringResourceType(
-                type.getTypeId().getId(), ResourceType.getEnum(type.getName()));
-        for (Entry entry : type.getEntryList()) {
-          ResourceValueVisitor entryVisitor =
-              typeVisitor.acceptDeclaration(entry.getName(), entry.getEntryId().getId());
-          for (ConfigValue configValue : entry.getConfigValueList()) {
-            if (configValue.hasValue()) {
-              visitValue(entryVisitor, configValue.getValue(), sourcePool);
+      ResourcePackageVisitor pkgVisitor =
+          visitor.enteringPackage(pkg.getPackageId().getId(), pkg.getPackageName());
+      if (pkgVisitor != null) {
+        for (Resources.Type type : pkg.getTypeList()) {
+          ResourceTypeVisitor typeVisitor =
+              pkgVisitor.enteringResourceType(
+                  type.getTypeId().getId(), ResourceType.getEnum(type.getName()));
+          if (typeVisitor != null) {
+            for (Entry entry : type.getEntryList()) {
+              ResourceValueVisitor entryVisitor =
+                  typeVisitor.enteringDeclaration(entry.getName(), entry.getEntryId().getId());
+              if (entryVisitor != null) {
+                for (ConfigValue configValue : entry.getConfigValueList()) {
+                  if (configValue.hasValue()) {
+                    visitValue(entryVisitor, configValue.getValue(), sourcePool);
+                  }
+                }
+              }
             }
           }
         }
@@ -203,7 +212,7 @@ public class ProtoApk implements Closeable {
     return visitor;
   }
 
-  /** Return the underlying uri for this apk. */
+  /** Accessor for the underlying URI of the apk. */
   public URI asApk() {
     return uri.normalize();
   }
@@ -348,6 +357,7 @@ public class ProtoApk implements Closeable {
         .getAttr()
         .getSymbolList()
         .stream()
+        .filter(Symbol::hasName)
         .map(Symbol::getName)
         .forEach(r -> visitReference(entryVisitor, r));
   }
@@ -391,9 +401,13 @@ public class ProtoApk implements Closeable {
     }
   }
 
-  private void visitXmlResource(Path path, ReferenceVisitor sink) {
+  private void visitXmlResource(Path path, ReferenceVisitor visitor) {
+    if (visitor == null) {
+      return;
+    }
+
     try (InputStream in = Files.newInputStream(path)) {
-      visit(XmlNode.parseFrom(in), sink);
+      visit(XmlNode.parseFrom(in), visitor);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -402,14 +416,14 @@ public class ProtoApk implements Closeable {
   private void visit(XmlNode node, ReferenceVisitor sink) {
     if (node.hasElement()) {
       final XmlElement element = node.getElement();
-      element
-          .getAttributeList()
-          .stream()
-          .filter(XmlAttribute::hasCompiledItem)
-          .map(XmlAttribute::getCompiledItem)
-          .filter(Item::hasRef)
-          .map(Item::getRef)
-          .forEach(ref -> visitReference(sink, ref));
+      for (XmlAttribute attribute : element.getAttributeList()) {
+        if (attribute.hasCompiledItem() && attribute.getCompiledItem().hasRef()) {
+          visitReference(sink, attribute.getCompiledItem().getRef());
+        }
+        if (attribute.getResourceId() != 0) {
+          sink.accept(attribute.getResourceId());
+        }
+      }
       element.getChildList().forEach(child -> visit(child, sink));
     }
   }
@@ -430,30 +444,35 @@ public class ProtoApk implements Closeable {
   }
 
   /** Provides an entry point to recording declared and referenced resources in the apk. */
-  public interface ResourceVisitor<T extends ResourceVisitor<T>> {
-    /** Called when entering the manifest. */
+  public interface ResourceVisitor {
+    /** Called when entering the manifest. If null, the manifest is not visited. */
+    @Nullable
     ManifestVisitor enteringManifest();
 
-    /** Called when entering a resource package. */
-    ResourcePackageVisitor enteringPackage(int pkgId);
+    /** Called when entering a resource package. If null, the package is not visited. */
+    @Nullable
+    ResourcePackageVisitor enteringPackage(int pkgId, String packageName);
   }
 
   /** Provides a visitor for packages. */
   public interface ResourcePackageVisitor {
-    /** Called when entering the resource types of the package. */
+    /** Called when entering the resource types of the package. If null, the type is not visited. */
+    @Nullable
     ResourceTypeVisitor enteringResourceType(int typeId, ResourceType type);
   }
 
-  /** Visitor for resource types */
+  /** Visitor for resources types */
   public interface ResourceTypeVisitor {
     /**
      * Called for resource declarations.
      *
      * @param name The name of the resource.
      * @param resourceId The id of the resource, without the package and type.
-     * @return A visitor for accepting references to other resources from the declared resource.
+     * @return A visitor for accepting references to other resources from the declared resource. If
+     *     null, the value is not visited.
      */
-    ResourceValueVisitor acceptDeclaration(String name, int resourceId);
+    @Nullable
+    ResourceValueVisitor enteringDeclaration(String name, int resourceId);
   }
 
   /** A manifest specific resource reference visitor. */
