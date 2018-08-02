@@ -34,7 +34,7 @@ public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
     this.params =
         SkylarkDocUtils.determineParams(
             this,
-            annotation.parameters(),
+            withoutSelfParam(annotation),
             annotation.extraPositionals(),
             annotation.extraKeywords());
   }

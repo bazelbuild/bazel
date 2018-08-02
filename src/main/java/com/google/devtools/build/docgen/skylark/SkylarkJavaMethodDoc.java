@@ -40,7 +40,10 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
     this.callable = callable;
     this.params =
         SkylarkDocUtils.determineParams(
-            this, callable.parameters(), callable.extraPositionals(), callable.extraKeywords());
+            this,
+            withoutSelfParam(callable, method),
+            callable.extraPositionals(),
+            callable.extraKeywords());
   }
 
   public Method getMethod() {
