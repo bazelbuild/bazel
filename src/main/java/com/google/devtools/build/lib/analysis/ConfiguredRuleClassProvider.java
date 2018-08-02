@@ -830,7 +830,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
     SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
-    SkylarkUtils.setRepositoryMapping(env, ImmutableMap.of(RepositoryName.createFromValidStrippedName("a"), RepositoryName.createFromValidStrippedName("b")));
+    // SkylarkUtils.setRepositoryMapping(env, ImmutableMap.of(RepositoryName.createFromValidStrippedName("a"), RepositoryName.createFromValidStrippedName("b")));
     return env;
   }
 

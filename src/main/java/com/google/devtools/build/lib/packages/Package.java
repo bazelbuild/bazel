@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -936,6 +937,34 @@ public class Package {
     /** Get the repository mapping for this package */
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return this.repositoryMapping;
+    }
+
+    /**
+     * Returns the repository mapping for the requested external repository.
+     *
+     * @throws UnsupportedOperationException if called from a package other than
+     *     the //external package
+     */
+    public HashMap<RepositoryName, RepositoryName> getRepositoryMapping(
+        RepositoryName repository) {
+      if (!isWorkspace()) {
+        throw new UnsupportedOperationException("Can only access the external package repository"
+            + "mappings from the //external package");
+      }
+      return externalPackageRepositoryMappings.getOrDefault(repository, new HashMap<>());
+    }
+
+    /**
+     * Returns the repository mapping for the requested external repository.
+     *
+     * @throws LabelSyntaxException if repository is not a valid {@link RepositoryName}
+     * @throws UnsupportedOperationException if called from any package other than the //external
+     *     package
+     */
+    public HashMap<RepositoryName, RepositoryName> getRepositoryMapping(String repository)
+        throws LabelSyntaxException, UnsupportedOperationException {
+      RepositoryName repositoryName = RepositoryName.create(repository);
+      return getRepositoryMapping(repositoryName);
     }
 
     /**

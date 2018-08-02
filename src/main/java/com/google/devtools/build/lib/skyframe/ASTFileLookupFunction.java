@@ -37,6 +37,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -122,12 +124,16 @@ public class ASTFileLookupFunction implements SkyFunction {
                     /*importMap=*/ null)
                 .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
                 .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE);
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
-            SkylarkUtils.getRepositoryMapping(validationEnv);
+        HashMap<RepositoryName, RepositoryName> repositoryMappingHash =
+            SkylarkUtils.getRepositoryMapping(validationEnv) == null ?
+                new HashMap<RepositoryName, RepositoryName>() : SkylarkUtils.getRepositoryMapping(validationEnv);
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.<RepositoryName, RepositoryName>builder().putAll(repositoryMappingHash).build();
         byte[] bytes = FileSystemUtils.readWithKnownFileSize(path, astFileSize);
         ast =
             BuildFileAST.parseSkylarkFile(
                 bytes, path.getDigest(), path.asFragment(), env.getListener(), repositoryMapping);
+            BuildFileAST.parseSkylarkFile(
+                bytes, path.getDigest(), path.asFragment(), env.getListener(), /* repositoryMapping = */ ImmutableMap.of());
           ast = ast.validate(validationEnv, env.getListener());
         }
     } catch (IOException e) {

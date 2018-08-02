@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.util.HashMap;
@@ -350,6 +351,7 @@ public class WorkspaceFactory {
                     RepositoryName.MAIN,
                     RepositoryName.createFromValidStrippedName(name),
                     RepositoryName.MAIN);
+                SkylarkUtils.setRepositoryMapping(env, builder.getRepositoryMapping(RepositoryName.MAIN));
                 return NONE;
               }
             };
@@ -522,6 +524,9 @@ public class WorkspaceFactory {
                     RepositoryName.create((String) e.getValue()));
               }
             }
+          }
+          if (SkylarkUtils.getRepositoryMapping(env) == null) {
+            SkylarkUtils.setRepositoryMapping(env, builder.getRepositoryMapping(RepositoryName.MAIN));
           }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
