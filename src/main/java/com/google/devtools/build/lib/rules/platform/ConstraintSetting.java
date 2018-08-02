@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
 
 /**
  * Defines a category of constraint that can be fulfilled by a constraint_value rule in a platform
@@ -34,11 +36,17 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
+    Label defaultConstraintValue =
+        ruleContext
+            .attributes()
+            .get(ConstraintSettingRule.DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
-        .addNativeDeclaredProvider(ConstraintSettingInfo.create(ruleContext.getLabel()))
+        .addNativeDeclaredProvider(
+            ConstraintSettingInfo.create(ruleContext.getLabel(), defaultConstraintValue))
         .build();
   }
 }

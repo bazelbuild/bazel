@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,22 +49,58 @@ public class ConstraintTest extends BuildViewTestCase {
   public void testConstraint() throws Exception {
     ConfiguredTarget setting = getConfiguredTarget("//constraint:basic");
     assertThat(setting).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting).label())
+
+    ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(constraintSettingInfo).isNotNull();
+    assertThat(constraintSettingInfo).isNotNull();
+    assertThat(constraintSettingInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
+    assertThat(constraintSettingInfo.defaultConstraintValue()).isNull();
+
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint:foo");
     assertThat(fooValue).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(fooValue)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(fooValue).constraint().label())
+
+    ConstraintValueInfo fooConstraintValueInfo = PlatformProviderUtils.constraintValue(fooValue);
+    assertThat(fooConstraintValueInfo).isNotNull();
+    assertThat(fooConstraintValueInfo.constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
-    assertThat(PlatformProviderUtils.constraintValue(fooValue).label())
+    assertThat(fooConstraintValueInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:foo", ImmutableMap.of()));
+
     ConfiguredTarget barValue = getConfiguredTarget("//constraint:bar");
     assertThat(barValue).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(barValue).constraint().label())
+
+    ConstraintValueInfo barConstraintValueInfo = PlatformProviderUtils.constraintValue(barValue);
+    assertThat(barConstraintValueInfo.constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
-    assertThat(PlatformProviderUtils.constraintValue(barValue).label())
+    assertThat(barConstraintValueInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:bar", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testConstraint_defaultValue() throws Exception {
+    scratch.file(
+        "constraint_default/BUILD",
+        "constraint_setting(name = 'basic',",
+        "    default_constraint_value = ':foo',",
+        "    )",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        "    )",
+        "constraint_value(name = 'bar',",
+        "    constraint_setting = ':basic',",
+        "    )");
+
+    ConfiguredTarget setting = getConfiguredTarget("//constraint_default:basic");
+    assertThat(setting).isNotNull();
+    ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(constraintSettingInfo).isNotNull();
+
+    ConfiguredTarget fooValue = getConfiguredTarget("//constraint_default:foo");
+    assertThat(fooValue).isNotNull();
+    ConstraintValueInfo fooConstraintValueInfo = PlatformProviderUtils.constraintValue(fooValue);
+    assertThat(fooConstraintValueInfo).isNotNull();
+
+    assertThat(constraintSettingInfo.defaultConstraintValue()).isEqualTo(fooConstraintValueInfo);
   }
 }

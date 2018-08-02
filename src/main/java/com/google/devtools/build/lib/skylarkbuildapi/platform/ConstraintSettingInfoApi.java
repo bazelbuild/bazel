@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import javax.annotation.Nullable;
 
 /** Info object representing a specific constraint setting that may be used to define a platform. */
 @SkylarkModule(
@@ -34,4 +35,11 @@ public interface ConstraintSettingInfoApi extends StructApi {
       doc = "The label of the target that created this constraint.",
       structField = true)
   Label label();
+
+  @SkylarkCallable(
+      name = "default_constraint_value",
+      doc = "The default constraint_value for this setting.",
+      structField = true)
+  @Nullable
+  ConstraintValueInfoApi defaultConstraintValue();
 }
