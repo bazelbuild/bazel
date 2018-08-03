@@ -50,16 +50,21 @@ public final class ResourceApk {
   private final Artifact rTxt;
   @Nullable private final Artifact resourceProguardConfig;
   @Nullable private final Artifact mainDexProguardConfig;
+  private final DataBindingContext dataBindingContext;
 
-  static ResourceApk of(ResourceContainer resourceContainer, ResourceDependencies resourceDeps) {
-    return of(resourceContainer, resourceDeps, null, null);
+  static ResourceApk of(
+      ResourceContainer resourceContainer,
+      ResourceDependencies resourceDeps,
+      DataBindingContext dataBindingContext) {
+    return of(resourceContainer, resourceDeps, null, null, dataBindingContext);
   }
 
   static ResourceApk of(
       ResourceContainer resourceContainer,
       ResourceDependencies resourceDeps,
       @Nullable Artifact resourceProguardConfig,
-      @Nullable Artifact mainDexProguardConfig) {
+      @Nullable Artifact mainDexProguardConfig,
+      DataBindingContext dataBindingContext) {
     return new ResourceApk(
         resourceContainer.getApk(),
         resourceContainer.getJavaSourceJar(),
@@ -72,7 +77,8 @@ public final class ResourceApk {
         resourceContainer.getProcessedManifest(),
         resourceContainer.getRTxt(),
         resourceProguardConfig,
-        mainDexProguardConfig);
+        mainDexProguardConfig,
+        dataBindingContext);
   }
 
   public static ResourceApk of(
@@ -92,7 +98,8 @@ public final class ResourceApk {
         resources.getProcessedManifest(),
         resources.getRTxt(),
         resourceProguardConfig,
-        mainDexProguardConfig);
+        mainDexProguardConfig,
+        resources.asDataBindingContext());
   }
 
   private ResourceApk(
@@ -107,7 +114,8 @@ public final class ResourceApk {
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
       @Nullable Artifact resourceProguardConfig,
-      @Nullable Artifact mainDexProguardConfig) {
+      @Nullable Artifact mainDexProguardConfig,
+      DataBindingContext dataBindingContext) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -120,6 +128,7 @@ public final class ResourceApk {
     this.rTxt = rTxt;
     this.resourceProguardConfig = resourceProguardConfig;
     this.mainDexProguardConfig = mainDexProguardConfig;
+    this.dataBindingContext = dataBindingContext;
   }
 
   ResourceApk withApk(Artifact apk) {
@@ -135,7 +144,8 @@ public final class ResourceApk {
         manifest,
         rTxt,
         resourceProguardConfig,
-        mainDexProguardConfig);
+        mainDexProguardConfig,
+        asDataBindingContext());
   }
 
   public Artifact getArtifact() {
@@ -179,7 +189,8 @@ public final class ResourceApk {
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
       ProcessedAndroidManifest manifest,
-      Artifact rTxt) {
+      Artifact rTxt,
+      DataBindingContext dataBindingContext) {
     return new ResourceApk(
         null,
         null,
@@ -192,7 +203,8 @@ public final class ResourceApk {
         manifest,
         rTxt,
         null,
-        null);
+        null,
+        dataBindingContext);
   }
 
   public Artifact getResourceProguardConfig() {
@@ -209,6 +221,10 @@ public final class ResourceApk {
 
   public AssetDependencies getAssetDependencies() {
     return assetDeps;
+  }
+
+  public DataBindingContext asDataBindingContext() {
+    return dataBindingContext;
   }
 
   /**
@@ -266,7 +282,7 @@ public final class ResourceApk {
       // targets
       // so we can validate there are no asset merging conflicts.
       builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, assetsInfo.getValidationResult());
-      }
+    }
 
     if (manifestInfo.isPresent() && !isLibrary) {
       builder.addNativeDeclaredProvider(

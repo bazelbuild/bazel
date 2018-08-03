@@ -496,7 +496,6 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 ResourceFilterFactory.empty(),
                 ImmutableList.of(),
                 false,
-                false,
                 null,
                 null,
                 DataBinding.contextFrom(ruleContext))
@@ -549,6 +548,12 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
   private ParsedAndroidResources makeParsedResources(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
+    return makeParsedResources(ruleContext, DataBinding.asDisabledDataBindingContext());
+  }
+
+  private ParsedAndroidResources makeParsedResources(
+      RuleContext ruleContext, DataBindingContext dataBindingContext)
+      throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "drawable-hdpi/bar.png");
     return new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"))
@@ -556,7 +561,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
             AndroidDataContext.forNative(ruleContext),
             getManifest(),
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext),
-            DataBinding.contextFrom(ruleContext));
+            dataBindingContext);
   }
 
   private ProcessedAndroidManifest getManifest() {

@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -67,7 +68,52 @@ public final class DataBinding {
 
   /** Contains Android Databinding configuration and resource generation information. */
   public interface DataBindingContext {
+
+    /**
+     * Returns the file where data binding's resource processing produces binding xml. For example,
+     * given:
+     *
+     * <pre>{@code
+     * <layout>
+     *   <data>
+     *     <variable name="foo" type="String" />
+     *   </data>
+     * </layout>
+     * <LinearLayout>
+     *   ...
+     * </LinearLayout>
+     * }</pre>
+     *
+     * <p>data binding strips out and processes this part:
+     *
+     * <pre>{@code
+     * <data>
+     *   <variable name="foo" type="String" />
+     * </data>
+     * }</pre>
+     *
+     * for each layout file with data binding expressions. Since this may produce multiple files,
+     * outputs are zipped up into a single container.
+     */
     void supplyLayoutInfo(Consumer<Artifact> consumer);
+
+    /** The javac flags that are needed to configure data binding's annotation processor. */
+    void supplyJavaCoptsUsing(
+        RuleContext ruleContext, boolean isBinary, Consumer<Iterable<String>> consumer);
+
+    /**
+     * Adds data binding's annotation processor as a plugin to the given Java compilation context.
+     *
+     * <p>This, in conjunction with {@link #createAnnotationFile} extends the Java compilation to
+     * translate data binding .xml into corresponding classes.
+     */
+    void supplyAnnotationProcessor(
+        RuleContext ruleContext, BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer);
+
+    ImmutableList<Artifact> processDeps(RuleContext ruleContext);
+
+    ImmutableList<Artifact> addAnnotationFileToSrcs(
+        ImmutableList<Artifact> srcs, RuleContext ruleContext);
   }
 
   private static final class EnabledDataBindingContext implements DataBindingContext {
@@ -81,6 +127,38 @@ public final class DataBinding {
     @Override
     public void supplyLayoutInfo(Consumer<Artifact> consumer) {
       consumer.accept(getLayoutInfoFile(actionConstructionContext));
+    }
+
+    @Override
+    public void supplyJavaCoptsUsing(
+        RuleContext ruleContext, boolean isBinary, Consumer<Iterable<String>> consumer) {
+      consumer.accept(getJavacOpts(ruleContext, isBinary));
+    }
+
+    @Override
+    public void supplyAnnotationProcessor(
+        RuleContext ruleContext, BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) {
+      consumer.accept(
+          JavaInfo.getProvider(
+              JavaPluginInfoProvider.class,
+              ruleContext.getPrerequisite(
+                  DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST)),
+          getMetadataOutputs(ruleContext));
+    }
+
+    @Override
+    public ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+      return DataBinding.processDeps(ruleContext);
+    }
+
+    @Override
+    public ImmutableList<Artifact> addAnnotationFileToSrcs(
+        ImmutableList<Artifact> srcs, RuleContext ruleContext) {
+      final Artifact annotationFile = createAnnotationFile(ruleContext);
+      if (annotationFile != null) {
+        return ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
+      }
+      return ImmutableList.of();
     }
 
     @Override
@@ -102,10 +180,28 @@ public final class DataBinding {
   }
 
   private static final class DisabledDataBindingContext implements DataBindingContext {
-
     @Override
     public void supplyLayoutInfo(Consumer<Artifact> consumer) {
       // pass
+    }
+
+    @Override
+    public void supplyJavaCoptsUsing(
+        RuleContext ruleContext, boolean isBinary, Consumer<Iterable<String>> consumer) {}
+
+    @Override
+    public void supplyAnnotationProcessor(
+        RuleContext ruleContext, BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) {}
+
+    @Override
+    public ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<Artifact> addAnnotationFileToSrcs(
+        ImmutableList<Artifact> srcs, RuleContext ruleContext) {
+      return srcs;
     }
   }
 
@@ -117,7 +213,7 @@ public final class DataBinding {
     return asDisabledDataBindingContext();
   }
 
-  /** Supplies a databinding context from a rulecontext. */
+  /** Supplies a databinding context from an action context. */
   public static DataBindingContext contextFrom(boolean enabled, ActionConstructionContext context) {
     if (enabled) {
       return asEnabledDataBindingContextFrom(context);
@@ -131,7 +227,7 @@ public final class DataBinding {
     return new EnabledDataBindingContext(actionContext);
   }
 
-  /** Supplies a disabled (no-op) DataBindingContext from the action context. */
+  /** Supplies a disabled (no-op) DataBindingContext. */
   public static DataBindingContext asDisabledDataBindingContext() {
     return new DisabledDataBindingContext();
   }
@@ -370,7 +466,7 @@ public final class DataBinding {
    * @return the deps' metadata outputs. These need to be staged as compilation inputs to the
    *     current rule.
    */
-  static ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
+  private static ImmutableList<Artifact> processDeps(RuleContext ruleContext) {
     ImmutableList.Builder<Artifact> dataBindingJavaInputs = ImmutableList.<Artifact>builder();
     if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       dataBindingJavaInputs.add(DataBinding.getLayoutInfoFile(ruleContext));

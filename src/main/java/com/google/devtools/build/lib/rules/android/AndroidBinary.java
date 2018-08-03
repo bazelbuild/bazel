@@ -114,23 +114,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
-    JavaCommon javaCommon =
-        AndroidCommon.createJavaCommonWithAndroidDataBinding(ruleContext, javaSemantics, false);
-    javaSemantics.checkRule(ruleContext, javaCommon);
-    javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
-
-    AndroidCommon androidCommon = new AndroidCommon(javaCommon, /* asNeverLink= */ true);
-    ResourceDependencies resourceDeps =
-        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink= */ false);
     RuleConfiguredTargetBuilder builder =
-        init(
-            ruleContext,
-            filesBuilder,
-            resourceDeps,
-            androidCommon,
-            cppSemantics,
-            javaSemantics,
-            androidSemantics);
+        init(ruleContext, filesBuilder, cppSemantics, javaSemantics, androidSemantics);
     return builder.build();
   }
 
@@ -175,12 +160,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static RuleConfiguredTargetBuilder init(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
-      ResourceDependencies resourceDeps,
-      AndroidCommon androidCommon,
       CppSemantics cppSemantics,
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics)
       throws InterruptedException, RuleErrorException {
+
+    ResourceDependencies resourceDeps =
+        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink= */ false);
 
     validateRuleContext(ruleContext);
 
@@ -229,7 +215,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
                   ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  DataBinding.isEnabled(ruleContext),
                   ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
                       ? ruleContext
                           .getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER)
@@ -261,6 +246,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
               dataContext,
+              DataBinding.contextFrom(ruleContext),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
@@ -273,14 +259,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   dataContext.getAndroidConfig(), ruleContext, shrinkResources),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-              DataBinding.isEnabled(ruleContext)
-                  ? DataBinding.getLayoutInfoFile(ruleContext)
-                  : null,
               featureOfArtifact,
               featureAfterArtifact);
     }
 
     ruleContext.assertNoErrors();
+
+    JavaCommon javaCommon =
+        AndroidCommon.createJavaCommonWithAndroidDataBinding(
+            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary */ false);
+    javaSemantics.checkRule(ruleContext, javaCommon);
+    javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
+
+    AndroidCommon androidCommon = new AndroidCommon(javaCommon, /* asNeverLink= */ true);
 
     // Remove the library resource JARs from the binary's runtime classpath.
     // Resource classes from android_library dependencies are replaced by the binary's resource
