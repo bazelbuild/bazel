@@ -58,6 +58,8 @@ import java.util.stream.Stream;
 public class ResourceLinker {
 
   private static final Predicate<String> IS_JAR = s -> s.endsWith(".jar");
+  private static final String PROTO_EXTENSION = "pb-apk";
+  private static final String BINARY_EXTENSION = "apk";
   private boolean debug;
   private static final Predicate<DirectoryEntry> IS_FLAT_FILE =
       h -> h.getFilename().endsWith(".flat");
@@ -75,6 +77,7 @@ public class ResourceLinker {
 
   private static final ImmutableSet<String> PSEUDO_LOCALE_FILTERS =
       ImmutableSet.of("en_XA", "ar_XB");
+  private static final String OPTIMIZED_EXTENSION = ".optimized-apk";
 
   /** Represents errors thrown during linking. */
   public static class LinkError extends Aapt2Exception {
@@ -332,20 +335,46 @@ public class ResourceLinker {
     return fileName.substring(0, lastIndex).concat(".").concat(newExtension);
   }
 
-  public Path convertToBinary(Path protoApk) {
+  public Path convertToBinary(Path apk) {
+    if (apk.getFileName().toString().endsWith(BINARY_EXTENSION)) {
+      return apk;
+    }
     try {
       profiler.startTask("convertToBinary");
       final Path outPath =
           workingDirectory.resolveSibling(
-              replaceExtension(protoApk.getFileName().toString(), "apk"));
+              replaceExtension(apk.getFileName().toString(), BINARY_EXTENSION));
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .add("convert")
               .add("-o", outPath)
               .add("--output-format", "binary")
-              .add(protoApk.toString())
-              .execute("Converting " + protoApk));
+              .add(apk.toString())
+              .execute("Converting " + apk));
       profiler.recordEndOf("convertToBinary");
+      return outPath;
+    } catch (IOException e) {
+      throw new LinkError(e);
+    }
+  }
+
+  public Path convertToProto(Path apk) {
+    if (apk.getFileName().toString().endsWith(PROTO_EXTENSION)) {
+      return apk;
+    }
+    try {
+      profiler.startTask("convertToProto");
+      final Path outPath =
+          workingDirectory.resolveSibling(
+              replaceExtension(apk.getFileName().toString(), PROTO_EXTENSION));
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .add("convert")
+              .add("-o", outPath)
+              .add("--output-format", "proto")
+              .add(apk.toString())
+              .execute("Converting " + apk));
+      profiler.recordEndOf("convertToProto");
       return outPath;
     } catch (IOException e) {
       throw new LinkError(e);
@@ -354,10 +383,14 @@ public class ResourceLinker {
 
   public Path optimizeApk(Path apk) {
     try {
+      if (apk.getFileName().toString().endsWith(OPTIMIZED_EXTENSION)) {
+        return apk;
+      }
+
       profiler.startTask("optimizeApk");
       final Path outPath =
           workingDirectory.resolveSibling(
-              replaceExtension(apk.getFileName().toString(), ".optimized.apk"));
+              replaceExtension(apk.getFileName().toString(), OPTIMIZED_EXTENSION));
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
@@ -378,7 +411,8 @@ public class ResourceLinker {
 
   public PackagedResources link(CompiledResources compiled) {
     try {
-      final Path outPath = workingDirectory.resolve("bin.pb");
+      final Path outPath =
+          workingDirectory.resolve("bin." + (outputAsProto ? PROTO_EXTENSION : BINARY_EXTENSION));
       Path rTxt = workingDirectory.resolve("R.txt");
       Path proguardConfig = workingDirectory.resolve("proguard.cfg");
       Path mainDexProguard = workingDirectory.resolve("proguard.maindex.cfg");
@@ -395,12 +429,13 @@ public class ResourceLinker {
               .thenAdd("--no-version-vectors")
               // Turn off namespaced resources
               .add("--no-static-lib-packages")
-              .add("--proto-format")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")
               .add("--manifest", compiled.getManifest())
               // Enables resource redefinition and merging
               .add("--auto-add-overlay")
+              .when(outputAsProto)
+              .thenAdd("--proto-format")
               .when(debug)
               .thenAdd("--debug-mode")
               .add("--custom-package", customPackage)
@@ -455,9 +490,10 @@ public class ResourceLinker {
 
       profiler.recordEndOf("attributes");
       if (densities.size() < 2) {
+        final Path protoApk = convertToProto(outPath);
         return PackagedResources.of(
-            outputAsProto ? outPath : convertToBinary(outPath), // convert proto to apk
-            outPath,
+            outputAsProto ? protoApk : convertToBinary(outPath), // convert proto to apk
+            protoApk,
             rTxt,
             proguardConfig,
             mainDexProguard,
@@ -467,7 +503,7 @@ public class ResourceLinker {
       }
 
       profiler.startTask("optimize");
-      final Path optimized = workingDirectory.resolve("optimized.pb");
+      final Path optimized = workingDirectory.resolve("optimized." + OPTIMIZED_EXTENSION);
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
@@ -481,9 +517,10 @@ public class ResourceLinker {
               .execute(String.format("Optimizing %s", compiled.getManifest())));
       profiler.recordEndOf("optimize");
 
+      final Path protoApk = convertToProto(optimized);
       return PackagedResources.of(
-          outputAsProto ? optimized : convertToBinary(optimized),
-          optimized,
+          outputAsProto ? protoApk : convertToBinary(optimized), // convert proto to binary
+          protoApk,
           rTxt,
           proguardConfig,
           mainDexProguard,
