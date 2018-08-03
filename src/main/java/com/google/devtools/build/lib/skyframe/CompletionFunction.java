@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
@@ -39,6 +40,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -47,6 +50,12 @@ import javax.annotation.Nullable;
  */
 public final class CompletionFunction<TValue extends SkyValue, TResult extends SkyValue>
     implements SkyFunction {
+
+  interface PathResolverFactory {
+    ArtifactPathResolver createPathResolverForArtifactValues(ActionInputMap actionInputMap);
+
+    boolean shouldCreatePathResolverForArtifactValues();
+  }
 
   /** A strategy for completing the build. */
   interface Completor<TValue, TResult extends SkyValue> {
@@ -281,17 +290,20 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     }
   }
 
-  public static SkyFunction targetCompletionFunction() {
-    return new CompletionFunction<>(new TargetCompletor());
+  public static SkyFunction targetCompletionFunction(PathResolverFactory pathResolverFactory) {
+    return new CompletionFunction<>(pathResolverFactory, new TargetCompletor());
   }
 
-  public static SkyFunction aspectCompletionFunction() {
-    return new CompletionFunction<>(new AspectCompletor());
+  public static SkyFunction aspectCompletionFunction(PathResolverFactory pathResolverFactory) {
+    return new CompletionFunction<>(pathResolverFactory, new AspectCompletor());
   }
 
+  private final PathResolverFactory pathResolverFactory;
   private final Completor<TValue, TResult> completor;
 
-  private CompletionFunction(Completor<TValue, TResult> completor) {
+  private CompletionFunction(
+      PathResolverFactory pathResolverFactory, Completor<TValue, TResult> completor) {
+    this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
   }
 
@@ -311,6 +323,14 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
             MissingInputFileException.class,
             ActionExecutionException.class);
 
+    boolean createPathResolver = pathResolverFactory.shouldCreatePathResolverForArtifactValues();
+    ActionInputMap inputMap = null;
+    Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
+    if (createPathResolver) {
+      inputMap = new ActionInputMap(inputDeps.size());
+      expandedArtifacts = new HashMap<>();
+    }
+
     int missingCount = 0;
     ActionExecutionException firstActionExecutionException = null;
     MissingInputFileException missingInputException = null;
@@ -319,7 +339,10 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         depsEntry : inputDeps.entrySet()) {
       Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
       try {
-        depsEntry.getValue().get();
+        SkyValue artifactValue = depsEntry.getValue().get();
+        if (createPathResolver && artifactValue != null) {
+          ActionInputMapHelper.addToMap(inputMap, expandedArtifacts, input, artifactValue);
+        }
       } catch (MissingInputFileException e) {
         missingCount++;
         final Label inputOwner = input.getOwner();
@@ -365,9 +388,14 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     if (env.valuesMissing()) {
       return null;
     }
+
+    ArtifactPathResolver pathResolver =
+        createPathResolver
+            ? pathResolverFactory.createPathResolverForArtifactValues(inputMap)
+            : ArtifactPathResolver.IDENTITY;
+
     ExtendedEventHandler.Postable postable =
-        completor.createSucceeded(
-            skyKey, value, ArtifactPathResolver.IDENTITY, topLevelContext, env);
+        completor.createSucceeded(skyKey, value, pathResolver, topLevelContext, env);
     if (postable == null) {
       return null;
     }
