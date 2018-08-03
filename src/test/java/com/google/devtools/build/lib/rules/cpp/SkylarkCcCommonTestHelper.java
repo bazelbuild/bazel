@@ -19,6 +19,9 @@ import com.google.devtools.build.lib.testutil.Scratch;
 /** Methods useful for tests testing the C++ Skylark API. */
 public final class SkylarkCcCommonTestHelper {
 
+  public static final String CC_SKYLARK_WHITELIST_FLAG =
+      "--experimental_cc_skylark_api_enabled_packages=tools/build_defs,experimental";
+
   public static void createFilesForTestingCompilation(
       Scratch scratch, String bzlFilePath, String compileProviderLines) throws Exception {
     createFiles(scratch, bzlFilePath, compileProviderLines, "");

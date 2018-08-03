@@ -982,10 +982,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useInterfaceSharedObjects;
   }
 
-  public boolean getEnableCcSkylarkApi() {
-    return cppOptions.enableCcSkylarkApi;
-  }
-
   /**
    * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
    * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.

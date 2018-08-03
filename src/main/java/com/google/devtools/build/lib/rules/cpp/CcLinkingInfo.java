@@ -78,7 +78,7 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
         @SuppressWarnings("unchecked")
         protected CcLinkingInfo createInstanceFromSkylark(
             Object[] args, Environment env, Location loc) throws EvalException {
-          CcCommon.checkLocationWhitelisted(loc);
+          CcCommon.checkLocationWhitelisted(env.getSemantics(), loc, loc.getPath().toString());
           int i = 0;
           CcLinkParams staticModeParamsForDynamicLibrary = (CcLinkParams) nullIfNone(args[i++]);
           CcLinkParams staticModeParamsForExecutable = (CcLinkParams) nullIfNone(args[i++]);

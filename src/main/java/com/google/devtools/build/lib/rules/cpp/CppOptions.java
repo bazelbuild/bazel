@@ -784,17 +784,6 @@ public class CppOptions extends FragmentOptions {
   public boolean enableLegacyToolchainSkylarkApi;
 
   @Option(
-      name = "experimental_enable_cc_skylark_api",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If true, the C++ Skylark API can be used. Don't enable this flag yet, we will be making "
-              + "breaking changes.")
-  public boolean enableCcSkylarkApi;
-
-  @Option(
       name = "experimental_disable_legacy_cc_linking_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -874,8 +863,6 @@ public class CppOptions extends FragmentOptions {
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
-
-    host.enableCcSkylarkApi = enableCcSkylarkApi;
 
     // The crosstool options are partially copied from the target configuration.
     if (hostCrosstoolTop == null) {

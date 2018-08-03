@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * Contains options that affect Skylark's semantics.
@@ -40,9 +42,6 @@ import java.io.Serializable;
  *       should be the same as in {@link SkylarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link
  *       #toSkylarkSemantics}.
- *
- *   <li>Add a line to read and write the new field in {@link SkylarkSemanticsCodec#serialize} and
- *       {@link SkylarkSemanticsCodec#deserialize}.
  *
  *   <li>Add a line to set the new field in both {@link
  *       SkylarkSemanticsConsistencyTest#buildRandomOptions} and {@link
@@ -67,6 +66,18 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       help = "If set to true, enables the use of the `repo_mapping` attribute in WORKSPACE files."
   )
   public boolean experimentalEnableRepoMapping;
+
+  @Option(
+      name = "experimental_cc_skylark_api_enabled_packages",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Passes list of packages that can use the C++ Skylark API. Don't enable this flag yet, "
+              + "we will be making breaking changes.")
+  public List<String> experimentalCcSkylarkApiEnabledPackages;
 
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
@@ -350,6 +361,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
+        .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)

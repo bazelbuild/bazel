@@ -78,7 +78,7 @@ public final class CcCompilationInfo extends NativeInfo implements CcCompilation
         @SuppressWarnings("unchecked")
         protected CcCompilationInfo createInstanceFromSkylark(
             Object[] args, Environment env, Location loc) throws EvalException {
-          CcCommon.checkLocationWhitelisted(loc);
+          CcCommon.checkLocationWhitelisted(env.getSemantics(), loc, loc.getPath().toString());
           CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
           CcCompilationContext.Builder ccCompilationContext =
               new CcCompilationContext.Builder(/* ruleContext= */ null);

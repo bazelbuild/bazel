@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 
 /**
  * Options that affect Skylark semantics.
@@ -39,6 +41,8 @@ public abstract class SkylarkSemantics {
       AutoValue_SkylarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
+
   public abstract boolean experimentalEnableRepoMapping();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
@@ -96,6 +100,7 @@ public abstract class SkylarkSemantics {
   public static final SkylarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableRepoMapping(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
@@ -124,6 +129,8 @@ public abstract class SkylarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
+
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
