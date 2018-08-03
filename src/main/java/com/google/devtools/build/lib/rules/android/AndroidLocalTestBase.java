@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -100,6 +101,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
           buildResourceApk(
               dataContext,
               androidSemantics,
+              DataBinding.contextFrom(ruleContext),
               AndroidManifest.fromAttributes(ruleContext, dataContext),
               AndroidResources.from(ruleContext, "resource_files"),
               AndroidAssets.from(ruleContext),
@@ -557,6 +559,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   static ResourceApk buildResourceApk(
       AndroidDataContext dataContext,
       AndroidSemantics androidSemantics,
+      DataBindingContext dataBindingContext,
       AndroidManifest manifest,
       AndroidResources resources,
       AndroidAssets assets,
@@ -576,6 +579,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     return ProcessedAndroidData.processLocalTestDataFrom(
             dataContext,
+            dataBindingContext,
             stamped,
             manifestValues,
             aaptVersion,

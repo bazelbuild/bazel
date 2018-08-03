@@ -88,6 +88,7 @@ public abstract class AndroidSkylarkData
       }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
+              DataBinding.asDisabledDataBindingContext(),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.empty(),
               StampedAndroidManifest.createEmpty(
@@ -169,19 +170,12 @@ public abstract class AndroidSkylarkData
       AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
 
       ValidatedAndroidResources validated =
-          AndroidResources.from(
-                  errorReporter,
-                  getFileProviders(resources),
-                  "resources",
-                  enableDataBinding
-                      ? DataBinding.asEnabledDataBindingContextFrom(
-                          ctx.getActionConstructionContext())
-                      : DataBinding.asDisabledDataBindingContext())
+          AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
               .process(
                   ctx,
                   manifest.asStampedManifest(),
                   ResourceDependencies.fromProviders(deps, neverlink),
-                  enableDataBinding,
+                  DataBinding.contextFrom(enableDataBinding, ctx.getActionConstructionContext()),
                   aaptVersion);
 
       JavaInfo javaInfo = getJavaInfoForRClassJar(validated.getClassJar());
@@ -383,7 +377,7 @@ public abstract class AndroidSkylarkData
                 AndroidManifest.forAarImport(androidManifestArtifact),
                 ResourceDependencies.fromProviders(
                     getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-                /* enableDataBinding = */ false,
+                DataBinding.asDisabledDataBindingContext(),
                 aaptVersion);
 
     MergedAndroidAssets mergedAssets =
@@ -428,12 +422,9 @@ public abstract class AndroidSkylarkData
           AndroidLocalTestBase.buildResourceApk(
               ctx,
               getAndroidSemantics(),
+              DataBinding.asDisabledDataBindingContext(),
               rawManifest,
-              AndroidResources.from(
-                  errorReporter,
-                  getFileProviders(resources),
-                  "resource_files",
-                  DataBinding.asDisabledDataBindingContext()),
+              AndroidResources.from(errorReporter, getFileProviders(resources), "resource_files"),
               AndroidAssets.from(
                   errorReporter,
                   listFromNoneable(assets, ConfiguredTarget.class),
@@ -575,13 +566,7 @@ public abstract class AndroidSkylarkData
                   manifestValues,
                   settings.aaptVersion,
                   AndroidResources.from(
-                      errorReporter,
-                      getFileProviders(resources),
-                      "resource_files",
-                      dataBindingEnabled
-                          ? DataBinding.asEnabledDataBindingContextFrom(
-                              ctx.getActionConstructionContext())
-                          : DataBinding.asDisabledDataBindingContext()),
+                      errorReporter, getFileProviders(resources), "resource_files"),
                   AndroidAssets.from(
                       errorReporter,
                       listFromNoneable(assets, ConfiguredTarget.class),
@@ -596,7 +581,8 @@ public abstract class AndroidSkylarkData
                   crunchPng,
                   dataBindingEnabled,
                   /* featureOf = */ null,
-                  /* featureAfter = */ null)
+                  /* featureAfter = */ null,
+                  DataBinding.contextFrom(dataBindingEnabled, ctx.getActionConstructionContext()))
               .generateRClass(ctx, settings.aaptVersion);
 
       return AndroidBinaryDataInfo.of(

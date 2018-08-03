@@ -239,7 +239,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                       ? ruleContext
                           .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
                           .getApk()
-                      : null)
+                      : null,
+                  DataBinding.contextFrom(ruleContext))
               .generateRClass(dataContext, aaptVersion);
     } else {
       applicationManifest =

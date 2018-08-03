@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.android.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -29,25 +33,28 @@ public class ParsedAndroidResources extends AndroidResources
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
   private final StampedAndroidManifest manifest;
+  private final DataBindingContext dataBindingContext;
 
   public static ParsedAndroidResources parseFrom(
       AndroidDataContext dataContext,
       AndroidResources resources,
       StampedAndroidManifest manifest,
-      boolean enableDataBinding,
-      AndroidAaptVersion aaptVersion)
+      AndroidAaptVersion aaptVersion,
+      DataBindingContext dataBindingContext)
       throws InterruptedException {
 
     boolean isAapt2 = aaptVersion == AndroidAaptVersion.AAPT2;
 
     AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
 
-    if (enableDataBinding && isAapt2) {
+    if (isAapt2) {
       // TODO(corysmith): Centralize the data binding processing and zipping into a single
       // action. Data binding processing needs to be triggered here as well as the merger to
       // avoid aapt2 from throwing an error during compilation.
-      builder.setDataBindingInfoZip(
-          DataBinding.getSuffixedInfoFile(dataContext.getActionConstructionContext(), "_unused"));
+      dataBindingContext.supplyLayoutInfo(
+          layoutInfo ->
+              builder.setDataBindingInfoZip(
+                  getDummyDataBindingArtifact(dataContext.getActionConstructionContext())));
     }
 
     return builder
@@ -56,7 +63,12 @@ public class ParsedAndroidResources extends AndroidResources
             isAapt2
                 ? dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS)
                 : null)
-        .build(dataContext, resources, manifest);
+        .build(dataContext, resources, manifest, dataBindingContext);
+  }
+
+  @VisibleForTesting
+  static Artifact getDummyDataBindingArtifact(ActionConstructionContext dataContext) {
+    return dataContext.getUniqueDirectoryArtifact("dummydatabinding", "unused.zip");
   }
 
   public static ParsedAndroidResources of(
@@ -64,12 +76,20 @@ public class ParsedAndroidResources extends AndroidResources
       Artifact symbols,
       @Nullable Artifact compiledSymbols,
       Label label,
-      StampedAndroidManifest manifest) {
-    return new ParsedAndroidResources(resources, symbols, compiledSymbols, label, manifest);
+      StampedAndroidManifest manifest,
+      DataBindingContext dataBindingContext) {
+    return new ParsedAndroidResources(
+        resources, symbols, compiledSymbols, label, manifest, dataBindingContext);
   }
 
   ParsedAndroidResources(ParsedAndroidResources other, StampedAndroidManifest manifest) {
-    this(other, other.symbols, other.compiledSymbols, other.label, manifest);
+    this(
+        other,
+        other.symbols,
+        other.compiledSymbols,
+        other.label,
+        manifest,
+        other.dataBindingContext);
   }
 
   protected ParsedAndroidResources(
@@ -77,12 +97,14 @@ public class ParsedAndroidResources extends AndroidResources
       Artifact symbols,
       @Nullable Artifact compiledSymbols,
       Label label,
-      StampedAndroidManifest manifest) {
+      StampedAndroidManifest manifest,
+      DataBindingContext dataBindingContext) {
     super(resources);
     this.symbols = symbols;
     this.compiledSymbols = compiledSymbols;
     this.label = label;
     this.manifest = manifest;
+    this.dataBindingContext = dataBindingContext;
   }
 
   @Override
@@ -128,11 +150,9 @@ public class ParsedAndroidResources extends AndroidResources
   MergedAndroidResources merge(
       AndroidDataContext dataContext,
       ResourceDependencies resourceDeps,
-      boolean enableDataBinding,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
-    return MergedAndroidResources.mergeFrom(
-        dataContext, this, resourceDeps, enableDataBinding, aaptVersion);
+    return MergedAndroidResources.mergeFrom(dataContext, this, resourceDeps, aaptVersion);
   }
 
   @Override
@@ -142,7 +162,8 @@ public class ParsedAndroidResources extends AndroidResources
     return super.maybeFilter(errorConsumer, resourceFilter, isDependency)
         .map(
             resources ->
-                ParsedAndroidResources.of(resources, symbols, compiledSymbols, label, manifest));
+                ParsedAndroidResources.of(
+                    resources, symbols, compiledSymbols, label, manifest, dataBindingContext));
   }
 
   @Override
@@ -161,5 +182,19 @@ public class ParsedAndroidResources extends AndroidResources
   @Override
   public int hashCode() {
     return Objects.hash(super.hashCode(), symbols, compiledSymbols, label, manifest);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("symbols", symbols)
+        .add("compiledSymbols", compiledSymbols)
+        .add("label", label)
+        .add("manifest", manifest)
+        .toString();
+  }
+
+  public DataBindingContext asDataBindingContext() {
+    return dataBindingContext;
   }
 }

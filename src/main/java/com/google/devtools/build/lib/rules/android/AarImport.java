@@ -104,7 +104,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
       boolean neverlink = JavaCommon.isNeverLink(ruleContext);
       ValidatedAndroidResources validatedResources =
           AndroidResources.forAarImport(resources)
-              .process(ruleContext, dataContext, manifest, neverlink);
+              .process(
+                  ruleContext,
+                  dataContext,
+                  manifest,
+                  DataBinding.contextFrom(ruleContext),
+                  neverlink);
       MergedAndroidAssets mergedAssets =
           AndroidAssets.forAarImport(assets)
               .process(

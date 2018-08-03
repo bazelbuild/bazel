@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -62,6 +63,8 @@ public final class DataBinding {
   public static final String DATABINDING_ANNOTATION_PROCESSOR_ATTR =
       "$databinding_annotation_processor";
 
+  public static final String ENABLE_DATA_BINDING_ATTR = "enable_data_binding";
+
   /** Contains Android Databinding configuration and resource generation information. */
   public interface DataBindingContext {
     void supplyLayoutInfo(Consumer<Artifact> consumer);
@@ -79,6 +82,23 @@ public final class DataBinding {
     public void supplyLayoutInfo(Consumer<Artifact> consumer) {
       consumer.accept(getLayoutInfoFile(actionConstructionContext));
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      EnabledDataBindingContext that = (EnabledDataBindingContext) o;
+      return Objects.equals(actionConstructionContext, that.actionConstructionContext);
+    }
+
+    @Override
+    public int hashCode() {
+      return actionConstructionContext.hashCode();
+    }
   }
 
   private static final class DisabledDataBindingContext implements DataBindingContext {
@@ -93,6 +113,14 @@ public final class DataBinding {
   public static DataBindingContext contextFrom(RuleContext ruleContext) {
     if (isEnabled(ruleContext)) {
       return asEnabledDataBindingContextFrom(ruleContext);
+    }
+    return asDisabledDataBindingContext();
+  }
+
+  /** Supplies a databinding context from a rulecontext. */
+  public static DataBindingContext contextFrom(boolean enabled, ActionConstructionContext context) {
+    if (enabled) {
+      return asEnabledDataBindingContextFrom(context);
     }
     return asDisabledDataBindingContext();
   }
@@ -129,8 +157,8 @@ public final class DataBinding {
    * binding expressions appear in their layout resources.
    */
   public static boolean isEnabled(RuleContext ruleContext) {
-    return ruleContext.attributes().has("enable_data_binding", Type.BOOLEAN)
-        && ruleContext.attributes().get("enable_data_binding", Type.BOOLEAN);
+    return ruleContext.attributes().has(ENABLE_DATA_BINDING_ATTR, Type.BOOLEAN)
+        && ruleContext.attributes().get(ENABLE_DATA_BINDING_ATTR, Type.BOOLEAN);
   }
 
   /** Returns this rule's data binding base output dir (as an execroot-relative path). */

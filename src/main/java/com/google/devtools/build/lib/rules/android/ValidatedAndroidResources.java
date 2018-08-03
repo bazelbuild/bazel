@@ -195,11 +195,12 @@ public class ValidatedAndroidResources extends MergedAndroidResources
         new MergedAndroidResources(
             new ParsedAndroidResources(
                 // Null out databinding to avoid accidentally propagating ActionCreationContext
-                new AndroidResources(getResources(), getResourceRoots(), null),
+                new AndroidResources(getResources(), getResourceRoots()),
                 getSymbols(),
                 getCompiledSymbols(),
                 getLabel(),
-                getStampedManifest()),
+                getStampedManifest(),
+                null),
             getMergedResources(),
             getClassJar(),
             getDataBindingInfoZip(),
