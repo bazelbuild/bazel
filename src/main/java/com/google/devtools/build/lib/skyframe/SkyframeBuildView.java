@@ -101,6 +101,7 @@ public final class SkyframeBuildView {
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
+  private final SkyframeActionExecutor skyframeActionExecutor;
   private boolean enableAnalysis = false;
 
   // This hack allows us to see when a configured target has been invalidated, and thus when the set
@@ -136,11 +137,14 @@ public final class SkyframeBuildView {
    */
   private boolean skyframeAnalysisWasDiscarded;
 
-  private ImmutableSet<SkyKey> topLevelKeys = ImmutableSet.of();
-  private boolean topLevelTargetsChanged;
+  private ImmutableSet<SkyKey> largestTopLevelKeySetCheckedForConflicts = ImmutableSet.of();
 
-  public SkyframeBuildView(BlazeDirectories directories,
-      SkyframeExecutor skyframeExecutor, ConfiguredRuleClassProvider ruleClassProvider) {
+  public SkyframeBuildView(
+      BlazeDirectories directories,
+      SkyframeExecutor skyframeExecutor,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      SkyframeActionExecutor skyframeActionExecutor) {
+    this.skyframeActionExecutor = skyframeActionExecutor;
     this.factory =
         new ConfiguredTargetFactory(ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
     this.artifactFactory =
@@ -269,21 +273,34 @@ public final class SkyframeBuildView {
     } finally {
       enableAnalysis(false);
     }
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions;
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.findArtifactConflicts")) {
-      setTopLevelTargetKeysForArtifactConflictChecking(values, aspectKeys);
-      badActions =
-          skyframeExecutor.findArtifactConflicts(
-              () ->
-                  // If we do not track incremental state we do not have graph edges,
-                  // so we cannot traverse the graph and find only actions in the current build.
-                  // In this case we can simply return all ActionLookupValues in the graph,
-                  // since the graph's lifetime is a single build anyway.
-                  skyframeExecutor.tracksStateForIncrementality()
-                      ? getActionLookupValuesInBuild(values, aspectKeys)
-                      : getActionLookupValuesInGraph());
+      ImmutableSet<SkyKey> newKeys =
+          ImmutableSet.<SkyKey>builderWithExpectedSize(values.size() + aspectKeys.size())
+              .addAll(values)
+              .addAll(aspectKeys)
+              .build();
+      if (someConfiguredTargetEvaluated
+          || anyConfiguredTargetDeleted
+          || !dirtiedConfiguredTargetKeys.isEmpty()
+          || !largestTopLevelKeySetCheckedForConflicts.containsAll(newKeys)) {
+        largestTopLevelKeySetCheckedForConflicts = newKeys;
+        // This operation is somewhat expensive, so we only do it if the graph might have changed in
+        // some way -- either we analyzed a new target or we invalidated an old one or are building
+        // targets together that haven't been built before.
+        skyframeActionExecutor.findAndStoreArtifactConflicts(
+            // If we do not track incremental state we do not have graph edges,
+            // so we cannot traverse the graph and find only actions in the current build.
+            // In this case we can simply return all ActionLookupValues in the graph,
+            // since the graph's lifetime is a single build anyway.
+            skyframeExecutor.tracksStateForIncrementality()
+                ? getActionLookupValuesInBuild(values, aspectKeys)
+                : getActionLookupValuesInGraph());
+        someConfiguredTargetEvaluated = false;
+      }
     }
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
+        skyframeActionExecutor.badActions();
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
     Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
@@ -697,36 +714,6 @@ public final class SkyframeBuildView {
   public void clearInvalidatedConfiguredTargets() {
     dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
     anyConfiguredTargetDeleted = false;
-  }
-
-  private void setTopLevelTargetKeysForArtifactConflictChecking(
-      Collection<ConfiguredTargetKey> ctKeys, Collection<AspectValueKey> aspectKeys) {
-    ImmutableSet<SkyKey> newKeys =
-        ImmutableSet.<SkyKey>builder().addAll(ctKeys).addAll(aspectKeys).build();
-    topLevelTargetsChanged = !topLevelKeys.equals(newKeys);
-    topLevelKeys = newKeys;
-  }
-
-  /**
-   * Called from SkyframeExecutor to see whether the graph needs to be checked for artifact
-   * conflicts.
-   */
-  boolean shouldCheckArtifactConflicts() {
-    Preconditions.checkState(!enableAnalysis);
-    return topLevelTargetsChanged
-        || someConfiguredTargetEvaluated
-        || anyConfiguredTargetDeleted
-        || !dirtiedConfiguredTargetKeys.isEmpty();
-  }
-
-  /**
-   * Called from SkyframeExecutor after the graph is checked for artifact conflicts so that the next
-   * time {@link #shouldCheckArtifactConflicts} is called, it will return true only if some
-   * configured target has been evaluated since the last check for artifact conflicts.
-   */
-  void resetArtifactConflictState() {
-    someConfiguredTargetEvaluated = false;
-    topLevelTargetsChanged = false;
   }
 
   /**
