@@ -25,7 +25,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -65,6 +64,8 @@ import io.grpc.StatusException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
@@ -343,12 +344,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     Collection<LocalFile> localFiles = event.referencedLocalFiles();
-    ImmutableMap.Builder<Path, LocalFile> localFileMap =
-        ImmutableMap.builderWithExpectedSize(localFiles.size());
+    Map<Path, LocalFile> localFileMap = new HashMap<>(localFiles.size());
     for (LocalFile localFile : localFiles) {
-      localFileMap.put(localFile.path, localFile);
+      // It is possible for targets to have duplicate artifacts (same path but different owners)
+      // in their output groups. Since they didn't trigger an artifact conflict they are the
+      // same file, so just skip either one
+      localFileMap.putIfAbsent(localFile.path, localFile);
     }
-    ListenableFuture<PathConverter> upload = artifactUploader.upload(localFileMap.build());
+    ListenableFuture<PathConverter> upload = artifactUploader.upload(localFileMap);
     InternalOrderedBuildEvent buildEvent =
         new DefaultInternalOrderedBuildEvent(
             event, namer, upload, besProtoUtil.nextSequenceNumber(), timestamp());
