@@ -171,6 +171,17 @@ java_library(
 )
 
 java_library(
+    name = "simple-log-handler",
+    srcs = ["util/SimpleLogHandler.java"],
+    deps = [
+        ":single-line-formatter",
+        ":util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
@@ -184,6 +195,7 @@ java_library(
             "util/OS.java",
             "util/ProcessUtils.java",
             "util/ResourceUsage.java",
+            "util/SimpleLogHandler.java",
             "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",

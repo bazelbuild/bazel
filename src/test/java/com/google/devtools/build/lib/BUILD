@@ -316,6 +316,7 @@ java_test(
         ":guava_junit_truth",
         ":test_runner",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:simple-log-handler",
         "//src/main/java/com/google/devtools/build/lib:single-line-formatter",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/shell",
