@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Support logic for Bazel's <a
@@ -55,14 +56,57 @@ import java.util.List;
  *
  * <p>For data binding to work, the corresponding support libraries must be checked into the depot
  * via the implicit dependencies specified inside this class.
- *
- * <p>Unless otherwise specified, all methods in this class assume the current rule applies data
- * binding. Callers can intelligently trigger this logic by checking {@link #isEnabled}.
  */
 public final class DataBinding {
   /** The rule attribute supplying data binding's annotation processor. */
   public static final String DATABINDING_ANNOTATION_PROCESSOR_ATTR =
       "$databinding_annotation_processor";
+
+  /** Contains Android Databinding configuration and resource generation information. */
+  public interface DataBindingContext {
+    void supplyLayoutInfo(Consumer<Artifact> consumer);
+  }
+
+  private static final class EnabledDataBindingContext implements DataBindingContext {
+
+    private final ActionConstructionContext actionConstructionContext;
+
+    private EnabledDataBindingContext(ActionConstructionContext actionConstructionContext) {
+      this.actionConstructionContext = actionConstructionContext;
+    }
+
+    @Override
+    public void supplyLayoutInfo(Consumer<Artifact> consumer) {
+      consumer.accept(getLayoutInfoFile(actionConstructionContext));
+    }
+  }
+
+  private static final class DisabledDataBindingContext implements DataBindingContext {
+
+    @Override
+    public void supplyLayoutInfo(Consumer<Artifact> consumer) {
+      // pass
+    }
+  }
+
+  /** Supplies a databinding context from a rulecontext. */
+  public static DataBindingContext contextFrom(RuleContext ruleContext) {
+    if (isEnabled(ruleContext)) {
+      return asEnabledDataBindingContextFrom(ruleContext);
+    }
+    return asDisabledDataBindingContext();
+  }
+
+  /** Supplies an enabled DataBindingContext from the action context. */
+  public static DataBindingContext asEnabledDataBindingContextFrom(
+      ActionConstructionContext actionContext) {
+    return new EnabledDataBindingContext(actionContext);
+  }
+
+  /** Supplies a disabled (no-op) DataBindingContext from the action context. */
+  public static DataBindingContext asDisabledDataBindingContext() {
+    return new DisabledDataBindingContext();
+  }
 
   /**
    * Annotation processing creates the following metadata files that describe how data binding is
@@ -138,8 +182,7 @@ public final class DataBinding {
 
   /** Gets a layout info file with the specified suffix (for use in having different outputs) */
   static Artifact getSuffixedInfoFile(ActionConstructionContext context, String suffix) {
-    return context.getUniqueDirectoryArtifact(
-        "databinding", "layout-info" + suffix + ".zip");
+    return context.getUniqueDirectoryArtifact("databinding", "layout-info" + suffix + ".zip");
   }
 
   /**

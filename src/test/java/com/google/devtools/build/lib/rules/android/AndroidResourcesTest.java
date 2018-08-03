@@ -145,7 +145,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
       throws Exception {
     RuleContext ruleContext = getRuleContext();
     ValidatedAndroidResources unfiltered =
-        new AndroidResources(unfilteredResources, getResourceRoots(unfilteredResources))
+        new AndroidResources(
+                unfilteredResources,
+                getResourceRoots(unfilteredResources),
+                DataBinding.asDisabledDataBindingContext())
             .process(
                 ruleContext,
                 AndroidDataContext.forNative(ruleContext),
@@ -177,7 +180,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
       boolean isDependency)
       throws Exception {
     AndroidResources unfiltered =
-        new AndroidResources(unfilteredResources, getResourceRoots(unfilteredResources));
+        new AndroidResources(
+            unfilteredResources,
+            getResourceRoots(unfilteredResources),
+            DataBinding.asDisabledDataBindingContext());
     assertFilter(unfiltered, filteredResources, isDependency);
   }
 
@@ -517,7 +523,9 @@ public class AndroidResourcesTest extends ResourceTestBase {
     ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "drawable-hdpi/bar.png");
     AndroidResources raw =
         new AndroidResources(
-            resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"));
+            resources,
+            AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"),
+            DataBinding.asDisabledDataBindingContext());
     StampedAndroidManifest manifest = getManifest();
 
     ParsedAndroidResources parsed =
@@ -556,7 +564,11 @@ public class AndroidResourcesTest extends ResourceTestBase {
       throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "drawable-hdpi/bar.png");
     return new AndroidResources(
-            resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"))
+            resources,
+            AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"),
+            enableDataBinding
+                ? DataBinding.asEnabledDataBindingContextFrom(ruleContext)
+                : DataBinding.asDisabledDataBindingContext())
         .parse(
             AndroidDataContext.forNative(ruleContext),
             getManifest(),

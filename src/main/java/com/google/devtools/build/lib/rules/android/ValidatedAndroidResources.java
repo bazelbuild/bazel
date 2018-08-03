@@ -188,4 +188,28 @@ public class ValidatedAndroidResources extends MergedAndroidResources
     return Objects.hash(
         super.hashCode(), rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary);
   }
+
+  @Override
+  public ValidatedAndroidData export() {
+    return new ValidatedAndroidResources(
+        new MergedAndroidResources(
+            new ParsedAndroidResources(
+                // Null out databinding to avoid accidentally propagating ActionCreationContext
+                new AndroidResources(getResources(), getResourceRoots(), null),
+                getSymbols(),
+                getCompiledSymbols(),
+                getLabel(),
+                getStampedManifest()),
+            getMergedResources(),
+            getClassJar(),
+            getDataBindingInfoZip(),
+            getResourceDependencies(),
+            getProcessedManifest()),
+        getRTxt(),
+        getJavaSourceJar(),
+        getApk(),
+        getAapt2RTxt(),
+        getAapt2SourceJar(),
+        getStaticLibrary());
+  }
 }

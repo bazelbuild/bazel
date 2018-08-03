@@ -96,7 +96,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         other.manifest);
   }
 
-  private MergedAndroidResources(
+  protected MergedAndroidResources(
       ParsedAndroidResources other,
       Artifact mergedResources,
       Artifact classJar,

@@ -62,7 +62,11 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
 
     return ResourceContainer.builder()
         .setAndroidResources(
-            AndroidResources.forResources(errorConsumer, resources, "resource_files"))
+            AndroidResources.forResources(
+                errorConsumer,
+                resources,
+                "resource_files",
+                DataBinding.asDisabledDataBindingContext()))
         .setLabel(label)
         .setManifestExported(false)
         .setManifest(manifest)
@@ -358,7 +362,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
         AndroidResources.forResources(
             errorConsumer,
             ImmutableList.of(localResourceToKeep, localResourceToDiscard),
-            "resource_files");
+            "resource_files",
+            DataBinding.asDisabledDataBindingContext());
 
     ResourceDependencies resourceDependencies =
         ResourceDependencies.empty()
@@ -496,7 +501,8 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
       ResourceFilterFactory resourceFilterFactory, ImmutableList<Artifact> artifacts)
       throws RuleErrorException {
     AndroidResources localResources =
-        AndroidResources.forResources(errorConsumer, artifacts, "resource_files");
+        AndroidResources.forResources(
+            errorConsumer, artifacts, "resource_files", DataBinding.asDisabledDataBindingContext());
 
     ResourceDependencies resourceDeps = ResourceDependencies.empty();
 
