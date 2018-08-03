@@ -83,6 +83,11 @@ public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
   }
 
   @Override
+  public Boolean isCallable() {
+    return BaseFunction.class.isAssignableFrom(fieldClass);
+  }
+
+  @Override
   public List<SkylarkParamDoc> getParams() {
     return params;
   }

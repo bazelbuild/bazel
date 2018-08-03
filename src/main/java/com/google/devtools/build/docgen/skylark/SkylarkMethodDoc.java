@@ -39,11 +39,18 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
     return "";
   }
 
-    /**
-   * Returns a string containing a name for the method's return type.
-   */
+  /** Returns a string containing a name for the method's return type. */
   public String getReturnType() {
     return "";
+  }
+
+  /**
+   * Returns whether a method can be called as a function.
+   *
+   * <p>E.g. True is not callable.
+   */
+  public Boolean isCallable() {
+    return true;
   }
 
   /**
