@@ -533,11 +533,11 @@ public class GrpcRemoteCacheTest {
         StreamObserver<WriteResponse> responseObserver, String contents, int chunkSizeBytes) {
       this.responseObserver = responseObserver;
       this.contents = contents;
-      try {
-        chunker = new Chunker(contents.getBytes(UTF_8), chunkSizeBytes, DIGEST_UTIL);
-      } catch (IOException e) {
-        fail("An error occurred:" + e);
-      }
+      chunker =
+          Chunker.builder(DIGEST_UTIL)
+              .setInput(contents.getBytes(UTF_8))
+              .setChunkSize(chunkSizeBytes)
+              .build();
     }
 
     @Override
