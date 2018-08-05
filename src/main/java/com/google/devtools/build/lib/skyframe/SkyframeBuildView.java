@@ -798,7 +798,10 @@ public final class SkyframeBuildView {
   private static void findActionsRecursively(
       WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, List<ActionLookupValue> result)
       throws InterruptedException {
-    if (!seen.add(key)) {
+    if (!(key instanceof ActionLookupValue.ActionLookupKey) || !seen.add(key)) {
+      // The subgraph of dependencies of ActionLookupValues never has a non-ActionLookupValue
+      // depending on an ActionLookupValue. So we can skip any non-ActionLookupValues in the
+      // traversal as an optimization.
       return;
     }
     SkyValue value = walkableGraph.getValue(key);
