@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import static java.nio.charset.StandardCharsets.US_ASCII;
-
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Preconditions;
@@ -26,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.graph.Traverser;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
@@ -61,8 +58,6 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class TreeNodeRepository {
-  private static final BaseEncoding LOWER_CASE_HEX = BaseEncoding.base16().lowerCase();
-
   // In this implementation, symlinks are NOT followed when expanding directory artifacts
   public static final Symlinks SYMLINK_POLICY = Symlinks.NOFOLLOW;
 
@@ -220,7 +215,7 @@ public final class TreeNodeRepository {
 
   // Keep only one canonical instance of every TreeNode in the repository.
   private final Interner<TreeNode> interner = BlazeInterners.newWeakInterner();
-  private final Map<ByteString, ActionInput> reverseInputMap = new ConcurrentHashMap<>();
+  private final Map<Digest, ActionInput> reverseInputMap = new ConcurrentHashMap<>();
   // For directories that are themselves artifacts, map of the ActionInput to the Merkle hash
   private final Map<ActionInput, Digest> inputDirectoryDigestCache = new HashMap<>();
   private final Map<TreeNode, Digest> treeNodeDigestCache = new HashMap<>();
@@ -471,8 +466,7 @@ public final class TreeNodeRepository {
       if (treeNode != null) {
         nodes.put(digest, Preconditions.checkNotNull(directoryCache.get(treeNode)));
       } else { // If not there, it must be an ActionInput.
-        ByteString hexDigest = ByteString.copyFromUtf8(digest.getHash());
-        ActionInput input = reverseInputMap.get(hexDigest);
+        ActionInput input = reverseInputMap.get(digest);
         if (input == null) {
           // ... or a VirtualActionInput.
           input = digestVirtualInputCache.get(digest);
@@ -488,7 +482,7 @@ public final class TreeNodeRepository {
             inputFileCache.getMetadata(input), "Missing metadata for: %s", input);
     if (metadata.getDigest() != null) {
       reverseInputMap.put(
-          ByteString.copyFrom(LOWER_CASE_HEX.encode(metadata.getDigest()).getBytes(US_ASCII)),
+          DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()),
           input);
     }
     return metadata;
