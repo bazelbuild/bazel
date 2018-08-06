@@ -707,7 +707,8 @@ public class AndroidCommon {
 
     javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
-    DataBinding.maybeAddProvider(builder, ruleContext);
+    resourceApk.asDataBindingContext().addProvider(builder, ruleContext);
+
     JavaInfo javaInfo =
         javaInfoBuilder
             .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)

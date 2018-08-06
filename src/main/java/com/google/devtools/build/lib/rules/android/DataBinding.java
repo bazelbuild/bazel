@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
-import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -110,10 +110,33 @@ public final class DataBinding {
     void supplyAnnotationProcessor(
         RuleContext ruleContext, BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer);
 
+    /**
+     * Processes deps that also apply data binding.
+     *
+     * @param ruleContext the current rule
+     * @return the deps' metadata outputs. These need to be staged as compilation inputs to the
+     *     current rule.
+     */
     ImmutableList<Artifact> processDeps(RuleContext ruleContext);
 
+    /**
+     * Creates and adds the generated Java source for data binding annotation processor to read and
+     * translate layout info xml (from {@link #supplyLayoutInfo(Consumer)} into the classes that end
+     * user code consumes.
+     *
+     * <p>This triggers the annotation processor. Annotation processor settings are configured
+     * separately in {@link #supplyJavaCoptsUsing(RuleContext, boolean, Consumer)}.
+     */
     ImmutableList<Artifact> addAnnotationFileToSrcs(
         ImmutableList<Artifact> srcs, RuleContext ruleContext);
+
+    /**
+     * Adds the appropriate {@link UsesDataBindingProvider} for a rule if it should expose one.
+     *
+     * <p>A rule exposes {@link UsesDataBindingProvider} if either it or its deps set {@code
+     * enable_data_binding = 1}.
+     */
+    void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext);
   }
 
   private static final class EnabledDataBindingContext implements DataBindingContext {
@@ -154,11 +177,26 @@ public final class DataBinding {
     @Override
     public ImmutableList<Artifact> addAnnotationFileToSrcs(
         ImmutableList<Artifact> srcs, RuleContext ruleContext) {
+      // Add this rule's annotation processor input. If the rule doesn't have direct resources,
+      // there's no direct data binding info, so there's strictly no need for annotation processing.
+      // But it's still important to process the deps' .bin files so any Java class references get
+      // re-referenced so they don't get filtered out of the compilation classpath by JavaBuilder
+      // (which filters out classpath .jars that "aren't used": see --reduce_classpath). If data
+      // binding didn't reprocess a library's data binding expressions redundantly up the dependency
+      // chain (meaning each depender processes them again as if they were its own), this problem
+      // wouldn't happen.
       final Artifact annotationFile = createAnnotationFile(ruleContext);
       if (annotationFile != null) {
         return ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
       }
       return ImmutableList.of();
+    }
+
+    @Override
+    public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
+      List<Artifact> dataBindingMetadataOutputs =
+          Lists.newArrayList(getMetadataOutputs(ruleContext));
+      maybeAddProvider(dataBindingMetadataOutputs, builder, ruleContext);
     }
 
     @Override
@@ -202,6 +240,11 @@ public final class DataBinding {
     public ImmutableList<Artifact> addAnnotationFileToSrcs(
         ImmutableList<Artifact> srcs, RuleContext ruleContext) {
       return srcs;
+    }
+
+    @Override
+    public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
+      maybeAddProvider(new ArrayList<>(), builder, ruleContext);
     }
   }
 
@@ -309,24 +352,6 @@ public final class DataBinding {
     return context.getUniqueDirectoryArtifact("databinding", "layout-info" + suffix + ".zip");
   }
 
-  /**
-   * Adds data binding's annotation processor as a plugin to the given Java compilation context.
-   *
-   * <p>This, in conjunction with {@link #createAnnotationFile} extends the Java compilation to
-   * translate data binding .xml into corresponding classes.
-   */
-  static void addAnnotationProcessor(
-      RuleContext ruleContext, JavaTargetAttributes.Builder attributes) {
-    JavaPluginInfoProvider plugin =
-        JavaInfo.getProvider(
-            JavaPluginInfoProvider.class,
-            ruleContext.getPrerequisite(
-                DATABINDING_ANNOTATION_PROCESSOR_ATTR, RuleConfiguredTarget.Mode.HOST));
-
-    attributes.addPlugin(plugin);
-    attributes.addAdditionalOutputs(getMetadataOutputs(ruleContext));
-  }
-
   /** The javac flags that are needed to configure data binding's annotation processor. */
   static ImmutableList<String> getJavacOpts(RuleContext ruleContext, boolean isBinary) {
     ImmutableList.Builder<String> flags = ImmutableList.builder();
@@ -374,7 +399,7 @@ public final class DataBinding {
    * consumes.
    *
    * <p>This mostly just triggers the annotation processor. Annotation processor settings are
-   * configured separately in {@link #getJavacopts}.
+   * configured separately.
    */
   static Artifact createAnnotationFile(RuleContext ruleContext) {
     String contents;
@@ -396,14 +421,11 @@ public final class DataBinding {
    * <p>A rule exposes {@link UsesDataBindingProvider} if either it or its deps set {@code
    * enable_data_binding = 1}.
    */
-  public static void maybeAddProvider(
-      RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
-    // Expose the data binding provider if this rule either applies data binding or exports a dep
-    // that applies it.
-    List<Artifact> dataBindingMetadataOutputs = new ArrayList<>();
-    if (DataBinding.isEnabled(ruleContext)) {
-      dataBindingMetadataOutputs.addAll(getMetadataOutputs(ruleContext));
-    }
+  private static void maybeAddProvider(
+      List<Artifact> dataBindingMetadataOutputs,
+      RuleConfiguredTargetBuilder builder,
+      RuleContext ruleContext) {
+    // Expose the data binding provider if there are outputs.
     dataBindingMetadataOutputs.addAll(getTransitiveMetadata(ruleContext, "exports"));
     if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       // If this rule doesn't declare direct resources, no resource processing is run so no data
