@@ -195,28 +195,14 @@ public interface IncludeScanner {
      */
     private final Set<Artifact> modularHeaders;
 
-    /**
-     * Lookup table to find pregrepped .includes files that contain a single line per include. These
-     * are essentially a cache to make it unnecessary for the {@link IncludeScanner} to read large
-     * generated files repeatedly.
-     */
-    private final Map<Artifact, Artifact> pregreppedHeaders;
-
     public IncludeScanningHeaderData(
-        Map<PathFragment, Artifact> pathToLegalOutputArtifact,
-        Set<Artifact> modularHeaders,
-        Map<Artifact, Artifact> pregreppedHeaders) {
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact, Set<Artifact> modularHeaders) {
       this.pathToLegalOutputArtifact = pathToLegalOutputArtifact;
       this.modularHeaders = modularHeaders;
-      this.pregreppedHeaders = pregreppedHeaders;
     }
 
     public Set<Artifact> getModularHeaders() {
       return modularHeaders;
-    }
-
-    public Map<Artifact, Artifact> getPregreppedHeaders() {
-      return pregreppedHeaders;
     }
 
     public Map<PathFragment, Artifact> getPathToLegalOutputArtifact() {

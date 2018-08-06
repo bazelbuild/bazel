@@ -149,11 +149,6 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsIncludeScanning(RuleContext ruleContext) {
-    return false;
-  }
-
-  @Override
   public boolean needsDotdInputPruning() {
     return config.getDotdPruningPlan() == DotdPruningMode.USE;
   }
