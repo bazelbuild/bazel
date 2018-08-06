@@ -62,7 +62,7 @@ public class Aapt2ResourceShrinkingAction {
   public static final class Aapt2ShrinkOptions extends OptionsBase {
     @Option(
         name = "useProtoApk",
-        defaultValue = "true",
+        defaultValue = "false",
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -95,8 +95,7 @@ public class Aapt2ResourceShrinkingAction {
       final ResourceLinker linker =
           ResourceLinker.create(
                   aapt2ConfigOptions.aapt2, executorService, scopedTmp.subDirectoryOf("linking"))
-              .profileUsing(profiler)
-              .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)));
+              .profileUsing(profiler);
 
       final Set<String> packages =
           options
