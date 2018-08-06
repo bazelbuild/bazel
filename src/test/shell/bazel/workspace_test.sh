@@ -575,7 +575,7 @@ EOF
 
   cd mainrepo
   bazel query //... &>"$TEST_log" || fail "Expected query to succeed"
-  expect_log "def.bzl loaded."
+  expect_log "def.bzl loaded"
   expect_not_log "external"
 }
 
