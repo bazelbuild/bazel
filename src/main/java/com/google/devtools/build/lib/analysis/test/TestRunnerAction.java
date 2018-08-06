@@ -72,7 +72,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
 
-  private final Artifact testSetupScript;
+  private final Artifact testWrapper;
   private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
   private final BuildConfiguration configuration;
@@ -101,6 +101,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final int shardNum;
   private final int runNumber;
   private final String workspaceName;
+
+  // Takes the value of the `--windows_native_test_wrapper` flag.
+  private final boolean useWindowsNativeTestWrapper;
 
   // Mutable state related to test caching. Lazily initialized: null indicates unknown.
   private Boolean unconditionalExecution;
@@ -135,7 +138,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   TestRunnerAction(
       ActionOwner owner,
       Iterable<Artifact> inputs,
-      Artifact testSetupScript, // Must be in inputs
+      Artifact testWrapper, // Must be in inputs
+      boolean useWindowsNativeTestWrapper,
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
@@ -158,7 +162,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         list(testLog, cacheStatus, coverageArtifact),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
-    this.testSetupScript = testSetupScript;
+    this.testWrapper = testWrapper;
+    this.useWindowsNativeTestWrapper = useWindowsNativeTestWrapper;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
@@ -740,8 +745,12 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return getOutputs();
   }
 
-  public Artifact getTestSetupScript() {
-    return testSetupScript;
+  public Artifact getTestWrapper() {
+    return testWrapper;
+  }
+
+  public boolean isUsingWindowsNativeTestWrapper() {
+    return useWindowsNativeTestWrapper;
   }
 
   public Artifact getTestXmlGeneratorScript() {

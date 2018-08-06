@@ -139,17 +139,22 @@ public abstract class TestStrategy implements TestActionContext {
    */
   public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
     List<String> args = Lists.newArrayList();
-    // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
-    // configuration, not the machine Bazel happens to run on. Change this to something like:
-    // testAction.getConfiguration().getTargetOS() == OS.WINDOWS
-    if (OS.getCurrent() == OS.WINDOWS) {
+    // TODO(ulfjack): Using OS.getCurrent() for `executedOnWindows` is incorrect in case of remote
+    // execution, where we should consider the target configuration, not the machine Bazel happens
+    // to run on. Change this to something like:
+    // executedOnWindows = testAction.getConfiguration().getTargetOS() == OS.WINDOWS
+    final boolean executedOnWindows = OS.getCurrent() == OS.WINDOWS;
+
+    final boolean useWindowsNativeTestWrapper = testAction.isUsingWindowsNativeTestWrapper();
+
+    if (executedOnWindows && !useWindowsNativeTestWrapper) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
       args.add("$0 $*");
     }
 
-    Artifact testSetup = testAction.getTestSetupScript();
-    args.add(testSetup.getExecPath().getCallablePathString());
+    Artifact testWrapper = testAction.getTestWrapper();
+    args.add(testWrapper.getExecPath().getCallablePathString());
 
     if (testAction.isCoverageMode()) {
       args.add(testAction.getCollectCoverageScript().getExecPathString());
@@ -159,7 +164,7 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option, if any.
     if (execSettings.getRunUnder() != null) {
-      addRunUnderArgs(testAction, args);
+      addRunUnderArgs(testAction, args, executedOnWindows);
     }
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
@@ -172,7 +177,8 @@ public abstract class TestStrategy implements TestActionContext {
     return ImmutableList.copyOf(args);
   }
 
-  private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
+  private static void addRunUnderArgs(
+      TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
       args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
@@ -181,12 +187,14 @@ public abstract class TestStrategy implements TestActionContext {
       // --run_under commands that do not contain '/' are either shell built-ins or need to be
       // located on the PATH env, so we wrap them in a shell invocation. Note that we shell tokenize
       // the --run_under parameter and getCommand only returns the first such token.
-      boolean needsShell = !command.contains("/");
+      boolean needsShell =
+          !command.contains("/") && (!executedOnWindows || !command.contains("\\"));
       if (needsShell) {
-        args.add(testAction.getShExecutable().getPathString());
+        String shellExecutable = testAction.getShExecutable().getPathString();
+        args.add(shellExecutable);
         args.add("-c");
         args.add("\"$@\"");
-        args.add("/bin/sh"); // Sets $0.
+        args.add(shellExecutable);  // Sets $0.
       }
       args.add(command);
     }

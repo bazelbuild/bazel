@@ -33,7 +33,33 @@ filegroup(
     srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
 )
 
+cc_binary(
+    name = "test_wrapper",
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
+
+        # Dummy source file, so this rule can be built on non-Windows platforms
+        # (when building all targets in this package).
+        "//conditions:default": ["windows/dummy.cc"],
+    }),
+    visibility = ["//visibility:private"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "test-setup.sh",
+        "generate-xml.sh",
+        "collect_coverage.sh",
+    ] + glob(["LcovMerger/**"]) + select({
+        "@bazel_tools//src/conditions:windows": ["test_wrapper"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//tools:__pkg__"],
 )

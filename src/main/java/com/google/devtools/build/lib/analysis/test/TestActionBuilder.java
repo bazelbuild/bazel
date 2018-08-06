@@ -188,12 +188,19 @@ public final class TestActionBuilder {
     BuildConfiguration config = ruleContext.getConfiguration();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
+    final boolean useWindowsNativeTestWrapper =
+        ruleContext
+            .getConfiguration()
+            .getFragment(TestConfiguration.class)
+            .getWindowsNativeTestWrapper();
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman()));
-    NestedSet<Artifact> testRuntime = PrerequisiteArtifacts.nestedSet(
-        ruleContext, "$test_runtime", Mode.HOST);
+    NestedSet<Artifact> testRuntime =
+        useWindowsNativeTestWrapper
+            ? PrerequisiteArtifacts.nestedSet(ruleContext, "$test_wrapper", Mode.HOST)
+            : PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime", Mode.HOST);
     inputsBuilder.addTransitive(testRuntime);
     TestTargetProperties testProperties = new TestTargetProperties(
         ruleContext, executionRequirements);
@@ -202,8 +209,11 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
 
-    Artifact testSetupScript = ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
-    inputsBuilder.add(testSetupScript);
+    Artifact testWrapper =
+        useWindowsNativeTestWrapper
+            ? ruleContext.getHostPrerequisiteArtifact("$test_wrapper")
+            : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
+    inputsBuilder.add(testWrapper);
     Artifact testXmlGeneratorScript =
         ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorScript);
@@ -309,7 +319,8 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
                 inputs,
-                testSetupScript,
+                testWrapper,
+                useWindowsNativeTestWrapper,
                 testXmlGeneratorScript,
                 collectCoverageScript,
                 testLog,
