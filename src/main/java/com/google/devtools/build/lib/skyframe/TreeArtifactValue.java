@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /**
@@ -60,7 +61,7 @@ class TreeArtifactValue implements SkyValue {
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments
    * and their corresponding FileArtifactValues.
    */
-  static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
+  static TreeArtifactValue create(SortedMap<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, FileArtifactValue> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {

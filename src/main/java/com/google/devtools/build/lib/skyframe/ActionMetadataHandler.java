@@ -47,6 +47,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -357,8 +358,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   private TreeArtifactValue constructTreeArtifactValue(Collection<TreeFileArtifact> contents)
       throws IOException {
-    Map<TreeFileArtifact, FileArtifactValue> values =
-        Maps.newHashMapWithExpectedSize(contents.size());
+    SortedMap<TreeFileArtifact, FileArtifactValue> values = Maps.newTreeMap();
 
     for (TreeFileArtifact treeFileArtifact : contents) {
       FileArtifactValue cachedValue = additionalOutputData.get(treeFileArtifact);

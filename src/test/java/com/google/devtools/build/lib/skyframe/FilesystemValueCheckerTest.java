@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
@@ -78,6 +79,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -756,7 +759,7 @@ public class FilesystemValueCheckerTest {
 
   private ActionExecutionValue actionValueWithEmptyDirectory(Artifact emptyDir) {
     TreeArtifactValue emptyValue = TreeArtifactValue.create
-        (ImmutableMap.<TreeFileArtifact, FileArtifactValue>of());
+        (ImmutableSortedMap.of());
 
     return ActionExecutionValue.create(
         ImmutableMap.<Artifact, FileValue>of(),
@@ -769,14 +772,14 @@ public class FilesystemValueCheckerTest {
 
   private ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents) {
     Map<Artifact, FileValue> fileData = new HashMap<>();
-    Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
+    Map<Artifact, SortedMap<TreeFileArtifact, FileArtifactValue>> directoryData = new TreeMap<>();
 
     for (TreeFileArtifact output : contents) {
       try {
-        Map<TreeFileArtifact, FileArtifactValue> dirDatum =
+        SortedMap<TreeFileArtifact, FileArtifactValue> dirDatum =
             directoryData.get(output.getParent());
         if (dirDatum == null) {
-          dirDatum = new HashMap<>();
+          dirDatum = new TreeMap<>();
           directoryData.put(output.getParent(), dirDatum);
         }
         FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(output, null, null);
@@ -787,8 +790,8 @@ public class FilesystemValueCheckerTest {
       }
     }
 
-    Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-    for (Map.Entry<Artifact, Map<TreeFileArtifact, FileArtifactValue>> dirDatum :
+    SortedMap<Artifact, TreeArtifactValue> treeArtifactData = new TreeMap<>();
+    for (Map.Entry<Artifact, SortedMap<TreeFileArtifact, FileArtifactValue>> dirDatum :
         directoryData.entrySet()) {
       treeArtifactData.put(dirDatum.getKey(), TreeArtifactValue.create(dirDatum.getValue()));
     }
