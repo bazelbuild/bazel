@@ -1056,7 +1056,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "  fragments = ['cpp'],",
         ");");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:r");
+    assertThat(getConfiguredTarget("//a:r")).isNull();
     assertContainsEvent(
         "Possible values for artifact_category: static_library, "
             + "alwayslink_static_library, dynamic_library, interface_library");
@@ -1334,6 +1334,22 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testNeverlinkFalse() throws Exception {
     assertThat(setUpNeverlinkTest("False").getArguments()).contains("-NEVERLINK_OPTION");
+  }
+
+  @Test
+  public void testEmptyCcLinkingInfoError() throws Exception {
+    scratch.file("a/BUILD", "load('//tools/build_defs/cc:rule.bzl', 'crule')", "crule(name='r')");
+    scratch.file("tools/build_defs/cc/BUILD", "");
+    scratch.file(
+        "tools/build_defs/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  return [CcLinkingInfo()]",
+        "crule = rule(",
+        "  _impl,",
+        ");");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:r");
+    assertContainsEvent("Every CcLinkParams parameter must be passed to CcLinkingInfo.");
   }
 
   private CppLinkAction setUpNeverlinkTest(String value) throws Exception {

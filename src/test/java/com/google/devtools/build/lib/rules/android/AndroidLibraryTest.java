@@ -2024,4 +2024,30 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
         .inOrder();
   }
+
+  @Test
+  public void testAndroidCcLinkParamsProvider() throws Exception {
+    scratch.file(
+        "java/foo/BUILD",
+        "cc_library(",
+        "  name='cc_dep',",
+        "  srcs=['dep.cc'],",
+        "  linkopts = ['-CC_DEP'],",
+        ")",
+        "android_library(",
+        "  name='lib',",
+        "  srcs=['lib.java'],",
+        "  deps=[':cc_dep'])");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/foo:lib");
+
+    assertThat(
+            target
+                .get(AndroidCcLinkParamsProvider.PROVIDER)
+                .getLinkParams()
+                .getDynamicModeParamsForDynamicLibrary()
+                .flattenedLinkopts())
+        .containsExactly("-CC_DEP")
+        .inOrder();
+  }
 }
