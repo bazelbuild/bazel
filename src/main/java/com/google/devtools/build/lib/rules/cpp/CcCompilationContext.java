@@ -479,6 +479,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         directHeaderMaps.add(otherCcCompilationContext.getPublicCppHeaderMap().getArtifact());
       }
       defines.addAll(otherCcCompilationContext.getDefines());
+      // OB TODO: merge public header maps here.
       return this;
     }
 

@@ -973,8 +973,8 @@ public final class CcCompilationHelper {
 
       // Flatten virtual headers into the headermap.
       boolean flattenVirtualHeaders =
-          ruleContext.attributes().has("flatten_virtual_headers") &&
-              ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
+          ruleContext.attributes().has("flatten_virtual_headers")
+              && ruleContext.attributes().get("flatten_virtual_headers", Type.BOOLEAN);
 
       CppHeaderMap publicHeaderMap =
           CppHelper.createDefaultCppHeaderMap(ruleContext,
