@@ -248,7 +248,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     // Start building the configured target by adding all the necessary transitive providers/infos.
     // Includes databinding, IDE, Java. Also declares the output groups and sets the files to build.
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    System.out.println(ruleContext.getLabel() + " adding transitive providers");
     androidCommon.addTransitiveInfoProviders(
         builder,
         aar.getAar(),
@@ -259,7 +258,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         // TODO(elenairina): Use JavaCommon.isNeverlink(ruleContext) for consistency among rules.
         androidCommon.isNeverLink(),
         /* isLibrary = */ true);
-    System.out.println(builder);
 
     NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
     if (resourceApk.getResourceJavaClassJar() != null) {
