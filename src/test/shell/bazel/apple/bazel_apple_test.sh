@@ -414,4 +414,30 @@ EOF
       || fail "should build apple_binary with dSYMs"
 }
 
+function test_apple_static_library() {
+  rm -rf package
+  mkdir -p package
+  cat > package/BUILD <<EOF
+apple_static_library(
+    name = "static_lib",
+    deps = [":dummy_lib"],
+    platform_type = "ios",
+)
+objc_library(
+    name = "dummy_lib",
+    srcs = ["dummy.m"],
+)
+EOF
+  cat > "package/dummy.m" <<EOF
+static int dummy __attribute__((unused,used)) = 0;
+EOF
+
+  bazel build --verbose_failures //package:static_lib \
+      --apple_crosstool_transition \
+      --ios_multi_cpus=i386,x86_64 \
+      --ios_minimum_os=8.0 \
+      --xcode_version=$XCODE_VERSION \
+      || fail "should build apple_static_library"
+}
+
 run_suite "apple_tests"
