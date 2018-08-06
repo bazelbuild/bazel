@@ -252,7 +252,12 @@ public class JavaCommon {
    */
   public JavaCompilationArgsProvider collectJavaCompilationArgs(
       boolean isNeverLink, boolean srcLessDepsExport) {
-    boolean javaProtoLibraryStrictDeps = semantics.isJavaProtoLibraryStrictDeps(ruleContext);
+    return collectJavaCompilationArgs(
+        isNeverLink, srcLessDepsExport, /* javaProtoLibraryStrictDeps= */ false);
+  }
+
+  public JavaCompilationArgsProvider collectJavaCompilationArgs(
+      boolean isNeverLink, boolean srcLessDepsExport, boolean javaProtoLibraryStrictDeps) {
     return collectJavaCompilationArgs(
         /* isNeverLink= */ isNeverLink,
         /* srcLessDepsExport= */ srcLessDepsExport,
