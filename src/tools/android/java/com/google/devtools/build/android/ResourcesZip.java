@@ -286,7 +286,7 @@ public class ResourcesZip {
     ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
         throws IOException {
       Files.copy(
-          writeAsProto ? apk : linker.optimizeApk(linker.convertToBinary(apk)),
+          writeAsProto ? apk : linker.link(ProtoApk.readFrom(apk)),
           binaryOut,
           StandardCopyOption.REPLACE_EXISTING);
       return this;

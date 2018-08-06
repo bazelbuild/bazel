@@ -411,7 +411,7 @@ public class ResourceLinker {
 
   public PackagedResources link(CompiledResources compiled) {
     try {
-      final Path outPath =
+      final Path linked =
           workingDirectory.resolve("bin." + (outputAsProto ? PROTO_EXTENSION : BINARY_EXTENSION));
       Path rTxt = workingDirectory.resolve("R.txt");
       Path proguardConfig = workingDirectory.resolve("proguard.cfg");
@@ -434,8 +434,8 @@ public class ResourceLinker {
               .add("--manifest", compiled.getManifest())
               // Enables resource redefinition and merging
               .add("--auto-add-overlay")
-              .when(outputAsProto)
-              .thenAdd("--proto-format")
+              // Always link to proto, as resource shrinking needs the extra information.
+              .add("--proto-format")
               .when(debug)
               .thenAdd("--debug-mode")
               .add("--custom-package", customPackage)
@@ -472,7 +472,7 @@ public class ResourceLinker {
               .add("--proguard-main-dex", mainDexProguard)
               .when(conditionalKeepRules)
               .thenAdd("--proguard-conditional-keep-rules")
-              .add("-o", outPath)
+              .add("-o", linked)
               .execute(String.format("Linking %s", compiled.getManifest())));
       profiler.recordEndOf("fulllink").startTask("attributes");
 
@@ -490,10 +490,9 @@ public class ResourceLinker {
 
       profiler.recordEndOf("attributes");
       if (densities.size() < 2) {
-        final Path protoApk = convertToProto(outPath);
         return PackagedResources.of(
-            outputAsProto ? protoApk : convertToBinary(outPath), // convert proto to apk
-            protoApk,
+            outputAsProto ? linked : link(ProtoApk.readFrom(linked)), // convert proto to apk
+            linked,
             rTxt,
             proguardConfig,
             mainDexProguard,
@@ -513,14 +512,13 @@ public class ResourceLinker {
               .thenAdd("-v")
               .add("--target-densities", densities.stream().collect(Collectors.joining(",")))
               .add("-o", optimized)
-              .add(outPath.toString())
+              .add(linked.toString())
               .execute(String.format("Optimizing %s", compiled.getManifest())));
       profiler.recordEndOf("optimize");
 
-      final Path protoApk = convertToProto(optimized);
       return PackagedResources.of(
-          outputAsProto ? protoApk : convertToBinary(optimized), // convert proto to binary
-          protoApk,
+          outputAsProto ? optimized : link(ProtoApk.readFrom(optimized)), // convert proto to binary
+          optimized,
           rTxt,
           proguardConfig,
           mainDexProguard,
