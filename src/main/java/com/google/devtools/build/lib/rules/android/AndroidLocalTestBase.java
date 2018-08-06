@@ -101,7 +101,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
           buildResourceApk(
               dataContext,
               androidSemantics,
-              DataBinding.contextFrom(ruleContext),
+              DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
               AndroidManifest.fromAttributes(ruleContext, dataContext),
               AndroidResources.from(ruleContext, "resource_files"),
               AndroidAssets.from(ruleContext),
@@ -122,7 +122,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
               dataContext,
-              DataBinding.contextFrom(ruleContext),
+              DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDependencies,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),

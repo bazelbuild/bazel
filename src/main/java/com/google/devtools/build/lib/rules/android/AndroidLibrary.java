@@ -169,7 +169,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                     ruleContext,
                     dataContext,
                     manifest,
-                    DataBinding.contextFrom(ruleContext),
+                    DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
                     isNeverLink);
 
         MergedAndroidAssets assets =
@@ -196,7 +196,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getImplicitOutputArtifact(
                     AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-                DataBinding.contextFrom(ruleContext));
+                DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
       }
       if (ruleContext.hasErrors()) {
         return null;
@@ -206,7 +206,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       resourceApk =
           ResourceApk.processFromTransitiveLibraryData(
               dataContext,
-              DataBinding.contextFrom(ruleContext),
+              DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
               resourceDeps,
               assetDeps,
               StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));

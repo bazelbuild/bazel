@@ -145,13 +145,14 @@ public class AndroidResourcesTest extends ResourceTestBase {
       ImmutableList<Artifact> unfilteredResources, ImmutableList<Artifact> filteredResources)
       throws Exception {
     RuleContext ruleContext = getRuleContext();
+    final AndroidDataContext dataContext = AndroidDataContext.forNative(ruleContext);
     ValidatedAndroidResources unfiltered =
         new AndroidResources(unfilteredResources, getResourceRoots(unfilteredResources))
             .process(
                 ruleContext,
-                AndroidDataContext.forNative(ruleContext),
+                dataContext,
                 getManifest(),
-                DataBinding.contextFrom(ruleContext),
+                DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
                 /* neverlink = */ false);
     Optional<? extends AndroidResources> maybeFiltered =
         assertFilter(unfiltered, filteredResources, /* isDependency = */ true);
@@ -227,7 +228,11 @@ public class AndroidResourcesTest extends ResourceTestBase {
 
     RuleContext ruleContext = getRuleContext();
     ParsedAndroidResources parsed =
-        assertParse(ruleContext, DataBinding.asEnabledDataBindingContextFrom(ruleContext));
+        assertParse(
+            ruleContext,
+            DataBinding.contextFrom(
+                ruleContext,
+                ruleContext.getConfiguration().getFragment(AndroidConfiguration.class)));
 
     // Since we are not using aapt2, there should be no compiled symbols
     assertThat(parsed.getCompiledSymbols()).isNull();
@@ -498,7 +503,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
                 false,
                 null,
                 null,
-                DataBinding.contextFrom(ruleContext))
+                DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()))
             .generateRClass(dataContext, AndroidAaptVersion.AUTO);
 
     assertThat(resourceApk.getResourceProguardConfig()).isNotNull();
@@ -510,7 +515,10 @@ public class AndroidResourcesTest extends ResourceTestBase {
    * for further validation.
    */
   private ParsedAndroidResources assertParse(RuleContext ruleContext) throws Exception {
-    return assertParse(ruleContext, DataBinding.contextFrom(ruleContext));
+    return assertParse(
+        ruleContext,
+        DataBinding.contextFrom(
+            ruleContext, ruleContext.getConfiguration().getFragment(AndroidConfiguration.class)));
   }
 
   private ParsedAndroidResources assertParse(

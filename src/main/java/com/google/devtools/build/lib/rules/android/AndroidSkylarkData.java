@@ -175,7 +175,10 @@ public abstract class AndroidSkylarkData
                   ctx,
                   manifest.asStampedManifest(),
                   ResourceDependencies.fromProviders(deps, neverlink),
-                  DataBinding.contextFrom(enableDataBinding, ctx.getActionConstructionContext()),
+                  DataBinding.contextFrom(
+                      enableDataBinding,
+                      ctx.getActionConstructionContext(),
+                      ctx.getAndroidConfig()),
                   aaptVersion);
 
       JavaInfo javaInfo = getJavaInfoForRClassJar(validated.getClassJar());
@@ -581,7 +584,10 @@ public abstract class AndroidSkylarkData
                   crunchPng,
                   /* featureOf = */ null,
                   /* featureAfter = */ null,
-                  DataBinding.contextFrom(dataBindingEnabled, ctx.getActionConstructionContext()))
+                  DataBinding.contextFrom(
+                      dataBindingEnabled,
+                      ctx.getActionConstructionContext(),
+                      ctx.getAndroidConfig()))
               .generateRClass(ctx, settings.aaptVersion);
 
       return AndroidBinaryDataInfo.of(
