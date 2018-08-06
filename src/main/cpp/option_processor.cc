@@ -447,7 +447,7 @@ void OptionProcessor::PrintStartupOptionsProvenanceMessage() const {
   std::string command_line_source;
   std::string& most_recent_blazerc = command_line_source;
   std::vector<std::string> accumulated_options;
-  for (auto flag : parsed_startup_options->original_startup_options_) {
+  for (const auto& flag : parsed_startup_options->original_startup_options_) {
     if (flag.source == most_recent_blazerc) {
       accumulated_options.push_back(flag.value);
     } else {
