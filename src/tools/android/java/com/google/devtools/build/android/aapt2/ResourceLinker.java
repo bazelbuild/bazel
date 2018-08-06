@@ -532,6 +532,34 @@ public class ResourceLinker {
     }
   }
 
+  /** Link a proto apk to produce an apk. */
+  public Path link(ProtoApk protoApk) {
+    try {
+      final Path protoApkPath = protoApk.asApkPath();
+      final Path working =
+          workingDirectory
+              .resolve("link-proto")
+              .resolve(replaceExtension(protoApkPath.getFileName().toString(), "working"));
+      final Path manifest = protoApk.writeManifestAsXmlTo(working);
+      final Path apk = working.resolve("binary.apk");
+      logger.fine(
+          new AaptCommandBuilder(aapt2)
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(VariantType.DEFAULT)
+              .add("link")
+              .when(Objects.equals(logger.getLevel(), Level.FINE))
+              .thenAdd("-v")
+              .add("--manifest", manifest)
+              .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
+              .add("-R", convertToBinary(protoApkPath))
+              .add("-o", apk.toString())
+              .execute(String.format("Re-linking %s", protoApkPath)));
+      return apk;
+    } catch (IOException e) {
+      throw new LinkError(e);
+    }
+  }
+
   public ResourceLinker storeUncompressed(List<String> uncompressedExtensions) {
     this.uncompressedExtensions = uncompressedExtensions;
     return this;
