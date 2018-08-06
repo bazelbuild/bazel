@@ -103,8 +103,8 @@ public final class DataBinding {
     /**
      * Adds data binding's annotation processor as a plugin to the given Java compilation context.
      *
-     * <p>This, in conjunction with {@link #createAnnotationFile} extends the Java compilation to
-     * translate data binding .xml into corresponding classes.
+     * <p>This extends the Java compilation to translate data binding .xml into corresponding
+     * classes.
      */
     default void supplyAnnotationProcessor(
         RuleContext ruleContext, BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) {}
@@ -240,11 +240,18 @@ public final class DataBinding {
       // binding didn't reprocess a library's data binding expressions redundantly up the dependency
       // chain (meaning each depender processes them again as if they were its own), this problem
       // wouldn't happen.
-      final Artifact annotationFile = createAnnotationFile(ruleContext);
-      if (annotationFile != null) {
+      try {
+        String contents =
+            ResourceFileLoader.loadResource(
+                DataBinding.class, "databinding_annotation_template.txt");
+        Artifact annotationFile = getDataBindingArtifact(ruleContext, "DataBindingInfo.java");
+        ruleContext.registerAction(
+            FileWriteAction.create(ruleContext, annotationFile, contents, false));
         return ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
+      } catch (IOException e) {
+        ruleContext.ruleError("Cannot load annotation processor template: " + e.getMessage());
+        return ImmutableList.of();
       }
-      return ImmutableList.of();
     }
 
     @Override
@@ -352,27 +359,6 @@ public final class DataBinding {
   /** Turns a key/value pair into a javac annotation processor flag received by data binding. */
   private static String createProcessorFlag(String flag, String value) {
     return String.format("-Aandroid.databinding.%s=%s", flag, value);
-  }
-
-  /**
-   * Creates and returns the generated Java source that data binding's annotation processor reads to
-   * translate layout info xml into the classes that end user code consumes.
-   *
-   * <p>This mostly just triggers the annotation processor. Annotation processor settings are
-   * configured separately.
-   */
-  private static Artifact createAnnotationFile(RuleContext ruleContext) {
-    String contents;
-    try {
-      contents =
-          ResourceFileLoader.loadResource(DataBinding.class, "databinding_annotation_template.txt");
-    } catch (IOException e) {
-      ruleContext.ruleError("Cannot load annotation processor template: " + e.getMessage());
-      return null;
-    }
-    Artifact output = getDataBindingArtifact(ruleContext, "DataBindingInfo.java");
-    ruleContext.registerAction(FileWriteAction.create(ruleContext, output, contents, false));
-    return output;
   }
 
   /**
