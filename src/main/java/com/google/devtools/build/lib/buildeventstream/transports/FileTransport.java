@@ -20,7 +20,6 @@ import static java.lang.String.format;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,9 +44,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -88,6 +92,7 @@ abstract class FileTransport implements BuildEventTransport {
 
     private final Thread writerThread;
     @VisibleForTesting OutputStream out;
+    @VisibleForTesting static final Duration FLUSH_INTERVAL = Duration.ofMillis(250);
     private final Function<BuildEventStreamProtos.BuildEvent, byte[]> serializeFunc;
     private final Consumer<AbruptExitException> exitFunc;
     private final BuildEventArtifactUploader uploader;
@@ -125,10 +130,20 @@ abstract class FileTransport implements BuildEventTransport {
     public void run() {
       ListenableFuture<BuildEventStreamProtos.BuildEvent> buildEventF;
       try {
-        while ((buildEventF = pendingWrites.take()) != CLOSE) {
-          BuildEventStreamProtos.BuildEvent buildEvent = buildEventF.get();
-          byte[] serialized = serializeFunc.apply(buildEvent);
-          out.write(serialized);
+        Instant prevFlush = Instant.now();
+        while ((buildEventF = pendingWrites.poll(FLUSH_INTERVAL.toMillis(), TimeUnit.MILLISECONDS))
+            != CLOSE) {
+          if (buildEventF != null) {
+            BuildEventStreamProtos.BuildEvent buildEvent = buildEventF.get();
+            byte[] serialized = serializeFunc.apply(buildEvent);
+            out.write(serialized);
+          }
+          Instant now = Instant.now();
+          if (buildEventF == null || now.compareTo(prevFlush.plus(FLUSH_INTERVAL)) > 0) {
+            // Some users, e.g. Tulsi, expect prompt BEP stream flushes for interactive use.
+            out.flush();
+            prevFlush = now;
+          }
         }
       } catch (Exception e) {
         exitFunc.accept(
@@ -240,12 +255,14 @@ abstract class FileTransport implements BuildEventTransport {
    */
   private ListenableFuture<PathConverter> uploadReferencedFiles(Collection<LocalFile> localFiles) {
     checkNotNull(localFiles);
-    ImmutableMap.Builder<Path, LocalFile> localFileMap =
-        ImmutableMap.builderWithExpectedSize(localFiles.size());
+    Map<Path, LocalFile> localFileMap = new HashMap<>(localFiles.size());
     for (LocalFile localFile : localFiles) {
-      localFileMap.put(localFile.path, localFile);
+      // It is possible for targets to have duplicate artifacts (same path but different owners)
+      // in their output groups. Since they didn't trigger an artifact conflict they are the
+      // same file, so just skip either one
+      localFileMap.putIfAbsent(localFile.path, localFile);
     }
-    ListenableFuture<PathConverter> upload = uploader.upload(localFileMap.build());
+    ListenableFuture<PathConverter> upload = uploader.upload(localFileMap);
     Futures.addCallback(
         upload,
         new FutureCallback<PathConverter>() {

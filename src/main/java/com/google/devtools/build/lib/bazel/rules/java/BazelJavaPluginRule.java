@@ -70,7 +70,6 @@ public final class BazelJavaPluginRule implements RuleDefinition {
         .removeAttribute("runtime_deps")
         .removeAttribute("exports")
         .removeAttribute("exported_plugins")
-        .removeAttribute("data")
         .build();
   }
 

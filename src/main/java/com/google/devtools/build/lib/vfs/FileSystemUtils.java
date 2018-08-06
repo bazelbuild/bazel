@@ -698,14 +698,7 @@ public class FileSystemUtils {
    */
   public static void writeContent(Path outputFile, Charset charset, String content)
       throws IOException {
-    try (OutputStream out = outputFile.getOutputStream()) {
-      new ByteSink() {
-        @Override
-        public OutputStream openStream() throws IOException {
-          return out;
-        }
-      }.asCharSink(charset).write(content);
-    }
+    asByteSink(outputFile).asCharSink(charset).write(content);
   }
 
   /**
@@ -736,14 +729,7 @@ public class FileSystemUtils {
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     createDirectoryAndParents(file.getParentDirectory());
-    try (OutputStream out = file.getOutputStream()) {
-      new ByteSink() {
-        @Override
-        public OutputStream openStream() throws IOException {
-          return out;
-        }
-      }.asCharSink(charset).writeLines(lines);
-    }
+    asByteSink(file).asCharSink(charset).writeLines(lines);
   }
 
   /**
@@ -754,14 +740,7 @@ public class FileSystemUtils {
   public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     createDirectoryAndParents(file.getParentDirectory());
-    try (OutputStream out = file.getOutputStream(true)) {
-      new ByteSink() {
-        @Override
-        public OutputStream openStream() throws IOException {
-          return out;
-        }
-      }.asCharSink(charset).writeLines(lines);
-    }
+    asByteSink(file, true).asCharSink(charset).writeLines(lines);
   }
 
   /**
@@ -770,15 +749,7 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static void writeContent(Path outputFile, byte[] content) throws IOException {
-    try (OutputStream out = outputFile.getOutputStream()) {
-      new ByteSink() {
-        @Override
-        public OutputStream openStream() throws IOException {
-          return out;
-        }
-      }.write(content);
-      ;
-    }
+    asByteSink(outputFile).write(content);
   }
 
   /**
@@ -887,6 +858,24 @@ public class FileSystemUtils {
   }
 
   /**
+   * The type of {@link IOException} thrown by {@link #readWithKnownFileSize} when fewer bytes than
+   * expected are read.
+   */
+  public static class ShortReadIOException extends IOException {
+    public final Path path;
+    public final int fileSize;
+    public final int numBytesRead;
+
+    private ShortReadIOException(Path path, int fileSize, int numBytesRead) {
+      super("Unexpected short read from file '" + path + "' (expected " + fileSize + ", got "
+          + numBytesRead + " bytes)");
+      this.path = path;
+      this.fileSize = fileSize;
+      this.numBytesRead = numBytesRead;
+    }
+  }
+
+  /**
    * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
    * check on the number of bytes read.
    *
@@ -902,8 +891,7 @@ public class FileSystemUtils {
     int fileSizeInt = (int) fileSize;
     byte[] bytes = readContentWithLimit(path, fileSizeInt);
     if (fileSizeInt > bytes.length) {
-      throw new IOException("Unexpected short read from file '" + path
-          + "' (expected " + fileSizeInt + ", got " + bytes.length + " bytes)");
+      throw new ShortReadIOException(path, fileSizeInt, bytes.length);
     }
     return bytes;
   }

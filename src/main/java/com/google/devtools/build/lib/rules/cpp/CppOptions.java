@@ -789,15 +789,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useLLVMCoverageMapFormat;
 
   @Option(
-      name = "experimental_expand_linkopts_labels",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If true, entries in linkopts that are not preceded by - or $ will be expanded.")
-  public boolean expandLinkoptsLabels;
-
-  @Option(
       name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -809,15 +800,81 @@ public class CppOptions extends FragmentOptions {
   public boolean enableLegacyToolchainSkylarkApi;
 
   @Option(
-      name = "experimental_enable_cc_skylark_api",
+      name = "experimental_disable_legacy_cc_linking_api",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, C++ Skylark API exposing linking flags will be disabled.")
+  public boolean disableLegacyLinkingApi;
+
+  @Option(
+      name = "experimental_disable_legacy_cc_compilation_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, C++ Skylark API exposing compilation flags will be disabled.")
+  public boolean disableLegacyCompilationApi;
+
+  @Option(
+      name = "experimental_disable_linking_mode_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, Bazel will not read crosstool flags from linking_mode_flags field.")
+  public boolean disableLinkingModeFlags;
+
+  @Option(
+      name = "experimental_disable_compilation_mode_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, Bazel will not read crosstool flags from compilation_mode_flags field.")
+  public boolean disableCompilationModeFlags;
+
+  @Option(
+      name = "experimental_disable_legacy_crosstool_fields",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "If true, the C++ Skylark API can be used. Don't enable this flag yet, we will be making "
-              + "breaking changes.")
-  public boolean enableCcSkylarkApi;
+          "If true, Bazel will not read crosstool flags from legacy crosstool fields (see #5187.")
+  public boolean disableLegacyCrosstoolFields;
+
+  @Option(
+      name = "experimental_enable_cc_dynlibs_for_runtime",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If false, Blaze will not propagate runtime libs through CcDynamicLibrariesForRuntime "
+              + "field of CcLinkingInfo. See b/111289526.")
+  public boolean enableCcDynamicLibrariesForRuntime;
+
+  @Option(
+      name = "experimental_linkopts_in_user_link_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
+              + "crosstool variable.")
+  public boolean enableLinkoptsInUserLinkFlags;
+
+  @Option(
+      name = "experimental_enable_cc_toolchain_label_from_crosstool_proto",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If false, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
+  public boolean enableCcToolchainFromCrosstool;
 
   @Override
   public FragmentOptions getHost() {

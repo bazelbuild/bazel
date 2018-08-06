@@ -18,15 +18,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -226,8 +225,6 @@ public class ExecutionTool {
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
-    // Get top-level artifacts.
-    ImmutableSet<Artifact> additionalArtifacts = analysisResult.getAdditionalArtifactsToBuild();
 
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
@@ -303,18 +300,6 @@ public class ExecutionTool {
     Set<AspectKey> builtAspects = new HashSet<>();
     Collection<AspectValue> aspects = analysisResult.getAspects();
 
-    Iterable<Artifact> allArtifactsForProviders =
-        Iterables.concat(
-            additionalArtifacts,
-            TopLevelArtifactHelper.getAllArtifactsToBuild(
-                    analysisResult.getTargetsToBuild(), analysisResult.getTopLevelContext())
-                .getAllArtifacts(),
-            TopLevelArtifactHelper.getAllArtifactsToBuildFromAspects(
-                    aspects, analysisResult.getTopLevelContext())
-                .getAllArtifacts(),
-            //TODO(dslomov): Artifacts to test from aspects?
-            TopLevelArtifactHelper.getAllArtifactsToTest(analysisResult.getTargetsToTest()));
-
     if (request.isRunningInEmacs()) {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
       request
@@ -327,7 +312,12 @@ public class ExecutionTool {
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
         try (SilentCloseable c =
             Profiler.instance().profile(actionContextProvider + ".executionPhaseStarting")) {
-          actionContextProvider.executionPhaseStarting(actionGraph, allArtifactsForProviders);
+          actionContextProvider.executionPhaseStarting(
+              actionGraph,
+              Suppliers.memoize(
+                  () ->
+                      TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(
+                          analysisResult, aspects)));
         }
       }
       executor.executionPhaseStarting();
@@ -350,7 +340,7 @@ public class ExecutionTool {
 
       builder.buildArtifacts(
           env.getReporter(),
-          additionalArtifacts,
+          analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
           analysisResult.getParallelTests(),
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),

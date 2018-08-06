@@ -282,6 +282,11 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "filegroup(",
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
+        ")",
+        "cc_toolchain_alias(name = 'current_cc_toolchain')",
+        "filegroup(",
+        "    name = 'crosstool',",
+        "    srcs = [':current_cc_toolchain'],",
         ")");
     config.create(
         "/bazel_tools_workspace/tools/cpp/CROSSTOOL",

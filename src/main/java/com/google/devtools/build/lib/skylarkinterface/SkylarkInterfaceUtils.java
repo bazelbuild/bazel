@@ -66,7 +66,6 @@ public class SkylarkInterfaceUtils {
       // B or if A is of type C. It's both! The way to resolve this is usually to have A be its own
       // type (annotated with @SkylarkModule), and thus have the explicit type of A be semantically
       // "B and C".
-      // TODO(cparsons): Verify in a test, and thus not rely solely on a runtime check.
       throw new IllegalArgumentException(String.format(
           "Expected one of %s and %s to be a subclass of the other",
           xClass, yClass));

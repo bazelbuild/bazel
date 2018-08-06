@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -52,7 +50,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -64,13 +61,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,19 +81,10 @@ public class CppHelper {
   static final PathFragment OBJS = PathFragment.create("_objs");
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
 
-  private static final String GREPPED_INCLUDES_SUFFIX = ".includes";
-
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.SHARED_LIBRARY,
       CppFileTypes.VERSIONED_SHARED_LIBRARY);
-
-  private static final FileTypeSet CPP_FILETYPES = FileTypeSet.of(
-      CppFileTypes.CPP_HEADER,
-      CppFileTypes.CPP_SOURCE);
-
-  private static final ImmutableList<String> LINKOPTS_PREREQUISITE_LABEL_KINDS =
-      ImmutableList.of("deps", "srcs");
 
   /** Base label of the c++ toolchain category. */
   public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_type";
@@ -190,28 +176,13 @@ public class CppHelper {
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, "copts", unexpanded));
   }
 
-  /**
-   * Expands attribute value either using label expansion
-   * (if attemptLabelExpansion == {@code true} and it does not look like make
-   * variable or flag) or tokenizes and expands make variables.
-   */
+  /** Tokenizes and expands make variables. */
   public static List<String> expandLinkopts(
       RuleContext ruleContext, String attrName, Iterable<String> values) {
     List<String> result = new ArrayList<>();
     Expander expander = ruleContext.getExpander().withDataExecLocations();
     for (String value : values) {
-      if (ruleContext.getFragment(CppConfiguration.class).getExpandLinkoptsLabels()
-          && isLinkoptLabel(value)) {
-        if (!expandLabel(ruleContext, result, value)) {
-          ruleContext.attributeError(attrName, "could not resolve label '" + value + "'");
-        }
-      } else {
-        expander
-            .tokenizeAndExpandMakeVars(
-                result,
-                attrName,
-                value);
-      }
+      expander.tokenizeAndExpandMakeVars(result, attrName, value);
     }
     return result;
   }
@@ -275,53 +246,6 @@ public class CppHelper {
     } else {
       return toolchain.getLegacyDynamicLinkFlags(config.getCompilationMode());
     }
-  }
-
-  /**
-   * Determines if a linkopt can be a label. Linkopts come in 2 varieties:
-   * literals -- flags like -Xl and makefile vars like $(LD) -- and labels,
-   * which we should expand into filenames.
-   *
-   * @param linkopt the link option to test.
-   * @return true if the linkopt is not a flag (starting with "-") or a makefile
-   *         variable (starting with "$");
-   */
-  private static boolean isLinkoptLabel(String linkopt) {
-    return !linkopt.startsWith("$") && !linkopt.startsWith("-");
-  }
-
-  /**
-   * Expands a label against the target's deps, adding the expanded path strings
-   * to the linkopts.
-   *
-   * @param linkopts the linkopts to add the expanded label to
-   * @param labelName the name of the label to expand
-   * @return true if the label was expanded successfully, false otherwise
-   */
-  private static boolean expandLabel(
-      RuleContext ruleContext, List<String> linkopts, String labelName) {
-    try {
-      Label label =
-          ruleContext
-              .getLabel()
-              .getRelativeWithRemapping(
-                  labelName, ruleContext.getRule().getPackage().getRepositoryMapping());
-      for (String prereqKind : LINKOPTS_PREREQUISITE_LABEL_KINDS) {
-        for (TransitiveInfoCollection target : ruleContext
-            .getPrerequisitesIf(prereqKind, Mode.TARGET, FileProvider.class)) {
-          if (target.getLabel().equals(label)) {
-            for (Artifact artifact : target.getProvider(FileProvider.class).getFilesToBuild()) {
-              linkopts.add(artifact.getExecPathString());
-            }
-            return true;
-          }
-        }
-      }
-    } catch (LabelSyntaxException e) {
-      // Quietly ignore and fall through.
-    }
-    linkopts.add(labelName);
-    return false;
   }
 
   /**
@@ -516,85 +440,6 @@ public class CppHelper {
                   .build();
         };
     return linkingStatically ? runfilesForLinkingStatically : runfilesForLinkingDynamically;
-  }
-
-  /**
-   * A header that has been grepped for #include statements. Includes the original header as well as
-   * a stripped version of that header that contains only #include statements.
-   */
-  @AutoCodec
-  @AutoValue
-  abstract static class PregreppedHeader {
-    @AutoCodec.Instantiator
-    static PregreppedHeader create(Artifact originalHeader, Artifact greppedHeader) {
-      return new AutoValue_CppHelper_PregreppedHeader(originalHeader, greppedHeader);
-    }
-
-    /** Returns the original header, before grepping. */
-    abstract Artifact originalHeader();
-
-    /** Returns the grepped header, which contains only #include statements. */
-    abstract Artifact greppedHeader();
-  }
-
-  /**
-   * Creates a grep-includes ExtractInclusions action for generated sources/headers in the
-   * needsIncludeScanning() BuildConfiguration case. Returns a map from original header Artifact to
-   * the output Artifact of grepping over it. The return value only includes entries for generated
-   * sources or headers when --extract_generated_inclusions is enabled.
-   *
-   * <p>Previously, incremental rebuilds redid all include scanning work for a given .cc source in
-   * serial. For high-latency file systems, this could cause performance problems if many headers
-   * are generated.
-   */
-  @Nullable
-  public static final List<PregreppedHeader> createExtractInclusions(
-      RuleContext ruleContext, CppSemantics semantics, Iterable<Artifact> prerequisites) {
-    List<PregreppedHeader> extractions = new ArrayList<>();
-    HashSet<Artifact> alreadyProcessedHeaders = new HashSet<>();
-    for (Artifact prerequisite : prerequisites) {
-      if (alreadyProcessedHeaders.contains(prerequisite)) {
-        // Don't create duplicate actions just because user specified same header file twice.
-        continue;
-      }
-      alreadyProcessedHeaders.add(prerequisite);
-
-      Artifact scanned = createExtractInclusions(ruleContext, semantics, prerequisite);
-      if (scanned != null) {
-        extractions.add(PregreppedHeader.create(prerequisite, scanned));
-      }
-    }
-    return extractions;
-  }
-
-  /**
-   * Creates a grep-includes ExtractInclusions action for generated  sources/headers in the
-   * needsIncludeScanning() BuildConfiguration case.
-   *
-   * <p>Previously, incremental rebuilds redid all include scanning work for a given
-   * .cc source in serial. For high-latency file systems, this could cause
-   * performance problems if many headers are generated.
-   */
-  private static final Artifact createExtractInclusions(
-      RuleContext ruleContext, CppSemantics semantics, Artifact prerequisite) {
-    if (ruleContext != null
-        && semantics.needsIncludeScanning(ruleContext)
-        && !prerequisite.isSourceArtifact()
-        && CPP_FILETYPES.matches(prerequisite.getFilename())) {
-      Artifact scanned = getIncludesOutput(ruleContext, prerequisite);
-      Artifact grepIncludes = ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST);
-      ruleContext.registerAction(
-          new ExtractInclusionAction(
-              ruleContext.getActionOwner(), prerequisite, scanned, grepIncludes));
-      return scanned;
-    }
-    return null;
-  }
-
-  private static Artifact getIncludesOutput(RuleContext ruleContext, Artifact src) {
-    Preconditions.checkArgument(!src.isSourceArtifact(), src);
-    return ruleContext.getGenfilesArtifact(
-        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX));
   }
 
   /**

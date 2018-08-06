@@ -18,6 +18,10 @@
 
 namespace blaze {
 
+// TODO(b/31290599): We should not only check that the options are registered,
+// but also that they are parsed. StartupOptions* options would need to be
+// non-const to call ProcessArgs and test that the value is recognized by the
+// command line.
 void ExpectIsNullaryOption(const StartupOptions* options,
                            const std::string& flag_name) {
   EXPECT_TRUE(options->IsNullary("--" + flag_name));

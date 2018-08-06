@@ -319,7 +319,7 @@ public final class EvalUtils {
         for (Map.Entry<?, ?> entries : dict.entrySet()) {
           list.add(entries.getKey());
         }
-        return  ImmutableList.copyOf(list);
+        return ImmutableList.copyOf(list);
       }
       // For determinism, we sort the keys.
       try {
@@ -413,7 +413,7 @@ public final class EvalUtils {
               + "--incompatible_string_is_not_iterable=false to temporarily disable this check.");
     }
 
-    ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+    ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(value.length());
     for (char c : value.toCharArray()) {
       builder.add(String.valueOf(c));
     }
@@ -512,7 +512,10 @@ public final class EvalUtils {
     }
     start = clampRangeEndpoint(start, length, step < 0);
     end = clampRangeEndpoint(end, length, step < 0);
-    ImmutableList.Builder<Integer> indices = ImmutableList.builder();
+    // precise computation is slightly more involved, but since it can overshoot only by a single
+    // element it's fine
+    final int expectedMaxSize = Math.abs(start - end) / Math.abs(step) + 1;
+    ImmutableList.Builder<Integer> indices = ImmutableList.builderWithExpectedSize(expectedMaxSize);
     for (int current = start; step > 0 ? current < end : current > end; current += step) {
       indices.add(current);
     }

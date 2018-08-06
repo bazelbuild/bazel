@@ -114,7 +114,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       ForkJoinPool forkJoinPool,
-      CycleDetector cycleDetector) {
+      CycleDetector cycleDetector,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     super(
         graph,
         graphVersion,
@@ -127,7 +128,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         progressReceiver,
         graphInconsistencyReceiver,
         forkJoinPool,
-        cycleDetector);
+        cycleDetector,
+        evaluationVersionBehavior);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -258,17 +260,24 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
         }
       }
-    } catch (InterruptedException e) {
+    } catch (InterruptedException ie) {
       // When multiple keys are being evaluated, it's possible that a key may get queued before
       // an InterruptedException is thrown from either #addReverseDepAndCheckIfDone or
       // #informProgressReceiverThatValueIsDone on a different key. Therefore we have to make sure
       // all evaluation threads are properly interrupted and shut down, if main thread (current
       // thread) is interrupted.
       Thread.currentThread().interrupt();
-      evaluatorContext.getVisitor().waitForCompletion();
+      try {
+        evaluatorContext.getVisitor().waitForCompletion();
+      } catch (SchedulerException se) {
+        // A SchedulerException due to a SkyFunction observing the interrupt is completely expected.
+        if (!(se.getCause() instanceof InterruptedException)) {
+          throw se;
+        }
+      }
 
       // Rethrow the InterruptedException to avoid proceeding to construct the result.
-      throw e;
+      throw ie;
     }
 
     return waitForCompletionAndConstructResult(skyKeys);
@@ -469,6 +478,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             maybeMarkRebuilding(parentEntry);
             // Fall through to REBUILDING.
           case REBUILDING:
+          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -195,13 +196,13 @@ public final class AnalysisUtils {
    *
    * <p>Preserves the original input ordering.
    */
+  // Keep this in sync with PrepareAnalysisPhaseFunction.
   public static List<TargetAndConfiguration> getTargetsWithConfigs(
       BuildConfigurationCollection configurations,
       Collection<Target> targets,
       ExtendedEventHandler eventHandler,
       ConfiguredRuleClassProvider ruleClassProvider,
-      SkyframeExecutor skyframeExecutor)
-      throws InterruptedException {
+      SkyframeExecutor skyframeExecutor) {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
@@ -222,8 +223,9 @@ public final class AnalysisUtils {
             nodes, asDeps, eventHandler, skyframeExecutor));
   }
 
+  @VisibleForTesting
   public static Multimap<BuildConfiguration, Dependency> targetsToDeps(
-      LinkedHashSet<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
+      Collection<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
     Multimap<BuildConfiguration, Dependency> asDeps =
         ArrayListMultimap.<BuildConfiguration, Dependency>create();
     for (TargetAndConfiguration targetAndConfig : nodes) {

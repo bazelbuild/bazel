@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -71,6 +72,14 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
     @Override
     public int hashCode() {
       return Objects.hashCode(path, type);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(LocalFile.class)
+          .add("path", path)
+          .add("type", type)
+          .toString();
     }
   }
 

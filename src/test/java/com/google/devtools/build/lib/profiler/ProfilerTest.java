@@ -75,14 +75,15 @@ public class ProfilerTest {
     }
   }
 
-  private ByteArrayOutputStream start(ProfiledTaskKinds kinds, Profiler.Format format) {
+  private ByteArrayOutputStream start(ProfiledTaskKinds kinds, Profiler.Format format)
+      throws IOException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
         kinds, buffer, format, "test", false, BlazeClock.instance(), BlazeClock.nanoTime());
     return buffer;
   }
 
-  private void startUnbuffered(ProfiledTaskKinds kinds) {
+  private void startUnbuffered(ProfiledTaskKinds kinds) throws IOException {
     profiler.start(
         kinds, null, null, "test", false, BlazeClock.instance(), BlazeClock.nanoTime());
   }

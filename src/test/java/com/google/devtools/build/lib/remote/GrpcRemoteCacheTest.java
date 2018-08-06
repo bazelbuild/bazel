@@ -28,12 +28,15 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -43,11 +46,13 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.remoteexecution.v1test.Action;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
+import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.Directory;
@@ -64,7 +69,6 @@ import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
-import io.grpc.ClientInterceptors;
 import io.grpc.Context;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
@@ -75,7 +79,10 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -177,9 +184,9 @@ public class GrpcRemoteCacheTest {
     Scratch scratch = new Scratch();
     scratch.file(authTlsOptions.googleCredentials, new JacksonFactory().toString(json));
 
-    CallCredentials creds = null;
+    CallCredentials creds;
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
-      GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
+      creds = GoogleAuthUtils.newCallCredentials(in, authTlsOptions.googleAuthScopes);
     }
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     RemoteRetrier retrier =
@@ -188,14 +195,110 @@ public class GrpcRemoteCacheTest {
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
             retryService,
             Retrier.ALLOW_ALL_CALLS);
-    return new GrpcRemoteCache(
-        ClientInterceptors.intercept(
-            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
-            ImmutableList.of(new CallCredentialsInterceptor(creds))),
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(InProcessChannelBuilder.forName(fakeServerName).directExecutor()
+            .intercept(new CallCredentialsInterceptor(creds)).build());
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(remoteOptions.remoteInstanceName, channel.retain(), creds,
+            remoteOptions.remoteTimeout, retrier);
+    return new GrpcRemoteCache(channel.retain(),
         creds,
         remoteOptions,
         retrier,
-        DIGEST_UTIL);
+        DIGEST_UTIL,
+        uploader);
+  }
+
+  static class StringVirtualActionInput implements VirtualActionInput {
+    private final String contents;
+    private final PathFragment execPath;
+
+    StringVirtualActionInput(String contents, PathFragment execPath) {
+      this.contents = contents;
+      this.execPath = execPath;
+    }
+
+    @Override
+    public void writeTo(OutputStream out) throws IOException {
+      out.write(contents.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public ByteString getBytes() throws IOException {
+      ByteString.Output out = ByteString.newOutput();
+      writeTo(out);
+      return out.toByteString();
+    }
+
+    @Override
+    public String getExecPathString() {
+      return execPath.getPathString();
+    }
+
+    @Override
+    public PathFragment getExecPath() {
+      return execPath;
+    }
+  }
+
+  @Test
+  public void testVirtualActionInputSupport() throws Exception {
+    GrpcRemoteCache client = newClient();
+    TreeNodeRepository treeNodeRepository =
+        new TreeNodeRepository(execRoot, fakeFileCache, DIGEST_UTIL);
+    PathFragment execPath = PathFragment.create("my/exec/path");
+    VirtualActionInput virtualActionInput = new StringVirtualActionInput("hello", execPath);
+    Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
+    TreeNode root =
+        treeNodeRepository.buildFromActionInputs(
+            ImmutableSortedMap.of(execPath, virtualActionInput));
+
+    // Add a fake CAS that responds saying that the above virtual action input is missing
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(
+                FindMissingBlobsResponse.newBuilder().addMissingBlobDigests(digest).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    // Mock a byte stream and assert that we see the virtual action input with contents 'hello'
+    AtomicBoolean writeOccurred = new AtomicBoolean();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(
+              final StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                assertThat(request.getResourceName()).contains(digest.getHash());
+                assertThat(request.getFinishWrite()).isTrue();
+                assertThat(request.getData().toStringUtf8()).isEqualTo("hello");
+                writeOccurred.set(true);
+              }
+
+              @Override
+              public void onCompleted() {
+                responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(5).build());
+                responseObserver.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                fail("An error occurred: " + t);
+              }
+            };
+          }
+        });
+
+    // Upload all missing inputs (that is, the virtual action input from above)
+    client.ensureInputsPresent(treeNodeRepository, execRoot, root, Command.getDefaultInstance());
+    assertThat(writeOccurred.get()).named("WriteOccurred").isTrue();
   }
 
   @Test
@@ -430,11 +533,11 @@ public class GrpcRemoteCacheTest {
         StreamObserver<WriteResponse> responseObserver, String contents, int chunkSizeBytes) {
       this.responseObserver = responseObserver;
       this.contents = contents;
-      try {
-        chunker = new Chunker(contents.getBytes(UTF_8), chunkSizeBytes, DIGEST_UTIL);
-      } catch (IOException e) {
-        fail("An error occurred:" + e);
-      }
+      chunker =
+          Chunker.builder(DIGEST_UTIL)
+              .setInput(contents.getBytes(UTF_8))
+              .setChunkSize(chunkSizeBytes)
+              .build();
     }
 
     @Override

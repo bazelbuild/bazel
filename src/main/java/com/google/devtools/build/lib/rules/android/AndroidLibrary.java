@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
@@ -114,25 +115,27 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     validateRuleContext(ruleContext);
+
+    // Create semantics objects, which are different between Blaze and Bazel.
     JavaSemantics javaSemantics = createJavaSemantics();
     AndroidSemantics androidSemantics = createAndroidSemantics();
     androidSemantics.validateAndroidLibraryRuleContext(ruleContext);
     createAndroidMigrationSemantics().validateRuleContext(ruleContext);
+
     AndroidSdkProvider.verifyPresence(ruleContext);
 
+    // Create wrappers for the ProGuard configuration files.
     NestedSetBuilder<Artifact> proguardConfigsbuilder = NestedSetBuilder.stableOrder();
     ProguardLibrary proguardLibrary = new ProguardLibrary(ruleContext);
     proguardConfigsbuilder.addTransitive(proguardLibrary.collectProguardSpecs());
+
+    // If there are idl srcs, we'll need the transitive proguard configurations too.
     AndroidIdlHelper.maybeAddSupportLibProguardConfigs(ruleContext, proguardConfigsbuilder);
     NestedSet<Artifact> transitiveProguardConfigs = proguardConfigsbuilder.build();
 
-    JavaCommon javaCommon =
-        AndroidCommon.createJavaCommonWithAndroidDataBinding(ruleContext, javaSemantics, true);
-    javaSemantics.checkRule(ruleContext, javaCommon);
-    AndroidCommon androidCommon = new AndroidCommon(javaCommon);
-
     AndroidConfiguration androidConfig = AndroidCommon.getAndroidConfig(ruleContext);
 
+    // "Resources" here include actual resources (xmls, drawables, etc), assets, and the manifest.
     boolean definesLocalResources =
         AndroidResources.definesAndroidResources(ruleContext.attributes());
     if (definesLocalResources) {
@@ -146,9 +149,15 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     ResourceDependencies resourceDeps = ResourceDependencies.fromRuleDeps(ruleContext, isNeverLink);
     AssetDependencies assetDeps = AssetDependencies.fromRuleDeps(ruleContext, isNeverLink);
 
+    // Start processing Android data via the AndroidDataContext.
+    // "Data" is a collective term for manifest, resources, and assets.
     final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
+    // Use a standalone resource-only APK (with extension ".ap_") to decouple Android data from the
+    // other artifacts.
     final ResourceApk resourceApk;
     if (definesLocalResources) {
+      // By decoupling processing of manifest, resources and assets, we get a higher degree of
+      // action parallelism.
       if (androidConfig.decoupleDataProcessing()) {
         StampedAndroidManifest manifest =
             AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
@@ -156,7 +165,12 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
         ValidatedAndroidResources resources =
             AndroidResources.from(ruleContext, "resource_files")
-                .process(ruleContext, dataContext, manifest, isNeverLink);
+                .process(
+                    ruleContext,
+                    dataContext,
+                    manifest,
+                    DataBinding.contextFrom(ruleContext),
+                    isNeverLink);
 
         MergedAndroidAssets assets =
             AndroidAssets.from(ruleContext)
@@ -167,6 +181,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
         resourceApk = ResourceApk.of(resources, assets, null, null);
       } else {
+        // Monolithically process all Android data in the same pipeline.
         ApplicationManifest applicationManifest =
             androidSemantics
                 .getManifestForRule(ruleContext)
@@ -181,23 +196,32 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getImplicitOutputArtifact(
                     AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
                 ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-                DataBinding.isEnabled(ruleContext)
-                    ? DataBinding.getLayoutInfoFile(ruleContext)
-                    : null);
+                DataBinding.contextFrom(ruleContext));
       }
       if (ruleContext.hasErrors()) {
         return null;
       }
     } else {
-      // Process transitive resources so we can build artifacts needed to export an aar.
+      // No local resources, but we still need to process transitive resources.
       resourceApk =
           ResourceApk.processFromTransitiveLibraryData(
               dataContext,
+              DataBinding.contextFrom(ruleContext),
               resourceDeps,
               assetDeps,
               StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));
     }
 
+    // JavaCommon and AndroidCommon contain shared helper classes between java_* and android_*
+    // rules respectively.
+    JavaCommon javaCommon =
+        AndroidCommon.createJavaCommonWithAndroidDataBinding(
+            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary */ true);
+    javaSemantics.checkRule(ruleContext, javaCommon);
+    AndroidCommon androidCommon = new AndroidCommon(javaCommon);
+
+    // As android_library makes use of the Java rule compilation pipeline, we collect all
+    // Java-related information here to be passed into the JavaSourceInfoProvider later.
     JavaTargetAttributes javaTargetAttributes =
         androidCommon.init(
             javaSemantics,
@@ -212,6 +236,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    // Create the implicit AAR output artifact which contains non-transitive resources, proguard
+    // specs and class jar.
     final Aar aar =
         Aar.makeAar(
             dataContext,
@@ -219,6 +245,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             proguardLibrary.collectLocalProguardSpecs(),
             androidCommon.getClassJar());
 
+    // Start building the configured target by adding all the necessary transitive providers/infos.
+    // Includes databinding, IDE, Java. Also declares the output groups and sets the files to build.
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     androidCommon.addTransitiveInfoProviders(
         builder,
@@ -237,26 +265,27 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
 
     builder
+        // android_library doesn't do any cc steps, so we'll just pass native libs along.
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).build()))
+        .addNativeDeclaredProvider(
+            new AndroidCcLinkParamsProvider(androidCommon.getCcLinkingInfo()))
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
-        .add(
-            AndroidCcLinkParamsProvider.class,
-            AndroidCcLinkParamsProvider.create(androidCommon.getCcLinkParamsStore()))
-        .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
+        .addNativeDeclaredProvider(new ProguardSpecProvider(transitiveProguardConfigs))
         .addNativeDeclaredProvider(
             new AndroidProguardInfo(proguardLibrary.collectLocalProguardSpecs()))
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
-        .add(
-            AndroidLibraryResourceClassJarProvider.class,
+        .addNativeDeclaredProvider(
             AndroidLibraryResourceClassJarProvider.create(transitiveResourcesJars.build()));
 
+    // If this isn't a neverlink target, we'll provide the artifacts in the AAR too.
     if (!JavaCommon.isNeverLink(ruleContext)) {
       builder.addNativeDeclaredProvider(aar.toProvider(ruleContext, definesLocalResources));
     }
+
 
     return builder.build();
   }
@@ -265,7 +294,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
     Iterable<AndroidLibraryResourceClassJarProvider> providers =
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.class);
+            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
     for (AndroidLibraryResourceClassJarProvider resourceJarProvider : providers) {
       builder.addTransitive(resourceJarProvider.getResourceClassJars());
     }

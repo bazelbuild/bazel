@@ -5,9 +5,6 @@ title: Rules
 
 # Rules
 
-**Status: Experimental**. We may make breaking changes to the API, but we will
-  announce them.
-
 A rule defines a series of [actions](#actions) that Bazel should perform on
 inputs to get a set of outputs. For example, a C++ binary rule might take a set
 of `.cpp` files (the inputs), run `g++` on them (the action), and return an
@@ -623,9 +620,9 @@ don't have labels, they can only be requested by appearing in the default
 outputs or an output group.
 
 You can specify the default outputs and output groups of a rule by returning the
-[`DefaultInfo`](lib/globals.html#DefaultInfo) and
-[`OutputGroupInfo`](lib/globals.html#OutputGroupInfo) providers from its
-implementation function.
+[`DefaultInfo`](lib/DefaultInfo.html) and
+[`OutputGroupInfo`](lib/OutputGroupInfo.html) providers from its implementation
+function.
 
 ```python
 def _myrule_impl(ctx):

@@ -34,6 +34,21 @@ class Coverage {
     }
   }
 
+  static Coverage merge(Coverage c1, Coverage c2) {
+    Coverage merged = new Coverage();
+    for (SourceFileCoverage sourceFile : c1.getAllSourceFiles()) {
+      merged.add(sourceFile);
+    }
+    for (SourceFileCoverage sourceFile : c2.getAllSourceFiles()) {
+      merged.add(sourceFile);
+    }
+    return merged;
+  }
+
+  boolean isEmpty() {
+    return sourceFiles.isEmpty();
+  }
+
   Collection<SourceFileCoverage> getAllSourceFiles() {
     return sourceFiles.values();
   }

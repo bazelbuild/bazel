@@ -323,7 +323,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       // should be single threaded and there should be no race condition.
       // The current design of ActionMetadataHandler makes this hard to enforce.
       Set<PathFragment> paths = null;
-      paths = TreeArtifactValue.explodeDirectory(artifact);
+      paths = TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
       Set<TreeFileArtifact> diskFiles = ActionInputHelper.asTreeFileArtifacts(artifact, paths);
       if (!diskFiles.equals(registeredContents)) {
         // There might be more than one error here. We first look for missing output files.
@@ -398,13 +398,14 @@ public class ActionMetadataHandler implements MetadataHandler {
       throws IOException {
     Preconditions.checkState(artifact.isTreeArtifact(), artifact);
 
-    if (!artifactPathResolver.toPath(artifact).isDirectory()
-        || artifactPathResolver.toPath(artifact).isSymbolicLink()) {
+    // Make sure the tree artifact root is a regular directory. Note that this is how the Action
+    // is initialized, so this should hold unless the Action itself has deleted the root.
+    if (!artifactPathResolver.toPath(artifact).isDirectory(Symlinks.NOFOLLOW)) {
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
-    Set<PathFragment> paths = null;
-    paths = TreeArtifactValue.explodeDirectory(artifact);
+    Set<PathFragment> paths =
+        TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
     // If you're reading tree artifacts from disk while outputDirectoryListings are being injected,
     // something has gone terribly wrong.
     Object previousDirectoryListing =

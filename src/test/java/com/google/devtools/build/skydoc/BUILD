@@ -8,7 +8,9 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/skydoc/testdata/same_level_file_test:srcs",
+    ],
     visibility = ["//src:__pkg__"],
 )
 
@@ -20,6 +22,7 @@ java_test(
     visibility = ["//devtools/blaze/main:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skydoc:skydoc_lib",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",

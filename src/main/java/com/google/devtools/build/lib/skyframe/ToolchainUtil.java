@@ -24,27 +24,22 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Table;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
+import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
 import com.google.devtools.build.lib.skyframe.ToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,7 +115,10 @@ public class ToolchainUtil {
             .collect(toImmutableList());
 
     // Load the host and target platforms early, to check for errors.
-    getPlatformInfo(ImmutableList.of(hostPlatformKey, targetPlatformKey), env);
+    PlatformLookupUtil.getPlatformInfo(ImmutableList.of(hostPlatformKey, targetPlatformKey), env);
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     // Load all available execution platform keys. This will find any errors in the execution
     // platform definitions.
@@ -178,56 +176,6 @@ public class ToolchainUtil {
         return null;
       }
       return registeredExecutionPlatforms;
-  }
-
-  @Nullable
-  static Map<ConfiguredTargetKey, PlatformInfo> getPlatformInfo(
-      Iterable<ConfiguredTargetKey> platformKeys, Environment env)
-      throws InterruptedException, InvalidPlatformException {
-
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
-        env.getValuesOrThrow(platformKeys, ConfiguredValueCreationException.class);
-    boolean valuesMissing = env.valuesMissing();
-    Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
-      for (ConfiguredTargetKey key : platformKeys) {
-      PlatformInfo platformInfo = findPlatformInfo(key.getLabel(), values.get(key));
-        if (!valuesMissing && platformInfo != null) {
-          platforms.put(key, platformInfo);
-        }
-      }
-    if (valuesMissing) {
-      return null;
-    }
-    return platforms;
-  }
-
-  /**
-   * Returns the {@link PlatformInfo} provider from the {@link ConfiguredTarget} in the {@link
-   * ValueOrException}, or {@code null} if the {@link ConfiguredTarget} is not present. If the
-   * {@link ConfiguredTarget} does not have a {@link PlatformInfo} provider, a {@link
-   * InvalidPlatformException} is thrown.
-   */
-  @Nullable
-  private static PlatformInfo findPlatformInfo(
-      Label label, ValueOrException<ConfiguredValueCreationException> valueOrException)
-      throws InvalidPlatformException {
-
-    try {
-      ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
-      if (ctv == null) {
-        return null;
-      }
-
-      ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
-      PlatformInfo platformInfo = PlatformProviderUtils.platform(configuredTarget);
-      if (platformInfo == null) {
-        throw new InvalidPlatformException(label);
-      }
-
-      return platformInfo;
-    } catch (ConfiguredValueCreationException e) {
-      throw new InvalidPlatformException(label, e);
-    }
   }
 
   /** Data class to hold the result of resolving toolchain labels. */
@@ -391,7 +339,8 @@ public class ToolchainUtil {
       throws InterruptedException, InvalidPlatformException {
 
     Map<ConfiguredTargetKey, PlatformInfo> platforms =
-        getPlatformInfo(ImmutableList.of(executionPlatformKey, targetPlatformKey), env);
+        PlatformLookupUtil.getPlatformInfo(
+            ImmutableList.of(executionPlatformKey, targetPlatformKey), env);
 
     if (platforms == null) {
       return null;
@@ -403,48 +352,6 @@ public class ToolchainUtil {
         platforms.get(targetPlatformKey),
         requiredToolchains,
         toolchains);
-  }
-
-  @Nullable
-  static ImmutableList<Label> expandTargetPatterns(
-      Environment env, List<String> targetPatterns, FilteringPolicy filteringPolicy)
-      throws InvalidTargetPatternException, InterruptedException {
-
-    // First parse the patterns, and throw any errors immediately.
-    List<TargetPatternValue.TargetPatternKey> patternKeys = new ArrayList<>();
-    for (TargetPatternValue.TargetPatternSkyKeyOrException keyOrException :
-        TargetPatternValue.keys(targetPatterns, filteringPolicy, "")) {
-
-      try {
-        patternKeys.add(keyOrException.getSkyKey());
-      } catch (TargetParsingException e) {
-        throw new InvalidTargetPatternException(keyOrException.getOriginalPattern(), e);
-      }
-    }
-
-    // Then, resolve the patterns.
-    Map<SkyKey, ValueOrException<TargetParsingException>> resolvedPatterns =
-        env.getValuesOrThrow(patternKeys, TargetParsingException.class);
-    boolean valuesMissing = env.valuesMissing();
-    ImmutableList.Builder<Label> labels = valuesMissing ? null : new ImmutableList.Builder<>();
-
-    for (TargetPatternValue.TargetPatternKey pattern : patternKeys) {
-      TargetPatternValue value;
-      try {
-        value = (TargetPatternValue) resolvedPatterns.get(pattern).get();
-        if (!valuesMissing && value != null) {
-          labels.addAll(value.getTargets().getTargets());
-        }
-      } catch (TargetParsingException e) {
-        throw new InvalidTargetPatternException(pattern.getPattern(), e);
-      }
-    }
-
-    if (valuesMissing) {
-      return null;
-    }
-
-    return labels.build();
   }
 
   @Nullable
@@ -460,11 +367,13 @@ public class ToolchainUtil {
       return platformKeys;
     }
 
-    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap = getPlatformInfo(platformKeys, env);
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
+        PlatformLookupUtil.getPlatformInfo(platformKeys, env);
     if (platformInfoMap == null) {
       return null;
     }
-    List<ConstraintValueInfo> constraints = getConstraintValueInfo(constraintKeys, env);
+    List<ConstraintValueInfo> constraints =
+        ConstraintValueLookupUtil.getConstraintValueInfo(constraintKeys, env);
     if (constraints == null) {
       return null;
     }
@@ -473,53 +382,6 @@ public class ToolchainUtil {
         .stream()
         .filter(key -> filterPlatform(platformInfoMap.get(key), constraints, env, debug))
         .collect(toImmutableList());
-  }
-
-  @Nullable
-  private static List<ConstraintValueInfo> getConstraintValueInfo(
-      ImmutableList<ConfiguredTargetKey> constraintKeys, Environment env)
-      throws InterruptedException, InvalidConstraintValueException {
-
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
-        env.getValuesOrThrow(constraintKeys, ConfiguredValueCreationException.class);
-    boolean valuesMissing = env.valuesMissing();
-    List<ConstraintValueInfo> constraintValues = valuesMissing ? null : new ArrayList<>();
-      for (ConfiguredTargetKey key : constraintKeys) {
-      ConstraintValueInfo constraintValueInfo =
-          findConstraintValueInfo(key.getLabel(), values.get(key));
-        if (!valuesMissing && constraintValueInfo != null) {
-          constraintValues.add(constraintValueInfo);
-        }
-      }
-
-    if (valuesMissing) {
-      return null;
-    }
-    return constraintValues;
-  }
-
-  @Nullable
-  private static ConstraintValueInfo findConstraintValueInfo(
-      Label label, ValueOrException<ConfiguredValueCreationException> valueOrException)
-      throws InvalidConstraintValueException {
-
-    try {
-      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) valueOrException.get();
-      if (configuredTargetValue == null) {
-        return null;
-      }
-
-      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-      ConstraintValueInfo constraintValueInfo =
-          PlatformProviderUtils.constraintValue(configuredTarget);
-      if (constraintValueInfo == null) {
-        throw new InvalidConstraintValueException(label);
-      }
-
-      return constraintValueInfo;
-    } catch (ConfiguredValueCreationException e) {
-      throw new InvalidConstraintValueException(label, e);
-    }
   }
 
   private static boolean filterPlatform(
@@ -585,63 +447,6 @@ public class ToolchainUtil {
               .stream()
               .map(key -> key.getLabel().toString())
               .collect(Collectors.joining(", ")));
-    }
-  }
-
-  /**
-   * Exception used when an error occurs in {@link #expandTargetPatterns(Environment, List,
-   * FilteringPolicy)}.
-   */
-  static final class InvalidTargetPatternException extends ToolchainException {
-    private String invalidPattern;
-    private TargetParsingException tpe;
-
-    public InvalidTargetPatternException(String invalidPattern, TargetParsingException tpe) {
-      super(tpe);
-      this.invalidPattern = invalidPattern;
-      this.tpe = tpe;
-    }
-
-    public String getInvalidPattern() {
-      return invalidPattern;
-    }
-
-    public TargetParsingException getTpe() {
-      return tpe;
-    }
-  }
-
-  /** Exception used when a platform label is not a valid platform. */
-  static final class InvalidPlatformException extends ToolchainException {
-    InvalidPlatformException(Label label) {
-      super(formatError(label));
-    }
-
-    InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label), e);
-    }
-
-    private static String formatError(Label label) {
-      return String.format(
-          "Target %s was referenced as a platform, but does not provide PlatformInfo", label);
-    }
-  }
-
-  /** Exception used when a constraint value label is not a valid constraint value. */
-  static final class InvalidConstraintValueException extends ToolchainException {
-    InvalidConstraintValueException(Label label) {
-      super(formatError(label));
-    }
-
-    InvalidConstraintValueException(Label label, ConfiguredValueCreationException e) {
-      super(formatError(label), e);
-    }
-
-    private static String formatError(Label label) {
-      return String.format(
-          "Target %s was referenced as a constraint_value,"
-              + " but does not provide ConstraintValueInfo",
-          label);
     }
   }
 

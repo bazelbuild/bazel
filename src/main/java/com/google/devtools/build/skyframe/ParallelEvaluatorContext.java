@@ -53,6 +53,7 @@ class ParallelEvaluatorContext {
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
+  private final EvaluationVersionBehavior evaluationVersionBehavior;
 
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
@@ -86,7 +87,8 @@ class ParallelEvaluatorContext {
         storedEventFilter,
         errorInfoManager,
         graphInconsistencyReceiver,
-        () -> new NodeEntryVisitor(threadCount, progressReceiver, runnableMaker));
+        () -> new NodeEntryVisitor(threadCount, progressReceiver, runnableMaker),
+        EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
   }
 
   ParallelEvaluatorContext(
@@ -101,7 +103,8 @@ class ParallelEvaluatorContext {
       ErrorInfoManager errorInfoManager,
       final Function<SkyKey, Runnable> runnableMaker,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      final ForkJoinPool forkJoinPool) {
+      final ForkJoinPool forkJoinPool,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     this(
         graph,
         graphVersion,
@@ -113,7 +116,8 @@ class ParallelEvaluatorContext {
         storedEventFilter,
         errorInfoManager,
         graphInconsistencyReceiver,
-        () -> new NodeEntryVisitor(forkJoinPool, progressReceiver, runnableMaker));
+        () -> new NodeEntryVisitor(forkJoinPool, progressReceiver, runnableMaker),
+        evaluationVersionBehavior);
   }
 
   private ParallelEvaluatorContext(
@@ -127,12 +131,14 @@ class ParallelEvaluatorContext {
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      Supplier<NodeEntryVisitor> visitorSupplier) {
+      Supplier<NodeEntryVisitor> visitorSupplier,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
+    this.evaluationVersionBehavior = evaluationVersionBehavior;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState.eventState);
     this.replayingNestedSetPostableVisitor =
@@ -234,6 +240,10 @@ class ParallelEvaluatorContext {
 
   ErrorInfoManager getErrorInfoManager() {
     return errorInfoManager;
+  }
+
+  EvaluationVersionBehavior getEvaluationVersionBehavior() {
+    return evaluationVersionBehavior;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */

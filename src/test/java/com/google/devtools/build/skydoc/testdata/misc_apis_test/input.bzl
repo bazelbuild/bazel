@@ -9,13 +9,39 @@ def exercise_the_api():
 
 exercise_the_api()
 
+MyInfo = provider(
+    fields = {
+        "foo": "Something foo-related.",
+        "bar": "Something bar-related.",
+    },
+)
+
+my_info = MyInfo(foo="x", bar="y")
+
 my_rule = rule(
     implementation = my_rule_impl,
     doc = "This rule exercises some of the build API.",
     attrs = {
-        "first": attr.label(mandatory = True, allow_files = True, single_file = True),
-        "second": attr.string_dict(mandatory = True),
-        "third": attr.output(mandatory = True),
-        "fourth": attr.bool(default = False, mandatory = False),
-    },
+        "src": attr.label(
+            doc = "The source file.",
+            allow_files = [".bzl"]),
+        "deps": attr.label_list(
+            doc = """
+A list of dependencies.
+These dependencies better provide MyInfo!
+...or else.
+""",
+            providers = [MyInfo],
+            allow_files = False),
+        "tool": attr.label(
+            doc = "The location of the tool to use.",
+            allow_files = True,
+            default = Label("//foo/bar/baz:target",),
+            cfg = "host",
+            executable = True),
+        "out": attr.output(
+            doc = "The output file.",
+            mandatory = True),
+        "extra_arguments": attr.string_list(default = []),
+    }
 )

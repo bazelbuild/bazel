@@ -78,6 +78,7 @@ public final class AndroidBinaryMobileInstall {
                   manifest.addMobileInstallStubApplication(ruleContext),
                   ruleContext.getImplicitOutputArtifact(
                       AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
+                  getMobileInstallArtifact(ruleContext, "merged_incremental_resources.bin"),
                   "incremental",
                   applicationManifest.getManifestValues())
               // Intentionally skip building an R class JAR - incremental binaries handle this
@@ -90,6 +91,7 @@ public final class AndroidBinaryMobileInstall {
                   dataContext,
                   manifest.createSplitManifest(ruleContext, "android_resources", false),
                   getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
+                  getMobileInstallArtifact(ruleContext, "merged_split_resources.bin"),
                   "incremental_split",
                   applicationManifest.getManifestValues())
               // Intentionally skip building an R class JAR - incremental binaries handle this

@@ -307,8 +307,16 @@ public class InMemoryNodeEntry implements NodeEntry {
       // value, because preserving == equality is even better than .equals() equality.
       this.value = getDirtyBuildingState().getLastBuildValue();
     } else {
+      boolean forcedRebuild =
+          isDirty() && getDirtyBuildingState().getDirtyState() == DirtyState.FORCED_REBUILDING;
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
+      Preconditions.checkState(
+          forcedRebuild || !this.lastChangedVersion.equals(version),
+          "Changed value but with the same version? %s %s %s",
+          this.lastChangedVersion,
+          version,
+          this);
       this.lastChangedVersion = version;
       this.value = value;
     }
@@ -550,8 +558,9 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
+      DirtyState dirtyState = getDirtyBuildingState().getDirtyState();
       Preconditions.checkState(
-          getDirtyBuildingState().getDirtyState() == DirtyState.REBUILDING, this);
+          dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
       return getDirtyBuildingState().getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
     } else {
       return ImmutableSet.of();

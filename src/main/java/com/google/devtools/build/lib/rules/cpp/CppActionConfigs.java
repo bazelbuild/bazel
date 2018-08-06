@@ -53,6 +53,7 @@ public class CppActionConfigs {
               + "    action: 'c++-link-dynamic-library'"
               + "    action: 'c++-link-nodeps-dynamic-library'"
               + "    flag_group {"
+              + "      expand_if_all_available: 'generate_interface_library'"
               + "      flag: '"
               + cppLinkDynamicLibraryToolPath
               + "'"
@@ -633,16 +634,15 @@ public class CppActionConfigs {
                     "feature {",
                     "  name: 'archiver_flags'",
                     "  flag_set {",
-                    "    expand_if_all_available: 'output_execpath'",
                     "    action: 'c++-link-static-library'",
                     "    flag_group {",
-                    ifLinux(platform, "flag: 'rcsD'", "flag: '%{output_execpath}'"),
-                    ifMac(
-                        platform,
-                        "  flag: '-static'",
-                        "  flag: '-s'",
-                        "  flag: '-o'",
-                        "  flag: '%{output_execpath}'"),
+                    ifLinux(platform, "flag: 'rcsD'"),
+                    ifMac(platform, "flag: '-static'", "flag: '-s'"),
+                    "    }",
+                    "    flag_group {",
+                    "      expand_if_all_available: 'output_execpath'",
+                    ifLinux(platform, "flag: '%{output_execpath}'"),
+                    ifMac(platform, "flag: '-o'", "flag: '%{output_execpath}'"),
                     "    }",
                     "  }",
                     "  flag_set { ",

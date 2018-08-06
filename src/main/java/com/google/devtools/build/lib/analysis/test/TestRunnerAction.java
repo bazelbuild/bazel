@@ -73,6 +73,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
 
   private final Artifact testSetupScript;
+  private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
   private final BuildConfiguration configuration;
   private final TestConfiguration testConfiguration;
@@ -135,6 +136,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       ActionOwner owner,
       Iterable<Artifact> inputs,
       Artifact testSetupScript, // Must be in inputs
+      Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
       Artifact cacheStatus,
@@ -157,6 +159,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
+    this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testConfiguration =
@@ -739,6 +742,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public Artifact getTestSetupScript() {
     return testSetupScript;
+  }
+
+  public Artifact getTestXmlGeneratorScript() {
+    return testXmlGeneratorScript;
   }
 
   @Nullable

@@ -237,7 +237,16 @@ public class SkylarkRepositoryContext
       boolean quiet,
       Location location)
       throws EvalException, RepositoryFunctionException {
-    WorkspaceRuleEvent w = new WorkspaceRuleEvent(location, "Executing a command.");
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExecuteEvent(
+            arguments,
+            timeout,
+            osObject.getEnvironmentVariables(),
+            environment,
+            outputDirectory.getPathString(),
+            quiet,
+            rule.getLabel().toString(),
+            location);
     env.getListener().post(w);
     createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())

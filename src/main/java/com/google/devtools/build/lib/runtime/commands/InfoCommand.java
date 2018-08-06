@@ -79,9 +79,9 @@ public class InfoCommand implements BlazeCommand {
         name = "experimental_supports_info_crosstool_configuration",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.TERMINAL_OUTPUT},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Flag to roll out the removal of 'bazel info crosstool-configuration'.")
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.HIDDEN},
+        help = "Noop.")
     public boolean experimentalSupportsInfoCrosstoolConfiguration;
   }
 

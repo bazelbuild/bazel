@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static com.google.common.truth.Fact.simpleFact;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
@@ -44,7 +46,7 @@ class ParsedAndroidDataSubject extends Subject<ParsedAndroidDataSubject, ParsedA
         errors,
         "overwritable");
     if (!errors.isEmpty()) {
-      failWithRawMessage(Joiner.on("\n").join(errors));
+      failWithoutActual(simpleFact(Joiner.on("\n").join(errors)));
     }
   }
 

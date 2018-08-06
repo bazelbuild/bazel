@@ -14,14 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -94,26 +92,9 @@ public interface IncludeScannable {
   NestedSet<Artifact> getDeclaredIncludeSrcs();
 
   /**
-   * Returns a map of (generated header:.includes file listing the header's includes) which may be
-   * reached during include scanning. Generated files which are reached, but not in the key set,
-   * must be ignored.
-   *
-   * <p>If grepping of output files is not enabled via --extract_generated_inclusions, keys
-   * should just map to null.
-   */
-  Map<Artifact, Artifact> getLegalGeneratedScannerFileMap();
-
-  /**
-   * Returns a set of headers that are modular, i.e. are going to be read as a serialized AST rather
-   * than from the textual source file. Depending on the implementation, it is likely that further
-   * input discovery through such headers is unnecessary as the serialized AST is self-contained.
-   */
-  Set<Artifact> getModularHeaders();
-
-  /**
    * Returns an artifact that is the executable for {@link ExtractInclusionAction}.
    */
   Artifact getGrepIncludes();
 
-  ImmutableSet<Artifact> getDiscoveredModules();
+  ImmutableList<Artifact> getDiscoveredModules();
 }

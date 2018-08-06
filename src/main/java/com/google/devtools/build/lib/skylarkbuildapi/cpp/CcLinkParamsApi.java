@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Parameters that affect linking actions.
@@ -31,4 +33,25 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     documented = false,
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Parameters that affect linking actions.")
-public interface CcLinkParamsApi {}
+public interface CcLinkParamsApi {
+  @SkylarkCallable(
+      name = "linkopts",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkLinkopts();
+
+  @SkylarkCallable(
+      name = "libraries_to_link",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkLibrariesToLink();
+
+  @SkylarkCallable(
+      name = "dynamic_libraries_for_runtime",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  SkylarkNestedSet getSkylarkDynamicLibrariesForRuntime();
+}

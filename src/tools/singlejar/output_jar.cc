@@ -416,7 +416,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     //  local header
     //  file data
     //  data descriptor, if present.
-    off_t copy_from = jar_entry->local_header_offset();
+    off64_t copy_from = jar_entry->local_header_offset();
     size_t num_bytes = lh->size();
     if (jar_entry->no_size_in_local_header()) {
       const DDR *ddr = reinterpret_cast<const DDR *>(
@@ -429,7 +429,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     } else {
       num_bytes += lh->compressed_file_size();
     }
-    off_t local_header_offset = Position();
+    off64_t local_header_offset = Position();
 
     // When normalize_timestamps is set, entry's timestamp is to be set to
     // 01/01/1980 00:00:00 (or to 01/01/1980 00:00:02, if an entry is a .class
@@ -499,7 +499,7 @@ bool OutputJar::AddJar(int jar_path_index) {
   return input_jar.Close();
 }
 
-off_t OutputJar::Position() {
+off64_t OutputJar::Position() {
   if (file_ == nullptr) {
     diag_err(1, "%s:%d: output file is not open", __FILE__, __LINE__);
   }
@@ -551,7 +551,7 @@ void OutputJar::WriteEntry(void *buffer) {
   }
 
   uint8_t *data = reinterpret_cast<uint8_t *>(entry);
-  off_t output_position = Position();
+  off64_t output_position = Position();
   if (!WriteBytes(data, entry->data() + entry->in_zip_size() - data)) {
     diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
@@ -636,7 +636,7 @@ void OutputJar::WriteDirEntry(const std::string &name,
 }
 
 // Create output Central Directory entry for the input jar entry.
-void OutputJar::AppendToDirectoryBuffer(const CDH *cdh, off_t lh_pos,
+void OutputJar::AppendToDirectoryBuffer(const CDH *cdh, off64_t lh_pos,
                                         uint16_t normalized_time,
                                         bool fix_timestamp) {
   // While copying from the input CDH pointed to by 'cdh', we may need to drop
@@ -777,7 +777,7 @@ bool OutputJar::Close() {
   WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
   WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
-  off_t output_position = Position();
+  off64_t output_position = Position();
   bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||
                          cen_size_ >= 0xFFFFFFFF;
 
@@ -814,7 +814,7 @@ bool OutputJar::Close() {
       // affects javac and javah only, 'jar' experiences no problems.
       ecd->cen_size32(std::min(cen_size, static_cast<size_t>(0xFFFFFFFFUL)));
       ecd->cen_offset32(
-          std::min(output_position, static_cast<off_t>(0x0FFFFFFFFL)));
+          std::min(output_position, static_cast<off64_t>(0x0FFFFFFFFL)));
     }
   } else {
     ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
@@ -855,7 +855,7 @@ bool IsDir(const std::string &path) {
     diag_warn("%s:%d: stat %s:", __FILE__, __LINE__, path.c_str());
     return false;
   }
-  return S_ISDIR(st.st_mode);
+  return (st.st_mode & S_IFDIR) == S_IFDIR;
 }
 
 void OutputJar::ClasspathResource(const std::string &resource_name,
@@ -890,7 +890,7 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
   }
 }
 
-ssize_t OutputJar::AppendFile(int in_fd, off_t offset, size_t count) {
+ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   if (count == 0) {
     return 0;
   }

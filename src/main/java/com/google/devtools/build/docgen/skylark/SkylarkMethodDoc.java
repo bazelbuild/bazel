@@ -39,6 +39,20 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
     return "";
   }
 
+  /** Returns a string containing a name for the method's return type. */
+  public String getReturnType() {
+    return "";
+  }
+
+  /**
+   * Returns whether a method can be called as a function.
+   *
+   * <p>E.g. True is not callable.
+   */
+  public Boolean isCallable() {
+    return true;
+  }
+
   /**
    * Returns a list containing the documentation for each of the method's parameters.
    */
@@ -48,14 +62,8 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
 
   private String getParameterString(Method method) {
     SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(method);
-    int nbPositional = annotation.mandatoryPositionals();
-    if (annotation.parameters().length > 0 && nbPositional < 0) {
-      nbPositional = 0;
-    }
     List<String> argList = new ArrayList<>();
-    for (int i = 0; i < nbPositional; i++) {
-      argList.add("arg" + i + ":" + getTypeAnchor(method.getParameterTypes()[i]));
-    }
+
     boolean named = false;
     for (Param param : withoutSelfParam(annotation, method)) {
       if (param.named() && !param.positional() && !named) {

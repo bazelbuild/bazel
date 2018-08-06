@@ -803,7 +803,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
     @Option(
         name = "android_decouple_data_processing",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,

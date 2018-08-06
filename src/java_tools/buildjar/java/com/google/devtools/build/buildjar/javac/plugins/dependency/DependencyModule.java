@@ -57,22 +57,11 @@ public final class DependencyModule {
 
   public static enum StrictJavaDeps {
     /** Legacy behavior: Silently allow referencing transitive dependencies. */
-    OFF(false),
+    OFF,
     /** Warn about transitive dependencies being used directly. */
-    WARN(true),
+    WARN,
     /** Fail the build when transitive dependencies are used directly. */
-    ERROR(true);
-
-    private final boolean enabled;
-
-    StrictJavaDeps(boolean enabled) {
-      this.enabled = enabled;
-    }
-
-    /** Convenience method for just checking if it's not OFF */
-    public boolean isEnabled() {
-      return enabled;
-    }
+    ERROR
   }
 
   private final StrictJavaDeps strictJavaDeps;
@@ -83,6 +72,7 @@ public final class DependencyModule {
   private final String targetLabel;
   private final Path outputDepsProtoFile;
   private final Set<Path> usedClasspath;
+  private boolean hasMissingTargets;
   private final Map<Path, Dependency> explicitDependenciesMap;
   private final Map<Path, Dependency> implicitDependenciesMap;
   private final ImmutableSet<Path> platformJars;
@@ -169,11 +159,6 @@ public final class DependencyModule {
     return deps.build();
   }
 
-  /** Returns whether strict dependency checks (strictJavaDeps) are enabled. */
-  public boolean isStrictDepsEnabled() {
-    return strictJavaDeps.isEnabled();
-  }
-
   /** Returns the paths of direct dependencies. */
   public ImmutableSet<Path> directJars() {
     return directJars;
@@ -237,6 +222,15 @@ public final class DependencyModule {
   /** Returns whether classpath reduction is enabled for this invocation. */
   public boolean reduceClasspath() {
     return strictClasspathMode;
+  }
+
+  void setHasMissingTargets() {
+    hasMissingTargets = true;
+  }
+
+  /** Returns true if any missing transitive dependencies were reported. */
+  public boolean hasMissingTargets() {
+    return hasMissingTargets;
   }
 
   /**

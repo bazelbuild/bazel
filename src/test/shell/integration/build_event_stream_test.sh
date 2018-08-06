@@ -21,6 +21,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+add_to_bazelrc "build --experimental_build_event_upload_strategy=local"
+
 #### SETUP #############################################################
 
 set -e

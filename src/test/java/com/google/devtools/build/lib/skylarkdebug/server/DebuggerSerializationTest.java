@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -202,6 +205,61 @@ public final class DebuggerSerializationTest {
     assertThat(getValueProto("name", 1).getHasChildren()).isFalse();
     assertThat(getValueProto("name", "string").getHasChildren()).isFalse();
     assertThat(getValueProto("name", new Object()).getHasChildren()).isFalse();
+  }
+
+  @Test
+  public void testSkylarkValue() {
+    DummyType dummy = new DummyType();
+
+    Value value = getValueProto("name", dummy);
+    assertTypeAndDescription(dummy, value);
+    assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
+  }
+
+  private static class DummyType implements SkylarkValue {
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("DummyType");
+    }
+
+    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    public boolean bool() {
+      return true;
+    }
+
+    public boolean anotherMethod() {
+      return false;
+    }
+  }
+
+  @Test
+  public void testSkipSkylarkCallableThrowingException() {
+    DummyTypeWithException dummy = new DummyTypeWithException();
+
+    Value value = getValueProto("name", dummy);
+    assertTypeAndDescription(dummy, value);
+    assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
+  }
+
+  private static class DummyTypeWithException implements SkylarkValue {
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("DummyTypeWithException");
+    }
+
+    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    public boolean bool() {
+      return true;
+    }
+
+    @SkylarkCallable(name = "invalid", doc = "Throws exception!", structField = true)
+    public boolean invalid() {
+      throw new IllegalArgumentException();
+    }
+
+    public boolean anotherMethod() {
+      return false;
+    }
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {

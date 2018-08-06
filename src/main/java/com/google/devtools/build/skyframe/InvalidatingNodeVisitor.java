@@ -425,6 +425,9 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       ArrayList<SkyKey> keysToGet = new ArrayList<>(size);
       for (SkyKey key : keys) {
         if (setToCheck.add(key)) {
+          Preconditions.checkState(
+              !isChanged || key.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC,
+              key);
           keysToGet.add(key);
         }
       }

@@ -47,6 +47,15 @@ public interface OutputJarApi<FileT extends FileApi> {
   public FileT getIJar();
 
   @SkylarkCallable(
+      name = "manifest_proto",
+      doc =
+          "A manifest proto file. The protobuf file containing the manifest generated from "
+              + "JavaBuilder.",
+      allowReturnNones = true,
+      structField = true)
+  public FileT getManifestProto();
+
+  @SkylarkCallable(
     name = "source_jar",
     doc = "A sources archive file. Deprecated. Kept for migration reasons. "
         + "Please use source_jars instead.",

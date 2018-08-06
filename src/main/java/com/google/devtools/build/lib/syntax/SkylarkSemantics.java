@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 
 /**
  * Options that affect Skylark semantics.
@@ -39,6 +41,8 @@ public abstract class SkylarkSemantics {
       AutoValue_SkylarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
+
   public abstract boolean experimentalEnableRepoMapping();
 
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
@@ -46,6 +50,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDepsetIsNotIterable();
 
   public abstract boolean incompatibleDepsetUnion();
+
+  public abstract boolean incompatibleDisableDeprecatedAttrParams();
 
   public abstract boolean incompatibleDisableObjcProviderResources();
 
@@ -68,6 +74,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
   public abstract boolean incompatiblePackageNameIsAFunction();
+
+  public abstract boolean incompatibleRangeType();
 
   public abstract boolean incompatibleRemoveNativeGitRepository();
 
@@ -92,10 +100,12 @@ public abstract class SkylarkSemantics {
   public static final SkylarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableRepoMapping(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
+          .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
           .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
@@ -107,6 +117,7 @@ public abstract class SkylarkSemantics {
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
           .incompatiblePackageNameIsAFunction(false)
+          .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
           .incompatibleStringIsNotIterable(false)
@@ -118,6 +129,8 @@ public abstract class SkylarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
+
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
@@ -125,6 +138,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
+
+    public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
 
@@ -147,6 +162,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
     public abstract Builder incompatiblePackageNameIsAFunction(boolean value);
+
+    public abstract Builder incompatibleRangeType(boolean value);
 
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
 

@@ -22,14 +22,14 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -55,7 +56,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -110,7 +110,8 @@ public class Artifact
         ActionInput,
         FileApi,
         Comparable<Object>,
-        CommandLineItem {
+        CommandLineItem,
+        SkyKey {
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality")  // "a == b" is an optimization
@@ -127,7 +128,19 @@ public class Artifact
         }
       };
 
-  public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
+  /**
+   * {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} does direct filesystem access
+   * without declaring Skyframe dependencies if the artifact is a source directory. However, that
+   * filesystem access is not invalidated on incremental builds, and we have no plans to fix it,
+   * since general consumption of source directories in this way is unsound. Therefore no new bugs
+   * are created by declaring {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} to be
+   * hermetic.
+   *
+   * <p>TODO(janakr): Avoid this issue entirely by giving {@link SourceArtifact} its own {@code
+   * SkyFunction}. Then we can just declare that function to be non-hermetic. That will also save
+   * memory since we can make mandatory source artifacts their own SkyKeys!
+   */
+  public static final SkyFunctionName ARTIFACT = SkyFunctionName.createHermetic("ARTIFACT");
 
   @Override
   public int compareTo(Object o) {
@@ -155,8 +168,7 @@ public class Artifact
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
-  private static final Cache<InternedArtifact, Artifact> ARTIFACT_INTERNER =
-      CacheBuilder.newBuilder().weakValues().build();
+  private static final Interner<Artifact> ARTIFACT_INTERNER = BlazeInterners.newWeakInterner();
 
   private final int hashCode;
   private final ArtifactRoot root;
@@ -191,15 +203,7 @@ public class Artifact
     if (artifact.isSourceArtifact()) {
       return artifact;
     } else {
-      return intern(artifact);
-    }
-  }
-
-  private static Artifact intern(Artifact artifact) {
-    try {
-      return ARTIFACT_INTERNER.get(new InternedArtifact(artifact), () -> artifact);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
+      return ARTIFACT_INTERNER.intern(artifact);
     }
   }
 
@@ -245,6 +249,9 @@ public class Artifact
       throw new IllegalArgumentException(
           "it is illegal to create an artifact with an empty execPath");
     }
+    // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
+    // have the same execPath and different owners, so a collision is fine there. If this is
+    // changed, OwnerlessArtifactWrapper must also be changed.
     this.hashCode = execPath.hashCode() + this.getClass().hashCode() * 13;
     this.root = root;
     this.execPath = execPath;
@@ -472,6 +479,15 @@ public class Artifact
     public SourceArtifact asSourceArtifact() {
       return this;
     }
+
+    /**
+     * SourceArtifacts are compared without their owners, since owners do not affect behavior,
+     * unlike with derived artifacts, whose owners determine their generating actions.
+     */
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof SourceArtifact && equalsWithoutOwner((SourceArtifact) other);
+    }
   }
 
   /**
@@ -602,34 +618,6 @@ public class Artifact
   }
 
   /**
-   * Wraps an artifact for interning because we need to check the artifact owner when doing equals.
-   */
-  private static final class InternedArtifact {
-    private final Artifact wrappedArtifact;
-
-    InternedArtifact(Artifact artifact) {
-      this.wrappedArtifact = artifact;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof InternedArtifact)) {
-        return false;
-      }
-      if (!getClass().equals(other.getClass())) {
-        return false;
-      }
-      InternedArtifact that = (InternedArtifact) other;
-      return Artifact.equalWithOwner(wrappedArtifact, that.wrappedArtifact);
-    }
-
-    @Override
-    public final int hashCode() {
-      return wrappedArtifact.hashCode();
-    }
-  }
-
-  /**
    * Returns the relative path to this artifact relative to its root.  (Useful
    * when deriving output filenames from input files, etc.)
    */
@@ -681,37 +669,28 @@ public class Artifact
     return rootRelativePath.toString();
   }
 
+  @SuppressWarnings("EqualsGetClass") // Distinct classes of Artifact are never equal.
   @Override
-  public final boolean equals(Object other) {
+  public boolean equals(Object other) {
     if (!(other instanceof Artifact)) {
       return false;
     }
     if (!getClass().equals(other.getClass())) {
       return false;
     }
-    // We don't bother to check root in the equivalence relation, because we
-    // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return Objects.equals(this.execPath, that.execPath) && Objects.equals(this.root, that.root);
+    return equalsWithoutOwner(that) && owner.equals(that.getArtifactOwner());
   }
 
-  /**
-   * Compare equality including Artifact owner equality, a notable difference compared to the
-   * {@link #equals(Object)} method of {@link Artifact}.
-   */
-  public static boolean equalWithOwner(@Nullable Artifact first, @Nullable Artifact second) {
-    if (first != null) {
-      return first.equals(second) && first.getArtifactOwner().equals(second.getArtifactOwner());
-    } else {
-      return second == null;
-    }
+  public boolean equalsWithoutOwner(Artifact other) {
+    return Objects.equals(this.execPath, other.execPath) && Objects.equals(this.root, other.root);
   }
 
   @Override
   public final int hashCode() {
-    // This is just path.hashCode().  We cache a copy in the Artifact object to reduce LLC misses
-    // during operations which build a HashSet out of many Artifacts.  This is a slight loss for
-    // memory but saves ~1% overall CPU in some real builds.
+    // This is just execPath.hashCode() (along with the class). We cache a copy in the Artifact
+    // object to reduce LLC misses during operations which build a HashSet out of many Artifacts.
+    // This is a slight loss for memory but saves ~1% overall CPU in some real builds.
     return hashCode;
   }
 
@@ -1018,5 +997,34 @@ public class Artifact
     } else {
       printer.append("<generated file " + rootRelativePath + ">");
     }
+  }
+
+  /**
+   * A utility class that compares {@link Artifact}s without taking their owners into account.
+   * Should only be used for detecting action conflicts and merging shared action data.
+   */
+  public static class OwnerlessArtifactWrapper {
+    private final Artifact artifact;
+
+    public OwnerlessArtifactWrapper(Artifact artifact) {
+      this.artifact = artifact;
+    }
+
+    @Override
+    public int hashCode() {
+      // Depends on the fact that Artifact#hashCode does not use ArtifactOwner.
+      return artifact.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof OwnerlessArtifactWrapper
+          && this.artifact.equalsWithoutOwner(((OwnerlessArtifactWrapper) obj).artifact);
+    }
+  }
+
+  @Override
+  public SkyFunctionName functionName() {
+    return ARTIFACT;
   }
 }

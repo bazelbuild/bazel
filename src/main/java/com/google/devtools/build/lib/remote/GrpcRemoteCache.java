@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -49,7 +48,6 @@ import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import io.grpc.CallCredentials;
-import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
@@ -57,34 +55,36 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
 public class GrpcRemoteCache extends AbstractRemoteActionCache {
   private final CallCredentials credentials;
-  private final Channel channel;
+  private final ReferenceCountedChannel channel;
   private final RemoteRetrier retrier;
   private final ByteStreamUploader uploader;
 
+  private AtomicBoolean closed = new AtomicBoolean();
+
   @VisibleForTesting
   public GrpcRemoteCache(
-      Channel channel,
+      ReferenceCountedChannel channel,
       CallCredentials credentials,
       RemoteOptions options,
       RemoteRetrier retrier,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      ByteStreamUploader uploader) {
     super(options, digestUtil, retrier);
     this.credentials = credentials;
     this.channel = channel;
     this.retrier = retrier;
-
-    uploader =
-        new ByteStreamUploader(
-            options.remoteInstanceName, channel, credentials, options.remoteTimeout, retrier);
+    this.uploader = uploader;
   }
 
   private ContentAddressableStorageBlockingStub casBlockingStub() {
@@ -110,7 +110,11 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
   @Override
   public void close() {
-    uploader.shutdown();
+    if (closed.getAndSet(true)) {
+      return;
+    }
+    uploader.release();
+    channel.release();
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
@@ -148,27 +152,31 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
     List<Chunker> toUpload = new ArrayList<>();
     // Only upload data that was missing from the cache.
-    ArrayList<ActionInput> missingActionInputs = new ArrayList<>();
-    ArrayList<Directory> missingTreeNodes = new ArrayList<>();
+    Map<Digest, ActionInput> missingActionInputs = new HashMap<>();
+    Map<Digest, Directory> missingTreeNodes = new HashMap<>();
     HashSet<Digest> missingTreeDigests = new HashSet<>(missingDigests);
     missingTreeDigests.remove(commandDigest);
     repository.getDataFromDigests(missingTreeDigests, missingActionInputs, missingTreeNodes);
 
     if (missingDigests.contains(commandDigest)) {
-      toUpload.add(new Chunker(command.toByteArray(), digestUtil));
+      toUpload.add(
+          Chunker.builder(digestUtil).setInput(commandDigest, command.toByteArray()).build());
     }
     if (!missingTreeNodes.isEmpty()) {
-      for (Directory d : missingTreeNodes) {
-        toUpload.add(new Chunker(d.toByteArray(), digestUtil));
+      for (Map.Entry<Digest, Directory> entry : missingTreeNodes.entrySet()) {
+        Digest digest = entry.getKey();
+        Directory d = entry.getValue();
+        toUpload.add(Chunker.builder(digestUtil).setInput(digest, d.toByteArray()).build());
       }
     }
     if (!missingActionInputs.isEmpty()) {
-      MetadataProvider inputFileCache = repository.getInputFileCache();
-      for (ActionInput actionInput : missingActionInputs) {
-        toUpload.add(new Chunker(actionInput, inputFileCache, execRoot, digestUtil));
+      for (Map.Entry<Digest, ActionInput> entry : missingActionInputs.entrySet()) {
+        Digest digest = entry.getKey();
+        ActionInput actionInput = entry.getValue();
+        toUpload.add(Chunker.builder(digestUtil).setInput(digest, actionInput, execRoot).build());
       }
     }
-    uploader.uploadBlobs(toUpload);
+    uploader.uploadBlobs(toUpload, true);
   }
 
   @Override
@@ -281,7 +289,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
       Chunker chunker;
       Path file = digestToFile.get(digest);
       if (file != null) {
-        chunker = new Chunker(file);
+        chunker = Chunker.builder(digestUtil).setInput(digest, file).build();
       } else {
         chunker = digestToChunkers.get(digest);
         if (chunker == null) {
@@ -293,7 +301,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
 
     if (!filesToUpload.isEmpty()) {
-      uploader.uploadBlobs(filesToUpload);
+      uploader.uploadBlobs(filesToUpload, /*forceUpload=*/true);
     }
 
     // TODO(olaola): inline small stdout/stderr here.
@@ -317,23 +325,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     Digest digest = digestUtil.compute(file);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploader.uploadBlob(new Chunker(file));
-    }
-    return digest;
-  }
-
-  /**
-   * Put the file contents cache if it is not already in it. No-op if the file is already stored in
-   * cache. The given path must be a full absolute path.
-   *
-   * @return The key for fetching the file contents blob from cache.
-   */
-  Digest uploadFileContents(ActionInput input, Path execRoot, MetadataProvider inputCache)
-      throws IOException, InterruptedException {
-    Digest digest = DigestUtil.getFromInputCache(input, inputCache);
-    ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
-    if (!missing.isEmpty()) {
-      uploader.uploadBlob(new Chunker(input, inputCache, execRoot, digestUtil));
+      uploader.uploadBlob(Chunker.builder(digestUtil).setInput(digest, file).build(), true);
     }
     return digest;
   }
@@ -342,7 +334,7 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     Digest digest = digestUtil.compute(blob);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploader.uploadBlob(new Chunker(blob, digestUtil));
+      uploader.uploadBlob(Chunker.builder(digestUtil).setInput(digest, blob).build(), true);
     }
     return digest;
   }

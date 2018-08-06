@@ -114,23 +114,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidSdkProvider.verifyPresence(ruleContext);
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
-    JavaCommon javaCommon =
-        AndroidCommon.createJavaCommonWithAndroidDataBinding(ruleContext, javaSemantics, false);
-    javaSemantics.checkRule(ruleContext, javaCommon);
-    javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
-
-    AndroidCommon androidCommon = new AndroidCommon(javaCommon, /* asNeverLink= */ true);
-    ResourceDependencies resourceDeps =
-        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink= */ false);
     RuleConfiguredTargetBuilder builder =
-        init(
-            ruleContext,
-            filesBuilder,
-            resourceDeps,
-            androidCommon,
-            cppSemantics,
-            javaSemantics,
-            androidSemantics);
+        init(ruleContext, filesBuilder, cppSemantics, javaSemantics, androidSemantics);
     return builder.build();
   }
 
@@ -175,12 +160,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static RuleConfiguredTargetBuilder init(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
-      ResourceDependencies resourceDeps,
-      AndroidCommon androidCommon,
       CppSemantics cppSemantics,
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics)
       throws InterruptedException, RuleErrorException {
+
+    ResourceDependencies resourceDeps =
+        ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink= */ false);
 
     validateRuleContext(ruleContext);
 
@@ -229,7 +215,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
                   ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
                   ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  DataBinding.isEnabled(ruleContext),
                   ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
                       ? ruleContext
                           .getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER)
@@ -239,7 +224,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                       ? ruleContext
                           .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
                           .getApk()
-                      : null)
+                      : null,
+                  DataBinding.contextFrom(ruleContext))
               .generateRClass(dataContext, aaptVersion);
     } else {
       applicationManifest =
@@ -260,6 +246,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
               dataContext,
+              DataBinding.contextFrom(ruleContext),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
@@ -272,14 +259,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   dataContext.getAndroidConfig(), ruleContext, shrinkResources),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-              DataBinding.isEnabled(ruleContext)
-                  ? DataBinding.getLayoutInfoFile(ruleContext)
-                  : null,
               featureOfArtifact,
               featureAfterArtifact);
     }
 
     ruleContext.assertNoErrors();
+
+    JavaCommon javaCommon =
+        AndroidCommon.createJavaCommonWithAndroidDataBinding(
+            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary */ false);
+    javaSemantics.checkRule(ruleContext, javaCommon);
+    javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
+
+    AndroidCommon androidCommon = new AndroidCommon(javaCommon, /* asNeverLink= */ true);
 
     // Remove the library resource JARs from the binary's runtime classpath.
     // Resource classes from android_library dependencies are replaced by the binary's resource
@@ -407,7 +399,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .list()
                 : ImmutableList.<Artifact>of(),
             ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs", Mode.TARGET).list(),
-            ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class));
+            ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
 
     // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
     // which this -printmapping command line flag will override.
@@ -610,9 +602,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         /* isLibrary = */ false);
 
     if (dexPostprocessingOutput.proguardMap() != null) {
-      builder.addProvider(
-          ProguardMappingProvider.class,
-          ProguardMappingProvider.create(dexPostprocessingOutput.proguardMap()));
+      builder.addNativeDeclaredProvider(
+          new ProguardMappingProvider(dexPostprocessingOutput.proguardMap()));
     }
 
     if (oneVersionEnforcementArtifact != null) {
@@ -657,9 +648,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 androidCommon.getInstrumentedJar(),
                 applicationManifest.getManifest(),
                 AndroidCommon.getApkDebugSigningKey(ruleContext)))
-        .addProvider(AndroidPreDexJarProvider.class, AndroidPreDexJarProvider.create(jarToDex))
-        .addProvider(
-            AndroidFeatureFlagSetProvider.class,
+        .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
+        .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
         .addOutputGroup("android_deploy_info", deployInfo);
@@ -668,7 +658,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
     Iterable<AndroidLibraryResourceClassJarProvider> libraryResourceJarProviders =
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.class);
+            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
 
     NestedSetBuilder<Artifact> libraryResourceJarsBuilder = NestedSetBuilder.naiveLinkOrder();
     for (AndroidLibraryResourceClassJarProvider provider : libraryResourceJarProviders) {
@@ -1838,7 +1828,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   /**
    * List of Android SDKs that contain runtimes that do not support the native multidexing
    * introduced in Android L. If someone tries to build an android_binary that has multidex=native
-   * set with an old SDK, we will exit with an error to alert the developer that his application
+   * set with an old SDK, we will exit with an error to alert the developer that their application
    * might not run on devices that the used SDK still supports.
    */
   private static final ImmutableSet<String> RUNTIMES_THAT_DONT_SUPPORT_NATIVE_MULTIDEXING =
@@ -1886,7 +1876,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact filterJar =
         ruleContext
             .getPrerequisite("instruments", Mode.TARGET)
-            .getProvider(AndroidPreDexJarProvider.class)
+            .get(AndroidPreDexJarProvider.PROVIDER)
             .getPreDexJar();
     Artifact filteredDeployJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_TEST_FILTERED_JAR);

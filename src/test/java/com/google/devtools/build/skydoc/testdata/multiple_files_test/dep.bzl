@@ -1,4 +1,4 @@
-load(":inner_dep.bzl", "inner_rule_impl", "prep_work")
+load(":testdata/multiple_files_test/inner_dep.bzl", "inner_rule_impl", "prep_work")
 
 prep_work()
 

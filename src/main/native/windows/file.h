@@ -42,12 +42,14 @@ enum {
 };
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
-enum {
-  DELETE_PATH_SUCCESS = 0,
-  DELETE_PATH_DOES_NOT_EXIST = 1,
-  DELETE_PATH_DIRECTORY_NOT_EMPTY = 2,
-  DELETE_PATH_ACCESS_DENIED = 3,
-  DELETE_PATH_ERROR = 4,
+struct DeletePathResult {
+  enum {
+    kSuccess = 0,
+    kError = 1,
+    kDoesNotExist = 2,
+    kDirectoryNotEmpty = 3,
+    kAccessDenied = 4,
+  };
 };
 
 struct CreateJunctionResult {
@@ -55,11 +57,10 @@ struct CreateJunctionResult {
     kSuccess = 0,
     kError = 1,
     kTargetNameTooLong = 2,
-    kParentMissing = 3,
-    kAlreadyExistsWithDifferentTarget = 4,
-    kAlreadyExistsButNotJunction = 5,
-    kAccessDenied = 6,
-    kDisappeared = 7,
+    kAlreadyExistsWithDifferentTarget = 3,
+    kAlreadyExistsButNotJunction = 4,
+    kAccessDenied = 5,
+    kDisappeared = 6,
   };
 };
 

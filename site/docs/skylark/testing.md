@@ -133,7 +133,7 @@ def myrules_test_suite():
           # ...
       ],
   )
-````
+```
 
 The test can be run with `bazel test //mypkg:myrules_test`.
 
@@ -442,7 +442,7 @@ def myhelpers_test_suite():
     myhelper_test,
     # ...
   )
-````
+```
 
 For more examples, see Skylib’s own [tests](https://github.com/bazelbuild/bazel-skylib/blob/master/tests/BUILD).
 

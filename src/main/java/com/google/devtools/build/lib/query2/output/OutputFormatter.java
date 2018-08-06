@@ -167,12 +167,16 @@ public abstract class OutputFormatter implements Serializable {
   }
 
   /**
-   * Format the result (a set of target nodes implicitly ordered according to
-   * the graph maintained by the QueryEnvironment), and print it to "out".
+   * Format the result (a set of target nodes implicitly ordered according to the graph maintained
+   * by the QueryEnvironment), and print it to "out".
    */
-  public abstract void output(QueryOptions options, Digraph<Target> result, OutputStream out,
-      AspectResolver aspectProvider)
-          throws IOException, InterruptedException;
+  public abstract void output(
+      QueryOptions options,
+      Digraph<Target> result,
+      OutputStream out,
+      AspectResolver aspectProvider,
+      ConditionalEdges conditionalEdges)
+      throws IOException, InterruptedException;
 
   /**
    * Unordered streamed output formatter (wrt. dependency ordering).
@@ -242,7 +246,9 @@ public abstract class OutputFormatter implements Serializable {
         QueryOptions options,
         Digraph<Target> result,
         OutputStream out,
-        AspectResolver aspectResolver) throws IOException, InterruptedException {
+        AspectResolver aspectResolver,
+        ConditionalEdges conditionalEdges)
+        throws IOException, InterruptedException {
       setOptions(options, aspectResolver);
       OutputFormatterCallback.processAllTargets(
           createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
@@ -605,8 +611,9 @@ public abstract class OutputFormatter implements Serializable {
         QueryOptions options,
         Digraph<Target> result,
         OutputStream out,
-        AspectResolver aspectResolver)
-            throws IOException {
+        AspectResolver aspectResolver,
+        ConditionalEdges conditionalEdges)
+        throws IOException {
       PrintStream printStream = new PrintStream(out);
       // getRoots() isn't defined for cyclic graphs, so in order to handle
       // cycles correctly, we need work on the strong component graph, as
@@ -674,8 +681,9 @@ public abstract class OutputFormatter implements Serializable {
         QueryOptions options,
         Digraph<Target> result,
         OutputStream out,
-        AspectResolver aspectResolver)
-            throws IOException {
+        AspectResolver aspectResolver,
+        ConditionalEdges conditionalEdges)
+        throws IOException {
       // In order to handle cycles correctly, we need work on the strong
       // component graph, as cycles should be treated a "clump" of nodes all on
       // the same rank. Graphs may contain cycles because there are errors in BUILD files.
@@ -795,7 +803,7 @@ public abstract class OutputFormatter implements Serializable {
       // directly into Type.
       return new PossibleAttributeValues(
           ImmutableList.<Object>of(
-              attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/false)),
+              attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/ false)),
           source);
     } else if ((list =
             attributeMap.getConcatenatedSelectorListsOfListType(

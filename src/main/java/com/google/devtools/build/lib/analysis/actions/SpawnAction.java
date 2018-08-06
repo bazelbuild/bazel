@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -1380,8 +1380,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           Artifact paramFile = (Artifact) value;
           String flagFormatString = (String) values[++i];
           result.add(
-              CommandLineItemSimpleFormatter.format(
-                  flagFormatString, paramFile.getExecPathString()));
+              SingleStringArgFormatter.format(flagFormatString, paramFile.getExecPathString()));
         } else if (value instanceof CommandLine) {
           CommandLine commandLine = (CommandLine) value;
           if (artifactExpander != null) {

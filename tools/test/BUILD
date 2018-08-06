@@ -2,6 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
 # TestRunnerAction#getRuntimeArtifact() will get confused.
+# Deprecated, do not use.
 filegroup(
     name = "runtime",
     srcs = ["test-setup.sh"],
@@ -10,6 +11,11 @@ filegroup(
 filegroup(
     name = "test_setup",
     srcs = ["test-setup.sh"],
+)
+
+filegroup(
+    name = "test_xml_generator",
+    srcs = ["generate-xml.sh"],
 )
 
 filegroup(

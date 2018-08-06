@@ -56,8 +56,8 @@ java_library(
     srcs = ["LcovPrinter.java"],
     deps = [
         ":BranchCoverage",
+        ":Constants",
         ":Coverage",
-        ":LcovConstants",
         ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:guava",
@@ -65,16 +65,33 @@ java_library(
 )
 
 java_library(
-    name = "LcovConstants",
-    srcs = ["LcovConstants.java"],
+    name = "Constants",
+    srcs = ["Constants.java"],
+)
+
+java_library(
+    name = "GcovParser",
+    srcs = [
+        "GcovParser.java",
+        "Parser.java",
+    ],
+    deps = [
+        ":BranchCoverage",
+        ":Constants",
+        ":LineCoverage",
+        ":SourceFileCoverage",
+    ],
 )
 
 java_library(
     name = "LcovParser",
-    srcs = ["LcovParser.java"],
+    srcs = [
+        "LcovParser.java",
+        "Parser.java",
+    ],
     deps = [
         ":BranchCoverage",
-        ":LcovConstants",
+        ":Constants",
         ":LineCoverage",
         ":SourceFileCoverage",
     ],
@@ -90,8 +107,9 @@ java_library(
     name = "MainLibrary",
     srcs = ["Main.java"],
     deps = [
+        ":Constants",
         ":Coverage",
-        ":LcovConstants",
+        ":GcovParser",
         ":LcovParser",
         ":LcovPrinter",
         ":SourceFileCoverage",

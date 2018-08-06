@@ -73,7 +73,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        CrosstoolInfo.fromToolchain(
+        CcToolchainConfigInfo.fromToolchain(
             CrosstoolRelease.getDefaultInstance(),
             toolchainBuilder.buildPartial(),
             /* crosstoolTop= */ PathFragment.EMPTY_FRAGMENT));

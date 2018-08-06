@@ -44,8 +44,7 @@ public class AndroidSdkTest extends BuildViewTestCase {
         "    shrinked_android_jar = 'android.jar',",
         "    zipalign = 'zipalign',",
         ")");
-    AndroidSdkProvider sdkProvider =
-        getConfiguredTarget("//sdk").getProvider(AndroidSdkProvider.class);
+    AndroidSdkProvider sdkProvider = getConfiguredTarget("//sdk").get(AndroidSdkProvider.PROVIDER);
     assertThat(sdkProvider.getSourceProperties().toDetailString())
         .isEqualTo("[/workspace[source]]sdk/platforms/android-25/source.properties");
   }

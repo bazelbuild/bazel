@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
+import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.Builder.JavaPackageSource;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -371,6 +371,7 @@ public final class ApplicationManifest {
   public ResourceApk packTestWithDataAndResources(
       RuleContext ruleContext,
       AndroidDataContext dataContext,
+      DataBindingContext dataBindingContext,
       Artifact resourceApk,
       ResourceDependencies resourceDeps,
       @Nullable Artifact rTxt,
@@ -418,7 +419,8 @@ public final class ApplicationManifest {
           .setSymbols(resourceContainer.getSymbols())
           .setSourceJarOut(resourceContainer.getJavaSourceJar());
     }
-    ResourceContainer processed = builder.build(dataContext, resourceContainer);
+    ResourceContainer processed =
+        builder.build(dataContext, resourceContainer, DataBinding.contextFrom(ruleContext));
 
     ResourceContainer finalContainer =
         new RClassGeneratorActionBuilder()
@@ -429,7 +431,8 @@ public final class ApplicationManifest {
                     AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
             .build(dataContext, processed);
 
-    return ResourceApk.of(finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg);
+    return ResourceApk.of(
+        finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg, dataBindingContext);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
@@ -493,7 +496,7 @@ public final class ApplicationManifest {
             .setStaticLibraryOut(merged.getStaticLibrary())
             .build(dataContext, merged);
 
-    return ResourceApk.of(processed, resourceDeps);
+    return ResourceApk.of(processed, resourceDeps, DataBinding.contextFrom(ruleContext));
   }
 
   /* Creates an incremental apk from assets and data. */
@@ -547,11 +550,12 @@ public final class ApplicationManifest {
                     .getFragment(AndroidConfiguration.class)
                     .throwOnResourceConflict())
             .setPackageUnderTest(null)
-            .build(dataContext, resourceContainer);
+            .build(dataContext, resourceContainer, DataBinding.contextFrom(ruleContext));
 
     // Intentionally skip building an R class JAR - incremental binaries handle this separately.
 
-    return ResourceApk.of(processed, resourceDeps, proguardCfg, null);
+    return ResourceApk.of(
+        processed, resourceDeps, proguardCfg, null, DataBinding.contextFrom(ruleContext));
   }
 
   /** Packages up the manifest with resource and assets from the rule and dependent resources. */
@@ -559,6 +563,7 @@ public final class ApplicationManifest {
   public ResourceApk packBinaryWithDataAndResources(
       RuleContext ruleContext,
       AndroidDataContext dataContext,
+      DataBindingContext dataBindingContext,
       Artifact resourceApk,
       ResourceDependencies resourceDeps,
       @Nullable Artifact rTxt,
@@ -570,7 +575,6 @@ public final class ApplicationManifest {
       boolean conditionalKeepRules,
       Artifact manifestOut,
       Artifact mergedResources,
-      @Nullable Artifact dataBindingInfoZip,
       @Nullable Artifact featureOf,
       @Nullable Artifact featureAfter)
       throws InterruptedException, RuleErrorException {
@@ -603,7 +607,7 @@ public final class ApplicationManifest {
           "resource cycle shrinking can only be enabled for builds with aapt2");
     }
 
-    ResourceContainer processed =
+    final AndroidResourcesProcessorBuilder androidResourcesProcessorBuilder =
         new AndroidResourcesProcessorBuilder()
             .setLibrary(false)
             .setApkOut(resourceContainer.getApk())
@@ -617,8 +621,10 @@ public final class ApplicationManifest {
             .withResourceDependencies(resourceDeps)
             .setProguardOut(proguardCfg)
             .setMainDexProguardOut(mainDexProguardCfg)
-            .conditionalKeepRules(conditionalKeepRules)
-            .setDataBindingInfoZip(dataBindingInfoZip)
+            .conditionalKeepRules(conditionalKeepRules);
+    dataBindingContext.supplyLayoutInfo(androidResourcesProcessorBuilder::setDataBindingInfoZip);
+    ResourceContainer processed =
+        androidResourcesProcessorBuilder
             .setApplicationId(manifestValues.get("applicationId"))
             .setVersionCode(manifestValues.get("versionCode"))
             .setVersionName(manifestValues.get("versionName"))
@@ -630,7 +636,7 @@ public final class ApplicationManifest {
             .setRTxtOut(resourceContainer.getRTxt())
             .setSymbols(resourceContainer.getSymbols())
             .setSourceJarOut(resourceContainer.getJavaSourceJar())
-            .build(dataContext, resourceContainer);
+            .build(dataContext, resourceContainer, DataBinding.contextFrom(ruleContext));
 
     ResourceContainer finalContainer =
         new RClassGeneratorActionBuilder()
@@ -641,7 +647,8 @@ public final class ApplicationManifest {
                     AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
             .build(dataContext, processed);
 
-    return ResourceApk.of(finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg);
+    return ResourceApk.of(
+        finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg, dataBindingContext);
   }
 
   public ResourceApk packLibraryWithDataAndResources(
@@ -652,7 +659,7 @@ public final class ApplicationManifest {
       Artifact symbols,
       Artifact manifestOut,
       Artifact mergedResources,
-      @Nullable Artifact dataBindingInfoZip)
+      DataBindingContext dataBindingContext)
       throws InterruptedException, RuleErrorException {
     AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
     AndroidAssets assets = AndroidAssets.from(ruleContext);
@@ -682,7 +689,7 @@ public final class ApplicationManifest {
                   AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
     }
 
-    ResourceContainer resourceContainer = builder.build();
+    final ResourceContainer resourceContainer = builder.build();
 
     Artifact rJavaClassJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
@@ -700,33 +707,31 @@ public final class ApplicationManifest {
             .setOutput(resourceContainer.getSymbols())
             .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
 
-    if (dataBindingInfoZip != null && resourceContainer.getCompiledSymbols() != null) {
-      PathFragment unusedInfo = dataBindingInfoZip.getRootRelativePath();
+    if (resourceContainer.getCompiledSymbols() != null) {
       // TODO(corysmith): Centralize the data binding processing and zipping into a single
       // action. Data binding processing needs to be triggered here as well as the merger to
       // avoid aapt2 from throwing an error during compilation.
-      parsingBuilder
-          .setDataBindingInfoZip(
-              ruleContext.getDerivedArtifact(
-                  unusedInfo.replaceName(unusedInfo.getBaseName() + "_unused.zip"),
-                  dataBindingInfoZip.getRoot()))
-          .setManifest(resourceContainer.getManifest())
-          .setJavaPackage(resourceContainer.getJavaPackage());
+      dataBindingContext.supplyLayoutInfo(
+          layoutInfo ->
+              parsingBuilder
+                  .setDataBindingInfoZip(
+                      ruleContext.getUniqueDirectoryArtifact("dummydatabinding", "unused.zip"))
+                  .setManifest(resourceContainer.getManifest())
+                  .setJavaPackage(resourceContainer.getJavaPackage()));
     }
-    resourceContainer = parsingBuilder.buildAndUpdate(dataContext, resourceContainer);
+    ResourceContainer parsedResourceContainer =
+        parsingBuilder.buildAndUpdate(dataContext, resourceContainer);
 
     ResourceContainer merged =
         new AndroidResourceMergingActionBuilder()
-            .setJavaPackage(resourceContainer.getJavaPackage())
+            .setJavaPackage(parsedResourceContainer.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
             .setUseCompiledMerge(skipParsingAction)
-            .setDataBindingInfoZip(dataBindingInfoZip)
             .setMergedResourcesOut(mergedResources)
             .setManifestOut(manifestOut)
             .setClassJarOut(rJavaClassJar)
-            .setDataBindingInfoZip(dataBindingInfoZip)
-            .build(dataContext, resourceContainer);
+            .build(dataContext, parsedResourceContainer);
 
     ResourceContainer processed =
         new AndroidResourceValidatorActionBuilder()
@@ -735,16 +740,16 @@ public final class ApplicationManifest {
             .setMergedResources(mergedResources)
             .setRTxtOut(merged.getRTxt())
             .setSourceJarOut(merged.getJavaSourceJar())
-            .setApkOut(resourceContainer.getApk())
-            // aapt2 related artifacts. Will be generated if the targetAaptVersion is AAPT2.
+            .setApkOut(parsedResourceContainer.getApk())
             .withDependencies(resourceDeps)
+            // aapt2 related artifacts. Will be generated if the targetAaptVersion is AAPT2.
             .setCompiledSymbols(merged.getCompiledSymbols())
             .setAapt2RTxtOut(merged.getAapt2RTxt())
             .setAapt2SourceJarOut(merged.getAapt2JavaSourceJar())
             .setStaticLibraryOut(merged.getStaticLibrary())
             .build(dataContext, merged);
 
-    return ResourceApk.of(processed, resourceDeps);
+    return ResourceApk.of(processed, resourceDeps, dataBindingContext);
   }
 
   public Artifact getManifest() {

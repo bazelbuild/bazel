@@ -109,13 +109,13 @@ _http_archive_attrs = {
     "sha256": attr.string(),
     "strip_prefix": attr.string(),
     "type": attr.string(),
-    "build_file": attr.label(),
+    "build_file": attr.label(allow_single_file = True),
     "build_file_content": attr.string(),
     "patches": attr.label_list(default = []),
     "patch_tool": attr.string(default = "patch"),
     "patch_args": attr.string_list(default = ["-p0"]),
     "patch_cmds": attr.string_list(default = []),
-    "workspace_file": attr.label(),
+    "workspace_file": attr.label(allow_single_file = True),
     "workspace_file_content": attr.string(),
 }
 

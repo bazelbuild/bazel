@@ -84,16 +84,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   public enum KeyType {
     INTEGER,
     STRING,
-    VERBATIM,
   }
-
-  /**
-   * Language for keys that should be present in the build info for every language.
-   */
-  // TODO(bazel-team): Once this is released, migrate the only place in the depot to use
-  // the BUILD_USERNAME, BUILD_HOSTNAME and BUILD_DIRECTORY keys instead of BUILD_INFO. Then
-  // language-specific build info keys can be removed.
-  public static final String ALL_LANGUAGES = "*";
 
   /**
    * Action context required by the actions that write language-specific workspace status artifacts.
@@ -109,27 +100,17 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   public static class Key {
     private final KeyType type;
 
-    /**
-     * Should be set to ALL_LANGUAGES if the key should be present in the build info of every
-     * language.
-     */
-    private final String language;
     private final String defaultValue;
     private final String redactedValue;
 
-    private Key(KeyType type, String language, String defaultValue, String redactedValue) {
+    private Key(KeyType type, String defaultValue, String redactedValue) {
       this.type = type;
-      this.language = language;
       this.defaultValue = defaultValue;
       this.redactedValue = redactedValue;
     }
 
     public KeyType getType() {
       return type;
-    }
-
-    public boolean isInLanguage(String language) {
-      return this.language.equals(ALL_LANGUAGES) || this.language.equals(language);
     }
 
     public String getDefaultValue() {
@@ -140,13 +121,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
       return redactedValue;
     }
 
-    public static Key forLanguage(
-        String language, KeyType type, String defaultValue, String redactedValue) {
-      return new Key(type, language, defaultValue, redactedValue);
-    }
-
     public static Key of(KeyType type, String defaultValue, String redactedValue) {
-      return new Key(type, ALL_LANGUAGES, defaultValue, redactedValue);
+      return new Key(type, defaultValue, redactedValue);
     }
   }
 

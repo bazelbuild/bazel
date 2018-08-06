@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -35,26 +37,22 @@ import org.junit.runners.JUnit4;
  *
  * <p>When adding a new option, it is trivial to make a transposition error or a copy/paste error.
  * These tests guard against such errors. The following possible bugs are considered:
+ *
  * <ul>
  *   <li>If a new option is added to {@code SkylarkSemantics} but not to {@code
  *       SkylarkSemanticsOptions}, or vice versa, then the programmer will either be unable to
  *       implement its behavior, or unable to test it from the command line and add user
  *       documentation. We hope that the programmer notices this on their own.
- *
- *   <li>If {@link SkylarkSemanticsOptions#toSkylarkSemantics} or {@link
- *       SkylarkSemanticsCodec#deserialize} is not updated to set all fields of {@code
- *       SkylarkSemantics}, then it will fail immediately because all fields of {@link
+ *   <li>If {@link SkylarkSemanticsOptions#toSkylarkSemantics} is not updated to set all fields of
+ *       {@code SkylarkSemantics}, then it will fail immediately because all fields of {@link
  *       SkylarkSemantics.Builder} are mandatory.
- *
  *   <li>To catch a copy/paste error where the wrong field's data is threaded through {@code
  *       toSkylarkSemantics()} or {@code deserialize(...)}, we repeatedly generate matching random
  *       instances of the input and expected output objects.
- *
  *   <li>The {@link #checkDefaultsMatch} test ensures that there is no divergence between the
  *       default values of the two classes.
- *
- *   <li>There is no test coverage for failing to update the non-generated webpage documentation.
- *       So don't forget that!
+ *   <li>There is no test coverage for failing to update the non-generated webpage documentation. So
+ *       don't forget that!
  * </ul>
  */
 @RunWith(JUnit4.class)
@@ -83,10 +81,11 @@ public class SkylarkSemanticsConsistencyTest {
    */
   @Test
   public void serializationRoundTrip() throws Exception {
-    SkylarkSemanticsCodec codec = new SkylarkSemanticsCodec();
+    DynamicCodec codec = new DynamicCodec(buildRandomSemantics(new Random(2)).getClass());
     for (int i = 0; i < NUM_RANDOM_TRIALS; i++) {
       SkylarkSemantics semantics = buildRandomSemantics(new Random(i));
       SkylarkSemantics deserialized =
+          (SkylarkSemantics)
           TestUtils.fromBytes(
               new DeserializationContext(ImmutableMap.of()),
               codec,
@@ -119,10 +118,15 @@ public class SkylarkSemanticsConsistencyTest {
   private static SkylarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
+        "--experimental_cc_skylark_api_enabled_packages="
+            + rand.nextDouble()
+            + ","
+            + rand.nextDouble(),
         "--experimental_enable_repo_mapping=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
+        "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
         "--incompatible_disallow_data_transition=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
@@ -134,6 +138,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
         "--incompatible_package_name_is_a_function=" + rand.nextBoolean(),
+        "--incompatible_range_type=" + rand.nextBoolean(),
         "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
         "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
@@ -147,10 +152,13 @@ public class SkylarkSemanticsConsistencyTest {
   private static SkylarkSemantics buildRandomSemantics(Random rand) {
     return SkylarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
+        .experimentalCcSkylarkApiEnabledPackages(
+            ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableRepoMapping(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
+        .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
         .incompatibleDisallowDataTransition(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
@@ -162,6 +170,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
         .incompatiblePackageNameIsAFunction(rand.nextBoolean())
+        .incompatibleRangeType(rand.nextBoolean())
         .incompatibleRemoveNativeGitRepository(rand.nextBoolean())
         .incompatibleRemoveNativeHttpArchive(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())

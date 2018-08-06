@@ -43,6 +43,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.Remapper;
 
 /**
  * Helper that keeps track of which core library classes and methods we want to rewrite.
@@ -61,6 +62,14 @@ class CoreLibrarySupport {
   private final ImmutableSet<Class<?>> emulatedInterfaces;
   /** Map from {@code owner#name} core library members to their new owners. */
   private final ImmutableMap<String, String> memberMoves;
+
+  /** ASM {@link Remapper} based on {@link #renamedPrefixes}. */
+  private final Remapper corePackageRemapper = new Remapper() {
+    @Override
+    public String map(String typeName) {
+      return isRenamedCoreLibrary(typeName) ? renameCoreLibrary(typeName) : typeName;
+    }
+  };
 
   /** For the collection of definitions of emulated default methods (deterministic iteration). */
   private final Multimap<String, EmulatedMethod> emulatedDefaultMethods =
@@ -129,6 +138,10 @@ class CoreLibrarySupport {
     return (internalName.startsWith("java/"))
         ? "j$/" + internalName.substring(/* cut away "java/" prefix */ 5)
         : internalName;
+  }
+
+  public Remapper getRemapper() {
+    return corePackageRemapper;
   }
 
   @Nullable

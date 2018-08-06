@@ -88,7 +88,7 @@ class LcovPrinter {
 
   // SF:<absolute path to the source file>
   private void printSFLine(SourceFileCoverage sourceFile) throws IOException {
-    bufferedWriter.write(LcovConstants.SF_MARKER);
+    bufferedWriter.write(Constants.SF_MARKER);
     bufferedWriter.write(sourceFile.sourceFileName());
     bufferedWriter.newLine();
   }
@@ -97,9 +97,9 @@ class LcovPrinter {
   private void printFNLines(SourceFileCoverage sourceFile) throws IOException {
     for (Entry<String, Integer> entry :
         sourceFile.getAllLineNumbers()) {
-      bufferedWriter.write(LcovConstants.FN_MARKER);
+      bufferedWriter.write(Constants.FN_MARKER);
       bufferedWriter.write(Integer.toString(entry.getValue())); // line number of function start
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(entry.getKey()); // function name
       bufferedWriter.newLine();
     }
@@ -109,9 +109,9 @@ class LcovPrinter {
   private void printFNDALines(SourceFileCoverage sourceFile) throws IOException {
     for (Entry<String, Integer> entry :
         sourceFile.getAllExecutionCount()) {
-      bufferedWriter.write(LcovConstants.FNDA_MARKER);
+      bufferedWriter.write(Constants.FNDA_MARKER);
       bufferedWriter.write(Integer.toString(entry.getValue())); // execution count
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(entry.getKey()); // function name
       bufferedWriter.newLine();
     }
@@ -119,14 +119,14 @@ class LcovPrinter {
 
   // FNF:<number of functions found>
   private void printFNFLine(SourceFileCoverage sourceFile) throws IOException {
-    bufferedWriter.write(LcovConstants.FNF_MARKER);
+    bufferedWriter.write(Constants.FNF_MARKER);
     bufferedWriter.write(Integer.toString(sourceFile.nrFunctionsFound()));
     bufferedWriter.newLine();
   }
 
   // FNH:<number of functions hit>
   private void printFNHLine(SourceFileCoverage sourceFile) throws IOException {
-    bufferedWriter.write(LcovConstants.FNH_MARKER);
+    bufferedWriter.write(Constants.FNH_MARKER);
     bufferedWriter.write(Integer.toString(sourceFile.nrFunctionsHit()));
     bufferedWriter.newLine();
   }
@@ -138,17 +138,17 @@ class LcovPrinter {
         // We skip printing this as a BRDA line and print it later as a BA line.
         continue;
       }
-      bufferedWriter.write(LcovConstants.BRDA_MARKER);
+      bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(branch.blockNumber());
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(branch.branchNumber());
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       if (branch.wasExecuted()) {
         bufferedWriter.write(Integer.toString(branch.nrOfExecutions()));
       } else {
-        bufferedWriter.write(LcovConstants.TAKEN);
+        bufferedWriter.write(Constants.TAKEN);
       }
       bufferedWriter.newLine();
     }
@@ -161,9 +161,9 @@ class LcovPrinter {
         // This branch was already printed with more information as a BRDA line.
         continue;
       }
-      bufferedWriter.write(LcovConstants.BA_MARKER);
+      bufferedWriter.write(Constants.BA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       // 0 = branch was not executed
       // 1 = branch was executed but not taken
       // 2 = branch was executed and taken
@@ -175,7 +175,7 @@ class LcovPrinter {
   // BRF:<number of branches found>
   private void printBRFLine(SourceFileCoverage sourceFile) throws IOException {
     if (sourceFile.nrBranchesFound() > 0) {
-      bufferedWriter.write(LcovConstants.BRF_MARKER);
+      bufferedWriter.write(Constants.BRF_MARKER);
       bufferedWriter.write(Integer.toString(sourceFile.nrBranchesFound()));
       bufferedWriter.newLine();
     }
@@ -185,7 +185,7 @@ class LcovPrinter {
   private void printBRHLine(SourceFileCoverage sourceFile) throws IOException {
     // Only print if there were any branches found.
     if (sourceFile.nrBranchesFound() > 0) {
-      bufferedWriter.write(LcovConstants.BRH_MARKER);
+      bufferedWriter.write(Constants.BRH_MARKER);
       bufferedWriter.write(Integer.toString(sourceFile.nrBranchesHit()));
       bufferedWriter.newLine();
     }
@@ -195,12 +195,12 @@ class LcovPrinter {
   private void printDALines(SourceFileCoverage sourceFile) throws IOException {
     for (LineCoverage lineExecution :
         sourceFile.getAllLineExecution()) {
-      bufferedWriter.write(LcovConstants.DA_MARKER);
+      bufferedWriter.write(Constants.DA_MARKER);
       bufferedWriter.write(Integer.toString(lineExecution.lineNumber()));
-      bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+      bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(Integer.toString(lineExecution.executionCount()));
       if (lineExecution.checksum() != null) {
-        bufferedWriter.write(LcovConstants.LCOV_DELIMITER);
+        bufferedWriter.write(Constants.DELIMITER);
         bufferedWriter.write(lineExecution.checksum());
       }
       bufferedWriter.newLine();
@@ -209,21 +209,21 @@ class LcovPrinter {
 
   // LH:<number of lines with a non-zero execution count>
   private void printLHLine(SourceFileCoverage sourceFile) throws IOException {
-    bufferedWriter.write(LcovConstants.LH_MARKER);
+    bufferedWriter.write(Constants.LH_MARKER);
     bufferedWriter.write(Integer.toString(sourceFile.nrOfLinesWithNonZeroExecution()));
     bufferedWriter.newLine();
   }
 
   // LF:<number of instrumented lines>
   private void printLFLine(SourceFileCoverage sourceFile) throws IOException {
-    bufferedWriter.write(LcovConstants.LF_MARKER);
+    bufferedWriter.write(Constants.LF_MARKER);
     bufferedWriter.write(Integer.toString(sourceFile.nrOfInstrumentedLines()));
     bufferedWriter.newLine();
   }
 
   // end_of_record
   private void printEndOfRecordLine() throws IOException {
-    bufferedWriter.write(LcovConstants.END_OF_RECORD_MARKER);
+    bufferedWriter.write(Constants.END_OF_RECORD_MARKER);
     bufferedWriter.newLine();
   }
 }

@@ -92,9 +92,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     return optionsParser;
   }
 
-  /**
-   * Creates a new BuildOptions instance for host.
-   */
+  /** Creates a new BuildOptions instance for host. */
   public BuildOptions createHostOptions() {
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
@@ -104,8 +102,8 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * Returns an equivalent instance to this one with only options from the given
-   * {@link FragmentOptions} classes.
+   * Returns an equivalent instance to this one with only options from the given {@link
+   * FragmentOptions} classes.
    */
   public BuildOptions trim(Set<Class<? extends FragmentOptions>> optionsClasses) {
     Builder builder = builder();
@@ -121,8 +119,8 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
-   * Creates a BuildOptions class by taking the option values from an options provider
-   * (eg. an OptionsParser).
+   * Creates a BuildOptions class by taking the option values from an options provider (eg. an
+   * OptionsParser).
    */
   public static BuildOptions of(
       Iterable<Class<? extends FragmentOptions>> optionsList, OptionsClassProvider provider) {
@@ -133,15 +131,14 @@ public final class BuildOptions implements Cloneable, Serializable {
     return builder.build();
   }
 
-  /**
-   * Creates a BuildOptions class by taking the option values from command-line arguments.
-   */
+  /** Creates a BuildOptions class by taking the option values from command-line arguments. */
   @VisibleForTesting
-  public static BuildOptions of(List<Class<?extends FragmentOptions>> optionsList, String... args)
+  public static BuildOptions of(List<Class<? extends FragmentOptions>> optionsList, String... args)
       throws OptionsParsingException {
     Builder builder = builder();
-    OptionsParser parser = OptionsParser.newOptionsParser(
-        ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsList));
+    OptionsParser parser =
+        OptionsParser.newOptionsParser(
+            ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsList));
     parser.parse(args);
     for (Class<? extends FragmentOptions> optionsClass : optionsList) {
       builder.add(parser.getOptions(optionsClass));
@@ -149,18 +146,14 @@ public final class BuildOptions implements Cloneable, Serializable {
     return builder.build();
   }
 
-  /**
-   * Returns the actual instance of a FragmentOptions class.
-   */
+  /** Returns the actual instance of a FragmentOptions class. */
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     FragmentOptions options = fragmentOptionsMap.get(optionsClass);
     Preconditions.checkNotNull(options, "fragment options unavailable: " + optionsClass.getName());
     return optionsClass.cast(options);
   }
 
-  /**
-   * Returns true if these options contain the given {@link FragmentOptions}.
-   */
+  /** Returns true if these options contain the given {@link FragmentOptions}. */
   public boolean contains(Class<? extends FragmentOptions> optionsClass) {
     return fragmentOptionsMap.containsKey(optionsClass);
   }
@@ -168,7 +161,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   // It would be very convenient to use a Multimap here, but we cannot do that because we need to
   // support defaults labels that have zero elements.
   ImmutableMap<String, ImmutableSet<Label>> getDefaultsLabels() {
-    Map<String, Set<Label>> collector  = new TreeMap<>();
+    Map<String, Set<Label>> collector = new TreeMap<>();
     for (FragmentOptions fragment : fragmentOptionsMap.values()) {
       for (Map.Entry<String, Set<Label>> entry : fragment.getDefaultsLabels().entrySet()) {
         if (!collector.containsKey(entry.getKey())) {
@@ -186,9 +179,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     return result.build();
   }
 
-  /**
-   * The cache key for the options collection. Recomputes cache key every time it's called.
-   */
+  /** The cache key for the options collection. Recomputes cache key every time it's called. */
   public String computeCacheKey() {
     StringBuilder keyBuilder = new StringBuilder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
@@ -201,9 +192,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     return Fingerprint.md5Digest(computeCacheKey());
   }
 
-  /**
-   * String representation of build options.
-   */
+  /** String representation of build options. */
   @Override
   public String toString() {
     StringBuilder stringBuilder = new StringBuilder();
@@ -213,16 +202,12 @@ public final class BuildOptions implements Cloneable, Serializable {
     return stringBuilder.toString();
   }
 
-  /**
-   * Returns the options contained in this collection.
-   */
+  /** Returns the options contained in this collection. */
   public Collection<FragmentOptions> getOptions() {
     return fragmentOptionsMap.values();
   }
 
-  /**
-   * Creates a copy of the BuildOptions object that contains copies of the FragmentOptions.
-   */
+  /** Creates a copy of the BuildOptions object that contains copies of the FragmentOptions. */
   @Override
   public BuildOptions clone() {
     ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> builder =
@@ -287,9 +272,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   @Nullable private volatile byte[] fingerprint;
   private volatile int hashCode;
 
-  /**
-   * Maps options class definitions to FragmentOptions objects.
-   */
+  /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
 
   @AutoCodec.VisibleForSerialization
@@ -318,20 +301,16 @@ public final class BuildOptions implements Cloneable, Serializable {
     return builder.build();
   }
 
-  /**
-   * Creates a builder object for BuildOptions
-   */
+  /** Creates a builder object for BuildOptions */
   public static Builder builder() {
     return new Builder();
   }
 
-  /**
-   * Builder class for BuildOptions.
-   */
+  /** Builder class for BuildOptions. */
   public static class Builder {
     /**
-     * Adds a new FragmentOptions instance to the builder. Overrides previous instances of the
-     * exact same subclass of FragmentOptions.
+     * Adds a new FragmentOptions instance to the builder. Overrides previous instances of the exact
+     * same subclass of FragmentOptions.
      */
     public <T extends FragmentOptions> Builder add(T options) {
       builderMap.put(options.getClass(), options);
@@ -377,12 +356,14 @@ public final class BuildOptions implements Cloneable, Serializable {
     // Check and report if either class has been trimmed of an options class that exists in the
     // other.
     ImmutableSet<Class<? extends FragmentOptions>> firstOptionClasses =
-        first.getOptions()
+        first
+            .getOptions()
             .stream()
             .map(FragmentOptions::getClass)
             .collect(ImmutableSet.toImmutableSet());
     ImmutableSet<Class<? extends FragmentOptions>> secondOptionClasses =
-        second.getOptions()
+        second
+            .getOptions()
             .stream()
             .map(FragmentOptions::getClass)
             .collect(ImmutableSet.toImmutableSet());
@@ -470,7 +451,7 @@ public final class BuildOptions implements Cloneable, Serializable {
    * A diff class for BuildOptions. Fields are meant to be populated and returned by {@link
    * BuildOptions#diff}
    */
-  public static class OptionsDiff{
+  public static class OptionsDiff {
     private final Multimap<Class<? extends FragmentOptions>, OptionDefinition> differingOptions =
         ArrayListMultimap.create();
     // The keyset for the {@link first} and {@link second} maps are identical and indicate which
@@ -542,10 +523,9 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     public List<String> getPrettyPrintList() {
       List<String> toReturn = new ArrayList<>();
-        first.forEach(
-            (option, value) ->
-                toReturn.add(
-                    option.getOptionName() + ":" + value + " -> " + second.get(option)));
+      first.forEach(
+          (option, value) ->
+              toReturn.add(option.getOptionName() + ":" + value + " -> " + second.get(option)));
       return toReturn;
     }
   }
@@ -630,7 +610,8 @@ public final class BuildOptions implements Cloneable, Serializable {
       return MoreObjects.toStringHelper(this)
           .add("differingOptions", differingOptions)
           .add("extraFirstFragmentClasses", extraFirstFragmentClasses)
-          .add("extraSecondFragments", extraSecondFragments).toString();
+          .add("extraSecondFragments", extraSecondFragments)
+          .toString();
     }
 
     @Override
@@ -660,7 +641,6 @@ public final class BuildOptions implements Cloneable, Serializable {
           context.serialize(diff.differingOptions, bytesOut);
           context.serialize(diff.extraFirstFragmentClasses, bytesOut);
           context.serialize(diff.extraSecondFragments, bytesOut);
-          bytesOut.writeInt32NoTag(diff.baseFingerprint.length);
           bytesOut.writeByteArrayNoTag(diff.baseFingerprint);
           context.serialize(diff.checksum, bytesOut);
           bytesOut.flush();
@@ -693,8 +673,7 @@ public final class BuildOptions implements Cloneable, Serializable {
           ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses =
               context.deserialize(codedInput);
           ImmutableList<FragmentOptions> extraSecondFragments = context.deserialize(codedInput);
-          int fingerprintLength = codedInput.readInt32();
-          byte[] baseFingerprint = codedInput.readRawBytes(fingerprintLength);
+          byte[] baseFingerprint = codedInput.readByteArray();
           String checksum = context.deserialize(codedInput);
           diff =
               new OptionsDiffForReconstruction(
@@ -703,7 +682,7 @@ public final class BuildOptions implements Cloneable, Serializable {
                   extraSecondFragments,
                   baseFingerprint,
                   checksum);
-          cache.putOptionsDiffFromBytes(bytes, diff);
+          cache.putBytesFromOptionsDiff(diff, bytes);
         }
         return diff;
       }
@@ -717,6 +696,12 @@ public final class BuildOptions implements Cloneable, Serializable {
    *
    * <p>We provide the cache as an injected dependency so that different serializers' caches are
    * isolated.
+   *
+   * <p>Used when configured targets are serialized: the more compact {@link
+   * FingerprintingKDiffToByteStringCache} cache below cannot be easily used because a configured
+   * target may have an edge to a configured target in a different configuration, and with only the
+   * checksum there would be no way to compute that configuration (although it is very likely in the
+   * graph already).
    */
   public interface OptionsDiffCache {
     ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff);
@@ -724,8 +709,6 @@ public final class BuildOptions implements Cloneable, Serializable {
     void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes);
 
     OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes);
-
-    void putOptionsDiffFromBytes(ByteString bytes, OptionsDiffForReconstruction diff);
   }
 
   /**
@@ -750,19 +733,74 @@ public final class BuildOptions implements Cloneable, Serializable {
 
     @Override
     public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
-      diffToByteStringMap.put(diff, bytes);
+      // We need to insert data into map that will be used for deserialization first in case there
+      // is a race between two threads. If we populated the diffToByteStringMap first, another
+      // thread could get the result above and race ahead, but then get a cache miss on
+      // deserialization.
       byteStringToDiffMap.put(bytes, diff);
+      diffToByteStringMap.put(diff, bytes);
     }
 
     @Override
     public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
       return byteStringToDiffMap.get(bytes);
     }
+  }
+
+  /**
+   * {@link BuildOptions.OptionsDiffForReconstruction} serialization cache that relies on only
+   * serializing the checksum string instead of the full OptionsDiffForReconstruction.
+   *
+   * <p>This requires that every {@link BuildOptions.OptionsDiffForReconstruction} instance
+   * encountered is serialized <i>before</i> it is ever deserialized. When not serializing
+   * configured targets, this holds because every configuration present in the build is looked up in
+   * the graph using a {@code BuildConfigurationValue.Key}, which contains its {@link
+   * BuildOptions.OptionsDiffForReconstruction}. This requires that {@code BuildConfigurationValue}
+   * instances must always be serialized.
+   */
+  public static class FingerprintingKDiffToByteStringCache
+      implements BuildOptions.OptionsDiffCache {
+    private static final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
+        diffToByteStringCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
+        byteStringToDiffMap = new ConcurrentHashMap<>();
 
     @Override
-    public void putOptionsDiffFromBytes(ByteString bytes, OptionsDiffForReconstruction diff) {
-      diffToByteStringMap.put(diff, bytes);
-      byteStringToDiffMap.put(bytes, diff);
+    public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
+      ByteString checksumString = diffToByteStringCache.get(diff);
+      if (checksumString != null) {
+        // Fast path to avoid ByteString creation churn and unnecessary map insertions.
+        return checksumString;
+      }
+      checksumString = ByteString.copyFromUtf8(diff.getChecksum());
+      // We need to insert data into map that will be used for deserialization first in case there
+      // is a race between two threads. If we populated the diffToByteStringCache first, another
+      // thread could get checksumString above during serialization and race ahead, but then get a
+      // cache miss on deserialization.
+      byteStringToDiffMap.put(checksumString, diff);
+      diffToByteStringCache.put(diff, checksumString);
+      return checksumString;
+    }
+
+    @Override
+    public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
+      throw new UnsupportedOperationException(
+          "diff "
+              + diff
+              + " should have not been serialized: "
+              + diffToByteStringCache
+              + ", "
+              + byteStringToDiffMap);
+    }
+
+    @Override
+    public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
+      return Preconditions.checkNotNull(
+          byteStringToDiffMap.get(bytes),
+          "Missing bytes %s: %s %s",
+          bytes,
+          diffToByteStringCache,
+          byteStringToDiffMap);
     }
   }
 }

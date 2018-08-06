@@ -89,4 +89,13 @@ public class AnalysisOptions extends OptionsBase {
     help = "No-op."
   )
   public boolean interleaveLoadingAndAnalysis;
+
+  @Option(
+    name = "experimental_skyframe_prepare_analysis",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    help = "Switches analysis preparation to a new code path based on Skyframe."
+  )
+  public boolean skyframePrepareAnalysis;
 }

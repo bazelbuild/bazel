@@ -98,7 +98,7 @@ Java_com_google_devtools_build_lib_windows_jni_WindowsFileOperations_nativeDelet
   std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
   std::wstring error;
   int result = bazel::windows::DeletePath(wpath, &error);
-  if (result != bazel::windows::DELETE_PATH_SUCCESS && !error.empty() &&
+  if (result != bazel::windows::DeletePathResult::kSuccess && !error.empty() &&
       CanReportError(env, error_msg_holder)) {
     ReportLastError(
         bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,

@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -118,7 +119,7 @@ import org.junit.Before;
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   @AutoCodec
   protected static final ActionLookupValue.ActionLookupKey ACTION_LOOKUP_KEY =
-      new SingletonActionLookupKey();
+      new InjectedActionLookupKey("action_lookup_key");
 
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
   protected static final String CYCLE_MSG = "Yarrrr, there be a cycle up in here";
@@ -511,13 +512,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public void resetStatistics() {
       // Not needed for these tests.
-    }
-  }
-
-  static class SingletonActionLookupKey extends ActionLookupValue.ActionLookupKey {
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.CONFIGURED_TARGET;
     }
   }
 

@@ -103,6 +103,14 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteLocalFallback;
 
   @Option(
+      name = "remote_local_fallback_strategy",
+      defaultValue = "local",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The strategy to use when remote execution has to fallback to local execution.")
+  public String remoteLocalFallbackStrategy;
+
+  @Option(
     name = "remote_upload_local_results",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

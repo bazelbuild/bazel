@@ -25,8 +25,14 @@ BazelStartupOptions::BazelStartupOptions(
     const WorkspaceLayout *workspace_layout)
     : StartupOptions("Bazel", workspace_layout),
       user_bazelrc_(""),
+      use_system_rc(true),
+      use_workspace_rc(true),
+      use_home_rc(true),
       use_master_bazelrc_(true) {
+  RegisterNullaryStartupFlag("home_rc");
   RegisterNullaryStartupFlag("master_bazelrc");
+  RegisterNullaryStartupFlag("system_rc");
+  RegisterNullaryStartupFlag("workspace_rc");
   RegisterUnaryStartupFlag("bazelrc");
 }
 
@@ -42,6 +48,48 @@ blaze_exit_code::ExitCode BazelStartupOptions::ProcessArgExtra(
       return blaze_exit_code::BAD_ARGV;
     }
     user_bazelrc_ = *value;
+  } else if (GetNullaryOption(arg, "--system_rc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --system_rc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_system_rc = true;
+    option_sources["system_rc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nosystem_rc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --nosystem_rc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_system_rc = false;
+    option_sources["system_rc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--workspace_rc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --workspace_rc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_workspace_rc = true;
+    option_sources["workspace_rc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noworkspace_rc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --noworkspace_rc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_workspace_rc = false;
+    option_sources["workspace_rc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--home_rc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --home_rc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_home_rc = true;
+    option_sources["home_rc"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nohome_rc")) {
+    if (!rcfile.empty()) {
+      *error = "Can't specify --nohome_rc in .bazelrc file.";
+      return blaze_exit_code::BAD_ARGV;
+    }
+    use_home_rc = false;
+    option_sources["home_rc"] = rcfile;
   } else if (GetNullaryOption(arg, "--master_bazelrc")) {
     if (!rcfile.empty()) {
       *error = "Can't specify --master_bazelrc in .bazelrc file.";
@@ -71,9 +119,19 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
       BAZEL_LOG(WARNING) << "Value of --bazelrc is ignored, since "
                             "--ignore_all_rc_files is on.";
     }
-    if ((use_master_bazelrc_) &&
-        option_sources.find("blazerc") != option_sources.end()) {
-      BAZEL_LOG(WARNING) << "Explicit value of --master_bazelrc is "
+    if ((use_home_rc) &&
+        option_sources.find("home_rc") != option_sources.end()) {
+      BAZEL_LOG(WARNING) << "Explicit value of --home_rc is "
+                            "ignored, since --ignore_all_rc_files is on.";
+    }
+    if ((use_system_rc) &&
+        option_sources.find("system_rc") != option_sources.end()) {
+      BAZEL_LOG(WARNING) << "Explicit value of --system_rc is "
+                            "ignored, since --ignore_all_rc_files is on.";
+    }
+    if ((use_workspace_rc) &&
+        option_sources.find("workspace_rc") != option_sources.end()) {
+      BAZEL_LOG(WARNING) << "Explicit value of --workspace_rc is "
                             "ignored, since --ignore_all_rc_files is on.";
     }
   }

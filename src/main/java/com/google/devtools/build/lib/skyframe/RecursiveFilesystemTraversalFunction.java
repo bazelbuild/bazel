@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Collections2;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -200,14 +197,17 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   private static final class FileInfo {
     final FileType type;
-    final FileStateValue metadata;
+    final Object metadata;
     @Nullable final RootedPath realPath;
     @Nullable final PathFragment unresolvedSymlinkTarget;
 
-    FileInfo(FileType type, FileStateValue metadata, @Nullable RootedPath realPath,
+    FileInfo(
+        FileType type,
+        Object metadata,
+        @Nullable RootedPath realPath,
         @Nullable PathFragment unresolvedSymlinkTarget) {
       this.type = Preconditions.checkNotNull(type);
-      this.metadata = Preconditions.checkNotNull(metadata);
+      this.metadata = metadata;
       this.realPath = realPath;
       this.unresolvedSymlinkTarget = unresolvedSymlinkTarget;
     }
@@ -223,10 +223,13 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     }
   }
 
+  private static final FileInfo NON_EXISTENT_FILE_INFO =
+      new FileInfo(FileType.NONEXISTENT, new Integer(0), null, null);
+
   private static FileInfo lookUpFileInfo(Environment env, TraversalRequest traversal)
       throws MissingDepException, IOException, InterruptedException {
     if (traversal.isRootGenerated) {
-      byte[] digest = null;
+      FileArtifactValue fsVal = null;
       if (traversal.root.getOutputArtifact() != null) {
         Artifact artifact = traversal.root.getOutputArtifact();
         SkyKey artifactKey = ArtifactSkyKey.key(artifact, true);
@@ -236,43 +239,44 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         }
 
         if (value instanceof FileArtifactValue) {
-          FileArtifactValue fsVal = (FileArtifactValue) value;
-          digest = fsVal.getDigest();
+          fsVal = (FileArtifactValue) value;
         } else {
-          return new FileInfo(
-              FileType.NONEXISTENT, null, null, null);
+          return NON_EXISTENT_FILE_INFO;
         }
       }
 
-      // FileArtifactValue does not currently track symlinks. If it did, we could potentially remove
-      // some of the filesystem operations we're doing here.
-      Path path = traversal.root.asRootedPath().asPath();
-      FileStatus noFollowStat = path.stat(Symlinks.NOFOLLOW);
-      FileStatus followStat = path.statIfFound(Symlinks.FOLLOW);
-      FileType type;
-      PathFragment unresolvedLinkTarget = null;
       RootedPath realPath = traversal.root.asRootedPath();
-      if (followStat == null) {
-        type = FileType.DANGLING_SYMLINK;
-        if (!noFollowStat.isSymbolicLink()) {
-          throw new IOException("Expected symlink for " + path + ", but got: " + noFollowStat);
-        }
-        unresolvedLinkTarget = path.readSymbolicLink();
-      } else if (noFollowStat.isFile()) {
-        type = FileType.FILE;
-      } else if (noFollowStat.isDirectory()) {
-        type = FileType.DIRECTORY;
+      if (traversal.strictOutputFiles) {
+        Preconditions.checkNotNull(fsVal, "Strict Fileset output tree has null FileArtifactValue");
+        return new FileInfo(FileType.FILE, fsVal, realPath, null);
       } else {
-        unresolvedLinkTarget = path.readSymbolicLink();
-        realPath = RootedPath.toRootedPath(
-            Root.absoluteRoot(path.getFileSystem()),
-            path.resolveSymbolicLinks());
-        type = followStat.isFile() ? FileType.SYMLINK_TO_FILE : FileType.SYMLINK_TO_DIRECTORY;
+        // FileArtifactValue does not currently track symlinks. If it did, we could potentially
+        // remove some of the filesystem operations we're doing here.
+        Path path = traversal.root.asRootedPath().asPath();
+        FileStatus noFollowStat = path.stat(Symlinks.NOFOLLOW);
+        FileStatus followStat = path.statIfFound(Symlinks.FOLLOW);
+        FileType type;
+        PathFragment unresolvedLinkTarget = null;
+        if (followStat == null) {
+          type = FileType.DANGLING_SYMLINK;
+          if (!noFollowStat.isSymbolicLink()) {
+            throw new IOException("Expected symlink for " + path + ", but got: " + noFollowStat);
+          }
+          unresolvedLinkTarget = path.readSymbolicLink();
+        } else if (noFollowStat.isFile()) {
+          type = FileType.FILE;
+        } else if (noFollowStat.isDirectory()) {
+          type = FileType.DIRECTORY;
+        } else {
+          unresolvedLinkTarget = path.readSymbolicLink();
+          realPath =
+              RootedPath.toRootedPath(
+                  Root.absoluteRoot(path.getFileSystem()), path.resolveSymbolicLinks());
+          type = followStat.isFile() ? FileType.SYMLINK_TO_FILE : FileType.SYMLINK_TO_DIRECTORY;
+        }
+        return new FileInfo(
+            type, fsVal != null ? fsVal : noFollowStat.hashCode(), realPath, unresolvedLinkTarget);
       }
-      return new FileInfo(type,
-          FileStateValue.createWithStatNoFollow(traversal.root.asRootedPath(),
-              new StatWithDigest(noFollowStat, digest), null),
-          realPath, unresolvedLinkTarget);
     } else {
       // Stat the file.
       FileValue fileValue =
@@ -292,13 +296,14 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         } else {
           type = fileValue.isDirectory() ? FileType.DIRECTORY : FileType.FILE;
         }
-        return new FileInfo(type, fileValue.realFileStateValue(),
-            fileValue.realRootedPath(), unresolvedLinkTarget);
+        return new FileInfo(
+            type, fileValue.realFileStateValue(), fileValue.realRootedPath(), unresolvedLinkTarget);
       } else {
         // If it doesn't exist, or it's a dangling symlink, we still want to handle that gracefully.
         return new FileInfo(
             fileValue.isSymlink() ? FileType.DANGLING_SYMLINK : FileType.NONEXISTENT,
-            fileValue.realFileStateValue(), null,
+            fileValue.realFileStateValue(),
+            null,
             fileValue.isSymlink() ? fileValue.getUnresolvedLinkTarget() : null);
       }
     }
@@ -474,7 +479,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
               rootInfo.realPath,
               traversal.root.asRootedPath(),
               rootInfo.unresolvedSymlinkTarget,
-              hashDirectorySymlink(children, rootInfo.metadata.hashCode()));
+              hashDirectorySymlink(children, rootInfo.metadata));
       paths = NestedSetBuilder.<ResolvedFile>stableOrder().addTransitive(children).add(root);
     } else {
       root = ResolvedFileFactory.directory(rootInfo.realPath);
@@ -482,8 +487,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return RecursiveFilesystemTraversalValue.of(root, paths.build());
   }
 
-  private static int hashDirectorySymlink(
-      Iterable<ResolvedFile> children, int symlinkHash) {
+  private static int hashDirectorySymlink(Iterable<ResolvedFile> children, Object metadata) {
     // If the root is a directory symlink, the associated FileStateValue does not change when the
     // linked directory's contents change, so we can't use the FileStateValue as metadata like we
     // do with other ResolvedFile kinds. Instead we compute a metadata hash from the child
@@ -492,9 +496,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     // Compute the hash using the method described in Effective Java, 2nd ed., Item 9.
     int result = 0;
     for (ResolvedFile c : children) {
-      result = 31 * result + c.getMetadataHash();
+      result = 31 * result + c.getMetadata().hashCode();
     }
-    return 31 * result + symlinkHash;
+    return 31 * result + metadata.hashCode();
   }
 
   private static SkyValue getDependentSkyValue(Environment env, SkyKey key)
@@ -530,13 +534,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       throw new MissingDepException();
     }
 
-    return Collections2.transform(values.values(),
-        new Function<SkyValue, RecursiveFilesystemTraversalValue>() {
-          @Override
-          public RecursiveFilesystemTraversalValue apply(SkyValue input) {
-            return (RecursiveFilesystemTraversalValue) input;
-          }
-        });
+    return Collections2.transform(values.values(), RecursiveFilesystemTraversalValue.class::cast);
   }
 
   /** Type information about the filesystem entry residing at a path. */
@@ -594,61 +592,5 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     boolean isSymlink() { return false; }
     boolean exists() { return false; }
     @Override public abstract String toString();
-  }
-
-  private static class StatWithDigest implements FileStatusWithDigest {
-    private final FileStatus noFollowStat;
-    private final byte[] digest;
-
-    public StatWithDigest(FileStatus noFollowStat, byte[] digest) {
-      this.noFollowStat = noFollowStat;
-      this.digest = digest;
-    }
-
-    @Nullable
-    @Override
-    public byte[] getDigest() throws IOException {
-      return digest;
-    }
-
-    @Override
-    public boolean isFile() {
-      return noFollowStat.isFile();
-    }
-
-    @Override
-    public boolean isDirectory() {
-      return noFollowStat.isDirectory();
-    }
-
-    @Override
-    public boolean isSymbolicLink() {
-      return noFollowStat.isSymbolicLink();
-    }
-
-    @Override
-    public boolean isSpecialFile() {
-      return noFollowStat.isSpecialFile();
-    }
-
-    @Override
-    public long getSize() throws IOException {
-      return noFollowStat.getSize();
-    }
-
-    @Override
-    public long getLastModifiedTime() throws IOException {
-      return noFollowStat.getLastModifiedTime();
-    }
-
-    @Override
-    public long getLastChangeTime() throws IOException {
-      return noFollowStat.getLastChangeTime();
-    }
-
-    @Override
-    public long getNodeId() throws IOException {
-      return noFollowStat.getNodeId();
-    }
   }
 }

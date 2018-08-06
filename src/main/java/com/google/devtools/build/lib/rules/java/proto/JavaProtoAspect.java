@@ -217,7 +217,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         // TODO(carmi): Expose to native rules
         JavaRuleOutputJarsProvider ruleOutputJarsProvider =
             JavaRuleOutputJarsProvider.builder()
-                .addOutputJar(outputJar, compileTimeJar, ImmutableList.of(sourceJar))
+                .addOutputJar(
+                    outputJar,
+                    compileTimeJar,
+                    null /* manifestProto */,
+                    ImmutableList.of(sourceJar))
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(

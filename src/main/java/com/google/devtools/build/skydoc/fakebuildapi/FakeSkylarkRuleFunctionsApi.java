@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileTypeApi;
@@ -61,7 +62,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
   @Override
   public ProviderApi provider(String doc, Object fields, Location location) throws EvalException {
-    return null;
+    return new FakeProviderApi();
   }
 
   @Override
@@ -97,7 +98,14 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
   @Override
   public Label label(String labelString, Boolean relativeToCallerRepository, Location loc,
       Environment env) throws EvalException {
-    return null;
+    try {
+      return Label.parseAbsolute(
+          labelString,
+          /* defaultToMain= */ false,
+          /* repositoryMapping= */ ImmutableMap.of());
+    } catch (LabelSyntaxException e) {
+      throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
+    }
   }
 
   @Override

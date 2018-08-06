@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
@@ -28,20 +27,6 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code toolchain_type} rule. */
 @RunWith(JUnit4.class)
 public class ToolchainTypeTest extends BuildViewTestCase {
-
-  @Test
-  public void testSmoke() throws Exception {
-    ConfiguredTarget cc =
-        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
-    assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables()).containsKey("CC_FLAGS");
-  }
-
-  @Test
-  public void testCcToolchainDoesNotProvideJavaMakeVariables() throws Exception {
-    ConfiguredTarget cc =
-        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
-    assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables()).doesNotContainKey("JAVABASE");
-  }
 
   @Test
   public void testCcTargetsDependOnCcToolchainAutomatically() throws Exception {

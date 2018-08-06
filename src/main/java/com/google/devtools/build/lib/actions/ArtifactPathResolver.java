@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
 /**
  * An indirection layer on Path resolution of {@link Artifact} and {@link Root}.
  *
- * Serves as converter interface primarily for switching the {@link FileSystem} underyling the
+ * <p>Serves as converter interface primarily for switching the {@link FileSystem} underlying the
  * values.
  */
 public interface ArtifactPathResolver {

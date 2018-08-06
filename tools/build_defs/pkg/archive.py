@@ -102,7 +102,7 @@ class TarFileWriter(object):
   class Error(Exception):
     pass
 
-  def __init__(self, name, compression=''):
+  def __init__(self, name, compression='', root_directory='./'):
     if compression in ['bzip2', 'bz2']:
       mode = 'w:bz2'
     else:
@@ -111,6 +111,8 @@ class TarFileWriter(object):
     # Support xz compression through xz... until we can use Py3
     self.xz = compression in ['xz', 'lzma']
     self.name = name
+    self.root_directory = root_directory.rstrip('/')
+
     self.fileobj = None
     if self.gz:
       # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
@@ -155,8 +157,9 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
-    if not (name == '.' or name.startswith('/') or name.startswith('./')):
-      name = './' + name
+    if not (name == self.root_directory or name.startswith('/') or
+            name.startswith(self.root_directory + '/')):
+      name = os.path.join(self.root_directory, name)
     if os.path.isdir(path):
       # Remove trailing '/' (index -1 => last character)
       if name[-1] == '/':
@@ -238,8 +241,9 @@ class TarFileWriter(object):
       # Recurse into directory
       self.add_dir(name, file_content, uid, gid, uname, gname, mtime, mode)
       return
-    if not (name == '.' or name.startswith('/') or name.startswith('./')):
-      name = './' + name
+    if not (name == self.root_directory or name.startswith('/') or
+            name.startswith(self.root_directory + '/')):
+      name = os.path.join(self.root_directory, name)
     if kind == tarfile.DIRTYPE:
       name = name.rstrip('/')
       if name in self.directories:
@@ -300,7 +304,7 @@ class TarFileWriter(object):
       name_filter: filter out file by names. If not none, this method will be
           called for each file to add, given the name and should return true if
           the file is to be added to the final tar and false otherwise.
-      root: place all non-absolute content under given root direcory, if not
+      root: place all non-absolute content under given root directory, if not
           None.
 
     Raises:
@@ -351,8 +355,9 @@ class TarFileWriter(object):
           tarinfo.gname = ''
 
         name = tarinfo.name
-        if not name.startswith('/') and not name.startswith('.'):
-          name = './' + name
+        if (not name.startswith('/') and
+            not name.startswith(self.root_directory)):
+          name = os.path.join(self.root_directory, name)
         if root is not None:
           if name.startswith('.'):
             name = '.' + root + name.lstrip('.')

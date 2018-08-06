@@ -458,13 +458,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   /**
    * Returns deps in the form of {@link SkyKey}s.
    *
-   * <p>The implementation of this method does not filter deps, therefore it is expected to be used
-   * only when {@link SkyQueryEnvironment#dependencyFilter} is set to {@link
-   * DependencyFilter#ALL_DEPS}.
+   * <p>The implementation of this method does not filter out deps due to disallowed edges,
+   * therefore callers are responsible for doing the right thing themselves.
    */
-  public Multimap<SkyKey, SkyKey> getDirectDepsOfSkyKeys(Iterable<SkyKey> keys)
+  public Multimap<SkyKey, SkyKey> getUnfilteredDirectDepsOfSkyKeys(Iterable<SkyKey> keys)
       throws InterruptedException {
-    Preconditions.checkState(dependencyFilter == DependencyFilter.ALL_DEPS, dependencyFilter);
     ImmutableMultimap.Builder<SkyKey, SkyKey> builder = ImmutableMultimap.builder();
     graph.getDirectDeps(keys).forEach(builder::putAll);
     return builder.build();
@@ -1192,7 +1190,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         this, expression, depth, context, callback, packageSemaphore);
   }
 
-  protected QueryTaskFuture<Predicate<SkyKey>> getUniverseDTCSkyKeyPredicateFuture(
+  protected QueryTaskFuture<Predicate<SkyKey>> getUnfilteredUniverseDTCSkyKeyPredicateFuture(
       QueryExpression universe, QueryExpressionContext<Target> context) {
     return ParallelSkyQueryUtils.getDTCSkyKeyPredicateFuture(
         this,
@@ -1210,25 +1208,23 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpressionContext<Target> context,
       Callback<Target> callback) {
     return transformAsync(
-        getUniverseDTCSkyKeyPredicateFuture(universe, context),
-        universePredicate -> ParallelSkyQueryUtils.getRdepsInUniverseUnboundedParallel(
-            this, expression, universePredicate, context, callback, packageSemaphore));
+        getUnfilteredUniverseDTCSkyKeyPredicateFuture(universe, context),
+        unfilteredUniversePredicate -> ParallelSkyQueryUtils.getRdepsInUniverseUnboundedParallel(
+            this, expression, unfilteredUniversePredicate, context, callback, packageSemaphore));
   }
 
   @Override
   public QueryTaskFuture<Void> getDepsUnboundedParallel(
       QueryExpression expression,
       QueryExpressionContext<Target> context,
-      Callback<Target> callback,
-      Callback<Target> errorReporter) {
+      Callback<Target> callback) {
     return ParallelSkyQueryUtils.getDepsUnboundedParallel(
         SkyQueryEnvironment.this,
         expression,
         context,
         callback,
         packageSemaphore,
-        /*depsNeedFiltering=*/ !dependencyFilter.equals(DependencyFilter.ALL_DEPS),
-        errorReporter);
+        /*depsNeedFiltering=*/ !dependencyFilter.equals(DependencyFilter.ALL_DEPS));
   }
 
   @ThreadSafe
@@ -1240,7 +1236,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpressionContext<Target> context,
       Callback<Target> callback) {
     return transformAsync(
-        getUniverseDTCSkyKeyPredicateFuture(universe, context),
+        getUnfilteredUniverseDTCSkyKeyPredicateFuture(universe, context),
         universePredicate -> ParallelSkyQueryUtils.getRdepsInUniverseBoundedParallel(
             this, expression, depth, universePredicate, context, callback, packageSemaphore));
   }

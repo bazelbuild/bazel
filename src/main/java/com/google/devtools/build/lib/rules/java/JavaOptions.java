@@ -457,6 +457,15 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean strictDepsJavaProtos;
 
+  // TODO(twerth): Remove flag after it's turned on globally.
+  @Option(
+      name = "experimental_proto_generated_strict_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help = "Enables strict deps mode for the java compilation of proto generated Java code.")
+  public boolean protoGeneratedStrictDeps;
+
   @Option(
     name = "experimental_java_header_compilation_disable_javac_fallback",
     defaultValue = "false",
@@ -574,6 +583,8 @@ public class JavaOptions extends FragmentOptions {
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+
+    host.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
 
     return host;
   }

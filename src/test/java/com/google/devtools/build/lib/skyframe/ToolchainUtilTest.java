@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidConstraintValueException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
+import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.NoMatchingPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainUtil.UnresolvedToolchainsException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -65,7 +65,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
           .put(CREATE_TOOLCHAIN_CONTEXT_FUNCTION, new CreateToolchainContextFunction())
           .build();
     }
-  };
+  }
 
   @Override
   protected AnalysisMock getAnalysisMock() {
@@ -236,7 +236,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_invalidTargetPlatform() throws Exception {
+  public void createToolchainContext_invalidTargetPlatform_badTarget() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--platforms=//invalid:not_a_platform");
     CreateToolchainContextKey key =
@@ -254,7 +254,31 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("//invalid:not_a_platform");
+        .contains(
+            "//invalid:not_a_platform was referenced as a platform, "
+                + "but does not provide PlatformInfo");
+  }
+
+  @Test
+  public void createToolchainContext_invalidTargetPlatform_badPackage() throws Exception {
+    scratch.resolve("invalid").delete();
+    useConfiguration("--platforms=//invalid:not_a_platform");
+    CreateToolchainContextKey key =
+        CreateToolchainContextKey.create(
+            "test", ImmutableSet.of(testToolchainType), targetConfigKey);
+
+    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(InvalidPlatformException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("BUILD file not found");
   }
 
   @Test
@@ -420,7 +444,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
 
   // Calls ToolchainUtil.createToolchainContext.
   private static final SkyFunctionName CREATE_TOOLCHAIN_CONTEXT_FUNCTION =
-      SkyFunctionName.create("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");
+      SkyFunctionName.createHermetic("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");
 
   @AutoValue
   abstract static class CreateToolchainContextKey implements SkyKey {

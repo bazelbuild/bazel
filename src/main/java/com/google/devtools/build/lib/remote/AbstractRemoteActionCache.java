@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -170,68 +170,84 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
   public void download(ActionResult result, Path execRoot, FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    try {
-      Context ctx = Context.current();
-      List<FuturePathBooleanTuple> fileDownloads =
-          Collections.synchronizedList(
-              new ArrayList<>(result.getOutputFilesCount() + result.getOutputDirectoriesCount()));
-      for (OutputFile file : result.getOutputFilesList()) {
-        Path path = execRoot.getRelative(file.getPath());
-        ListenableFuture<Void> download =
-            retrier.executeAsync(
-                () -> ctx.call(() -> downloadFile(path, file.getDigest(), file.getContent())));
-        fileDownloads.add(new FuturePathBooleanTuple(download, path, file.getIsExecutable()));
-      }
+    Context ctx = Context.current();
+    List<FuturePathBooleanTuple> fileDownloads =
+        Collections.synchronizedList(
+            new ArrayList<>(result.getOutputFilesCount() + result.getOutputDirectoriesCount()));
+    for (OutputFile file : result.getOutputFilesList()) {
+      Path path = execRoot.getRelative(file.getPath());
+      ListenableFuture<Void> download =
+          retrier.executeAsync(
+              () -> ctx.call(() -> downloadFile(path, file.getDigest(), file.getContent())));
+      fileDownloads.add(new FuturePathBooleanTuple(download, path, file.getIsExecutable()));
+    }
 
-      List<ListenableFuture<Void>> dirDownloads =
-          new ArrayList<>(result.getOutputDirectoriesCount());
-      for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-        SettableFuture<Void> dirDownload = SettableFuture.create();
-        ListenableFuture<byte[]> protoDownload =
-            retrier.executeAsync(() -> ctx.call(() -> downloadBlob(dir.getTreeDigest())));
-        Futures.addCallback(
-            protoDownload,
-            new FutureCallback<byte[]>() {
-              @Override
-              public void onSuccess(byte[] b) {
-                try {
-                  Tree tree = Tree.parseFrom(b);
-                  Map<Digest, Directory> childrenMap = new HashMap<>();
-                  for (Directory child : tree.getChildrenList()) {
-                    childrenMap.put(digestUtil.compute(child), child);
-                  }
-                  Path path = execRoot.getRelative(dir.getPath());
-                  fileDownloads.addAll(downloadDirectory(path, tree.getRoot(), childrenMap, ctx));
-                  dirDownload.set(null);
-                } catch (IOException e) {
-                  dirDownload.setException(e);
+    List<ListenableFuture<Void>> dirDownloads = new ArrayList<>(result.getOutputDirectoriesCount());
+    for (OutputDirectory dir : result.getOutputDirectoriesList()) {
+      SettableFuture<Void> dirDownload = SettableFuture.create();
+      ListenableFuture<byte[]> protoDownload =
+          retrier.executeAsync(() -> ctx.call(() -> downloadBlob(dir.getTreeDigest())));
+      Futures.addCallback(
+          protoDownload,
+          new FutureCallback<byte[]>() {
+            @Override
+            public void onSuccess(byte[] b) {
+              try {
+                Tree tree = Tree.parseFrom(b);
+                Map<Digest, Directory> childrenMap = new HashMap<>();
+                for (Directory child : tree.getChildrenList()) {
+                  childrenMap.put(digestUtil.compute(child), child);
                 }
+                Path path = execRoot.getRelative(dir.getPath());
+                fileDownloads.addAll(downloadDirectory(path, tree.getRoot(), childrenMap, ctx));
+                dirDownload.set(null);
+              } catch (IOException e) {
+                dirDownload.setException(e);
               }
+            }
 
-              @Override
-              public void onFailure(Throwable t) {
-                dirDownload.setException(t);
-              }
-            },
-            MoreExecutors.directExecutor());
-        dirDownloads.add(dirDownload);
-      }
+            @Override
+            public void onFailure(Throwable t) {
+              dirDownload.setException(t);
+            }
+          },
+          MoreExecutors.directExecutor());
+      dirDownloads.add(dirDownload);
+    }
 
+    // Subsequently we need to wait for *every* download to finish, even if we already know that
+    // one failed. That's so that when exiting this method we can be sure that all downloads have
+    // finished and don't race with the cleanup routine.
+    // TODO(buchgr): Look into cancellation.
+
+    IOException downloadException = null;
+    try {
       fileDownloads.addAll(downloadOutErr(result, outErr, ctx));
-
-      for (ListenableFuture<Void> dirDownload : dirDownloads) {
-        // Block on all directory download futures, so that we can be sure that we have discovered
-        // all file downloads and can subsequently safely iterate over the list of file downloads.
+    } catch (IOException e) {
+      downloadException = e;
+    }
+    for (ListenableFuture<Void> dirDownload : dirDownloads) {
+      // Block on all directory download futures, so that we can be sure that we have discovered
+      // all file downloads and can subsequently safely iterate over the list of file downloads.
+      try {
         getFromFuture(dirDownload);
+      } catch (IOException e) {
+        downloadException = downloadException == null ? e : downloadException;
       }
+    }
 
-      for (FuturePathBooleanTuple download : fileDownloads) {
+    for (FuturePathBooleanTuple download : fileDownloads) {
+      try {
         getFromFuture(download.getFuture());
         if (download.getPath() != null) {
           download.getPath().setExecutable(download.isExecutable());
         }
+      } catch (IOException e) {
+        downloadException = downloadException == null ? e : downloadException;
       }
-    } catch (IOException downloadException) {
+    }
+
+    if (downloadException != null) {
       try {
         // Delete any (partially) downloaded output files, since any subsequent local execution
         // of this action may expect none of the output files to exist.
@@ -259,6 +275,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       }
       throw downloadException;
     }
+  }
+
+  @VisibleForTesting
+  protected <T> T getFromFuture(ListenableFuture<T> f) throws IOException, InterruptedException {
+    return Utils.getFromFuture(f);
   }
 
   /** Tuple of {@code ListenableFuture, Path, boolean}. */
@@ -497,7 +518,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
       byte[] blob = tree.build().toByteArray();
       Digest digest = digestUtil.compute(blob);
-      Chunker chunker = new Chunker(blob, blob.length, digestUtil);
+      Chunker chunker =
+          Chunker.builder(digestUtil).setInput(digest, blob).setChunkSize(blob.length).build();
 
       if (result != null) {
         result

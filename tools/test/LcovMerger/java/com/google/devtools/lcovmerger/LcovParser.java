@@ -14,21 +14,21 @@
 
 package com.google.devtools.lcovmerger;
 
-import static com.google.devtools.lcovmerger.LcovConstants.BA_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.BRDA_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.BRF_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.BRH_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.DA_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.END_OF_RECORD_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.FNDA_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.FNF_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.FNH_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.FN_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.LCOV_DELIMITER;
-import static com.google.devtools.lcovmerger.LcovConstants.LF_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.LH_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.SF_MARKER;
-import static com.google.devtools.lcovmerger.LcovConstants.TAKEN;
+import static com.google.devtools.lcovmerger.Constants.BA_MARKER;
+import static com.google.devtools.lcovmerger.Constants.BRDA_MARKER;
+import static com.google.devtools.lcovmerger.Constants.BRF_MARKER;
+import static com.google.devtools.lcovmerger.Constants.BRH_MARKER;
+import static com.google.devtools.lcovmerger.Constants.DA_MARKER;
+import static com.google.devtools.lcovmerger.Constants.DELIMITER;
+import static com.google.devtools.lcovmerger.Constants.END_OF_RECORD_MARKER;
+import static com.google.devtools.lcovmerger.Constants.FNDA_MARKER;
+import static com.google.devtools.lcovmerger.Constants.FNF_MARKER;
+import static com.google.devtools.lcovmerger.Constants.FNH_MARKER;
+import static com.google.devtools.lcovmerger.Constants.FN_MARKER;
+import static com.google.devtools.lcovmerger.Constants.LF_MARKER;
+import static com.google.devtools.lcovmerger.Constants.LH_MARKER;
+import static com.google.devtools.lcovmerger.Constants.SF_MARKER;
+import static com.google.devtools.lcovmerger.Constants.TAKEN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedReader;
@@ -47,19 +47,15 @@ import java.util.logging.Logger;
 class LcovParser {
 
   private static final Logger logger = Logger.getLogger(LcovParser.class.getName());
+  private final InputStream inputStream;
   private SourceFileCoverage currentSourceFileCoverage;
-  private final InputStream tracefileStream;
 
-  private LcovParser(InputStream tracefileStream) {
-    this.tracefileStream = tracefileStream;
+  private LcovParser(InputStream inputStream) {
+    this.inputStream = inputStream;
   }
 
-  /**
-   * Returns a list of the source files found in the given tracefile.
-   */
-  public static List<SourceFileCoverage> parse(InputStream tracefileStream) throws IOException {
-    LcovParser lcovParser = new LcovParser(tracefileStream);
-    return lcovParser.parse();
+  public static List<SourceFileCoverage> parse(InputStream inputStream) throws IOException {
+    return new LcovParser(inputStream).parse();
   }
 
   /**
@@ -72,7 +68,7 @@ class LcovParser {
   private List<SourceFileCoverage> parse() throws IOException {
     List<SourceFileCoverage> allSourceFiles = new ArrayList<>();
     try (BufferedReader bufferedReader =
-        new BufferedReader(new InputStreamReader(tracefileStream, UTF_8))) {
+        new BufferedReader(new InputStreamReader(inputStream, UTF_8))) {
       String line;
       while ((line = bufferedReader.readLine()) != null) {
         parseLine(line, allSourceFiles);
@@ -164,7 +160,7 @@ class LcovParser {
   // FN:<line number of function start>,<function name>
   private boolean parseFNLine(String line) {
     String lineContent = line.substring(FN_MARKER.length());
-    String[] funcData = lineContent.split(LCOV_DELIMITER, -1);
+    String[] funcData = lineContent.split(DELIMITER, -1);
     if (funcData.length != 2 || funcData[0].isEmpty() || funcData[1].isEmpty()) {
       logger.log(Level.WARNING, "Tracefile contains invalid FN line " + line);
       return false;
@@ -183,7 +179,7 @@ class LcovParser {
   // FNDA:<execution count>,<function name>
   private boolean parseFNDALine(String line) {
     String lineContent = line.substring(FNDA_MARKER.length());
-    String[] funcData = lineContent.split(LCOV_DELIMITER, -1);
+    String[] funcData = lineContent.split(DELIMITER, -1);
     if (funcData.length != 2 || funcData[0].isEmpty() || funcData[1].isEmpty()) {
       logger.log(Level.WARNING, "Tracefile contains invalid FNDA line " + line);
       return false;
@@ -238,7 +234,7 @@ class LcovParser {
   // BA:<line number>,<taken>
   private boolean parseBALine(String line) {
     String lineContent = line.substring(BA_MARKER.length());
-    String[] lineData = lineContent.split(LCOV_DELIMITER, -1);
+    String[] lineData = lineContent.split(DELIMITER, -1);
     if (lineData.length != 2) {
       logger.log(Level.WARNING, "Tracefile contains invalid BRDA line " + line);
       return false;
@@ -253,12 +249,7 @@ class LcovParser {
       int lineNumber = Integer.parseInt(lineData[0]);
       int taken = Integer.parseInt(lineData[1]);
 
-      boolean wasExecuted = false;
-      if (taken == 1 || taken == 2) {
-        wasExecuted = true;
-      }
-      BranchCoverage branchCoverage =
-          BranchCoverage.create(lineNumber, "", "", wasExecuted, taken);
+      BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
     } catch (NumberFormatException e) {
@@ -271,7 +262,7 @@ class LcovParser {
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private boolean parseBRDALine(String line) {
     String lineContent = line.substring(BRDA_MARKER.length());
-    String[] lineData = lineContent.split(LCOV_DELIMITER, -1);
+    String[] lineData = lineContent.split(DELIMITER, -1);
     if (lineData.length != 4) {
       logger.log(Level.WARNING, "Tracefile contains invalid BRDA line " + line);
       return false;
@@ -295,7 +286,8 @@ class LcovParser {
         wasExecuted = true;
       }
       BranchCoverage branchCoverage =
-          BranchCoverage.create(lineNumber, blockNumber, branchNumber, wasExecuted, executionCount);
+          BranchCoverage.createWithBlockAndBranch(
+              lineNumber, blockNumber, branchNumber, executionCount);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
     } catch (NumberFormatException e) {
@@ -344,7 +336,7 @@ class LcovParser {
   // DA:<line number>,<execution count>,[,<checksum>]
   private boolean parseDALine(String line) {
     String lineContent = line.substring(DA_MARKER.length());
-    String[] lineData = lineContent.split(LCOV_DELIMITER, -1);
+    String[] lineData = lineContent.split(DELIMITER, -1);
     if (lineData.length != 2 && lineData.length != 3) {
       logger.log(Level.WARNING, "Tracefile contains invalid DA line " + line);
       return false;

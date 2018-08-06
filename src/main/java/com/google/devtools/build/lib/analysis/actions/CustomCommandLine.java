@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -241,7 +241,7 @@ public final class CustomCommandLine extends CommandLine {
       return new Builder().each(values);
     }
 
-    /** Each argument is formatted via {@link CommandLineItemSimpleFormatter#format}. */
+    /** Each argument is formatted via {@link SingleStringArgFormatter#format}. */
     public static Builder format(@CompileTimeConstant String formatEach) {
       return new Builder().format(formatEach);
     }
@@ -261,7 +261,7 @@ public final class CustomCommandLine extends CommandLine {
       private String beforeEach;
       private String joinWith;
 
-      /** Each argument is formatted via {@link CommandLineItemSimpleFormatter#format}. */
+      /** Each argument is formatted via {@link SingleStringArgFormatter#format}. */
       public Builder format(@CompileTimeConstant String formatEach) {
         Preconditions.checkNotNull(formatEach);
         this.formatEach = formatEach;
@@ -404,8 +404,7 @@ public final class CustomCommandLine extends CommandLine {
         if (hasFormatEach) {
           String formatStr = (String) arguments.get(argi++);
           for (int i = 0; i < count; ++i) {
-            mutatedValues.set(
-                i, CommandLineItemSimpleFormatter.format(formatStr, mutatedValues.get(i)));
+            mutatedValues.set(i, SingleStringArgFormatter.format(formatStr, mutatedValues.get(i)));
           }
         }
         if (hasBeforeEach) {
@@ -718,6 +717,11 @@ public final class CustomCommandLine extends CommandLine {
       return arguments.isEmpty();
     }
 
+    private final ImmutableList.Builder<Artifact> treeArtifactInputs =
+        new ImmutableList.Builder<>();
+
+    private boolean treeArtifactsRequested = false;
+
     /**
      * Adds a constant-value string.
      *
@@ -1023,6 +1027,8 @@ public final class CustomCommandLine extends CommandLine {
      */
     public Builder addPlaceholderTreeArtifactExecPath(@Nullable Artifact treeArtifact) {
       if (treeArtifact != null) {
+        Preconditions.checkState(!treeArtifactsRequested);
+        treeArtifactInputs.add(treeArtifact);
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
       return this;
@@ -1040,6 +1046,8 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addPlaceholderTreeArtifactExecPath(String arg, @Nullable Artifact treeArtifact) {
       Preconditions.checkNotNull(arg);
       if (treeArtifact != null) {
+        Preconditions.checkState(!treeArtifactsRequested);
+        treeArtifactInputs.add(treeArtifact);
         arguments.add(arg);
         arguments.add(new TreeFileArtifactExecPathArg(treeArtifact));
       }
@@ -1053,6 +1061,8 @@ public final class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      */
     public Builder addExpandedTreeArtifactExecPaths(Artifact treeArtifact) {
+      Preconditions.checkState(!treeArtifactsRequested);
+      treeArtifactInputs.add(treeArtifact);
       Preconditions.checkNotNull(treeArtifact);
       arguments.add(new ExpandedTreeArtifactArg(treeArtifact));
       return this;
@@ -1061,6 +1071,8 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addExpandedTreeArtifactExecPaths(String arg, Artifact treeArtifact) {
       Preconditions.checkNotNull(arg);
       Preconditions.checkNotNull(treeArtifact);
+      Preconditions.checkState(!treeArtifactsRequested);
+      treeArtifactInputs.add(treeArtifact);
       arguments.add(
           new ExpandedTreeArtifactArg(
               treeArtifact, artifact -> ImmutableList.of(arg, artifact.getExecPathString())));
@@ -1078,8 +1090,16 @@ public final class CustomCommandLine extends CommandLine {
     public Builder addExpandedTreeArtifact(
         Artifact treeArtifact, Function<Artifact, Iterable<String>> expandFunction) {
       Preconditions.checkNotNull(treeArtifact);
+      Preconditions.checkState(!treeArtifactsRequested);
+      treeArtifactInputs.add(treeArtifact);
       arguments.add(new ExpandedTreeArtifactArg(treeArtifact, expandFunction));
       return this;
+    }
+
+    /** Gets all the tree artifact inputs for command line */
+    public Iterable<Artifact> getTreeArtifactInputs() {
+      treeArtifactsRequested = true;
+      return treeArtifactInputs.build();
     }
 
     public CustomCommandLine build() {

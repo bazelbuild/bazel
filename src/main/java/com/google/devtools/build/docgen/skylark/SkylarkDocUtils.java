@@ -27,7 +27,7 @@ public final class SkylarkDocUtils {
    *
    * @return a string with substituted variables
    */
-  static String substituteVariables(String documentation) {
+  public static String substituteVariables(String documentation) {
     return documentation
         .replace("$BE_ROOT", DocgenConsts.BeDocsRoot)
         .replace("$DOC_EXT", DocgenConsts.documentationExtension);

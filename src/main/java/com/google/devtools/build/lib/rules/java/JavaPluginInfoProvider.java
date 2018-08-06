@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,14 +39,17 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
   public abstract static class JavaPluginInfo {
 
     public static JavaPluginInfo create(
-        NestedSet<String> processorClasses, NestedSet<Artifact> processorClasspath) {
+        NestedSet<String> processorClasses,
+        NestedSet<Artifact> processorClasspath,
+        NestedSet<Artifact> data) {
       return new AutoValue_JavaPluginInfoProvider_JavaPluginInfo(
-          processorClasses, processorClasspath);
+          processorClasses, processorClasspath, data);
     }
 
     @AutoCodec.Instantiator
     public static JavaPluginInfo empty() {
       return create(
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
     }
@@ -53,11 +57,13 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
     public static JavaPluginInfo merge(Iterable<JavaPluginInfo> plugins) {
       NestedSetBuilder<String> processorClasses = NestedSetBuilder.naiveLinkOrder();
       NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
+      NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
       for (JavaPluginInfo plugin : plugins) {
         processorClasses.addTransitive(plugin.processorClasses());
         processorClasspath.addTransitive(plugin.processorClasspath());
+        data.addTransitive(plugin.data());
       }
-      return create(processorClasses.build(), processorClasspath.build());
+      return create(processorClasses.build(), processorClasspath.build(), data.build());
     }
 
     /**
@@ -69,9 +75,15 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
     /** Returns the artifacts to add to the runtime classpath for this plugin. */
     public abstract NestedSet<Artifact> processorClasspath();
 
+    public abstract NestedSet<Artifact> data();
+
     public boolean isEmpty() {
-      return processorClasses().isEmpty() && processorClasspath().isEmpty();
+      return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
     }
+  }
+
+  public static JavaPluginInfoProvider merge(JavaPluginInfoProvider a, JavaPluginInfoProvider b) {
+    return a.isEmpty() ? b : b.isEmpty() ? a : merge(ImmutableList.of(a, b));
   }
 
   public static JavaPluginInfoProvider merge(Iterable<JavaPluginInfoProvider> providers) {
@@ -99,8 +111,18 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
 
   public abstract JavaPluginInfo apiGeneratingPlugins();
 
+  /** Returns true if the provider has no associated data. */
   public boolean isEmpty() {
     // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
     return plugins().isEmpty();
+  }
+
+  /**
+   * Returns true if the provider has any associated annotation processors (regardless of whether it
+   * has a classpath or data).
+   */
+  public boolean hasProcessors() {
+    // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
+    return !plugins().processorClasses().isEmpty();
   }
 }

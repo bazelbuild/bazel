@@ -15,12 +15,14 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import java.util.List;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** A target that can provide local proguard specifications. */
 @SkylarkModule(name = "AndroidProguardInfo", doc = "", documented = false)
@@ -33,19 +35,24 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
       doc = "Returns the local proguard specs defined by this target.")
   ImmutableList<FileT> getLocalProguardSpecs();
 
-  @SkylarkCallable(
-      name = PROVIDER_NAME,
-      doc = "The <code>AndroidProguardInfo</code> constructor.",
-      parameters = {
-        @Param(
-            name = "local_proguard_specs",
-            doc = "A list of local proguard specs.",
-            positional = true,
-            named = false,
-            type = List.class
-        )
-      },
-      selfCall = true)
-  @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
-  AndroidProguardInfoApi<FileT> androidProguardInfo(ImmutableList<FileT> localProguardSpecs);
+  /** The provider implementing this can construct the AndroidProguardInfo provider. */
+  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  public interface Provider<F extends FileApi> extends ProviderApi {
+
+    @SkylarkCallable(
+        name = PROVIDER_NAME,
+        doc = "The <code>AndroidProguardInfo</code> constructor.",
+        parameters = {
+          @Param(
+              name = "local_proguard_specs",
+              doc = "A list of local proguard specs.",
+              positional = true,
+              named = false,
+              type = SkylarkList.class,
+              generic1 = FileApi.class)
+        },
+        selfCall = true)
+    @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
+    AndroidProguardInfoApi<F> createInfo(SkylarkList<F> localProguardSpecs) throws EvalException;
+  }
 }

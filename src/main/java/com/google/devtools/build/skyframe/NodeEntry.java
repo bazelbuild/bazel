@@ -72,7 +72,13 @@ public interface NodeEntry extends ThinNodeEntry {
      */
     NEEDS_REBUILDING,
     /** A rebuilding is in progress. */
-    REBUILDING
+    REBUILDING,
+    /**
+     * A forced rebuilding is in progress, likely because of a transient error on the previous
+     * build. The distinction between this and {@link #REBUILDING} is only needed for internal
+     * sanity checks.
+     */
+    FORCED_REBUILDING
   }
 
   /**

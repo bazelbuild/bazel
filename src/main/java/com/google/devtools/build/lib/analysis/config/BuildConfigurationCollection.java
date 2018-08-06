@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 
 /**
  * Convenience container for top-level target and host configurations.
@@ -34,9 +34,10 @@ public final class BuildConfigurationCollection {
   private final ImmutableList<BuildConfiguration> targetConfigurations;
   private final BuildConfiguration hostConfiguration;
 
-  public BuildConfigurationCollection(List<BuildConfiguration> targetConfigurations,
+  public BuildConfigurationCollection(
+      Collection<BuildConfiguration> targetConfigurations,
       BuildConfiguration hostConfiguration)
-      throws InvalidConfigurationException {
+          throws InvalidConfigurationException {
     this.targetConfigurations = ImmutableList.copyOf(targetConfigurations);
     this.hostConfiguration = hostConfiguration;
 

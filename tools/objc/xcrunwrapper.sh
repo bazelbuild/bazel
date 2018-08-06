@@ -33,29 +33,11 @@ if [[ -z "${WRAPPER_DEVDIR}" ]] ; then
   WRAPPER_DEVDIR="$(xcode-select -p)"
 fi
 
-# TODO(blaze-team): Remove this once all build environments are setting SDKROOT
-# for us.
-WRAPPER_SDKROOT="${SDKROOT:-}"
-if [[ -z "${WRAPPER_SDKROOT:-}" ]] ; then
-  WRAPPER_SDK=iphonesimulator
-  for ARG in "$@" ; do
-    case "${ARG}" in
-      armv6|armv7|armv7s|arm64)
-        WRAPPER_SDK=iphoneos
-        ;;
-      i386|x86_64)
-        WRAPPER_SDK=iphonesimulator
-        ;;
-    esac
-  done
-  WRAPPER_SDKROOT="$(/usr/bin/xcrun --show-sdk-path --sdk ${WRAPPER_SDK})"
-fi
-
 # Subsitute toolkit path placeholders.
 UPDATEDARGS=()
 for ARG in "$@" ; do
   ARG="${ARG//__BAZEL_XCODE_DEVELOPER_DIR__/${WRAPPER_DEVDIR}}"
-  ARG="${ARG//__BAZEL_XCODE_SDKROOT__/${WRAPPER_SDKROOT}}"
+  ARG="${ARG//__BAZEL_XCODE_SDKROOT__/${SDKROOT}}"
   UPDATEDARGS+=("${ARG}")
 done
 

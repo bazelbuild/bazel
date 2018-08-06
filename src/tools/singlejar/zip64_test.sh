@@ -13,24 +13,47 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-# Arguments:
-#   unittest.bash script
-#   singlejar path
-#   jar tool path
 
-(($# >= 3)) || \
-  { echo "Usage: $0 <unittest.bash dir> <singlejar> <jartool>" >&2; exit 1; }
+set -euo pipefail
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ -f "$0.runfiles_manifest" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+    elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+      export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+    elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+      export RUNFILES_DIR="$0.runfiles"
+    fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
 
 # Load test environment
-source $1/unittest.bash \
+source "$(rlocation "io_bazel/src/test/shell/unittest.bash")" \
   || { echo "unittest.bash not found!" >&2; exit 1; }
 
-set -e
-declare -r singlejar="$2"
-declare -r jartool="$3"
+IS_WINDOWS=false
+case "$(uname | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  IS_WINDOWS=true
+esac
 
+if "$IS_WINDOWS"; then
+  EXE_EXT=".exe"
+else
+  EXE_EXT=""
+fi
+
+singlejar="$(rlocation "io_bazel/src/tools/singlejar/singlejar${EXE_EXT}")"
+jartool="$(rlocation "local_jdk/bin/jar${EXE_EXT}")"
 
 # Test that an archive with >64K entries can be created.
 function test_65Kentries() {

@@ -69,7 +69,7 @@ public enum ProfilerTask {
   VFS_VMFS_READ("VMFS read", 10000000, 0x99CC33, 0, true),
   WAIT("thread wait", 5000000, 0x66CCCC, 0, false),
   __CONFIGURED_TARGET("configured target creation", 0x663300), // unused
-  __TRANSITIVE_CLOSURE("transitive closure creation", 0x996600), // unused
+  THREAD_NAME("thread name", 0x996600), // Do not use directly!
   __TEST("for testing only", 0x000000), // unused
   SKYFRAME_EVAL("skyframe evaluator", 0xCC9900),
   SKYFUNCTION("skyfunction", 0xCC6600),
@@ -108,8 +108,8 @@ public enum ProfilerTask {
   /** True if the metric records VFS operations */
   private final boolean vfs;
 
-  private ProfilerTask(String description, long minDuration, int color, int slowestInstanceCount,
-      boolean vfs) {
+  private ProfilerTask(
+      String description, long minDuration, int color, int slowestInstanceCount, boolean vfs) {
     this.description = description;
     this.minDuration = minDuration;
     this.color = color;
@@ -150,5 +150,9 @@ public enum ProfilerTask {
 
   public boolean isVfs() {
     return vfs;
+  }
+
+  public boolean isSkylark() {
+    return description.startsWith("Skylark ");
   }
 }

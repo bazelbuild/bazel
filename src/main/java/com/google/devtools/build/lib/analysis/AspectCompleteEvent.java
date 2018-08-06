@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
@@ -43,10 +44,14 @@ public class AspectCompleteEvent
   private final AspectValue aspectValue;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
+  private final ArtifactPathResolver pathResolver;
   private final ArtifactsToBuild artifacts;
 
   private AspectCompleteEvent(
-      AspectValue aspectValue, NestedSet<Cause> rootCauses, ArtifactsToBuild artifacts) {
+      AspectValue aspectValue,
+      NestedSet<Cause> rootCauses,
+      ArtifactPathResolver pathResolver,
+      ArtifactsToBuild artifacts) {
     this.aspectValue = aspectValue;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
@@ -55,13 +60,14 @@ public class AspectCompleteEvent
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }
     this.postedAfter = postedAfterBuilder.build();
+    this.pathResolver = pathResolver;
     this.artifacts = artifacts;
   }
 
   /** Construct a successful target completion event. */
   public static AspectCompleteEvent createSuccessful(
-      AspectValue value, ArtifactsToBuild artifacts) {
-    return new AspectCompleteEvent(value, null, artifacts);
+      AspectValue value, ArtifactPathResolver pathResolver, ArtifactsToBuild artifacts) {
+    return new AspectCompleteEvent(value, null, pathResolver, artifacts);
   }
 
   /**
@@ -69,7 +75,7 @@ public class AspectCompleteEvent
    */
   public static AspectCompleteEvent createFailed(AspectValue value, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
-    return new AspectCompleteEvent(value, rootCauses, null);
+    return new AspectCompleteEvent(value, rootCauses, ArtifactPathResolver.IDENTITY, null);
   }
 
   /**
@@ -108,15 +114,14 @@ public class AspectCompleteEvent
   }
 
   @Override
-  public Collection<NestedSet<Artifact>> reportedArtifacts() {
-    ImmutableSet.Builder<NestedSet<Artifact>> builder =
-        new ImmutableSet.Builder<NestedSet<Artifact>>();
+  public ReportedArtifacts reportedArtifacts() {
+    ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     if (artifacts != null) {
       for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
-    return builder.build();
+    return new ReportedArtifacts(builder.build(), pathResolver);
   }
 
   @Override

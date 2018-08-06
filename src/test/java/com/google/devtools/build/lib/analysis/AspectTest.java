@@ -614,7 +614,7 @@ public class AspectTest extends AnalysisTestCase {
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }
@@ -628,7 +628,7 @@ public class AspectTest extends AnalysisTestCase {
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }

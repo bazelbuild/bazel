@@ -27,7 +27,7 @@ can be referred as `@<name>//package:target` where `<name>` is the value of the
 
 The rule is loaded when you explicitly build it, or if it is a dependency of
 the build. In this case, Bazel will execute its `implementation` function. This
-function describe how to creates the repository, its content and BUILD files.
+function describe how to create the repository, its content and BUILD files.
 
 ## Attributes
 

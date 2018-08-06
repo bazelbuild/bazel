@@ -34,7 +34,9 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   protected String skylarkImplementationLoadStatement = "";
 
   @Before
-  public void setSkylarkImplementationLoadStatement() {
+  public void setSkylarkImplementationLoadStatement() throws Exception {
+    setSkylarkSemanticsOptions(SkylarkCcCommonTestHelper.CC_SKYLARK_WHITELIST_FLAG);
+    invalidatePackages();
     setIsSkylarkImplementation();
   }
 

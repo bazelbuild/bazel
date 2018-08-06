@@ -57,29 +57,26 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
       name = "unfiltered_compiler_options",
       doc =
           "<b>Deprecated</b>. Returns the default list of options which cannot be filtered by "
-          + "BUILD rules. These should be appended to the command line after filtering.",
+              + "BUILD rules. These should be appended to the command line after filtering.",
       parameters = {
         @Param(
             name = "features",
             doc = "Unused.",
             positional = true,
             named = false,
-            type = SkylarkList.class
-        )
-      }
-  )
+            type = SkylarkList.class)
+      })
   // TODO(b/24373706): Remove this method once new C++ toolchain API is available
   public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(
-      Iterable<String> featuresNotUsedAnymore);
+      Iterable<String> featuresNotUsedAnymore) throws EvalException;
 
   @SkylarkCallable(
-    name = "link_options_do_not_use",
-    structField = true,
-    doc =
-        "Returns the set of command-line linker options, including any flags "
-            + "inferred from the command-line options."
-  )
-  public ImmutableList<String> getLinkOptionsWithSysroot();
+      name = "link_options_do_not_use",
+      structField = true,
+      doc =
+          "Returns the set of command-line linker options, including any flags "
+              + "inferred from the command-line options.")
+  public ImmutableList<String> getLinkOptionsWithSysroot() throws EvalException;
 
   @SkylarkCallable(
     name = "target_gnu_system_name",
@@ -95,9 +92,8 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
           "Returns the default options to use for compiling C, C++, and assembler. "
               + "This is just the options that should be used for all three languages. "
               + "There may be additional C-specific or C++-specific options that should be used, "
-              + "in addition to the ones returned by this method"
-  )
-  public ImmutableList<String> getCompilerOptions();
+              + "in addition to the ones returned by this method")
+  public ImmutableList<String> getCompilerOptions() throws EvalException;
 
   @SkylarkCallable(
       name = "c_options",
@@ -105,7 +101,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
           "Returns the list of additional C-specific options to use for compiling C. "
               + "These should be go on the command line after the common options returned by "
               + "<code>compiler_options</code>")
-  public ImmutableList<String> getCOptions();
+  public ImmutableList<String> getCOptions() throws EvalException;
 
   @SkylarkCallable(
       name = "cxx_options",
@@ -114,7 +110,7 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
               + "These should be go on the command line after the common options returned by "
               + "<code>compiler_options</code>")
   @Deprecated
-  public ImmutableList<String> getCxxOptionsWithCopts();
+  public ImmutableList<String> getCxxOptionsWithCopts() throws EvalException;
 
   @SkylarkCallable(
       name = "fully_static_link_options",
@@ -147,12 +143,10 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
             doc = "If true, returns the link options for a shared library.",
             positional = true,
             named = false,
-            type = Boolean.class
-        )
-      }
-  )
+            type = Boolean.class)
+      })
   @Deprecated
-  public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib);
+  public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib) throws EvalException;
 
   @SkylarkCallable(
       name = "dynamic_link_options",
@@ -166,12 +160,10 @@ public interface CcToolchainProviderApi extends ToolchainInfoApi {
             doc = "If true, returns the link options for a shared library.",
             positional = true,
             named = false,
-            type = Boolean.class
-        )
-      }
-  )
+            type = Boolean.class)
+      })
   @Deprecated
-  public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib);
+  public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib) throws EvalException;
 
   @SkylarkCallable(
       name = "ld_executable",

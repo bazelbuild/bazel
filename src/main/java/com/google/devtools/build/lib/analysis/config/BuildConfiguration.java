@@ -382,7 +382,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "defer_param_files",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -390,7 +390,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
           OptionEffectTag.ACTION_COMMAND_LINES
         },
         help =
-            "Whether to use deferred param files. WHen set, param files will not be "
+            "Whether to use deferred param files. When set, param files will not be "
                 + "added to the action graph. Instead, they will be added as virtual action inputs "
                 + "and written at the same time as the action executes.")
     public boolean deferParamFiles;
@@ -418,6 +418,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
               + "disabled."
     )
     public boolean strictFilesets;
+
+    @Option(
+        name = "experimental_strict_fileset_output",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help =
+            "If this option is enabled, filesets will treat all output artifacts as regular files. "
+              + "They will not traverse directories or be sensitive to symlinks."
+    )
+    public boolean strictFilesetOutput;
 
     @Option(
       name = "stamp",
@@ -904,6 +915,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
       host.cpu = hostCpu;
+      host.deferParamFiles = deferParamFiles;
 
       // === Runfiles ===
       host.buildRunfilesManifests = buildRunfilesManifests;
@@ -1473,6 +1485,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean isStrictFilesets() {
     return options.strictFilesets;
+  }
+
+  public boolean isStrictFilesetOutput() {
+    return options.strictFilesetOutput;
   }
 
   public String getMainRepositoryName() {

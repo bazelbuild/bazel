@@ -14,9 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set -eu
+set -o pipefail
+
+SINGLEJAR="$1"
+shift
+JAR="$1"
+shift
 
 out="$(mktemp)"
-if ! "devtools/blaze/singlejar/singlejar" --output "${out}" --check_desugar_deps --sources "$@"; then
+if ! "${SINGLEJAR}" --output "${out}" --check_desugar_deps --sources "$@"; then
   rm "${out}"
   case "$0" in
     *_fail_test) echo "Singlejar failed as expected!"; exit 0;;
@@ -29,7 +35,7 @@ case "$0" in
   *_fail_test) rm "${out}"; echo "Singlejar unexpectedly succeeded :("; exit 1;;
 esac
 
-if third_party/java/jdk/jar/jar tf "${out}" | grep 'desugar_deps'; then
+if "${JAR}" tf "${out}" | grep 'desugar_deps'; then
   rm "${out}"
   echo "Singlejar output unexpectedly contains desugaring metadata"
   exit 2

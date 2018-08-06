@@ -44,6 +44,5 @@ public interface StreamableQueryEnvironment<T> extends QueryEnvironment<T> {
   QueryTaskFuture<Void> getDepsUnboundedParallel(
       QueryExpression expression,
       QueryExpressionContext<T> context,
-      Callback<T> callback,
-      Callback<T> errorReporter);
+      Callback<T> callback);
 }

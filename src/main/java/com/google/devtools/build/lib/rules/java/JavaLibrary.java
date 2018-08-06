@@ -139,7 +139,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     }
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, iJar, ImmutableList.of(srcJar))
+            .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
             .setJdeps(outputDepsProto)
             .setNativeHeaders(nativeHeaderOutput);
 
@@ -163,7 +163,12 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             javaArtifacts, attributes, neverLink, helper.getBootclasspathOrDefault()));
 
     JavaCompilationArgsProvider javaCompilationArgs =
-        common.collectJavaCompilationArgs(neverLink, false);
+        common.collectJavaCompilationArgs(
+            neverLink, /* srcLessDepsExport= */ false, /* javaProtoLibraryStrictDeps= */ false);
+    JavaStrictCompilationArgsProvider strictJavaCompilationArgs =
+        new JavaStrictCompilationArgsProvider(
+            common.collectJavaCompilationArgs(
+                neverLink, /* srcLessDepsExport= */ false, /* javaProtoLibraryStrictDeps= */ true));
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
 
@@ -195,16 +200,18 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         : JavaCommon.getTransitivePlugins(ruleContext);
 
     // java_library doesn't need to return JavaRunfilesProvider
-    JavaInfo javaInfo = javaInfoBuilder
-        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-        // TODO(bazel-team): this should only happen for java_plugin
-        .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
-        .setRuntimeJars(javaArtifacts.getRuntimeJars())
-        .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
-        .setNeverlink(neverLink)
-        .build();
+    JavaInfo javaInfo =
+        javaInfoBuilder
+            .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+            .addProvider(JavaStrictCompilationArgsProvider.class, strictJavaCompilationArgs)
+            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            // TODO(bazel-team): this should only happen for java_plugin
+            .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+            .setRuntimeJars(javaArtifacts.getRuntimeJars())
+            .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
+            .setNeverlink(neverLink)
+            .build();
 
     builder
         .addSkylarkTransitiveInfo(
@@ -215,11 +222,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        .addProvider(new ProguardSpecProvider(proguardSpecs))
+        .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
         .addNativeDeclaredProvider(javaInfo)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs);
-
 
     if (ruleContext.hasErrors()) {
       return null;

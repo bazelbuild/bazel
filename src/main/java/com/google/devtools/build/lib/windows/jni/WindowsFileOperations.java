@@ -53,18 +53,17 @@ public class WindowsFileOperations {
   private static final int CREATE_JUNCTION_SUCCESS = 0;
   private static final int CREATE_JUNCTION_ERROR = 1;
   private static final int CREATE_JUNCTION_TARGET_NAME_TOO_LONG = 2;
-  private static final int CREATE_JUNCTION_PARENT_MISSING = 3;
-  private static final int CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET = 4;
-  private static final int CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION = 5;
-  private static final int CREATE_JUNCTION_ACCESS_DENIED = 6;
-  private static final int CREATE_JUNCTION_DISAPPEARED = 7;
+  private static final int CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET = 3;
+  private static final int CREATE_JUNCTION_ALREADY_EXISTS_BUT_NOT_A_JUNCTION = 4;
+  private static final int CREATE_JUNCTION_ACCESS_DENIED = 5;
+  private static final int CREATE_JUNCTION_DISAPPEARED = 6;
 
   // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.cc.
   private static final int DELETE_PATH_SUCCESS = 0;
-  private static final int DELETE_PATH_DOES_NOT_EXIST = 1;
-  private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 2;
-  private static final int DELETE_PATH_ACCESS_DENIED = 3;
-  private static final int DELETE_PATH_ERROR = 4;
+  private static final int DELETE_PATH_ERROR = 1;
+  private static final int DELETE_PATH_DOES_NOT_EXIST = 2;
+  private static final int DELETE_PATH_DIRECTORY_NOT_EMPTY = 3;
+  private static final int DELETE_PATH_ACCESS_DENIED = 4;
 
   private static native int nativeIsJunction(String path, String[] error);
 
@@ -140,9 +139,6 @@ public class WindowsFileOperations {
       switch (result) {
         case CREATE_JUNCTION_TARGET_NAME_TOO_LONG:
           error[0] = "target name is too long";
-          break;
-        case CREATE_JUNCTION_PARENT_MISSING:
-          error[0] = "a parent directory is missing";
           break;
         case CREATE_JUNCTION_ALREADY_EXISTS_WITH_DIFFERENT_TARGET:
           error[0] = "junction already exists with different target";

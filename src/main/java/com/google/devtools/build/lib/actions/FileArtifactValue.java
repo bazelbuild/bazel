@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -399,6 +400,10 @@ public abstract class FileArtifactValue implements SkyValue {
       this.digest = Preconditions.checkNotNull(digest);
     }
 
+    public InlineFileArtifactValue(byte[] bytes) {
+      this(bytes, Hashing.md5().hashBytes(bytes).asBytes());
+    }
+
     public ByteArrayInputStream getInputStream() {
       return new ByteArrayInputStream(data);
     }
@@ -439,24 +444,18 @@ public abstract class FileArtifactValue implements SkyValue {
    */
   public static final class SourceFileArtifactValue extends FileArtifactValue {
     private final PathFragment execPath;
-    private final int sourceRootIndex;
     private final byte[] digest;
     private final long size;
 
     public SourceFileArtifactValue(
-        PathFragment execPath, int sourceRootIndex, byte[] digest, long size) {
+        PathFragment execPath, byte[] digest, long size) {
       this.execPath = Preconditions.checkNotNull(execPath);
-      this.sourceRootIndex = sourceRootIndex;
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
     }
 
     public PathFragment getExecPath() {
       return execPath;
-    }
-
-    public int getSourceRootIndex() {
-      return sourceRootIndex;
     }
 
     @Override

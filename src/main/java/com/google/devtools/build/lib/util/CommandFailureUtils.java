@@ -139,17 +139,23 @@ public class CommandFailureUtils {
    * @param form Form of the command to generate; see the documentation of the
    * {@link CommandDescriptionForm} values.
    */
-  public static String describeCommand(CommandDescriptionForm form,
+  public static String describeCommand(
+      CommandDescriptionForm form,
+      boolean prettyPrintArgs,
       Collection<String> commandLineElements,
-      @Nullable Map<String, String> environment, @Nullable String cwd) {
+      @Nullable Map<String, String> environment,
+      @Nullable String cwd) {
+
     Preconditions.checkNotNull(form);
     final int APPROXIMATE_MAXIMUM_MESSAGE_LENGTH = 200;
     StringBuilder message = new StringBuilder();
     int size = commandLineElements.size();
     int numberRemaining = size;
+
     if (form == CommandDescriptionForm.COMPLETE) {
       describeCommandImpl.describeCommandBeginIsolate(message);
     }
+
     if (form != CommandDescriptionForm.ABBREVIATED) {
       if (cwd != null) {
         describeCommandImpl.describeCommandCwd(cwd, message);
@@ -195,6 +201,7 @@ public class CommandFailureUtils {
         }
       }
     }
+
     for (String commandElement : commandLineElements) {
       if (form == CommandDescriptionForm.ABBREVIATED &&
           message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
@@ -203,15 +210,17 @@ public class CommandFailureUtils {
         break;
       } else {
         if (numberRemaining < size) {
-          message.append(' ');
+          message.append(prettyPrintArgs ? " \\\n    " : " ");
         }
         describeCommandImpl.describeCommandElement(message, commandElement);
         numberRemaining--;
       }
     }
+
     if (form == CommandDescriptionForm.COMPLETE) {
       describeCommandImpl.describeCommandEndIsolate(message);
     }
+
     return message.toString();
   }
 
@@ -220,14 +229,17 @@ public class CommandFailureUtils {
    * Currently this returns a message of the form "error executing command foo
    * bar baz".
    */
-  public static String describeCommandError(boolean verbose,
-                                            Collection<String> commandLineElements,
-                                            Map<String, String> env, String cwd) {
+  public static String describeCommandError(
+      boolean verbose,
+      Collection<String> commandLineElements,
+      Map<String, String> env,
+      String cwd) {
+
     CommandDescriptionForm form = verbose
         ? CommandDescriptionForm.COMPLETE
         : CommandDescriptionForm.ABBREVIATED;
     return "error executing command " + (verbose ? "\n  " : "")
-        + describeCommand(form, commandLineElements, env, cwd);
+        + describeCommand(form, /* prettyPrintArgs= */false, commandLineElements, env, cwd);
   }
 
   /**
@@ -235,9 +247,12 @@ public class CommandFailureUtils {
    * Currently this returns a message of the form "foo failed: error executing
    * command /dir/foo bar baz".
    */
-  public static String describeCommandFailure(boolean verbose,
-                                              Collection<String> commandLineElements,
-                                              Map<String, String> env, String cwd) {
+  public static String describeCommandFailure(
+      boolean verbose,
+      Collection<String> commandLineElements,
+      Map<String, String> env,
+      String cwd) {
+
     String commandName = commandLineElements.iterator().next();
     // Extract the part of the command name after the last "/", if any.
     String shortCommandName = new File(commandName).getName();

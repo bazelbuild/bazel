@@ -3873,12 +3873,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget output = getConfiguredTarget("//java/com/google/android/hello:b1");
     assertProguardUsed(output);
     Artifact mappingArtifact = getBinArtifact("b1_proguard.map", output);
-    ProguardMappingProvider mappingProvider = output.getProvider(ProguardMappingProvider.class);
+    ProguardMappingProvider mappingProvider = output.get(ProguardMappingProvider.PROVIDER);
     assertThat(mappingProvider.getProguardMapping()).isEqualTo(mappingArtifact);
 
     output = getConfiguredTarget("//java/com/google/android/hello:b2");
     assertProguardUsed(output);
-    assertThat(output.getProvider(ProguardMappingProvider.class)).isNull();
+    assertThat(output.get(ProguardMappingProvider.PROVIDER)).isNull();
   }
 
   @Test

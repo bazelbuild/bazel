@@ -14,23 +14,21 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -43,17 +41,19 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.PreconditionFailure;
 import com.google.rpc.PreconditionFailure.Violation;
-import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
+import io.grpc.CallCredentials;
+import io.grpc.ClientInterceptor;
+import io.grpc.Context;
+import io.grpc.ManagedChannel;
 import io.grpc.Status.Code;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
@@ -63,63 +63,16 @@ public final class RemoteModule extends BlazeModule {
   private static final Logger logger = Logger.getLogger(RemoteModule.class.getName());
   private AsynchronousFileOutputStream rpcLogFile;
 
-  @VisibleForTesting
-  static final class CasPathConverter implements PathConverter {
-    // Not final; unfortunately, the Bazel startup process requires us to create this object before
-    // we have the options available, so we have to create it first, and then set the options
-    // afterwards. At the time of this writing, I believe that we aren't using the PathConverter
-    // before the options are available, so this should be safe.
-    // TODO(ulfjack): Change the Bazel startup process to make the options available when we create
-    // the PathConverter.
-    RemoteOptions options;
-    DigestUtil digestUtil;
-    PathConverter fallbackConverter = new FileUriPathConverter();
-
-    @Override
-    public String apply(Path path) {
-      if (options == null || digestUtil == null || !remoteEnabled(options)) {
-        return fallbackConverter.apply(path);
-      }
-      String server = options.remoteCache;
-      String remoteInstanceName = options.remoteInstanceName;
-      try {
-        Digest digest = digestUtil.compute(path);
-        return remoteInstanceName.isEmpty()
-            ? String.format(
-                "bytestream://%s/blobs/%s/%d", server, digest.getHash(), digest.getSizeBytes())
-            : String.format(
-                "bytestream://%s/%s/blobs/%s/%d",
-                server, remoteInstanceName, digest.getHash(), digest.getSizeBytes());
-      } catch (IOException e) {
-        // TODO(ulfjack): Don't fail silently!
-        return fallbackConverter.apply(path);
-      }
-    }
-  }
-
-  private final CasPathConverter converter = new CasPathConverter();
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   private RemoteActionContextProvider actionContextProvider;
 
+  private final BuildEventArtifactUploaderFactoryDelegate
+      buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
+
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
-    builder.addBuildEventArtifactUploaderFactory(
-        (OptionsProvider options) ->
-            new BuildEventArtifactUploader() {
-
-              @Override
-              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-                // TODO(ulfjack): Actually hook up upload here.
-                return Futures.immediateFuture(converter);
-              }
-
-              @Override
-              public void shutdown() {
-                // Intentionally left empty.
-              }
-            },
-        "remote");
+    builder.addBuildEventArtifactUploaderFactory(buildEventArtifactUploaderFactoryDelegate, "remote");
   }
 
   private static final String VIOLATION_TYPE_MISSING = "MISSING";
@@ -179,8 +132,6 @@ public final class RemoteModule extends BlazeModule {
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
     DigestUtil digestUtil = new DigestUtil(hashFn);
-    converter.options = remoteOptions;
-    converter.digestUtil = digestUtil;
 
     // Quit if no remote options specified.
     if (remoteOptions == null) {
@@ -203,10 +154,10 @@ public final class RemoteModule extends BlazeModule {
     }
 
     try {
-      LoggingInterceptor logger = null;
+      List<ClientInterceptor> interceptors = new ArrayList<>();
       if (!remoteOptions.experimentalRemoteGrpcLog.isEmpty()) {
         rpcLogFile = new AsynchronousFileOutputStream(remoteOptions.experimentalRemoteGrpcLog);
-        logger = new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock());
+        interceptors.add(new LoggingInterceptor(rpcLogFile, env.getRuntime().getClock()));
       }
 
       final RemoteRetrier executeRetrier;
@@ -231,24 +182,42 @@ public final class RemoteModule extends BlazeModule {
       } else if (enableGrpcCache || remoteOptions.remoteExecutor != null) {
         // If a remote executor but no remote cache is specified, assume both at the same target.
         String target = enableGrpcCache ? remoteOptions.remoteCache : remoteOptions.remoteExecutor;
-        Channel ch = GoogleAuthUtils.newChannel(target, authAndTlsOptions);
-        if (logger != null) {
-          ch = ClientInterceptors.intercept(ch, logger);
-        }
-        RemoteRetrier retrier =
+        ReferenceCountedChannel channel =
+            new ReferenceCountedChannel(
+                GoogleAuthUtils.newChannel(
+                    target,
+                    authAndTlsOptions,
+                    interceptors.toArray(new ClientInterceptor[0])));
+        RemoteRetrier rpcRetrier =
             new RemoteRetrier(
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
         executeRetrier = createExecuteRetrier(remoteOptions, retryScheduler);
+        CallCredentials credentials = GoogleAuthUtils.newCallCredentials(authAndTlsOptions);
+        ByteStreamUploader uploader =
+            new ByteStreamUploader(
+                remoteOptions.remoteInstanceName,
+                channel.retain(),
+                credentials,
+                remoteOptions.remoteTimeout,
+                rpcRetrier);
         cache =
             new GrpcRemoteCache(
-                ch,
-                GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
+                channel.retain(),
+                credentials,
                 remoteOptions,
-                retrier,
-                digestUtil);
+                rpcRetrier,
+                digestUtil,
+                uploader.retain());
+        Context requestContext =
+            TracingMetadataUtils.contextWithMetadata(buildRequestId, commandId, "bes-upload");
+        buildEventArtifactUploaderFactoryDelegate.init(
+            new ByteStreamBuildEventArtifactUploaderFactory(
+                uploader, target, requestContext, remoteOptions.remoteInstanceName));
+        uploader.release();
+        channel.release();
       } else {
         executeRetrier = null;
         cache = null;
@@ -256,19 +225,20 @@ public final class RemoteModule extends BlazeModule {
 
       final GrpcRemoteExecutor executor;
       if (remoteOptions.remoteExecutor != null) {
-        Channel ch = GoogleAuthUtils.newChannel(remoteOptions.remoteExecutor, authAndTlsOptions);
+        ManagedChannel channel =
+            GoogleAuthUtils.newChannel(
+                remoteOptions.remoteExecutor,
+                authAndTlsOptions,
+                interceptors.toArray(new ClientInterceptor[0]));
         RemoteRetrier retrier =
             new RemoteRetrier(
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
-        if (logger != null) {
-          ch = ClientInterceptors.intercept(ch, logger);
-        }
         executor =
             new GrpcRemoteExecutor(
-                ch,
+                channel,
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
                 remoteOptions.remoteTimeout,
                 retrier);
@@ -297,6 +267,7 @@ public final class RemoteModule extends BlazeModule {
         rpcLogFile = null;
       }
     }
+    buildEventArtifactUploaderFactoryDelegate.reset();
   }
 
   @Override
@@ -309,17 +280,11 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(
-            RemoteOptions.class, AuthAndTLSOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        ? ImmutableList.of(RemoteOptions.class, AuthAndTLSOptions.class)
+        : ImmutableList.of();
   }
 
-  public static boolean remoteEnabled(RemoteOptions options) {
-    return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
-        || GrpcRemoteCache.isRemoteCacheOptions(options);
-  }
-
-  public static RemoteRetrier createExecuteRetrier(
+  static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new RemoteRetrier(
         options.experimentalRemoteRetry
@@ -328,5 +293,29 @@ public final class RemoteModule extends BlazeModule {
         RemoteModule.RETRIABLE_EXEC_ERRORS,
         retryService,
         Retrier.ALLOW_ALL_CALLS);
+  }
+
+  private static class BuildEventArtifactUploaderFactoryDelegate
+      implements BuildEventArtifactUploaderFactory {
+
+    private volatile BuildEventArtifactUploaderFactory uploaderFactory;
+
+    public void init(BuildEventArtifactUploaderFactory uploaderFactory) {
+      Preconditions.checkState(this.uploaderFactory == null);
+      this.uploaderFactory = uploaderFactory;
+    }
+
+    public void reset() {
+      this.uploaderFactory = null;
+    }
+
+    @Override
+    public BuildEventArtifactUploader create(OptionsProvider options) {
+      BuildEventArtifactUploaderFactory uploaderFactory0 = this.uploaderFactory;
+      if (uploaderFactory0 == null) {
+        return BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
+      }
+      return uploaderFactory0.create(options);
+    }
   }
 }

@@ -52,7 +52,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   }
 
   private AndroidIdeInfoProvider getIdeInfoProvider() {
-    return getInfo().getProvider(AndroidIdeInfoProvider.class);
+    return getInfo().get(AndroidIdeInfoProvider.PROVIDER);
   }
 
   @Override
@@ -153,6 +153,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
       Artifact idlSourceJar = getIdeInfoProvider().getIdlSourceJar();
       return new OutputJar(
           getIdeInfoProvider().getIdlClassJar(),
+          null,
           null,
           idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar));
     }

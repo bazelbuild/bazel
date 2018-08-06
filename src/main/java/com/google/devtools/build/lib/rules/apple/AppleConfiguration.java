@@ -383,24 +383,18 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
     return xcodeConfigLabel;
   }
 
-  /**
-   * Returns the unique identifier distinguishing configurations that are otherwise the same.
-   *
-   * <p>Use this value for situations in which two configurations create two outputs that are the
-   * same but are not collapsed due to their different configuration owners.
-   */
-  public ConfigurationDistinguisher getConfigurationDistinguisher() {
-    return configurationDistinguisher;
-  }
-
   private boolean shouldDistinguishOutputDirectory() {
-    if (configurationDistinguisher == ConfigurationDistinguisher.UNKNOWN) {
-      return false;
-    } else if (configurationDistinguisher == ConfigurationDistinguisher.APPLE_CROSSTOOL
-        && isAppleCrosstoolEnabled()) {
-      return false;
+    if (options.appleCrosstoolInOutputDirectoryName) {
+      return configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN;
     } else {
-      return true;
+      if (configurationDistinguisher == ConfigurationDistinguisher.UNKNOWN) {
+        return false;
+      } else if (configurationDistinguisher == ConfigurationDistinguisher.APPLE_CROSSTOOL
+          && enableAppleCrosstool) {
+        return false;
+      } else {
+        return true;
+      }
     }
   }
 
@@ -437,11 +431,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
    **/
   public boolean shouldLinkingRulesPropagateObjc() {
     return objcProviderFromLinked;
-  }
-
-  /** Returns true if {@link AppleCrosstoolTransition} should be applied to every apple rule. */
-  public boolean isAppleCrosstoolEnabled() {
-    return enableAppleCrosstool;
   }
 
   @Override

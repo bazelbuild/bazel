@@ -31,15 +31,29 @@ public final class SkyFunctionName implements Serializable {
    * argument.
    */
   // Needs to be after the cache is initialized.
-  public static final SkyFunctionName FOR_TESTING = SkyFunctionName.create("FOR_TESTING");
+  public static final SkyFunctionName FOR_TESTING = SkyFunctionName.createHermetic("FOR_TESTING");
 
-  /** Create a SkyFunctionName identified by {@code name}. */
-  public static SkyFunctionName create(String name) {
-    return create(name, ShareabilityOfValue.ALWAYS);
+  /**
+   * Create a SkyFunctionName identified by {@code name} whose evaluation is non-hermetic (its value
+   * may not be a pure function of its dependencies. Only use this if the evaluation explicitly
+   * consumes data outside of Skyframe, or if the node can be directly invalidated (as opposed to
+   * transitively invalidated).
+   */
+  public static SkyFunctionName createNonHermetic(String name) {
+    return create(name, ShareabilityOfValue.ALWAYS, FunctionHermeticity.NONHERMETIC);
   }
 
-  public static SkyFunctionName create(String name, ShareabilityOfValue shareabilityOfValue) {
-    SkyFunctionName result = new SkyFunctionName(name, shareabilityOfValue);
+  /**
+   * Creates a SkyFunctionName identified by {@code name} whose evaluation is hermetic (guaranteed
+   * to be a deterministic function of its dependencies, not doing any external operations).
+   */
+  public static SkyFunctionName createHermetic(String name) {
+    return create(name, ShareabilityOfValue.ALWAYS, FunctionHermeticity.HERMETIC);
+  }
+
+  public static SkyFunctionName create(
+      String name, ShareabilityOfValue shareabilityOfValue, FunctionHermeticity hermeticity) {
+    SkyFunctionName result = new SkyFunctionName(name, shareabilityOfValue, hermeticity);
     SkyFunctionName cached;
     try {
       cached = interner.get(new NameOnlyWrapper(result), () -> result);
@@ -56,10 +70,13 @@ public final class SkyFunctionName implements Serializable {
 
   private final String name;
   private final ShareabilityOfValue shareabilityOfValue;
+  private final FunctionHermeticity hermeticity;
 
-  private SkyFunctionName(String name, ShareabilityOfValue shareabilityOfValue) {
+  private SkyFunctionName(
+      String name, ShareabilityOfValue shareabilityOfValue, FunctionHermeticity hermeticity) {
     this.name = name;
     this.shareabilityOfValue = shareabilityOfValue;
+    this.hermeticity = hermeticity;
   }
 
   public String getName() {
@@ -68,6 +85,10 @@ public final class SkyFunctionName implements Serializable {
 
   public ShareabilityOfValue getShareabilityOfValue() {
     return shareabilityOfValue;
+  }
+
+  public FunctionHermeticity getHermeticity() {
+    return hermeticity;
   }
 
   @Override

@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -452,7 +451,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path, DigestHashFunction hf) throws IOException {
+          protected byte[] getFastDigest(Path path) throws IOException {
             return digest;
           }
         });
@@ -491,7 +490,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path, DigestHashFunction hf) {
+          protected byte[] getFastDigest(Path path) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -827,9 +826,9 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(Path path, DigestHashFunction hf) throws IOException {
+          protected byte[] getDigest(Path path) throws IOException {
             digestCalls.incrementAndGet();
-            return super.getDigest(path, hf);
+            return super.getDigest(path);
           }
         };
     pkgRoot = Root.fromPath(fs.getPath("/root"));
@@ -895,69 +894,6 @@ public class FileFunctionTest {
     fs.stubStat(path("a"), null);
     fs.stubStatError(path("a/b"), new IOException("ouch!"));
     assertThat(valueForPath(path("a/b")).exists()).isFalse();
-  }
-
-  @Test
-  public void testFilesystemInconsistencies_ParentIsntADirectory() throws Exception {
-    file("a/b");
-    // Our custom filesystem says "a/b" exists but its parent "a" is a file.
-    FileStatus inconsistentParentFileStatus =
-        new FileStatus() {
-          @Override
-          public boolean isFile() {
-            return true;
-          }
-
-          @Override
-          public boolean isSpecialFile() {
-            return false;
-          }
-
-          @Override
-          public boolean isDirectory() {
-            return false;
-          }
-
-          @Override
-          public boolean isSymbolicLink() {
-            return false;
-          }
-
-          @Override
-          public long getSize() throws IOException {
-            return 0;
-          }
-
-          @Override
-          public long getLastModifiedTime() throws IOException {
-            return 0;
-          }
-
-          @Override
-          public long getLastChangeTime() throws IOException {
-            return 0;
-          }
-
-          @Override
-          public long getNodeId() throws IOException {
-            return 0;
-          }
-        };
-    fs.stubStat(path("a"), inconsistentParentFileStatus);
-    // Disable fast-path md5 so that we don't try try to md5 the "a" (since it actually physically
-    // is a directory).
-    fastDigest = false;
-    SequentialBuildDriver driver = makeDriver();
-    SkyKey skyKey = skyKey("a/b");
-    EvaluationResult<FileValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(skyKey);
-    assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
-    assertThat(errorInfo.getException())
-        .hasMessageThat()
-        .contains("file /root/a/b exists but its parent path /root/a isn't an existing directory");
   }
 
   @Test
@@ -1684,7 +1620,7 @@ public class FileFunctionTest {
     }
 
     @Override
-    protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction) throws IOException {
+    protected byte[] getFastDigest(Path path) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }

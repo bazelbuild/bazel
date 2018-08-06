@@ -104,7 +104,8 @@ public abstract class AbstractParallelEvaluator {
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       ForkJoinPool forkJoinPool,
-      CycleDetector cycleDetector) {
+      CycleDetector cycleDetector,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     evaluatorContext =
@@ -120,14 +121,17 @@ public abstract class AbstractParallelEvaluator {
             errorInfoManager,
             Evaluate::new,
             graphInconsistencyReceiver,
-            Preconditions.checkNotNull(forkJoinPool));
+            Preconditions.checkNotNull(forkJoinPool),
+            evaluationVersionBehavior);
   }
 
   /**
    * If the entry is dirty and not already rebuilding, puts it in a state so that it can rebuild.
    */
   static void maybeMarkRebuilding(NodeEntry entry) {
-    if (entry.isDirty() && entry.getDirtyState() != DirtyState.REBUILDING) {
+    if (entry.isDirty()
+        && entry.getDirtyState() != DirtyState.REBUILDING
+        && entry.getDirtyState() != DirtyState.FORCED_REBUILDING) {
       entry.markRebuilding();
     }
   }
@@ -310,6 +314,7 @@ public abstract class AbstractParallelEvaluator {
           maybeMarkRebuilding(state);
           // Fall through to REBUILDING case.
         case REBUILDING:
+        case FORCED_REBUILDING:
           return DirtyOutcome.NEEDS_EVALUATION;
         default:
           throw new IllegalStateException("key: " + skyKey + ", entry: " + state);

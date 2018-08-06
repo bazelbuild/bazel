@@ -117,36 +117,47 @@ distdir_tar(
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
-    sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
+    sha256 = "57fad3602e74c79587901d6966d3b54ef32cb811829a2552163185d5064fe9b5",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2%2B3-jdk10.0.1/zulu10.2%2B3-jdk10.0.1-linux_x64-allmodules.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_macos",
-    sha256 = "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
+    sha256 = "e669c9a897413d855b550b4e39d79614392e6fb96f494e8ef99a34297d9d85d3",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules-2.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2%2B3-jdk10.0.1/zulu10.2%2B3-jdk10.0.1-macosx_x64-allmodules.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_win",
-    sha256 = "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
+    sha256 = "c39e7700a8d41794d60985df5a20352435196e78ecbc6a2b30df7be8637bffd5",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu10.2%2B3-jdk10.0.1/zulu10.2%2B3-jdk10.0.1-win_x64-allmodules.zip",
+    ],
+)
+
+# The source-code for this OpenJDK can be found at:
+# https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
+http_file(
+    name = "openjdk_linux_aarch64",
+    sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
+    urls = [
+        # When you update this, also update the link to the source-code above.
+        "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
     ],
 )
 
 http_archive(
   name = "bazel_toolchains",
   urls = [
-    "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/e76b1031eba14c16d72f5837ae7cb7630a2322e2.tar.gz",
-    "https://github.com/bazelbuild/bazel-toolchains/archive/e76b1031eba14c16d72f5837ae7cb7630a2322e2.tar.gz",
+    "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
+    "https://github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
   ],
-  strip_prefix = "bazel-toolchains-e76b1031eba14c16d72f5837ae7cb7630a2322e2",
-  sha256 = "259ec05a457bc93aec2aee7e4e67fb4bc1724a183b67baaf5dd6a08be6d6a84a",
+  strip_prefix = "bazel-toolchains-5124557861ebf4c0b67f98180bff1f8551e0b421",
+  sha256 = "c3b08805602cd1d2b67ebe96407c1e8c6ed3d4ce55236ae2efe2f1948f38168d",
 )
 
 # We're pinning to a commit because this project does not have a recent release.

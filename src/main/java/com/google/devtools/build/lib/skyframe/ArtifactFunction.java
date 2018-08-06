@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -53,11 +54,11 @@ class ArtifactFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
-    ArtifactSkyKey artifactSkyKey = (ArtifactSkyKey) skyKey.argument();
-    Artifact artifact = artifactSkyKey.getArtifact();
+    Artifact artifact = ArtifactSkyKey.artifact(skyKey);
+    boolean isMandatory = ArtifactSkyKey.isMandatory(skyKey);
     if (artifact.isSourceArtifact()) {
       try {
-        return createSourceValue(artifact, artifactSkyKey.isMandatory(), env);
+        return createSourceValue(artifact, isMandatory, env);
       } catch (MissingInputFileException e) {
         // The error is not necessarily truly transient, but we mark it as such because we have
         // the above side effect of posting an event to the EventBus. Importantly, that event
@@ -121,8 +122,8 @@ class ArtifactFunction implements SkyFunction {
               actionLookupValue,
               actionIndex);
       if (isAggregatingValue(action)) {
-        return createAggregatingValue(artifact, action,
-            actionValue.getArtifactValue(artifact), env);
+        return createAggregatingValue(
+            artifact, action, actionValue.getArtifactValue(artifact), env);
       }
     }
     return createSimpleFileArtifactValue(artifact, actionValue);
@@ -242,8 +243,8 @@ class ArtifactFunction implements SkyFunction {
   private static MissingInputFileException makeMissingInputFileException(
       Artifact artifact, boolean mandatory, Exception failure, EventHandler reporter) {
     String extraMsg = (failure == null) ? "" : (":" + failure.getMessage());
-    MissingInputFileException ex = new MissingInputFileException(
-        constructErrorMessage(artifact) + extraMsg, null);
+    MissingInputFileException ex =
+        new MissingInputFileException(constructErrorMessage(artifact) + extraMsg, null);
     if (mandatory) {
       reporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
     }
@@ -261,10 +262,10 @@ class ArtifactFunction implements SkyFunction {
     // Middleman artifacts have no corresponding files, so their ArtifactValues should have already
     // been constructed during execution of the action.
     Preconditions.checkState(!artifact.isMiddlemanArtifact(), artifact);
-    FileValue data = Preconditions.checkNotNull(actionValue.getData(artifact),
-        "%s %s", artifact, actionValue);
-    Preconditions.checkNotNull(data.getDigest(),
-          "Digest should already have been calculated for %s (%s)", artifact, data);
+    FileValue data =
+        Preconditions.checkNotNull(actionValue.getData(artifact), "%s %s", artifact, actionValue);
+    Preconditions.checkNotNull(
+        data.getDigest(), "Digest should already have been calculated for %s (%s)", artifact, data);
     // Directories are special-cased because their mtimes are used, so should have been constructed
     // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
     Preconditions.checkState(data.isFile(), "Unexpected not file %s (%s)", artifact, data);
@@ -278,28 +279,43 @@ class ArtifactFunction implements SkyFunction {
       FileArtifactValue value,
       SkyFunction.Environment env)
       throws InterruptedException {
-    // This artifact aggregates other artifacts. Keep track of them so callers can find them.
-    ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> inputs = ImmutableList.builder();
-    for (Map.Entry<SkyKey, SkyValue> entry :
-        env.getValues(ArtifactSkyKey.mandatoryKeys(action.getInputs())).entrySet()) {
+    ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> fileInputsBuilder =
+        ImmutableList.builder();
+    ImmutableList.Builder<Pair<Artifact, TreeArtifactValue>> directoryInputsBuilder =
+        ImmutableList.builder();
+    for (Map.Entry<SkyKey, SkyValue> entry : env.getValues(action.getInputs()).entrySet()) {
       Artifact input = ArtifactSkyKey.artifact(entry.getKey());
       SkyValue inputValue = entry.getValue();
       if (inputValue == null) {
         return null;
       }
       if (inputValue instanceof FileArtifactValue) {
-        inputs.add(Pair.of(input, (FileArtifactValue) inputValue));
+        fileInputsBuilder.add(Pair.of(input, (FileArtifactValue) inputValue));
       } else if (inputValue instanceof TreeArtifactValue) {
-        inputs.add(Pair.of(input, ((TreeArtifactValue) inputValue).getSelfData()));
+        directoryInputsBuilder.add(Pair.of(input, (TreeArtifactValue) inputValue));
       } else {
         // We do not recurse in aggregating middleman artifacts.
-        Preconditions.checkState(!(inputValue instanceof AggregatingArtifactValue),
-            "%s %s %s", artifact, action, inputValue);
+        Preconditions.checkState(
+            !(inputValue instanceof AggregatingArtifactValue),
+            "%s %s %s",
+            artifact,
+            action,
+            inputValue);
       }
     }
+
+    ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs =
+        ImmutableList.sortedCopyOf(
+            Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
+            fileInputsBuilder.build());
+    ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs =
+        ImmutableList.sortedCopyOf(
+            Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
+            directoryInputsBuilder.build());
+
     return (action.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN)
-        ? new AggregatingArtifactValue(inputs.build(), value)
-        : new RunfilesArtifactValue(inputs.build(), value);
+        ? new AggregatingArtifactValue(fileInputs, directoryInputs, value)
+        : new RunfilesArtifactValue(fileInputs, directoryInputs, value);
   }
 
   /**
@@ -319,7 +335,7 @@ class ArtifactFunction implements SkyFunction {
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((ArtifactSkyKey) skyKey.argument()).getArtifact().getOwner());
+    return Label.print(ArtifactSkyKey.artifact(skyKey).getOwner());
   }
 
   static ActionLookupKey getActionLookupKey(Artifact artifact) {

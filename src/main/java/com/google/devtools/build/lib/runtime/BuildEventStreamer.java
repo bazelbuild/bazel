@@ -30,7 +30,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
@@ -397,7 +399,8 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
-  private void maybeReportArtifactSet(NestedSetView<Artifact> view) {
+  private void maybeReportArtifactSet(
+      ArtifactPathResolver pathResolver, NestedSetView<Artifact> view) {
     String name = artifactGroupNamer.maybeName(view);
     if (name == null) {
       return;
@@ -411,13 +414,13 @@ public class BuildEventStreamer implements EventHandler {
       view = view.splitIfExceedsMaximumSize(options.maxNamedSetEntries);
     }
     for (NestedSetView<Artifact> transitive : view.transitives()) {
-      maybeReportArtifactSet(transitive);
+      maybeReportArtifactSet(pathResolver, transitive);
     }
-    post(new NamedArtifactGroup(name, view));
+    post(new NamedArtifactGroup(name, pathResolver, view));
   }
 
-  private void maybeReportArtifactSet(NestedSet<Artifact> set) {
-    maybeReportArtifactSet(new NestedSetView<Artifact>(set));
+  private void maybeReportArtifactSet(ArtifactPathResolver pathResolver, NestedSet<Artifact> set) {
+    maybeReportArtifactSet(pathResolver, new NestedSetView<Artifact>(set));
   }
 
   private void maybeReportConfiguration(BuildEvent configuration) {
@@ -483,9 +486,9 @@ public class BuildEventStreamer implements EventHandler {
     }
 
     if (event instanceof EventReportingArtifacts) {
-      for (NestedSet<Artifact> artifactSet :
-          ((EventReportingArtifacts) event).reportedArtifacts()) {
-        maybeReportArtifactSet(artifactSet);
+      ReportedArtifacts reportedArtifacts = ((EventReportingArtifacts) event).reportedArtifacts();
+      for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
+        maybeReportArtifactSet(reportedArtifacts.pathResolver, artifactSet);
       }
     }
 

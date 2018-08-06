@@ -461,7 +461,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationAction() throws Exception {
-    useConfiguration("--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386", "--apple_crosstool_in_output_directory_name");
     ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
 
     // Because protos are linked/compiled within the apple_binary context, we need to traverse the
@@ -510,7 +510,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
             .addAll(
                 ObjcLibraryTest.iquoteArgs(
                     providerForTarget("//package:opl_binary"),
-                    getTargetConfiguration()))
+                    getAppleCrosstoolConfiguration()))
             .add("-I")
             .add(sourceFile.getExecPath().getParentDirectory().getParentDirectory().toString())
             .add("-fno-objc-arc")

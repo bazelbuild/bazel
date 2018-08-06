@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -107,9 +108,6 @@ public final class CcCommon {
       }
     }
   };
-
-  private static final ImmutableList<PathFragment> WHITELISTED_PACKAGES =
-      ImmutableList.of(PathFragment.create("tools/build_defs"));
 
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
@@ -208,41 +206,44 @@ public final class CcCommon {
       throws EvalException {
     RuleContext context = skylarkRuleContext.getRuleContext();
     Rule rule = context.getRule();
-    if (!context.getConfiguration().isHostConfiguration()
-        && !context.getFragment(CppConfiguration.class).getEnableCcSkylarkApi()) {
-      throw new EvalException(
-          rule.getLocation(),
-          "Pass --experimental_enable_cc_skylark_api in "
-              + "order to use the C++ API. Beware that we will be making breaking "
-              + "changes to this API without prior warning.");
-    }
+
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label != null
-        && WHITELISTED_PACKAGES
-            .stream()
-            .noneMatch(path -> label.getPackageFragment().startsWith(path))) {
-      throwWhiteListError(rule.getLocation(), label.getPackageFragment().toString());
+    try {
+      if (label != null) {
+        checkLocationWhitelisted(
+            context.getAnalysisEnvironment().getSkylarkSemantics(),
+            rule.getLocation(),
+            label.getPackageFragment().toString());
+      }
+    } catch (InterruptedException e) {
+      throw new EvalException(rule.getLocation(), e);
     }
   }
 
-  public static void checkLocationWhitelisted(Location location) throws EvalException {
-    String bzlPath = location.getPath().toString();
-    if (WHITELISTED_PACKAGES.stream().noneMatch(path -> bzlPath.contains(path.toString()))) {
-      throwWhiteListError(location, bzlPath);
+  public static void checkLocationWhitelisted(
+      SkylarkSemantics semantics, Location location, String callPath) throws EvalException {
+    List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
+    if (whitelistedPackagesList
+        .stream()
+        .noneMatch(
+            path -> callPath.startsWith(path) || callPath.startsWith("/workspace/" + path))) {
+      throwWhiteListError(location, callPath, whitelistedPackagesList);
     }
   }
 
-  private static void throwWhiteListError(Location location, String bzlPath) throws EvalException {
-    String whitelistedPackages =
-        WHITELISTED_PACKAGES.stream().map(p -> p.toString()).collect(Collectors.joining(", "));
+  private static void throwWhiteListError(
+      Location location, String callPath, List<String> whitelistedPackagesList)
+      throws EvalException {
+    String whitelistedPackages = whitelistedPackagesList.stream().collect(Collectors.joining(", "));
     throw new EvalException(
         location,
         String.format(
-            "the C++ Skylark API is for the time being only allowed for rules in in '//%s/...'; "
-                + "but this is defined in '//%s'. Contact blaze-rules@google.com for more "
-                + "information.",
-            whitelistedPackages, bzlPath));
+            "the C++ Skylark API is for the time being only allowed for rules in '%s'; "
+                + "but this is defined in '%s'. You can try it out by passing "
+                + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that "
+                + "we will be making breaking changes to this API without prior warning.",
+            whitelistedPackages, callPath));
   }
 
   /**
@@ -583,7 +584,7 @@ public final class CcCommon {
 
   /**
    * Determines a list of loose include directories that are only allowed to be referenced when
-   * headers checking is {@link HeadersCheckingMode#LOOSE} or {@link HeadersCheckingMode#WARN}.
+   * headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
   Set<PathFragment> getLooseIncludeDirs() {
     ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();

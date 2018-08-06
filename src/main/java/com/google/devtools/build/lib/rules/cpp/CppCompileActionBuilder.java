@@ -66,7 +66,6 @@ public class CppCompileActionBuilder {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
-  private boolean allowUsingHeaderModules;
   private UUID actionClassId = GUID;
   private CppConfiguration cppConfiguration;
   private final ArrayList<Artifact> additionalIncludeScanningRoots;
@@ -81,6 +80,7 @@ public class CppCompileActionBuilder {
   private ImmutableList<Artifact> builtinIncludeFiles;
   private Iterable<Artifact> inputsForInvalidation = ImmutableList.of();
   private Iterable<Artifact> additionalPrunableHeaders = ImmutableList.of();
+  private ImmutableList<PathFragment> builtinIncludeDirectories;
   // New fields need to be added to the copy constructor.
 
   /**
@@ -116,10 +116,10 @@ public class CppCompileActionBuilder {
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ArrayList<>();
-    this.allowUsingHeaderModules = true;
     this.env = configuration.getActionEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.ccToolchain = ccToolchain;
+    this.builtinIncludeDirectories = ccToolchain.getBuiltInIncludeDirectories();
     this.grepIncludes = grepIncludes;
   }
 
@@ -149,7 +149,6 @@ public class CppCompileActionBuilder {
     this.cppConfiguration = other.cppConfiguration;
     this.configuration = other.configuration;
     this.usePic = other.usePic;
-    this.allowUsingHeaderModules = other.allowUsingHeaderModules;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
     this.env = other.env;
@@ -158,6 +157,7 @@ public class CppCompileActionBuilder {
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
     this.grepIncludes = other.grepIncludes;
+    this.builtinIncludeDirectories = other.builtinIncludeDirectories;
   }
 
   public PathFragment getTempOutputFile() {
@@ -316,7 +316,7 @@ public class CppCompileActionBuilder {
               ccCompilationContext,
               coptsFilter,
               cppSemantics,
-              ccToolchain,
+              builtinIncludeDirectories,
               ImmutableMap.copyOf(executionInfo),
               grepIncludes);
     } else {
@@ -349,7 +349,7 @@ public class CppCompileActionBuilder {
               ImmutableMap.copyOf(executionInfo),
               getActionName(),
               cppSemantics,
-              ccToolchain,
+              builtinIncludeDirectories,
               grepIncludes);
     }
 
@@ -395,8 +395,9 @@ public class CppCompileActionBuilder {
   }
 
   private boolean useHeaderModules() {
-    return allowUsingHeaderModules
-        && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+    Preconditions.checkNotNull(featureConfiguration);
+    Preconditions.checkNotNull(sourceFile);
+    return featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
         && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
             || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
             || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
@@ -514,7 +515,7 @@ public class CppCompileActionBuilder {
         ruleContext,
         CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName),
         configuration);
-    if (generateDotd) {
+    if (generateDotd && (!cppConfiguration.getNoDotdScanningWithModules() || !useHeaderModules())) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleContext, ccToolchain, outputCategory, outputName);
       if (cppConfiguration.getInmemoryDotdFiles()) {
@@ -587,12 +588,6 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  /** Sets whether the CompileAction should use header modules. */
-  public CppCompileActionBuilder setAllowUsingHeaderModules(boolean allowUsingHeaderModules) {
-    this.allowUsingHeaderModules = allowUsingHeaderModules;
-    return this;
-  }
-
   /** Sets the CppSemantics for this compile. */
   public CppCompileActionBuilder setSemantics(CppSemantics semantics) {
     this.cppSemantics = semantics;
@@ -649,6 +644,13 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setAdditionalPrunableHeaders(
       Iterable<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
+    return this;
+  }
+
+  @VisibleForTesting
+  public CppCompileActionBuilder setBuiltinIncludeDirectories(
+      ImmutableList<PathFragment> builtinIncludeDirectories) {
+    this.builtinIncludeDirectories = builtinIncludeDirectories;
     return this;
   }
 

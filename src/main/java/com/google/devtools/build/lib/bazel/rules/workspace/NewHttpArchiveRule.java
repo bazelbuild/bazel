@@ -133,6 +133,10 @@ public class NewHttpArchiveRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = new_http_archive, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
+<p><strong>Deprecated.
+<code>load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")</code>
+for a drop-in replacement.</strong></p>
+
 <p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
 combining the archive with the provided BUILD file.</p>
 

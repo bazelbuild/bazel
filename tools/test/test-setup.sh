@@ -152,6 +152,7 @@ if [[ -z "$no_echo" ]]; then
   echo "-----------------------------------------------------------------------------"
 fi
 
+# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
 function encode_output_file {
   if [ -f "$1" ]; then
     # Replace invalid XML characters and invalid sequence in CDATA
@@ -161,6 +162,8 @@ function encode_output_file {
   fi
 }
 
+# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
+# Keep this in sync with generate-xml.sh!
 function write_xml_output_file {
   local duration=$(expr $(date +%s) - $start)
   local errors=0
@@ -268,17 +271,27 @@ if [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   wait $pid
   exitCode=$?
 else
-  if [ -z "$COVERAGE_DIR" ]; then
-    "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+  if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
+    if [ -z "$COVERAGE_DIR" ]; then
+      "${TEST_PATH}" "$@" 2>&1 || exitCode=$?
+    else
+      "$1" "$TEST_PATH" "${@:3}" 2>&1 || exitCode=$?
+    fi
   else
-    "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+    if [ -z "$COVERAGE_DIR" ]; then
+      "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+    else
+      "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+    fi
   fi
 fi
 
 for signal in $signals; do
   trap - ${signal}
 done
-write_xml_output_file
+if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
+  write_xml_output_file
+fi
 
 # Add all of the files from the undeclared outputs directory to the manifest.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then

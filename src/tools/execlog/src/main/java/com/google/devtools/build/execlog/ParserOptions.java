@@ -29,5 +29,15 @@ public class ParserOptions extends OptionsBase {
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Location of the log file to parse."
   )
+
   public String logPath;
+
+  @Option(
+      name = "restrict_to_runner",
+      defaultValue = "null",
+      category = "logging",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If set, only output the executions that used the given runner.")
+  public String restrictToRunner;
 }

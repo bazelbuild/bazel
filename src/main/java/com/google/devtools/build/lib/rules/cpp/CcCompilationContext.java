@@ -29,21 +29,18 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
+import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -59,7 +56,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
   private final NestedSet<PathFragment> declaredIncludeDirs;
-  private final NestedSet<PathFragment> declaredIncludeWarnDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
 
   /** Module maps from direct dependencies. */
@@ -92,7 +88,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       CommandLineCcCompilationContext commandLineCcCompilationContext,
       ImmutableSet<Artifact> compilationPrerequisites,
       NestedSet<PathFragment> declaredIncludeDirs,
-      NestedSet<PathFragment> declaredIncludeWarnDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -109,7 +104,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
-    this.declaredIncludeWarnDirs = declaredIncludeWarnDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
     this.headerInfo = headerInfo;
@@ -137,8 +131,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    *
    * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
    * prerequisites as a transitive dependency via a middleman. After they have been accumulated
-   * (using {@link Builder#addCompilationPrerequisites(Iterable)}, {@link
-   * Builder#mergeDependentCcCompilationContext(CcCompilationContext)}, and {@link
+   * ({@link Builder#mergeDependentCcCompilationContext(CcCompilationContext)}, and {@link
    * Builder#mergeDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
    * middleman Artifact when {@link Builder#build()} is called.
    *
@@ -191,14 +184,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   }
 
   /**
-   * Returns the immutable set of include directories, relative to a "-I" or "-iquote" directory",
-   * from which inclusion will produce a warning (possibly empty but never null).
-   */
-  public NestedSet<PathFragment> getDeclaredIncludeWarnDirs() {
-    return declaredIncludeWarnDirs;
-  }
-
-  /**
    * Returns the immutable set of headers that have been declared in the {@code srcs} or {@code
    * hdrs} attribute (possibly empty but never null).
    */
@@ -211,47 +196,41 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return headerInfo.textualHeaders;
   }
 
-  public Map<Artifact, Artifact> createLegalGeneratedScannerFileMap() {
-    Map<Artifact, Artifact> legalOuts = new HashMap<>();
+  public IncludeScanningHeaderData createIncludeScanningHeaderData(
+      boolean usePic, boolean createModularHeaders) {
+    // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
+    // substantially more costly in a way that shows up in profiles.
+    Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
+    Set<Artifact> modularHeaders = new HashSet<>();
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
+      boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       for (Artifact a : transitiveHeaderInfo.modularHeaders) {
         if (!a.isSourceArtifact()) {
-          legalOuts.put(a, null);
+          pathToLegalOutputArtifact.put(a.getExecPath(), a);
+        }
+        if (isModule) {
+          modularHeaders.add(a);
         }
       }
       for (Artifact a : transitiveHeaderInfo.textualHeaders) {
         if (!a.isSourceArtifact()) {
-          legalOuts.put(a, null);
+          pathToLegalOutputArtifact.put(a.getExecPath(), a);
         }
       }
-      for (PregreppedHeader pregreppedHeader : transitiveHeaderInfo.pregreppedHeaders) {
-        Artifact hdr = pregreppedHeader.originalHeader();
-        Preconditions.checkState(!hdr.isSourceArtifact(), hdr);
-        legalOuts.put(hdr, pregreppedHeader.greppedHeader());
-      }
     }
-    return Collections.unmodifiableMap(legalOuts);
+    modularHeaders.removeAll(headerInfo.modularHeaders);
+    modularHeaders.removeAll(headerInfo.textualHeaders);
+    return new IncludeScanningHeaderData(
+        Collections.unmodifiableMap(pathToLegalOutputArtifact),
+        Collections.unmodifiableSet(modularHeaders));
   }
 
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
     return usePic ? transitivePicModules : transitiveModules;
   }
 
-  public Set<Artifact> getModularHeaders(boolean usePic) {
-    Set<Artifact> result = new HashSet<>();
-    for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
-      if (transitiveHeaderInfo.getModule(usePic) != null) {
-        result.addAll(transitiveHeaderInfo.modularHeaders);
-      }
-    }
-    // Remove headers belonging to this module.
-    result.removeAll(headerInfo.modularHeaders);
-    result.removeAll(headerInfo.textualHeaders);
-    return Collections.unmodifiableSet(result);
-  }
-
-  public Collection<HeaderInfo> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
-    List<HeaderInfo> result = new ArrayList<>();
+  public ImmutableSet<Artifact> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
+    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       // Do not add the module of the current rule for both:
       // 1. the module compile itself
@@ -262,12 +241,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       }
       for (Artifact header : transitiveHeaderInfo.modularHeaders) {
         if (usedHeaders.contains(header)) {
-          result.add(transitiveHeaderInfo);
+          result.add(transitiveHeaderInfo.getModule(usePic));
           break;
         }
       }
     }
-    return result;
+    return result.build();
   }
 
   /**
@@ -321,15 +300,13 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext}
-   * but returns empty sets for {@link #getDeclaredIncludeDirs()} and {@link
-   * #getDeclaredIncludeWarnDirs()}.
+   * but returns empty sets for {@link #getDeclaredIncludeDirs()}.
    */
   public static CcCompilationContext disallowUndeclaredHeaders(
       CcCompilationContext ccCompilationContext) {
     return new CcCompilationContext(
         ccCompilationContext.commandLineCcCompilationContext,
         ccCompilationContext.compilationPrerequisites,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         ccCompilationContext.declaredIncludeSrcs,
         ccCompilationContext.nonCodeInputs,
@@ -396,8 +373,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<PathFragment> systemIncludeDirs = new LinkedHashSet<>();
     private final NestedSetBuilder<PathFragment> declaredIncludeDirs =
         NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<PathFragment> declaredIncludeWarnDirs =
-        NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs =
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
@@ -455,7 +430,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
       declaredIncludeDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeDirs());
-      declaredIncludeWarnDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeWarnDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       transitiveHeaderInfo.addTransitive(otherCcCompilationContext.transitiveHeaderInfos);
       transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
@@ -496,23 +470,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Adds multiple compilation prerequisites.
-     *
-     * <p>There are two kinds of "compilation prerequisites": declared header files and pregrepped
-     * headers.
-     */
-    public Builder addCompilationPrerequisites(Iterable<Artifact> prerequisites) {
-      for (Artifact prerequisite : prerequisites) {
-        String basename = prerequisite.getFilename();
-        Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
-        Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
-        Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
-      }
-      Iterables.addAll(compilationPrerequisites, prerequisites);
-      return this;
-    }
-
-    /**
      * Add a single include directory to be added with "-I". It can be either
      * relative to the exec root (see
      * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
@@ -520,19 +477,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      */
     public Builder addIncludeDir(PathFragment includeDir) {
       includeDirs.add(includeDir);
-      return this;
-    }
-
-    /**
-     * Add multiple include directories to be added with "-I". These can be
-     * either relative to the exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. The
-     * entries are normalized before they are stored.
-     */
-    public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
-      for (PathFragment includeDir : includeDirs) {
-        addIncludeDir(includeDir);
-      }
       return this;
     }
 
@@ -548,31 +492,18 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Add a single include directory to be added with "-isystem". It can be
-     * either relative to the exec root (see {@link
-     * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or absolute. Before it
-     * is stored, the include directory is normalized.
+     * Add a single include directory to be added with "-isystem". It can be either relative to the
+     * exec root (see {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot})
+     * or absolute. Before it is stored, the include directory is normalized.
      */
-    public Builder addSystemIncludeDir(PathFragment systemIncludeDir) {
-      systemIncludeDirs.add(systemIncludeDir);
+    public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
+      Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
       return this;
     }
 
-    /**
-     * Add a single declared include dir, relative to a "-I" or "-iquote"
-     * directory".
-     */
+    /** Add a single declared include dir, relative to a "-I" or "-iquote" directory". */
     public Builder addDeclaredIncludeDir(PathFragment dir) {
       declaredIncludeDirs.add(dir);
-      return this;
-    }
-
-    /**
-     * Add a single declared include directory, relative to a "-I" or "-iquote"
-     * directory", from which inclusion will produce a warning.
-     */
-    public Builder addDeclaredIncludeWarnDir(PathFragment dir) {
-      declaredIncludeWarnDirs.add(dir);
       return this;
     }
 
@@ -610,20 +541,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
     public Builder addTextualHdrs(Collection<Artifact> headers) {
       this.headerInfoBuilder.addTextualHeaders(headers);
-      return this;
-    }
-
-    /**
-     * Add a map of generated source or header Artifact to an output Artifact after grepping the
-     * file for include statements.
-     */
-    public Builder addPregreppedHeaders(List<PregreppedHeader> pregrepped) {
-      addCompilationPrerequisites(
-          pregrepped
-              .stream()
-              .map(pregreppedHeader -> pregreppedHeader.greppedHeader())
-              .collect(Collectors.toList()));
-      this.headerInfoBuilder.addPregreppedHeaders(pregrepped);
       return this;
     }
 
@@ -726,7 +643,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
               ? ImmutableSet.copyOf(compilationPrerequisites)
               : ImmutableSet.of(prerequisiteStampFile),
           declaredIncludeDirs.build(),
-          declaredIncludeWarnDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
           headerInfo,
@@ -800,19 +716,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     /** All header files that are contained in this module. */
     private final ImmutableList<Artifact> textualHeaders;
 
-    private final ImmutableList<PregreppedHeader> pregreppedHeaders;
-
     public HeaderInfo(
         Artifact headerModule,
         Artifact picHeaderModule,
         ImmutableList<Artifact> modularHeaders,
-        ImmutableList<Artifact> textualHeaders,
-        ImmutableList<PregreppedHeader> pregreppedHeaders) {
+        ImmutableList<Artifact> textualHeaders) {
       this.headerModule = headerModule;
       this.picHeaderModule = picHeaderModule;
       this.modularHeaders = modularHeaders;
       this.textualHeaders = textualHeaders;
-      this.pregreppedHeaders = pregreppedHeaders;
     }
 
     public Artifact getModule(boolean pic) {
@@ -827,7 +739,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       private Artifact picHeaderModule = null;
       private final Set<Artifact> modularHeaders = new HashSet<>();
       private final Set<Artifact> textualHeaders = new HashSet<>();
-      private final Set<PregreppedHeader> pregreppedHeaders = new HashSet<>();
 
       public Builder setHeaderModule(Artifact headerModule) {
         this.headerModule = headerModule;
@@ -857,18 +768,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         return this;
       }
 
-      public Builder addPregreppedHeaders(Collection<PregreppedHeader> pregreppedHeaders) {
-        this.pregreppedHeaders.addAll(pregreppedHeaders);
-        return this;
-      }
-
       public HeaderInfo build() {
         return new HeaderInfo(
             headerModule,
             picHeaderModule,
             ImmutableList.copyOf(modularHeaders),
-            ImmutableList.copyOf(textualHeaders),
-            ImmutableList.copyOf(pregreppedHeaders));
+            ImmutableList.copyOf(textualHeaders));
       }
     }
   }

@@ -704,7 +704,8 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   @Override
   // TODO(b/24373706): Remove this method once new C++ toolchain API is available
   public ImmutableList<String> getUnfilteredCompilerOptionsWithSysroot(
-      Iterable<String> featuresNotUsedAnymore) {
+      Iterable<String> featuresNotUsedAnymore) throws EvalException {
+    cppConfiguration.checkForLegacyCompilationApiAvailability();
     return toolchainInfo.getUnfilteredCompilerOptions(sysroot);
   }
 
@@ -723,10 +724,12 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   }
 
   @Override
-  public ImmutableList<String> getLinkOptionsWithSysroot() {
-    return cppConfiguration == null
-        ? ImmutableList.of()
-        : cppConfiguration.getLinkOptionsDoNotUse(sysroot);
+  public ImmutableList<String> getLinkOptionsWithSysroot() throws EvalException {
+    if (cppConfiguration == null) {
+      return ImmutableList.of();
+    }
+    cppConfiguration.checkForLegacyLinkingApiAvailability();
+    return cppConfiguration.getLinkOptionsDoNotUse(sysroot);
   }
 
   public ImmutableList<String> getLinkOptions() {
@@ -883,7 +886,8 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    */
   @Override
-  public ImmutableList<String> getCompilerOptions() {
+  public ImmutableList<String> getCompilerOptions() throws EvalException {
+    cppConfiguration.checkForLegacyCompilationApiAvailability();
     return getLegacyCompileOptionsWithCopts();
   }
 
@@ -896,7 +900,8 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    * CcToolchainProvider#getLegacyCompileOptionsWithCopts()}.
    */
   @Override
-  public ImmutableList<String> getCOptions() {
+  public ImmutableList<String> getCOptions() throws EvalException {
+    cppConfiguration.checkForLegacyCompilationApiAvailability();
     return cppConfiguration.getCOptions();
   }
 
@@ -909,7 +914,8 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    */
   @Override
   @Deprecated
-  public ImmutableList<String> getCxxOptionsWithCopts() {
+  public ImmutableList<String> getCxxOptionsWithCopts() throws EvalException {
+    cppConfiguration.checkForLegacyCompilationApiAvailability();
     return ImmutableList.<String>builder()
         .addAll(getLegacyCxxOptions())
         .addAll(cppConfiguration.getCxxopts())
@@ -935,6 +941,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   @Override
   @Deprecated
   public ImmutableList<String> getFullyStaticLinkOptions(Boolean sharedLib) throws EvalException {
+    cppConfiguration.checkForLegacyLinkingApiAvailability();
     if (!sharedLib) {
       throw new EvalException(
           Location.BUILTIN, "fully_static_link_options is deprecated, new uses are not allowed.");
@@ -946,14 +953,15 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    *
-   * Returns the immutable list of linker options for mostly statically linked outputs. Does not
+   * <p>Returns the immutable list of linker options for mostly statically linked outputs. Does not
    * include command-line options passed via --linkopt or --linkopts.
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   @Override
   @Deprecated
-  public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib) {
+  public ImmutableList<String> getMostlyStaticLinkOptions(Boolean sharedLib) throws EvalException {
+    cppConfiguration.checkForLegacyLinkingApiAvailability();
     return CppHelper.getMostlyStaticLinkOptions(
         cppConfiguration, this, sharedLib, /* shouldStaticallyLinkCppRuntimes= */ true);
   }
@@ -962,14 +970,15 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    * WARNING: This method is only added to allow incremental migration of existing users. Please do
    * not use in new code. Will be removed soon as part of the new Skylark API to the C++ toolchain.
    *
-   * Returns the immutable list of linker options for artifacts that are not fully or mostly
+   * <p>Returns the immutable list of linker options for artifacts that are not fully or mostly
    * statically linked. Does not include command-line options passed via --linkopt or --linkopts.
    *
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
   @Override
   @Deprecated
-  public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib) {
+  public ImmutableList<String> getDynamicLinkOptions(Boolean sharedLib) throws EvalException {
+    cppConfiguration.checkForLegacyLinkingApiAvailability();
     return CppHelper.getDynamicLinkOptions(cppConfiguration, this, sharedLib);
   }
 

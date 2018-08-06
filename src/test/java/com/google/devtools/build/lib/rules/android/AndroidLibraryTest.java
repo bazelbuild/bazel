@@ -477,8 +477,9 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    srcs = ['dummy4.java'])");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/exports:dummy");
-    List<Label> exports = ImmutableList.copyOf(
-        target.getProvider(JavaExportsProvider.class).getTransitiveExports());
+    List<Label> exports =
+        ImmutableList.copyOf(
+            JavaInfo.getProvider(JavaExportsProvider.class, target).getTransitiveExports());
     assertThat(exports)
         .containsExactly(
             Label.parseAbsolute("//java/com/google/exports:dummy2", ImmutableMap.of()),
@@ -1145,7 +1146,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/android/assets/values/orc.txt",
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
-    final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
+    final AndroidIdeInfoProvider provider = target.get(AndroidIdeInfoProvider.PROVIDER);
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1177,7 +1178,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget(
         "//research/handwriting/java/com/google/research/handwriting:r");
-    final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
+    final AndroidIdeInfoProvider provider = target.get(AndroidIdeInfoProvider.PROVIDER);
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1211,7 +1212,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     scratch.file("java/android/assets/values/orc.txt",
         "Nabu nabu!");
     ConfiguredTarget target = getConfiguredTarget("//java/android:r");
-    final AndroidIdeInfoProvider provider = target.getProvider(AndroidIdeInfoProvider.class);
+    final AndroidIdeInfoProvider provider = target.get(AndroidIdeInfoProvider.PROVIDER);
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
     assertThat(provider.getManifest())
         .isEqualTo(
@@ -1541,7 +1542,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(linkAction.getInputs())
         .containsAllOf(
-            sdk.getConfiguredTarget().getProvider(AndroidSdkProvider.class).getAndroidJar(),
+            sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
             getImplicitOutputArtifact(
                 a.getConfiguredTarget(),
                 a.getConfiguration(),
@@ -1750,11 +1751,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     Iterable<String> c1Jars =
         ActionsTestUtil.baseArtifactNames(
-            c1Target.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, c1Target)
+                .getCompilationClasspath());
 
     Iterable<String> c2Jars =
         ActionsTestUtil.baseArtifactNames(
-            c2Target.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, c2Target)
+                .getCompilationClasspath());
 
     assertThat(c1Jars).containsExactly("liba-hjar.jar");
     assertThat(c2Jars).containsExactly("liba-hjar.jar");
@@ -1774,10 +1777,12 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     ImmutableList<Artifact> bClasspath =
         ImmutableList.copyOf(
-            bTarget.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, bTarget)
+                .getCompilationClasspath());
     ImmutableList<Artifact> cClasspath =
         ImmutableList.copyOf(
-            cTarget.getProvider(JavaCompilationInfoProvider.class).getCompilationClasspath());
+            JavaInfo.getProvider(JavaCompilationInfoProvider.class, cTarget)
+                .getCompilationClasspath());
 
     assertThat(bClasspath).isEmpty();
     assertThat(cClasspath)
@@ -2017,6 +2022,32 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(ActionsTestUtil.prettyArtifactNames(javacAction.getClasspath()))
         .containsExactly(
             "java/foo/lib_resources.jar", "java/foo/dep_resources.jar", "java/foo/libdep-hjar.jar")
+        .inOrder();
+  }
+
+  @Test
+  public void testAndroidCcLinkParamsProvider() throws Exception {
+    scratch.file(
+        "java/foo/BUILD",
+        "cc_library(",
+        "  name='cc_dep',",
+        "  srcs=['dep.cc'],",
+        "  linkopts = ['-CC_DEP'],",
+        ")",
+        "android_library(",
+        "  name='lib',",
+        "  srcs=['lib.java'],",
+        "  deps=[':cc_dep'])");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/foo:lib");
+
+    assertThat(
+            target
+                .get(AndroidCcLinkParamsProvider.PROVIDER)
+                .getLinkParams()
+                .getDynamicModeParamsForDynamicLibrary()
+                .flattenedLinkopts())
+        .containsExactly("-CC_DEP")
         .inOrder();
   }
 }

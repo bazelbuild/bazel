@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor.Type;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -50,7 +50,7 @@ public final class SkydocTest extends SkylarkTestCase {
 
       @Override
       public ParserInputSource inputSource(String pathString) throws IOException {
-        Path path = fileSystem.getPath(pathString);
+        Path path = fileSystem.getPath("/" + pathString);
         byte[] bytes = FileSystemUtils.asByteSource(path).read();
         return ParserInputSource.create(bytes, path.asFragment());
       }
@@ -79,7 +79,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
 
     skydocMain.eval(
-        Paths.get("/test/test.bzl"),
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         unexportedRuleInfos);
     Map<String, RuleInfo> ruleInfos = ruleInfoMap.build();
@@ -140,7 +140,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableList.Builder<RuleInfo> unexportedRuleInfos = ImmutableList.builder();
 
     skydocMain.eval(
-        Paths.get("/test/test.bzl"),
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         unexportedRuleInfos);
 
@@ -191,7 +191,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        Paths.get("/test/main.bzl"),
+        Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableList.builder());
 
@@ -228,10 +228,10 @@ public final class SkydocTest extends SkylarkTestCase {
     IllegalStateException expected =
         assertThrows(IllegalStateException.class,
             () -> skydocMain.eval(
-                Paths.get("/test/main.bzl"),
+                Label.parseAbsoluteUnchecked("//test:main.bzl"),
                 ruleInfoMapBuilder,
                 ImmutableList.builder()));
 
-    assertThat(expected).hasMessageThat().contains("cycle with /test/main.bzl");
+    assertThat(expected).hasMessageThat().contains("cycle with test/main.bzl");
   }
 }

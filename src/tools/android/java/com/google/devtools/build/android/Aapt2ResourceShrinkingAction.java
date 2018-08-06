@@ -25,12 +25,17 @@ import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.Closeable;
 import java.io.File;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -53,68 +58,104 @@ import java.util.function.Function;
  */
 public class Aapt2ResourceShrinkingAction {
 
+  /** Aapt2 shrinking specific options */
+  public static final class Aapt2ShrinkOptions extends OptionsBase {
+    @Option(
+        name = "useProtoApk",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
+    public boolean useProtoApk;
+  }
+
   public static void main(String[] args) throws Exception {
     final Profiler profiler = LoggingProfiler.createAndStart("shrink").startTask("flags");
     // Parse arguments.
     OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class, Aapt2ConfigOptions.class);
+        OptionsParser.newOptionsParser(
+            ImmutableList.of(Options.class, Aapt2ConfigOptions.class, Aapt2ShrinkOptions.class));
     optionsParser.enableParamsFileSupport(
         new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
     optionsParser.parseAndExitUponError(args);
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
+    Aapt2ShrinkOptions aapt2ShrinkOptions = optionsParser.getOptions(Aapt2ShrinkOptions.class);
     profiler.recordEndOf("flags").startTask("setup");
 
-    final ListeningExecutorService executorService = ExecutorServiceCloser.createDefaultService();
     try (ScopedTemporaryDirectory scopedTmp =
             new ScopedTemporaryDirectory("android_resources_tmp");
-        Closeable closer = ExecutorServiceCloser.createWith(executorService)) {
-
-      Path workingResourcesDirectory = scopedTmp.subDirectoryOf("resources");
-      final ResourceCompiler resourceCompiler =
-          ResourceCompiler.create(
-              executorService,
-              workingResourcesDirectory,
-              aapt2ConfigOptions.aapt2,
-              aapt2ConfigOptions.buildToolsVersion,
-              aapt2ConfigOptions.generatePseudoLocale);
-      profiler.recordEndOf("setup").startTask("compile");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
 
       final ResourcesZip resourcesZip =
           ResourcesZip.createFrom(
               options.resourcesZip, scopedTmp.subDirectoryOf("merged-resources"));
-      final CompiledResources compiled =
-          resourcesZip
-              .shrink(
-                  options
-                      .dependencyManifests
-                      .stream()
-                      .map(Path::toFile)
-                      .map(manifestToPackageUsing(executorService))
-                      .map(futureToString())
-                      .collect(toSet()),
-                  options.rTxt,
-                  options.shrunkJar,
-                  options.primaryManifest,
-                  options.proguardMapping,
-                  options.log,
-                  scopedTmp.subDirectoryOf("shrunk-resources"))
-              .writeArchiveTo(options.shrunkResources, false)
-              .compile(resourceCompiler, workingResourcesDirectory);
-      profiler.recordEndOf("compile");
+      Path workingResourcesDirectory = scopedTmp.subDirectoryOf("resources");
+      final ResourceLinker linker =
+          ResourceLinker.create(
+                  aapt2ConfigOptions.aapt2, executorService, scopedTmp.subDirectoryOf("linking"))
+              .profileUsing(profiler)
+              .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)));
 
-      ResourceLinker.create(
-              aapt2ConfigOptions.aapt2, executorService, scopedTmp.subDirectoryOf("linking"))
-          .profileUsing(profiler)
-          .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)))
-          .profileUsing(profiler)
-          .outputAsProto(aapt2ConfigOptions.resourceTableAsProto)
-          .buildVersion(aapt2ConfigOptions.buildToolsVersion)
-          .includeOnlyConfigs(aapt2ConfigOptions.resourceConfigs)
-          .debug(aapt2ConfigOptions.debug)
-          .link(compiled)
-          .copyPackageTo(options.shrunkApk)
-          .copyRTxtTo(options.rTxtOutput);
+      final Set<String> packages =
+          options
+              .dependencyManifests
+              .stream()
+              .map(Path::toFile)
+              .map(manifestToPackageUsing(executorService))
+              .map(futureToString())
+              .collect(toSet());
+
+      if (aapt2ShrinkOptions.useProtoApk) {
+        resourcesZip
+            .shrinkUsingProto(
+                packages,
+                options.shrunkJar,
+                options.proguardMapping,
+                options.log,
+                scopedTmp.subDirectoryOf("shrunk-resources"))
+            .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
+            .writeReportTo(options.log)
+            .writeResourcesToZip(options.shrunkResources);
+        if (options.rTxtOutput != null) {
+          // Fufill the contract -- however, we do not generate an R.txt from the shrunk resources.
+          Files.copy(options.rTxt, options.rTxtOutput);
+        }
+      } else {
+        final ResourceCompiler resourceCompiler =
+            ResourceCompiler.create(
+                executorService,
+                workingResourcesDirectory,
+                aapt2ConfigOptions.aapt2,
+                aapt2ConfigOptions.buildToolsVersion,
+                aapt2ConfigOptions.generatePseudoLocale);
+        profiler.recordEndOf("setup").startTask("compile");
+
+        final CompiledResources compiled =
+            resourcesZip
+                .shrink(
+                    packages,
+                    options.rTxt,
+                    options.shrunkJar,
+                    options.primaryManifest,
+                    options.proguardMapping,
+                    options.log,
+                    scopedTmp.subDirectoryOf("shrunk-resources"))
+                .writeArchiveTo(options.shrunkResources, false)
+                .compile(resourceCompiler, workingResourcesDirectory);
+        profiler.recordEndOf("compile");
+        linker
+            .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)))
+            .profileUsing(profiler)
+            .outputAsProto(aapt2ConfigOptions.resourceTableAsProto)
+            .buildVersion(aapt2ConfigOptions.buildToolsVersion)
+            .includeOnlyConfigs(aapt2ConfigOptions.resourceConfigs)
+            .debug(aapt2ConfigOptions.debug)
+            .link(compiled)
+            .copyPackageTo(options.shrunkApk)
+            .copyRTxtTo(options.rTxtOutput);
+      }
       profiler.recordEndOf("shrink");
     }
   }

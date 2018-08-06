@@ -302,14 +302,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     }
   }
 
-  private void recordIfInstanceMethod(int access, String name, String desc) {
-    if (BitFlags.noneSet(access, Opcodes.ACC_STATIC)) {
-      // Record all declared instance methods, including abstract, bridge, and native methods, as
-      // they all take precedence over default methods.
-      instanceMethods.add(name + ":" + desc);
-    }
-  }
-
   /**
    * Starting from the given interfaces, this method scans the interface hierarchy, finds the
    * interfaces that have default methods and <clinit>, and returns the companion class names of
@@ -410,7 +402,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     // Note that an exception is that, if a bridge method is for a default interface method, javac
     // will NOT generate the bridge method in the implementing class. So we need extra logic to
     // handle these bridge methods.
-    return isNonBridgeDefaultMethod(access) && !instanceMethods.contains(name + ":" + desc);
+    return isNonBridgeDefaultMethod(access) && !recordedInstanceMethod(name, desc);
   }
 
   private static boolean isNonBridgeDefaultMethod(int access) {
@@ -426,7 +418,27 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private boolean shouldStubAsBridgeDefaultMethod(int access, String name, String desc) {
     return BitFlags.isSet(access, Opcodes.ACC_BRIDGE | Opcodes.ACC_PUBLIC)
         && BitFlags.noneSet(access, Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC)
-        && !instanceMethods.contains(name + ":" + desc);
+        && !recordedInstanceMethod(name, desc);
+  }
+
+  private void recordIfInstanceMethod(int access, String name, String desc) {
+    if (BitFlags.noneSet(access, Opcodes.ACC_STATIC)) {
+      // Record all declared instance methods, including abstract, bridge, and native methods, as
+      // they all take precedence over default methods.
+      if (coreLibrarySupport != null) {
+        // Foreshadow any type renaming to avoid issues with double-desugaring (b/111447199)
+        desc = coreLibrarySupport.getRemapper().mapMethodDesc(desc);
+      }
+      instanceMethods.add(name + ":" + desc);
+    }
+  }
+
+  private boolean recordedInstanceMethod(String name, String desc) {
+    if (coreLibrarySupport != null) {
+      // Foreshadow any type renaming to avoid issues with double-desugaring (b/111447199)
+      desc = coreLibrarySupport.getRemapper().mapMethodDesc(desc);
+    }
+    return instanceMethods.contains(name + ":" + desc);
   }
 
   /**

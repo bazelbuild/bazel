@@ -205,6 +205,9 @@ filegroup(
         "//src/conditions:windows": [
             "@openjdk_win//file",
         ],
+        "//src/conditions:linux_aarch64": [
+            "@openjdk_linux_aarch64//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux//file",
         ],
@@ -371,6 +374,7 @@ genrule(
     srcs = [
         "//src/main/protobuf:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
         "@googleapis//:dist_jars",
     ],

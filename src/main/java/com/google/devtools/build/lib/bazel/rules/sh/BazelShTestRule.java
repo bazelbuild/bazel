@@ -35,6 +35,12 @@ public final class BazelShTestRule implements RuleDefinition {
     if (launcher != null) {
       builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));
     }
+    // TODO(bazel-team): Add $lcov_merger to every test rule as opposed to particular rules.
+    builder.add(
+        attr("$lcov_merger", LABEL)
+            .value(
+                Label.parseAbsoluteUnchecked(
+                    "@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main")));
     return builder.build();
   }
 

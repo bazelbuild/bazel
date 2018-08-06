@@ -59,7 +59,7 @@ function test_line_wrapping() {
   # something is written in green
   expect_log $'\x1b\[32m'
   # lines are wrapped, hence at least one line should end with backslash
-  expect_log '\\'$'\r''$'
+  expect_log '\\'$'\r''$\|\\$'
 }
 
 function test_noline_wrapping_color_nocurses() {
@@ -68,8 +68,9 @@ function test_noline_wrapping_color_nocurses() {
   expect_log $'\x1b\[32m'
   # no lines are deleted
   expect_not_log $'\x1b\[K'
-  # as no line wrapping occurs, no backlsash should be before a carriage return
+  # as no line wrapping occurs, no backlsash should be before a carriage return or at a line ending
   expect_not_log '\\'$'\r'
+  expect_not_log '\\$'
 }
 
 

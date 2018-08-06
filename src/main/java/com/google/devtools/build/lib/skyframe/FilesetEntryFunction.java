@@ -59,7 +59,8 @@ public final class FilesetEntryFunction implements SkyFunction {
 
     // Create the set of excluded files. Only top-level files can be excluded, i.e. ones that are
     // directly under the root if the root is a directory.
-    Set<String> exclusions = createExclusionSet(t.getExcludedFiles());
+    Set<String> exclusions =
+        Sets.filter(t.getExcludedFiles(), e -> PathFragment.create(e).segmentCount() == 1);
 
     // The map of output symlinks. Each key is the path of a output symlink that the Fileset must
     // create, relative to the Fileset.out directory, and each value specifies extra information
@@ -79,7 +80,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       for (SkyKey nestedKey : nestedKeys) {
         FilesetEntryValue nested = (FilesetEntryValue) results.get(nestedKey);
         for (FilesetOutputSymlink s : nested.getSymlinks()) {
-          if (!exclusions.contains(s.name.getPathString())) {
+          if (!exclusions.contains(s.getName().getPathString())) {
             maybeStoreSymlink(s, t.getDestPath(), outputSymlinks);
           }
         }
@@ -187,9 +188,13 @@ public final class FilesetEntryFunction implements SkyFunction {
           throw new FilesetEntryFunctionException(e);
         }
 
-        // Metadata field must be present. It can only be absent when stripped by tests.
-        String metadata = Integer.toHexString(f.getMetadataHash());
-        maybeStoreSymlink(linkName, targetName, metadata, t.getDestPath(), outputSymlinks);
+        maybeStoreSymlink(
+            linkName,
+            targetName,
+            f.getMetadata(),
+            t.getDestPath(),
+            direct.isGenerated(),
+            outputSymlinks);
       }
     }
 
@@ -201,31 +206,28 @@ public final class FilesetEntryFunction implements SkyFunction {
       FilesetOutputSymlink nestedLink,
       PathFragment destPath,
       Map<PathFragment, FilesetOutputSymlink> result) {
-    maybeStoreSymlink(nestedLink.name, nestedLink.target, nestedLink.metadata, destPath, result);
+    maybeStoreSymlink(
+        nestedLink.getName(),
+        nestedLink.getTargetPath(),
+        nestedLink.getMetadata(),
+        destPath,
+        nestedLink.isGeneratedTarget(),
+        result);
   }
 
   /** Stores an output symlink unless it would overwrite an existing one. */
   private static void maybeStoreSymlink(
       PathFragment linkName,
       PathFragment linkTarget,
-      String metadata,
+      Object metadata,
       PathFragment destPath,
+      boolean isGenerated,
       Map<PathFragment, FilesetOutputSymlink> result) {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
-      result.put(linkName, new FilesetOutputSymlink(linkName, linkTarget, metadata));
+      result.put(
+          linkName, FilesetOutputSymlink.create(linkName, linkTarget, metadata, isGenerated));
     }
-  }
-
-  private static Set<String> createExclusionSet(Set<String> input) {
-    return Sets.filter(input, new Predicate<String>() {
-      @Override
-      public boolean apply(String e) {
-        // Keep the top-level exclusions only. Do not look for "/" but count the path segments
-        // instead, in anticipation of future Windows support.
-        return PathFragment.create(e).segmentCount() == 1;
-      }
-    });
   }
 
   @Override
@@ -241,6 +243,7 @@ public final class FilesetEntryFunction implements SkyFunction {
             traversal.getRoot(),
             traversal.isGenerated(),
             traversal.getPackageBoundaryMode(),
+            traversal.isStrictFilesetOutput(),
             traversal.isPackage(),
             errorInfo);
     RecursiveFilesystemTraversalValue v = (RecursiveFilesystemTraversalValue) env.getValue(depKey);

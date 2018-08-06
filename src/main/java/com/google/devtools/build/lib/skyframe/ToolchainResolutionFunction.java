@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -111,14 +111,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Load the PlatformInfo needed to check constraints.
     Map<ConfiguredTargetKey, PlatformInfo> platforms;
     try {
+
       platforms =
-          ToolchainUtil.getPlatformInfo(
+          PlatformLookupUtil.getPlatformInfo(
               new ImmutableList.Builder<ConfiguredTargetKey>()
                   .add(targetPlatformKey)
                   .addAll(availableExecutionPlatformKeys)
                   .build(),
               env);
-      if (platforms == null) {
+      if (env.valuesMissing()) {
         return null;
       }
     } catch (InvalidPlatformException e) {

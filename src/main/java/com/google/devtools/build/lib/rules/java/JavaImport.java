@@ -126,7 +126,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
       ruleOutputJarsProviderBuilder.addOutputJar(
-          jar, compilationToRuntimeJarMap.inverse().get(jar), srcJars);
+          jar, compilationToRuntimeJarMap.inverse().get(jar), null /* manifestProto */, srcJars);
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
@@ -143,6 +143,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
         .setRuntimeJars(javaArtifacts.getRuntimeJars())
         .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
         .setNeverlink(neverLink)
@@ -157,8 +158,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
-        .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-        .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
+        .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs)
         .build();

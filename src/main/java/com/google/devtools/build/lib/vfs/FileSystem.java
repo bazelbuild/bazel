@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultNotSetException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,7 +40,18 @@ public abstract class FileSystem {
   private final DigestHashFunction digestFunction;
 
   public FileSystem() {
-    this(DigestHashFunction.MD5);
+    DigestHashFunction defaultHash;
+    try {
+      defaultHash = DigestHashFunction.getDefault();
+    } catch (DefaultNotSetException e) {
+      // For now, be tolerant for cases where the default has not been set, and fallback to MD5, the
+      // old default.
+      // TODO(b/109764197): Remove this, third_party uses of this library should set their own
+      // default, and tests should either set their own default or be able to be run with multiple
+      // digest functions.
+      defaultHash = DigestHashFunction.MD5;
+    }
+    digestFunction = defaultHash;
   }
 
   public FileSystem(DigestHashFunction digestFunction) {
@@ -238,17 +250,8 @@ public abstract class FileSystem {
    * one available or the filesystem doesn't support them. This digest should be suitable for
    * detecting changes to the file.
    */
-  protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction) throws IOException {
+  protected byte[] getFastDigest(Path path) throws IOException {
     return null;
-  }
-
-  /**
-   * Gets a fast digest for the given path, or {@code null} if there isn't one available or the
-   * filesystem doesn't support them. This digest should be suitable for detecting changes to the
-   * file.
-   */
-  protected final byte[] getFastDigest(Path path) throws IOException {
-    return getFastDigest(path, digestFunction);
   }
 
   /**
@@ -259,31 +262,20 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the digest of the file denoted by the path, following symbolic links, for the given
-   * hash digest function.
+   * Returns the digest of the file denoted by the path, following symbolic links.
    *
-   * <p>Subclasses may (and do) optimize this computation for particular digest functions.
+   * <p>Subclasses may (and do) optimize this computation for a particular digest functions.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  protected byte[] getDigest(final Path path, DigestHashFunction hashFunction) throws IOException {
+  protected byte[] getDigest(final Path path) throws IOException {
     return new ByteSource() {
       @Override
       public InputStream openStream() throws IOException {
         return getInputStream(path);
       }
-    }.hash(hashFunction.getHash()).asBytes();
-  }
-
-  /**
-   * Returns the digest of the file denoted by the path, following symbolic links.
-   *
-   * @return a new byte array containing the file's digest
-   * @throws IOException if the digest could not be computed for any reason
-   */
-  protected final byte[] getDigest(final Path path) throws IOException {
-    return getDigest(path, digestFunction);
+    }.hash(digestFunction.getHash()).asBytes();
   }
 
   /**

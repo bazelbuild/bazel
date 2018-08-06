@@ -230,6 +230,7 @@ public final class JavaCompilationHelper {
     builder.setTempDirectory(tempDir(classJar));
     builder.setClassDirectory(classDir(classJar));
     builder.setPlugins(attributes.plugins().plugins());
+    builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setDirectJars(attributes.getDirectJars());
@@ -405,6 +406,9 @@ public final class JavaCompilationHelper {
 
     // only run API-generating annotation processors during header compilation
     builder.setPlugins(attributes.plugins().apiGeneratingPlugins());
+    // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
+    // It is used to allow Error Prone checks to load additional data,
+    // and Error Prone doesn't run during header compilation.
     builder.setJavacOpts(getJavacOpts());
     builder.setTempDirectory(tempDir(headerJar));
     builder.setOutputJar(headerJar);
@@ -457,7 +461,7 @@ public final class JavaCompilationHelper {
    */
   public boolean usesAnnotationProcessing() {
     JavaTargetAttributes attributes = getAttributes();
-    return getJavacOpts().contains("-processor") || !attributes.plugins().isEmpty();
+    return getJavacOpts().contains("-processor") || attributes.plugins().hasProcessors();
   }
 
   /**

@@ -136,9 +136,10 @@ public final class MockProtoSupport {
         "             srcs = [ 'Rpc.java' ])",
         "java_library(name = 'rpc_noloas_internal',",
         "             srcs = [ 'RpcNoloas.java' ])");
-    config.create("java/com/google/net/rpc3/BUILD",
+    config.create(
+        "java/com/google/net/rpc3/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "java_library(name = 'rpc3',",
+        "java_library(name = 'rpc3_proto_runtime',",
         "             deps = [':rpc3_noloas_internal'],",
         "             srcs = [ 'Rpc3.java' ])",
         "java_library(name = 'rpc3_noloas_internal',",

@@ -74,12 +74,12 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -96,7 +96,6 @@ import java.util.Set;
  * tests access to Skyframe internals. The code largely predates the introduction of Skyframe, and
  * mostly exists to avoid having to rewrite our tests to work with Skyframe natively.
  */
-@VisibleForTesting
 public class BuildViewForTesting {
   private final BuildView buildView;
   private final SkyframeExecutor skyframeExecutor;
@@ -140,8 +139,9 @@ public class BuildViewForTesting {
 
   @ThreadCompatible
   public AnalysisResult update(
-      LoadingResult loadingResult,
-      BuildConfigurationCollection configurations,
+      TargetPatternPhaseValue loadingResult,
+      BuildOptions targetOptions,
+      Set<String> multiCpu,
       List<String> aspects,
       AnalysisOptions viewOptions,
       boolean keepGoing,
@@ -149,10 +149,11 @@ public class BuildViewForTesting {
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
-      throws ViewCreationFailedException, InterruptedException {
+      throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException {
     return buildView.update(
         loadingResult,
-        configurations,
+        targetOptions,
+        multiCpu,
         aspects,
         viewOptions,
         keepGoing,
@@ -187,8 +188,7 @@ public class BuildViewForTesting {
    */
   @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
-      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
-      throws InterruptedException {
+      Target target, BuildConfiguration config, ExtendedEventHandler eventHandler) {
     List<TargetAndConfiguration> node =
         ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config));
     LinkedHashSet<TargetAndConfiguration> configs =
@@ -461,7 +461,8 @@ public class BuildViewForTesting {
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,
-            /*env=*/ null);
+            /*env=*/ null,
+            /*sourceDependencyListener=*/ unused -> {});
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 
@@ -503,12 +504,12 @@ public class BuildViewForTesting {
 
     return new RuleContext.Builder(
             env,
-            (Rule) target,
+            target,
             ImmutableList.of(),
             targetConfig,
             configurations.getHostConfiguration(),
             ruleClassProvider.getPrerequisiteValidator(),
-            ((Rule) target).getRuleClassObject().getConfigurationFragmentPolicy())
+            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,

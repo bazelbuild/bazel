@@ -31,6 +31,8 @@ filegroup(
         "options.h",
         "output_jar.cc",
         "output_jar.h",
+        "port.cc",
+        "port.h",
         "singlejar_main.cc",
         "token_stream.h",
         "transient_bytes.h",
@@ -209,12 +211,10 @@ cc_test(
 sh_test(
     name = "output_jar_bash_test",
     srcs = ["output_jar_shell_test.sh"],
-    args = [
-        "src/test/shell",
-        "$(location :singlejar)",
-    ],
     data = [
         ":singlejar",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     deps = ["//src/test/shell:bashunit"],
 )
@@ -302,13 +302,10 @@ cc_test(
 sh_test(
     name = "zip64_test",
     srcs = ["zip64_test.sh"],
-    args = [
-        "src/test/shell",
-        "$(location :singlejar)",
-        "$(location @local_jdk//:jar)",
-    ],
     data = [
         ":singlejar",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
         "@bazel_tools//tools/jdk:current_java_runtime",
         "@local_jdk//:jar",
     ],
@@ -341,6 +338,13 @@ cc_library(
 cc_library(
     name = "diag",
     hdrs = ["diag.h"],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "port",
+    srcs = ["port.cc"],
+    hdrs = ["port.h"],
     visibility = ["//visibility:private"],
 )
 
@@ -397,6 +401,7 @@ cc_library(
         ":input_jar",
         ":mapped_file",
         ":options",
+        ":port",
         "//src/main/cpp/util",
         "//third_party/zlib",
     ],
