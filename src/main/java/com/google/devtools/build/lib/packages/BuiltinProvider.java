@@ -98,4 +98,11 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
     throw new EvalException(
         loc, String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
   }
+
+  /**
+   * Returns the identifier of this provider.
+   */
+  public SkylarkProviderIdentifier id() {
+    return SkylarkProviderIdentifier.forKey(getKey());
+  }
 }
