@@ -172,7 +172,7 @@ public class ParsedAndroidResources extends AndroidResources
 
   @Override
   public boolean equals(Object object) {
-    if (!super.equals(object)) {
+    if (!super.equals(object) || !(object instanceof ParsedAndroidResources)) {
       return false;
     }
 

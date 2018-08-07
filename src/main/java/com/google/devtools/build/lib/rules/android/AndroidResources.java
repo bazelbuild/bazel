@@ -102,10 +102,6 @@ public class AndroidResources {
     validateManifest(ruleContext);
   }
 
-  public static boolean decoupleDataProcessing(AndroidDataContext dataContext) {
-    return dataContext.getAndroidConfig().decoupleDataProcessing();
-  }
-
   /**
    * Validates that there are no targets with resources in the srcs, as they should not be used with
    * the Android data logic.
@@ -445,7 +441,7 @@ public class AndroidResources {
 
   @Override
   public boolean equals(Object object) {
-    if (object == null || getClass() != object.getClass()) {
+    if (!(object instanceof AndroidResources)) {
       return false;
     }
 
