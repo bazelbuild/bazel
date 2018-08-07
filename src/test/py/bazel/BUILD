@@ -140,6 +140,10 @@ py_test(
 
 py_test(
     name = "test_wrapper_test",
+    main = select({
+        "//src/conditions:windows": "test_wrapper_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
     srcs = select({
         "//src/conditions:windows": ["test_wrapper_test.py"],
         "//conditions:default": ["empty_test.py"],
