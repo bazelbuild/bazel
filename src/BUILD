@@ -40,7 +40,7 @@ filegroup(
     }),
 ) for suffix, embedded_tools_target in {
     "": [":embedded_tools"],
-    "_nojdk": [":embedded_tools_nojdk"],
+    "_with_jdk": [":embedded_tools_with_jdk"],
     "_notools": [],
 }.items()]
 
@@ -174,13 +174,13 @@ py_binary(
         "//conditions:default": [
             "//src/tools/singlejar:singlejar_local",
         ],
-    }) + ([":embedded_jdk"] if (suffix == "") else []),
+    }) + ([":embedded_jdk"] if (suffix == "_with_jdk") else []),
     visibility = [
         "//src/test:__subpackages__",  # For integration tests
     ],
 ) for suffix in [
     "",
-    "_nojdk",
+    "_with_jdk",
 ]]
 
 rule_size_test(
@@ -218,7 +218,7 @@ filegroup(
     out = "embedded_tools" + suffix + ".params",
 ) for suffix in [
     "",
-    "_nojdk",
+    "_with_jdk",
 ]]
 
 genrule(
@@ -233,13 +233,13 @@ genrule(
 )
 
 genrule(
-    name = "embedded_tools_nojdk",
+    name = "embedded_tools_with_jdk",
     srcs = [
-        ":embedded_tools_nojdk_params",
-        ":embedded_tools_nojdk_srcs",
+        ":embedded_tools_with_jdk_params",
+        ":embedded_tools_with_jdk_srcs",
     ],
-    outs = ["embedded_tools_nojdk.zip"],
-    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_nojdk_params)",
+    outs = ["embedded_tools_with_jdk.zip"],
+    cmd = "$(location :create_embedded_tools) \"$@\" $(location :embedded_tools_with_jdk_params)",
     tools = [":create_embedded_tools"],
 )
 
@@ -264,7 +264,7 @@ genrule(
 ) for suffix, embed in [
     ("", True),
     ("_notools", False),
-    ("_nojdk", True),
+    ("_with_jdk", True),
 ]]
 
 [genrule(
@@ -289,7 +289,7 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
-    "_nojdk",
+    "_with_jdk",
 ]]
 
 # Build an executable named `bazel.exe`.
@@ -310,7 +310,7 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
-    "_nojdk",
+    "_with_jdk",
 ]]
 
 filegroup(

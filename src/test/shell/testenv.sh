@@ -60,7 +60,7 @@ if is_windows; then
 fi
 
 # Make the command "bazel" available for tests.
-PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
+PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel_with_jdk)
 PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
 # Convert PATH_TO_BAZEL_WRAPPER to Unix path style on Windows, because it will be
 # added into PATH. There's problem if PATH=C:/msys64/usr/bin:/usr/local,

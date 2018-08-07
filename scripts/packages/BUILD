@@ -86,7 +86,7 @@ genrule(
 
 genrule(
     name = "rename-bazel-bin",
-    srcs = ["//src:bazel"],
+    srcs = ["//src:bazel_with_jdk"],
     outs = ["with-jdk/bazel-real"],
     cmd = "mkdir -p $$(dirname $@); cp $< $@",
 )

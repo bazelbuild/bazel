@@ -10,14 +10,14 @@ genrule(
     outs = ["bazel-complete.bash"],
     cmd = " ".join([
         "$(location :generate_bash_completion.sh)",
-        "--bazel=$(location //src:bazel)",
+        "--bazel=$(location //src:bazel_with_jdk)",
         "--output=$@",
         "--prepend=$(location bazel-complete-template.bash)",
     ]),
     output_to_bindir = 1,
     tools = [
         ":generate_bash_completion.sh",
-        "//src:bazel",
+        "//src:bazel_with_jdk",
     ],
     visibility = ["//scripts/packages:__subpackages__"],
 )
