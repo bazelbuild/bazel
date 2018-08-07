@@ -27,11 +27,9 @@
 
 if [[ -z "$LCOV_MERGER" ]]; then
   echo --
-  echo "Coverage collection running in legacy mode."
-  echo "Legacy mode only supports C++ and even then, it's very brittle."
-  COVERAGE_LEGACY_MODE=1
-else
-  COVERAGE_LEGACY_MODE=
+  echo "Coverage collection is not supported for the type of requested test."
+  echo "For now only Java and C++ coverage is supported by Bazel."
+  exit 1
 fi
 
 if [[ -z "$COVERAGE_MANIFEST" ]]; then
@@ -44,7 +42,7 @@ fi
 
 # When collect_coverage.sh is used, test runner must be instructed not to cd
 # to the test's runfiles directory.
-ROOT="$PWD"
+export ROOT="$PWD"
 
 if [[ "$COVERAGE_MANIFEST" != /* ]]; then
   # Canonicalize the path to coverage manifest so that tests can find it.
@@ -66,36 +64,35 @@ if ! [[ $COVERAGE_OUTPUT_FILE == $ROOT* ]]; then
 fi
 
 
-# Java
-# --------------------------------------
+# Java coverage file is used by JacocoCoverageRunner as an output file. After JacocoCoverageRunner
+# finishes execution (it's executed when the test is executed) LCOV_MERGER will pick up this file
+# by its extension when scanning COVERAGE_DIR and merge it with eventually other coverage files
+# into the final coverage report (COVERAGE_OUTPUT_FILE).
 export JAVA_COVERAGE_FILE=$COVERAGE_DIR/jvcov.dat
 # Let tests know that it is a coverage run
 export COVERAGE=1
 export BULK_COVERAGE_RUN=1
 
 
-# Only check if file exists when LCOV_MERGER is set
-if [[ ! "$COVERAGE_LEGACY_MODE" ]]; then
-  for name in "$LCOV_MERGER"; do
-    if [[ ! -e $name ]]; then
-      echo --
-      echo Coverage runner: cannot locate file $name
-      exit 1
-    fi
-  done
-fi
+for name in "$LCOV_MERGER"; do
+  if [[ ! -e $name ]]; then
+    echo --
+    echo Coverage runner: cannot locate file $name
+    exit 1
+  fi
+done
 
-if [[ "$COVERAGE_LEGACY_MODE" ]]; then
-  export GCOV_PREFIX_STRIP=3
-  export GCOV_PREFIX="${COVERAGE_DIR}"
-  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-fi
+# Setting up the environment for executing the C++ tests.
+export GCOV_PREFIX_STRIP=3
+export GCOV_PREFIX="${COVERAGE_DIR}"
+export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 
 cd "$TEST_SRCDIR/$TEST_WORKSPACE"
+# Execute the test.
 "$@"
 TEST_STATUS=$?
 
-# always create output files
+# Always create the coverage report.
 touch $COVERAGE_OUTPUT_FILE
 
 if [[ $TEST_STATUS -ne 0 ]]; then
@@ -108,50 +105,12 @@ fi
 
 cd $ROOT
 
-USES_LLVM_COV=
-if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
-  USES_LLVM_COV=1
-fi
-
-if [[ "$USES_LLVM_COV" ]]; then
-  "${COVERAGE_GCOV_PATH}" merge -output "${COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
-  exit $TEST_STATUS
-
-# If LCOV_MERGER is not set, use the legacy C++-only method to convert coverage files.
-elif [[ "$COVERAGE_LEGACY_MODE" ]]; then
-  cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read path; do
-    mkdir -p "${COVERAGE_DIR}/$(dirname ${path})"
-    cp "${ROOT}/${path}" "${COVERAGE_DIR}/${path}"
-  done
-
-  # Symlink the gcov tool such with a link called gcov. Clang comes with a tool
-  # called llvm-cov, which behaves like gcov if symlinked in this way (otherwise
-  # we would need to invoke it with "llvm-cov gcov").
-  GCOV="${COVERAGE_DIR}/gcov"
-  ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
-
-  # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
-  # -c                    - Collect coverage data
-  # --no-external         - Do not collect coverage data for system files
-  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments some files
-  # -q                    - Quiet mode
-  # --gcov-tool "${GCOV}" - Pass the local symlink to be uses as gcov by lcov
-  # -b /proc/self/cwd     - Use this as a prefix for all source files instead of
-  #                         the current directory
-  # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
-  # -o "${COVERAGE_OUTPUT_FILE}" - Output file
-  /usr/bin/lcov -c --no-external --ignore-errors graph -q \
-      --gcov-tool "${GCOV}" -b /proc/self/cwd \
-      -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
-
-  # Fix up the paths to be relative by removing the prefix we specified above.
-  sed -i -e "s*/proc/self/cwd/**g" "${COVERAGE_OUTPUT_FILE}"
-
-  exit $TEST_STATUS
+if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
+  eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
 
 export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
---output_file=${COVERAGE_OUTPUT_FILE}"
+--output_file=${COVERAGE_OUTPUT_FILE} --filter_out_regexes=/usr/*,*external*"
 
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then
