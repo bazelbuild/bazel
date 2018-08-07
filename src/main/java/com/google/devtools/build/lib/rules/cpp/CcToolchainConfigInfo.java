@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNameP
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
@@ -188,13 +187,12 @@ public class CcToolchainConfigInfo extends NativeInfo {
     this.hasDynamicLinkingModeFlags = hasDynamicLinkingModeFlags;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(
-      CrosstoolRelease file, CToolchain toolchain, PathFragment crosstoolTop)
+  public static CcToolchainConfigInfo fromToolchain(CrosstoolRelease file, CToolchain toolchain)
       throws InvalidConfigurationException {
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (CToolchain.ActionConfig actionConfig : toolchain.getActionConfigList()) {
-      actionConfigBuilder.add(new ActionConfig(actionConfig, crosstoolTop));
+      actionConfigBuilder.add(new ActionConfig(actionConfig));
     }
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();

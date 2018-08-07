@@ -126,10 +126,7 @@ public final class LinkCommandLine extends CommandLine {
 
   /** Returns the path to the linker. */
   public String getLinkerPathString() {
-    return featureConfiguration
-        .getToolForAction(linkTargetType.getActionName())
-        .getToolPathFragment()
-        .getPathString();
+    return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
   }
 
   /**
@@ -377,11 +374,7 @@ public final class LinkCommandLine extends CommandLine {
       Preconditions.checkArgument(
           featureConfiguration.actionIsConfigured(actionName),
           String.format("Expected action_config for '%s' to be configured", actionName));
-      argv.add(
-          featureConfiguration
-              .getToolForAction(linkTargetType.getActionName())
-              .getToolPathFragment()
-              .getPathString());
+      argv.add(featureConfiguration.getToolPathForAction(linkTargetType.getActionName()));
     }
     argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
     return argv;

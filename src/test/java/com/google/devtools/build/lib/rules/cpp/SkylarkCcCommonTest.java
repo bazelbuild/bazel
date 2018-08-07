@@ -86,11 +86,7 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(), ImmutableSet.of(), toolchain);
     assertThat(actionToolPath)
-        .isEqualTo(
-            featureConfiguration
-                .getToolForAction(CppActionNames.CPP_COMPILE)
-                .getToolPathFragment()
-                .getPathString());
+        .isEqualTo(featureConfiguration.getToolPathForAction(CppActionNames.CPP_COMPILE));
   }
 
   @Test
