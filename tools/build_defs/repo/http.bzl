@@ -35,9 +35,9 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_bu
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if not ctx.attr.url and not ctx.attr.urls:
-        ctx.fail("At least one of url and urls must be provided")
+        fail("At least one of url and urls must be provided")
     if ctx.attr.build_file and ctx.attr.build_file_content:
-        ctx.fail("Only one of build_file and build_file_content can be provided.")
+        fail("Only one of build_file and build_file_content can be provided.")
 
     all_urls = []
     if ctx.attr.urls:
@@ -60,20 +60,33 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "file",
-    srcs = ["downloaded"],
+    srcs = ["{}"],
 )
 """
 
 def _http_file_impl(ctx):
     """Implementation of the http_file rule."""
+    repo_root = ctx.path(".")
+    forbidden_files = [
+        repo_root,
+        ctx.path("WORKSPACE"),
+        ctx.path("BUILD"),
+        ctx.path("BUILD.bazel"),
+        ctx.path("file/BUILD"),
+        ctx.path("file/BUILD.bazel"),
+    ]
+    downloaded_file_path = ctx.attr.downloaded_file_path
+    download_path = ctx.path("file/" + downloaded_file_path)
+    if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
+        fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
     ctx.download(
         ctx.attr.urls,
-        "file/downloaded",
+        "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -242,6 +255,7 @@ http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = {
         "executable": attr.bool(),
+        "downloaded_file_path": attr.string(default = "downloaded"),
         "sha256": attr.string(),
         "urls": attr.string_list(mandatory = True),
     },
@@ -268,6 +282,7 @@ Args:
   name: A unique name for this rule.
   executable: If the downloaded file should be made executable. Defaults to
     False.
+  downloaded_file_path: Path assigned to the file downloaded.
   sha256: The expected SHA-256 of the file downloaded.
 
     This must match the SHA-256 of the file downloaded. _It is a security risk
