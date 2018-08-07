@@ -266,9 +266,6 @@ class StartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<std::string, std::string> option_sources;
 
-  // Returns the embedded JDK, or an empty string.
-  std::string GetEmbeddedJavabase();
-
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
   std::string GetHostJavabase();

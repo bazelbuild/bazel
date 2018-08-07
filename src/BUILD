@@ -174,7 +174,20 @@ py_binary(
         "//conditions:default": [
             "//src/tools/singlejar:singlejar_local",
         ],
-    }) + ([":embedded_jdk"] if (suffix == "_with_jdk") else []),
+    }) + (select({
+        "//src/conditions:darwin": [
+            "@openjdk_macos//file",
+        ],
+        "//src/conditions:darwin_x86_64": [
+            "@openjdk_macos//file",
+        ],
+        "//src/conditions:windows": [
+            "@openjdk_win//file",
+        ],
+        "//conditions:default": [
+            "@openjdk_linux//file",
+        ],
+    }) if (suffix == "_with_jdk") else []),
     visibility = [
         "//src/test:__subpackages__",  # For integration tests
     ],
@@ -191,25 +204,6 @@ rule_size_test(
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
     expect = 503,
     margin = 5,  # percentage
-)
-
-filegroup(
-    name = "embedded_jdk",
-    srcs = select({
-        "//src/conditions:darwin": [
-            "@openjdk_macos//file",
-        ],
-        "//src/conditions:darwin_x86_64": [
-            "@openjdk_macos//file",
-        ],
-        "//src/conditions:windows": [
-            "@openjdk_win//file",
-        ],
-        "//conditions:default": [
-            "@openjdk_linux//file",
-        ],
-    }),
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 [srcsfile(

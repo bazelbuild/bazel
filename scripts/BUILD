@@ -10,14 +10,19 @@ genrule(
     outs = ["bazel-complete.bash"],
     cmd = " ".join([
         "$(location :generate_bash_completion.sh)",
-        "--bazel=$(location //src:bazel_with_jdk)",
+        "--bazel=$(location //src:bazel)",
+        "--javabase=$(JAVABASE)",
         "--output=$@",
         "--prepend=$(location bazel-complete-template.bash)",
     ]),
     output_to_bindir = 1,
+    # Bazel 0.8.0 doesn't have this target under @bazel_tools, so we have to
+    # use it from the main repository
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
         ":generate_bash_completion.sh",
-        "//src:bazel_with_jdk",
+        "//src:bazel",
+        "//tools/defaults:jdk",
     ],
     visibility = ["//scripts/packages:__subpackages__"],
 )

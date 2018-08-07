@@ -27,7 +27,7 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//src:bazel_with_jdk",
+        "//src:bazel",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
@@ -541,14 +541,10 @@ sh_test(
     name = "bazel_bootstrap_distfile_test",
     timeout = "eternal",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
-    args = [
-        "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk)",
-    ],
+    args = ["$(location //:bazel-distfile)"],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk",
     ],
     tags = ["jdk8"],
 )

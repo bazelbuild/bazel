@@ -418,13 +418,6 @@ static vector<string> GetArgumentArray(
   result.push_back("-XX:HeapDumpPath=" +
                    blaze_util::PathAsJvmFlag(heap_crash_path));
 
-  // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
-  if (!globals->options->GetEmbeddedJavabase().empty()) {
-    // quiet warnings from com.google.protobuf.UnsafeUtil,
-    // see: https://github.com/google/protobuf/issues/3781
-    result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
-  }
-
   result.push_back("-Xverify:none");
 
   vector<string> user_options;
