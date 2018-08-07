@@ -259,8 +259,15 @@ bool OutputJar::Open() {
   if (file_) {
     diag_errx(1, "%s:%d: Cannot open output archive twice", __FILE__, __LINE__);
   }
+
   // Set execute bits since we may produce an executable output file.
-  int fd = open(path(), O_CREAT|O_WRONLY|O_TRUNC, 0777);
+  int mode = O_CREAT | O_WRONLY | O_TRUNC;
+#ifdef _WIN32
+  // Make sure output file is in binary mode, or \r\n will be converted to \n.
+  mode |= _O_BINARY;
+#endif
+
+  int fd = open(path(), mode, 0777);
   if (fd < 0) {
     diag_warn("%s:%d: %s", __FILE__, __LINE__, path());
     return false;
