@@ -52,9 +52,10 @@ set -ex
       rm -rf '{directory}' '{dir_link}'
       git clone {shallow} '{remote}' '{directory}' || git clone '{remote}' '{directory}'
     fi
-    cd '{directory}'
-    git reset --hard {ref} || ((git fetch {shallow} origin {ref}:{ref} || git fetch origin {ref}:{ref}) && git reset --hard {ref})
-    git clean -xdf )
+    git -C '{directory}' reset --hard {ref} || \
+    ((git -C '{directory}' fetch {shallow} origin {ref}:{ref} || \
+      git -C '{directory}' fetch origin {ref}:{ref}) && git -C '{directory}' reset --hard {ref})
+      git -C '{directory}' clean -xdf )
   """.format(
         working_dir = ctx.path(".").dirname,
         dir_link = ctx.path("."),
@@ -62,7 +63,7 @@ set -ex
         remote = ctx.attr.remote,
         ref = ref,
         shallow = shallow,
-    )])
+    )], environment = ctx.os.environ)
 
     if st.return_code:
         fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
@@ -76,11 +77,10 @@ set -ex
     if ctx.attr.init_submodules:
         st = ctx.execute([bash_exe, "-c", """
 set -ex
-(   cd '{directory}'
-    git submodule update --init --checkout --force )
+(   git -C '{directory}' submodule update --init --checkout --force )
   """.format(
             directory = ctx.path("."),
-        )])
+        )], environment = ctx.os.environ)
     if st.return_code:
         fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
 
@@ -88,14 +88,14 @@ set -ex
     actual_commit = ctx.execute([
         bash_exe,
         "-c",
-        "(cd '{directory}' && git log -n 1 --pretty='format:%H')".format(
+        "(git -C '{directory}' log -n 1 --pretty='format:%H')".format(
             directory = ctx.path("."),
         ),
     ]).stdout
     shallow_date = ctx.execute([
         bash_exe,
         "-c",
-        "(cd '{directory}' && git log -n 1 --pretty='format:%cd' --date='format:%Y-%d-%m')".format(
+        "(git -C '{directory}' log -n 1 --pretty='format:%cd' --date='format:%Y-%m-%d')".format(
             directory = ctx.path("."),
         ),
     ]).stdout

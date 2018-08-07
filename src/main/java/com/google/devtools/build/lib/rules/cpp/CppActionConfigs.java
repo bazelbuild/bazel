@@ -597,13 +597,13 @@ public class CppActionConfigs {
                     "      flag_group {",
                     ifTrue(
                         supportsEmbeddedRuntimes,
-                        "    expand_if_all_available: 'is_cc_test_link_action'",
+                        "    expand_if_true: 'is_cc_test'",
                         // TODO(b/27153401): This should probably be @loader_path on osx.
                         "    flag: ",
                         "      '-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}'",
                         "  }",
                         "  flag_group {",
-                        "    expand_if_all_available: 'is_not_cc_test_link_action'"),
+                        "    expand_if_false: 'is_cc_test'"),
                     ifLinux(
                         platform,
                         "    flag: '-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}'"),

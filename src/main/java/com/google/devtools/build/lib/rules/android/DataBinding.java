@@ -148,11 +148,11 @@ public final class DataBinding {
     }
   }
 
-  private static final class EnabledDataBindingContext implements DataBindingContext {
+  private static final class EnabledDataBindingV1Context implements DataBindingContext {
 
     private final ActionConstructionContext actionConstructionContext;
 
-    private EnabledDataBindingContext(ActionConstructionContext actionConstructionContext) {
+    private EnabledDataBindingV1Context(ActionConstructionContext actionConstructionContext) {
       this.actionConstructionContext = actionConstructionContext;
     }
 
@@ -269,7 +269,7 @@ public final class DataBinding {
       if (o == null || getClass() != o.getClass()) {
         return false;
       }
-      EnabledDataBindingContext that = (EnabledDataBindingContext) o;
+      EnabledDataBindingV1Context that = (EnabledDataBindingV1Context) o;
       return Objects.equals(actionConstructionContext, that.actionConstructionContext);
     }
 
@@ -284,28 +284,52 @@ public final class DataBinding {
     }
   }
 
+  private static class EnabledDataBindingV2Context implements DataBindingContext {
+
+    private final ActionConstructionContext actionContext;
+
+    private EnabledDataBindingV2Context(ActionConstructionContext actionContext) {
+      this.actionContext = actionContext;
+      throw new UnsupportedOperationException("V2 not implemented yet.");
+    }
+    // TODO(b/112038432): Enable databinding v2.
+  }
+
   private static final DataBindingContext DISABLED_CONTEXT = new DataBindingContext() {};
 
   /** Supplies a databinding context from a rulecontext. */
-  public static DataBindingContext contextFrom(RuleContext ruleContext) {
+  public static DataBindingContext contextFrom(
+      RuleContext ruleContext, AndroidConfiguration androidConfig) {
     if (isEnabled(ruleContext)) {
-      return asEnabledDataBindingContextFrom(ruleContext);
+      if (androidConfig.useDataBindingV2()) {
+        return asEnabledDataBindingV2ContextFrom(ruleContext);
+      }
+      return asEnabledDataBindingV1ContextFrom(ruleContext);
     }
     return asDisabledDataBindingContext();
   }
 
   /** Supplies a databinding context from an action context. */
-  public static DataBindingContext contextFrom(boolean enabled, ActionConstructionContext context) {
+  public static DataBindingContext contextFrom(
+      boolean enabled, ActionConstructionContext context, AndroidConfiguration androidConfig) {
     if (enabled) {
-      return asEnabledDataBindingContextFrom(context);
+      if (androidConfig.useDataBindingV2()) {
+        return asEnabledDataBindingV2ContextFrom(context);
+      }
+      return asEnabledDataBindingV1ContextFrom(context);
     }
     return asDisabledDataBindingContext();
   }
 
   /** Supplies an enabled DataBindingContext from the action context. */
-  public static DataBindingContext asEnabledDataBindingContextFrom(
+  private static DataBindingContext asEnabledDataBindingV1ContextFrom(
       ActionConstructionContext actionContext) {
-    return new EnabledDataBindingContext(actionContext);
+    return new EnabledDataBindingV1Context(actionContext);
+  }
+
+  private static DataBindingContext asEnabledDataBindingV2ContextFrom(
+      ActionConstructionContext actionContext) {
+    return new EnabledDataBindingV2Context(actionContext);
   }
 
   /** Supplies a disabled (no-op) DataBindingContext. */

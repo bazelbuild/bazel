@@ -626,7 +626,6 @@ public class LicensingTests extends BuildViewTestCase {
         "  name = 'toolchain',",
         "  licenses = ['restricted'],",
         "  output_licenses = ['unencumbered'],",
-        "  encoding = 'UTF-8',",
         "  source_version = '8',",
         "  target_version = '8',",
         "  bootclasspath = [':bcp'],",

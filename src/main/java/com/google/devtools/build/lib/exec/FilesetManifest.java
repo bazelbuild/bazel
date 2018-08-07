@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.LineProcessor;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -79,17 +77,13 @@ public final class FilesetManifest {
       throws IOException {
     LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
     Map<PathFragment, String> relativeLinks = new HashMap<>();
-    Map<PathFragment, FileArtifactValue> artifactValues = new HashMap<>();
     for (FilesetOutputSymlink outputSymlink : outputSymlinks) {
       PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
       String artifact = outputSymlink.getTargetPath().getPathString();
       artifact = artifact.isEmpty() ? null : artifact;
       addSymlinkEntry(artifact, fullLocation, relSymlinkbehavior, entries, relativeLinks);
-      if (outputSymlink.getMetadata() instanceof FileArtifactValue) {
-        artifactValues.put(fullLocation, (FileArtifactValue) outputSymlink.getMetadata());
-      }
     }
-    return constructFilesetManifest(entries, relativeLinks, artifactValues);
+    return constructFilesetManifest(entries, relativeLinks);
   }
 
   private static final class ManifestLineProcessor implements LineProcessor<FilesetManifest> {
@@ -153,7 +147,7 @@ public final class FilesetManifest {
 
     @Override
     public FilesetManifest getResult() {
-      return constructFilesetManifest(entries, relativeLinks, ImmutableMap.of());
+      return constructFilesetManifest(entries, relativeLinks);
     }
   }
 
@@ -179,8 +173,7 @@ public final class FilesetManifest {
   }
 
   private static FilesetManifest constructFilesetManifest(
-      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks,
-      Map<PathFragment, FileArtifactValue> artifactValues) {
+      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks) {
     // Resolve relative symlinks if possible. Note that relativeLinks only contains entries in
     // RESOLVE mode.
     for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
@@ -203,24 +196,16 @@ public final class FilesetManifest {
       }
       entries.put(location, actual);
     }
-    return new FilesetManifest(entries, artifactValues);
+    return new FilesetManifest(entries);
   }
 
   private final Map<PathFragment, String> entries;
-  private final Map<PathFragment, FileArtifactValue> artifactValues;
 
-  private FilesetManifest(Map<PathFragment, String> entries,
-      Map<PathFragment, FileArtifactValue> artifactValues) {
+  private FilesetManifest(Map<PathFragment, String> entries) {
     this.entries = Collections.unmodifiableMap(entries);
-    this.artifactValues = artifactValues;
   }
 
   public Map<PathFragment, String> getEntries() {
     return entries;
   }
-
-  public Map<PathFragment, FileArtifactValue> getArtifactValues() {
-    return artifactValues;
-  }
-
 }

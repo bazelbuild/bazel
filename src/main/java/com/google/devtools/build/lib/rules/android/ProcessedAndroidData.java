@@ -124,7 +124,7 @@ public class ProcessedAndroidData {
 
     return buildActionForBinary(
         dataContext,
-        DataBinding.contextFrom(ruleContext),
+        DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
         ruleContext,
         builder,
         manifest,

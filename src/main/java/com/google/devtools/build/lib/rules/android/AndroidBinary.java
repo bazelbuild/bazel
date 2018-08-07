@@ -225,7 +225,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                           .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
                           .getApk()
                       : null,
-                  DataBinding.contextFrom(ruleContext))
+                  DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()))
               .generateRClass(dataContext, aaptVersion);
     } else {
       applicationManifest =
@@ -246,7 +246,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
               dataContext,
-              DataBinding.contextFrom(ruleContext),
+              DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),

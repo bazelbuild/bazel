@@ -251,10 +251,13 @@ public class VanillaJavaBuilder implements Closeable {
       OptionsParser optionsParser, StandardJavaFileManager fileManager, Path nativeHeaderDir)
       throws IOException {
     fileManager.setLocation(StandardLocation.CLASS_PATH, toFiles(optionsParser.getClassPath()));
-    fileManager.setLocation(
-        StandardLocation.PLATFORM_CLASS_PATH,
+    Iterable<File> bootClassPath =
         Iterables.concat(
-            toFiles(optionsParser.getBootClassPath()), toFiles(optionsParser.getExtClassPath())));
+            toFiles(optionsParser.getBootClassPath()), toFiles(optionsParser.getExtClassPath()));
+    // The bootclasspath may legitimately be empty if --release is being used.
+    if (!Iterables.isEmpty(bootClassPath)) {
+      fileManager.setLocation(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
+    }
     fileManager.setLocation(
         StandardLocation.ANNOTATION_PROCESSOR_PATH, toFiles(optionsParser.getProcessorPath()));
     if (optionsParser.getSourceGenDir() != null) {

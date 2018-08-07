@@ -273,7 +273,7 @@ public class CppCompileActionBuilder {
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String executionRequirement :
-          featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements()) {
+          featureConfiguration.getToolRequirementsForAction(getActionName())) {
         executionInfo.put(executionRequirement, "");
       }
     } else {

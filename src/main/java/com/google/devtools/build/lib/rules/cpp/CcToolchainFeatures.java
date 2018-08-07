@@ -832,10 +832,9 @@ public class CcToolchainFeatures implements Serializable {
 
     private Tool(
         CToolchain.Tool tool,
-        PathFragment crosstoolTop,
         ImmutableSet<WithFeatureSet> withFeatureSetSets) {
       this.withFeatureSetSets = withFeatureSetSets;
-      toolPathFragment = crosstoolTop.getRelative(tool.getToolPath());
+      this.toolPathFragment = PathFragment.create(tool.getToolPath());
       executionRequirements = ImmutableSet.copyOf(tool.getExecutionRequirementList());
     }
 
@@ -850,8 +849,8 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** Returns the path to this action's tool relative to the provided crosstool path. */
-    public PathFragment getToolPathFragment() {
-      return toolPathFragment;
+    public String getToolPathString(PathFragment ccToolchainPath) {
+      return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
     }
 
     /**
@@ -907,8 +906,7 @@ public class CcToolchainFeatures implements Serializable {
     private final boolean enabled;
     private final ImmutableList<String> implies;
 
-    ActionConfig(CToolchain.ActionConfig actionConfig, PathFragment crosstoolTop)
-        throws InvalidConfigurationException {
+    ActionConfig(CToolchain.ActionConfig actionConfig) throws InvalidConfigurationException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
       this.tools =
@@ -919,7 +917,6 @@ public class CcToolchainFeatures implements Serializable {
                   t ->
                       new Tool(
                           t,
-                          crosstoolTop,
                           t.getWithFeatureList()
                               .stream()
                               .map(f -> new WithFeatureSet(f))
@@ -1117,6 +1114,8 @@ public class CcToolchainFeatures implements Serializable {
 
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
 
+    private final PathFragment ccToolchainPath;
+
     /**
      * {@link FeatureConfiguration} instance that doesn't produce any command lines. This is to be
      * used when creation of the real {@link FeatureConfiguration} failed, the rule error was
@@ -1126,23 +1125,32 @@ public class CcToolchainFeatures implements Serializable {
         FEATURE_CONFIGURATION_INTERNER.intern(new FeatureConfiguration());
 
     protected FeatureConfiguration() {
-      this(ImmutableList.of(), ImmutableSet.of(), ImmutableMap.of());
+      this(
+          /* enabledFeatures= */ ImmutableList.of(),
+          /* enabledActionConfigActionNames= */ ImmutableSet.of(),
+          /* actionConfigByActionName= */ ImmutableMap.of(),
+          /* ccToolchainPath= */ PathFragment.EMPTY_FRAGMENT);
     }
 
     @AutoCodec.Instantiator
     static FeatureConfiguration createForSerialization(
         ImmutableList<Feature> enabledFeatures,
         ImmutableSet<String> enabledActionConfigActionNames,
-        ImmutableMap<String, ActionConfig> actionConfigByActionName) {
+        ImmutableMap<String, ActionConfig> actionConfigByActionName,
+        PathFragment ccToolchainPath) {
       return FEATURE_CONFIGURATION_INTERNER.intern(
           new FeatureConfiguration(
-              enabledFeatures, enabledActionConfigActionNames, actionConfigByActionName));
+              enabledFeatures,
+              enabledActionConfigActionNames,
+              actionConfigByActionName,
+              ccToolchainPath));
     }
 
     FeatureConfiguration(
         ImmutableList<Feature> enabledFeatures,
         ImmutableSet<String> enabledActionConfigActionNames,
-        ImmutableMap<String, ActionConfig> actionConfigByActionName) {
+        ImmutableMap<String, ActionConfig> actionConfigByActionName,
+        PathFragment ccToolchainPath) {
       this.enabledFeatures = enabledFeatures;
 
       this.actionConfigByActionName = actionConfigByActionName;
@@ -1152,6 +1160,7 @@ public class CcToolchainFeatures implements Serializable {
       }
       this.enabledFeatureNames = featureBuilder.build();
       this.enabledActionConfigActionNames = enabledActionConfigActionNames;
+      this.ccToolchainPath = ccToolchainPath;
     }
 
     /**
@@ -1228,14 +1237,22 @@ public class CcToolchainFeatures implements Serializable {
       return envBuilder.build();
     }
 
-    /** Returns a given action's tool under this FeatureConfiguration. */
-    public Tool getToolForAction(String actionName) {
+    String getToolPathForAction(String actionName) {
       Preconditions.checkArgument(
           actionConfigByActionName.containsKey(actionName),
           "Action %s does not have an enabled configuration in the toolchain.",
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
-      return actionConfig.getTool(enabledFeatureNames);
+      return actionConfig.getTool(enabledFeatureNames).getToolPathString(ccToolchainPath);
+    }
+
+    ImmutableSet<String> getToolRequirementsForAction(String actionName) {
+      Preconditions.checkArgument(
+          actionConfigByActionName.containsKey(actionName),
+          "Action %s does not have an enabled configuration in the toolchain.",
+          actionName);
+      ActionConfig actionConfig = actionConfigByActionName.get(actionName);
+      return actionConfig.getTool(enabledFeatureNames).getExecutionRequirements();
     }
 
     @Override
@@ -1335,14 +1352,18 @@ public class CcToolchainFeatures implements Serializable {
   private transient LoadingCache<ImmutableSet<String>, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
 
+  private PathFragment ccToolchainPath;
+
   /**
-   * Constructs the feature configuration from a {@code crosstoolInfo}.
+   * Constructs the feature configuration from a {@link CcToolchainConfigInfo}.
    *
    * @param ccToolchainConfigInfo the toolchain information as specified by the user.
+   * @param ccToolchainPath location of the cc_toolchain.
    * @throws InvalidConfigurationException if the configuration has logical errors.
    */
   @VisibleForTesting
-  public CcToolchainFeatures(CcToolchainConfigInfo ccToolchainConfigInfo)
+  public CcToolchainFeatures(
+      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment ccToolchainPath)
       throws InvalidConfigurationException {
     // Build up the feature/action config graph.  We refer to features/action configs as
     // 'selectables'.
@@ -1432,6 +1453,7 @@ public class CcToolchainFeatures implements Serializable {
     this.provides = provides.build().inverse();
     this.impliedBy = impliedBy.build();
     this.requiredBy = requiredBy.build();
+    this.ccToolchainPath = ccToolchainPath;
   }
 
   private static void checkForActivatableDups(Iterable<CrosstoolSelectable> selectables)
@@ -1529,7 +1551,8 @@ public class CcToolchainFeatures implements Serializable {
             impliedBy,
             requires,
             requiredBy,
-            actionConfigsByActionName)
+            actionConfigsByActionName,
+            ccToolchainPath)
         .run();
   }
 
