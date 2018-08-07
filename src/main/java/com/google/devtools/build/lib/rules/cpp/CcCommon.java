@@ -224,10 +224,7 @@ public final class CcCommon {
   public static void checkLocationWhitelisted(
       SkylarkSemantics semantics, Location location, String callPath) throws EvalException {
     List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
-    if (whitelistedPackagesList
-        .stream()
-        .noneMatch(
-            path -> callPath.startsWith(path) || callPath.startsWith("/workspace/" + path))) {
+    if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
       throwWhiteListError(location, callPath, whitelistedPackagesList);
     }
   }
