@@ -245,7 +245,7 @@ public final class RemoteOptions extends OptionsBase {
             + "The remote cache currently doesn't support symlinks, "
             + "so symlink outputs are converted into regular files. "
             + "If this option is not enabled, "
-            + "otherwise cachable actions that output symlinks will fail."
+            + "cachable actions that output symlinks will fail."
   )
   public boolean allowSymlinkUpload;
 }
