@@ -198,6 +198,7 @@ public final class TestActionBuilder {
     TestTargetProperties testProperties = new TestTargetProperties(
         ruleContext, executionRequirements);
 
+
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
@@ -222,6 +223,17 @@ public final class TestActionBuilder {
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
           PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support", Mode.DONT_CHECK));
+      if (ruleContext.isAttrDefined("$collect_cc_coverage_script", LABEL)) {
+        Artifact collectCcCoverage =
+            ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage_script");
+        inputsBuilder.add(collectCcCoverage);
+        extraTestEnv.put("CC_CODE_COVERAGE_SCRIPT", collectCcCoverage.getExecPathString());
+      }
+
+      if (ruleContext.getConfiguration().useGcovCoverage()) {
+        extraTestEnv.put("GCOV_COVERAGE", "1");
+      }
+
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
         TransitiveInfoCollection lcovMerger =

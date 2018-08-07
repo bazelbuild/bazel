@@ -67,6 +67,11 @@ public class Main {
       System.exit(1);
     }
 
+    if (flags.containsKey("filter_out_prefixes")) {
+      String[] prefixes = flags.get("filter_out_prefixes").split(",");
+      coverage = coverage.filterOutSourcesWithPrefixes(coverage, prefixes);
+    }
+
     int exitStatus = 0;
     String outputFile = flags.get("output_file");
     try {
@@ -83,7 +88,7 @@ public class Main {
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
     List<File> gcovFiles = getFilesWithExtension(filesInCoverageDir, GCOV_EXTENSION);
     if (gcovFiles.isEmpty()) {
-      logger.log(Level.SEVERE, "No gcov info file found.");
+      logger.log(Level.INFO, "No gcov info file found.");
     } else {
       logger.log(Level.INFO, "Found " + gcovFiles.size() + " gcov info files.");
     }
@@ -99,7 +104,7 @@ public class Main {
       lcovTracefiles = getTracefilesFromFile(flags.get("reports_file"));
     }
     if (lcovTracefiles.isEmpty()) {
-      logger.log(Level.SEVERE, "No lcov file found.");
+      logger.log(Level.INFO, "No lcov file found.");
     } else {
       logger.log(Level.INFO, "Found " + lcovTracefiles.size() + " tracefiles.");
     }
@@ -194,6 +199,7 @@ public class Main {
         case "coverage_dir":
         case "reports_file":
         case "output_file":
+        case "filter_out_prefixes":
           continue;
         default:
           throw new IllegalArgumentException("Unknown flag --" + flag);
@@ -202,11 +208,11 @@ public class Main {
 
     if (!flags.containsKey("coverage_dir") && !flags.containsKey("reports_file")) {
       throw new IllegalArgumentException(
-          "At least one of --coverage_dir or --reports_file should be specified.");
+              "At least one of --coverage_dir or --reports_file should be specified.");
     }
     if (flags.containsKey("coverage_dir") && flags.containsKey("reports_file")) {
       throw new IllegalArgumentException(
-          "Only one of --coverage_dir or --reports_file must be specified.");
+              "Only one of --coverage_dir or --reports_file must be specified.");
     }
     if (!flags.containsKey("output_file")) {
       // Different from blaze, this should be mandatory

@@ -45,6 +45,32 @@ class Coverage {
     return merged;
   }
 
+  static Coverage filterOutSourcesWithPrefixes(Coverage coverage, String[] prefixes) throws IllegalArgumentException {
+    if (prefixes.length == 0) {
+      return coverage;
+    }
+    if (coverage == null || prefixes == null) {
+      throw new IllegalArgumentException("Can not filter coverage.");
+    }
+    Coverage filteredCoverage = new Coverage();
+    Collection<SourceFileCoverage> sources = coverage.getAllSourceFiles();
+    for (SourceFileCoverage source : sources) {
+      if (!hasAnyPrefix(source.sourceFileName(), prefixes)) {
+        filteredCoverage.add(source);
+      }
+    }
+    return filteredCoverage;
+  }
+
+  private static boolean hasAnyPrefix(String input, String[] prefixes) {
+    for (String prefix : prefixes) {
+      if (input.contains(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   boolean isEmpty() {
     return sourceFiles.isEmpty();
   }
