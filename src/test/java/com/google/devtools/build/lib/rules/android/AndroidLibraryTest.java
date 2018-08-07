@@ -1237,38 +1237,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testMultipleDirectDependentResourceDirectories_LocalResources()
-      throws Exception {
-    useConfiguration("--noandroid_decouple_data_processing");
-
-    scratch.file("java/android/resources/d1/BUILD",
-        "android_library(name = 'd1',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = ['d1-res/values/strings.xml'],",
-        "                assets = ['assets-d1/some/random/file'],",
-        "                assets_dir = 'assets-d1',",
-        "                deps = ['//java/android/resources/d2:d2'])");
-    scratch.file("java/android/resources/d2/BUILD",
-        "android_library(name = 'd2',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                assets = ['assets-d2/some/random/file'],",
-        "                assets_dir = 'assets-d2',",
-        "                resource_files = ['d2-res/values/strings.xml'],",
-        "                )");
-    ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/d1/d1-res"), args);
-    assertThat(getDirectDependentResourceDirs(args)).contains("java/android/resources/d2/d2-res");
-    assertThat(getDependentAssetDirs("--directData", args))
-        .contains("java/android/resources/d2/assets-d2");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testMultipleDirectDependentResourceDirectories_DecoupledLocalResources()
-      throws Exception {
-    useConfiguration("--android_decouple_data_processing");
-
+  public void testMultipleDirectDependentResourceDirectories() throws Exception {
     scratch.file(
         "java/android/resources/d1/BUILD",
         "android_library(name = 'd1',",
@@ -1298,52 +1267,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testTransitiveDependentResourceDirectories_LocalResources()
-      throws Exception {
-    useConfiguration("--noandroid_decouple_data_processing");
-
-    scratch.file("java/android/resources/d1/BUILD",
-        "android_library(name = 'd1',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = ['d1-res/values/strings.xml'],",
-        "                assets = ['assets-d1/some/random/file'],",
-        "                assets_dir = 'assets-d1',",
-        "                deps = ['//java/android/resources/d2:d2'])");
-    scratch.file("java/android/resources/d2/BUILD",
-        "android_library(name = 'd2',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                assets = ['assets-d2/some/random/file'],",
-        "                assets_dir = 'assets-d2',",
-        "                resource_files = ['d2-res/values/strings.xml'],",
-        "                deps = ['//java/android/resources/d3:d3'],",
-        "                )");
-    scratch.file("java/android/resources/d3/BUILD",
-        "android_library(name = 'd3',",
-        "                manifest = 'AndroidManifest.xml',",
-        "                assets = ['assets-d3/some/random/file'],",
-        "                assets_dir = 'assets-d3',",
-        "                resource_files = ['d3-res/values/strings.xml'],",
-        "                )");
-
-    ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
-    List<String> args = getGeneratingSpawnActionArgs(getResourceArtifact(resource));
-    assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/d1/d1-res"), args);
-    Truth.assertThat(getDirectDependentResourceDirs(args))
-        .contains("java/android/resources/d2/d2-res");
-    Truth.assertThat(getDependentAssetDirs("--directData", args))
-        .contains("java/android/resources/d2/assets-d2");
-    Truth.assertThat(getTransitiveDependentResourceDirs(args))
-        .contains("java/android/resources/d3/d3-res");
-    Truth.assertThat(getDependentAssetDirs("--data", args))
-        .contains("java/android/resources/d3/assets-d3");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testTransitiveDependentResourceDirectories_DecoupledLocalResources()
-      throws Exception {
-    useConfiguration("--android_decouple_data_processing");
-
+  public void testTransitiveDependentResourceDirectories() throws Exception {
     scratch.file(
         "java/android/resources/d1/BUILD",
         "android_library(name = 'd1',",

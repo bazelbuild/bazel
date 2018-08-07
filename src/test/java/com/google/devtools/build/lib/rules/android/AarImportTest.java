@@ -123,31 +123,8 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testResourcesProvided_NotDecoupled() throws Exception {
-    useConfiguration("--noandroid_decouple_data_processing");
-
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
-
-    NestedSet<ValidatedAndroidData> directResources =
-        aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
-    assertThat(directResources).hasSize(1);
-
-    ValidatedAndroidData resourceContainer = directResources.iterator().next();
-    assertThat(resourceContainer.getManifest()).isNotNull();
-
-    Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
-    assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
-    assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
-
-    Artifact assetsTreeArtifact = Iterables.getOnlyElement(resourceContainer.getAssets());
-    assertThat(assetsTreeArtifact.isTreeArtifact()).isTrue();
-    assertThat(assetsTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/assets/foo");
-  }
-
-  @Test
   public void aapt2RTxtProvided() throws Exception {
     useConfiguration(
-        "--android_decouple_data_processing",
         "--android_sdk=//aapt2/sdk:sdk",
         "--experimental_skip_parsing_action",
         "--android_aapt=aapt2");
@@ -178,8 +155,6 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testResourcesProvided() throws Exception {
-    useConfiguration("--android_decouple_data_processing");
-
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
     NestedSet<ValidatedAndroidData> directResources =
@@ -206,37 +181,7 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testResourcesExtractor_NotDecoupled() throws Exception {
-    useConfiguration("--noandroid_decouple_data_processing");
-    ValidatedAndroidData resourceContainer =
-        getConfiguredTarget("//a:foo")
-            .get(AndroidResourcesInfo.PROVIDER)
-            .getDirectAndroidResources()
-            .toList()
-            .get(0);
-
-    Artifact resourceTreeArtifact = resourceContainer.getResources().get(0);
-    Artifact assetsTreeArtifact = resourceContainer.getAssets().get(0);
-    Artifact aarResourcesExtractor =
-        getHostConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
-            .getProvider(FilesToRunProvider.class)
-            .getExecutable();
-
-    assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
-        .containsExactly(
-            aarResourcesExtractor.getExecPathString(),
-            "--input_aar",
-            "a/foo.aar",
-            "--output_res_dir",
-            resourceTreeArtifact.getExecPathString(),
-            "--output_assets_dir",
-            assetsTreeArtifact.getExecPathString());
-  }
-
-  @Test
   public void testResourcesExtractor() throws Exception {
-    useConfiguration("--android_decouple_data_processing");
     ValidatedAndroidData resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
@@ -271,42 +216,8 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDepsCheckerActionExistsForLevelErrorNotDecoupled() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=ERROR", "--noandroid_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    Artifact artifact = Iterables.getOnlyElement(outputGroup);
-    assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
-
-    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
-    List<String> arguments = checkerAction.getArguments();
-    assertThat(arguments)
-        .containsAllOf(
-            "--bootclasspath_entry",
-            "--classpath_entry",
-            "--directdep",
-            "--input",
-            "--output",
-            "--checking_mode=error",
-            "--rule_label",
-            "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(
-        arguments, "/intermediate/classes_and_libs_merged.jar");
-    assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(5); // transitive classpath
-    assertThat(arguments.stream().filter(arg -> "--directdep".equals(arg)).count())
-        .isEqualTo(1); // 1 declared dep
-  }
-
-  @Test
   public void testDepsCheckerActionExistsForLevelError() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=ERROR", "--android_decouple_data_processing");
+    useConfiguration("--experimental_import_deps_checking=ERROR");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
@@ -346,18 +257,8 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDepsCheckerActionExistsForLevelWarning_NotDecoupled() throws Exception {
-    checkDepsCheckerActionExistsForLevel_NotDecoupled(ImportDepsCheckingLevel.WARNING, "warning");
-  }
-
-  @Test
   public void testDepsCheckerActionExistsForLevelWarning() throws Exception {
     checkDepsCheckerActionExistsForLevel(ImportDepsCheckingLevel.WARNING, "warning");
-  }
-
-  @Test
-  public void testDepsCheckerActionExistsForLevelOff_NotDecoupled() throws Exception {
-    checkDepsCheckerActionExistsForLevel_NotDecoupled(ImportDepsCheckingLevel.OFF, "silence");
   }
 
   @Test
@@ -365,24 +266,9 @@ public class AarImportTest extends BuildViewTestCase {
     checkDepsCheckerActionExistsForLevel(ImportDepsCheckingLevel.OFF, "silence");
   }
 
-  private void checkDepsCheckerActionExistsForLevel_NotDecoupled(
-      ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=" + level.name(),
-        "--noandroid_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    Artifact artifact = Iterables.getOnlyElement(outputGroup);
-    checkDepsCheckerOutputArtifact(artifact, expectedCheckingMode);
-  }
-
   private void checkDepsCheckerActionExistsForLevel(
       ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=" + level.name(),
-        "--android_decouple_data_processing");
+    useConfiguration("--experimental_import_deps_checking=" + level.name());
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
