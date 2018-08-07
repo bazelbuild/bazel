@@ -136,7 +136,6 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
     this.ccDynamicLibrariesForRuntime = ccDynamicLibrariesForRuntime;
   }
 
-  @Override
   public CcLinkParamsStore getCcLinkParamsStore() {
     return ccLinkParamsStore;
   }
