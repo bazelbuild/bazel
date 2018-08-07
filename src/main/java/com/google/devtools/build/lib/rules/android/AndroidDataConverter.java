@@ -116,6 +116,10 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    *
    * <p>Because of how Bazel handles these objects, call this method *only* as part of creating a
    * static final field.
+   *
+   * <p>Additionally, the resulting {@link AndroidDataConverter} object should be annotated with
+   * {@link AutoCodec} (and, if relevant, {@link
+   * com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization}.
    */
   public static <T> Builder<T> builder(JoinerType joinerType) {
     return new Builder<>(joinerType);
