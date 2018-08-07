@@ -110,11 +110,7 @@ if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
 fi
 
 export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
-<<<<<<< HEAD
 --output_file=${COVERAGE_OUTPUT_FILE} --filter_out_regexes=/usr/*,*external*"
-=======
---output_file=${COVERAGE_OUTPUT_FILE} --filter_out_prefixes=/usr/,external"
->>>>>>> d61840f48a0728a7f01d40ef65c44b0e41c69a31
 
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then

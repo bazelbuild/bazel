@@ -45,44 +45,26 @@ class Coverage {
     return merged;
   }
 
-<<<<<<< HEAD
   static Coverage filterOutMatchingSources(Coverage coverage, String[] regexes) throws IllegalArgumentException {
     if (regexes.length == 0) {
       return coverage;
     }
     if (coverage == null || regexes == null) {
-=======
-  static Coverage filterOutSourcesWithPrefixes(Coverage coverage, String[] prefixes) throws IllegalArgumentException {
-    if (prefixes.length == 0) {
-      return coverage;
-    }
-    if (coverage == null || prefixes == null) {
->>>>>>> d61840f48a0728a7f01d40ef65c44b0e41c69a31
       throw new IllegalArgumentException("Can not filter coverage.");
     }
     Coverage filteredCoverage = new Coverage();
     Collection<SourceFileCoverage> sources = coverage.getAllSourceFiles();
     for (SourceFileCoverage source : sources) {
-<<<<<<< HEAD
       if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
-=======
-      if (!hasAnyPrefix(source.sourceFileName(), prefixes)) {
->>>>>>> d61840f48a0728a7f01d40ef65c44b0e41c69a31
         filteredCoverage.add(source);
       }
     }
     return filteredCoverage;
   }
 
-<<<<<<< HEAD
   private static boolean matchesAnyRegex(String input, String[] regexes) {
     for (String regex : regexes) {
       if (input.matches(regex)) {
-=======
-  private static boolean hasAnyPrefix(String input, String[] prefixes) {
-    for (String prefix : prefixes) {
-      if (input.contains(prefix)) {
->>>>>>> d61840f48a0728a7f01d40ef65c44b0e41c69a31
         return true;
       }
     }
