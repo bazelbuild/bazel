@@ -59,7 +59,6 @@ COMPATIBLE_JAVACOPTS = {
 }
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
-    "encoding": "UTF-8",
     "forcibly_disable_header_compilation": 0,
     "genclass": ["@bazel_tools//tools/jdk:genclass"],
     "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
