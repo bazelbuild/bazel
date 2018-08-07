@@ -149,7 +149,9 @@ public class BlazeJavacMain {
           "compiler.warn.sun.proprietary",
           // avoid warning spam when enabling processor options for an entire tree, only a subset
           // of which actually runs the processor
-          "compiler.warn.proc.unmatched.processor.options");
+          "compiler.warn.proc.unmatched.processor.options",
+          "compiler.warn.big.major.version",
+          "compiler.warn.proc.processor.incompatible.source.version");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
       ImmutableList<FormattedDiagnostic> diagnostics) {

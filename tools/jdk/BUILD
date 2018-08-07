@@ -3,6 +3,7 @@ package(default_visibility = ["//visibility:public"])
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
+    "java_runtime_files",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -29,47 +30,32 @@ filegroup(
 # *before* the transition.
 alias(
     name = "java_runtime_alias",
-    actual = "@bazel_tools//tools/jdk:current_java_runtime",
+    actual = "//tools/jdk:current_java_runtime",
 )
 
-alias(
+java_runtime_files(
     name = "jni_header",
-    actual = "@local_jdk//:jni_header",
+    srcs = ["include/jni.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-darwin",
-    actual = "@local_jdk//:jni_md_header-darwin",
+    srcs = ["include/darwin/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-linux",
-    actual = "@local_jdk//:jni_md_header-linux",
+    srcs = ["include/linux/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-windows",
-    actual = "@local_jdk//:jni_md_header-windows",
+    srcs = ["include/win32/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-freebsd",
-    actual = "@local_jdk//:jni_md_header-freebsd",
-)
-
-alias(
-    name = "java",
-    actual = "@local_jdk//:java",
-)
-
-alias(
-    name = "jar",
-    actual = "@local_jdk//:jar",
-)
-
-alias(
-    name = "javac",
-    actual = "@local_jdk//:javac",
+    srcs = ["include/freebsd/jni_md.h"],
 )
 
 # On Windows, executables end in ".exe", but the label we reach it through
@@ -125,23 +111,6 @@ BOOTCLASS_JARS = [
     "charsets.jar",
 ]
 
-# TODO(cushon): this isn't compatible with JDK 9
-alias(
-    name = "bootclasspath",
-    actual = "@local_jdk//:bootclasspath",
-)
-
-alias(
-    name = "extclasspath",
-    actual = "@local_jdk//:extdir",
-)
-
-# TODO(cushon): migrate to extclasspath and delete
-alias(
-    name = "extdir",
-    actual = "@local_jdk//:extdir",
-)
-
 filegroup(
     name = "langtools",
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
@@ -151,11 +120,6 @@ java_import(
     name = "langtools-neverlink",
     jars = [":langtools"],
     neverlink = 1,
-)
-
-alias(
-    name = "jre",
-    actual = "@local_jdk//:jre",
 )
 
 alias(
@@ -169,27 +133,28 @@ alias(
 )
 
 genrule(
-    name = "gen_platformclasspath",
+    name = "platformclasspath",
     srcs = ["DumpPlatformClassPath.java"],
-    outs = ["platformclasspath-impl.jar"],
+    outs = ["platformclasspath.jar"],
     cmd = """
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac $< -d $$TMPDIR
-$(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
+$(JAVA) -cp $$TMPDIR DumpPlatformClassPath $@
 rm -rf $$TMPDIR
 """,
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
 )
 
-# run ijar separately so we can skip it for bootstrapping
-genrule(
-    name = "platformclasspath",
-    srcs = ["platformclasspath-impl.jar"],
-    outs = ["platformclasspath.jar"],
-    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
-    tools = ["@bazel_tools//tools/jdk:ijar"],
+default_java_toolchain(
+    name = "toolchain_hostjdk8",
+    bootclasspath = [":platformclasspath"],
+    jvm_opts = [
+        "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
+    ],
+    source_version = "8",
+    target_version = "8",
 )
 
 default_java_toolchain(
@@ -204,8 +169,7 @@ default_java_toolchain(
 
 default_java_toolchain(
     name = "toolchain",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
+    bootclasspath = [":platformclasspath"],
     source_version = "8",
     target_version = "8",
 )
