@@ -72,7 +72,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     public TestedStandaloneTestStrategy(
         ExecutionOptions executionOptions, BinTools binTools, Path tmpDirRoot) {
-      super(executionOptions, binTools, tmpDirRoot);
+      super(executionOptions, binTools, tmpDirRoot, false);
     }
 
     @Override

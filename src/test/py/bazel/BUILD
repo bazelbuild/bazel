@@ -139,6 +139,22 @@ py_test(
 )
 
 py_test(
+    name = "test_wrapper_test",
+    main = select({
+        "//src/conditions:windows": "test_wrapper_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    srcs = select({
+        "//src/conditions:windows": ["test_wrapper_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
