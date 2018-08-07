@@ -95,7 +95,7 @@ set -ex
     shallow_date = ctx.execute([
         bash_exe,
         "-c",
-        "(cd '{directory}' && git log -n 1 --pretty='format:%cd' --date='format:%Y-%d-%m')".format(
+        "(cd '{directory}' && git log -n 1 --pretty='format:%cd' --date='format:%Y-%m-%d')".format(
             directory = ctx.path("."),
         ),
     ]).stdout
