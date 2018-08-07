@@ -28,8 +28,14 @@ public interface RPCServer {
    * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
    */
   interface Factory {
-    RPCServer create(BlazeCommandDispatcher dispatcher, Clock clock, int port,
-        Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException;
+    RPCServer create(
+        BlazeCommandDispatcher dispatcher,
+        Clock clock,
+        int port,
+        Path workspace,
+        Path serverDirectory,
+        int maxIdleSeconds,
+        boolean idleServerTasks) throws IOException;
   }
 
   /**
