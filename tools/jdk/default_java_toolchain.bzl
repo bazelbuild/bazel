@@ -86,3 +86,19 @@ def default_java_toolchain(name, **kwargs):
         name = name,
         **toolchain_args
     )
+
+def java_runtime_files(name, srcs):
+    native.filegroup(
+        name = name,
+        srcs = srcs,
+    )
+    [
+        native.genrule(
+            name = "gen_%s" % src,
+            srcs = ["//tools/jdk:current_java_runtime"],
+            toolchains = ["//tools/jdk:current_java_runtime"],
+            cmd = "cp $(JAVABASE)/%s $@" % src,
+            outs = [src],
+        )
+        for src in srcs
+    ]

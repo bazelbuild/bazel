@@ -301,11 +301,6 @@ EOF
   expect_log "Growl!"
 }
 
-function test_default_ws() {
-  bazel fetch //external:java || fail "Fetch failed"
-  bazel build //external:java >& $TEST_log || fail "Failed to build java"
-}
-
 function test_external_hdrs() {
   local external_ws=$TEST_TMPDIR/path/to/my/lib
   mkdir -p $external_ws
