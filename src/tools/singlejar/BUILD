@@ -201,7 +201,6 @@ cc_test(
     ],
     deps = [
         ":options",
-        ":test_util",
         ":token_stream",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
@@ -293,7 +292,6 @@ cc_test(
         ":zlib_interface",
     ],
     deps = [
-        ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
