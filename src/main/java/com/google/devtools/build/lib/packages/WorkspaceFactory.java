@@ -346,10 +346,12 @@ public class WorkspaceFactory {
                 }
                 // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
                 // treats references to @name as a separate external repo
-                builder.addRepositoryMappingEntry(
-                    RepositoryName.MAIN,
-                    RepositoryName.createFromValidStrippedName(name),
-                    RepositoryName.MAIN);
+                if (env.getSemantics().experimentalRemapMainRepo()) {
+                  builder.addRepositoryMappingEntry(
+                      RepositoryName.MAIN,
+                      RepositoryName.createFromValidStrippedName(name),
+                      RepositoryName.MAIN);
+                }
                 return NONE;
               }
             };
@@ -498,11 +500,13 @@ public class WorkspaceFactory {
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
-          if (!Strings.isNullOrEmpty(builder.pkg.getWorkspaceName())) {
-            builder.addRepositoryMappingEntry(
-                RepositoryName.createFromValidStrippedName(externalRepoName),
-                RepositoryName.createFromValidStrippedName(builder.pkg.getWorkspaceName()),
-                RepositoryName.MAIN);
+          if (env.getSemantics().experimentalRemapMainRepo()) {
+            if (!Strings.isNullOrEmpty(builder.pkg.getWorkspaceName())) {
+              builder.addRepositoryMappingEntry(
+                  RepositoryName.createFromValidStrippedName(externalRepoName),
+                  RepositoryName.createFromValidStrippedName(builder.pkg.getWorkspaceName()),
+                  RepositoryName.MAIN);
+            }
           }
           if (env.getSemantics().experimentalEnableRepoMapping()) {
             if (kwargs.containsKey("repo_mapping")) {
