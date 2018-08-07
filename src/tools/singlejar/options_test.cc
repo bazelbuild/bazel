@@ -15,7 +15,6 @@
 #include <memory>
 
 #include "src/tools/singlejar/options.h"
-#include "src/tools/singlejar/test_util.h"
 
 #include "src/main/cpp/util/port.h"
 #include "googletest/include/gtest/gtest.h"
