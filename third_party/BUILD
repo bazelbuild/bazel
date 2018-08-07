@@ -162,35 +162,35 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-6.0.jar"],
-    srcjar = "asm/asm-6.0-sources.jar",
+    jars = ["asm/asm-6.2.jar"],
+    srcjar = "asm/asm-6.2-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-6.0.jar"],
-    srcjar = "asm/asm-analysis-6.0-sources.jar",
+    jars = ["asm/asm-analysis-6.2.jar"],
+    srcjar = "asm/asm-analysis-6.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-6.0.jar"],
-    srcjar = "asm/asm-commons-6.0-sources.jar",
+    jars = ["asm/asm-commons-6.2.jar"],
+    srcjar = "asm/asm-commons-6.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-6.0.jar"],
-    srcjar = "asm/asm-tree-6.0-sources.jar",
+    jars = ["asm/asm-tree-6.2.jar"],
+    srcjar = "asm/asm-tree-6.2-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-6.0.jar"],
-    srcjar = "asm/asm-util-6.0-sources.jar",
+    jars = ["asm/asm-util-6.2.jar"],
+    srcjar = "asm/asm-util-6.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
