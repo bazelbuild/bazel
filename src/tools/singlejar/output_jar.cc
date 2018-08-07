@@ -24,6 +24,10 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/input_jar.h"
