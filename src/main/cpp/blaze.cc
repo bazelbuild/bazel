@@ -420,12 +420,8 @@ static vector<string> GetArgumentArray(
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
   if (!globals->options->GetEmbeddedJavabase().empty()) {
-    // In JDK9 we have seen a slow down when using the default G1 collector
-    // and thus switch back to parallel gc.
-    result.push_back("-XX:+UseParallelOldGC");
-    // see: https://github.com/google/protobuf/issues/3781
-
     // quiet warnings from com.google.protobuf.UnsafeUtil,
+    // see: https://github.com/google/protobuf/issues/3781
     result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
   }
 

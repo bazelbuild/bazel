@@ -19,10 +19,6 @@ JDK8_JVM_OPTS = [
 ]
 
 JDK9_JVM_OPTS = [
-    # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-    # G1 collector and having compact strings enabled.
-    "-XX:+UseParallelOldGC",
-    "-XX:-CompactStrings",
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
