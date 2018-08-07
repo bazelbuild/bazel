@@ -67,9 +67,15 @@ public class Main {
       System.exit(1);
     }
 
+<<<<<<< HEAD
     if (flags.containsKey("filter_out_regexes")) {
       String[] regexes = flags.get("filter_out_regexes").split(",");
       coverage = coverage.filterOutMatchingSources(coverage, regexes);
+=======
+    if (flags.containsKey("filter_out_prefixes")) {
+      String[] prefixes = flags.get("filter_out_prefixes").split(",");
+      coverage = coverage.filterOutSourcesWithPrefixes(coverage, prefixes);
+>>>>>>> d61840f48a0728a7f01d40ef65c44b0e41c69a31
     }
 
     int exitStatus = 0;
@@ -199,7 +205,11 @@ public class Main {
         case "coverage_dir":
         case "reports_file":
         case "output_file":
+<<<<<<< HEAD
         case "filter_out_regexes":
+=======
+        case "filter_out_prefixes":
+>>>>>>> d61840f48a0728a7f01d40ef65c44b0e41c69a31
           continue;
         default:
           throw new IllegalArgumentException("Unknown flag --" + flag);
