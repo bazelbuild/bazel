@@ -222,6 +222,14 @@ public final class TestActionBuilder {
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
           PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support", Mode.DONT_CHECK));
+
+      if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
+        Artifact collectCcCoverage =
+                ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage");
+        inputsBuilder.add(collectCcCoverage);
+        extraTestEnv.put("CC_CODE_COVERAGE_SCRIPT", collectCcCoverage.getExecPathString());
+      }
+
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
         TransitiveInfoCollection lcovMerger =

@@ -29,6 +29,11 @@ filegroup(
 )
 
 filegroup(
+    name = "collect_cc_coverage",
+    srcs = ["collect_cc_coverage.sh"],
+)
+
+filegroup(
     name = "coverage_report_generator",
     srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
 )
