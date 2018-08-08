@@ -34,6 +34,7 @@
 # gcda or profraw) and uses either lcov or gcov to get the coverage data.
 # The coverage data is placed in $COVERAGE_OUTPUT_FILE.
 
+
  function uses_llvm() {
   if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
     return
