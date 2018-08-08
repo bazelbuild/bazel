@@ -106,25 +106,6 @@ public class AndroidResourceValidatorActionBuilder {
     }
   }
 
-  public ResourceContainer build(
-      AndroidDataContext dataContext, ResourceContainer resourceContainer) {
-    withPrimary(resourceContainer).build(dataContext);
-    ResourceContainer.Builder builder = resourceContainer.toBuilder();
-
-    if (rTxtOut != null) {
-      builder.setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut);
-    }
-
-    if (compiledSymbols != null) {
-      builder
-          .setAapt2JavaSourceJar(aapt2SourceJarOut)
-          .setAapt2RTxt(aapt2RTxtOut)
-          .setStaticLibrary(staticLibraryOut);
-    }
-
-    return builder.build();
-  }
-
   public ValidatedAndroidResources build(
       AndroidDataContext dataContext, MergedAndroidResources merged) {
     withPrimary(merged).build(dataContext);

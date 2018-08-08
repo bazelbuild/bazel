@@ -201,24 +201,6 @@ public class AndroidResourceMergingActionBuilder {
     buildParsedResourceMergingAction(parsedMergeBuilder);
   }
 
-  public ResourceContainer build(
-      AndroidDataContext dataContext, ResourceContainer resourceContainer) {
-    withPrimary(resourceContainer).build(dataContext);
-
-    // Return the full set of processed transitive dependencies.
-    ResourceContainer.Builder result = resourceContainer.toBuilder();
-
-    result.setJavaClassJar(classJarOut);
-
-    if (manifestOut != null) {
-      result.setManifest(manifestOut);
-    }
-    if (mergedResourcesOut != null) {
-      result.setMergedResources(mergedResourcesOut);
-    }
-    return result.build();
-  }
-
   public MergedAndroidResources build(
       AndroidDataContext dataContext, ParsedAndroidResources parsed) {
     withPrimary(parsed).build(dataContext);

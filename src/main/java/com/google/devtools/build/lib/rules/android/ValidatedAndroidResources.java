@@ -90,9 +90,9 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       Artifact rTxt,
       Artifact sourceJar,
       Artifact apk,
-      Artifact aapt2RTxt,
-      Artifact aapt2SourceJar,
-      Artifact staticLibrary) {
+      @Nullable Artifact aapt2RTxt,
+      @Nullable Artifact aapt2SourceJar,
+      @Nullable Artifact staticLibrary) {
     return new ValidatedAndroidResources(
         merged, rTxt, sourceJar, apk, aapt2RTxt, aapt2SourceJar, staticLibrary);
   }

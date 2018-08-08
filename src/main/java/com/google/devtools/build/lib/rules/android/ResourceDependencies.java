@@ -29,14 +29,13 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Represents a container for the {@link ResourceContainer}s for a given library. This is
- * abstraction simplifies the process of managing and exporting the direct and transitive resource
- * dependencies of an android rule, as well as providing type safety.
+ * Represents a container for the resource dependencies for a given target. This abstraction
+ * simplifies the process of managing and exporting the direct and transitive resource dependencies
+ * of an android rule, as well as providing type safety.
  *
  * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a library is
  * included in both the transitive and direct dependencies, it will appear twice. This requires
  * consumers to manage duplicated resources gracefully.
- *
  *
  * <p>TODO(b/76418178): Once resource processing is fully decoupled from asset and manifest
  * processing, remove asset and manifest fields from this class.

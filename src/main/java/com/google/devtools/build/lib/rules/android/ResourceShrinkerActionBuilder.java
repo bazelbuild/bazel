@@ -79,7 +79,7 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /** @param resourceDeps The full dependency tree of {@link ResourceContainer}s. */
+  /** @param resourceDeps The full dependency tree of resources. */
   public ResourceShrinkerActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencyResources = resourceDeps;
     return this;

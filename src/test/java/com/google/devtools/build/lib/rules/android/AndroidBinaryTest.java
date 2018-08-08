@@ -1849,8 +1849,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
    * Gets the paths of matching artifacts that are used as input to resource processing
    *
    * @param dir the directory to look for artifacts in
-   * @param resource the ResourceContainer output from the resource processing that uses these
-   *     artifacts as inputs
+   * @param resource the output from the resource processing that uses these artifacts as inputs
    * @return the paths to all artifacts used as inputs to resource processing that are contained
    *     within the given directory, relative to that directory.
    */
