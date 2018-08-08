@@ -45,27 +45,44 @@ public class MultisetSemaphoreTest {
         .maxNumUniqueValues(3)
         .build();
 
-    // And we serially acquire permits for 3 unique values,
+    // Then it initially has 0 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(0);
+
+    // And then when we serially acquire permits for 3 unique values,
     multisetSemaphore.acquireAll(ImmutableSet.of("a", "b", "c"));
     // Then the MultisetSemaphore thinks it currently has 3 unique values.
     assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
-    // And then attempt to acquire permits for 2 of those same unique values,
-    // Then we don't deadlock,
+
+    // And then when we attempt to acquire permits for 2 of those same unique values, we don't block
+    // forever,
     multisetSemaphore.acquireAll(ImmutableSet.of("b", "c"));
     // And the MultisetSemaphore still thinks it currently has 3 unique values.
     assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
-    // And then we release one of the permit for one of those unique values,
+
+    // And then when we release one of the permit for one of those unique values,
     multisetSemaphore.releaseAll(ImmutableSet.of("c"));
-    // Then the MultisetSemaphore still thinks it currently has 3 unique values.
+    // The MultisetSemaphore still thinks it currently has 3 unique values.
     assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
+
     // And then we release the final permit for that unique value,
     multisetSemaphore.releaseAll(ImmutableSet.of("c"));
-    // Then the MultisetSemaphore thinks it currently has 2 unique values.
+    // The MultisetSemaphore thinks it currently has 2 unique values.
     assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(2);
-    // And we are able to acquire a permit for a 4th unique value,
+
+    // And then we attempt to acquire a permit for a 4th unique value, we don't block forever,
     multisetSemaphore.acquireAll(ImmutableSet.of("d"));
     // And the MultisetSemaphore thinks it currently has 3 unique values.
     assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(3);
+
+    // And then we release one permit each for the remaining 3 that unique values,
+    multisetSemaphore.releaseAll(ImmutableSet.of("a", "b", "d"));
+    // The MultisetSemaphore thinks it currently has 1 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(1);
+
+    // And then we release the final permit for the remaining unique value,
+    multisetSemaphore.releaseAll(ImmutableSet.of("b"));
+    // The MultisetSemaphore thinks it currently has 0 unique values.
+    assertThat(multisetSemaphore.estimateCurrentNumUniqueValues()).isEqualTo(0);
   }
 
   @Test
