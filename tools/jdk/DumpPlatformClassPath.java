@@ -48,7 +48,6 @@ public class DumpPlatformClassPath {
       path = path.getParent();
     }
     Path rtJar = path.resolve("jre/lib/rt.jar");
-    System.err.println(rtJar);
     if (Files.exists(rtJar)) {
       Files.copy(rtJar, output);
       return;
