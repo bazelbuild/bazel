@@ -678,7 +678,7 @@ public class AndroidCommon {
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
     if (generatedExtensionRegistryProvider != null) {
-      builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
     OutputJar resourceJar = null;
     if (resourceApk.getResourceJavaClassJar() != null && resourceSourceJar != null) {
