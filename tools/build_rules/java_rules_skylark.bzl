@@ -50,15 +50,17 @@ def java_library_impl(ctx):
     cmd = "set -e;rm -rf " + build_output + " " + java_output + " " + javalist_output + "\n"
     cmd += "mkdir " + build_output + " " + java_output + "\n"
     files = " @" + sources_param_file.path
+    java_runtime = ctx.attr._jdk[java_common.JavaRuntimeInfo]
+    jar_path = "%s/bin/jar" % java_runtime.java_home
 
     if ctx.files.srcjars:
         files += " @" + javalist_output
         for file in ctx.files.srcjars:
-            cmd += "%s tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (ctx.file._jar.path, file.path, java_output, javalist_output)
+            cmd += "%s tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (jar_path, file.path, java_output, javalist_output)
             cmd += "unzip %s -d %s >/dev/null\n" % (file.path, java_output)
 
     if ctx.files.srcs or ctx.files.srcjars:
-        cmd += ctx.file._javac.path
+        cmd += "%s/bin/javac" % java_runtime.java_home
         cmd += " " + " ".join(javac_options)
         if compile_time_jars:
             cmd += " -classpath '" + cmd_helper.join_paths(ctx.configuration.host_path_separator, compile_time_jars) + "'"
@@ -68,11 +70,11 @@ def java_library_impl(ctx):
     # stick them in the root of the jar.
     for r in ctx.files.resources:
         cmd += "cp %s %s\n" % (r.path, build_output)
-    cmd += (ctx.file._jar.path + " cf " + class_jar.path + " -C " + build_output + " .\n" +
+    cmd += (jar_path + " cf " + class_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
     ctx.action(
         inputs = (sources + compile_time_jars_list + [sources_param_file] +
-                  [ctx.file._jar] + ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
+                  ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
         outputs = [class_jar],
         mnemonic = "JavacBootstrap",
         command = cmd,
@@ -95,6 +97,8 @@ def java_binary_impl(ctx):
     manifest = ctx.outputs.manifest
     build_output = deploy_jar.path + ".build_output"
     main_class = ctx.attr.main_class
+    java_runtime = ctx.attr._jdk[java_common.JavaRuntimeInfo]
+    jar_path = "%s/bin/jar" % java_runtime.java_home
     ctx.file_action(
         output = manifest,
         content = "Main-Class: " + main_class + "\n",
@@ -105,7 +109,7 @@ def java_binary_impl(ctx):
     cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
     for jar in library_result.runtime_jars:
         cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
-    cmd += (ctx.file._jar.path + " cmf " + manifest.path + " " +
+    cmd += (jar_path + " cmf " + manifest.path + " " +
             deploy_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
 
@@ -138,7 +142,7 @@ def java_binary_impl(ctx):
             "  fi",
             "fi",
             "",
-            "jvm_bin=%s" % (ctx.file._java.path),
+            "jvm_bin=%s" % (ctx.attr._jdk[java_common.JavaRuntimeInfo].java_executable_exec_path),
             "if [[ ! -x ${jvm_bin} ]]; then",
             "  jvm_bin=$(which java)",
             "fi",
@@ -182,10 +186,10 @@ def java_import_impl(ctx):
     )
 
 java_library_attrs = {
-    "_java": attr.label(default = Label("//tools/jdk:java"), single_file = True),
-    "_javac": attr.label(default = Label("//tools/jdk:javac"), single_file = True),
-    "_jar": attr.label(default = Label("//tools/jdk:jar"), single_file = True),
-    "_jdk": attr.label(default = Label("//tools/jdk:jdk"), allow_files = True),
+    "_jdk": attr.label(
+        default = Label("//tools/jdk:current_java_runtime"),
+        providers = [java_common.JavaRuntimeInfo],
+    ),
     "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),
     "srcs": attr.label_list(allow_files = java_filetype),
