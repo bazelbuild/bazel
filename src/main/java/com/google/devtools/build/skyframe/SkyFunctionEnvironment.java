@@ -535,6 +535,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
       ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depValue);
       if (errorInfo != null) {
+        errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
