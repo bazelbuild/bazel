@@ -13,6 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script collects code coverage data for C++ sources, after the tests
+# were executed.
+#
+# Bazel C++ code coverage collection support is poor and limited.
+#
+# Bazel uses the lcov tool for gathering coverage data. There is also
+# an experimental support for clang llvm coverage, which uses the .profraw
+# data files to compute the coverage report.
+#
+# This script assumes the following environment variables are set:
+# - COVERAGE_DIR            Directory containing metadata files needed for
+#                           coverage collection (e.g. gcda files, profraw).
+# - COVERAGE_MANIFEST       Location of the instrumented file manifest.
+# - COVERAGE_OUTPUT_FILE    Location of the final coverage report.
+# - ROOT                    Location from where the code coverage collection
+#                           was invoked.
+#
+# The script looks in $COVERAGE_DIR for the C++ metadata coverage files (either
+# gcda or profraw) and uses either lcov or gcov to get the coverage data.
+# The coverage data is placed in $COVERAGE_OUTPUT_FILE.
+
  function uses_llvm() {
   if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
     return

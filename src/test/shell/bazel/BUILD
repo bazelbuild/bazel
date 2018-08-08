@@ -195,6 +195,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_cc_code_coverage_test",
+    srcs = ["bazel_cc_code_coverage_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        #"local",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_localtest_test",
     srcs = ["bazel_localtest_test.sh"],
     data = [":test-deps"],
