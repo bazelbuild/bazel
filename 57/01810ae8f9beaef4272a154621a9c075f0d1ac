@@ -1,0 +1,5 @@
+Important changes:
+
+  - In remote caching we limit the number of open
+    TCP connections to 100 by default. The number can be adjusted
+    by specifying the --remote_max_connections flag.
