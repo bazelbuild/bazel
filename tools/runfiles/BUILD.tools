@@ -2,5 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 alias(
     name = "java-runfiles",
-    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
+    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles:runfiles",
+    # Cannot use `deprecation` argument on the `alias` rule due to
+    # https://github.com/bazelbuild/bazel/issues/5802, so we use it on the target of the alias.
 )

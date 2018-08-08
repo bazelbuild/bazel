@@ -1,0 +1,6 @@
+alias(
+    name = "runfiles",
+    # TODO(laszlocsomor): move the sources to this package.
+    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
+    visibility = ["//visibility:public"],
+)

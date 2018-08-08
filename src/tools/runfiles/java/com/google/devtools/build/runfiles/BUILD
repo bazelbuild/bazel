@@ -29,7 +29,6 @@ filegroup(
 java_library(
     name = "runfiles",
     srcs = [":java-srcs"],
-    visibility = ["//src/tools/runfiles:__pkg__"],
 )
 
 java_test(

@@ -1,5 +1,6 @@
 package(default_visibility = ["//visibility:private"])
 
+# TODO(laszlocsomor): move the sources to //tools/java/runfiles
 filegroup(
     name = "java-srcs",
     srcs = [
@@ -8,8 +9,15 @@ filegroup(
     ],
 )
 
+# TODO(laszlocsomor): after https://github.com/bazelbuild/bazel/issues/5802 is fixed, add a
+# `deprecation` attribute to @bazel_tools//tools/runfiles:java-runfiles, telling users to depend on
+# @bazel_tools//tools/java/runfiles instead. After a reasonable time (1-2 Bazel releases containing
+# the deprecation warning) remove @bazel_tools//tools/runfiles:java-runfiles.
 java_library(
     name = "runfiles",
     srcs = [":java-srcs"],
-    visibility = ["//tools/runfiles:__pkg__"],
+    visibility = [
+        "//tools/runfiles:__pkg__",
+        "//tools/java/runfiles:__pkg__",
+    ],
 )

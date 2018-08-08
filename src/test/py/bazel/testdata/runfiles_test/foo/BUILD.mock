@@ -23,7 +23,7 @@ java_binary(
         "//bar:bar-cc",
     ],
     main_class = "Foo",
-    deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )
 
 sh_binary(
