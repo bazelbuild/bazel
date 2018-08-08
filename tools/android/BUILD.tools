@@ -97,18 +97,13 @@ java_binary(
 )
 
 gen_java_lang_extras_jar_cmd = """
-    for jar in $(locations @local_jdk//:bootclasspath); do
-      if [[ "$${jar}" == *"/rt.jar" ]]; then
-        $(location %s) \
-            --exclude_build_data \
-            --dont_change_compression \
-            --sources $${jar} \
-            --include_prefixes "java/lang/invoke/" \
-            --include_prefixes "java/lang/annotation/" \
-            --output $@
-        break
-      fi
-    done
+    $(location %s) \
+        --exclude_build_data \
+        --dont_change_compression \
+        --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
+        --include_prefixes "java/lang/invoke/" \
+        --include_prefixes "java/lang/annotation/" \
+        --output $@
     """
 
 # javac needs this Jar to compile lambdas, method references, and type annotations.
@@ -116,7 +111,7 @@ gen_java_lang_extras_jar_cmd = """
 genrule(
     name = "gen_java_lang_extras_jar",
     srcs = [
-        "@local_jdk//:bootclasspath"
+        "@bazel_tools//tools/jdk:platformclasspath"
     ],
     tools = select({
         "//src/conditions:windows": [":singlejar_javabin"],
@@ -178,15 +173,10 @@ genrule(
     srcs = ["desugar_jdk_libs.jar"],
     outs = ["desugared_java8_legacy_libs.jar"],
     cmd = """
-    classpath=()
-    for j in $(locations //tools/jdk:bootclasspath); do
-      classpath+=("--classpath_entry")
-      classpath+=("$${j}")
-    done
     $(location :desugar_java8) \
         --input $< \
         --output $@ \
-        "$${classpath[@]}" \
+        --classpath_entry "$(location @bazel_tools//tools/jdk:platformclasspath)" \
         --core_library --allow_empty_bootclasspath \
         --nobest_effort_tolerate_missing_deps \
         --noemit_dependency_metadata_as_needed \
@@ -223,7 +213,7 @@ genrule(
         --dont_rewrite_core_library_invocation "java/util/Iterator#remove" """,
     tools = [
         ":desugar_java8",
-        "//tools/jdk:bootclasspath",
+        "@bazel_tools//tools/jdk:platformclasspath",
     ],
     visibility = ["//visibility:private"],
 )

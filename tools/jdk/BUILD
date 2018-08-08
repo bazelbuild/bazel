@@ -169,27 +169,18 @@ alias(
 )
 
 genrule(
-    name = "gen_platformclasspath",
+    name = "platformclasspath",
     srcs = ["DumpPlatformClassPath.java"],
-    outs = ["platformclasspath-impl.jar"],
+    outs = ["platformclasspath.jar"],
     cmd = """
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac $< -d $$TMPDIR
-$(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
+$(JAVA) -cp $$TMPDIR DumpPlatformClassPath $@
 rm -rf $$TMPDIR
 """,
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-)
-
-# run ijar separately so we can skip it for bootstrapping
-genrule(
-    name = "platformclasspath",
-    srcs = ["platformclasspath-impl.jar"],
-    outs = ["platformclasspath.jar"],
-    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
-    tools = ["@bazel_tools//tools/jdk:ijar"],
 )
 
 default_java_toolchain(
@@ -204,8 +195,7 @@ default_java_toolchain(
 
 default_java_toolchain(
     name = "toolchain",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
+    bootclasspath = [":platformclasspath"],
     source_version = "8",
     target_version = "8",
 )
