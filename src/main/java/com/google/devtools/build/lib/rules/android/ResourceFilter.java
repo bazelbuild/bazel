@@ -65,17 +65,17 @@ public class ResourceFilter {
     return Optional.of(NestedSetBuilder.wrap(artifacts.getOrder(), filtered));
   }
 
-  public NestedSet<ValidatedAndroidData> filterDependencyContainers(
-      RuleErrorConsumer errorConsumer, NestedSet<ValidatedAndroidData> resourceContainers)
+  public NestedSet<ValidatedAndroidResources> filterDependencyContainers(
+      RuleErrorConsumer errorConsumer, NestedSet<ValidatedAndroidResources> resourceContainers)
       throws RuleErrorException {
     if (isEmpty) {
       return resourceContainers;
     }
 
-    NestedSetBuilder<ValidatedAndroidData> builder =
+    NestedSetBuilder<ValidatedAndroidResources> builder =
         new NestedSetBuilder<>(resourceContainers.getOrder());
 
-    for (ValidatedAndroidData container : resourceContainers) {
+    for (ValidatedAndroidResources container : resourceContainers) {
       builder.add(container.filter(errorConsumer, this, /* isDependency = */ true));
     }
 

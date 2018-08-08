@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -185,8 +185,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "android_library(name = 'b', srcs = ['B.java'])");
     Artifact artifact = getFileConfiguredTarget("//java/android/strict:libb.jar").getArtifact();
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(artifact);
-    assertThat(compileAction.getStrictJavaDepsMode())
-        .isEqualTo(BuildConfiguration.StrictDepsMode.OFF);
+    assertThat(compileAction.getStrictJavaDepsMode()).isEqualTo(StrictDepsMode.OFF);
   }
 
   @Test
@@ -195,8 +194,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "android_library(name = 'b', srcs = ['B.java'])");
     Artifact artifact = getFileConfiguredTarget("//java/android/strict:libb.jar").getArtifact();
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(artifact);
-    assertThat(compileAction.getStrictJavaDepsMode())
-        .isEqualTo(BuildConfiguration.StrictDepsMode.ERROR);
+    assertThat(compileAction.getStrictJavaDepsMode()).isEqualTo(StrictDepsMode.ERROR);
   }
 
   @Test
@@ -206,8 +204,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "android_library(name = 'b', srcs = ['B.java'])");
     Artifact artifact = getFileConfiguredTarget("//java/android/strict:libb.jar").getArtifact();
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(artifact);
-    assertThat(compileAction.getStrictJavaDepsMode())
-        .isEqualTo(BuildConfiguration.StrictDepsMode.WARN);
+    assertThat(compileAction.getStrictJavaDepsMode()).isEqualTo(StrictDepsMode.WARN);
   }
 
   @Test
@@ -941,7 +938,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                deps = [':bar'])",
         "android_library(name = 'bar',",
         "                manifest = 'AndroidManifest.xml')");
-    Function<ValidatedAndroidData, Label> getLabel = ValidatedAndroidData::getLabel;
+    Function<ValidatedAndroidResources, Label> getLabel = ValidatedAndroidResources::getLabel;
     ConfiguredTarget foo = getConfiguredTarget("//java/apps/android:foo");
     assertThat(
             Iterables.transform(
@@ -1033,7 +1030,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(filesToBuild);
 
-    ValidatedAndroidData resources =
+    ValidatedAndroidResources resources =
         Iterables.getOnlyElement(
             target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources());
 
@@ -1152,7 +1149,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 artifactClosure, "java/android/AndroidManifest.xml"));
-    ValidatedAndroidData resources =
+    ValidatedAndroidResources resources =
         getOnlyElement(
             getConfiguredTarget("//java/android:r")
                 .get(AndroidResourcesInfo.PROVIDER)
@@ -1184,7 +1181,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 artifactClosure, "handwriting/AndroidManifest.xml"));
-    ValidatedAndroidData resources =
+    ValidatedAndroidResources resources =
         getOnlyElement(
             getConfiguredTarget("//research/handwriting/java/com/google/research/handwriting:r")
                 .get(AndroidResourcesInfo.PROVIDER)
@@ -1218,7 +1215,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         .isEqualTo(
             ActionsTestUtil.getFirstArtifactEndingWith(
                 artifactClosure, "java/android/AndroidManifest.xml"));
-    ValidatedAndroidData resources =
+    ValidatedAndroidResources resources =
         getOnlyElement(
             getConfiguredTarget("//java/android:r")
                 .get(AndroidResourcesInfo.PROVIDER)

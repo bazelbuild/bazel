@@ -216,16 +216,10 @@ public abstract class AndroidSkylarkData
     boolean definesLocalResources = resourcesInfo.getDirectAndroidResources().isSingleton();
     AndroidResources resources = AndroidResources.empty();
     if (definesLocalResources) {
-      ValidatedAndroidData validatedAndroidData =
+      ValidatedAndroidResources validatedAndroidResources =
           resourcesInfo.getDirectAndroidResources().toList().get(0);
-      if (validatedAndroidData.getLabel().equals(ctx.getLabel())) {
-        // TODO(b/77574966): Remove this cast once we get rid of ResourceContainer and can guarantee
-        // that only properly processed resources are passed into this object.
-        if (!(validatedAndroidData instanceof ValidatedAndroidResources)) {
-          throw new EvalException(
-              Location.BUILTIN, "Old data processing pipeline does not support the Skylark API");
-        }
-        resources = (ValidatedAndroidResources) validatedAndroidData;
+      if (validatedAndroidResources.getLabel().equals(ctx.getLabel())) {
+        resources = validatedAndroidResources;
       } else {
         definesLocalResources = false;
       }

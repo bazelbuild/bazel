@@ -30,23 +30,23 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 public class RobolectricResourceSymbolsActionBuilder {
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getRTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> TO_ARG =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getRTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> TO_ARG_AAPT2 =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> TO_ARG_AAPT2 =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   private Artifact classJarOut;

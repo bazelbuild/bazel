@@ -834,7 +834,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   static Optional<Artifact> maybeShrinkResources(
       AndroidDataContext dataContext,
-      ValidatedAndroidData validatedResources,
+      ValidatedAndroidResources validatedResources,
       ResourceDependencies resourceDeps,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardOutputJar,
