@@ -787,12 +787,9 @@ public final class CppToolchainInfo {
       CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment crosstoolTopPathFragment) {
     Map<String, PathFragment> toolPathsCollector = Maps.newHashMap();
     for (Pair<String, String> tool : ccToolchainConfigInfo.getToolPaths()) {
-      String pathStr = tool.getSecond();
-      if (!PathFragment.isNormalized(pathStr)) {
-        throw new IllegalArgumentException("The include path '" + pathStr + "' is not normalized.");
-      }
-      PathFragment path = PathFragment.create(pathStr);
-      toolPathsCollector.put(tool.getFirst(), crosstoolTopPathFragment.getRelative(path));
+      toolPathsCollector.put(
+          tool.getFirst(),
+          crosstoolTopPathFragment.getRelative(tool.getSecond()));
     }
 
     if (toolPathsCollector.isEmpty()) {
