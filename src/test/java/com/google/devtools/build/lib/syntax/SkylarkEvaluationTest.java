@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableCollection;
@@ -72,6 +73,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return "foobar";
     }
   };
+
+  @SkylarkSignature(
+      name = "interrupted_function",
+      returnType = Runtime.NoneType.class,
+      documented = false)
+  static BuiltinFunction interruptedFunction =
+      new BuiltinFunction("interrupted_function") {
+        public Runtime.NoneType invoke() throws InterruptedException {
+          throw new InterruptedException();
+        }
+      };
 
   @SkylarkModule(name = "Mock", doc = "")
   static class NativeInfoMock extends NativeInfo {
@@ -154,6 +166,12 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public BuiltinFunction structFieldCallable() {
       return foobar;
     }
+
+    @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
+    public BuiltinFunction structFieldInterruptedCallable() throws InterruptedException {
+      throw new InterruptedException();
+    }
+
     @SkylarkCallable(name = "function", documented = false, structField = false)
     public String function() {
       return "a";
@@ -1261,6 +1279,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testCallingInterruptedStructField() throws Exception {
+    update("mock", new Mock());
+    assertThrows(InterruptedException.class, () -> eval("mock.interrupted_struct_field()"));
+  }
+
+  @Test
+  public void testCallingInterruptedFunction() throws Exception {
+    interruptedFunction.configure(
+        getClass().getDeclaredField("interruptedFunction").getAnnotation(SkylarkSignature.class));
+    update("interrupted_function", interruptedFunction);
+    assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));
+  }
+
+  @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
@@ -1868,6 +1900,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testExactOrder(
             "dir(mock)",
             "function",
+            "interrupted_struct_field",
             "is_empty",
             "legacy_method",
             "nullfunc_failing",
