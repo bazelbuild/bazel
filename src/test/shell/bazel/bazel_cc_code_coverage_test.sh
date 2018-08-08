@@ -242,5 +242,3 @@ end_of_record"
     tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" | grep "$expected_result_t_cc" \
         || fail "Wrong coverage results for coverage_srcs/t.cc"
 }
-
-run_suite "Testing tools/test/collect_cc_coverage.sh"
