@@ -14,6 +14,9 @@
 # limitations under the License.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 2ece660ee9... collect_cc_coverage.sh: Added initial test and documentation.
 # This script collects code coverage data for C++ sources, after the tests
 # were executed.
 #
