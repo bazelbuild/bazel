@@ -62,7 +62,7 @@ public final class AndroidBinaryMobileInstall {
     final ResourceApk incrementalResourceApk;
     final ResourceApk splitResourceApk;
 
-    Map<String, String> manifestValues = ApplicationManifest.getManifestValues(ruleContext);
+    Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
     incrementalResourceApk =
         ProcessedAndroidData.processIncrementalBinaryDataFrom(
