@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -42,6 +44,11 @@ public final class BazelCcTestRule implements RuleDefinition {
         // to decorate data symbols imported from DLL.
         .override(attr("linkstatic", BOOLEAN).value(OS.getCurrent() == OS.WINDOWS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                    .cfg(HostTransition.INSTANCE)
+                    .singleArtifact()
+                    .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();
   }
 
