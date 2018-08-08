@@ -226,10 +226,11 @@ function test_query_spacing() {
   # other tools, i.e., contains only result lines, separated only by newlines.
   BAZEL_QUERY_OUTPUT=`bazel query --experimental_ui 'deps(//pkg:true)'`
   echo "$BAZEL_QUERY_OUTPUT" | grep -q -v '^[@/]' \
-   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<"
-  echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
-   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<"
-  true
+   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
+  if ! is_windows; then
+    echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
+     && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
+  fi
 }
 
 function test_clean_nobuild {
