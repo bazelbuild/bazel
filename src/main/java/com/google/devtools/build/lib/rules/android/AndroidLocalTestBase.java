@@ -324,8 +324,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
     if (generatedExtensionRegistryProvider != null) {
-      builder.addProvider(
-          GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = javaRuleOutputJarsProviderBuilder.build();
