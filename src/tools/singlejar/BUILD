@@ -25,6 +25,7 @@ filegroup(
         "input_jar.cc",
         "input_jar.h",
         "mapped_file.h",
+        "mapped_file.cc",
         "mapped_file_posix.inc",
         "mapped_file_windows.inc",
         "options.cc",
@@ -348,13 +349,16 @@ cc_library(
 
 cc_library(
     name = "mapped_file",
-    srcs = select({
+    srcs = ["mapped_file.cc"] + select({
         "//src:windows": ["mapped_file_windows.inc"],
         "//conditions:default": ["mapped_file_posix.inc"],
     }),
     hdrs = ["mapped_file.h"],
     visibility = ["//visibility:private"],
-    deps = [":diag"],
+    deps = [
+        ":diag",
+        ":port",
+    ],
 )
 
 cc_library(
