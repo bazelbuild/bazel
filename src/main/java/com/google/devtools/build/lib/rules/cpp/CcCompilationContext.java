@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.CppHelper.PregreppedHeader;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -38,10 +37,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -121,8 +118,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
    *
    * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
    * prerequisites as a transitive dependency via a middleman. After they have been accumulated
-   * (using {@link Builder#addCompilationPrerequisites(Iterable)}, {@link
-   * Builder#mergeDependentCcCompilationContext(CcCompilationContext)}, and {@link
+   * ({@link Builder#mergeDependentCcCompilationContext(CcCompilationContext)}, and {@link
    * Builder#mergeDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
    * middleman Artifact when {@link Builder#build()} is called.
    *
@@ -192,7 +188,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     // We'd prefer for these types to use ImmutableSet/ImmutableMap. However, constructing these is
     // substantially more costly in a way that shows up in profiles.
     Map<PathFragment, Artifact> pathToLegalOutputArtifact = new HashMap<>();
-    Map<Artifact, Artifact> pregreppedHeaders = new HashMap<>();
     Set<Artifact> modularHeaders = new HashSet<>();
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
@@ -209,18 +204,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           pathToLegalOutputArtifact.put(a.getExecPath(), a);
         }
       }
-      for (PregreppedHeader pregreppedHeader : transitiveHeaderInfo.pregreppedHeaders) {
-        Artifact hdr = pregreppedHeader.originalHeader();
-        Preconditions.checkState(!hdr.isSourceArtifact(), hdr);
-        pregreppedHeaders.put(hdr, pregreppedHeader.greppedHeader());
-      }
     }
     modularHeaders.removeAll(headerInfo.modularHeaders);
     modularHeaders.removeAll(headerInfo.textualHeaders);
     return new IncludeScanningHeaderData(
         Collections.unmodifiableMap(pathToLegalOutputArtifact),
-        Collections.unmodifiableSet(modularHeaders),
-        Collections.unmodifiableMap(pregreppedHeaders));
+        Collections.unmodifiableSet(modularHeaders));
   }
 
   public NestedSet<Artifact> getTransitiveModules(boolean usePic) {
@@ -441,23 +430,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Adds multiple compilation prerequisites.
-     *
-     * <p>There are two kinds of "compilation prerequisites": declared header files and pregrepped
-     * headers.
-     */
-    public Builder addCompilationPrerequisites(Iterable<Artifact> prerequisites) {
-      for (Artifact prerequisite : prerequisites) {
-        String basename = prerequisite.getFilename();
-        Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
-        Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
-        Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
-      }
-      Iterables.addAll(compilationPrerequisites, prerequisites);
-      return this;
-    }
-
-    /**
      * Add a single include directory to be added with "-I". It can be either
      * relative to the exec root (see
      * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}) or
@@ -529,20 +501,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
     public Builder addTextualHdrs(Collection<Artifact> headers) {
       this.headerInfoBuilder.addTextualHeaders(headers);
-      return this;
-    }
-
-    /**
-     * Add a map of generated source or header Artifact to an output Artifact after grepping the
-     * file for include statements.
-     */
-    public Builder addPregreppedHeaders(List<PregreppedHeader> pregrepped) {
-      addCompilationPrerequisites(
-          pregrepped
-              .stream()
-              .map(pregreppedHeader -> pregreppedHeader.greppedHeader())
-              .collect(Collectors.toList()));
-      this.headerInfoBuilder.addPregreppedHeaders(pregrepped);
       return this;
     }
 
@@ -703,19 +661,15 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     /** All header files that are contained in this module. */
     private final ImmutableList<Artifact> textualHeaders;
 
-    private final ImmutableList<PregreppedHeader> pregreppedHeaders;
-
     public HeaderInfo(
         Artifact headerModule,
         Artifact picHeaderModule,
         ImmutableList<Artifact> modularHeaders,
-        ImmutableList<Artifact> textualHeaders,
-        ImmutableList<PregreppedHeader> pregreppedHeaders) {
+        ImmutableList<Artifact> textualHeaders) {
       this.headerModule = headerModule;
       this.picHeaderModule = picHeaderModule;
       this.modularHeaders = modularHeaders;
       this.textualHeaders = textualHeaders;
-      this.pregreppedHeaders = pregreppedHeaders;
     }
 
     public Artifact getModule(boolean pic) {
@@ -730,7 +684,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       private Artifact picHeaderModule = null;
       private final Set<Artifact> modularHeaders = new HashSet<>();
       private final Set<Artifact> textualHeaders = new HashSet<>();
-      private final Set<PregreppedHeader> pregreppedHeaders = new HashSet<>();
 
       public Builder setHeaderModule(Artifact headerModule) {
         this.headerModule = headerModule;
@@ -760,18 +713,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         return this;
       }
 
-      public Builder addPregreppedHeaders(Collection<PregreppedHeader> pregreppedHeaders) {
-        this.pregreppedHeaders.addAll(pregreppedHeaders);
-        return this;
-      }
-
       public HeaderInfo build() {
         return new HeaderInfo(
             headerModule,
             picHeaderModule,
             ImmutableList.copyOf(modularHeaders),
-            ImmutableList.copyOf(textualHeaders),
-            ImmutableList.copyOf(pregreppedHeaders));
+            ImmutableList.copyOf(textualHeaders));
       }
     }
   }

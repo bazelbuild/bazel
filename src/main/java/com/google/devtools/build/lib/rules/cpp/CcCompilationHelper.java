@@ -964,7 +964,7 @@ public final class CcCompilationHelper {
     // But defines come after those inherited from deps.
     ccCompilationContextBuilder.addDefines(defines);
 
-    // There are no ordering constraints for declared include dirs/srcs, or the pregrepped headers.
+    // There are no ordering constraints for declared include dirs/srcs.
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicHeaders.getHeaders());
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(privateHeaders);
@@ -973,12 +973,6 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addModularHdrs(publicHeaders.getHeaders());
     ccCompilationContextBuilder.addModularHdrs(privateHeaders);
     ccCompilationContextBuilder.addTextualHdrs(publicTextualHeaders);
-    ccCompilationContextBuilder.addPregreppedHeaders(
-        CppHelper.createExtractInclusions(ruleContext, semantics, publicHeaders.getHeaders()));
-    ccCompilationContextBuilder.addPregreppedHeaders(
-        CppHelper.createExtractInclusions(ruleContext, semantics, publicTextualHeaders));
-    ccCompilationContextBuilder.addPregreppedHeaders(
-        CppHelper.createExtractInclusions(ruleContext, semantics, privateHeaders));
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.

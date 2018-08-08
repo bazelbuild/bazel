@@ -117,7 +117,7 @@ public final class FilesetTraversalParamsFactory {
    *
    * @param ownerLabel the rule that created this object
    * @param nested the list of traversal params that were used for the nested (inner) Fileset
-   * @param destDir path in the Fileset's output directory that will be the root of files coming
+   * @param destPath path in the Fileset's output directory that will be the root of files coming
    *     from the nested Fileset
    * @param excludes optional; set of files directly below (not in a subdirectory of) the nested
    *     Fileset that should be excluded from the outer Fileset
@@ -125,15 +125,15 @@ public final class FilesetTraversalParamsFactory {
   public static FilesetTraversalParams nestedTraversal(
       Label ownerLabel,
       ImmutableList<FilesetTraversalParams> nested,
-      PathFragment destDir,
+      PathFragment destPath,
       @Nullable Set<String> excludes) {
-    if (nested.size() == 1 && destDir.isEmpty() && (excludes == null || excludes.isEmpty())) {
+    if (nested.size() == 1 && destPath.isEmpty() && (excludes == null || excludes.isEmpty())) {
       // Wrapping the traversal here would not lead to a different result: the output location is
       // the same and there are no additional excludes.
       return Iterables.getOnlyElement(nested);
     }
     // When srcdir is another Fileset, then files must be null so strip_prefix must also be null.
-    return NestedTraversalParams.getNestedTraversal(ownerLabel, nested, destDir, excludes);
+    return NestedTraversalParams.getNestedTraversal(ownerLabel, nested, destPath, excludes);
   }
 
   private static ImmutableSortedSet<String> getOrderedExcludes(@Nullable Set<String> excludes) {
@@ -230,9 +230,9 @@ public final class FilesetTraversalParamsFactory {
     static NestedTraversalParams getNestedTraversal(
         Label ownerLabel,
         ImmutableList<FilesetTraversalParams> nested,
-        PathFragment destDir,
+        PathFragment destPath,
         @Nullable Set<String> excludes) {
-      return create(ownerLabel, destDir, getOrderedExcludes(excludes), nested);
+      return create(ownerLabel, destPath, getOrderedExcludes(excludes), nested);
     }
 
     @AutoCodec.VisibleForSerialization

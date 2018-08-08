@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -213,8 +214,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public Collection<NestedSet<Artifact>> reportedArtifacts() {
-      return artifacts;
+    public ReportedArtifacts reportedArtifacts() {
+      return new ReportedArtifacts(artifacts, ArtifactPathResolver.IDENTITY);
     }
 
     @Override

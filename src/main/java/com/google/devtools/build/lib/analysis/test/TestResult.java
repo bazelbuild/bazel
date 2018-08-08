@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.TestAttempt;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -82,7 +83,13 @@ public class TestResult {
    *         you need log location.
    */
   public Path getTestLogPath() {
-    return testAction.getTestLog().getPath();
+    Path testLogPath = testAction.getTestLog().getPath();
+    // If we have an exec root we'll use its fileSystem
+    if (execRoot != null) {
+      FileSystem fileSystem = execRoot.getFileSystem();
+      return fileSystem.getPath(testLogPath.getPathString());
+    }
+    return testLogPath;
   }
 
   /**

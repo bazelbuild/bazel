@@ -51,12 +51,6 @@ public interface CppSemantics {
   /** Returns the include processing closure, which handles include processing for this build */
   IncludeProcessing getIncludeProcessing();
 
-  /**
-   * Returns true iff this build configuration requires inclusion extraction (for include scanning)
-   * in the action graph.
-   */
-  boolean needsIncludeScanning(RuleContext ruleContext);
-
   /** Returns true iff this build should perform .d input pruning. */
   boolean needsDotdInputPruning();
 

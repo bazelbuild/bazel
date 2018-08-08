@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.android.resources.ResourceFolderType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -98,10 +100,6 @@ public class AndroidResources {
     AndroidAssets.validateAssetsAndAssetsDir(ruleContext);
     validateNoAndroidResourcesInSources(ruleContext);
     validateManifest(ruleContext);
-  }
-
-  public static boolean decoupleDataProcessing(AndroidDataContext dataContext) {
-    return dataContext.getAndroidConfig().decoupleDataProcessing();
   }
 
   /**
@@ -403,11 +401,11 @@ public class AndroidResources {
   public ParsedAndroidResources parse(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
-      boolean enableDataBinding,
-      AndroidAaptVersion aaptVersion)
+      AndroidAaptVersion aaptVersion,
+      DataBindingContext dataBindingContext)
       throws InterruptedException {
     return ParsedAndroidResources.parseFrom(
-        dataContext, this, manifest, enableDataBinding, aaptVersion);
+        dataContext, this, manifest, aaptVersion, dataBindingContext);
   }
 
   /**
@@ -418,13 +416,14 @@ public class AndroidResources {
       RuleContext ruleContext,
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
+      DataBindingContext dataBindingContext,
       boolean neverlink)
       throws RuleErrorException, InterruptedException {
     return process(
         dataContext,
         manifest,
         ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
-        DataBinding.isEnabled(ruleContext),
+        dataBindingContext,
         AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
   }
 
@@ -432,17 +431,17 @@ public class AndroidResources {
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
-      boolean enableDataBinding,
+      DataBindingContext dataBindingContext,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
-    return parse(dataContext, manifest, enableDataBinding, aaptVersion)
-        .merge(dataContext, resourceDeps, enableDataBinding, aaptVersion)
+    return parse(dataContext, manifest, aaptVersion, dataBindingContext)
+        .merge(dataContext, resourceDeps, aaptVersion)
         .validate(dataContext, aaptVersion);
   }
 
   @Override
   public boolean equals(Object object) {
-    if (object == null || getClass() != object.getClass()) {
+    if (!(object instanceof AndroidResources)) {
       return false;
     }
 
@@ -453,5 +452,13 @@ public class AndroidResources {
   @Override
   public int hashCode() {
     return Objects.hash(resources, resourceRoots);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("resources", resources)
+        .add("resourceRoots", resourceRoots)
+        .toString();
   }
 }

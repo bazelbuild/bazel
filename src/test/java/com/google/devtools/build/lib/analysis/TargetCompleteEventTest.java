@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -47,7 +48,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         TopLevelArtifactHelper.getAllArtifactsToBuild(ct, context);
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
-            ctAndData, artifactsToBuild.getAllArtifactsByOutputGroup());
+            ctAndData,
+            ArtifactPathResolver.IDENTITY,
+            artifactsToBuild.getAllArtifactsByOutputGroup());
     assertThat(event.referencedLocalFiles())
         .contains(
             new BuildEvent.LocalFile(

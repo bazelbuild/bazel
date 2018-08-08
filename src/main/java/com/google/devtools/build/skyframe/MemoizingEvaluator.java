@@ -123,6 +123,9 @@ public interface MemoizingEvaluator {
   @Nullable
   SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
+  @Nullable
+  NodeEntry getExistingEntryAtLatestVersion(SkyKey key) throws InterruptedException;
+
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
    * otherwise.
@@ -133,9 +136,6 @@ public interface MemoizingEvaluator {
   @VisibleForTesting
   @Nullable
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
-
-  @Nullable
-  NodeEntry getExistingEntryForTesting(SkyKey key) throws InterruptedException;
 
   /**
    * Tests that want finer control over the graph being used may provide a {@code transformer} here.

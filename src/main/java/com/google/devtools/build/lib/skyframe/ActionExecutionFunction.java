@@ -201,28 +201,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       state.inputArtifactData = checkedInputs.first;
       state.expandedArtifacts = checkedInputs.second;
       if (skyframeActionExecutor.usesActionFileSystem()) {
-        Iterable<Artifact> optionalInputs;
-        if (action.discoversInputs()) {
-          if (action instanceof IncludeScannable) {
-            // This is a performance optimization to minimize nested set traversals for cpp
-            // compilation. CppCompileAction.getAllowedDerivedInputs iterates over mandatory inputs,
-            // prunable inputs, declared include srcs, transitive compilation prerequisites and
-            // transitive modules.
-            //
-            // The only one of those sets known to be needed is the declared include srcs.
-            optionalInputs = ((IncludeScannable) action).getDeclaredIncludeSrcs();
-          } else {
-            // This might be reachable by LtoBackendAction and ExtraAction.
-            optionalInputs = action.getAllowedDerivedInputs();
-          }
-        } else {
-          optionalInputs = ImmutableList.of();
-        }
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
                 checkedInputs.first,
-                optionalInputs,
                 action.getOutputs());
       }
     }
@@ -677,42 +659,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       try {
         SkyValue value = depsEntry.getValue().get();
         if (populateInputData) {
-          if (value instanceof AggregatingArtifactValue) {
-            AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-            for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getFileArtifacts()) {
-              inputArtifactData.put(entry.first, entry.second);
-            }
-            for (Pair<Artifact, TreeArtifactValue> entry : aggregatingValue.getTreeArtifacts()) {
-              expandTreeArtifactAndPopulateArtifactData(
-                  entry.getFirst(),
-                  Preconditions.checkNotNull(entry.getSecond()),
-                  expandedArtifacts,
-                  inputArtifactData);
-            }
-            // We have to cache the "digest" of the aggregating value itself,
-            // because the action cache checker may want it.
-            inputArtifactData.put(input, aggregatingValue.getSelfData());
-            // While not obvious at all this code exists to ensure that we don't expand the
-            // .runfiles/MANIFEST file into the inputs. The reason for that being that the MANIFEST
-            // file contains absolute paths that don't work with remote execution.
-            // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
-            // which contains all artifacts in the runfiles tree minus the MANIFEST file.
-            // TODO(buchgr): Clean this up and get rid of the RunfilesArtifactValue type.
-            if (!(value instanceof RunfilesArtifactValue)) {
-              ImmutableList.Builder<Artifact> expansionBuilder = ImmutableList.builder();
-              for (Pair<Artifact, FileArtifactValue> pair : aggregatingValue.getFileArtifacts()) {
-                expansionBuilder.add(Preconditions.checkNotNull(pair.getFirst()));
-              }
-              expandedArtifacts.put(input, expansionBuilder.build());
-            }
-          } else if (value instanceof TreeArtifactValue) {
-            expandTreeArtifactAndPopulateArtifactData(
-                input, (TreeArtifactValue) value, expandedArtifacts, inputArtifactData);
-
-          } else {
-            Preconditions.checkState(value instanceof FileArtifactValue, depsEntry);
-            inputArtifactData.put(input, (FileArtifactValue) value);
-          }
+          ActionInputMapHelper.addToMap(inputArtifactData, expandedArtifacts, input, value);
         }
       } catch (MissingInputFileException e) {
         missingCount++;
@@ -762,22 +709,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           /*catastrophe=*/ false);
     }
     return Pair.of(inputArtifactData, expandedArtifacts);
-  }
-
-  private static void expandTreeArtifactAndPopulateArtifactData(
-      Artifact treeArtifact,
-      TreeArtifactValue value,
-      Map<Artifact, Collection<Artifact>> expandedArtifacts,
-      ActionInputMap inputArtifactData) {
-    ImmutableSet.Builder<Artifact> children = ImmutableSet.builder();
-    for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
-        value.getChildValues().entrySet()) {
-      children.add(child.getKey());
-      inputArtifactData.put(child.getKey(), child.getValue());
-    }
-    expandedArtifacts.put(treeArtifact, children.build());
-    // Again, we cache the "digest" of the value for cache checking.
-    inputArtifactData.put(treeArtifact, value.getSelfData());
   }
 
   private static Iterable<Artifact> filterKnownInputs(

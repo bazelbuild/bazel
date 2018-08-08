@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem.ParametrizedMapFn;
@@ -115,6 +116,10 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    *
    * <p>Because of how Bazel handles these objects, call this method *only* as part of creating a
    * static final field.
+   *
+   * <p>Additionally, the resulting {@link AndroidDataConverter} object should be annotated with
+   * {@link AutoCodec} (and, if relevant, {@link
+   * com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization}.
    */
   public static <T> Builder<T> builder(JoinerType joinerType) {
     return new Builder<>(joinerType);
@@ -169,7 +174,8 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     }
   }
 
-  static String rootsToString(ImmutableList<PathFragment> roots) {
+  @VisibleForTesting
+  public static String rootsToString(ImmutableList<PathFragment> roots) {
     return roots.stream().map(PathFragment::toString).collect(Collectors.joining("#"));
   }
 }

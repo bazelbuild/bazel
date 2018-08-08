@@ -387,46 +387,48 @@ public class CppCompileAction extends AbstractAction
    */
   private Iterable<Artifact> filterDiscoveredHeaders(
       ActionExecutionContext actionExecutionContext, Iterable<Artifact> headers) {
-    // Get the inputs we know about. Note that this (compared to validateInclusions) does not
-    // take mandatoryInputs into account. The reason is that these by definition get added to the
-    // action input and thus are available anyway. Not having to look at them here saves us from
-    // requiring and ArtifactExpander, which actionExecutionContext doesn't have at this point.
-    // This only works as long as mandatory inputs do not contain headers that are built into a
-    // module.
-    Set<Artifact> allowedIncludes =
-        new HashSet<>(ccCompilationContext.getDeclaredIncludeSrcs().toCollection());
-    allowedIncludes.addAll(additionalPrunableHeaders.toCollection());
+    Set<Artifact> undeclaredHeaders = Sets.newHashSet(headers);
 
-    // Whitelisted directories. Lazily initialize, so that compiles that properly declare all
-    // their files profit.
+    // Note that this (compared to validateInclusions) does not take mandatoryInputs into account.
+    // The reason is that these by definition get added to the action input and thus are available
+    // anyway. Not having to look at them here saves us from requiring and ArtifactExpander, which
+    // actionExecutionContext doesn't have at this point. This only works as long as mandatory
+    // inputs do not contain headers that are built into a module.
+    for (Artifact header : ccCompilationContext.getDeclaredIncludeSrcs()) {
+      undeclaredHeaders.remove(header);
+    }
+    for (Artifact header : additionalPrunableHeaders) {
+      undeclaredHeaders.remove(header);
+    }
+    if (undeclaredHeaders.isEmpty()) {
+      return headers;
+    }
+
+    Iterable<PathFragment> ignoreDirs =
+        cppConfiguration.isStrictSystemIncludes()
+            ? getBuiltInIncludeDirectories()
+            : getValidationIgnoredDirs();
+    ArrayList<Artifact> found = new ArrayList<>();
+    // Lazily initialize, so that compiles that properly declare all their files profit.
     Set<PathFragment> declaredIncludeDirs = null;
-    Iterable<PathFragment> ignoreDirs = null;
-
-    // Create a filtered list of headers.
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (Artifact header : headers) {
-      if (allowedIncludes.contains(header)) {
-        result.add(header);
-        continue;
-      }
-      if (ignoreDirs == null) {
-        ignoreDirs =
-            cppConfiguration.isStrictSystemIncludes()
-                ? getBuiltInIncludeDirectories()
-                : getValidationIgnoredDirs();
-      }
+    for (Artifact header : undeclaredHeaders) {
       if (FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)) {
-        result.add(header);
+        found.add(header);
         continue;
       }
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
       }
       if (isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
-        result.add(header);
+        found.add(header);
       }
     }
-    return result.build();
+    undeclaredHeaders.removeAll(found);
+    if (undeclaredHeaders.isEmpty()) {
+      return headers;
+    }
+
+    return Iterables.filter(headers, header -> !undeclaredHeaders.contains(header));
   }
 
   @Nullable

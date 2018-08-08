@@ -105,10 +105,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
                 ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK));
 
     // Get the target platform
-    Iterable<PlatformInfo> targetPlatforms =
-        PlatformProviderUtils.platforms(
-            ruleContext.getPrerequisites(
-                ConfigSettingRule.TARGET_PLATFORMS_ATTRIBUTE, Mode.DONT_CHECK));
+    PlatformInfo targetPlatform = ruleContext.getToolchainContext().targetPlatform();
 
     // Check that this config_setting contains at least one of {values, define_values,
     // constraint_values}
@@ -127,7 +124,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
             userDefinedFlagSettings, flagValues, ruleContext);
 
-    boolean constraintValuesMatch = matchesConstraints(constraintValues, targetPlatforms);
+    boolean constraintValuesMatch = matchesConstraints(constraintValues, targetPlatform);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -309,14 +306,12 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private boolean matchesConstraints(
-      Iterable<ConstraintValueInfo> expected, Iterable<PlatformInfo> targetPlatforms) {
+      Iterable<ConstraintValueInfo> expected, PlatformInfo targetPlatform) {
     // config_setting didn't specify any constraint values
     if (Iterables.isEmpty(expected)) {
       return true;
     }
 
-    // TODO(jcater): re-evaluate this for multiple target platforms.
-    PlatformInfo targetPlatform = Iterables.getOnlyElement(targetPlatforms);
     // config_setting DID specify constraint_value(s) but no target platforms are set
     // in the configuration.
     if (Iterables.isEmpty(targetPlatform.constraints())) {

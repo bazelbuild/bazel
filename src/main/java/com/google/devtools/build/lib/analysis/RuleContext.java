@@ -902,10 +902,34 @@ public final class RuleContext extends TargetContext
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
+   *
+   * @deprecated use {@link #getPrerequisitesByConfiguration(String, Mode, BuiltinProvider)}
+   *     instead
+   */
+  @Deprecated
+  public <C extends Info>
+  ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+      String attributeName, Mode mode, final NativeProvider<C> provider) {
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
+        ImmutableListMultimap.builder();
+    for (ConfiguredTargetAndData prerequisite :
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode)) {
+      C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
+      if (prerequisiteProvider != null) {
+        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * For a given attribute, returns all declared provider provided by targets of that attribute.
+   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
+   * created.
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, Mode mode, final NativeProvider<C> provider) {
+          String attributeName, Mode mode, final BuiltinProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :

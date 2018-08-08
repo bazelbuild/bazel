@@ -92,9 +92,11 @@ public final class SkyFunctions {
   static final SkyFunctionName LOAD_SKYLARK_ASPECT =
       SkyFunctionName.createHermetic("LOAD_SKYLARK_ASPECT");
   public static final SkyFunctionName TARGET_COMPLETION =
-      SkyFunctionName.createHermetic("TARGET_COMPLETION");
+      SkyFunctionName.create(
+          "TARGET_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   public static final SkyFunctionName ASPECT_COMPLETION =
-      SkyFunctionName.createHermetic("ASPECT_COMPLETION");
+      SkyFunctionName.create(
+          "ASPECT_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   static final SkyFunctionName TEST_COMPLETION =
       SkyFunctionName.create(
           "TEST_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);

@@ -1080,7 +1080,7 @@ public class CppLinkActionBuilder {
     ImmutableSet.Builder<String> executionRequirements = ImmutableSet.builder();
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       executionRequirements.addAll(
-          featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements());
+          featureConfiguration.getToolRequirementsForAction(getActionName()));
     }
 
     if (!isLtoIndexing) {

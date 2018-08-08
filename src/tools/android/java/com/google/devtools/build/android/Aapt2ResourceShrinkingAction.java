@@ -33,6 +33,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.File;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -109,15 +110,17 @@ public class Aapt2ResourceShrinkingAction {
         resourcesZip
             .shrinkUsingProto(
                 packages,
-                options.rTxt,
                 options.shrunkJar,
-                options.primaryManifest,
                 options.proguardMapping,
                 options.log,
                 scopedTmp.subDirectoryOf("shrunk-resources"))
-            .writeBinaryTo(linker, options.shrunkApk)
+            .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
             .writeReportTo(options.log)
-            .writeResourceToZip(options.shrunkResources);
+            .writeResourcesToZip(options.shrunkResources);
+        if (options.rTxtOutput != null) {
+          // Fufill the contract -- however, we do not generate an R.txt from the shrunk resources.
+          Files.copy(options.rTxt, options.rTxtOutput);
+        }
       } else {
         final ResourceCompiler resourceCompiler =
             ResourceCompiler.create(

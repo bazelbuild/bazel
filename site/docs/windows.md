@@ -58,7 +58,7 @@ To build C++ targets, you need:
         features are not installed by default.
 
     *   Install the [Visual C++ Build
-        Tools 2015 or later](http://landinghub.visualstudio.com/visual-cpp-build-tools).
+        Tools 2015 or later](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2017).
 
         If [alwayslink](be/c-cpp.html#cc_library.alwayslink) doesn't work with
         VS 2017, that is due to a

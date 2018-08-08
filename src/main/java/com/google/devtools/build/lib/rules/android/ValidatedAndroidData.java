@@ -62,4 +62,9 @@ public interface ValidatedAndroidData extends CompiledMergableAndroidData, Valid
   Artifact getMergedResources();
 
   ProcessedAndroidManifest getProcessedManifest();
+
+  /** Exports an immutable version of this data. */
+  default ValidatedAndroidData export() {
+    return this;
+  }
 }

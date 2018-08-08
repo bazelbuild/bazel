@@ -37,8 +37,7 @@ public class LineCountingAnsiTerminalWriter implements AnsiTerminalWriter {
 
   @Override
   public AnsiTerminalWriter newline() throws IOException {
-    terminal.cr();
-    terminal.writeString("\n");
+    terminal.writeString(System.lineSeparator());
     lineCount++;
     return this;
   }

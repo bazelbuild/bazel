@@ -70,29 +70,30 @@ py_test(
 )
 EOF
   cat >test/a.py <<'EOF'
+from __future__ import print_function
 import os.path
 import sys
 
-print "This is my name: %s" % __file__
-print "This is my working directory: %s" % os.getcwd()
+print("This is my name: %s" % __file__)
+print("This is my working directory: %s" % os.getcwd())
 os.chdir(os.path.dirname(__file__))
-print "This is my new working directory: %s" % os.getcwd()
+print("This is my new working directory: %s" % os.getcwd())
 
 file_to_check = "mypackage/__init__.py"
 
 if not os.path.exists(file_to_check):
-  print "mypackage/__init__.py does not exist"
+  print("mypackage/__init__.py does not exist")
   sys.exit(1)
 
 if os.path.islink(file_to_check):
-  print "mypackage/__init__.py is a symlink, expected a regular file"
+  print("mypackage/__init__.py is a symlink, expected a regular file")
   sys.exit(1)
 
 if not os.path.isfile(file_to_check):
-  print "mypackage/__init__.py is not a regular file"
+  print("mypackage/__init__.py is not a regular file")
   sys.exit(1)
 
-print "OK"
+print("OK")
 EOF
   touch test/mypackage/b.py
 

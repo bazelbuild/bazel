@@ -67,9 +67,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey)
         .isEqualTo(
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(
-                    RepositoryName.create("@good"), RepositoryName.MAIN,
-                    RepositoryName.create("@a"), RepositoryName.create("@b"))));
+                ImmutableMap.of(RepositoryName.create("@a"), RepositoryName.create("@b"))));
   }
 
   @Test
@@ -97,16 +95,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey1)
         .isEqualTo(
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(
-                    RepositoryName.create("@good"), RepositoryName.MAIN,
-                    RepositoryName.create("@a"), RepositoryName.create("@b"))));
+                ImmutableMap.of(RepositoryName.create("@a"), RepositoryName.create("@b"))));
     assertThatEvaluationResult(eval(skyKey2))
         .hasEntryThat(skyKey2)
         .isEqualTo(
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(
-                    RepositoryName.create("@good"), RepositoryName.MAIN,
-                    RepositoryName.create("@x"), RepositoryName.create("@y"))));
+                ImmutableMap.of(RepositoryName.create("@x"), RepositoryName.create("@y"))));
   }
 
   @Test
@@ -128,7 +122,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             RepositoryMappingValue.withMapping(
                 ImmutableMap.of(
-                    RepositoryName.create("@good"), RepositoryName.MAIN,
                     RepositoryName.create("@a"), RepositoryName.create("@b"),
                     RepositoryName.create("@x"), RepositoryName.create("@y"))));
   }
@@ -157,7 +150,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testDefaultMainRepoNameInMapping() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_enable_repo_mapping");
+    setSkylarkSemanticsOptions(
+        "--experimental_remap_main_repo", "--experimental_enable_repo_mapping");
     scratch.overwriteFile(
         "WORKSPACE",
         "local_repository(",
@@ -179,6 +173,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testExplicitMainRepoNameInMapping() throws Exception {
+    setSkylarkSemanticsOptions("--experimental_remap_main_repo");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -208,6 +203,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             RepositoryMappingValue.withMapping(
                 ImmutableMap.of(RepositoryName.create("@fizz"), RepositoryName.create("@buzz"))),
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(RepositoryName.create("@fizz"), RepositoryName.create("@buzz"))));
+                ImmutableMap.of(RepositoryName.create("@fizz"), RepositoryName.create("@buzz"))))
+        .testEquals();
   }
 }

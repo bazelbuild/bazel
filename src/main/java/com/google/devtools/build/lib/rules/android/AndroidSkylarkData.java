@@ -88,6 +88,7 @@ public abstract class AndroidSkylarkData
       }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
+              DataBinding.asDisabledDataBindingContext(),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.empty(),
               StampedAndroidManifest.createEmpty(
@@ -174,7 +175,10 @@ public abstract class AndroidSkylarkData
                   ctx,
                   manifest.asStampedManifest(),
                   ResourceDependencies.fromProviders(deps, neverlink),
-                  enableDataBinding,
+                  DataBinding.contextFrom(
+                      enableDataBinding,
+                      ctx.getActionConstructionContext(),
+                      ctx.getAndroidConfig()),
                   aaptVersion);
 
       JavaInfo javaInfo = getJavaInfoForRClassJar(validated.getClassJar());
@@ -376,7 +380,7 @@ public abstract class AndroidSkylarkData
                 AndroidManifest.forAarImport(androidManifestArtifact),
                 ResourceDependencies.fromProviders(
                     getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-                /* enableDataBinding = */ false,
+                DataBinding.asDisabledDataBindingContext(),
                 aaptVersion);
 
     MergedAndroidAssets mergedAssets =
@@ -421,6 +425,7 @@ public abstract class AndroidSkylarkData
           AndroidLocalTestBase.buildResourceApk(
               ctx,
               getAndroidSemantics(),
+              DataBinding.asDisabledDataBindingContext(),
               rawManifest,
               AndroidResources.from(errorReporter, getFileProviders(resources), "resource_files"),
               AndroidAssets.from(
@@ -577,9 +582,12 @@ public abstract class AndroidSkylarkData
                   settings.resourceFilterFactory,
                   settings.noCompressExtensions,
                   crunchPng,
-                  dataBindingEnabled,
                   /* featureOf = */ null,
-                  /* featureAfter = */ null)
+                  /* featureAfter = */ null,
+                  DataBinding.contextFrom(
+                      dataBindingEnabled,
+                      ctx.getActionConstructionContext(),
+                      ctx.getAndroidConfig()))
               .generateRClass(ctx, settings.aaptVersion);
 
       return AndroidBinaryDataInfo.of(

@@ -162,35 +162,35 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-6.0.jar"],
-    srcjar = "asm/asm-6.0-sources.jar",
+    jars = ["asm/asm-6.2.1.jar"],
+    srcjar = "asm/asm-6.2.1-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-6.0.jar"],
-    srcjar = "asm/asm-analysis-6.0-sources.jar",
+    jars = ["asm/asm-analysis-6.2.1.jar"],
+    srcjar = "asm/asm-analysis-6.2.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-6.0.jar"],
-    srcjar = "asm/asm-commons-6.0-sources.jar",
+    jars = ["asm/asm-commons-6.2.1.jar"],
+    srcjar = "asm/asm-commons-6.2.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-6.0.jar"],
-    srcjar = "asm/asm-tree-6.0-sources.jar",
+    jars = ["asm/asm-tree-6.2.1.jar"],
+    srcjar = "asm/asm-tree-6.2.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-6.0.jar"],
-    srcjar = "asm/asm-util-6.0-sources.jar",
+    jars = ["asm/asm-util-6.2.1.jar"],
+    srcjar = "asm/asm-util-6.2.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -563,24 +563,26 @@ filegroup(
     ],
 )
 
-config_setting(
+load(":compiler_config_setting.bzl", "create_compiler_config_setting")
+
+create_compiler_config_setting(
     name = "windows_mingw",
-    values = {"compiler": "windows_mingw"},
+    value = "windows_mingw",
 )
 
-config_setting(
+create_compiler_config_setting(
     name = "windows_msys64",
-    values = {"compiler": "windows_msys64"},
+    value = "windows_msys64",
 )
 
-config_setting(
+create_compiler_config_setting(
     name = "windows_msys64_mingw64",
-    values = {"compiler": "windows_msys64_mingw64"},
+    value = "windows_msys64_mingw64",
 )
 
-config_setting(
+create_compiler_config_setting(
     name = "windows_clang",
-    values = {"compiler": "windows_clang"},
+    value = "windows_clang",
 )
 
 config_setting(

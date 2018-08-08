@@ -40,7 +40,6 @@ public class MergedAndroidResources extends ParsedAndroidResources {
       AndroidDataContext dataContext,
       ParsedAndroidResources parsed,
       ResourceDependencies resourceDeps,
-      boolean enableDataBinding,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
 
@@ -60,10 +59,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
             .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
             .setUseCompiledMerge(useCompiledMerge);
 
-    if (enableDataBinding) {
-      builder.setDataBindingInfoZip(
-          DataBinding.getLayoutInfoFile(dataContext.getActionConstructionContext()));
-    }
+    parsed.asDataBindingContext().supplyLayoutInfo(builder::setDataBindingInfoZip);
 
     return builder
         .setManifestOut(
@@ -96,7 +92,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         other.manifest);
   }
 
-  private MergedAndroidResources(
+  protected MergedAndroidResources(
       ParsedAndroidResources other,
       Artifact mergedResources,
       Artifact classJar,
@@ -172,7 +168,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
 
   @Override
   public boolean equals(Object object) {
-    if (!super.equals(object)) {
+    if (!super.equals(object) || !(object instanceof MergedAndroidResources)) {
       return false;
     }
 

@@ -3,8 +3,6 @@ package(default_visibility = ["//visibility:public"])
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
-    "JDK8_JVM_OPTS",
-    "JDK10_JVM_OPTS",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -196,26 +194,24 @@ genrule(
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
-    jvm_opts = JDK8_JVM_OPTS,
+    bootclasspath = [":platformclasspath"],
+    jvm_opts = [
+        "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
+    ],
     source_version = "8",
     target_version = "8",
 )
 
 default_java_toolchain(
-    name = "toolchain_hostjdk10",
+    name = "toolchain",
     bootclasspath = [":bootclasspath"],
     extclasspath = [":extclasspath"],
-    jvm_opts = JDK10_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
 
 default_java_toolchain(
     name = "toolchain_java9",
-    # We use the same flags for JDK9 and 10
-    jvm_opts = JDK10_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS + [
         "--release",
         "9",
@@ -224,16 +220,10 @@ default_java_toolchain(
 
 default_java_toolchain(
     name = "toolchain_java10",
-    jvm_opts = JDK10_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS + [
         "--release",
         "10",
     ],
-)
-
-alias(
-    name = "toolchain",
-    actual = "//external:java_toolchain",
 )
 
 filegroup(

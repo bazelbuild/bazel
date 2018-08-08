@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
-import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
@@ -36,6 +35,13 @@ public class ApiExporter {
       Builtins.Builder builtins = Builtins.newBuilder();
 
       Map<String, SkylarkModuleDoc> allTypes = SkylarkDocumentationCollector.collectModules();
+
+      // Add all global variables and functions in Builtins as Values.
+      SkylarkModuleDoc topLevelModule =
+          allTypes.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+      for (SkylarkMethodDoc meth : topLevelModule.getMethods()) {
+        builtins.addGlobal(collectFieldInfo(meth));
+      }
       for (Map.Entry<String, SkylarkModuleDoc> modEntry : allTypes.entrySet()) {
         SkylarkModuleDoc mod = modEntry.getValue();
 
@@ -54,13 +60,6 @@ public class ApiExporter {
         value.setType(mod.getName());
         value.setDoc(mod.getDocumentation());
         builtins.addGlobal(value);
-
-        // Add all global variables and functions in Builtins as Values.
-        for (Map.Entry<String, SkylarkBuiltinMethodDoc> methEntry :
-            mod.getBuiltinMethods().entrySet()) {
-          SkylarkBuiltinMethodDoc meth = methEntry.getValue();
-          builtins.addGlobal(collectFieldInfo(meth));
-        }
       }
       Builtins build = builtins.build();
       build.writeTo(out);
@@ -73,9 +72,7 @@ public class ApiExporter {
     Value.Builder field = Value.newBuilder();
     field.setName(meth.getName());
     field.setDoc(meth.getDocumentation());
-    // TODO(andreeabican): Add type string.
-
-    if (!meth.getParams().isEmpty()) {
+    if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
       for (SkylarkParamDoc par : meth.getParams()) {
         Param.Builder param = Param.newBuilder();
@@ -84,7 +81,7 @@ public class ApiExporter {
         param.setDoc(par.getDocumentation());
         callable.addParam(param);
       }
-      // TODO(andreeabican): Add type string.
+      callable.setReturnType(meth.getReturnType());
       field.setCallable(callable);
     }
     return field;

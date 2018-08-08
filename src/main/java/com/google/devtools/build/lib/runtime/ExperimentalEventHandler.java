@@ -866,9 +866,9 @@ public class ExperimentalEventHandler implements EventHandler {
     numLinesProgressBar = 0;
   }
 
+  /** Terminate the line in the way appropriate for the operating system. */
   private void crlf() throws IOException {
-    terminal.cr();
-    terminal.writeString("\n");
+    terminal.writeString(System.lineSeparator());
   }
 
   private synchronized void addProgressBar() throws IOException {

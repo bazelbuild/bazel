@@ -15,6 +15,7 @@ package com.google.devtools.build.docgen.skylark;
 
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.List;
 
 /**
@@ -34,7 +35,7 @@ public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
     this.params =
         SkylarkDocUtils.determineParams(
             this,
-            annotation.parameters(),
+            withoutSelfParam(annotation),
             annotation.extraPositionals(),
             annotation.extraKeywords());
   }
@@ -74,6 +75,16 @@ public final class SkylarkBuiltinMethodDoc extends SkylarkMethodDoc {
       return getTypeAnchor(annotation.returnType());
     }
     return "";
+  }
+
+  @Override
+  public String getReturnType() {
+    return EvalUtils.getDataTypeNameFromClass(annotation.returnType());
+  }
+
+  @Override
+  public Boolean isCallable() {
+    return BaseFunction.class.isAssignableFrom(fieldClass);
   }
 
   @Override

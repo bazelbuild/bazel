@@ -130,36 +130,6 @@ EOF
     "do not reference the same target package"
 }
 
-function test_no_target_package_attribute_build_failure() {
-  create_new_workspace
-  setup_android_sdk_support
-  setup_android_instrumentation_test_env
-
-  cat > javatests/com/bin/AndroidManifest.xml <<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<manifest package='com.bin' xmlns:android='http://schemas.android.com/apk/res/android'>
-  <instrumentation />
-</manifest>
-EOF
-
-  assert_build_fails //javatests/com/bin:instr \
-    "No <instrumentation> tag containing the targetPackage attribute"
-}
-
-function test_target_package_no_package_specified_build_failure() {
-  create_new_workspace
-  setup_android_sdk_support
-  setup_android_instrumentation_test_env
-
-  cat > java/com/bin/AndroidManifest.xml <<EOF
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
-EOF
-
-  assert_build_fails //javatests/com/bin:instr \
-    "needs to specify the package name"
-}
-
 function test_android_instrumentation_binary_class_filtering() {
   create_new_workspace
   setup_android_sdk_support

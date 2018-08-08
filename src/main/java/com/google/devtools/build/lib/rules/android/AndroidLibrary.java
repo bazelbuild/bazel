@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -135,13 +133,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     AndroidIdlHelper.maybeAddSupportLibProguardConfigs(ruleContext, proguardConfigsbuilder);
     NestedSet<Artifact> transitiveProguardConfigs = proguardConfigsbuilder.build();
 
-    // JavaCommon and AndroidCommon contain shared helper classes between java_* and android_*
-    // rules respectively.
-    JavaCommon javaCommon =
-        AndroidCommon.createJavaCommonWithAndroidDataBinding(ruleContext, javaSemantics, true);
-    javaSemantics.checkRule(ruleContext, javaCommon);
-    AndroidCommon androidCommon = new AndroidCommon(javaCommon);
-
     AndroidConfiguration androidConfig = AndroidCommon.getAndroidConfig(ruleContext);
 
     // "Resources" here include actual resources (xmls, drawables, etc), assets, and the manifest.
@@ -165,57 +156,48 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     // other artifacts.
     final ResourceApk resourceApk;
     if (definesLocalResources) {
-      // By decoupling processing of manifest, resources and assets, we get a higher degree of
-      // action parallelism.
-      if (androidConfig.decoupleDataProcessing()) {
-        StampedAndroidManifest manifest =
-            AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
-                .stamp(dataContext);
+      StampedAndroidManifest manifest =
+          AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
+              .stamp(dataContext);
 
-        ValidatedAndroidResources resources =
-            AndroidResources.from(ruleContext, "resource_files")
-                .process(ruleContext, dataContext, manifest, isNeverLink);
+      ValidatedAndroidResources resources =
+          AndroidResources.from(ruleContext, "resource_files")
+              .process(
+                  ruleContext,
+                  dataContext,
+                  manifest,
+                  DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
+                  isNeverLink);
 
-        MergedAndroidAssets assets =
-            AndroidAssets.from(ruleContext)
-                .process(
-                    dataContext,
-                    assetDeps,
-                    AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
+      MergedAndroidAssets assets =
+          AndroidAssets.from(ruleContext)
+              .process(
+                  dataContext, assetDeps, AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
 
-        resourceApk = ResourceApk.of(resources, assets, null, null);
-      } else {
-        // Monolithically process all Android data in the same pipeline.
-        ApplicationManifest applicationManifest =
-            androidSemantics
-                .getManifestForRule(ruleContext)
-                .renamePackage(dataContext, AndroidCommon.getJavaPackage(ruleContext));
-        resourceApk =
-            applicationManifest.packLibraryWithDataAndResources(
-                ruleContext,
-                dataContext,
-                resourceDeps,
-                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
-                ruleContext.getImplicitOutputArtifact(
-                    AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-                DataBinding.isEnabled(ruleContext)
-                    ? DataBinding.getLayoutInfoFile(ruleContext)
-                    : null);
-      }
+      resourceApk = ResourceApk.of(resources, assets, null, null);
+
       if (ruleContext.hasErrors()) {
         return null;
       }
     } else {
-      // No local resources, but we still need to process transitive resources.
+      // No local resources, but we still need to process transitive resources in order to export an
+      // aar.
       resourceApk =
           ResourceApk.processFromTransitiveLibraryData(
               dataContext,
+              DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
               resourceDeps,
               assetDeps,
               StampedAndroidManifest.createEmpty(ruleContext, /* exported = */ false));
     }
+
+    // JavaCommon and AndroidCommon contain shared helper classes between java_* and android_*
+    // rules respectively.
+    JavaCommon javaCommon =
+        AndroidCommon.createJavaCommonWithAndroidDataBinding(
+            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary */ true);
+    javaSemantics.checkRule(ruleContext, javaCommon);
+    AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
     // As android_library makes use of the Java rule compilation pipeline, we collect all
     // Java-related information here to be passed into the JavaSourceInfoProvider later.
@@ -266,15 +248,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).build()))
+        .addNativeDeclaredProvider(
+            new AndroidCcLinkParamsProvider(androidCommon.getCcLinkingInfo()))
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
-        .addNativeDeclaredProvider(
-            new AndroidCcLinkParamsProvider(
-                CcLinkingInfo.Builder.create()
-                    .setCcLinkParamsStore(
-                        new CcLinkParamsStore(androidCommon.getCcLinkParamsStore()))
-                    .build()))
         .addNativeDeclaredProvider(new ProguardSpecProvider(transitiveProguardConfigs))
         .addNativeDeclaredProvider(
             new AndroidProguardInfo(proguardLibrary.collectLocalProguardSpecs()))
@@ -286,6 +264,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     if (!JavaCommon.isNeverLink(ruleContext)) {
       builder.addNativeDeclaredProvider(aar.toProvider(ruleContext, definesLocalResources));
     }
+
 
     return builder.build();
   }

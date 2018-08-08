@@ -659,9 +659,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               toolchain, cppConfiguration.getCrosstoolTopPathFragment());
       CcToolchainConfigInfo ccToolchainConfigInfo =
           CcToolchainConfigInfo.fromToolchain(
-              cppConfiguration.getCrosstoolFile().getProto(),
-              toolchain,
-              cppConfiguration.getCrosstoolTopPathFragment());
+              cppConfiguration.getCrosstoolFile().getProto(), toolchain);
       return CppToolchainInfo.create(
           cppConfiguration.getCrosstoolTopPathFragment(),
           cppConfiguration.getCcToolchainRuleLabel(),

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -36,10 +37,12 @@ import java.util.Collection;
  */
 class NamedArtifactGroup implements BuildEvent {
   private final String name;
+  private final ArtifactPathResolver pathResolver;
   private final NestedSetView<Artifact> view;
 
-  NamedArtifactGroup(String name, NestedSetView<Artifact> view) {
+  NamedArtifactGroup(String name, ArtifactPathResolver pathResolver, NestedSetView<Artifact> view) {
     this.name = name;
+    this.pathResolver = pathResolver;
     this.view = view;
   }
 
@@ -63,7 +66,7 @@ class NamedArtifactGroup implements BuildEvent {
       }
       artifacts.add(
           new LocalFile(
-              artifact.getPath(),
+              pathResolver.toPath(artifact),
               artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
     }
     return artifacts.build();
@@ -82,7 +85,7 @@ class NamedArtifactGroup implements BuildEvent {
         continue;
       }
       String name = artifact.getRootRelativePathString();
-      String uri = pathConverter.apply(artifact.getPath());
+      String uri = pathConverter.apply(pathResolver.toPath(artifact));
       if (uri != null) {
         builder.addFiles(BuildEventStreamProtos.File.newBuilder().setName(name).setUri(uri));
       }

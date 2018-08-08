@@ -27,13 +27,9 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
-import java.util.List;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -74,10 +70,11 @@ public class ConfigRuleClasses {
   }
 
   /**
-   * A named "partial configuration setting" that specifies a set of command-line
-   * "flag=value" bindings.
+   * A named "partial configuration setting" that specifies a set of command-line "flag=value"
+   * bindings.
    *
    * <p>For example:
+   *
    * <pre>
    *   config_setting(
    *       name = 'foo',
@@ -87,19 +84,37 @@ public class ConfigRuleClasses {
    *       })
    * </pre>
    *
-   * <p>declares a setting that binds command-line flag <pre>flag1</pre> to value
-   * <pre>aValue</pre> and <pre>flag2</pre> to <pre>bValue</pre>.
+   * <p>declares a setting that binds command-line flag
    *
-   * <p>This is used by configurable attributes to determine which branch to
-   * follow based on which <pre>config_setting</pre> instance matches all its
-   * flag values in the configurable attribute owner's configuration.
+   * <pre>flag1</pre>
+   *
+   * to value
+   *
+   * <pre>aValue</pre>
+   *
+   * and
+   *
+   * <pre>flag2</pre>
+   *
+   * to
+   *
+   * <pre>bValue</pre>
+   *
+   * .
+   *
+   * <p>This is used by configurable attributes to determine which branch to follow based on which
+   *
+   * <pre>config_setting</pre>
+   *
+   * instance matches all its flag values in the configurable attribute owner's configuration.
    *
    * <p>This rule isn't accessed through the standard {@link RuleContext#getPrerequisites}
-   * interface. This is because Bazel constructs a rule's configured attribute map *before*
-   * its {@link RuleContext} is created (in fact, the map is an input to the context's
-   * constructor). And the config_settings referenced by the rule's configurable attributes are
-   * themselves inputs to that map. So Bazel has special logic to read and properly apply
-   * config_setting instances. See {@link ConfiguredTargetFunction#getConfigConditions} for details.
+   * interface. This is because Bazel constructs a rule's configured attribute map *before* its
+   * {@link RuleContext} is created (in fact, the map is an input to the context's constructor). And
+   * the config_settings referenced by the rule's configurable attributes are themselves inputs to
+   * that map. So Bazel has special logic to read and properly apply config_setting instances. See
+   * {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} for
+   * details.
    */
   public static final class ConfigSettingRule implements RuleDefinition {
     /**
@@ -115,29 +130,12 @@ public class ConfigRuleClasses {
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
-    /** The name of the late bound attribute that declares the target platforms list. */
-    public static final String TARGET_PLATFORMS_ATTRIBUTE = ":target_platforms";
-
-    /** Implementation for the :target_platform attribute. */
-    public static final LabelListLateBoundDefault<?> TARGET_PLATFORMS =
-        LabelListLateBoundDefault.fromTargetConfiguration(
-            PlatformConfiguration.class,
-            (rule, attributes, platformConfig) ->
-                ConfigSettingRule.getTargetPlatformsIfRelevant(attributes, platformConfig));
-
-    private static ImmutableList<Label> getTargetPlatformsIfRelevant(
-        AttributeMap attributes, PlatformConfiguration platformConfig) {
-      List<Label> constraintValues = attributes.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST);
-      if (constraintValues == null || constraintValues.isEmpty()) {
-        return ImmutableList.of();
-      } else {
-        return platformConfig.getTargetPlatforms();
-      }
-    }
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          .requiresConfigurationFragments(PlatformConfiguration.class)
+
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Bazel flags)
 
@@ -279,10 +277,6 @@ public class ConfigRuleClasses {
               attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
                   .allowedFileTypes())
-          .add(
-              attr(TARGET_PLATFORMS_ATTRIBUTE, LABEL_LIST)
-                  .value(TARGET_PLATFORMS)
-                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .setIsConfigMatcherForConfigSettingOnly()
           .setOptionReferenceFunctionForConfigSettingOnly(
               rule ->

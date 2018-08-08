@@ -256,10 +256,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
             toolchain, crosstoolTopLabel.getPackageIdentifier().getPathUnderExecRoot());
 
     CcToolchainConfigInfo ccToolchainConfigInfo =
-        CcToolchainConfigInfo.fromToolchain(
-            file.getProto(),
-            toolchain,
-            crosstoolTopLabel.getPackageIdentifier().getPathUnderExecRoot());
+        CcToolchainConfigInfo.fromToolchain(file.getProto(), toolchain);
 
     Label sysrootLabel = getSysrootLabel(toolchain, cppOptions.libcTopLabel);
 

@@ -175,6 +175,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
                     .put(LINUX_CTKEY, makeLabel("//test:toolchain_impl_1"))
                     .put(MAC_CTKEY, makeLabel("//test:toolchain_impl_1"))
-                    .build()));
+                    .build()))
+        .testEquals();
   }
 }

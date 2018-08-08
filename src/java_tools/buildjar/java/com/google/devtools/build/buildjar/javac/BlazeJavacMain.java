@@ -149,7 +149,13 @@ public class BlazeJavacMain {
           "compiler.warn.sun.proprietary",
           // avoid warning spam when enabling processor options for an entire tree, only a subset
           // of which actually runs the processor
-          "compiler.warn.proc.unmatched.processor.options");
+          "compiler.warn.proc.unmatched.processor.options",
+          // don't want about v54 class files when running javac9 on JDK 10
+          // TODO(cushon): remove after the next javac update
+          "compiler.warn.big.major.version",
+          // don't want about incompatible processor source versions when running javac9 on JDK 10
+          // TODO(cushon): remove after the next javac update
+          "compiler.warn.proc.processor.incompatible.source.version");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
       ImmutableList<FormattedDiagnostic> diagnostics) {

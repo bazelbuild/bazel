@@ -797,7 +797,10 @@ public final class BuildOptions implements Cloneable, Serializable {
     public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
       return Preconditions.checkNotNull(
           byteStringToDiffMap.get(bytes),
-          "Missing bytes " + bytes + ": " + diffToByteStringCache + ", " + byteStringToDiffMap);
+          "Missing bytes %s: %s %s",
+          bytes,
+          diffToByteStringCache,
+          byteStringToDiffMap);
     }
   }
 }
