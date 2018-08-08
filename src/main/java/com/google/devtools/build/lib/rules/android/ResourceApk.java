@@ -38,9 +38,9 @@ public final class ResourceApk {
   private final AssetDependencies assetDeps;
   /**
    * Validated Android resource information. Will be null when this class is built from transitive
-   * resources only, and will be a superset of primaryResources otherwise.
+   * resources only, and will be equal to primaryResources otherwise.
    */
-  @Nullable private final ValidatedAndroidData validatedResources;
+  @Nullable private final ValidatedAndroidResources validatedResources;
 
   private final AndroidResources primaryResources;
   private final AndroidAssets primaryAssets;
@@ -79,7 +79,7 @@ public final class ResourceApk {
       @Nullable Artifact resourceJavaClassJar,
       ResourceDependencies resourceDeps,
       AssetDependencies assetDeps,
-      @Nullable ValidatedAndroidData validatedResources,
+      @Nullable ValidatedAndroidResources validatedResources,
       AndroidResources primaryResources,
       AndroidAssets primaryAssets,
       ProcessedAndroidManifest manifest,
@@ -124,7 +124,7 @@ public final class ResourceApk {
   }
 
   @Nullable
-  public ValidatedAndroidData getValidatedResources() {
+  public ValidatedAndroidResources getValidatedResources() {
     return validatedResources;
   }
 

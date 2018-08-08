@@ -46,34 +46,34 @@ public class AndroidResourcesProcessorBuilder {
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
-          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
+          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> RESOURCE_DEP_TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getRTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> RESOURCE_DEP_TO_ARG =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getRTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   private ResourceDependencies resourceDependencies = ResourceDependencies.empty();

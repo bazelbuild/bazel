@@ -97,7 +97,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
 
   @Override
   public NestedSet<Artifact> getResources() {
-    return collectDirectArtifacts(ValidatedAndroidData::getResources);
+    return collectDirectArtifacts(ValidatedAndroidResources::getResources);
   }
 
   @Override
@@ -112,12 +112,13 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
   }
 
   private NestedSet<Artifact> collectDirectArtifacts(
-      final Function<ValidatedAndroidData, Iterable<Artifact>> artifactFunction) {
+      final Function<ValidatedAndroidResources, Iterable<Artifact>> artifactFunction) {
     if (resourceInfo == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     // This will iterate over all (direct) resources. If this turns out to be a performance
-    // problem, {@link ValidatedAndroidData#getArtifacts()} can be changed to return NestedSets.
+    // problem, {@link ValidatedAndroidResources#getArtifacts()} can be changed to return
+    // NestedSets.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
         Iterables.concat(
