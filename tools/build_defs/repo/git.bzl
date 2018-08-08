@@ -29,12 +29,15 @@ def _clone_or_update(ctx):
         shallow = "--depth=1"
     else:
         ref = ctx.attr.branch
+        shallow = "--depth=1"
     directory = str(ctx.path("."))
     if ctx.attr.strip_prefix:
         directory = directory + "-tmp"
     if ctx.attr.shallow_since:
         if ctx.attr.tag:
             fail("shallow_since not allowed if a tag is specified; --depth=1 will be used for tags")
+        if ctx.attr.branch:
+            fail("shallow_since not allowed if a branch is specified; --depth=1 will be used for branches")
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
 
     if (ctx.attr.verbose):
