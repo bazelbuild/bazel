@@ -36,9 +36,9 @@ import java.util.Optional;
  */
 public interface AndroidSemantics {
 
-  default Artifact renameManifest(AndroidDataContext dataContext, Artifact rawManifest)
-      throws InterruptedException {
-    return ApplicationManifest.renameManifestIfNeeded(dataContext, rawManifest);
+  default AndroidManifest renameManifest(
+      AndroidDataContext dataContext, AndroidManifest rawManifest) throws InterruptedException {
+    return rawManifest.renameManifestIfNeeded(dataContext);
   }
 
   default Optional<Artifact> maybeDoLegacyManifestMerging(

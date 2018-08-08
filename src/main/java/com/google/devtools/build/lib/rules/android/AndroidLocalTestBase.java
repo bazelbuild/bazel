@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
@@ -97,13 +98,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         buildResourceApk(
             dataContext,
             androidSemantics,
+            ruleContext,
             DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
             AndroidManifest.fromAttributes(ruleContext, dataContext),
             AndroidResources.from(ruleContext, "resource_files"),
             AndroidAssets.from(ruleContext),
             ResourceDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
             AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
-            ApplicationManifest.getManifestValues(ruleContext),
+            StampedAndroidManifest.getManifestValues(ruleContext),
             AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
 
     attributesBuilder.addRuntimeClassPathEntry(resourceApk.getResourceJavaClassJar());
@@ -492,6 +494,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   static ResourceApk buildResourceApk(
       AndroidDataContext dataContext,
       AndroidSemantics androidSemantics,
+      RuleErrorConsumer errorConsumer,
       DataBindingContext dataBindingContext,
       AndroidManifest manifest,
       AndroidResources resources,
@@ -506,9 +509,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         manifest.mergeWithDeps(
             dataContext,
             androidSemantics,
+            errorConsumer,
             resourceDeps,
             manifestValues,
-            /* useLegacyMerger = */ false);
+            /* manifestMerger = */ null);
 
     return ProcessedAndroidData.processLocalTestDataFrom(
             dataContext,
