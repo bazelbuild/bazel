@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidA
 public class AndroidResourceValidatorActionBuilder {
 
   // Inputs
-  private CompiledMergableAndroidData primary;
+  private ParsedAndroidResources primary;
   private Artifact mergedResources;
 
   // Outputs
@@ -50,7 +50,7 @@ public class AndroidResourceValidatorActionBuilder {
   }
 
   /** The primary resource container. We mostly propagate its values, but update the R.txt. */
-  private AndroidResourceValidatorActionBuilder withPrimary(CompiledMergableAndroidData primary) {
+  private AndroidResourceValidatorActionBuilder withPrimary(ParsedAndroidResources primary) {
     this.primary = primary;
     return this;
   }

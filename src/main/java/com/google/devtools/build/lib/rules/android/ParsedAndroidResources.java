@@ -27,8 +27,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Wraps parsed (and, if requested, compiled) android resources. */
-public class ParsedAndroidResources extends AndroidResources
-    implements CompiledMergableAndroidData {
+public class ParsedAndroidResources extends AndroidResources implements MergableAndroidData {
   private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
@@ -111,33 +110,27 @@ public class ParsedAndroidResources extends AndroidResources
     this.dataBindingContext = dataBindingContext;
   }
 
-  @Override
   public Artifact getSymbols() {
     return symbols;
   }
 
-  @Override
   @Nullable
   public Artifact getCompiledSymbols() {
     return compiledSymbols;
   }
 
-  @Override
   public Iterable<Artifact> getArtifacts() {
     return getResources();
   }
 
-  @Override
   public Artifact getManifest() {
     return manifest.getManifest();
   }
 
-  @Override
   public boolean isManifestExported() {
     return manifest.isExported();
   }
 
-  @Override
   public Label getLabel() {
     return label;
   }
