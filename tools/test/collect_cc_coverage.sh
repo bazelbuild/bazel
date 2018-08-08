@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 # This script collects code coverage data for C++ sources, after the tests
 # were executed.
 #
