@@ -218,12 +218,12 @@ EOF
   # It may happen that Skyframe does not discover (enque) the workspace status
   # writer action immediately, so the counter may initially report 3 total
   # actions instead of 4.
-  expect_log "\[0 / [34]\] Executing genrule //${pkg}:z$"
-  expect_log "\[1 / [34]\] Executing genrule //${pkg}:z DONE$"
-  expect_log "\[1 / [34]\] Executing genrule //${pkg}:y$"
-  expect_log "\[2 / [34]\] Executing genrule //${pkg}:y DONE$"
-  expect_log "\[2 / 4\] Executing genrule //${pkg}:x$"
-  expect_log "\[3 / 4\] Executing genrule //${pkg}:x DONE$"
+  expect_log "\[0 / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "\[1 / [34]\] Executing genrule //${pkg}:z DONE\s*$"
+  expect_log "\[1 / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "\[2 / [34]\] Executing genrule //${pkg}:y DONE\s*$"
+  expect_log "\[2 / 4\] Executing genrule //${pkg}:x\s*$"
+  expect_log "\[3 / 4\] Executing genrule //${pkg}:x DONE\s*$"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"
 
   # Open-source Bazel calls this file stable-status.txt, Google internal version
