@@ -192,8 +192,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 resourceDeps,
                 ApplicationManifest.getManifestValues(ruleContext),
                 ApplicationManifest.useLegacyMerging(ruleContext));
-    final ApplicationManifest applicationManifest =
-        ApplicationManifest.fromExplicitManifest(ruleContext, manifest.getManifest());
 
     AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
     final ResourceApk resourceApk =
@@ -203,7 +201,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 manifest,
                 /* conditionalKeepRules = */ shouldShrinkResourceCycles(
                     dataContext.getAndroidConfig(), ruleContext, shrinkResources),
-                applicationManifest.getManifestValues(),
+                ApplicationManifest.getManifestValues(ruleContext),
                 aaptVersion,
                 AndroidResources.from(ruleContext, "resource_files"),
                 AndroidAssets.from(ruleContext),
@@ -301,7 +299,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     MobileInstallResourceApks mobileInstallResourceApks =
         AndroidBinaryMobileInstall.createMobileInstallResourceApks(
-            ruleContext, dataContext, applicationManifest);
+            ruleContext, dataContext, manifest);
 
     return createAndroidBinary(
         ruleContext,
@@ -314,7 +312,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         javaSemantics,
         androidSemantics,
         nativeLibs,
-        applicationManifest,
         resourceApk,
         mobileInstallResourceApks,
         shrinkResources,
@@ -337,7 +334,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,
       NativeLibs nativeLibs,
-      ApplicationManifest applicationManifest,
       ResourceApk resourceApk,
       @Nullable MobileInstallResourceApks mobileInstallResourceApks,
       boolean shrinkResources,
@@ -354,7 +350,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             dataContext,
             androidSemantics,
             resourceApk.getResourceProguardConfig(),
-            applicationManifest.getManifest(),
+            resourceApk.getManifest(),
             ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
                 ? ruleContext
                     .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS, Mode.TARGET)
@@ -526,7 +522,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       FilesToRunProvider checker =
           ruleContext.getExecutablePrerequisite("$instrumentation_test_check", Mode.HOST);
       Artifact targetManifest = targetApkProvider.getMergedManifest();
-      Artifact instrumentationManifest = applicationManifest.getManifest();
+      Artifact instrumentationManifest = resourceApk.getManifest();
       Artifact checkOutput =
           ruleContext.getImplicitOutputArtifact(
               AndroidRuleClasses.INSTRUMENTATION_TEST_CHECK_RESULTS);
@@ -585,8 +581,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceExtractor,
           nativeLibsAar,
           signingKey,
-          additionalMergedManifests,
-          applicationManifest);
+          additionalMergedManifests);
     }
 
     return builder
@@ -608,7 +603,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 zipAlignedApk,
                 unsignedApk,
                 androidCommon.getInstrumentedJar(),
-                applicationManifest.getManifest(),
+                resourceApk.getManifest(),
                 AndroidCommon.getApkDebugSigningKey(ruleContext)))
         .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
         .addNativeDeclaredProvider(

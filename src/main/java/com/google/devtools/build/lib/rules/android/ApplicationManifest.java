@@ -17,7 +17,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,17 +26,11 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
-import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
-import com.google.devtools.build.lib.rules.android.ResourceContainer.Builder.JavaPackageSource;
 import com.google.devtools.build.lib.syntax.Type;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -45,12 +38,6 @@ import javax.annotation.Nullable;
 
 /** Represents a AndroidManifest, that may have been merged from dependencies. */
 public final class ApplicationManifest {
-
-  public ApplicationManifest createSplitManifest(
-      RuleContext ruleContext, String splitName, boolean hasCode) {
-    Artifact result = createSplitManifest(ruleContext, manifest, splitName, hasCode);
-    return new ApplicationManifest(result, manifestValues, targetAaptVersion);
-  }
 
   static Artifact createSplitManifest(
       RuleContext ruleContext, Artifact manifest, String splitName, boolean hasCode) {
@@ -85,12 +72,6 @@ public final class ApplicationManifest {
     builder.addCommandLine(commandLine.build());
     ruleContext.registerAction(builder.build(ruleContext));
     return result;
-  }
-
-  public ApplicationManifest addMobileInstallStubApplication(RuleContext ruleContext)
-      throws InterruptedException {
-    Artifact stubManifest = addMobileInstallStubApplication(ruleContext, manifest);
-    return new ApplicationManifest(stubManifest, manifestValues, targetAaptVersion);
   }
 
   static Artifact addMobileInstallStubApplication(RuleContext ruleContext, Artifact manifest)
@@ -133,21 +114,6 @@ public final class ApplicationManifest {
     return ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET);
   }
 
-  /**
-   * Gets the manifest specified in the "manifest" attribute, renaming it if needed.
-   *
-   * <p>Unlike {@link AndroidSemantics#getManifestForRule(RuleContext)}, this method will not
-   * perform AndroidSemantics-specific manifest processing. This method will do the same work
-   * regardless of the AndroidSemantics implementation being used; that method may do different work
-   * depending on the implementation.
-   */
-  public static ApplicationManifest renamedFromRule(
-      RuleContext ruleContext, AndroidDataContext dataContext)
-      throws InterruptedException, RuleErrorException {
-    return fromExplicitManifest(
-        ruleContext, renameManifestIfNeeded(dataContext, getManifestFromAttributes(ruleContext)));
-  }
-
   static Artifact renameManifestIfNeeded(AndroidDataContext dataContext, Artifact manifest)
       throws InterruptedException {
     if (manifest.getFilename().equals("AndroidManifest.xml")) {
@@ -167,28 +133,6 @@ public final class ApplicationManifest {
               "Renaming Android manifest for " + dataContext.getLabel()));
       return manifestSymlink;
     }
-  }
-
-  public static ApplicationManifest fromExplicitManifest(RuleContext ruleContext, Artifact manifest)
-      throws RuleErrorException {
-    return new ApplicationManifest(
-        manifest,
-        getManifestValues(ruleContext),
-        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
-  }
-
-  /**
-   * Generates an empty manifest for a rule that does not directly specify resources.
-   *
-   * <p><strong>Note:</strong> This generated manifest can then be used as the primary manifest when
-   * merging with dependencies.
-   *
-   * @return the generated ApplicationManifest
-   */
-  public static ApplicationManifest generatedManifest(RuleContext ruleContext)
-      throws RuleErrorException {
-    return fromExplicitManifest(
-        ruleContext, generateManifest(ruleContext, AndroidCommon.getJavaPackage(ruleContext)));
   }
 
   /**
@@ -229,39 +173,7 @@ public final class ApplicationManifest {
     return ImmutableMap.copyOf(manifestValues);
   }
 
-  public ImmutableMap<String, String> getManifestValues() {
-    return manifestValues;
-  }
-
-  private final Artifact manifest;
-  private final ImmutableMap<String, String> manifestValues;
-  private final AndroidAaptVersion targetAaptVersion;
-
-  private ApplicationManifest(
-      Artifact manifest,
-      ImmutableMap<String, String> manifestValues,
-      AndroidAaptVersion targetAaptVersion) {
-    this.manifest = manifest;
-    this.manifestValues = manifestValues;
-    this.targetAaptVersion = targetAaptVersion;
-  }
-
-  public ApplicationManifest mergeWith(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      AndroidSemantics androidSemantics,
-      ResourceDependencies resourceDeps) {
-    return maybeMergeWith(
-            dataContext,
-            androidSemantics,
-            manifest,
-            resourceDeps,
-            manifestValues,
-            useLegacyMerging(ruleContext),
-            AndroidCommon.getJavaPackage(ruleContext))
-        .map(merged -> new ApplicationManifest(merged, manifestValues, targetAaptVersion))
-        .orElse(this);
-  }
+  private ApplicationManifest() {}
 
   static Optional<Artifact> maybeMergeWith(
       AndroidDataContext dataContext,
@@ -341,16 +253,6 @@ public final class ApplicationManifest {
     return builder.build();
   }
 
-  public ApplicationManifest renamePackage(AndroidDataContext dataContext, String customPackage) {
-    Optional<Artifact> stamped = maybeSetManifestPackage(dataContext, manifest, customPackage);
-
-    if (!stamped.isPresent()) {
-      return this;
-    }
-
-    return new ApplicationManifest(stamped.get(), manifestValues, targetAaptVersion);
-  }
-
   static Optional<Artifact> maybeSetManifestPackage(
       AndroidDataContext dataContext, Artifact manifest, String customPackage) {
     if (isNullOrEmpty(customPackage)) {
@@ -366,409 +268,5 @@ public final class ApplicationManifest {
         .build(dataContext);
 
     return Optional.of(outputManifest);
-  }
-
-  public ResourceApk packTestWithDataAndResources(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      DataBindingContext dataBindingContext,
-      Artifact resourceApk,
-      ResourceDependencies resourceDeps,
-      @Nullable Artifact rTxt,
-      boolean incremental,
-      Artifact proguardCfg,
-      Artifact mainDexProguardCfg,
-      @Nullable String packageUnderTest,
-      boolean hasLocalResourceFiles)
-      throws InterruptedException, RuleErrorException {
-
-    ResourceContainer resourceContainer =
-        ResourceContainer.builderFromRule(ruleContext)
-            .setAndroidAssets(AndroidAssets.from(ruleContext))
-            .setAndroidResources(AndroidResources.from(ruleContext, "local_resource_files"))
-            .setManifest(getManifest())
-            .setApk(resourceApk)
-            .setRTxt(rTxt)
-            .build();
-
-    AndroidResourcesProcessorBuilder builder =
-        new AndroidResourcesProcessorBuilder()
-            .setLibrary(false)
-            .setApkOut(resourceContainer.getApk())
-            .setUncompressedExtensions(ImmutableList.of())
-            .setCrunchPng(true)
-            .setJavaPackage(resourceContainer.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .withResourceDependencies(resourceDeps)
-            .setProguardOut(proguardCfg)
-            .setMainDexProguardOut(mainDexProguardCfg)
-            .setApplicationId(manifestValues.get("applicationId"))
-            .setVersionCode(manifestValues.get("versionCode"))
-            .setVersionName(manifestValues.get("versionName"))
-            .setThrowOnResourceConflict(
-                ruleContext
-                    .getConfiguration()
-                    .getFragment(AndroidConfiguration.class)
-                    .throwOnResourceConflict())
-            .setPackageUnderTest(packageUnderTest)
-            .setIsTestWithResources(hasLocalResourceFiles);
-    if (!incremental) {
-      builder
-          .targetAaptVersion(targetAaptVersion)
-          .setRTxtOut(resourceContainer.getRTxt())
-          .setSymbols(resourceContainer.getSymbols())
-          .setSourceJarOut(resourceContainer.getJavaSourceJar());
-    }
-    ResourceContainer processed =
-        builder.build(
-            dataContext,
-            resourceContainer,
-            DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
-
-    ResourceContainer finalContainer =
-        new RClassGeneratorActionBuilder()
-            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-            .withDependencies(resourceDeps)
-            .setClassJarOut(
-                ruleContext.getImplicitOutputArtifact(
-                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-            .build(dataContext, processed);
-
-    return ResourceApk.of(
-        finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg, dataBindingContext);
-  }
-
-  /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
-  public ResourceApk packAarWithDataAndResources(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      AndroidAssets assets,
-      AndroidResources resources,
-      ResourceDependencies resourceDeps,
-      Artifact rTxt,
-      Artifact symbols,
-      Artifact manifestOut,
-      Artifact mergedResources)
-      throws InterruptedException {
-    ResourceContainer resourceContainer =
-        ResourceContainer.builderFromRule(ruleContext)
-            .setRTxt(rTxt)
-            .setJavaPackageFrom(JavaPackageSource.MANIFEST)
-            .setManifestExported(true)
-            .setManifest(getManifest())
-            .build();
-
-    // android_library should only build the APK one way (!incremental).
-    Artifact rJavaClassJar =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
-
-    resourceContainer =
-        new AndroidResourceParsingActionBuilder()
-            .setAssets(assets)
-            .setResources(resources)
-            .setOutput(symbols)
-            .buildAndUpdate(dataContext, resourceContainer);
-
-    ResourceContainer merged =
-        new AndroidResourceMergingActionBuilder()
-            .setJavaPackage(resourceContainer.getJavaPackage())
-            .withDependencies(resourceDeps)
-            .setMergedResourcesOut(mergedResources)
-            .setManifestOut(manifestOut)
-            .setClassJarOut(rJavaClassJar)
-            .setThrowOnResourceConflict(
-                ruleContext
-                    .getConfiguration()
-                    .getFragment(AndroidConfiguration.class)
-                    .throwOnResourceConflict())
-            .build(dataContext, resourceContainer);
-
-    ResourceContainer processed =
-        new AndroidResourceValidatorActionBuilder()
-            .setJavaPackage(merged.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .setMergedResources(mergedResources)
-            .setRTxtOut(merged.getRTxt())
-            .setSourceJarOut(merged.getJavaSourceJar())
-            .setApkOut(resourceContainer.getApk())
-            // aapt2 related artifacts. Will be generated if the targetAaptVersion is AAPT2.
-            .withDependencies(resourceDeps)
-            .setCompiledSymbols(merged.getCompiledSymbols())
-            .setAapt2RTxtOut(merged.getAapt2RTxt())
-            .setAapt2SourceJarOut(merged.getAapt2JavaSourceJar())
-            .setStaticLibraryOut(merged.getStaticLibrary())
-            .build(dataContext, merged);
-
-    return ResourceApk.of(
-        processed,
-        resourceDeps,
-        DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
-  }
-
-  /* Creates an incremental apk from assets and data. */
-  public ResourceApk packIncrementalBinaryWithDataAndResources(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      Artifact resourceApk,
-      ResourceDependencies resourceDeps,
-      List<String> uncompressedExtensions,
-      boolean crunchPng,
-      Artifact proguardCfg)
-      throws InterruptedException, RuleErrorException {
-    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
-
-    // Filter the resources during analysis to prevent processing of dependencies on unwanted
-    // resources during execution.
-    ResourceFilterFactory resourceFilterFactory =
-        ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext);
-    ResourceFilter resourceFilter =
-        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
-    resources = resources.filterLocalResources(ruleContext, resourceFilter);
-    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
-
-    // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
-    // container from it.
-    ResourceContainer resourceContainer =
-        ResourceContainer.builderFromRule(ruleContext)
-            .setApk(resourceApk)
-            .setManifest(getManifest())
-            .setAndroidAssets(AndroidAssets.from(ruleContext))
-            .setAndroidResources(resources)
-            .build();
-
-    ResourceContainer processed =
-        new AndroidResourcesProcessorBuilder()
-            .setLibrary(false)
-            .setApkOut(resourceContainer.getApk())
-            .setResourceFilterFactory(resourceFilterFactory)
-            .setUncompressedExtensions(uncompressedExtensions)
-            .setCrunchPng(crunchPng)
-            .setJavaPackage(resourceContainer.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .withResourceDependencies(resourceDeps)
-            .setProguardOut(proguardCfg)
-            .setApplicationId(manifestValues.get("applicationId"))
-            .setVersionCode(manifestValues.get("versionCode"))
-            .setVersionName(manifestValues.get("versionName"))
-            .setThrowOnResourceConflict(
-                ruleContext
-                    .getConfiguration()
-                    .getFragment(AndroidConfiguration.class)
-                    .throwOnResourceConflict())
-            .setPackageUnderTest(null)
-            .build(
-                dataContext,
-                resourceContainer,
-                DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
-
-    // Intentionally skip building an R class JAR - incremental binaries handle this separately.
-
-    return ResourceApk.of(
-        processed,
-        resourceDeps,
-        proguardCfg,
-        null,
-        DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
-  }
-
-  /** Packages up the manifest with resource and assets from the rule and dependent resources. */
-  // TODO(bazel-team): this method calls for some refactoring, 15+ params including some nullables.
-  public ResourceApk packBinaryWithDataAndResources(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      DataBindingContext dataBindingContext,
-      Artifact resourceApk,
-      ResourceDependencies resourceDeps,
-      @Nullable Artifact rTxt,
-      ResourceFilterFactory resourceFilterFactory,
-      List<String> uncompressedExtensions,
-      boolean crunchPng,
-      Artifact proguardCfg,
-      @Nullable Artifact mainDexProguardCfg,
-      boolean conditionalKeepRules,
-      Artifact manifestOut,
-      Artifact mergedResources,
-      @Nullable Artifact featureOf,
-      @Nullable Artifact featureAfter)
-      throws InterruptedException, RuleErrorException {
-
-    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
-    ResourceFilter resourceFilter =
-        resourceFilterFactory.getResourceFilter(ruleContext, resourceDeps, resources);
-    resources = resources.filterLocalResources(ruleContext, resourceFilter);
-    resourceDeps = resourceDeps.filter(ruleContext, resourceFilter);
-
-    // Now that the LocalResourceContainer has been filtered, we can build a filtered resource
-    // container from it.
-    ResourceContainer resourceContainer =
-        ResourceContainer.builderFromRule(ruleContext)
-            .setAndroidAssets(AndroidAssets.from(ruleContext))
-            .setAndroidResources(resources)
-            .setManifest(getManifest())
-            .setRTxt(rTxt)
-            .setApk(resourceApk)
-            .build();
-
-    AndroidConfiguration androidConfiguration =
-        ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
-
-    boolean skipParsingAction =
-        targetAaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
-
-    if (conditionalKeepRules && targetAaptVersion != AndroidAaptVersion.AAPT2) {
-      throw ruleContext.throwWithRuleError(
-          "resource cycle shrinking can only be enabled for builds with aapt2");
-    }
-
-    final AndroidResourcesProcessorBuilder androidResourcesProcessorBuilder =
-        new AndroidResourcesProcessorBuilder()
-            .setLibrary(false)
-            .setApkOut(resourceContainer.getApk())
-            .setResourceFilterFactory(resourceFilterFactory)
-            .setUncompressedExtensions(uncompressedExtensions)
-            .setCrunchPng(crunchPng)
-            .setJavaPackage(resourceContainer.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .setManifestOut(manifestOut)
-            .setMergedResourcesOut(mergedResources)
-            .withResourceDependencies(resourceDeps)
-            .setProguardOut(proguardCfg)
-            .setMainDexProguardOut(mainDexProguardCfg)
-            .conditionalKeepRules(conditionalKeepRules);
-    dataBindingContext.supplyLayoutInfo(androidResourcesProcessorBuilder::setDataBindingInfoZip);
-    ResourceContainer processed =
-        androidResourcesProcessorBuilder
-            .setApplicationId(manifestValues.get("applicationId"))
-            .setVersionCode(manifestValues.get("versionCode"))
-            .setVersionName(manifestValues.get("versionName"))
-            .setFeatureOf(featureOf)
-            .setFeatureAfter(featureAfter)
-            .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
-            .setUseCompiledResourcesForMerge(skipParsingAction)
-            .targetAaptVersion(targetAaptVersion)
-            .setRTxtOut(resourceContainer.getRTxt())
-            .setSymbols(resourceContainer.getSymbols())
-            .setSourceJarOut(resourceContainer.getJavaSourceJar())
-            .build(
-                dataContext,
-                resourceContainer,
-                DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()));
-
-    ResourceContainer finalContainer =
-        new RClassGeneratorActionBuilder()
-            .targetAaptVersion(AndroidAaptVersion.chooseTargetAaptVersion(ruleContext))
-            .withDependencies(resourceDeps)
-            .setClassJarOut(
-                ruleContext.getImplicitOutputArtifact(
-                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-            .build(dataContext, processed);
-
-    return ResourceApk.of(
-        finalContainer, resourceDeps, proguardCfg, mainDexProguardCfg, dataBindingContext);
-  }
-
-  public ResourceApk packLibraryWithDataAndResources(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      ResourceDependencies resourceDeps,
-      Artifact rTxt,
-      Artifact symbols,
-      Artifact manifestOut,
-      Artifact mergedResources,
-      DataBindingContext dataBindingContext)
-      throws InterruptedException, RuleErrorException {
-    AndroidResources resources = AndroidResources.from(ruleContext, "resource_files");
-    AndroidAssets assets = AndroidAssets.from(ruleContext);
-
-    ResourceContainer.Builder builder =
-        ResourceContainer.builderFromRule(ruleContext)
-            .setManifest(getManifest())
-            .setSymbols(symbols)
-            .setRTxt(rTxt)
-            // Request an APK so it can be inherited when a library is used in a binary's
-            // resources attr.
-            // TODO(b/30307842): Remove this once it is no longer needed for resources migration.
-            .setApk(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK));
-
-    if (targetAaptVersion == AndroidAaptVersion.AAPT2) {
-      builder
-          .setAapt2JavaSourceJar(
-              ruleContext.getImplicitOutputArtifact(
-                  AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_SOURCE_JAR))
-          .setAapt2RTxt(
-              ruleContext.getImplicitOutputArtifact(
-                  AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_R_TXT))
-          .setCompiledSymbols(
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS))
-          .setStaticLibrary(
-              ruleContext.getImplicitOutputArtifact(
-                  AndroidRuleClasses.ANDROID_RESOURCES_AAPT2_LIBRARY_APK));
-    }
-
-    final ResourceContainer resourceContainer = builder.build();
-
-    Artifact rJavaClassJar =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
-
-    AndroidConfiguration androidConfiguration =
-        ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
-
-    boolean skipParsingAction =
-        targetAaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
-
-    AndroidResourceParsingActionBuilder parsingBuilder =
-        new AndroidResourceParsingActionBuilder()
-            .setAssets(assets)
-            .setResources(resources)
-            .setOutput(resourceContainer.getSymbols())
-            .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
-
-    if (resourceContainer.getCompiledSymbols() != null) {
-      // TODO(corysmith): Centralize the data binding processing and zipping into a single
-      // action. Data binding processing needs to be triggered here as well as the merger to
-      // avoid aapt2 from throwing an error during compilation.
-      dataBindingContext.supplyLayoutInfo(
-          layoutInfo ->
-              parsingBuilder
-                  .setDataBindingInfoZip(
-                      ruleContext.getUniqueDirectoryArtifact("dummydatabinding", "unused.zip"))
-                  .setManifest(resourceContainer.getManifest())
-                  .setJavaPackage(resourceContainer.getJavaPackage()));
-    }
-    ResourceContainer parsedResourceContainer =
-        parsingBuilder.buildAndUpdate(dataContext, resourceContainer);
-
-    ResourceContainer merged =
-        new AndroidResourceMergingActionBuilder()
-            .setJavaPackage(parsedResourceContainer.getJavaPackage())
-            .withDependencies(resourceDeps)
-            .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
-            .setUseCompiledMerge(skipParsingAction)
-            .setMergedResourcesOut(mergedResources)
-            .setManifestOut(manifestOut)
-            .setClassJarOut(rJavaClassJar)
-            .build(dataContext, parsedResourceContainer);
-
-    ResourceContainer processed =
-        new AndroidResourceValidatorActionBuilder()
-            .setJavaPackage(merged.getJavaPackage())
-            .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-            .setMergedResources(mergedResources)
-            .setRTxtOut(merged.getRTxt())
-            .setSourceJarOut(merged.getJavaSourceJar())
-            .setApkOut(parsedResourceContainer.getApk())
-            .withDependencies(resourceDeps)
-            // aapt2 related artifacts. Will be generated if the targetAaptVersion is AAPT2.
-            .setCompiledSymbols(merged.getCompiledSymbols())
-            .setAapt2RTxtOut(merged.getAapt2RTxt())
-            .setAapt2SourceJarOut(merged.getAapt2JavaSourceJar())
-            .setStaticLibraryOut(merged.getStaticLibrary())
-            .build(dataContext, merged);
-
-    return ResourceApk.of(processed, resourceDeps, dataBindingContext);
-  }
-
-  public Artifact getManifest() {
-    return manifest;
   }
 }

@@ -56,16 +56,13 @@ public final class AndroidBinaryMobileInstall {
   }
 
   static MobileInstallResourceApks createMobileInstallResourceApks(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      ApplicationManifest applicationManifest)
+      RuleContext ruleContext, AndroidDataContext dataContext, StampedAndroidManifest manifest)
       throws RuleErrorException, InterruptedException {
 
     final ResourceApk incrementalResourceApk;
     final ResourceApk splitResourceApk;
-    StampedAndroidManifest manifest =
-        new StampedAndroidManifest(
-            applicationManifest.getManifest(), /* pkg = */ null, /* exported = */ true);
+
+    Map<String, String> manifestValues = ApplicationManifest.getManifestValues(ruleContext);
 
     incrementalResourceApk =
         ProcessedAndroidData.processIncrementalBinaryDataFrom(
@@ -76,7 +73,7 @@ public final class AndroidBinaryMobileInstall {
                     AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
                 getMobileInstallArtifact(ruleContext, "merged_incremental_resources.bin"),
                 "incremental",
-                applicationManifest.getManifestValues())
+                manifestValues)
             // Intentionally skip building an R class JAR - incremental binaries handle this
             // separately.
             .withValidatedResources(null);
@@ -89,7 +86,7 @@ public final class AndroidBinaryMobileInstall {
                 getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
                 getMobileInstallArtifact(ruleContext, "merged_split_resources.bin"),
                 "incremental_split",
-                applicationManifest.getManifestValues())
+                manifestValues)
             // Intentionally skip building an R class JAR - incremental binaries handle this
             // separately.
             .withValidatedResources(null);
@@ -110,8 +107,7 @@ public final class AndroidBinaryMobileInstall {
       FilesToRunProvider resourceExtractor,
       NestedSet<Artifact> nativeLibsAar,
       Artifact signingKey,
-      ImmutableList<Artifact> additionalMergedManifests,
-      ApplicationManifest applicationManifest)
+      ImmutableList<Artifact> additionalMergedManifests)
       throws InterruptedException, RuleErrorException {
 
     Artifact incrementalApk =
@@ -211,7 +207,7 @@ public final class AndroidBinaryMobileInstall {
     for (int i = 0; i < shardDexZips.size(); i++) {
       String splitName = "dex" + (i + 1);
       Artifact splitApkResources =
-          createSplitApkResources(ruleContext, applicationManifest, splitName, true);
+          createSplitApkResources(ruleContext, resourceApk.getProcessedManifest(), splitName, true);
       Artifact splitApk = getMobileInstallArtifact(ruleContext, splitName + ".apk");
       ApkActionsBuilder.create("split dex apk " + (i + 1))
           .setClassesDex(shardDexZips.get(i))
@@ -223,7 +219,7 @@ public final class AndroidBinaryMobileInstall {
     }
 
     Artifact nativeSplitApkResources =
-        createSplitApkResources(ruleContext, applicationManifest, "native", false);
+        createSplitApkResources(ruleContext, resourceApk.getProcessedManifest(), "native", false);
     Artifact nativeSplitApk = getMobileInstallArtifact(ruleContext, "native.apk");
     ApkActionsBuilder.create("split native apk")
         .addInputZip(nativeSplitApkResources)
@@ -234,7 +230,8 @@ public final class AndroidBinaryMobileInstall {
     splitApkSetBuilder.add(nativeSplitApk);
 
     Artifact javaSplitApkResources =
-        createSplitApkResources(ruleContext, applicationManifest, "java_resources", false);
+        createSplitApkResources(
+            ruleContext, resourceApk.getProcessedManifest(), "java_resources", false);
     Artifact javaSplitApk = getMobileInstallArtifact(ruleContext, "java_resources.apk");
     ApkActionsBuilder.create("split Java resource apk")
         .addInputZip(javaSplitApkResources)
@@ -471,7 +468,7 @@ public final class AndroidBinaryMobileInstall {
 
   private static Artifact createSplitApkResources(
       RuleContext ruleContext,
-      ApplicationManifest mainManifest,
+      ProcessedAndroidManifest mainManifest,
       String splitName,
       boolean hasCode) {
     Artifact splitManifest =
