@@ -10,7 +10,7 @@ filegroup(
 )
 
 # TODO(laszlocsomor): after https://github.com/bazelbuild/bazel/issues/5802 is fixed, add a
-# `deprecation` attribute to @bazel_tools//tools/runfiles:java-runfiles, telling users to depend on
+# `deprecation` attribute to @bazel_tools//tools/runfiles:java-runfiles, advising users to depend on
 # @bazel_tools//tools/java/runfiles instead. After a reasonable time (1-2 Bazel releases containing
 # the deprecation warning) remove @bazel_tools//tools/runfiles:java-runfiles.
 java_library(
