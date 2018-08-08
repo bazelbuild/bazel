@@ -203,6 +203,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             RepositoryMappingValue.withMapping(
                 ImmutableMap.of(RepositoryName.create("@fizz"), RepositoryName.create("@buzz"))),
             RepositoryMappingValue.withMapping(
-                ImmutableMap.of(RepositoryName.create("@fizz"), RepositoryName.create("@buzz"))));
+                ImmutableMap.of(RepositoryName.create("@fizz"), RepositoryName.create("@buzz"))))
+        .testEquals();
   }
 }
