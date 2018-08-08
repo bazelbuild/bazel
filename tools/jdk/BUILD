@@ -8,6 +8,7 @@ load(
     "default_java_toolchain",
     "JDK8_JVM_OPTS",
     "JDK9_JVM_OPTS",
+    "java_runtime_files",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -52,29 +53,29 @@ alias(
     actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
-alias(
+java_runtime_files(
     name = "jni_header",
-    actual = "@local_jdk//:jni_header",
+    srcs = ["include/jni.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-darwin",
-    actual = "@local_jdk//:jni_md_header-darwin",
+    srcs = ["include/darwin/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-linux",
-    actual = "@local_jdk//:jni_md_header-linux",
+    srcs = ["include/linux/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-windows",
-    actual = "@local_jdk//:jni_md_header-windows",
+    srcs = ["include/win32/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-freebsd",
-    actual = "@local_jdk//:jni_md_header-freebsd",
+    srcs = ["include/freebsd/jni_md.h"],
 )
 
 alias(
