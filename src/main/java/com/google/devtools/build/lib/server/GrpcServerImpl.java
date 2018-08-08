@@ -152,10 +152,17 @@ public class GrpcServerImpl implements RPCServer {
    */
   public static class Factory implements RPCServer.Factory {
     @Override
-    public RPCServer create(BlazeCommandDispatcher dispatcher, Clock clock, int port,
-      Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException {
+    public RPCServer create(
+        BlazeCommandDispatcher dispatcher,
+        Clock clock,
+        int port,
+        Path workspace,
+        Path serverDirectory,
+        int maxIdleSeconds,
+        boolean idleServerTasks)
+        throws IOException {
       return new GrpcServerImpl(
-          dispatcher, clock, port, workspace, serverDirectory, maxIdleSeconds);
+          dispatcher, clock, port, workspace, serverDirectory, maxIdleSeconds, idleServerTasks);
     }
   }
 
@@ -512,13 +519,21 @@ public class GrpcServerImpl implements RPCServer {
   private final String pidInFile;
   private final List<Path> filesToDeleteAtExit = new ArrayList<>();
   private final int port;
+  private final boolean doIdleServerTasks;
 
   private Server server;
   private IdleServerTasks idleServerTasks;
   boolean serving;
 
-  public GrpcServerImpl(BlazeCommandDispatcher dispatcher, Clock clock, int port,
-      Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException {
+  public GrpcServerImpl(
+      BlazeCommandDispatcher dispatcher,
+      Clock clock,
+      int port,
+      Path workspace,
+      Path serverDirectory,
+      int maxIdleSeconds,
+      boolean doIdleServerTasks)
+      throws IOException {
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
@@ -555,20 +570,24 @@ public class GrpcServerImpl implements RPCServer {
 
     pidFileWatcherThread = new PidFileWatcherThread();
     pidFileWatcherThread.start();
-    idleServerTasks = new IdleServerTasks();
-    idleServerTasks.idle();
+    this.doIdleServerTasks = doIdleServerTasks;
+    idle();
   }
 
   private void idle() {
     Preconditions.checkState(idleServerTasks == null);
-    idleServerTasks = new IdleServerTasks();
-    idleServerTasks.idle();
+    if (doIdleServerTasks) {
+      idleServerTasks = new IdleServerTasks();
+      idleServerTasks.idle();
+    }
   }
 
   private void busy() {
-    Preconditions.checkState(idleServerTasks != null);
-    idleServerTasks.busy();
-    idleServerTasks = null;
+    if (doIdleServerTasks) {
+      Preconditions.checkState(idleServerTasks != null);
+      idleServerTasks.busy();
+      idleServerTasks = null;
+    }
   }
 
   private static String generateCookie(SecureRandom random, int byteCount) {
