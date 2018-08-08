@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultAlreadySetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -34,27 +36,36 @@ import com.google.devtools.common.options.OptionsProvider;
 public class BazelFileSystemModule extends BlazeModule {
 
   @Override
-  public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
-    final DigestHashFunction hashFunction;
-    String value = null;
+  public void globalInit(OptionsProvider startupOptionsProvider) throws AbruptExitException {
+    BlazeServerStartupOptions startupOptions =
+        Preconditions.checkNotNull(
+            startupOptionsProvider.getOptions(BlazeServerStartupOptions.class));
+    DigestHashFunction commandLineHashFunction = startupOptions.digestHashFunction;
     try {
-      value = System.getProperty("bazel.DigestFunction", "SHA256");
-      hashFunction = new DigestFunctionConverter().convert(value);
-    } catch (OptionsParsingException e) {
-      throw new AbruptExitException(
-          "The specified hash function '" + value + "' is not supported.",
-          ExitCode.COMMAND_LINE_ERROR,
-          e);
+      if (commandLineHashFunction != null) {
+        DigestHashFunction.setDefault(commandLineHashFunction);
+      } else {
+        String value = System.getProperty("bazel.DigestFunction", "SHA256");
+        DigestHashFunction jvmPropertyHash;
+        try {
+          jvmPropertyHash = new DigestFunctionConverter().convert(value);
+        } catch (OptionsParsingException e) {
+          throw new AbruptExitException(ExitCode.COMMAND_LINE_ERROR, e);
+        }
+        DigestHashFunction.setDefault(jvmPropertyHash);
+      }
+    } catch (DefaultAlreadySetException e) {
+      throw new AbruptExitException(ExitCode.BLAZE_INTERNAL_ERROR, e);
     }
+  }
+
+  @Override
+  public FileSystem getFileSystem(OptionsProvider startupOptions) {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
-      return OS.getCurrent() == OS.WINDOWS
-          ? new WindowsFileSystem(hashFunction)
-          : new JavaIoFileSystem(hashFunction);
+      return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem();
     }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OS.getCurrent() == OS.WINDOWS
-        ? new WindowsFileSystem(hashFunction)
-        : new UnixFileSystem(hashFunction);
+    return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
   }
 }

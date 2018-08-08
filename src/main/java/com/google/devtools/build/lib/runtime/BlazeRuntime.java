@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.Profiler.Format;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -262,7 +263,7 @@ public final class BlazeRuntime {
   }
 
   /** Configure profiling based on the provided options. */
-  void initProfiler(
+  Path initProfiler(
       EventHandler eventHandler,
       BlazeWorkspace workspace,
       CommonCommandOptions options,
@@ -272,18 +273,28 @@ public final class BlazeRuntime {
     boolean recordFullProfilerData = false;
     ProfiledTaskKinds profiledTasks = ProfiledTaskKinds.NONE;
     Profiler.Format format = Profiler.Format.BINARY_BAZEL_FORMAT;
+    Path profilePath = null;
     try {
       if (options.enableTracer) {
-        Path profilePath = options.profilePath != null
-            ? workspace.getWorkspace().getRelative(options.profilePath)
-            : workspace.getOutputBase().getRelative("command.profile");
+        format =
+            options.enableTracerCompression
+                ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
+                : Profiler.Format.JSON_TRACE_FILE_FORMAT;
+        if (options.profilePath != null) {
+          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+        } else {
+          String profileName = "command.profile";
+          if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
+            profileName = "command.profile.gz";
+          }
+          profilePath = workspace.getOutputBase().getRelative(profileName);
+        }
         recordFullProfilerData = false;
         out = profilePath.getOutputStream();
         eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
         profiledTasks = ProfiledTaskKinds.ALL_FOR_TRACE;
-        format = Profiler.Format.JSON_TRACE_FILE_FORMAT;
       } else if (options.profilePath != null) {
-        Path profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+        profilePath = workspace.getWorkspace().getRelative(options.profilePath);
 
         recordFullProfilerData = options.recordFullProfilerData;
         out = profilePath.getOutputStream();
@@ -324,6 +335,7 @@ public final class BlazeRuntime {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
+    return profilePath;
   }
 
   public FileSystem getFileSystem() {
@@ -913,11 +925,15 @@ public final class BlazeRuntime {
         Class<?> factoryClass = Class.forName(
             "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
         RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
-        rpcServer[0] = factory.create(dispatcher, runtime.getClock(),
-            startupOptions.commandPort,
-            runtime.getWorkspace().getWorkspace(),
-            runtime.getServerDirectory(),
-            startupOptions.maxIdleSeconds);
+        rpcServer[0] =
+            factory.create(
+                dispatcher,
+                runtime.getClock(),
+                startupOptions.commandPort,
+                runtime.getWorkspace().getWorkspace(),
+                runtime.getServerDirectory(),
+                startupOptions.maxIdleSeconds,
+                startupOptions.idleServerTasks);
       } catch (ReflectiveOperationException | IllegalArgumentException e) {
         throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
       }

@@ -31,7 +31,8 @@ public class AndroidBootstrap implements Bootstrap {
   private final ApkInfoApiProvider apkInfoProvider;
   private final AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider;
   private final AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider;
-  private final AndroidResourcesInfoApiProvider androidResourcesInfoProvider;
+  private final AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<?, ?, ?>
+      androidResourcesInfoProvider;
   private final AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider;
 
   public AndroidBootstrap(
@@ -39,7 +40,7 @@ public class AndroidBootstrap implements Bootstrap {
       ApkInfoApiProvider apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
-      AndroidResourcesInfoApiProvider androidResourcesInfoProvider,
+      AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
       AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider) {
     this.androidCommon = androidCommon;
     this.apkInfoProvider = apkInfoProvider;

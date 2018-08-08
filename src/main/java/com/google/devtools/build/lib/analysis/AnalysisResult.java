@@ -16,15 +16,11 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -37,14 +33,14 @@ public final class AnalysisResult {
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final String error;
   private final ActionGraph actionGraph;
-  private final SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels;
+  private final ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
   private final ImmutableSet<AspectValue> aspects;
   private final PackageRoots packageRoots;
   private final String workspaceName;
-  private final List<TargetAndConfiguration> topLevelTargetsWithConfigs;
+  private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
   AnalysisResult(
       BuildConfigurationCollection configurations,
@@ -54,13 +50,13 @@ public final class AnalysisResult {
       Collection<ConfiguredTarget> targetsToSkip,
       @Nullable String error,
       ActionGraph actionGraph,
-      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels,
+      ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
       Collection<ConfiguredTarget> parallelTests,
       Collection<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configurations = configurations;
     this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
     this.aspects = aspects;
@@ -122,7 +118,7 @@ public final class AnalysisResult {
     return targetsToSkip;
   }
 
-  public SetMultimap<Artifact, Label> getTopLevelArtifactsToOwnerLabels() {
+  public ArtifactsToOwnerLabels getTopLevelArtifactsToOwnerLabels() {
     return topLevelArtifactsToOwnerLabels;
   }
 
@@ -160,7 +156,7 @@ public final class AnalysisResult {
     return workspaceName;
   }
 
-  public List<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
+  public Collection<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
     return topLevelTargetsWithConfigs;
   }
 }

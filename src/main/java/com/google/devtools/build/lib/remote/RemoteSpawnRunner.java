@@ -72,6 +72,7 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** A client for the remote execution service. */
@@ -82,7 +83,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
   private final ExecutionOptions executionOptions;
-  private final SpawnRunner fallbackRunner;
+  private final AtomicReference<SpawnRunner> fallbackRunner;
   private final boolean verboseFailures;
 
   @Nullable private final Reporter cmdlineReporter;
@@ -101,7 +102,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       Path execRoot,
       RemoteOptions remoteOptions,
       ExecutionOptions executionOptions,
-      SpawnRunner fallbackRunner,
+      AtomicReference<SpawnRunner> fallbackRunner,
       boolean verboseFailures,
       @Nullable Reporter cmdlineReporter,
       String buildRequestId,
@@ -135,7 +136,7 @@ class RemoteSpawnRunner implements SpawnRunner {
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     if (!Spawns.mayBeExecutedRemotely(spawn) || remoteCache == null) {
-      return fallbackRunner.exec(spawn, context);
+      return fallbackRunner.get().exec(spawn, context);
     }
 
     context.report(ProgressStatus.EXECUTING, getName());
@@ -445,7 +446,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     if (uploadToCache && remoteCache != null && actionKey != null) {
       return execLocallyAndUpload(spawn, context, inputMap, remoteCache, actionKey);
     }
-    return fallbackRunner.exec(spawn, context);
+    return fallbackRunner.get().exec(spawn, context);
   }
 
   @VisibleForTesting
@@ -457,7 +458,7 @@ class RemoteSpawnRunner implements SpawnRunner {
       ActionKey actionKey)
       throws ExecException, IOException, InterruptedException {
     Map<Path, Long> ctimesBefore = getInputCtimes(inputMap);
-    SpawnResult result = fallbackRunner.exec(spawn, context);
+    SpawnResult result = fallbackRunner.get().exec(spawn, context);
     Map<Path, Long> ctimesAfter = getInputCtimes(inputMap);
     for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
       // Skip uploading to remote cache, because an input was modified during execution.
@@ -494,7 +495,10 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  /** Resolve a collection of {@link com.google.build.lib.actions.ActionInput}s to {@link Path}s. */
+  /**
+   * Resolve a collection of {@link com.google.devtools.build.lib.actions.ActionInput}s to {@link
+   * Path}s.
+   */
   static Collection<Path> resolveActionInputs(
       Path execRoot, Collection<? extends ActionInput> actionInputs) {
     return actionInputs

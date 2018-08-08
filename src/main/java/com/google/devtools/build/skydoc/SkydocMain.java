@@ -18,6 +18,8 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
@@ -38,7 +40,6 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDefaultInfoProvider;
@@ -67,6 +68,7 @@ import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -88,7 +90,7 @@ import java.util.stream.Collectors;
  *
  * <p>Usage:</p>
  * <pre>
- *   skydoc {target_skylark_file} {output_file} [symbol_name]...
+ *   skydoc {target_skylark_file_label} {output_file} [symbol_name]...
  * </pre>
  * <p>
  *   Generates documentation for all exported symbols of the target skylark file that are
@@ -107,22 +109,25 @@ public class SkydocMain {
     this.fileAccessor = fileAccessor;
   }
 
-  public static void main(String[] args) throws IOException, InterruptedException {
+  public static void main(String[] args)
+      throws IOException, InterruptedException, LabelSyntaxException {
     if (args.length < 2) {
       throw new IllegalArgumentException("Expected two or more arguments. Usage:\n"
-          + "{skydoc_bin} {target_skylark_file} {output_file} [symbol_names]...");
+          + "{skydoc_bin} {target_skylark_file_label} {output_file} [symbol_names]...");
     }
 
-    String bzlPath = args[0];
+    String targetFileLabelString = args[0];
     String outputPath = args[1];
-    ImmutableSet<String> symbolNames = getSymbolNames(args);
 
-    Path path = Paths.get(bzlPath);
+    Label targetFileLabel =
+        Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
+    ImmutableSet<String> symbolNames = getSymbolNames(args);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableList.Builder<RuleInfo> unknownNamedRules = ImmutableList.builder();
 
-    new SkydocMain(new FilesystemFileAccessor()).eval(path, ruleInfoMap, unknownNamedRules);
+    new SkydocMain(new FilesystemFileAccessor())
+        .eval(targetFileLabel, ruleInfoMap, unknownNamedRules);
 
     MarkdownRenderer renderer = new MarkdownRenderer();
 
@@ -175,7 +180,7 @@ public class SkydocMain {
    * using a fake build API and collects information about all rule definitions made in the
    * root skylark file.
    *
-   * @param path the path of the skylark file to evaluate
+   * @param label the label of the skylark file to evaluate
    * @param ruleInfoMap a map builder to be populated with rule definition information for
    *     named rules. Keys are exported names of rules, and values are their {@link RuleInfo}
    *     rule descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
@@ -184,16 +189,13 @@ public class SkydocMain {
    * @throws InterruptedException if evaluation is interrupted
    */
   public Environment eval(
-      Path path,
+      Label label,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableList.Builder<RuleInfo> unknownNamedRules)
-      throws InterruptedException, IOException {
-    if (path.isAbsolute()) {
-      path = Paths.get(PathFragment.create(path.toString()).toRelative().getPathString());
-    }
+      throws InterruptedException, IOException, LabelSyntaxException {
 
     List<RuleInfo> ruleInfoList = new ArrayList<>();
-    Environment env = recursiveEval(path, ruleInfoList);
+    Environment env = recursiveEval(label, ruleInfoList);
 
     Map<BaseFunction, RuleInfo> ruleFunctions = ruleInfoList.stream()
         .collect(Collectors.toMap(
@@ -220,14 +222,15 @@ public class SkydocMain {
    * dependencies using a fake build API and collects information about all rule definitions made
    * in those files.
    *
-   * @param path the path of the skylark file to evaluate
+   * @param label the label of the skylark file to evaluate
    * @param ruleInfoList a collection of all rule definitions made so far (using rule()); this
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
    */
   private Environment recursiveEval(
-      Path path, List<RuleInfo> ruleInfoList)
-      throws InterruptedException, IOException {
+      Label label, List<RuleInfo> ruleInfoList)
+      throws InterruptedException, IOException, LabelSyntaxException {
+    Path path = Paths.get(label.toPathFragment().toString());
     if (pending.contains(path)) {
       throw new IllegalStateException("cycle with " + path);
     } else if (loaded.containsKey(path)) {
@@ -240,11 +243,17 @@ public class SkydocMain {
 
     Map<String, Extension> imports = new HashMap<>();
     for (SkylarkImport anImport : buildFileAST.getImports()) {
-      Path importPath = fromPathFragment(path, anImport.asPathFragment());
+      Label relativeLabel = label.getRelative(anImport.getImportString());
+      Path importPath = Paths.get(relativeLabel.toPathFragment().toString());
 
-      Environment importEnv = recursiveEval(importPath, ruleInfoList);
-
-      imports.put(anImport.getImportString(), new Extension(importEnv));
+      try {
+        Environment importEnv = recursiveEval(relativeLabel, ruleInfoList);
+        imports.put(anImport.getImportString(), new Extension(importEnv));
+      } catch (NoSuchFileException noSuchFileException) {
+        throw new IllegalStateException(
+            String.format("File %s imported '%s', yet %s was not found.",
+                path, anImport.getImportString(), importPath));
+      }
     }
 
     Environment env = evalSkylarkBody(buildFileAST, imports, ruleInfoList);
@@ -253,12 +262,6 @@ public class SkydocMain {
     env.mutability().freeze();
     loaded.put(path, env);
     return env;
-  }
-
-  private static Path fromPathFragment(Path fromPath, PathFragment pathFragment) {
-    return pathFragment.isAbsolute()
-        ? Paths.get(pathFragment.toRelative().getPathString())
-        : fromPath.resolveSibling(pathFragment.getPathString());
   }
 
   /**

@@ -5,6 +5,7 @@ java_library(
     testonly = 1,
     srcs = ["AbstractJavacTurbineCompilationTest.java"],
     deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:JavacBootclasspath",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
         "//src/main/protobuf:deps_java_proto",

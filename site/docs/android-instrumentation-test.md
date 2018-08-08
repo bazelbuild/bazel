@@ -24,8 +24,7 @@ For more information on Android instrumentation tests, check out the [Android
 developer
 documentation](https://developer.android.com/training/testing/unit-testing/instrumented-unit-tests.html).
 
-The current state is __experimental__ as of Bazel 0.12.0. Please file issues in
-the [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
+Please file issues in the [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
 
 **Table of Contents**
 

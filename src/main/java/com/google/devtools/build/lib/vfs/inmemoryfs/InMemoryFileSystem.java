@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,7 +50,7 @@ import javax.annotation.Nullable;
 public class InMemoryFileSystem extends FileSystem {
 
   private final PathFragment scopeRoot;
-  private final Clock clock;
+  protected final Clock clock;
 
   // The root inode (a directory).
   private final InMemoryDirectoryInfo rootInode;
@@ -65,6 +64,16 @@ public class InMemoryFileSystem extends FileSystem {
    */
   public InMemoryFileSystem() {
     this(new JavaClock());
+  }
+
+  /**
+   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
+   * within scope) and a default clock.
+   *
+   * @param hashFunction the function to use for calculating digests.
+   */
+  public InMemoryFileSystem(DigestHashFunction hashFunction) {
+    this(new JavaClock(), hashFunction);
   }
 
   /**
@@ -319,11 +328,15 @@ public class InMemoryFileSystem extends FileSystem {
       if (!create)  {
         throw Error.ENOENT.exception(path);
       } else {
-        child = new InMemoryFileInfo(clock);
+        child = newFile(clock, path);
         insert(imdi, name, child, path);
       }
     }
     return child;
+  }
+
+  protected FileInfo newFile(Clock clock, Path path) {
+    return new InMemoryFileInfo(clock);
   }
 
   /**
@@ -462,7 +475,7 @@ public class InMemoryFileSystem extends FileSystem {
    * Version of stat that returns an inode if the input path stays entirely within this file
    * system's scope, otherwise throws.
    */
-  private InMemoryContentInfo scopeLimitedStat(Path path, boolean followSymlinks)
+  protected InMemoryContentInfo scopeLimitedStat(Path path, boolean followSymlinks)
       throws IOException {
     if (followSymlinks) {
       return pathWalk(path, false);
@@ -747,12 +760,42 @@ public class InMemoryFileSystem extends FileSystem {
         throw Error.EACCES.exception(path);
       }
       Preconditions.checkState(status instanceof FileInfo);
-      return new ByteArrayInputStream(((FileInfo) status).readContent());
+      return ((FileInfo) status).getInputStream();
+    }
+  }
+
+  @Override
+  public byte[] getxattr(Path path, String name) throws IOException {
+    synchronized (this) {
+      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      if (status.isDirectory()) {
+        throw Error.EISDIR.exception(path);
+      }
+      if (!path.isReadable()) {
+        throw Error.EACCES.exception(path);
+      }
+      Preconditions.checkState(status instanceof FileInfo);
+      return ((FileInfo) status).getxattr(name);
+    }
+  }
+
+  @Override
+  protected byte[] getFastDigest(Path path) throws IOException {
+    synchronized (this) {
+      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      if (status.isDirectory()) {
+        throw Error.EISDIR.exception(path);
+      }
+      if (!path.isReadable()) {
+        throw Error.EACCES.exception(path);
+      }
+      Preconditions.checkState(status instanceof FileInfo);
+      return ((FileInfo) status).getFastDigest();
     }
   }
 
   /** Creates a new file at the given path and returns its inode. */
-  private InMemoryContentInfo getOrCreateWritableInode(Path path) throws IOException {
+  protected InMemoryContentInfo getOrCreateWritableInode(Path path) throws IOException {
     // open(WR_ONLY) of a dangling link writes through the link.  That means
     // that the usual path lookup operations have to behave differently when
     // resolving a path with the intent to create it: instead of failing with

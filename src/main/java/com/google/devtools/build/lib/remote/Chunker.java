@@ -18,10 +18,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -114,61 +115,7 @@ public final class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  public Chunker(byte[] data, DigestUtil digestUtil) throws IOException {
-    this(data, getDefaultChunkSize(), digestUtil);
-  }
-
-  public Chunker(byte[] data, int chunkSize, DigestUtil digestUtil) throws IOException {
-    this(() -> new ByteArrayInputStream(data), digestUtil.compute(data), chunkSize, digestUtil);
-  }
-
-  public Chunker(Path file) throws IOException {
-    this(file, getDefaultChunkSize());
-  }
-
-  public Chunker(Path file, int chunkSize) throws IOException {
-    this(
-        () -> {
-          try {
-            return file.getInputStream();
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-        },
-        new DigestUtil(file.getFileSystem().getDigestFunction()).compute(file),
-        chunkSize,
-        new DigestUtil(file.getFileSystem().getDigestFunction()));
-  }
-
-  public Chunker(
-      ActionInput actionInput, MetadataProvider inputCache, Path execRoot, DigestUtil digestUtil)
-      throws IOException {
-    this(actionInput, inputCache, execRoot, getDefaultChunkSize(), digestUtil);
-  }
-
-  public Chunker(
-      ActionInput actionInput,
-      MetadataProvider inputCache,
-      Path execRoot,
-      int chunkSize,
-      DigestUtil digestUtil)
-      throws IOException {
-    this(
-        () -> {
-          try {
-            return execRoot.getRelative(actionInput.getExecPathString()).getInputStream();
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-        },
-        DigestUtil.getFromInputCache(actionInput, inputCache),
-        chunkSize,
-        digestUtil);
-  }
-
-  @VisibleForTesting
-  Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize, DigestUtil digestUtil)
-      throws IOException {
+  Chunker(Supplier<InputStream> dataSupplier, Digest digest, int chunkSize, DigestUtil digestUtil) {
     this.dataSupplier = checkNotNull(dataSupplier);
     this.digest = checkNotNull(digest);
     this.chunkSize = chunkSize;
@@ -276,5 +223,84 @@ public final class Chunker {
       throw e;
     }
     initialized = true;
+  }
+
+  public static Builder builder(DigestUtil digestUtil) {
+    return new Builder(digestUtil);
+  }
+
+  /** Builder class for the Chunker */
+  public static class Builder {
+    private final DigestUtil digestUtil;
+    private int chunkSize = getDefaultChunkSize();
+    private Digest digest;
+    private Supplier<InputStream> inputStream;
+
+    Builder(DigestUtil digestUtil) {
+      this.digestUtil = digestUtil;
+    }
+
+    public Builder setInput(byte[] data) {
+      Preconditions.checkState(inputStream == null);
+      digest = digestUtil.compute(data);
+      inputStream = () -> new ByteArrayInputStream(data);
+      return this;
+    }
+
+    public Builder setInput(Digest digest, byte[] data) {
+      Preconditions.checkState(inputStream == null);
+      this.digest = digest;
+      inputStream = () -> new ByteArrayInputStream(data);
+      return this;
+    }
+
+    public Builder setInput(Digest digest, Path file) {
+      Preconditions.checkState(inputStream == null);
+      this.digest = digest;
+      inputStream =
+          () -> {
+            try {
+              return file.getInputStream();
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          };
+      return this;
+    }
+
+    public Builder setInput(Digest digest, ActionInput actionInput, Path execRoot) {
+      Preconditions.checkState(inputStream == null);
+      this.digest = digest;
+      if (actionInput instanceof VirtualActionInput) {
+        this.inputStream =
+            () -> {
+              try {
+                return ((VirtualActionInput) actionInput).getBytes().newInput();
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            };
+      } else {
+        inputStream =
+            () -> {
+              try {
+                return execRoot.getRelative(actionInput.getExecPathString()).getInputStream();
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            };
+      }
+      return this;
+    }
+
+    public Builder setChunkSize(int chunkSize) {
+      this.chunkSize = chunkSize;
+      return this;
+    }
+
+    public Chunker build() {
+      Preconditions.checkNotNull(inputStream, digest);
+      return new Chunker(inputStream, digest, chunkSize, digestUtil);
+    }
   }
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestApi;
 import javax.annotation.Nullable;
 
 /**
@@ -22,7 +23,7 @@ import javax.annotation.Nullable;
  *
  * <p>TODO(b/30817309) Just use {@link StampedAndroidManifest} once the legacy merger is removed.
  */
-public class ProcessedAndroidManifest extends StampedAndroidManifest {
+public class ProcessedAndroidManifest extends StampedAndroidManifest implements AndroidManifestApi {
 
   ProcessedAndroidManifest(Artifact manifest, @Nullable String pkg, boolean exported) {
     super(manifest, pkg, exported);
@@ -31,12 +32,5 @@ public class ProcessedAndroidManifest extends StampedAndroidManifest {
   @Override
   public boolean equals(Object object) {
     return (object instanceof ProcessedAndroidManifest) && super.equals(object);
-  }
-
-  public static ProcessedAndroidManifest from(ResourceContainer resourceContainer) {
-    return new ProcessedAndroidManifest(
-        resourceContainer.getManifest(),
-        resourceContainer.getJavaPackage(),
-        resourceContainer.isManifestExported());
   }
 }

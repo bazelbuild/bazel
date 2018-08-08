@@ -32,52 +32,87 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 )
 public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exception> {
 
-  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.")
+  @SkylarkCallable(
+      name = "copts",
+      structField = true,
+      doc = "Returns flags passed to Bazel by --copt option.")
+  ImmutableList<String> getCopts() throws EvalException;
+
+  @SkylarkCallable(
+      name = "cxxopts",
+      structField = true,
+      doc = "Returns flags passed to Bazel by --cxxopt option.")
+  ImmutableList<String> getCxxopts() throws EvalException;
+
+  @SkylarkCallable(
+      name = "conlyopts",
+      structField = true,
+      doc = "Returns flags passed to Bazel by --conlyopt option.")
+  ImmutableList<String> getConlyopts() throws EvalException;
+
+  @SkylarkCallable(
+      name = "linkopts",
+      structField = true,
+      doc = "Returns flags passed to Bazel by --linkopt option.")
+  ImmutableList<String> getLinkopts() throws EvalException;
+
+  @SkylarkCallable(
+      name = "compiler",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> C++ compiler.")
   @Deprecated
   String getCompiler() throws EvalException;
 
-  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.")
+  @SkylarkCallable(
+      name = "libc",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> libc version string.")
   @Deprecated
   String getTargetLibc() throws EvalException;
 
-  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.")
+  @SkylarkCallable(
+      name = "cpu",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Target CPU of the C++ toolchain.")
   @Deprecated
   String getTargetCpu() throws EvalException;
 
   @SkylarkCallable(
-    name = "built_in_include_directories",
-    structField = true,
-    doc =
-        "Built-in system include paths for the toolchain compiler. All paths in this list"
-            + " should be relative to the exec directory. They may be absolute if they are also"
-            + " installed on the remote build nodes or for local compilation."
-  )
+      name = "built_in_include_directories",
+      structField = true,
+      doc =
+          "<b>Deprecated (use CcToolchainInfo instead).</b> Built-in system include paths for the "
+              + "toolchain compiler. All paths in this list should be relative to the exec "
+              + "directory. They may be absolute if they are also installed on the remote build "
+              + "nodes or for local compilation.")
+  @Deprecated
   ImmutableList<String> getBuiltInIncludeDirectoriesForSkylark()
       throws InvalidConfigurationExceptionT, EvalException;
 
-  @SkylarkCallable(name = "sysroot", structField = true,
-      doc = "Returns the sysroot to be used. If the toolchain compiler does not support "
-      + "different sysroots, or the sysroot is the same as the default sysroot, then "
-      + "this method returns <code>None</code>.")
+  @SkylarkCallable(
+      name = "sysroot",
+      structField = true,
+      doc =
+          "<b>Deprecated (use CcToolchainInfo instead).</b> Returns the sysroot to be used. If the "
+              + "toolchain compiler does not support different sysroots, or the sysroot is the "
+              + "same as the default sysroot, then this method returns <code>None</code>.")
   String getSysroot() throws EvalException;
 
   @SkylarkCallable(
-    name = "compiler_options",
-    doc =
-        "<b>Deprecated.</b> Returns the default options to use for compiling C, C++, and "
-            + "assembler. This is just the options that should be used for all three languages. "
-            + "There may be additional C-specific or C++-specific options that should be used, "
-            + "in addition to the ones returned by this method",
-    parameters = {
-      @Param(
-          name = "features",
-          doc = "Unused.",
-          positional = true,
-          named = false,
-          type = SkylarkList.class
-      )
-    }
-  )
+      name = "compiler_options",
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the default options to "
+              + "use for compiling C, C++, and assembler. This is just the options that should be "
+              + "used for all three languages. There may be additional C-specific or C++-specific "
+              + "options that should be used, in addition to the ones returned by this method",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class)
+      })
   @Deprecated
   ImmutableList<String> getCompilerOptions(Iterable<String> featuresNotUsedAnymore)
       throws EvalException;
@@ -86,193 +121,189 @@ public interface CppConfigurationApi <InvalidConfigurationExceptionT extends Exc
       name = "c_options",
       structField = true,
       doc =
-          "Returns the list of additional C-specific options to use for compiling C. "
-              + "These should be go on the command line after the common options returned by "
-              + "<code>compiler_options</code>")
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the list of additional "
+              + "C-specific options to use for compiling C. These should be go on the command line "
+              + "after the common options returned by <code>compiler_options</code>")
   ImmutableList<String> getCOptionsForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "cxx_options",
-    doc =
-        "Returns the list of additional C++-specific options to use for compiling C++. "
-            + "These should be go on the command line after the common options returned by "
-            + "<code>compiler_options</code>",
-    parameters = {
-      @Param(
-          name = "features",
-          doc = "Unused.",
-          positional = true,
-          named = false,
-          type = SkylarkList.class
-      )
-    }
-  )
+      name = "cxx_options",
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the list of additional "
+              + "C++-specific options to use for compiling C++. These should be go on the command "
+              + "line after the common options returned by <code>compiler_options</code>",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class)
+      })
   @Deprecated
-  ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore)
-      throws EvalException;
+  ImmutableList<String> getCxxOptions(Iterable<String> featuresNotUsedAnymore) throws EvalException;
 
   @SkylarkCallable(
-    name = "unfiltered_compiler_options",
-    doc =
-        "Returns the default list of options which cannot be filtered by BUILD "
-            + "rules. These should be appended to the command line after filtering.",
-    parameters = {
-      @Param(
-          name = "features",
-          doc = "Unused.",
-          positional = true,
-          named = false,
-          type = SkylarkList.class
-      )
-    }
-  )
+      name = "unfiltered_compiler_options",
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the default list of "
+              + "options which cannot be filtered by BUILD rules. These should be appended to the "
+              + "command line after filtering.",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class)
+      })
+  @Deprecated
   ImmutableList<String> getUnfilteredCompilerOptionsWithLegacySysroot(
       Iterable<String> featuresNotUsedAnymore) throws EvalException;
 
   @SkylarkCallable(
-    name = "link_options",
-    structField = true,
-    doc =
-        "Returns the set of command-line linker options, including any flags "
-            + "inferred from the command-line options."
-  )
+      name = "link_options",
+      structField = true,
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the set of command-line "
+              + "linker options, including any flags inferred from the command-line options.")
   ImmutableList<String> getLinkOptionsWithLegacySysroot() throws EvalException;
 
   @SkylarkCallable(
-    name = "fully_static_link_options",
-    doc =
-        "Returns the immutable list of linker options for fully statically linked "
-            + "outputs. Does not include command-line options passed via --linkopt or "
-            + "--linkopts.",
-    parameters = {
-      @Param(
-          name = "features",
-          doc = "Unused.",
-          positional = true,
-          named = false,
-          type = SkylarkList.class
-      ),
-      @Param(
-          name = "shared_lib",
-          doc = "If true, returns the link options for a shared library.",
-          positional = true,
-          named = false,
-          type = Boolean.class
-      )
-    }
-  )
+      name = "fully_static_link_options",
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the immutable list of "
+              + "linker options for fully statically linked outputs. Does not include command-line "
+              + "options passed via --linkopt or "
+              + "--linkopts.",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class),
+        @Param(
+            name = "shared_lib",
+            doc = "If true, returns the link options for a shared library.",
+            positional = true,
+            named = false,
+            type = Boolean.class)
+      })
   @Deprecated
   ImmutableList<String> getFullyStaticLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException;
 
   @SkylarkCallable(
-    name = "mostly_static_link_options",
-    doc =
-        "Returns the immutable list of linker options for mostly statically linked "
-            + "outputs. Does not include command-line options passed via --linkopt or "
-            + "--linkopts.",
-    parameters = {
-      @Param(
-          name = "features",
-          doc = "Unused.",
-          positional = true,
-          named = false,
-          type = SkylarkList.class
-      ),
-      @Param(
-          name = "shared_lib",
-          doc = "If true, returns the link options for a shared library.",
-          positional = true,
-          named = false,
-          type = Boolean.class
-      )
-    }
-  )
+      name = "mostly_static_link_options",
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the immutable list of "
+              + "linker options for mostly statically linked outputs. Does not include "
+              + "command-line options passed via --linkopt or--linkopts.",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class),
+        @Param(
+            name = "shared_lib",
+            doc = "If true, returns the link options for a shared library.",
+            positional = true,
+            named = false,
+            type = Boolean.class)
+      })
   @Deprecated
   ImmutableList<String> getMostlyStaticLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException;
 
   @SkylarkCallable(
-    name = "dynamic_link_options",
-    doc =
-        "Returns the immutable list of linker options for artifacts that are not "
-            + "fully or mostly statically linked. Does not include command-line options "
-            + "passed via --linkopt or --linkopts.",
-    parameters = {
-      @Param(
-          name = "features",
-          doc = "Unused.",
-          positional = true,
-          named = false,
-          type = SkylarkList.class
-      ),
-      @Param(
-          name = "shared_lib",
-          doc = "If true, returns the link options for a shared library.",
-          positional = true,
-          named = false,
-          type = Boolean.class
-      )
-    }
-  )
+      name = "dynamic_link_options",
+      doc =
+          "<b>Deprecated (use methods in cc_common instead).</b> Returns the immutable list of "
+              + "linker options for artifacts that are not fully or mostly statically linked. Does "
+              + "not include command-line options passed via --linkopt or --linkopts.",
+      parameters = {
+        @Param(
+            name = "features",
+            doc = "Unused.",
+            positional = true,
+            named = false,
+            type = SkylarkList.class),
+        @Param(
+            name = "shared_lib",
+            doc = "If true, returns the link options for a shared library.",
+            positional = true,
+            named = false,
+            type = Boolean.class)
+      })
   @Deprecated
   ImmutableList<String> getDynamicLinkOptions(
       Iterable<String> featuresNotUsedAnymore, Boolean sharedLib) throws EvalException;
 
-  @SkylarkCallable(name = "ld_executable", structField = true, doc = "Path to the linker binary.")
+  @SkylarkCallable(
+      name = "ld_executable",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Path to the linker binary.")
+  @Deprecated
   String getLdExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "objcopy_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'objcopy' binary."
-  )
+      name = "objcopy_executable",
+      structField = true,
+      doc =
+          "<b>Deprecated (use CcToolchainInfo instead).</b> Path to GNU binutils 'objcopy' binary.")
+  @Deprecated
   String getObjCopyExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "compiler_executable",
-    structField = true,
-    doc = "Path to C/C++ compiler binary."
-  )
+      name = "compiler_executable",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Path to C/C++ compiler binary.")
+  @Deprecated
   String getCppExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "preprocessor_executable",
-    structField = true,
-    doc = "Path to C/C++ preprocessor binary."
-  )
+      name = "preprocessor_executable",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Path to C/C++ preprocessor binary.")
+  @Deprecated
   String getCpreprocessorExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "nm_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'nm' binary."
-  )
+      name = "nm_executable",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Path to GNU binutils 'nm' binary.")
+  @Deprecated
   String getNmExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "objdump_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'objdump' binary."
-  )
+      name = "objdump_executable",
+      structField = true,
+      doc =
+          "<b>Deprecated (use CcToolchainInfo instead).</b> Path to GNU binutils 'objdump' binary.")
+  @Deprecated
   String getObjdumpExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "ar_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'ar' binary."
-  )
+      name = "ar_executable",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Path to GNU binutils 'ar' binary.")
+  @Deprecated
   String getArExecutableForSkylark() throws EvalException;
 
   @SkylarkCallable(
-    name = "strip_executable",
-    structField = true,
-    doc = "Path to GNU binutils 'strip' binary."
-  )
+      name = "strip_executable",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> Path to GNU binutils 'strip' binary.")
+  @Deprecated
   String getStripExecutableForSkylark() throws EvalException;
 
-  @SkylarkCallable(name = "target_gnu_system_name", structField = true,
-      doc = "The GNU System Name.")
+  @SkylarkCallable(
+      name = "target_gnu_system_name",
+      structField = true,
+      doc = "<b>Deprecated (use CcToolchainInfo instead).</b> The GNU System Name.")
   @Deprecated
   String getTargetGnuSystemName() throws EvalException;
 }

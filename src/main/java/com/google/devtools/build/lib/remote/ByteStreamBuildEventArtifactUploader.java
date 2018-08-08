@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.Context;
@@ -65,8 +66,9 @@ class ByteStreamBuildEventArtifactUploader implements BuildEventArtifactUploader
     Context prevCtx = ctx.attach();
     try {
       for (Path file : files.keySet()) {
-        Chunker chunker = new Chunker(file);
-        Digest digest = chunker.digest();
+        DigestUtil digestUtil = new DigestUtil(file.getFileSystem().getDigestFunction());
+        Digest digest = digestUtil.compute(file);
+        Chunker chunker = Chunker.builder(digestUtil).setInput(digest, file).build();
         ListenableFuture<PathDigestPair> upload =
             Futures.transform(
                 uploader.uploadBlobAsync(chunker, /*forceUpload=*/false),

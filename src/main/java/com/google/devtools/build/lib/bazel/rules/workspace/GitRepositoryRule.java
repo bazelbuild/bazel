@@ -86,7 +86,7 @@ public class GitRepositoryRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = git_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
 <p><strong>Deprecated.
-<code>load("@bazel_tools//tools/build_defs/repo:http.bzl", "git_repository")</code>
+<code>load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")</code>
 for a drop-in replacement.</strong></p>
 
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets

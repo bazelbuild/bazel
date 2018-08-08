@@ -279,6 +279,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
     PrecomputedValue.SKYLARK_SEMANTICS.set(injectable, skylarkSemantics);
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable, defaultsPackageContents);
+    PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable, true);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 

@@ -18,10 +18,44 @@
 # behaviors that affect the execution phase.
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$TEST_SRCDIR/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$TEST_SRCDIR/MANIFEST"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$TEST_SRCDIR/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$TEST_SRCDIR"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find //third_party/bazel/tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -71,8 +105,11 @@ function assert_cache_stats() {
 #### TESTS #############################################################
 
 function test_cache_computed_file_digests_behavior() {
-  mkdir -p package || fail "mkdir failed"
-  cat >package/BUILD <<EOF
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  mkdir -p $pkg/package || fail "mkdir failed"
+  cat >$pkg/package/BUILD <<EOF
 genrule(
   name = "foo",
   srcs = ["foo.in"],
@@ -87,30 +124,30 @@ genrule(
   cmd = "cat \$(location bar.in) \$(location :foo) >\$@",
 )
 EOF
-  touch package/foo.in package/bar.in
+  touch $pkg/package/foo.in $pkg/package/bar.in
 
-  bazel build package:bar >>"${TEST_log}" 2>&1 || fail "Should build"
+  bazel build $pkg/package:bar >>"${TEST_log}" 2>&1 || fail "Should build"
   # We cannot make any robust assertions on the first run because of implicit
   # dependencies we have no control about.
 
   # Rebuilding without changes should yield hits for everything.  Run this
   # multiple times to ensure the reported statistics are not accumulated.
   for run in 1 2 3; do
-    bazel build package:bar >>"${TEST_log}" 2>&1 || fail "Should build"
+    bazel build $pkg/package:bar >>"${TEST_log}" 2>&1 || fail "Should build"
     assert_cache_stats "hit count" 1  # stable-status.txt
     assert_cache_stats "miss count" 1  # volatile-status.txt
   done
 
   # Throw away the in-memory Skyframe state by flipping a flag.  We expect hits
   # for the previous outputs, which are used to query the action cache.
-  bazel build --nocheck_visibility package:bar >>"${TEST_log}" 2>&1 \
+  bazel build --nocheck_visibility $pkg/package:bar >>"${TEST_log}" 2>&1 \
       || fail "Should build"
   assert_cache_stats "hit count" 3  # stable-status.txt foo.out bar.out
   assert_cache_stats "miss count" 1  # volatile-status.txt
 
   # Change the size of the cache and retry the same build.  We expect no hits
   # because resizing the cache invalidates all of its contents.
-  bazel build --cache_computed_file_digests=100 package:bar \
+  bazel build --cache_computed_file_digests=100 $pkg/package:bar \
       >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_cache_stats "hit count" 0
   assert_cache_stats "miss count" 4  # {stable,volatile}-status* {foo,bar}.out
@@ -123,7 +160,7 @@ EOF
   # Rebuild without changes one more time with the new size of the cache to
   # ensure the cache is not reset across runs with the flag override.
   bazel build --nocheck_visibility --cache_computed_file_digests=100 \
-      package:bar >>"${TEST_log}" 2>&1 || fail "Should build"
+      $pkg/package:bar >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_cache_stats "hit count" 3  # stable-status.txt foo.out bar.out
   assert_cache_stats "miss count" 1  # volatile-status.txt
 }
@@ -188,37 +225,43 @@ EOF
 }
 
 function test_cache_computed_file_digests_ui() {
-  mkdir -p package || fail "mkdir failed"
-  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >package/BUILD
-  echo "int foo(void) { return 0; }" >package/foo.cc
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  mkdir -p $pkg/package || fail "mkdir failed"
+  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
+  echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
 
   local java_log="$(bazel info output_base 2>/dev/null)/java.log"
 
-  bazel build package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
+  bazel build $pkg/package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_last_log "CacheFileDigestsModule" "Cache stats" "${java_log}" \
     "Digests cache not enabled by default"
 
-  bazel build --cache_computed_file_digests=0 package:foo >>"${TEST_log}" 2>&1 \
+  bazel build --cache_computed_file_digests=0 $pkg/package:foo >>"${TEST_log}" 2>&1 \
       || fail "Should build"
   assert_last_log "CacheFileDigestsModule" "Disabled cache" "${java_log}" \
       "Digests cache not disabled as requested"
 
-  bazel build package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
+  bazel build $pkg/package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_last_log "CacheFileDigestsModule" "Cache stats" "${java_log}" \
       "Digests cache not reenabled"
 }
 
 function test_jobs_default_auto() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
   # The default flag value is only read if --jobs is not set explicitly.
   # Do not use a bazelrc here, this would break the test.
-  mkdir -p package || fail "mkdir failed"
-  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >package/BUILD
-  echo "int foo(void) { return 0; }" >package/foo.cc
+  mkdir -p $pkg/package || fail "mkdir failed"
+  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >$pkg/package/BUILD
+  echo "int foo(void) { return 0; }" >$pkg/package/foo.cc
 
   local output_base="$(bazel --nomaster_bazelrc --bazelrc=/dev/null info \
       output_base 2>/dev/null)" || fail "bazel info should work"
   local java_log="${output_base}/java.log"
-  bazel --nomaster_bazelrc --bazelrc=/dev/null build package:foo \
+  bazel --nomaster_bazelrc --bazelrc=/dev/null build $pkg/package:foo \
       >>"${TEST_log}" 2>&1 || fail "Should build"
 
   assert_last_log "BuildRequest" 'Flag "jobs" was set to "auto"' "${java_log}" \

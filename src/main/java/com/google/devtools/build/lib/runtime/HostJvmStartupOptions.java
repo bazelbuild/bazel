@@ -30,13 +30,13 @@ import java.util.List;
 public class HostJvmStartupOptions extends OptionsBase {
 
   @Option(
-      name = "host_javabase",
+      name = "server_javabase",
       defaultValue = "", // NOTE: purely decorative! See BlazeServerStartupOptions.
       valueHelp = "<jvm path>",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to the JVM used to execute Bazel itself.")
-  public String hostJavabase;
+  public String serverJavabase;
 
   @Option(
     name = "host_jvm_args",

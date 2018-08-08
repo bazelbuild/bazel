@@ -16,25 +16,22 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
-public class AndroidResourcesInfo extends NativeInfo implements AndroidResourcesInfoApi {
+public class AndroidResourcesInfo extends NativeInfo
+    implements AndroidResourcesInfoApi<
+        Artifact, ValidatedAndroidResources, ProcessedAndroidManifest> {
 
-  private static final String SKYLARK_NAME = "AndroidResourcesInfo";
-
-  /**
-   * Provider instance for {@link AndroidResourcesInfo}.
-   */
-  public static final AndroidResourcesInfoProvider PROVIDER =
-      new AndroidResourcesInfoProvider();
+  public static final String PROVIDER_NAME = "AndroidResourcesInfo";
+  public static final Provider PROVIDER = new Provider();
 
   /*
    * Local information about the target that produced this provider, for tooling. These values will
@@ -56,8 +53,8 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
    * Transitive information used for resource processing
    */
 
-  private final NestedSet<ValidatedAndroidData> transitiveAndroidResources;
-  private final NestedSet<ValidatedAndroidData> directAndroidResources;
+  private final NestedSet<ValidatedAndroidResources> transitiveAndroidResources;
+  private final NestedSet<ValidatedAndroidResources> directAndroidResources;
   private final NestedSet<Artifact> transitiveResources;
   private final NestedSet<Artifact> transitiveAssets;
   private final NestedSet<Artifact> transitiveManifests;
@@ -71,8 +68,8 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
       Label label,
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
-      NestedSet<ValidatedAndroidData> transitiveAndroidResources,
-      NestedSet<ValidatedAndroidData> directAndroidResources,
+      NestedSet<ValidatedAndroidResources> transitiveAndroidResources,
+      NestedSet<ValidatedAndroidResources> directAndroidResources,
       NestedSet<Artifact> transitiveResources,
       NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveManifests,
@@ -97,11 +94,12 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
     this.transitiveRTxt = transitiveRTxt;
   }
 
-  /** Returns the label that is associated with this piece of information. */
+  @Override
   public Label getLabel() {
     return label;
   }
 
+  @Override
   public ProcessedAndroidManifest getManifest() {
     return manifest;
   }
@@ -111,16 +109,17 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
     return rTxt;
   }
 
-  /** Returns the transitive ResourceContainers for the label. */
-  public NestedSet<ValidatedAndroidData> getTransitiveAndroidResources() {
+  @Override
+  public NestedSet<ValidatedAndroidResources> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
-  /** Returns the immediate ResourceContainers for the label. */
-  public NestedSet<ValidatedAndroidData> getDirectAndroidResources() {
+  @Override
+  public NestedSet<ValidatedAndroidResources> getDirectAndroidResources() {
     return directAndroidResources;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveResources() {
     return transitiveResources;
   }
@@ -131,42 +130,79 @@ public class AndroidResourcesInfo extends NativeInfo implements AndroidResources
     return transitiveAssets;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveManifests() {
     return transitiveManifests;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveAapt2RTxt() {
     return transitiveAapt2RTxt;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveSymbolsBin() {
     return transitiveSymbolsBin;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveCompiledSymbols() {
     return transitiveCompiledSymbols;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveStaticLib() {
     return transitiveStaticLib;
   }
 
+  @Override
   public NestedSet<Artifact> getTransitiveRTxt() {
     return transitiveRTxt;
   }
 
   /** Provider for {@link AndroidResourcesInfo}. */
-  public static class AndroidResourcesInfoProvider extends BuiltinProvider<AndroidResourcesInfo>
-      implements AndroidResourcesInfoApiProvider {
+  public static class Provider extends BuiltinProvider<AndroidResourcesInfo>
+      implements AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<
+          Artifact, ValidatedAndroidResources, ProcessedAndroidManifest> {
 
-    private AndroidResourcesInfoProvider() {
-      super(SKYLARK_NAME, AndroidResourcesInfo.class);
+    private Provider() {
+      super(PROVIDER_NAME, AndroidResourcesInfo.class);
     }
 
     @Override
-    public AndroidResourcesInfo createInfo(SkylarkDict<?, ?> kwargs, Location loc)
+    public AndroidResourcesInfo createInfo(
+        Label label,
+        ProcessedAndroidManifest manifest,
+        Artifact rTxt,
+        SkylarkNestedSet transitiveAndroidResources,
+        SkylarkNestedSet directAndroidResources,
+        SkylarkNestedSet transitiveResources,
+        SkylarkNestedSet transitiveAssets,
+        SkylarkNestedSet transitiveManifests,
+        SkylarkNestedSet transitiveAapt2RTxt,
+        SkylarkNestedSet transitiveSymbolsBin,
+        SkylarkNestedSet transitiveCompiledSymbols,
+        SkylarkNestedSet transitiveStaticLib,
+        SkylarkNestedSet transitiveRTxt)
         throws EvalException {
-      return throwUnsupportedConstructorException(loc);
+      return new AndroidResourcesInfo(
+          label,
+          manifest,
+          rTxt,
+          nestedSet(transitiveAndroidResources, ValidatedAndroidResources.class),
+          nestedSet(directAndroidResources, ValidatedAndroidResources.class),
+          nestedSet(transitiveResources, Artifact.class),
+          nestedSet(transitiveAssets, Artifact.class),
+          nestedSet(transitiveManifests, Artifact.class),
+          nestedSet(transitiveAapt2RTxt, Artifact.class),
+          nestedSet(transitiveSymbolsBin, Artifact.class),
+          nestedSet(transitiveCompiledSymbols, Artifact.class),
+          nestedSet(transitiveStaticLib, Artifact.class),
+          nestedSet(transitiveRTxt, Artifact.class));
+    }
+
+    private <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
+      return NestedSetBuilder.<T>stableOrder().addTransitive(from.getSet(with)).build();
     }
   }
 }

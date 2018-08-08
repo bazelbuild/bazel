@@ -506,8 +506,8 @@ public class IncrementalLoadingTest {
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
+      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     }
 
     Path addFile(String fileName, String... content) throws IOException {
@@ -597,8 +597,8 @@ public class IncrementalLoadingTest {
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
+      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter(new EventBus()));

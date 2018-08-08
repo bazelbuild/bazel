@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
@@ -702,7 +702,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
 
     static Formatter get(Location location, SkylarkSemantics skylarkSemantics) {
       return skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
-          ? CommandLineItemSimpleFormatter::format
+          ? SingleStringArgFormatter::format
           : new LegacyFormatter(location);
     }
   }

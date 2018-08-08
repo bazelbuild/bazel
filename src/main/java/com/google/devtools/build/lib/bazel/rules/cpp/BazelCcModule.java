@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 /**
  * A module that contains Skylark utilities for C++ support.
  *
- * <p>This is a work in progress. The API is guarded behind --experimental_enable_cc_skylark_api.
- * The API is under development and unstable.
+ * <p>This is a work in progress. The API is guarded behind
+ * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<

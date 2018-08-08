@@ -23,6 +23,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
@@ -166,15 +168,17 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       // It clears the internal data structures after getDiff is called and will not return
       // diffs for historical versions. This makes the following code sensitive to interrupts.
       // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
-      Diff diff = differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion,
-          version);
-      valuesToInject.putAll(diff.changedKeysWithNewValues());
-      invalidate(diff.changedKeysWithoutNewValues());
-      pruneInjectedValues(valuesToInject);
-      invalidate(valuesToInject.keySet());
+      Diff diff =
+          differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion, version);
+      if (!diff.isEmpty() || !valuesToInject.isEmpty() || !valuesToDelete.isEmpty()) {
+        valuesToInject.putAll(diff.changedKeysWithNewValues());
+        invalidate(diff.changedKeysWithoutNewValues());
+        pruneInjectedValues(valuesToInject);
+        invalidate(valuesToInject.keySet());
 
-      performInvalidation();
-      injectValues(intVersion);
+        performInvalidation();
+        injectValues(intVersion);
+      }
 
       ParallelEvaluator evaluator =
           new ParallelEvaluator(
@@ -189,7 +193,10 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               numThreads,
               progressReceiver,
               graphInconsistencyReceiver);
-      EvaluationResult<T> result = evaluator.eval(roots);
+      EvaluationResult<T> result;
+      try (SilentCloseable c = Profiler.instance().profile("ParallelEvaluator.eval")) {
+        result = evaluator.eval(roots);
+      }
       return EvaluationResult.<T>builder()
           .mergeFrom(result)
           .setWalkableGraph(new DelegatingWalkableGraph(graph))
@@ -292,7 +299,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   @Nullable
   public SkyValue getExistingValue(SkyKey key) {
-    NodeEntry entry = getExistingEntryForTesting(key);
+    NodeEntry entry = getExistingEntryAtLatestVersion(key);
     try {
       return isDone(entry) ? entry.getValue() : null;
     } catch (InterruptedException e) {
@@ -302,7 +309,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = getExistingEntryForTesting(key);
+    NodeEntry entry = getExistingEntryAtLatestVersion(key);
     try {
       return isDone(entry) ? entry.getErrorInfo() : null;
     } catch (InterruptedException e) {
@@ -312,7 +319,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Nullable
   @Override
-  public NodeEntry getExistingEntryForTesting(SkyKey key) {
+  public NodeEntry getExistingEntryAtLatestVersion(SkyKey key) {
     return graph.get(null, Reason.OTHER, key);
   }
 

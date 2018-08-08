@@ -59,6 +59,15 @@ public class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public String glibc;
+    
+    @Deprecated
+    @Option(
+        name = "experimental_shortened_obj_file_path",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        defaultValue = "true",
+        help = "This option is deprecated and has no effect.")
+    public boolean shortenObjFilePath;
   }
 
   @Override

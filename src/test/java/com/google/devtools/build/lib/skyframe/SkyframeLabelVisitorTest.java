@@ -415,8 +415,8 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
-            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
     assertLabelsVisited(

@@ -69,11 +69,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public boolean needsIncludeScanning(RuleContext ruleContext) {
-    return false;
-  }
-
-  @Override
   public boolean needsDotdInputPruning() {
     return true;
   }

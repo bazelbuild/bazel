@@ -31,6 +31,7 @@ filegroup(
 java_binary(
     name = "skydoc",
     main_class = "com.google.devtools.build.skydoc.SkydocMain",
+    visibility = ["//visibility:public"],
     runtime_deps = [
         ":skydoc_lib",
     ],
@@ -42,6 +43,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",

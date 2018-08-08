@@ -81,6 +81,7 @@ public class CppCompileActionBuilder {
   private ImmutableList<Artifact> builtinIncludeFiles;
   private Iterable<Artifact> inputsForInvalidation = ImmutableList.of();
   private Iterable<Artifact> additionalPrunableHeaders = ImmutableList.of();
+  private ImmutableList<PathFragment> builtinIncludeDirectories;
   // New fields need to be added to the copy constructor.
 
   /**
@@ -120,6 +121,7 @@ public class CppCompileActionBuilder {
     this.env = configuration.getActionEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.ccToolchain = ccToolchain;
+    this.builtinIncludeDirectories = ccToolchain.getBuiltInIncludeDirectories();
     this.grepIncludes = grepIncludes;
   }
 
@@ -158,6 +160,7 @@ public class CppCompileActionBuilder {
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
     this.grepIncludes = other.grepIncludes;
+    this.builtinIncludeDirectories = other.builtinIncludeDirectories;
   }
 
   public PathFragment getTempOutputFile() {
@@ -273,7 +276,7 @@ public class CppCompileActionBuilder {
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String executionRequirement :
-          featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements()) {
+          featureConfiguration.getToolRequirementsForAction(getActionName())) {
         executionInfo.put(executionRequirement, "");
       }
     } else {
@@ -316,7 +319,7 @@ public class CppCompileActionBuilder {
               ccCompilationContext,
               coptsFilter,
               cppSemantics,
-              ccToolchain,
+              builtinIncludeDirectories,
               ImmutableMap.copyOf(executionInfo),
               grepIncludes);
     } else {
@@ -349,7 +352,7 @@ public class CppCompileActionBuilder {
               ImmutableMap.copyOf(executionInfo),
               getActionName(),
               cppSemantics,
-              ccToolchain,
+              builtinIncludeDirectories,
               grepIncludes);
     }
 
@@ -649,6 +652,13 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setAdditionalPrunableHeaders(
       Iterable<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
+    return this;
+  }
+
+  @VisibleForTesting
+  public CppCompileActionBuilder setBuiltinIncludeDirectories(
+      ImmutableList<PathFragment> builtinIncludeDirectories) {
+    this.builtinIncludeDirectories = builtinIncludeDirectories;
     return this;
   }
 

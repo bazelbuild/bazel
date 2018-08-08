@@ -62,8 +62,7 @@ public class DigestUtilsTest {
     FileSystem myfs =
         new InMemoryFileSystem(BlazeClock.instance(), hf) {
           @Override
-          protected byte[] getDigest(Path path, DigestHashFunction hashFunction)
-              throws IOException {
+          protected byte[] getDigest(Path path) throws IOException {
             try {
               barrierLatch.countDown();
               readyLatch.countDown();
@@ -73,13 +72,12 @@ public class DigestUtilsTest {
             } catch (Exception e) {
               throw new IOException(e);
             }
-            return super.getDigest(path, hashFunction);
+            return super.getDigest(path);
           }
 
           @Override
-          protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction)
-              throws IOException {
-            return fastDigest ? super.getDigest(path, hashFunction) : null;
+          protected byte[] getFastDigest(Path path) throws IOException {
+            return fastDigest ? super.getDigest(path) : null;
           }
         };
 
@@ -139,8 +137,7 @@ public class DigestUtilsTest {
       FileSystem myFS =
           new InMemoryFileSystem(BlazeClock.instance(), hf) {
             @Override
-            protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction)
-                throws IOException {
+            protected byte[] getFastDigest(Path path) throws IOException {
               // Digest functions have more than 3 bytes, usually at least 16.
               return malformed;
             }
@@ -229,17 +226,15 @@ public class DigestUtilsTest {
     FileSystem tracingFileSystem =
         new InMemoryFileSystem(BlazeClock.instance()) {
           @Override
-          protected byte[] getFastDigest(Path path, DigestHashFunction hashFunction)
-              throws IOException {
+          protected byte[] getFastDigest(Path path) throws IOException {
             getFastDigestCounter.incrementAndGet();
             return null;
           }
 
           @Override
-          protected byte[] getDigest(Path path, DigestHashFunction hashFunction)
-              throws IOException {
+          protected byte[] getDigest(Path path) throws IOException {
             getDigestCounter.incrementAndGet();
-            return super.getDigest(path, hashFunction);
+            return super.getDigest(path);
           }
         };
 

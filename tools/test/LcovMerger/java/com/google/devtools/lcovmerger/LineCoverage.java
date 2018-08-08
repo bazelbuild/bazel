@@ -30,7 +30,7 @@ abstract class LineCoverage {
       LineCoverage first, LineCoverage second) {
     assert first.lineNumber() == second.lineNumber();
     assert (first.checksum() == null && second.checksum() == null)
-        || (first.checksum().equals(second.checksum()));
+        || first.checksum().equals(second.checksum());
     return create(
         first.lineNumber(),
         first.executionCount() + second.executionCount(),

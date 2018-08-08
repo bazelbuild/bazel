@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -118,8 +117,8 @@ public final class OutputGroupInfo extends NativeInfo
   /**
    * The default set of OutputGroups we typically want to build.
    */
-  public static final ImmutableSet<String> DEFAULT_GROUPS =
-      ImmutableSet.of(DEFAULT, TEMP_FILES, HIDDEN_TOP_LEVEL);
+  public static final ImmutableSortedSet<String> DEFAULT_GROUPS =
+      ImmutableSortedSet.of(DEFAULT, TEMP_FILES, HIDDEN_TOP_LEVEL);
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 

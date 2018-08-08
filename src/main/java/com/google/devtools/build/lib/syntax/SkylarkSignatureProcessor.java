@@ -14,12 +14,13 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction.ExtraArgKind;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,6 +34,12 @@ import javax.annotation.Nullable;
  * to configure a given field.
  */
 public class SkylarkSignatureProcessor {
+
+  // A cache mapping string representation of a skylark parameter default value to the object
+  // represented by that string. For example, "None" -> Runtime.NONE. This cache is manually
+  // maintained (instead of using, for example, a LoadingCache), as default values may sometimes
+  // be recursively requested.
+  private static final Cache<String, Object> defaultValueCache = CacheBuilder.newBuilder().build();
 
   /**
    * Extracts a {@code FunctionSignature.WithValues<Object, SkylarkType>} from a
@@ -225,25 +232,40 @@ public class SkylarkSignatureProcessor {
   }
 
   static Object getDefaultValue(Param param, Iterator<Object> iterator) {
+    return getDefaultValue(param.name(), param.defaultValue(), iterator);
+  }
+
+  static Object getDefaultValue(
+      String paramName, String paramDefaultValue, Iterator<Object> iterator) {
     if (iterator != null) {
       return iterator.next();
-    } else if (param.defaultValue().isEmpty()) {
+    } else if (paramDefaultValue.isEmpty()) {
       return Runtime.NONE;
     } else {
-      try (Mutability mutability = Mutability.create("initialization")) {
-        // Note that this Skylark environment ignores command line flags.
-        Environment env =
-            Environment.builder(mutability)
-                .useDefaultSemantics()
-                .setGlobals(Environment.CONSTANTS_ONLY)
-                .setEventHandler(Environment.FAIL_FAST_HANDLER)
-                .build()
-                .update("unbound", Runtime.UNBOUND);
-        return BuildFileAST.eval(env, param.defaultValue());
+      try {
+        Object defaultValue = defaultValueCache.getIfPresent(paramDefaultValue);
+        if (defaultValue != null) {
+          return defaultValue;
+        }
+        try (Mutability mutability = Mutability.create("initialization")) {
+          // Note that this Skylark environment ignores command line flags.
+          Environment env =
+              Environment.builder(mutability)
+                  .useDefaultSemantics()
+                  .setGlobals(Environment.CONSTANTS_ONLY)
+                  .setEventHandler(Environment.FAIL_FAST_HANDLER)
+                  .build()
+                  .update("unbound", Runtime.UNBOUND);
+          defaultValue = BuildFileAST.eval(env, paramDefaultValue);
+          defaultValueCache.put(paramDefaultValue, defaultValue);
+          return defaultValue;
+        }
       } catch (Exception e) {
-        throw new RuntimeException(String.format(
-            "Exception while processing @SkylarkSignature.Param %s, default value %s",
-            param.name(), param.defaultValue()), e);
+        throw new RuntimeException(
+            String.format(
+                "Exception while processing @SkylarkSignature.Param %s, default value %s",
+                paramName, paramDefaultValue),
+            e);
       }
     }
   }

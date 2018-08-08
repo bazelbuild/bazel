@@ -512,7 +512,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
             doc =
                 "The format of the param file. Must be one of:<ul><li>"
                     + "\"shell\": All arguments are shell quoted and separated by "
-                    + "whitespace</li><li>"
+                    + "whitespace (space, tab, newline)</li><li>"
                     + "\"multiline\": All arguments are unquoted and separated by newline "
                     + "characters</li></ul>"
                     + "<p>The format defaults to \"shell\" if not called.")

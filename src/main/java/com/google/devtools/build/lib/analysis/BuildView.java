@@ -15,16 +15,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -36,6 +32,8 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
@@ -56,16 +54,19 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
+import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.SkylarkImports;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
@@ -174,9 +175,7 @@ public class BuildView {
   /** Returns the collection of configured targets corresponding to any of the provided targets. */
   @VisibleForTesting
   static LinkedHashSet<ConfiguredTarget> filterTestsByTargets(
-      Collection<ConfiguredTarget> targets, Collection<Target> allowedTargets) {
-    Set<Label> allowedTargetLabels =
-        allowedTargets.stream().map(Target::getLabel).collect(Collectors.toSet());
+      Collection<ConfiguredTarget> targets, Set<Label> allowedTargetLabels) {
     return targets
         .stream()
         .filter(ct -> allowedTargetLabels.contains(ct.getLabel()))
@@ -185,8 +184,9 @@ public class BuildView {
 
   @ThreadCompatible
   public AnalysisResult update(
-      LoadingResult loadingResult,
-      BuildConfigurationCollection configurations,
+      TargetPatternPhaseValue loadingResult,
+      BuildOptions targetOptions,
+      Set<String> multiCpu,
       List<String> aspects,
       AnalysisOptions viewOptions,
       boolean keepGoing,
@@ -194,22 +194,61 @@ public class BuildView {
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
-      throws ViewCreationFailedException, InterruptedException {
+      throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException {
     logger.info("Starting analysis");
     pollInterruptedStatus();
 
     skyframeBuildView.resetEvaluatedConfiguredTargetKeysSet();
     skyframeBuildView.resetEvaluationActionCount();
 
-    Collection<Target> targets = loadingResult.getTargets();
+    // TODO(ulfjack): Expensive. Maybe we don't actually need the targets, only the labels?
+    Collection<Target> targets =
+        loadingResult.getTargets(eventHandler, skyframeExecutor.getPackageManager());
     eventBus.post(new AnalysisPhaseStartedEvent(targets));
+
+    // Prepare the analysis phase
+    BuildConfigurationCollection configurations;
+    Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
+    if (viewOptions.skyframePrepareAnalysis) {
+      PrepareAnalysisPhaseValue prepareAnalysisPhaseValue;
+      try (SilentCloseable c = Profiler.instance().profile("Prepare analysis phase")) {
+        prepareAnalysisPhaseValue = skyframeExecutor.prepareAnalysisPhase(
+            eventHandler, targetOptions, multiCpu, loadingResult.getTargetLabels());
+  
+        // Determine the configurations
+        configurations =
+            prepareAnalysisPhaseValue.getConfigurations(eventHandler, skyframeExecutor);
+        topLevelTargetsWithConfigs =
+            prepareAnalysisPhaseValue.getTopLevelCts(eventHandler, skyframeExecutor);
+      }
+    } else {
+      // Configuration creation.
+      // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
+      // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
+      try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
+        configurations =
+            skyframeExecutor
+                .createConfigurations(
+                    eventHandler,
+                    targetOptions,
+                    multiCpu,
+                    keepGoing);
+      }
+      try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
+        topLevelTargetsWithConfigs =
+            AnalysisUtils.getTargetsWithConfigs(
+                configurations, targets, eventHandler, ruleClassProvider, skyframeExecutor);
+      }
+    }
 
     skyframeBuildView.setConfigurations(eventHandler, configurations);
 
-    // Determine the configurations.
-    List<TargetAndConfiguration> topLevelTargetsWithConfigs =
-        AnalysisUtils.getTargetsWithConfigs(
-            configurations, targets, eventHandler, ruleClassProvider, skyframeExecutor);
+    if (configurations.getTargetConfigurations().size() == 1) {
+      eventBus
+          .post(
+              new MakeEnvironmentEvent(
+                  configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
+    }
 
     // Report the generated association of targets to configurations
     Multimap<Label, BuildConfiguration> byLabel =
@@ -222,14 +261,10 @@ public class BuildView {
     }
 
     List<ConfiguredTargetKey> topLevelCtKeys =
-        Lists.transform(
-            topLevelTargetsWithConfigs,
-            new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
-              @Override
-              public ConfiguredTargetKey apply(TargetAndConfiguration node) {
-                return ConfiguredTargetKey.of(node.getLabel(), node.getConfiguration());
-              }
-            });
+        topLevelTargetsWithConfigs
+            .stream()
+            .map(node -> ConfiguredTargetKey.of(node.getLabel(), node.getConfiguration()))
+            .collect(Collectors.toList());
 
     Multimap<Pair<Label, String>, BuildConfiguration> aspectConfigurations =
         ArrayListMultimap.create();
@@ -358,15 +393,15 @@ public class BuildView {
 
   private AnalysisResult createResult(
       ExtendedEventHandler eventHandler,
-      LoadingResult loadingResult,
+      TargetPatternPhaseValue loadingResult,
       BuildConfigurationCollection configurations,
       TopLevelArtifactContext topLevelOptions,
       AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs)
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs)
       throws InterruptedException {
-    Collection<Target> testsToRun = loadingResult.getTestsToRun();
+    Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
         Sets.newLinkedHashSet(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableSet<AspectValue> aspects = ImmutableSet.copyOf(skyframeAnalysisResult.getAspects());
@@ -377,7 +412,8 @@ public class BuildView {
       allTargetsToTest = filterTestsByTargets(configuredTargets, testsToRun);
     }
 
-    SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels = HashMultimap.create();
+    ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder =
+        new ArtifactsToOwnerLabels.Builder();
     Set<ConfiguredTarget> parallelTests = new HashSet<>();
     Set<ConfiguredTarget> exclusiveTests = new HashSet<>();
 
@@ -385,15 +421,15 @@ public class BuildView {
     Collection<Artifact> buildInfoArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
     Preconditions.checkState(buildInfoArtifacts.size() == 2, buildInfoArtifacts);
-    addArtifactsWithNoOwner(buildInfoArtifacts, topLevelArtifactsToOwnerLabels);
+    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
 
     // Extra actions
     addExtraActionsIfRequested(
-        viewOptions, configuredTargets, aspects, topLevelArtifactsToOwnerLabels, eventHandler);
+        viewOptions, configuredTargets, aspects, artifactsToOwnerLabelsBuilder, eventHandler);
 
     // Coverage
     NestedSet<Artifact> baselineCoverageArtifacts =
-        getBaselineCoverageArtifacts(configuredTargets, topLevelArtifactsToOwnerLabels);
+        getBaselineCoverageArtifacts(configuredTargets, artifactsToOwnerLabelsBuilder);
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
       actionsWrapper =
@@ -408,8 +444,7 @@ public class BuildView {
       if (actionsWrapper != null) {
         ImmutableList<ActionAnalysisMetadata> actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);
-        addArtifactsWithNoOwner(
-            actionsWrapper.getCoverageOutputs(), topLevelArtifactsToOwnerLabels);
+        actionsWrapper.getCoverageOutputs().forEach(artifactsToOwnerLabelsBuilder::addArtifact);
       }
     }
 
@@ -453,7 +488,7 @@ public class BuildView {
         targetsToSkip,
         error,
         actionGraph,
-        topLevelArtifactsToOwnerLabels,
+        artifactsToOwnerLabelsBuilder.build(),
         parallelTests,
         exclusiveTests,
         topLevelOptions,
@@ -462,17 +497,13 @@ public class BuildView {
         topLevelTargetsWithConfigs);
   }
 
-  private static void addArtifactsWithNoOwner(
-      Collection<Artifact> artifacts, SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels) {
-    artifacts.forEach((a) -> topLevelArtifactsToOwnerLabels.put(a, a.getOwnerLabel()));
-  }
-
   @Nullable
   public static String createErrorMessage(
-      LoadingResult loadingResult, @Nullable SkyframeAnalysisResult skyframeAnalysisResult) {
-    return loadingResult.hasTargetPatternError()
+      TargetPatternPhaseValue loadingResult,
+      @Nullable SkyframeAnalysisResult skyframeAnalysisResult) {
+    return loadingResult.hasError()
         ? "command succeeded, but there were errors parsing the target pattern"
-        : loadingResult.hasLoadingError()
+        : loadingResult.hasPostExpansionError()
                 || (skyframeAnalysisResult != null && skyframeAnalysisResult.hasLoadingError())
             ? "command succeeded, but there were loading phase errors"
             : (skyframeAnalysisResult != null && skyframeAnalysisResult.hasAnalysisError())
@@ -482,7 +513,7 @@ public class BuildView {
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
       Collection<ConfiguredTarget> configuredTargets,
-      SetMultimap<Artifact, Label> topLevelArtifactsToOwnerLabels) {
+      ArtifactsToOwnerLabels.Builder topLevelArtifactsToOwnerLabels) {
     NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesProvider provider = target.getProvider(InstrumentedFilesProvider.class);
@@ -502,7 +533,7 @@ public class BuildView {
       AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
-      SetMultimap<Artifact, Label> artifactsToTopLevelLabelsMap,
+      ArtifactsToOwnerLabels.Builder artifactsToTopLevelLabelsMap,
       ExtendedEventHandler eventHandler) {
     RegexFilter filter = viewOptions.extraActionFilter;
     for (ConfiguredTarget target : configuredTargets) {

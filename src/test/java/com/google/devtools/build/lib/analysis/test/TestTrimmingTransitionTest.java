@@ -235,6 +235,59 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
   }
 
   @Test
+  public void flagOffDifferentTestOptions_CacheCleared() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'skylark_test')",
+        "load(':lib.bzl', 'skylark_lib')",
+        "test_suite(",
+        "    name = 'suite',",
+        "    tests = [':native_test', ':skylark_test'],",
+        ")",
+        "native_test(",
+        "    name = 'native_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "skylark_test(",
+        "    name = 'skylark_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_shared_dep',",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_shared_dep',",
+        ")");
+    useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
+    update("//test:suite");
+    useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeB");
+    update("//test:suite");
+    useConfiguration("--notrim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
+    update("//test:suite");
+    // asserting that we got no overlap between the first and third runs, we had to reanalyze all
+    // seven targets
+    assertNumberOfConfigurationsOfTargets(
+        getSkyframeEvaluatedTargetKeys(),
+        new ImmutableMap.Builder<String, Integer>()
+            .put("//test:suite", 1)
+            .put("//test:native_test", 1)
+            .put("//test:skylark_test", 1)
+            .put("//test:native_dep", 1)
+            .put("//test:skylark_dep", 1)
+            .put("//test:native_shared_dep", 1)
+            .put("//test:skylark_shared_dep", 1)
+            .build());
+  }
+
+  @Test
   public void flagOnDifferentTestOptions_SharesCTsForNonTestRules() throws Exception {
     scratch.file(
         "test/BUILD",
@@ -308,6 +361,219 @@ public final class TestTrimmingTransitionTest extends AnalysisTestCase {
             .put("//test:suite", 2)
             .put("//test:native_test", 2)
             .put("//test:skylark_test", 2)
+            .put("//test:native_dep", 1)
+            .put("//test:skylark_dep", 1)
+            .put("//test:native_shared_dep", 1)
+            .put("//test:skylark_shared_dep", 1)
+            .build());
+  }
+
+  @Test
+  public void flagOnDifferentTestOptions_CacheKeptBetweenRuns() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'skylark_test')",
+        "load(':lib.bzl', 'skylark_lib')",
+        "test_suite(",
+        "    name = 'suite',",
+        "    tests = [':native_test', ':skylark_test'],",
+        ")",
+        "native_test(",
+        "    name = 'native_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "skylark_test(",
+        "    name = 'skylark_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_shared_dep',",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_shared_dep',",
+        ")");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
+    update("//test:suite");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeB");
+    update("//test:suite");
+    // asserting that the non-test rules were cached from the last run and did not need to be run
+    // again
+    assertNumberOfConfigurationsOfTargets(
+        getSkyframeEvaluatedTargetKeys(),
+        new ImmutableMap.Builder<String, Integer>()
+            .put("//test:native_dep", 0)
+            .put("//test:skylark_dep", 0)
+            .put("//test:native_shared_dep", 0)
+            .put("//test:skylark_shared_dep", 0)
+            .build());
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
+    update("//test:suite");
+    // asserting that the test rules were cached from the first run and did not need to be run again
+    assertNumberOfConfigurationsOfTargets(
+        getSkyframeEvaluatedTargetKeys(),
+        new ImmutableMap.Builder<String, Integer>()
+            .put("//test:suite", 0)
+            .put("//test:native_test", 0)
+            .put("//test:skylark_test", 0)
+            .build());
+  }
+
+  @Test
+  public void flagOnDifferentNonTestOptions_CacheCleared() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'skylark_test')",
+        "load(':lib.bzl', 'skylark_lib')",
+        "test_suite(",
+        "    name = 'suite',",
+        "    tests = [':native_test', ':skylark_test'],",
+        ")",
+        "native_test(",
+        "    name = 'native_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "skylark_test(",
+        "    name = 'skylark_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_shared_dep',",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_shared_dep',",
+        ")");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--define=Test=TypeA");
+    update("//test:suite");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--define=Test=TypeB");
+    update("//test:suite");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--define=Test=TypeA");
+    update("//test:suite");
+    // asserting that we got no overlap between the first and third runs, we had to reanalyze all
+    // seven targets
+    assertNumberOfConfigurationsOfTargets(
+        getSkyframeEvaluatedTargetKeys(),
+        new ImmutableMap.Builder<String, Integer>()
+            .put("//test:suite", 1)
+            .put("//test:native_test", 1)
+            .put("//test:skylark_test", 1)
+            .put("//test:native_dep", 1)
+            .put("//test:skylark_dep", 1)
+            .put("//test:native_shared_dep", 1)
+            .put("//test:skylark_shared_dep", 1)
+            .build());
+  }
+
+  @Test
+  public void flagOffToOn_CacheCleared() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'skylark_test')",
+        "load(':lib.bzl', 'skylark_lib')",
+        "test_suite(",
+        "    name = 'suite',",
+        "    tests = [':native_test', ':skylark_test'],",
+        ")",
+        "native_test(",
+        "    name = 'native_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "skylark_test(",
+        "    name = 'skylark_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_shared_dep',",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_shared_dep',",
+        ")");
+    useConfiguration("--notrim_test_configuration", "--noexpand_test_suites");
+    update("//test:suite");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites");
+    update("//test:suite");
+    // asserting that we got no overlap between the first and second runs, we had to reanalyze all
+    // seven targets
+    assertNumberOfConfigurationsOfTargets(
+        getSkyframeEvaluatedTargetKeys(),
+        new ImmutableMap.Builder<String, Integer>()
+            .put("//test:suite", 1)
+            .put("//test:native_test", 1)
+            .put("//test:skylark_test", 1)
+            .put("//test:native_dep", 1)
+            .put("//test:skylark_dep", 1)
+            .put("//test:native_shared_dep", 1)
+            .put("//test:skylark_shared_dep", 1)
+            .build());
+  }
+
+  @Test
+  public void flagOnToOff_CacheCleared() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'skylark_test')",
+        "load(':lib.bzl', 'skylark_lib')",
+        "test_suite(",
+        "    name = 'suite',",
+        "    tests = [':native_test', ':skylark_test'],",
+        ")",
+        "native_test(",
+        "    name = 'native_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "skylark_test(",
+        "    name = 'skylark_test',",
+        "    deps = [':native_dep', ':skylark_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_dep',",
+        "    deps = [':native_shared_dep', 'skylark_shared_dep'],",
+        ")",
+        "native_lib(",
+        "    name = 'native_shared_dep',",
+        ")",
+        "skylark_lib(",
+        "    name = 'skylark_shared_dep',",
+        ")");
+    useConfiguration("--trim_test_configuration", "--noexpand_test_suites");
+    update("//test:suite");
+    useConfiguration("--notrim_test_configuration", "--noexpand_test_suites");
+    update("//test:suite");
+    // asserting that we got no overlap between the first and second runs, we had to reanalyze all
+    // seven targets
+    assertNumberOfConfigurationsOfTargets(
+        getSkyframeEvaluatedTargetKeys(),
+        new ImmutableMap.Builder<String, Integer>()
+            .put("//test:suite", 1)
+            .put("//test:native_test", 1)
+            .put("//test:skylark_test", 1)
             .put("//test:native_dep", 1)
             .put("//test:skylark_dep", 1)
             .put("//test:native_shared_dep", 1)

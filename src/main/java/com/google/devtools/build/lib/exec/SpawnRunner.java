@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -167,6 +168,11 @@ public interface SpawnRunner {
     // unify the two? Alternatively, maybe the input mapping should (optionally?) contain
     // directories? Or maybe we need a separate method to return the set of directories?
     ArtifactExpander getArtifactExpander();
+
+    /** The {@link ArtifactPathResolver} to use when directly writing output files. */
+    default ArtifactPathResolver getPathResolver() {
+      return ArtifactPathResolver.IDENTITY;
+    }
 
     /**
      * All implementations must call this method before writing to the provided stdout / stderr or

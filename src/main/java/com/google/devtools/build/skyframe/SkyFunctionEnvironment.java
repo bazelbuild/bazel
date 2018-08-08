@@ -222,11 +222,20 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
             Reason.PREFETCH,
             depKeysAsSet == null ? depKeys.getAllElementsAsIterable() : depKeysAsSet);
     if (batchMap.size() != depKeys.numElements()) {
+      NodeEntry inFlightEntry = null;
+      try {
+        inFlightEntry = evaluatorContext.getGraph().get(null, Reason.OTHER, requestor);
+      } catch (InterruptedException e) {
+        // We're crashing, don't mask it.
+        Thread.currentThread().interrupt();
+      }
       throw new IllegalStateException(
           "Missing keys for "
               + keyForDebugging
               + ": "
-              + Sets.difference(depKeys.toSet(), batchMap.keySet()));
+              + Sets.difference(depKeys.toSet(), batchMap.keySet())
+              + "\n\n"
+              + inFlightEntry);
     }
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
         ImmutableMap.builderWithExpectedSize(batchMap.size());
@@ -526,6 +535,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
       ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depValue);
       if (errorInfo != null) {
+        errorMightHaveBeenFound = true;
         childErrorInfos.add(errorInfo);
         if (bubbleErrorInfo != null) {
           // Set interrupted status, to try to prevent the calling SkyFunction from doing anything

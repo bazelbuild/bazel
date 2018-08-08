@@ -15,6 +15,7 @@
 package com.google.devtools.lcovmerger;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.lcovmerger.Constants.TRACEFILE_EXTENSION;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,7 +42,7 @@ public class MainTest {
 
   @Test
   public void testMainEmptyCoverageDir() {
-    assertThat(Main.getLcovTracefilesFromDir(coverageDir.toAbsolutePath().toString())).isEmpty();
+    assertThat(Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString())).isEmpty();
   }
 
   @Test
@@ -52,7 +53,8 @@ public class MainTest {
     Files.createTempFile(ccCoverageDir, "tracefile1", ".dat");
     Files.createTempFile(javaCoverageDir, "tracefile2", ".dat");
 
-    List<File> tracefiles = Main.getLcovTracefilesFromDir(coverageDir.toAbsolutePath().toString());
+    List<File> coverageFiles = Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString());
+    List<File> tracefiles = Main.getFilesWithExtension(coverageFiles, TRACEFILE_EXTENSION);
     assertThat(tracefiles).hasSize(2);
   }
 }

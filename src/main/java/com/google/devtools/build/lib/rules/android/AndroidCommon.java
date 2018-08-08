@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -44,10 +45,10 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -483,16 +484,23 @@ public class AndroidCommon {
     }
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
-    if (DataBinding.isEnabled(ruleContext)) {
-      javacopts.addAll(DataBinding.getJavacOpts(ruleContext, isBinary));
-    }
+
+    resourceApk
+        .asDataBindingContext()
+        .supplyJavaCoptsUsing(ruleContext, isBinary, javacopts::addAll);
     JavaTargetAttributes.Builder attributes =
         javaCommon
             .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
             .setBootClassPath(bootclasspath);
-    if (DataBinding.isEnabled(ruleContext)) {
-      DataBinding.addAnnotationProcessor(ruleContext, attributes);
-    }
+
+    resourceApk
+        .asDataBindingContext()
+        .supplyAnnotationProcessor(
+            ruleContext,
+            (plugin, additionalOutputs) -> {
+              attributes.addPlugin(plugin);
+              attributes.addAdditionalOutputs(additionalOutputs);
+            });
 
     if (excludedRuntimeArtifacts != null) {
       attributes.addExcludedArtifacts(excludedRuntimeArtifacts);
@@ -514,7 +522,9 @@ public class AndroidCommon {
       jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
     }
 
-    JavaCompilationHelper helper = initAttributes(attributes, javaSemantics);
+    JavaCompilationHelper helper =
+        initAttributes(
+            attributes, javaSemantics, resourceApk.asDataBindingContext().processDeps(ruleContext));
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -545,15 +555,16 @@ public class AndroidCommon {
   }
 
   private JavaCompilationHelper initAttributes(
-      JavaTargetAttributes.Builder attributes, JavaSemantics semantics) {
-    boolean useDataBinding = DataBinding.isEnabled(ruleContext);
+      JavaTargetAttributes.Builder attributes,
+      JavaSemantics semantics,
+      ImmutableList<Artifact> additionalArtifacts) {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
             ruleContext,
             semantics,
             javaCommon.getJavacOpts(),
             attributes,
-            useDataBinding ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of(),
+            additionalArtifacts,
             /*disableStrictDeps=*/ false);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
@@ -667,19 +678,22 @@ public class AndroidCommon {
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
     if (generatedExtensionRegistryProvider != null) {
-      builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
     OutputJar resourceJar = null;
     if (resourceApk.getResourceJavaClassJar() != null && resourceSourceJar != null) {
       resourceJar =
           new OutputJar(
-              resourceApk.getResourceJavaClassJar(), null, ImmutableList.of(resourceSourceJar));
+              resourceApk.getResourceJavaClassJar(),
+              null /* ijar */,
+              manifestProtoOutput,
+              ImmutableList.of(resourceSourceJar));
       javaRuleOutputJarsProviderBuilder.addOutputJar(resourceJar);
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider =
         javaRuleOutputJarsProviderBuilder
-            .addOutputJar(classJar, iJar, ImmutableList.of(srcJar))
+            .addOutputJar(classJar, iJar, manifestProtoOutput, ImmutableList.of(srcJar))
             .setJdeps(outputDepsProto)
             .setNativeHeaders(nativeHeaderOutput)
             .build();
@@ -693,7 +707,8 @@ public class AndroidCommon {
 
     javaCommon.addGenJarsProvider(builder, javaInfoBuilder, genClassJar, genSourceJar);
 
-    DataBinding.maybeAddProvider(builder, ruleContext);
+    resourceApk.asDataBindingContext().addProvider(builder, ruleContext);
+
     JavaInfo javaInfo =
         javaInfoBuilder
             .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
@@ -795,28 +810,39 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  public AbstractCcLinkParamsStore getCcLinkParamsStore() {
-    return getCcLinkParamsStore(
+  public CcLinkingInfo getCcLinkingInfo() {
+    return getCcLinkingInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH), ImmutableList.<String>of());
   }
 
-  public static AbstractCcLinkParamsStore getCcLinkParamsStore(
+  public static CcLinkingInfo getCcLinkingInfo(
       final Iterable<? extends TransitiveInfoCollection> deps, final Collection<String> linkOpts) {
-    return new AbstractCcLinkParamsStore() {
-      @Override
-      protected void collect(
-          CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-        builder.addTransitiveTargets(
-            deps,
-            // Link in Java-specific C++ code in the transitive closure
-            JavaCcLinkParamsProvider.TO_LINK_PARAMS,
-            // Link in Android-specific C++ code (e.g., android_libraries) in the transitive closure
-            AndroidCcLinkParamsProvider.TO_LINK_PARAMS,
-            // Link in non-language-specific C++ code in the transitive closure
-            CcLinkParamsStore.TO_LINK_PARAMS);
-        builder.addLinkOpts(linkOpts);
-      }
-    };
+
+    CcLinkParams linkOptsParams = CcLinkParams.builder().addLinkOpts(linkOpts).build();
+    CcLinkingInfo linkOptsProvider =
+        CcLinkingInfo.Builder.create()
+            .setStaticModeParamsForDynamicLibrary(linkOptsParams)
+            .setStaticModeParamsForExecutable(linkOptsParams)
+            .setDynamicModeParamsForDynamicLibrary(linkOptsParams)
+            .setDynamicModeParamsForExecutable(linkOptsParams)
+            .build();
+
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .add(linkOptsProvider)
+            .addAll(
+                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.class))
+                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .addAll(
+                Streams.stream(
+                        AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER))
+                    .map(AndroidCcLinkParamsProvider::getLinkParams)
+                    .collect(ImmutableList.toImmutableList()))
+            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .build();
+
+    return CcLinkingInfo.merge(ccLinkingInfos);
   }
 
   /** Returns {@link AndroidConfiguration} in given context. */
@@ -842,25 +868,14 @@ public class AndroidCommon {
    * <p>No rule needs <i>any</i> support if data binding is disabled.
    */
   static JavaCommon createJavaCommonWithAndroidDataBinding(
-      RuleContext ruleContext, JavaSemantics semantics, boolean isLibrary) {
-    boolean useDataBinding = DataBinding.isEnabled(ruleContext);
-
+      RuleContext ruleContext,
+      JavaSemantics semantics,
+      DataBindingContext dataBindingContext,
+      boolean isLibrary) {
     ImmutableList<Artifact> srcs =
-        ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list();
-    if (useDataBinding) {
-      // Add this rule's annotation processor input. If the rule doesn't have direct resources,
-      // there's no direct data binding info, so there's strictly no need for annotation processing.
-      // But it's still important to process the deps' .bin files so any Java class references get
-      // re-referenced so they don't get filtered out of the compilation classpath by JavaBuilder
-      // (which filters out classpath .jars that "aren't used": see --reduce_classpath). If data
-      // binding didn't reprocess a library's data binding expressions redundantly up the dependency
-      // chain (meaning each depender processes them again as if they were its own), this problem
-      // wouldn't happen.
-      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext);
-      if (annotationFile != null) {
-        srcs = ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
-      }
-    }
+        dataBindingContext.addAnnotationFileToSrcs(
+            ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list(),
+            ruleContext);
 
     ImmutableList<TransitiveInfoCollection> compileDeps;
     ImmutableList<TransitiveInfoCollection> runtimeDeps;

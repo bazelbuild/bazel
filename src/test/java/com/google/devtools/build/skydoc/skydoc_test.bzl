@@ -39,12 +39,17 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_sy
           will be generated.
     """
     output_golden_file = "%s_output.txt" % name
+
+    # Skydoc requires an absolute input file label to both load the target file and
+    # track what its target is for the purpose of resolving relative labels.
+    abs_input_file_label = str(Label("//%s" % native.package_name()).relative(input_file))
+
     native.sh_test(
         name = "%s_e2e_test" % name,
         srcs = ["skydoc_e2e_test_runner.sh"],
         args = [
             "$(location %s)" % skydoc,
-            "$(location %s)" % input_file,
+            abs_input_file_label,
             "$(location %s)" % golden_file,
         ] + whitelisted_symbols,
         data = [
@@ -60,8 +65,9 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_sy
             input_file,
         ] + deps,
         outs = [output_golden_file],
+        heuristic_label_expansion = 0,
         cmd = "$(location %s) " % skydoc +
-              "$(location %s) $(location %s) " % (input_file, output_golden_file) +
+              "%s $(location %s) " % (abs_input_file_label, output_golden_file) +
               " ".join(whitelisted_symbols),
         tools = [skydoc],
     )

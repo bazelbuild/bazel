@@ -27,7 +27,7 @@ function test_basic_aquery() {
   cat > "$pkg/BUILD" <<'EOF'
 genrule(
     name = "foo",
-    srcs = ["in.txt"],
+    srcs = [":bar"],
     outs = ["foo_out.txt"],
     cmd = "cat $(SRCS) > $(OUTS)",
 )
@@ -42,10 +42,42 @@ EOF
   echo "hello aquery" > "$pkg/in.txt"
 
   bazel aquery "//$pkg:foo" > output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:foo"
-  assert_not_contains "//$pkg:bar"
+  assert_contains "//$pkg:foo" output
+  assert_not_contains "//$pkg:bar" output
 
-  bazel aquery "deps(//$pkg:foo)" > output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:foo"
-  assert_contains "//$pkg:bar"
+  bazel aquery "deps(//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  assert_contains "//$pkg:foo" output
+  assert_contains "//$pkg:bar" output
 }
+
+function test_aquery_text() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --output=text "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "action 'Executing genrule //$pkg:bar'" output
+  assert_contains "Mnemonic: Genrule" output
+  assert_contains "Owner: //$pkg:bar" output
+  assert_contains "Configuration: .*-fastbuild" output
+  # Only check that the inputs/outputs/command line/environment exist, but not
+  # their actual contents since that would be too much.
+  assert_contains "Inputs: \[" output
+  assert_contains "Outputs: \[" output
+  assert_contains "Command Line: (" output
+  assert_contains "Environment: \[" output
+
+}
+
+run_suite "${PRODUCT_NAME} action graph query tests"

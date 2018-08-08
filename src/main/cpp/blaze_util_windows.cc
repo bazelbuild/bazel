@@ -1155,14 +1155,15 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
     if (GetLastError() == ERROR_SHARING_VIOLATION) {
       // Someone else has the lock.
+      BAZEL_LOG(USER) << "Another command holds the client lock";
       if (!block) {
-        BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-            << "Another command is running. Exiting immediately.";
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the lock is held and --noblock_for_lock was "
+               "given.";
       }
       if (first_lock_attempt) {
         first_lock_attempt = false;
-        BAZEL_LOG(USER)
-            << "Another command is running. Waiting for it to complete...";
+        BAZEL_LOG(USER) << "Waiting for it to complete...";
         fflush(stderr);
       }
       Sleep(/* dwMilliseconds */ 200);
@@ -1412,58 +1413,6 @@ static string GetMsysBash() {
   return string();
 }
 
-// Implements heuristics to discover Git-on-Win installation.
-static string GetBashFromGitOnWin() {
-  HKEY h_GitOnWin_uninstall;
-
-  // Well-known registry key for Git-on-Windows.
-  static constexpr const char key[] =
-      "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Git_is1";
-  if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,    // _In_     HKEY    hKey,
-                    key,                   // _In_opt_ LPCTSTR lpSubKey,
-                    0,                     // _In_     DWORD   ulOptions,
-                    KEY_QUERY_VALUE,       // _In_     REGSAM  samDesired,
-                    &h_GitOnWin_uninstall  // _Out_    PHKEY   phkResult
-                    )) {
-    BAZEL_LOG(INFO) << "Cannot open HKCU\\" << key;
-    return string();
-  }
-  AutoHandle auto_h_GitOnWin_uninstall(h_GitOnWin_uninstall);
-
-  BAZEL_LOG(INFO) << "Getting install location of HKLM\\" << key;
-  BYTE path[REG_VALUE_BUFFER_SIZE];
-  DWORD path_length = sizeof(path);
-  DWORD path_type;
-  if (RegQueryValueEx(h_GitOnWin_uninstall,  // _In_        HKEY    hKey,
-                      "InstallLocation",     // _In_opt_    LPCTSTR lpValueName,
-                      0,                     // _Reserved_  LPDWORD lpReserved,
-                      &path_type,            // _Out_opt_   LPDWORD lpType,
-                      path,                  // _Out_opt_   LPBYTE  lpData,
-                      &path_length           // _Inout_opt_ LPDWORD lpcbData
-                      )) {
-    BAZEL_LOG(ERROR) << "Failed to query InstallLocation of HKLM\\" << key;
-    return string();
-  }
-
-  if (path_length == 0 || path_type != REG_SZ) {
-    BAZEL_LOG(ERROR) << "Zero-length (" << path_length
-                     << ") install location or wrong type (" << path_type
-                     << ")";
-    return string();
-  }
-
-  BAZEL_LOG(INFO) << "Install location of HKLM\\" << key << " is " << path;
-  string path_as_string(path, path + path_length - 1);
-  string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
-  if (!blaze_util::PathExists(bash_exe)) {
-    BAZEL_LOG(ERROR) << "%s does not exist", bash_exe.c_str();
-    return string();
-  }
-
-  BAZEL_LOG(INFO) << "Detected git-on-Windows bash at " << bash_exe.c_str();
-  return bash_exe;
-}
-
 static string GetBinaryFromPath(const string& binary_name) {
   char found[MAX_PATH];
   string path_list = blaze::GetEnv("PATH");
@@ -1507,11 +1456,6 @@ static string LocateBash() {
     return msys_bash;
   }
 
-  string git_on_win_bash = GetBashFromGitOnWin();
-  if (!git_on_win_bash.empty()) {
-    return git_on_win_bash;
-  }
-
   return GetBinaryFromPath("bash.exe");
 }
 
@@ -1532,17 +1476,13 @@ void DetectBashOrDie() {
     // TODO(bazel-team) should this be printed to stderr? If so, it should use
     // BAZEL_LOG(ERROR)
     printf(
-        "Bazel on Windows requires bash.exe and other Unix tools, but we could "
-        "not find them.\n"
-        "If you do not have them installed, the easiest is to install MSYS2 "
-        "from\n"
+        "Bazel on Windows requires MSYS2 Bash, but we could not find it.\n"
+        "If you do not have it installed, you can install MSYS2 from\n"
         "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
-        "or git-on-Windows from\n"
-        "       https://git-scm.com/download/win\n"
         "\n"
-        "If you already have bash.exe installed but Bazel cannot find it,\n"
+        "If you already have it installed but Bazel cannot find it,\n"
         "set BAZEL_SH environment variable to its location:\n"
-        "       set BAZEL_SH=c:\\path\\to\\bash.exe\n");
+        "       set BAZEL_SH=c:\\path\\to\\msys2\\usr\\bin\\bash.exe\n");
     exit(1);
   }
 }

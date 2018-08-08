@@ -221,4 +221,15 @@ public class BuildOptionsTest {
                 ImmutableMap.of(
                     BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())));
   }
+
+  @Test
+  public void repeatedCodec() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(one, two);
+    BuildOptions.OptionsDiffCache cache = new BuildOptions.FingerprintingKDiffToByteStringCache();
+    assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
+        .isEqualTo(
+            TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
+  }
 }

@@ -173,8 +173,8 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
-            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse("@//" + pkg));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(

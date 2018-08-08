@@ -14,20 +14,91 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
-/**
- * Fake implementation of {@link AndroidResourcesInfoApi}.
- */
-public class FakeAndroidResourcesInfo implements AndroidResourcesInfoApi {
+/** Fake implementation of {@link AndroidResourcesInfoApi}. */
+public class FakeAndroidResourcesInfo extends NativeInfo
+    implements AndroidResourcesInfoApi<
+        FileApi,
+        FakeAndroidResourcesInfo.FakeValidatedAndroidDataApi,
+        FakeAndroidResourcesInfo.FakeAndroidManifestApi> {
+
+  public static final String PROVIDER_NAME = "FakeAndroidResourcesInfo";
+  public static final FakeAndroidResourcesInfoProvider PROVIDER =
+      new FakeAndroidResourcesInfoProvider();
+
+  FakeAndroidResourcesInfo() {
+    super(PROVIDER);
+  }
+
+  @Override
+  public Label getLabel() {
+    return null;
+  }
+
+  @Override
+  public FakeAndroidManifestApi getManifest() {
+    return null;
+  }
 
   @Override
   public FileApi getRTxt() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FakeValidatedAndroidDataApi> getTransitiveAndroidResources() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FakeValidatedAndroidDataApi> getDirectAndroidResources() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveResources() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveManifests() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveAapt2RTxt() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveSymbolsBin() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveCompiledSymbols() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveStaticLib() {
+    return null;
+  }
+
+  @Override
+  public NestedSet<FileApi> getTransitiveRTxt() {
     return null;
   }
 
@@ -44,13 +115,33 @@ public class FakeAndroidResourcesInfo implements AndroidResourcesInfoApi {
   @Override
   public void repr(SkylarkPrinter printer) {}
 
-  /**
-   * Fake implementation of {@link AndroidResourcesInfoApiProvider}.
-   */
-  public static class FakeAndroidResourcesInfoProvider implements AndroidResourcesInfoApiProvider {
+  /** Fake implementation of {@link AndroidResourcesInfoApiProvider}. */
+  public static class FakeAndroidResourcesInfoProvider
+      extends BuiltinProvider<FakeAndroidResourcesInfo>
+      implements AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<
+          FileApi,
+          FakeAndroidResourcesInfo.FakeValidatedAndroidDataApi,
+          FakeAndroidResourcesInfo.FakeAndroidManifestApi> {
+
+    public FakeAndroidResourcesInfoProvider() {
+      super(PROVIDER_NAME, FakeAndroidResourcesInfo.class);
+    }
 
     @Override
-    public AndroidResourcesInfoApi createInfo(SkylarkDict<?, ?> kwargs, Location loc)
+    public FakeAndroidResourcesInfo createInfo(
+        Label label,
+        FakeAndroidManifestApi manifest,
+        FileApi rTxt,
+        SkylarkNestedSet transitiveAndroidResources,
+        SkylarkNestedSet directAndroidResources,
+        SkylarkNestedSet transitiveResources,
+        SkylarkNestedSet transitiveAssets,
+        SkylarkNestedSet transitiveManifests,
+        SkylarkNestedSet transitiveAapt2RTxt,
+        SkylarkNestedSet transitiveSymbolsBin,
+        SkylarkNestedSet transitiveCompiledSymbols,
+        SkylarkNestedSet transitiveStaticLib,
+        SkylarkNestedSet transitiveRTxt)
         throws EvalException {
       return new FakeAndroidResourcesInfo();
     }
@@ -58,4 +149,10 @@ public class FakeAndroidResourcesInfo implements AndroidResourcesInfoApi {
     @Override
     public void repr(SkylarkPrinter printer) {}
   }
+
+  /** Fake implementation of {@link ValidatedAndroidDataApi}. */
+  public static class FakeValidatedAndroidDataApi implements ValidatedAndroidDataApi {}
+
+  /** Fake implementation of {@link AndroidManifestApi}. */
+  public static class FakeAndroidManifestApi implements AndroidManifestApi {}
 }

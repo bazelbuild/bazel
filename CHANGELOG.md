@@ -1,57 +1,82 @@
-## Release 0.15.2 (2018-07-17)
+## Release 0.16.0 (2018-07-31)
 
 ```
-Baseline: b93ae42e8e693ccbcc387841a17f58259966fa38
+Baseline: 4f64b77a3dd8e4ccdc8077051927985f9578a3a5
 
 Cherry picks:
-   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
-     Add option to enable Docker sandboxing.
-   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
-     Allow disabling the simple blob caches via CLI flag overrides.
-   + 4ec0a7524913ab2c4641368e3f8c09b347351a08:
-     Use BUILD.bazel instead of BUILD for external projects
-   + 2ff8c5fd919ad7316d06c6303e8d7b51315d4c61:
-     Release 0.15.0 (2018-06-26)
+   + 4c9a0c82d308d5df5c524e2a26644022ff525f3e:
+     reduce the size of bazel's embedded jdk
+   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
+     remote: limit number of open tcp connections by default. Fixes
+     #5491
    + 8ff87c164f48dbabe3b20becd00dde90c50d46f5:
      Fix autodetection of linker flags
    + c4622ac9205d2f1b42dac8c598e83113d39e7f11:
      Fix autodetection of -z linker flags
-   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
-     remote: limit number of open tcp connections by default. Fixes
-     #5491
+   + 10219659f58622d99034288cf9f491865f818218:
+     blaze_util_posix.cc: fix order of #define
+   + ab1f269017171223932e0da9bb539e8a17dd99ed:
+     blaze_util_freebsd.cc: include path.h explicitly
+   + 68e92b45a37f2142c768a56eb7ecfa484b8b22df:
+     openjdk: update macOS openjdk image. Fixes #5532
+   + f45c22407e6b00fcba706eb62141cb9036bd38d7:
+     Set the start time of binary and JSON profiles to zero correctly.
+   + bca1912853086b8e9a28a85a1b144ec0dc9717cc:
+     remote: fix race on download error. Fixes #5047
+   + 3842bd39e10612c7eef36c6048407e81bcd0a8fb:
+     jdk: use parallel old gc and disable compact strings
 ```
+
+Incompatible changes:
+
+  - The $(ANDROID_CPU) Make variable is not available anymore. Use
+    $(TARGET_CPU) after an Android configuration transition instead.
+  - The $(JAVA_TRANSLATIONS) Make variable is not supported anymore.
+  - Skylark structs (using struct()) may no longer have to_json and
+    to_proto overridden.
+  - The mobile-install --skylark_incremental_res flag is no longer
+    available, use the --skylark flag instead.
+
+New features:
+
+  - android_local_test now takes advantage of Robolectric's binary
+    resource processing which allows for faster tests.
+  - Allow @ in package names.
 
 Important changes:
 
-  - In remote caching we limit the number of open
-    TCP connections to 100 by default. The number can be adjusted
-    by specifying the --remote_max_connections flag.
-
-## Release 0.15.1 (2018-07-16)
-
-```
-Baseline: b93ae42e8e693ccbcc387841a17f58259966fa38
-
-Cherry picks:
-   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
-     Add option to enable Docker sandboxing.
-   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
-     Allow disabling the simple blob caches via CLI flag overrides.
-   + 4ec0a7524913ab2c4641368e3f8c09b347351a08:
-     Use BUILD.bazel instead of BUILD for external projects
-   + 2ff8c5fd919ad7316d06c6303e8d7b51315d4c61:
-     Release 0.15.0 (2018-06-26)
-   + 8ff87c164f48dbabe3b20becd00dde90c50d46f5:
-     Fix autodetection of linker flags
-   + c4622ac9205d2f1b42dac8c598e83113d39e7f11:
-     Fix autodetection of -z linker flags
-   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
-     remote: limit number of open tcp connections by default. Fixes
-     #5491
-```
-
-Important changes:
-
+  - Option --glibc is removed, toolchain selection relies solely on
+    --cpu and --compiler options.
+  - Build support for enabling cross binary FDO optimization.
+  - The --distdir option is no longer experimental. This
+      option allows to specify additional directories to look for
+      files before trying to fetch them from the network. Files from
+      any of the distdirs are only used if a checksum for the file
+      is specified and both, the filename and the checksum, match.
+  - Java coverage works now with multiple jobs.
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - New rules for importing Android dependencies:
+    `aar_import_external` and `aar_maven_import_external`.
+    `aar_import_external` enables specifying external AAR
+    dependencies using a list of HTTP URLs for the artifact.
+    `aar_maven_import_external` enables specifying external AAR
+    dependencies using the artifact coordinate and a list of server
+    URLs.
+  - The BAZEL_JAVAC_OPTS environment variable allows arguments, e.g.,
+    "-J-Xmx2g", may be passed to the javac compiler during bootstrap
+    build. This is helpful if your system chooses too small of a max
+    heap size for the Java compiler during the bootstrap build.
+  - --noexpand_configs_in_place is deprecated.
+  - A tool to parse the Bazel execution log.
+  - Support for LIPO has been fully removed.
+  - Remove support for --discard_actions_after_execution.
+  - Add --materialize_param_files flag to write parameter files even
+    when actions are executed remotely.
+  - Windows default system bazelrc is read from the user's
+    ProgramData if present.
+  - --[no]allow_undefined_configs no longer exists, passing undefined
+    configs is an error.
   - In remote caching we limit the number of open
     TCP connections to 100 by default. The number can be adjusted
     by specifying the --remote_max_connections flag.
@@ -3039,7 +3064,6 @@ Baseline: a0881e8
 ```
 
 Initial release.
-
 
 
 

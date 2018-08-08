@@ -140,6 +140,8 @@ public class ActionGraphQueryEnvironment
     OutputStream out = reporter.getOutErr().getOutputStream();
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
+            reporter, aqueryOptions, out, skyframeExecutor, accessor),
+        new ActionGraphTextOutputFormatterCallback(
             reporter, aqueryOptions, out, skyframeExecutor, accessor));
   }
 

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar.genclass;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
@@ -28,8 +30,10 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Stream;
 
 /**
  * GenClass post-processes the output of a Java compilation, and produces a jar containing only the
@@ -79,30 +83,31 @@ public class GenClass {
   }
 
   /**
-   * For each top-level class in the compilation, determine the path prefix of classes corresponding
-   * to that compilation unit.
-   *
-   * <p>Prefixes are used to correctly handle inner classes, e.g. the top-level class "c.g.Foo" may
-   * correspond to "c/g/Foo.class" and also "c/g/Foo$Inner.class" or "c/g/Foo$0.class".
+   * For each top-level class in the compilation matching the given predicate, determine the path
+   * prefix of classes corresponding to that compilation unit.
    */
   @VisibleForTesting
-  static ImmutableSet<String> getGeneratedPrefixes(Manifest manifest) {
-    ImmutableSet.Builder<String> prefixes = ImmutableSet.builder();
-    for (CompilationUnit unit : manifest.getCompilationUnitList()) {
-      if (!unit.getGeneratedByAnnotationProcessor()) {
-        continue;
-      }
-      String pkg;
-      if (unit.hasPkg()) {
-        pkg = unit.getPkg().replace('.', '/') + "/";
-      } else {
-        pkg = "";
-      }
-      for (String toplevel : unit.getTopLevelList()) {
-        prefixes.add(pkg + toplevel);
-      }
+  static ImmutableSet<String> getPrefixes(Manifest manifest, Predicate<CompilationUnit> p) {
+    return manifest
+        .getCompilationUnitList()
+        .stream()
+        .filter(p)
+        .flatMap(unit -> getUnitPrefixes(unit))
+        .collect(toImmutableSet());
+  }
+
+  /**
+   * Prefixes are used to correctly handle inner classes, e.g. the top-level class "c.g.Foo" may
+   * correspond to "c/g/Foo.class" and also "c/g/Foo$Inner.class" or "c/g/Foo$0.class".
+   */
+  private static Stream<String> getUnitPrefixes(CompilationUnit unit) {
+    String pkg;
+    if (unit.hasPkg()) {
+      pkg = unit.getPkg().replace('.', '/') + "/";
+    } else {
+      pkg = "";
     }
-    return prefixes.build();
+    return unit.getTopLevelList().stream().map(toplevel -> pkg + toplevel);
   }
 
   /**
@@ -111,7 +116,10 @@ public class GenClass {
    */
   private static void extractGeneratedClasses(Path classJar, Manifest manifest, Path tempDir)
       throws IOException {
-    ImmutableSet<String> generatedPrefixes = getGeneratedPrefixes(manifest);
+    ImmutableSet<String> generatedFilePrefixes =
+        getPrefixes(manifest, unit -> unit.getGeneratedByAnnotationProcessor());
+    ImmutableSet<String> userWrittenFilePrefixes =
+        getPrefixes(manifest, unit -> !unit.getGeneratedByAnnotationProcessor());
     try (JarFile jar = new JarFile(classJar.toFile())) {
       Enumeration<JarEntry> entries = jar.entries();
       while (entries.hasMoreElements()) {
@@ -121,7 +129,10 @@ public class GenClass {
           continue;
         }
         String className = name.substring(0, name.length() - ".class".length());
-        if (prefixesContains(generatedPrefixes, className)) {
+        if (prefixesContains(generatedFilePrefixes, className)
+            // Assume that prefixes that don't correspond to a known hand-written source are
+            // generated.
+            || !prefixesContains(userWrittenFilePrefixes, className)) {
           Files.createDirectories(tempDir.resolve(name).getParent());
           // InputStream closing: JarFile extends ZipFile, and ZipFile.close() will close all of the
           // input streams previously returned by invocations of the getInputStream method.

@@ -126,10 +126,7 @@ public final class LinkCommandLine extends CommandLine {
 
   /** Returns the path to the linker. */
   public String getLinkerPathString() {
-    return featureConfiguration
-        .getToolForAction(linkTargetType.getActionName())
-        .getToolPathFragment()
-        .getPathString();
+    return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
   }
 
   /**
@@ -306,10 +303,6 @@ public final class LinkCommandLine extends CommandLine {
         paramFileArgs.add("--start-lib");
       } else if (arg.equals("-Wl,--end-lib")) {
         paramFileArgs.add("--end-lib");
-      } else if (arg.equals("--incremental-unchanged")) {
-        paramFileArgs.add(arg);
-      } else if (arg.equals("--incremental-changed")) {
-        paramFileArgs.add(arg);
       } else if (arg.charAt(0) == '-') {
         if (arg.startsWith("-l")) {
           paramFileArgs.add(arg);
@@ -381,11 +374,7 @@ public final class LinkCommandLine extends CommandLine {
       Preconditions.checkArgument(
           featureConfiguration.actionIsConfigured(actionName),
           String.format("Expected action_config for '%s' to be configured", actionName));
-      argv.add(
-          featureConfiguration
-              .getToolForAction(linkTargetType.getActionName())
-              .getToolPathFragment()
-              .getPathString());
+      argv.add(featureConfiguration.getToolPathForAction(linkTargetType.getActionName()));
     }
     argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
     return argv;

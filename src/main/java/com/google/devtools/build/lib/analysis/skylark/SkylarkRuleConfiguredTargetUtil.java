@@ -74,7 +74,11 @@ public final class SkylarkRuleConfiguredTargetUtil {
   private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
       ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
-  /** Create a Rule Configured Target from the ruleContext and the ruleImplementation. */
+  /**
+   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
+   * Returns null if there were errors during target creation.
+   */
+  @Nullable
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
       AdvertisedProviderSet advertisedProviders,
@@ -115,8 +119,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
         return null;
       }
       ConfiguredTarget configuredTarget = createTarget(skylarkRuleContext, target);
-      SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
-      checkDeclaredProviders(configuredTarget, advertisedProviders, location);
+      if (configuredTarget != null) {
+        // If there was error creating the ConfiguredTarget, no further validation is needed.
+        // Null will be returned and the errors thus reported.
+        SkylarkProviderValidationUtil.validateArtifacts(ruleContext);
+        checkDeclaredProviders(configuredTarget, advertisedProviders, location);
+      }
       return configuredTarget;
     } catch (EvalException e) {
       addRuleToStackTrace(e, ruleContext.getRule(), ruleImplementation);
@@ -172,6 +180,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
     return ex.getMessage();
   }
 
+  @Nullable
   private static ConfiguredTarget createTarget(SkylarkRuleContext context, Object target)
       throws EvalException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(

@@ -143,7 +143,7 @@ public class ByteStreamUploaderTest {
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
 
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
     serviceRegistry.addService(new ByteStreamImplBase() {
           @Override
@@ -221,7 +221,8 @@ public class ByteStreamUploaderTest {
       int blobSize = rand.nextInt(CHUNK_SIZE * 10) + CHUNK_SIZE;
       byte[] blob = new byte[blobSize];
       rand.nextBytes(blob);
-      Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+      Chunker chunker =
+          Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
       builders.add(chunker);
       blobsByHash.put(chunker.digest().getHash(), blob);
     }
@@ -250,7 +251,8 @@ public class ByteStreamUploaderTest {
     List<Chunker> builders = new ArrayList<>(toUpload.size());
     Map<String, Integer> uploadsFailed = new HashMap<>();
     for (String s : toUpload) {
-      Chunker chunker = new Chunker(s.getBytes(UTF_8), /* chunkSize=*/ 3, DIGEST_UTIL);
+      Chunker chunker =
+          Chunker.builder(DIGEST_UTIL).setInput(s.getBytes(UTF_8)).setChunkSize(3).build();
       builders.add(chunker);
       uploadsFailed.put(chunker.digest().getHash(), 0);
     }
@@ -339,7 +341,7 @@ public class ByteStreamUploaderTest {
         new ReferenceCountedChannel(channel), null, 3, retrier);
 
     byte[] blob = new byte[CHUNK_SIZE * 10];
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
     AtomicInteger numWriteCalls = new AtomicInteger();
     CountDownLatch blocker = new CountDownLatch(1);
@@ -402,7 +404,7 @@ public class ByteStreamUploaderTest {
         new ReferenceCountedChannel(channel), null, 3, retrier);
 
     byte[] blob = new byte[CHUNK_SIZE];
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
     serviceRegistry.addService(new ByteStreamImplBase() {
       @Override
@@ -460,10 +462,12 @@ public class ByteStreamUploaderTest {
     serviceRegistry.addService(service);
 
     byte[] blob1 = new byte[CHUNK_SIZE];
-    Chunker chunker1 = new Chunker(blob1, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker1 =
+        Chunker.builder(DIGEST_UTIL).setInput(blob1).setChunkSize(CHUNK_SIZE).build();
 
     byte[] blob2 = new byte[CHUNK_SIZE + 1];
-    Chunker chunker2 = new Chunker(blob2, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker2 =
+        Chunker.builder(DIGEST_UTIL).setInput(blob2).setChunkSize(CHUNK_SIZE).build();
 
     ListenableFuture<Void> f1 = uploader.uploadBlobAsync(chunker1, true);
     ListenableFuture<Void> f2 = uploader.uploadBlobAsync(chunker2, true);
@@ -508,7 +512,7 @@ public class ByteStreamUploaderTest {
     assertThat(retryService.isShutdown()).isTrue();
 
     byte[] blob = new byte[1];
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
     try {
       uploader.uploadBlob(chunker, true);
       fail("Should have thrown an exception.");
@@ -553,7 +557,7 @@ public class ByteStreamUploaderTest {
     });
 
     byte[] blob = new byte[1];
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
     uploader.uploadBlob(chunker, true);
 
@@ -585,7 +589,7 @@ public class ByteStreamUploaderTest {
     });
 
     byte[] blob = new byte[1];
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
     try {
       uploader.uploadBlob(chunker, true);
@@ -608,7 +612,7 @@ public class ByteStreamUploaderTest {
     byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
     new Random().nextBytes(blob);
 
-    Chunker chunker = new Chunker(blob, CHUNK_SIZE, DIGEST_UTIL);
+    Chunker chunker = Chunker.builder(DIGEST_UTIL).setInput(blob).setChunkSize(CHUNK_SIZE).build();
 
     AtomicInteger numUploads = new AtomicInteger();
     serviceRegistry.addService(new ByteStreamImplBase() {

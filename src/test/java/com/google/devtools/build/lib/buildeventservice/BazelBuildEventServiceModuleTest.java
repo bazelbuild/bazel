@@ -62,6 +62,7 @@ public class BazelBuildEventServiceModuleTest {
       new ActionExecutedEvent(
           new ActionsTestUtil.NullAction(),
           /* exception= */ null,
+          ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
           /* stdout= */ null,
           /* stderr= */ null,
           ErrorTiming.NO_ERROR);

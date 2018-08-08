@@ -30,59 +30,41 @@ public class BranchCoverageTest {
   private static final int BRANCH1_LINE_NR = 10;
   private static final String BRANCH1_BLOCK_NR = "3";
   private static final String BRANCH1_BRANCH_NR = "2";
-  private static final boolean BRANCH1_WAS_EXECUTED = false;
   private static final int BRANCH1_NR_EXECUTIONS = 0;
 
-  private static final boolean BRANCH1_OTHER_TRACEFILE_WAS_EXECUTED = true;
   private static final int BRANCH1_OTHER_TRACEFILE_NR_EXECUTIONS = 5;
 
   private static final int BRANCH2_LINE_NR = 20;
   private static final String BRANCH2_BLOCK_NR = "7";
   private static final String BRANCH2_BRANCH_NR = "2";
-  private static final boolean BRANCH2_WAS_EXECUTED = false;
   private static final int BRANCH2_NR_EXECUTIONS = 0;
 
-  private static final boolean BRANCH2_OTHER_TRACEFILE_WAS_EXECUTED = false;
   private static final int BRANCH2_OTHER_TRACEFILE_NR_EXECUTIONS = 0;
 
   static final BranchCoverage getBranch1CoverageData() {
-    return BranchCoverage.create(
-        BRANCH1_LINE_NR,
-        BRANCH1_BLOCK_NR,
-        BRANCH1_BRANCH_NR,
-        BRANCH1_WAS_EXECUTED,
-        BRANCH1_NR_EXECUTIONS
-    );
+    return BranchCoverage.createWithBlockAndBranch(
+        BRANCH1_LINE_NR, BRANCH1_BLOCK_NR, BRANCH1_BRANCH_NR, BRANCH1_NR_EXECUTIONS);
   }
 
   static final BranchCoverage getBranch2CoverageData() {
-    return BranchCoverage.create(
-        BRANCH2_LINE_NR,
-        BRANCH2_BLOCK_NR,
-        BRANCH2_BRANCH_NR,
-        BRANCH2_WAS_EXECUTED,
-        BRANCH2_NR_EXECUTIONS
-    );
+    return BranchCoverage.createWithBlockAndBranch(
+        BRANCH2_LINE_NR, BRANCH2_BLOCK_NR, BRANCH2_BRANCH_NR, BRANCH2_NR_EXECUTIONS);
   }
 
   static final BranchCoverage getBranch1OtherTracefileCoverageData() {
-    return BranchCoverage.create(
+    return BranchCoverage.createWithBlockAndBranch(
         BRANCH1_LINE_NR,
         BRANCH1_BLOCK_NR,
         BRANCH1_BRANCH_NR,
-        BRANCH1_OTHER_TRACEFILE_WAS_EXECUTED,
-        BRANCH1_OTHER_TRACEFILE_NR_EXECUTIONS
-    );
+        BRANCH1_OTHER_TRACEFILE_NR_EXECUTIONS);
   }
 
   static final BranchCoverage getBranch2OtherTracefileCoverageData() {
-    return BranchCoverage.create(
+    return BranchCoverage.createWithBlockAndBranch(
         BRANCH2_LINE_NR,
         BRANCH2_BLOCK_NR,
         BRANCH2_BRANCH_NR,
-        BRANCH2_OTHER_TRACEFILE_WAS_EXECUTED,
-        BRANCH2_OTHER_TRACEFILE_NR_EXECUTIONS
-    );
+        BRANCH2_OTHER_TRACEFILE_NR_EXECUTIONS);
   }
 
   @Test
@@ -109,45 +91,13 @@ public class BranchCoverageTest {
     assertThat(merged.wasExecuted()).isFalse();
     assertThat(merged.nrOfExecutions()).isEqualTo(0);
   }
-
+  
   @Test
   public void testMergeBranch1Branch2AssertationError() {
     BranchCoverage branch1 = getBranch1CoverageData();
     BranchCoverage branch2 = getBranch2CoverageData();
     try {
       BranchCoverage.merge(branch1, branch2);
-    } catch (AssertionError er) {
-      return;
-    }
-    fail();
-  }
-
-  @Test
-  public void testcreateBranchCoverageDataInvalidWasExecutedTrue() {
-    try {
-      BranchCoverage.create(
-          BRANCH1_LINE_NR,
-          BRANCH1_BLOCK_NR,
-          BRANCH1_BRANCH_NR,
-          true,
-          0
-      );
-    } catch (AssertionError er) {
-      return;
-    }
-    fail();
-  }
-
-  @Test
-  public void testcreateBranchCoverageDataInvalidWasExecutedFalse() {
-    try {
-      BranchCoverage.create(
-          BRANCH1_LINE_NR,
-          BRANCH1_BLOCK_NR,
-          BRANCH1_BRANCH_NR,
-          false,
-          10
-      );
     } catch (AssertionError er) {
       return;
     }

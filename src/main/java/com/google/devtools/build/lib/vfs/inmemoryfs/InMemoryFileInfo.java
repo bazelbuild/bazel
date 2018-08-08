@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -32,7 +35,7 @@ public class InMemoryFileInfo extends FileInfo {
    */
   protected byte[] content;
 
-  protected InMemoryFileInfo(Clock clock) {
+  public InMemoryFileInfo(Clock clock) {
     super(clock);
     content = new byte[0]; // New files start out empty.
   }
@@ -43,8 +46,13 @@ public class InMemoryFileInfo extends FileInfo {
   }
 
   @Override
-  public synchronized byte[] readContent() {
-    return content.clone();
+  public byte[] getxattr(String name) {
+    return null;
+  }
+
+  @Override
+  public byte[] getFastDigest() {
+    return null;
   }
 
   private synchronized void setContent(byte[] newContent) {
@@ -53,44 +61,69 @@ public class InMemoryFileInfo extends FileInfo {
   }
 
   @Override
-  protected synchronized OutputStream getOutputStream(boolean append)
-      throws IOException {
-    OutputStream out = new ByteArrayOutputStream() {
-      private boolean closed = false;
+  public synchronized InputStream getInputStream() {
+    return new ByteArrayInputStream(content);
+  }
 
-      @Override
-      public void write(byte[] data) throws IOException {
-        Preconditions.checkState(!closed);
-        super.write(data);
-      }
-
-      @Override
-      public synchronized void write(int dataByte) {
-        Preconditions.checkState(!closed);
-        super.write(dataByte);
-      }
-
-      @Override
-      public synchronized void write(byte[] data, int offset, int length) {
-        Preconditions.checkState(!closed);
-        super.write(data, offset, length);
-      }
-
-      @Override
-      public void close() {
-        flush();
-        closed = true;
-      }
-
-      @Override
-      public void flush() {
-        setContent(toByteArray().clone());
-      }
-    };
-
+  @Override
+  public synchronized OutputStream getOutputStream(boolean append) {
+    OutputStream out = new InMemoryOutputStream(this::setContent);
     if (append) {
-      out.write(readContent());
+      try (InputStream in = getInputStream()) {
+        ByteStreams.copy(in, out);
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
     }
     return out;
+  }
+
+  /**
+   * A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data.
+   */
+  public static class InMemoryOutputStream extends ByteArrayOutputStream {
+    private final IOByteReceiver receiver;
+    private boolean closed = false;
+
+    public InMemoryOutputStream(IOByteReceiver receiver) {
+      this.receiver = receiver;
+    }
+
+    @Override
+    public void write(byte[] data) throws IOException {
+      Preconditions.checkState(!closed);
+      super.write(data);
+    }
+
+    @Override
+    public synchronized void write(int dataByte) {
+      Preconditions.checkState(!closed);
+      super.write(dataByte);
+    }
+
+    @Override
+    public synchronized void write(byte[] data, int offset, int length) {
+      Preconditions.checkState(!closed);
+      super.write(data, offset, length);
+    }
+
+    @Override
+    public synchronized void close() throws IOException {
+      flush();
+      closed = true;
+    }
+
+    @Override
+    public synchronized void flush() throws IOException {
+      receiver.accept(toByteArray().clone());
+    }
+  }
+
+  /**
+   * Similar to {@link com.google.common.base.Receiver}, but allows implementations to throw
+   * {@link IOException}.
+   */
+  public interface IOByteReceiver {
+    void accept(byte[] bytes) throws IOException;
   }
 }

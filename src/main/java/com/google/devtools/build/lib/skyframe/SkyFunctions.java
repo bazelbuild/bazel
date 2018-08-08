@@ -79,6 +79,8 @@ public final class SkyFunctions {
   // Non-hermetic because accesses package locator
   static final SkyFunctionName TARGET_PATTERN_PHASE =
       SkyFunctionName.createNonHermetic("TARGET_PATTERN_PHASE");
+  static final SkyFunctionName PREPARE_ANALYSIS_PHASE =
+      SkyFunctionName.createNonHermetic("PREPARE_ANALYSIS_PHASE");
   static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.createHermetic("RECURSIVE_PKG");
   static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
@@ -90,9 +92,11 @@ public final class SkyFunctions {
   static final SkyFunctionName LOAD_SKYLARK_ASPECT =
       SkyFunctionName.createHermetic("LOAD_SKYLARK_ASPECT");
   public static final SkyFunctionName TARGET_COMPLETION =
-      SkyFunctionName.createHermetic("TARGET_COMPLETION");
+      SkyFunctionName.create(
+          "TARGET_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   public static final SkyFunctionName ASPECT_COMPLETION =
-      SkyFunctionName.createHermetic("ASPECT_COMPLETION");
+      SkyFunctionName.create(
+          "ASPECT_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
   static final SkyFunctionName TEST_COMPLETION =
       SkyFunctionName.create(
           "TEST_COMPLETION", ShareabilityOfValue.NEVER, FunctionHermeticity.HERMETIC);
@@ -134,6 +138,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
+  public static final SkyFunctionName RESOLVED_HASH_VALUES =
+      SkyFunctionName.createHermetic("RESOLVED_HASH_VALUES");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

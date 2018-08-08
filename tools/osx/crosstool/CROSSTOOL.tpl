@@ -201,6 +201,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -965,6 +983,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -1830,6 +1849,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -2603,6 +2640,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -3475,6 +3513,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -4250,6 +4306,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -5123,6 +5180,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -5896,6 +5971,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -6798,6 +6874,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -7571,6 +7665,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -8443,6 +8538,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -9216,6 +9329,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -10076,6 +10190,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -10851,6 +10983,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -11712,6 +11845,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -12485,6 +12636,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -13375,6 +13527,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -14148,6 +14318,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -15009,6 +15180,24 @@ toolchain {
     }
   }
   feature {
+    name: "debug_prefix_map_pwd_is_dot"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "linkstamp-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "DEBUG_PREFIX_MAP_PWD=."
+      }
+    }
+  }
+  feature {
     name: "no_dsym_create_zip"
   }
   feature {
@@ -15782,6 +15971,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"

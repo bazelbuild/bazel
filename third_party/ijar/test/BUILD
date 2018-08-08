@@ -45,10 +45,7 @@ sh_test(
         "//tools/jdk:langtools",
     ],
     shard_count = 5,
-    tags = [
-        "jdk8",
-        "zip",
-    ],
+    tags = ["zip"],
 )
 
 sh_test(
@@ -73,7 +70,6 @@ java_library(
     name = "invokedynamic",
     testonly = 1,
     srcs = ["invokedynamic/ClassWithLambda.java"],
-    tags = ["jdk8"],
 )
 
 # For testing purposes: a class which exposes a private nested class in
@@ -160,14 +156,12 @@ genrule(
 java_library(
     name = "typeannotations2",
     srcs = glob(["typeannotations2/**/*.java"]),
-    tags = ["jdk8"],
 )
 
 java_library(
     name = "methodparameters",
     srcs = ["methodparameters/Test.java"],
     javacopts = ["-parameters"],
-    tags = ["jdk8"],
 )
 
 java_binary(

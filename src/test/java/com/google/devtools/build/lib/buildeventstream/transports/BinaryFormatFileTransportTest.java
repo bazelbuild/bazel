@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,7 +45,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -206,8 +207,8 @@ public class BinaryFormatFileTransportTest {
     when(file1.getBaseName()).thenReturn("file1");
     Path file2 = Mockito.mock(Path.class);
     when(file2.getBaseName()).thenReturn("file2");
-    BuildEvent event1 = new WithLocalFileEvent(file1);
-    BuildEvent event2 = new WithLocalFileEvent(file2);
+    BuildEvent event1 = new WithLocalFilesEvent(ImmutableList.of(file1));
+    BuildEvent event2 = new WithLocalFilesEvent(ImmutableList.of(file2));
 
     BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
       @Override
@@ -243,13 +244,47 @@ public class BinaryFormatFileTransportTest {
     verify(uploader).shutdown();
   }
 
+  /** Regression test for b/207287675 */
+  @Test
+  public void testHandlesDuplicateFiles() throws Exception {
+    Path file1 = Mockito.mock(Path.class);
+    when(file1.getBaseName()).thenReturn("foo");
+    BuildEvent event1 = new WithLocalFilesEvent(ImmutableList.of(file1, file1));
+
+    BuildEventArtifactUploader uploader =
+        Mockito.spy(
+            new BuildEventArtifactUploader() {
+              @Override
+              public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
+                return Futures.immediateFuture(new FileUriPathConverter());
+              }
+
+              @Override
+              public void shutdown() {
+                // Intentionally left empty.
+              }
+            });
+    File output = tmp.newFile();
+    BinaryFormatFileTransport transport =
+        new BinaryFormatFileTransport(output.getAbsolutePath(), defaultOpts, uploader, (e) -> {});
+    transport.sendBuildEvent(event1, artifactGroupNamer);
+    transport.close().get();
+
+    assertThat(transport.writer.pendingWrites).isEmpty();
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in))
+          .isEqualTo(event1.asStreamProto(null));
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
   @Test
   public void testCloseWaitsForWritesToFinish() throws Exception {
     // Test that .close() waits for all writes to finish.
 
     Path file1 = Mockito.mock(Path.class);
     when(file1.getBaseName()).thenReturn("file1");
-    BuildEvent event = new WithLocalFileEvent(file1);
+    BuildEvent event = new WithLocalFilesEvent(ImmutableList.of(file1));
 
     SettableFuture<PathConverter> upload = SettableFuture.create();
     BuildEventArtifactUploader uploader = Mockito.spy(new BuildEventArtifactUploader() {
@@ -283,18 +318,21 @@ public class BinaryFormatFileTransportTest {
     verify(uploader).shutdown();
   }
 
-  private static class WithLocalFileEvent implements BuildEvent {
+  private static class WithLocalFilesEvent implements BuildEvent {
 
     int id;
-    Path file;
+    ImmutableList<Path> files;
 
-    WithLocalFileEvent(Path file) {
-      this.file = file;
+    WithLocalFilesEvent(ImmutableList<Path> files) {
+      this.files = files;
     }
 
     @Override
     public Collection<LocalFile> referencedLocalFiles() {
-      return Collections.singleton(new LocalFile(file, LocalFileType.OUTPUT));
+      return files
+          .stream()
+          .map(f -> new LocalFile(f, LocalFileType.OUTPUT))
+          .collect(toImmutableList());
     }
 
     @Override
@@ -303,7 +341,11 @@ public class BinaryFormatFileTransportTest {
           .setId(BuildEventId.progressId(id).asStreamProto())
           .setProgress(
               BuildEventStreamProtos.Progress.newBuilder()
-                  .setStdout("basename: " + file.getBaseName())
+                  .setStdout(
+                      "uploading: "
+                          + Joiner.on(", ")
+                              .join(
+                                  files.stream().map(Path::getBaseName).collect(toImmutableList())))
                   .build())
           .build();
     }

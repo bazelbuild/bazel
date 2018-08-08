@@ -61,6 +61,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /**
  * Tests for {@link ParallelEvaluator}.
@@ -227,6 +228,98 @@ public class ParallelEvaluatorTest {
             };
           }
         });
+  }
+
+  @Test
+  public void interruptedEvaluatorThreadAfterEnqueueBeforeWaitForCompletionAndConstructResult()
+      throws InterruptedException {
+    // This is a regression test for a crash bug in
+    // AbstractExceptionalParallelEvaluator#doMutatingEvaluation in a very specific window of time
+    // inbetween enqueueing one top-level node for evaluation and checking if another top-level node
+    // is done.
+
+    // When we have two top-level nodes, A and B,
+    SkyKey keyA = GraphTester.toSkyKey("a");
+    SkyKey keyB = GraphTester.toSkyKey("b");
+
+    // And rig the graph and node entries, such that B's addReverseDepAndCheckIfDone waits for A to
+    // start computing and then tries to observe an interrupt (which will happen on the calling
+    // thread, aka the main Skyframe evaluation thread),
+    CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
+    CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
+    NodeEntry nodeEntryB = Mockito.mock(NodeEntry.class);
+    AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
+    Mockito.doAnswer(
+            invocation -> {
+              keyAStartedComputingLatch.await();
+              keyBAddReverseDepAndCheckIfDoneLatch.countDown();
+              try {
+                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+                throw new IllegalStateException("shouldn't get here");
+              } catch (InterruptedException e) {
+                keyBAddReverseDepAndCheckIfDoneInterrupted.set(true);
+                throw e;
+              }
+            })
+        .when(nodeEntryB)
+        .addReverseDepAndCheckIfDone(Mockito.eq(null));
+    graph = new InMemoryGraphImpl() {
+      @Override
+      protected NodeEntry newNodeEntry(SkyKey key) {
+        return key.equals(keyB) ? nodeEntryB : super.newNodeEntry(key);
+      }
+    };
+    // And A's SkyFunction tries to observe an interrupt after it starts computing,
+    AtomicBoolean keyAComputeInterrupted = new AtomicBoolean(false);
+    tester.getOrCreate(keyA).setBuilder(new SkyFunction() {
+      @Override
+      public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+        keyAStartedComputingLatch.countDown();
+        try {
+          Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+          throw new IllegalStateException("shouldn't get here");
+        } catch (InterruptedException e) {
+          keyAComputeInterrupted.set(true);
+          throw e;
+        }
+      }
+
+      @Override
+      public String extractTag(SkyKey skyKey) {
+        return null;
+      }
+    });
+
+    // And we have a dedicated thread that kicks off the evaluation of A and B together (in that
+    // order).
+    TestThread evalThread = new TestThread() {
+      @Override
+      public void runTest() throws Exception {
+        try {
+          eval(/*keepGoing=*/true, keyA, keyB);
+          fail();
+        } catch (InterruptedException e) {
+          // Expected.
+        }
+      }
+    };
+
+    // Then when we start that thread,
+    evalThread.start();
+    // We (the thread running the test) are able to observe that B's addReverseDepAndCheckIfDone has
+    // just been called (implying that A has started to be computed).
+    assertThat(
+            keyBAddReverseDepAndCheckIfDoneLatch.await(
+                TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
+    // Then when we interrupt the evaluation thread,
+    evalThread.interrupt();
+    // The evaluation thread eventually terminates.
+    evalThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    // And we are able to verify both that A's SkyFunction had observed an interrupt,
+    assertThat(keyAComputeInterrupted.get()).isTrue();
+    // And also that B's addReverseDepAndCheckIfDoneInterrupted had observed an interrupt.
+    assertThat(keyBAddReverseDepAndCheckIfDoneInterrupted.get()).isTrue();
   }
 
   private void runPartialResultOnInterruption(boolean buildFastFirst) throws Exception {
@@ -1425,7 +1518,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(midKey).addDependency(errorKey).addDependency(cycleKey)
         .setComputedValue(CONCATENATE);
 
-    // We need to ensure that cycle value has finished his work, and we have recorded dependencies
+    // We need to ensure that cycle value has finished its work, and we have recorded dependencies
     CountDownLatch cycleFinish = new CountDownLatch(1);
     tester.getOrCreate(cycleKey).setBuilder(new ChainedFunction(null,
         null, cycleFinish, false, new StringValue(""), ImmutableSet.<SkyKey>of(midKey)));

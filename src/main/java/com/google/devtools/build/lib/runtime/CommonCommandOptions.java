@@ -196,6 +196,22 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableTracer;
 
   @Option(
+      name = "experimental_json_trace_compression",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, Bazel compresses the JSON-format profile with gzip.")
+  public boolean enableTracerCompression;
+
+  @Option(
+      name = "experimental_post_profile_started_event",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If set, Bazel will post the ProfilerStartedEvent including the path to the profile.")
+  public boolean postProfileStartedEvent;
+
+  @Option(
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -87,6 +88,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       new ActionExecutedEvent(
           new ActionsTestUtil.NullAction(),
           /* exception= */ null,
+          ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
           /* stdout= */ null,
           /* stderr= */ null,
           ErrorTiming.NO_ERROR);
@@ -212,8 +214,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public Collection<NestedSet<Artifact>> reportedArtifacts() {
-      return artifacts;
+    public ReportedArtifacts reportedArtifacts() {
+      return new ReportedArtifacts(artifacts, ArtifactPathResolver.IDENTITY);
     }
 
     @Override
@@ -912,6 +914,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new ActionExecutedEvent(
             new ActionsTestUtil.NullAction(),
             new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
+            ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
             ErrorTiming.BEFORE_EXECUTION);
@@ -941,6 +944,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new ActionExecutedEvent(
             new ActionsTestUtil.NullAction(),
             new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
+            ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
             ErrorTiming.BEFORE_EXECUTION);

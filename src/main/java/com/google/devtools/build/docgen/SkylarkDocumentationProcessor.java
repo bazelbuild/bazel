@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.skylark.SkylarkDocUtils;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -138,6 +139,7 @@ public final class SkylarkDocumentationProcessor {
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_MODULE_CATEGORY_TEMPLATE);
     page.add("category", category);
     page.add("modules", modules.get(category));
+    page.add("description", SkylarkDocUtils.substituteVariables(category.getDescription()));
     page.write(skylarkDocPath);
   }
 

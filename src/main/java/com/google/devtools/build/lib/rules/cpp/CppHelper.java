@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -58,16 +57,13 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,16 +79,10 @@ public class CppHelper {
   static final PathFragment OBJS = PathFragment.create("_objs");
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
 
-  private static final String GREPPED_INCLUDES_SUFFIX = ".includes";
-
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.SHARED_LIBRARY,
       CppFileTypes.VERSIONED_SHARED_LIBRARY);
-
-  private static final FileTypeSet CPP_FILETYPES = FileTypeSet.of(
-      CppFileTypes.CPP_HEADER,
-      CppFileTypes.CPP_SOURCE);
 
   /** Base label of the c++ toolchain category. */
   public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_type";
@@ -451,85 +441,6 @@ public class CppHelper {
   }
 
   /**
-   * A header that has been grepped for #include statements. Includes the original header as well as
-   * a stripped version of that header that contains only #include statements.
-   */
-  @AutoCodec
-  @AutoValue
-  abstract static class PregreppedHeader {
-    @AutoCodec.Instantiator
-    static PregreppedHeader create(Artifact originalHeader, Artifact greppedHeader) {
-      return new AutoValue_CppHelper_PregreppedHeader(originalHeader, greppedHeader);
-    }
-
-    /** Returns the original header, before grepping. */
-    abstract Artifact originalHeader();
-
-    /** Returns the grepped header, which contains only #include statements. */
-    abstract Artifact greppedHeader();
-  }
-
-  /**
-   * Creates a grep-includes ExtractInclusions action for generated sources/headers in the
-   * needsIncludeScanning() BuildConfiguration case. Returns a map from original header Artifact to
-   * the output Artifact of grepping over it. The return value only includes entries for generated
-   * sources or headers when --extract_generated_inclusions is enabled.
-   *
-   * <p>Previously, incremental rebuilds redid all include scanning work for a given .cc source in
-   * serial. For high-latency file systems, this could cause performance problems if many headers
-   * are generated.
-   */
-  @Nullable
-  public static final List<PregreppedHeader> createExtractInclusions(
-      RuleContext ruleContext, CppSemantics semantics, Iterable<Artifact> prerequisites) {
-    List<PregreppedHeader> extractions = new ArrayList<>();
-    HashSet<Artifact> alreadyProcessedHeaders = new HashSet<>();
-    for (Artifact prerequisite : prerequisites) {
-      if (alreadyProcessedHeaders.contains(prerequisite)) {
-        // Don't create duplicate actions just because user specified same header file twice.
-        continue;
-      }
-      alreadyProcessedHeaders.add(prerequisite);
-
-      Artifact scanned = createExtractInclusions(ruleContext, semantics, prerequisite);
-      if (scanned != null) {
-        extractions.add(PregreppedHeader.create(prerequisite, scanned));
-      }
-    }
-    return extractions;
-  }
-
-  /**
-   * Creates a grep-includes ExtractInclusions action for generated  sources/headers in the
-   * needsIncludeScanning() BuildConfiguration case.
-   *
-   * <p>Previously, incremental rebuilds redid all include scanning work for a given
-   * .cc source in serial. For high-latency file systems, this could cause
-   * performance problems if many headers are generated.
-   */
-  private static final Artifact createExtractInclusions(
-      RuleContext ruleContext, CppSemantics semantics, Artifact prerequisite) {
-    if (ruleContext != null
-        && semantics.needsIncludeScanning(ruleContext)
-        && !prerequisite.isSourceArtifact()
-        && CPP_FILETYPES.matches(prerequisite.getFilename())) {
-      Artifact scanned = getIncludesOutput(ruleContext, prerequisite);
-      Artifact grepIncludes = ruleContext.getPrerequisiteArtifact("$grep_includes", Mode.HOST);
-      ruleContext.registerAction(
-          new ExtractInclusionAction(
-              ruleContext.getActionOwner(), prerequisite, scanned, grepIncludes));
-      return scanned;
-    }
-    return null;
-  }
-
-  private static Artifact getIncludesOutput(RuleContext ruleContext, Artifact src) {
-    Preconditions.checkArgument(!src.isSourceArtifact(), src);
-    return ruleContext.getGenfilesArtifact(
-        src.getRootRelativePath().replaceName(src.getFilename() + GREPPED_INCLUDES_SUFFIX));
-  }
-
-  /**
    * Returns the linked artifact.
    *
    * @param ruleContext the ruleContext to be used to scope the artifact
@@ -757,8 +668,6 @@ public class CppHelper {
       return;
     }
 
-    Tool stripTool =
-        Preconditions.checkNotNull(featureConfiguration.getToolForAction(CppActionNames.STRIP));
     CcToolchainVariables variables =
         new CcToolchainVariables.Builder(toolchain.getBuildVariables())
             .addStringVariable(
@@ -770,7 +679,8 @@ public class CppHelper {
     ImmutableList<String> commandLine =
         ImmutableList.copyOf(featureConfiguration.getCommandLine(CppActionNames.STRIP, variables));
     ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
-    for (String executionRequirement : stripTool.getExecutionRequirements()) {
+    for (String executionRequirement :
+        featureConfiguration.getToolRequirementsForAction(CppActionNames.STRIP)) {
       executionInfoBuilder.put(executionRequirement, "");
     }
     Action[] stripAction =
@@ -779,7 +689,9 @@ public class CppHelper {
             .addTransitiveInputs(toolchain.getStrip())
             .addOutput(output)
             .useDefaultShellEnvironment()
-            .setExecutable(stripTool.getToolPathFragment())
+            .setExecutable(
+                PathFragment.create(
+                    featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
             .setExecutionInfo(executionInfoBuilder.build())
             .setProgressMessage("Stripping %s for %s", output.prettyPrint(), context.getLabel())
             .setMnemonic("CcStrip")

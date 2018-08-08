@@ -28,7 +28,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # specifically for this test suite.
 canary_clash_error="option '--flag_clash_canary' was expanded to from both "
 canary_clash_error+="option '--flag_clash_canary_expander1' and "
-canary_clash_error+="option '--flag_clash_canary_expander2'."
+canary_clash_error+="option '--flag_clash_canary_expander2'"
 
 # Ensures that we didn't change the formatting of the warning message or
 # disable the warning.

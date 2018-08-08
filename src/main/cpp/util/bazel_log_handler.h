@@ -39,10 +39,12 @@ class BazelLogHandler : public blaze_util::LogHandler {
   void SetOutputStreamToStderr() override;
 
  private:
-  void FlushBufferToNewStreamAndSet(std::ostream* new_output_stream);
+  void FlushBufferToNewStreamAndSet(std::stringstream* buffer,
+                                    std::ostream* new_output_stream);
   bool output_stream_set_;
   bool logging_deactivated_;
-  std::unique_ptr<std::stringstream> buffer_stream_;
+  std::unique_ptr<std::stringstream> user_buffer_stream_;
+  std::unique_ptr<std::stringstream> debug_buffer_stream_;
   // The actual output_stream to which all logs will be sent.
   std::ostream* output_stream_;
   // A unique pts to the output_stream, if we need to keep ownership of the

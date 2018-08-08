@@ -394,7 +394,8 @@ public class FilesystemValueChecker {
     // There doesn't appear to be any facility to batch list directories... we must
     // do things the 'slow' way.
     try {
-      Set<PathFragment> currentDirectoryValue = TreeArtifactValue.explodeDirectory(artifact);
+      Set<PathFragment> currentDirectoryValue =
+          TreeArtifactValue.explodeDirectory(artifact.getPath());
       Set<PathFragment> valuePaths = value.getChildPaths();
       return !currentDirectoryValue.equals(valuePaths);
     } catch (IOException e) {

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -74,7 +75,7 @@ public interface Executor {
    * This is provided so the caller of reportSubcommand can avoid wastefully constructing the
    * subcommand string.
    */
-  boolean reportsSubcommands();
+  ShowSubcommands reportsSubcommands();
 
   /**
    * An event listener to report messages to. Errors that signal a action failure should use

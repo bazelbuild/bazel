@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.clock.Clock;
@@ -44,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class BlazeExecutor implements Executor {
 
   private final boolean verboseFailures;
-  private final boolean showSubcommands;
+  private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final Reporter reporter;
@@ -123,7 +124,7 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public boolean reportsSubcommands() {
+  public ShowSubcommands reportsSubcommands() {
     return showSubcommands;
   }
 

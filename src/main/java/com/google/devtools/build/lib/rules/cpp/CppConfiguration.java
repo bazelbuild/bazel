@@ -139,16 +139,24 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /**
    * Values for the --hdrs_check option. Note that Bazel only supports and will default to "strict".
    */
-  public static enum HeadersCheckingMode {
+  public enum HeadersCheckingMode {
     /**
      * Legacy behavior: Silently allow any source header file in any of the directories of the
      * containing package to be included by sources in this rule and dependent rules.
      */
     LOOSE,
-    /** Warn about undeclared headers. */
-    WARN,
     /** Disallow undeclared headers. */
-    STRICT
+    STRICT;
+
+    public static HeadersCheckingMode getValue(String value) {
+      if (value.equalsIgnoreCase("loose") || value.equalsIgnoreCase("warn")) {
+        return LOOSE;
+      }
+      if (value.equalsIgnoreCase("strict")) {
+        return STRICT;
+      }
+      throw new IllegalArgumentException();
+    }
   }
 
   /**
@@ -208,7 +216,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> compilerFlags;
   private final ImmutableList<String> cxxFlags;
   private final ImmutableList<String> unfilteredCompilerFlags;
-  private final ImmutableList<String> cOptions;
+  private final ImmutableList<String> conlyopts;
 
   private final ImmutableList<String> mostlyStaticLinkFlags;
   private final ImmutableList<String> mostlyStaticSharedLinkFlags;
@@ -216,7 +224,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
 
-  private final ImmutableList<String> linkOptions;
+  private final ImmutableList<String> linkopts;
   private final ImmutableList<String> ltoindexOptions;
   private final ImmutableList<String> ltobackendOptions;
 
@@ -324,13 +332,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> compilerFlags,
       ImmutableList<String> cxxFlags,
       ImmutableList<String> unfilteredCompilerFlags,
-      ImmutableList<String> cOptions,
+      ImmutableList<String> conlyopts,
       ImmutableList<String> mostlyStaticLinkFlags,
       ImmutableList<String> mostlyStaticSharedLinkFlags,
       ImmutableList<String> dynamicLinkFlags,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
-      ImmutableList<String> linkOptions,
+      ImmutableList<String> linkopts,
       ImmutableList<String> ltoindexOptions,
       ImmutableList<String> ltobackendOptions,
       CppOptions cppOptions,
@@ -353,13 +361,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.compilerFlags = compilerFlags;
     this.cxxFlags = cxxFlags;
     this.unfilteredCompilerFlags = unfilteredCompilerFlags;
-    this.cOptions = cOptions;
+    this.conlyopts = conlyopts;
     this.mostlyStaticLinkFlags = mostlyStaticLinkFlags;
     this.mostlyStaticSharedLinkFlags = mostlyStaticSharedLinkFlags;
     this.dynamicLinkFlags = dynamicLinkFlags;
     this.copts = copts;
     this.cxxopts = cxxopts;
-    this.linkOptions = linkOptions;
+    this.linkopts = linkopts;
     this.ltoindexOptions = ltoindexOptions;
     this.ltobackendOptions = ltobackendOptions;
     this.cppOptions = cppOptions;
@@ -594,7 +602,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   public ImmutableList<String> getCOptions() {
-    return cOptions;
+    return conlyopts;
   }
 
   /**
@@ -675,12 +683,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Deprecated
   ImmutableList<String> getLinkOptionsDoNotUse(@Nullable PathFragment sysroot) {
     if (sysroot == null) {
-      return linkOptions;
+      return linkopts;
     } else {
-      return ImmutableList.<String>builder()
-          .addAll(linkOptions)
-          .add("--sysroot=" + sysroot)
-          .build();
+      return ImmutableList.<String>builder().addAll(linkopts).add("--sysroot=" + sysroot).build();
     }
   }
 
@@ -688,11 +693,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     if (dropFullyStaticLinkingMode()) {
       return false;
     }
-    return linkOptions.contains("-static");
+    return linkopts.contains("-static");
   }
 
   public boolean hasSharedLinkOption() {
-    return linkOptions.contains("-shared");
+    return linkopts.contains("-shared");
   }
 
   /** Returns the set of command-line LTO indexing options. */
@@ -974,10 +979,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useInterfaceSharedObjects;
   }
 
-  public boolean getEnableCcSkylarkApi() {
-    return cppOptions.enableCcSkylarkApi;
-  }
-
   /**
    * Returns the path to the GNU binutils 'objcopy' binary to use for this build. (Corresponds to
    * $(OBJCOPY) in make-dbg.) Relative paths are relative to the execution root.
@@ -1055,14 +1056,28 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.experimentalOmitfp;
   }
 
-  /** Returns copts given at the Bazel command line. */
+  /** Returns flags passed to Bazel by --copt option. */
+  @Override
   public ImmutableList<String> getCopts() {
     return copts;
   }
 
-  /** Returns copts for c++ given at the Bazel command line. */
+  /** Returns flags passed to Bazel by --cxxopt option. */
+  @Override
   public ImmutableList<String> getCxxopts() {
     return cxxopts;
+  }
+
+  /** Returns flags passed to Bazel by --conlyopt option. */
+  @Override
+  public ImmutableList<String> getConlyopts() {
+    return conlyopts;
+  }
+
+  /** Returns flags passed to Bazel by --linkopt option. */
+  @Override
+  public ImmutableList<String> getLinkopts() {
+    return linkopts;
   }
 
   @Override

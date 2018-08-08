@@ -208,8 +208,8 @@ public class BazelJavaRuleClasses {
             <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
             (a "src" directory followed by a "resources" directory grandchild). If that is not
             found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
-            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
-             path y/java/z. This heuristic cannot be overridden.
+            example, if a resource is at <code>&lt;workspace root&gt;/x/java/y/java/z</code>, the
+            path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden.
           </p>
 
           <p>

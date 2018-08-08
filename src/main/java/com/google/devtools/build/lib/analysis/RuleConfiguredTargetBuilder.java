@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
+import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Builder class for analyzed rule instances.
@@ -79,7 +81,11 @@ public final class RuleConfiguredTargetBuilder {
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
-  /** Constructs the RuleConfiguredTarget instance based on the values set for this Builder. */
+  /**
+   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
+   * Returns null if there were rule errors reported.
+   */
+  @Nullable
   public ConfiguredTarget build() throws ActionConflictException {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
@@ -178,7 +184,7 @@ public final class RuleConfiguredTargetBuilder {
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
       EnvironmentCollection.Builder refinedEnvironments = new EnvironmentCollection.Builder();
-      Map<Label, LabelAndLocation> removedEnvironmentCulprits = new LinkedHashMap<>();
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
       constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
           removedEnvironmentCulprits);
       add(SupportedEnvironmentsProvider.class,

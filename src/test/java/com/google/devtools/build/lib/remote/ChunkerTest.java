@@ -47,7 +47,7 @@ public class ChunkerTest {
     rand.nextBytes(expectedData);
     Digest expectedDigest = digestUtil.compute(expectedData);
 
-    Chunker chunker = new Chunker(expectedData, 10, digestUtil);
+    Chunker chunker = Chunker.builder(digestUtil).setInput(expectedData).setChunkSize(10).build();
 
     ByteArrayOutputStream actualData = new ByteArrayOutputStream();
 
@@ -74,13 +74,13 @@ public class ChunkerTest {
 
     assertThat(chunker.hasNext()).isFalse();
 
-    assertThat(expectedData).isEqualTo(actualData.toByteArray());
+    assertThat(actualData.toByteArray()).isEqualTo(expectedData);
   }
 
   @Test
   public void nextShouldThrowIfNoMoreData() throws IOException {
     byte[] data = new byte[10];
-    Chunker chunker = new Chunker(data, 10, digestUtil);
+    Chunker chunker = Chunker.builder(digestUtil).setInput(data).setChunkSize(10).build();
 
     assertThat(chunker.hasNext()).isTrue();
     assertThat(chunker.next()).isNotNull();
@@ -98,7 +98,7 @@ public class ChunkerTest {
   @Test
   public void emptyData() throws Exception {
     byte[] data = new byte[0];
-    Chunker chunker = new Chunker(data, digestUtil);
+    Chunker chunker = Chunker.builder(digestUtil).setInput(data).build();
 
     assertThat(chunker.hasNext()).isTrue();
 
@@ -121,7 +121,7 @@ public class ChunkerTest {
   @Test
   public void reset() throws Exception {
     byte[] data = new byte[]{1, 2, 3};
-    Chunker chunker = new Chunker(data, 1, digestUtil);
+    Chunker chunker = Chunker.builder(digestUtil).setInput(data).setChunkSize(1).build();
 
     assertNextEquals(chunker, (byte) 1);
     assertNextEquals(chunker, (byte) 2);

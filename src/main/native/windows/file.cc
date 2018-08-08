@@ -28,6 +28,36 @@ namespace windows {
 using std::unique_ptr;
 using std::wstring;
 
+static wstring uint32asHexString(uint32_t value) {
+  WCHAR attr_str[8];
+  for (int i = 0; i < 8; ++i) {
+    attr_str[7 - i] = L"0123456789abcdef"[value & 0xF];
+    value >>= 4;
+  }
+  return wstring(attr_str, 8);
+}
+
+static DWORD GetAttributesOfMaybeMissingFile(const WCHAR* path) {
+  // According to a comment in .NET CoreFX [1] (which is the only relevant
+  // information we found as of 2018-07-13) GetFileAttributesW may fail with
+  // ERROR_ACCESS_DENIED if the file is marked for deletion but not yet
+  // actually deleted, but FindFirstFileW should succeed even then.
+  //
+  // [1]
+  // https://github.com/dotnet/corefx/blob/f25eb288a449010574a6e95fe298f3ad880ada1e/src/System.IO.FileSystem/src/System/IO/FileSystem.Windows.cs#L205-L208
+  WIN32_FIND_DATAW find_data;
+  HANDLE find = FindFirstFileW(path, &find_data);
+  if (find == INVALID_HANDLE_VALUE) {
+    // The path is deleted and we couldn't create a directory there.
+    // Give up.
+    return INVALID_FILE_ATTRIBUTES;
+  }
+  FindClose(find);
+  // The path exists, yet we cannot open it for metadata-reading. Report at
+  // least the attributes, then give up.
+  return find_data.dwFileAttributes;
+}
+
 int IsJunctionOrDirectorySymlink(const WCHAR* path) {
   DWORD attrs = ::GetFileAttributesW(path);
   if (attrs == INVALID_FILE_ATTRIBUTES) {
@@ -125,42 +155,27 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
                            ? junction_name
                            : (wstring(L"\\\\?\\") + junction_name);
 
-  // `create` is true if we attempt to create or set the junction, i.e. can open
-  // the file for writing. `create` is false if we only check that the existing
-  // file is a junction, i.e. we can only open it for reading.
-  bool create = true;
-
   // Junctions are directories, so create a directory.
-  if (!::CreateDirectoryW(name.c_str(), NULL)) {
-    DWORD err = GetLastError();
-    if (err == ERROR_PATH_NOT_FOUND) {
-      // A parent directory does not exist.
-      return CreateJunctionResult::kParentMissing;
-    }
-    if (err == ERROR_ALREADY_EXISTS) {
-      create = false;
-    } else {
-      // Some unknown error occurred.
-      if (error) {
-        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateDirectoryW",
-                                  name, err);
-      }
-      return CreateJunctionResult::kError;
-    }
-    // The directory already existed.
-    // It may be a file, an empty directory, a non-empty directory, a junction
-    // pointing to the wrong target, or ideally a junction pointing to the
-    // right target.
+  // If CreateDirectoryW succeeds, we'll try to set the junction's target.
+  // If CreateDirectoryW fails, we don't care about the exact reason -- could be
+  // that the directory already exists, or we have no access to create a
+  // directory, or the path was invalid to begin with. Either way set `create`
+  // to false, meaning we'll just attempt to open the path for metadata-reading
+  // and check if it's a junction pointing to the desired target.
+  bool create = CreateDirectoryW(name.c_str(), NULL) != 0;
+
+  AutoHandle handle;
+  if (create) {
+    handle = CreateFileW(
+        name.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
   }
 
-  AutoHandle handle(CreateFileW(
-      name.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL,
-      OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
-      NULL));
   if (!handle.IsValid()) {
-    DWORD err = GetLastError();
-    // We can't open the directory for writing: either it disappeared, or turned
-    // into a file, or another process holds it open without write-sharing.
+    // We can't open the directory for writing: either we didn't even try to
+    // (`create` was false), or the path disappeared, or it turned into a file,
+    // or another process holds it open without write-sharing.
     // Either way, don't try to create the junction, just try opening it without
     // any read or write access (we can still read its metadata) and maximum
     // sharing, and check its target.
@@ -171,8 +186,8 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
         FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
     if (!handle.IsValid()) {
       // We can't open the directory at all: either it disappeared, or it turned
-      // into a file, or another process holds it open without any sharing.
-      // Give up.
+      // into a file, or the path is invalid, or another process holds it open
+      // without any sharing. Give up.
       DWORD err = GetLastError();
       if (err == ERROR_SHARING_VIOLATION) {
         // The junction is held open by another process.
@@ -183,10 +198,23 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
         return CreateJunctionResult::kDisappeared;
       }
 
-      // Some unknown error occurred.
-      if (error) {
-        *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW",
-                                  name, err);
+      wstring err_str = uint32asHexString(err);
+      // The path seems to exist yet we cannot open it for metadata-reading.
+      // Report as much information as we have, then give up.
+      DWORD attr = GetAttributesOfMaybeMissingFile(name.c_str());
+      if (attr == INVALID_FILE_ATTRIBUTES) {
+        if (error) {
+          *error = MakeErrorMessage(
+              WSTR(__FILE__), __LINE__, L"CreateFileW", name,
+              wstring(L"err=0x") + err_str + L", invalid attributes");
+        }
+      } else {
+        if (error) {
+          *error =
+              MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", name,
+                               wstring(L"err=0x") + err_str + L", attr=0x" +
+                                   uint32asHexString(attr));
+        }
       }
       return CreateJunctionResult::kError;
     }
@@ -233,17 +261,9 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
         // print the attributes and return kError, to give more information to
         // the user.
         if (error) {
-          // Print the attributes as a 32-bit hexadecimal number.
-          WCHAR attr_str[9];
-          DWORD attr_value = info.dwFileAttributes;
-          attr_str[8] = 0;
-          for (int i = 0; i < 8; ++i) {
-            attr_str[7 - i] = L"0123456789abcdef"[attr_value & 0xF];
-            attr_value >>= 4;
-          }
-          *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                    L"GetFileInformationByHandle", name,
-                                    wstring(L"attrs=0x") + attr_str);
+          *error = MakeErrorMessage(
+              WSTR(__FILE__), __LINE__, L"GetFileInformationByHandle", name,
+              wstring(L"attrs=0x") + uint32asHexString(info.dwFileAttributes));
         }
         return CreateJunctionResult::kError;
       }
@@ -352,7 +372,8 @@ int DeletePath(const wstring& path, wstring* error) {
   if (!DeleteFileW(wpath)) {
     DWORD err = GetLastError();
     if (err == ERROR_SHARING_VIOLATION) {
-      // The file or directory is in use by some process.
+      // The file or directory is in use by some process or we have no
+      // permission to delete it.
       return DeletePathResult::kAccessDenied;
     } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
       // The file or directory does not exist, or a parent directory does not
@@ -385,21 +406,11 @@ int DeletePath(const wstring& path, wstring* error) {
         return DeletePathResult::kError;
       }
 
-      // According to a comment in .NET CoreFX [1] (which is the only relevant
-      // information we found as of 2018-07-13) GetFileAttributesW may fail with
-      // ERROR_ACCESS_DENIED if the file is marked for deletion but not yet
-      // actually deleted, but FindFirstFileW should succeed even then.
-      //
-      // [1]
-      // https://github.com/dotnet/corefx/blob/f25eb288a449010574a6e95fe298f3ad880ada1e/src/System.IO.FileSystem/src/System/IO/FileSystem.Windows.cs#L205-L208
-      WIN32_FIND_DATAW find_data;
-      HANDLE find = FindFirstFileW(wpath, &find_data);
-      if (find == INVALID_HANDLE_VALUE) {
+      attr = GetAttributesOfMaybeMissingFile(wpath);
+      if (attr == INVALID_FILE_ATTRIBUTES) {
         // The path is already deleted.
         return DeletePathResult::kDoesNotExist;
       }
-      FindClose(find);
-      attr = find_data.dwFileAttributes;
     }
 
     if (attr & FILE_ATTRIBUTE_DIRECTORY) {
@@ -407,8 +418,9 @@ int DeletePath(const wstring& path, wstring* error) {
       if (!RemoveDirectoryW(wpath)) {
         // Failed to delete the directory.
         err = GetLastError();
-        if (err == ERROR_SHARING_VIOLATION) {
-          // The junction or directory is in use by another process.
+        if (err == ERROR_SHARING_VIOLATION || err == ERROR_ACCESS_DENIED) {
+          // The junction or directory is in use by another process, or we have
+          // no permission to delete it.
           return DeletePathResult::kAccessDenied;
         } else if (err == ERROR_DIR_NOT_EMPTY) {
           // The directory is not empty.
@@ -422,7 +434,7 @@ int DeletePath(const wstring& path, wstring* error) {
         // Some unknown error occurred.
         if (error) {
           *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                    L"DeleteDirectoryW", path, err);
+                                    L"RemoveDirectoryW", path, err);
         }
         return DeletePathResult::kError;
       }

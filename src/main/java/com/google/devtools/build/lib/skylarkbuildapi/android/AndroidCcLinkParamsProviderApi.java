@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsStoreApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
     name = "AndroidCcLinkParamsInfo",
     doc = "Information about the c++ libraries to be linked into Android targets.",
     category = SkylarkModuleCategory.PROVIDER)
-public interface AndroidCcLinkParamsProviderApi<T extends CcLinkParamsStoreApi> extends StructApi {
+public interface AndroidCcLinkParamsProviderApi<T extends CcLinkingInfoApi> extends StructApi {
   /** Name of this info object. */
   public static String NAME = "AndroidCcLinkParamsInfo";
 
@@ -39,7 +39,7 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcLinkParamsStoreApi> 
 
   /** The provider implementing this can construct the AndroidCcLinkParamsInfo provider. */
   @SkylarkModule(name = "Provider", doc = "", documented = false)
-  public interface Provider<T extends CcLinkParamsStoreApi> extends ProviderApi {
+  public interface Provider<T extends CcLinkingInfoApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
@@ -47,10 +47,10 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcLinkParamsStoreApi> 
         parameters = {
           @Param(
               name = "store",
-              doc = "The cc link params store.",
+              doc = "The CcLinkingInfo provider.",
               positional = true,
               named = false,
-              type = CcLinkParamsStoreApi.class),
+              type = CcLinkingInfoApi.class),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidCcLinkParamsProviderApi.class)

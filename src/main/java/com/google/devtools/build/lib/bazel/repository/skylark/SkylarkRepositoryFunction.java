@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -37,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -63,6 +66,19 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     if (skylarkSemantics == null) {
       return null;
     }
+
+    Set<String> verificationRules =
+        RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.get(env);
+    if (verificationRules == null) {
+      return null;
+    }
+    ResolvedHashesValue resolvedHashesValue =
+        (ResolvedHashesValue) env.getValue(ResolvedHashesValue.key());
+    if (resolvedHashesValue == null) {
+      return null;
+    }
+    Map<String, String> resolvedHashes = resolvedHashesValue.getHashes();
+
     try (Mutability mutability = Mutability.create("skylark repository")) {
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
@@ -105,8 +121,31 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
         env.getListener()
             .handle(Event.info("Repository rule '" + rule.getName() + "' returned: " + retValue));
       }
+
+      String ruleClass =
+          rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
+      if (verificationRules.contains(ruleClass)) {
+        String expectedHash = resolvedHashes.get(rule.getName());
+        if (expectedHash != null) {
+          try {
+            String actualHash = outputDirectory.getDirectoryDigest();
+            if (!expectedHash.equals(actualHash)) {
+              throw new RepositoryFunctionException(
+                  new IOException(
+                      rule + " failed to create a directory with expected hash " + expectedHash),
+                  Transience.PERSISTENT);
+            }
+          } catch (IOException e) {
+            throw new RepositoryFunctionException(
+                new IOException("Rule failed to produce a directory with computable hash", e),
+                Transience.PERSISTENT);
+          }
+        }
+      }
       env.getListener()
-          .post(new RepositoryResolvedEvent(rule, skylarkRepositoryContext.getAttr(), retValue));
+          .post(
+              new RepositoryResolvedEvent(
+                  rule, skylarkRepositoryContext.getAttr(), outputDirectory, retValue));
     } catch (EvalException e) {
       if (e.getCause() instanceof RepositoryMissingDependencyException) {
         // A dependency is missing, cleanup and returns null

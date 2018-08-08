@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AbstractRuleErrorConsumer;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -62,14 +63,15 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
           "android.jar",
           "ResourceProcessorBusyBox_deploy.jar");
 
-  private static final ArtifactOwner OWNER = () -> {
-    try {
-      return Label.create("java", "all");
-    } catch (LabelSyntaxException e) {
-      assertWithMessage(e.getMessage()).fail();
-      return null;
-    }
-  };
+  private static final ArtifactOwner OWNER =
+      () -> {
+        try {
+          return Label.create("java", "all");
+        } catch (LabelSyntaxException e) {
+          assertWithMessage(e.getMessage()).fail();
+          return null;
+        }
+      };
 
   /** A faked {@link RuleErrorConsumer} that validates that only expected errors were reported. */
   public static final class FakeRuleErrorConsumer extends AbstractRuleErrorConsumer
@@ -202,8 +204,16 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
     return builder.build();
   }
 
-  public Artifact getResource(String pathString) {
-    Path path = fileSystem.getPath("/" + RESOURCE_ROOT + "/" + pathString);
+  Artifact getResource(String pathString) {
+    return getArtifact(RESOURCE_ROOT, pathString);
+  }
+
+  Artifact getOutput(String pathString) {
+    return getArtifact("outputs", pathString);
+  }
+
+  private Artifact getArtifact(String subdir, String pathString) {
+    Path path = fileSystem.getPath("/" + subdir + "/" + pathString);
     return new Artifact(
         root, root.getExecPath().getRelative(root.getRoot().relativize(path)), OWNER);
   }
@@ -230,9 +240,38 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,
-            null),
+            null,
+            /*sourceDependencyListener=*/ unused -> {}),
         new BuildConfigurationCollection(
             ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
+  }
+
+  public ValidatedAndroidResources makeValidatedResourcesFor(
+      ImmutableList<Artifact> resources,
+      boolean includeAapt2Outs,
+      ProcessedAndroidManifest manifest,
+      ResourceDependencies resourceDependencies)
+      throws RuleErrorException {
+    return ValidatedAndroidResources.of(
+        MergedAndroidResources.of(
+            ParsedAndroidResources.of(
+                AndroidResources.forResources(errorConsumer, resources, "resource_files"),
+                getOutput("symbols.bin"),
+                includeAapt2Outs ? getOutput("symbols.zip") : null,
+                manifest.getManifest().getOwnerLabel(),
+                manifest,
+                DataBinding.asDisabledDataBindingContext()),
+            getOutput("merged/resources.zip"),
+            getOutput("class.jar"),
+            /* dataBindingInfoZip = */ null,
+            resourceDependencies,
+            manifest),
+        getOutput("r.txt"),
+        getOutput("source.jar"),
+        getOutput("resources.apk"),
+        includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
+        includeAapt2Outs ? getOutput("aapt2-source.jar") : null,
+        includeAapt2Outs ? getOutput("aapt2-static-lib") : null);
   }
 
   /**

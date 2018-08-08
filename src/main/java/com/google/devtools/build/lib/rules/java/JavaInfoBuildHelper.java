@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvid
 import static java.util.stream.Stream.concat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -195,7 +196,7 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(outputJar, compileJar, sourceJars)
+            .addOutputJar(outputJar, compileJar, null /* manifestProto */, sourceJars)
             .setJdeps(jdeps)
             .build();
     javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);
@@ -466,8 +467,11 @@ final class JavaInfoBuildHelper {
     helper.addAllExports(exportsCompilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode.toUpperCase()));
 
-    helper.addAllPlugins(JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
-    helper.addAllPlugins(JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
+    helper.setPlugins(
+        JavaPluginInfoProvider.merge(
+            Iterables.concat(
+                JavaInfo.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class),
+                JavaInfo.fetchProvidersFromList(deps, JavaPluginInfoProvider.class))));
     helper.setNeverlink(neverlink);
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
@@ -524,9 +528,17 @@ final class JavaInfoBuildHelper {
 
     NestedSetBuilder<Artifact> transitiveSourceJars =
         NestedSetBuilder.<Artifact>stableOrder().addAll(outputSourceJars);
-    for (JavaSourceJarsProvider sourceJarsProvider :
-        JavaInfo.getProvidersFromListOfJavaProviders(JavaSourceJarsProvider.class, deps)) {
-      transitiveSourceJars.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
+    Stream.concat(deps.stream(), exports.stream())
+        .filter(javaInfo -> javaInfo.getProvider(JavaSourceJarsProvider.class) != null)
+        .map(javaInfo -> javaInfo.getProvider(JavaSourceJarsProvider.class))
+        .forEach(
+            sourceJarsP ->
+                transitiveSourceJars.addTransitive(sourceJarsP.getTransitiveSourceJars()));
+
+    // When sources are not provided, the subsequent output Jar will be empty. As such, the output
+    // Jar is omitted from the set of Runtime Jars.
+    if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
+      javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
     }
 
     return javaInfoBuilder
@@ -538,7 +550,6 @@ final class JavaInfoBuildHelper {
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
         .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
         .setNeverlink(neverlink)
-        .setRuntimeJars(ImmutableList.of(outputJar))
         .build();
   }
 

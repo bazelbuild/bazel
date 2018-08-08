@@ -35,6 +35,9 @@ build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
 EOF
 
 function set_up {
+  export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
+  export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
+
   mkdir -p examples/genrule
   cat << 'EOF' > examples/genrule/a.txt
 foo bar bz
@@ -513,7 +516,7 @@ EOF
   expect_not_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
 
   # This is the error message telling us that some output artifacts couldn't be copied.
-  expect_log "Could not move output artifacts from sandboxed execution."
+  expect_log "Could not move output artifacts from sandboxed execution"
 
   # The build fails, because the action didn't generate its output artifact.
   expect_log "ERROR:.*Executing genrule //:test failed"

@@ -280,14 +280,8 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(
-            RemoteOptions.class, AuthAndTLSOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
-  }
-
-  public static boolean remoteEnabled(RemoteOptions options) {
-    return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
-        || GrpcRemoteCache.isRemoteCacheOptions(options);
+        ? ImmutableList.of(RemoteOptions.class, AuthAndTLSOptions.class)
+        : ImmutableList.of();
   }
 
   static RemoteRetrier createExecuteRetrier(

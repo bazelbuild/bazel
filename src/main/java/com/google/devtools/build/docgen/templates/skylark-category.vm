@@ -4,7 +4,7 @@ title: ${category.title}
 ---
 <h1>${category.title}</h1>
 
-${category.description}
+${description}
 
 <div class="toc">
 <ul>

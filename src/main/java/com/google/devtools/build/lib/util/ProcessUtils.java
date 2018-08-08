@@ -44,6 +44,7 @@ public final class ProcessUtils {
    * @throws UnsatisfiedLinkError when JNI is not available.
    */
   public static int getpid() {
+    // TODO(ulfjack): Use ProcessHandle.current().getPid() here.
     if (OS.getCurrent() == OS.WINDOWS) {
       return WindowsProcesses.getpid();
     } else {

@@ -91,8 +91,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
-            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
   }
 
   @Override
@@ -323,8 +323,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
-            ImmutableMap.<String, String>of(),
             tsgm);
+    getSkyframeExecutor().setActionEnv(ImmutableMap.<String, String>of());
     assertSrcs(validPackage(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
   }
 

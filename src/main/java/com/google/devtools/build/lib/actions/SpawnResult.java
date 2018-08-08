@@ -182,6 +182,10 @@ public interface SpawnResult {
    */
   Optional<Long> getNumInvoluntaryContextSwitches();
 
+  default SpawnMetrics getMetrics() {
+    return SpawnMetrics.forLocalExecution(getWallTime().orElse(Duration.ZERO));
+  }
+
   /** Whether the spawn result was a cache hit. */
   boolean isCacheHit();
 

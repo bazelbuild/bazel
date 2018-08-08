@@ -77,7 +77,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
-          JavaStrictCompilationArgsProvider.class);
+          JavaStrictCompilationArgsProvider.class,
+          JavaSourceInfoProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -553,6 +554,16 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     public JavaInfo build() {
+      // TODO(twerth): Clean up after we remove java_proto_library.strict_deps.
+      // Instead of teaching every (potential Skylark) caller to also create the provider for strict
+      // deps we wrap the non strict provider instead.
+      if (!providerMap.contains(JavaStrictCompilationArgsProvider.class)
+          && providerMap.contains(JavaCompilationArgsProvider.class)) {
+        JavaStrictCompilationArgsProvider javaStrictCompilationArgsProvider =
+            new JavaStrictCompilationArgsProvider(
+                providerMap.getProvider(JavaCompilationArgsProvider.class));
+        addProvider(JavaStrictCompilationArgsProvider.class, javaStrictCompilationArgsProvider);
+      }
       return new JavaInfo(providerMap.build(), runtimeJars, neverlink, javaConstraints, location);
     }
   }

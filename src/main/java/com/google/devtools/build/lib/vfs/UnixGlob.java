@@ -568,14 +568,13 @@ public final class UnixGlob {
       pendingOps.incrementAndGet();
       try {
         for (String[] splitPattern : splitPatterns) {
-          boolean containsRecursivePattern = false;
+          int numRecursivePatterns = 0;
           for (String pattern : splitPattern) {
             if (isRecursivePattern(pattern)) {
-              containsRecursivePattern = true;
-              break;
+              ++numRecursivePatterns;
             }
           }
-          GlobTaskContext context = containsRecursivePattern
+          GlobTaskContext context = numRecursivePatterns > 1
               ? new RecursiveGlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls)
               : new GlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls);
           context.queueGlob(base, baseStat.isDirectory(), 0);
@@ -819,20 +818,18 @@ public final class UnixGlob {
         }
         boolean childIsDir = (type == Dirent.Type.DIRECTORY);
         String text = dent.getName();
-        // Optimize allocations for the case where the pattern doesn't match the dirent.
-        Path child = null;
 
         if (isRecursivePattern) {
-          // Recurse without shifting the pattern.
+          Path child = base.getChild(text);
+          // Recurse without shifting the pattern. The case where we shifting the pattern is
+          // already handled by the special case above.
           if (childIsDir) {
-            child = base.getChild(text);
             context.queueGlob(child, childIsDir, idx);
+          } else if (idx + 1 == context.patternParts.length) {
+            results.add(child);
           }
-        }
-        if (matches(pattern, text, cache)) {
-          if (child == null) {
-            child = base.getChild(text);
-          }
+        } else if (matches(pattern, text, cache)) {
+          Path child = base.getChild(text);
 
           // Recurse and consume one segment of the pattern.
           if (childIsDir) {

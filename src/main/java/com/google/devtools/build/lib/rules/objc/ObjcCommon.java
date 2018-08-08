@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -302,6 +303,7 @@ public final class ObjcCommon {
       return this;
     }
 
+    @Deprecated // Use the BuiltinProvider method instead.
     private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
         ImmutableList.Builder<T> listBuilder,
         TransitiveInfoCollection collection,
@@ -313,6 +315,16 @@ public final class ObjcCommon {
       return listBuilder;
     }
 
+    private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
+        ImmutableList.Builder<T> listBuilder,
+        TransitiveInfoCollection collection,
+        BuiltinProvider<T> providerClass) {
+      T provider = collection.get(providerClass);
+      if (provider != null) {
+        listBuilder.add(provider);
+      }
+      return listBuilder;
+    }
 
     /**
      * Add providers which will be exposed both to the declaring rule and to any dependers on the

@@ -152,8 +152,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
-        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
@@ -191,9 +191,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         parser.getOptions(TestOptions.class).multiCpus);
 
     skyframeExecutor.handleDiffs(reporter);
+    skyframeExecutor.setConfigurationFragmentFactories(configurationFragmentFactories);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
-        reporter, configurationFragmentFactories, BuildOptions.of(buildOptionClasses, parser),
-        multiCpu, false);
+        reporter, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
     return collection;
   }
 

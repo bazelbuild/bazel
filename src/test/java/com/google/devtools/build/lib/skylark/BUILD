@@ -45,6 +45,7 @@ java_test(
     srcs = glob([
         "*.java",
     ]),
+    shard_count = 5,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":testutil",

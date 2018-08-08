@@ -420,8 +420,12 @@ static vector<string> GetArgumentArray(
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
   if (!globals->options->GetEmbeddedJavabase().empty()) {
-    // quiet warnings from com.google.protobuf.UnsafeUtil,
+    // In JDK9 we have seen a slow down when using the default G1 collector
+    // and thus switch back to parallel gc.
+    result.push_back("-XX:+UseParallelOldGC");
     // see: https://github.com/google/protobuf/issues/3781
+
+    // quiet warnings from com.google.protobuf.UnsafeUtil,
     result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
   }
 
@@ -437,7 +441,7 @@ static vector<string> GetArgumentArray(
   // versions.
   string error;
   blaze_exit_code::ExitCode jvm_args_exit_code =
-      globals->options->AddJVMArguments(globals->options->GetHostJavabase(),
+      globals->options->AddJVMArguments(globals->options->GetServerJavabase(),
                                         &result, user_options, &error);
   if (jvm_args_exit_code != blaze_exit_code::SUCCESS) {
     BAZEL_DIE(jvm_args_exit_code) << error;
@@ -532,6 +536,16 @@ static vector<string> GetArgumentArray(
   } else {
     result.push_back("--noexpand_configs_in_place");
   }
+  if (!globals->options->digest_function.empty()) {
+    // Only include this if a value is requested - we rely on the empty case
+    // being "null" to set the programmatic default in the server.
+    result.push_back("--digest_function=" + globals->options->digest_function);
+  }
+  if (globals->options->idle_server_tasks) {
+    result.push_back("--idle_server_tasks");
+  } else {
+    result.push_back("--noidle_server_tasks");
+  }
   if (globals->options->oom_more_eagerly) {
     result.push_back("--experimental_oom_more_eagerly");
   } else {
@@ -572,9 +586,9 @@ static vector<string> GetArgumentArray(
   // These flags are passed to the java process only for Blaze reporting
   // purposes; the real interpretation of the jvm flags occurs when we set up
   // the java command line.
-  if (!globals->options->GetExplicitHostJavabase().empty()) {
-    result.push_back("--host_javabase=" +
-                     globals->options->GetExplicitHostJavabase());
+  if (!globals->options->GetExplicitServerJavabase().empty()) {
+    result.push_back("--server_javabase=" +
+                     globals->options->GetExplicitServerJavabase());
   }
   if (globals->options->host_jvm_debug) {
     result.push_back("--host_jvm_debug");
@@ -1511,6 +1525,8 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
       new GrpcBlazeServer(globals->options->connect_timeout_secs));
 
   globals->command_wait_time = blaze_server->AcquireLock();
+  BAZEL_LOG(INFO) << "Acquired the client lock, waited "
+                  << globals->command_wait_time << " milliseconds";
 
   WarnFilesystemType(globals->options->output_base);
 
@@ -1740,12 +1756,37 @@ void GrpcBlazeServer::KillRunningServer() {
   request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
                                  " (for shutdown)");
   request.add_arg("shutdown");
+  BAZEL_LOG(INFO) << "Shutting running server with request ["
+                  << request.ShortDebugString() << "]";
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
 
+  // TODO(b/111179585): Swallowing these responses loses potential messages from
+  // the server, which may be useful in understanding why a shutdown failed.
+  // However, we don't want to spam the user in case the shutdown works
+  // perfectly fine, so we discard the information. For --noblock_for_lock, this
+  // means that we don't output the PID of the competing client, which isn't
+  // great. We could either store the stderr_output returned by the server and
+  // output it in the case of a failed shutdown, or we could add a
+  // special-cased field in RunResponse for this purpose.
   while (reader->Read(&response)) {
   }
 
+  // Check the final message from the server to see if it exited because another
+  // command holds the client lock.
+  if (response.finished()) {
+    if (response.exit_code() == blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK) {
+      assert(!globals->options->block_for_lock);
+      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+          << "Exiting because the lock is held and --noblock_for_lock was "
+             "given.";
+    }
+  }
+
+  // If for any reason the shutdown request failed to initiate a termination,
+  // this is a bug. Yes, this means the server won't be forced to shut down,
+  // which might be the preferred behavior, but it will help identify the bug.
+  assert(response.termination_expected());
   // Wait for the server process to terminate (if we know the server PID).
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
@@ -1808,6 +1849,8 @@ unsigned int GrpcBlazeServer::Communicate() {
   // Release the server lock because the gRPC handles concurrent clients just
   // fine. Note that this may result in two "waiting for other client" messages
   // (one during server startup and one emitted by the server)
+  BAZEL_LOG(INFO)
+      << "Releasing client lock, let the server manage concurrent requests.";
   blaze::ReleaseLock(&blaze_lock_);
 
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
@@ -1911,6 +1954,10 @@ unsigned int GrpcBlazeServer::Communicate() {
           << "changing directory into " << request.working_directory()
           << " failed: " << GetLastErrorString();
     }
+
+    // Execute the requested program, but before doing so, flush everything
+    // we still have to say.
+    fflush(NULL);
     ExecuteProgram(request.argv(0), argv);
   }
 

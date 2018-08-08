@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
@@ -78,8 +79,8 @@ class ExperimentalStateTracker {
 
   // currently running actions, using the path of the primary
   // output as unique identifier.
-  private final Deque<String> nonExecutingActions;
-  private final Deque<String> executingActions;
+  private final LinkedHashSet<String> nonExecutingActions;
+  private final LinkedHashSet<String> executingActions;
   private final Map<String, Action> actions;
   private final Map<String, String> actionStatus;
   // Time the action entered its current status.
@@ -118,8 +119,8 @@ class ExperimentalStateTracker {
   private long bepTransportClosingStartTimeMillis;
 
   ExperimentalStateTracker(Clock clock, int targetWidth) {
-    this.nonExecutingActions = new ArrayDeque<>();
-    this.executingActions = new ArrayDeque<>();
+    this.nonExecutingActions = new LinkedHashSet<>();
+    this.executingActions = new LinkedHashSet<>();
     this.actions = new TreeMap<>();
     this.actionNanoStartTimes = new TreeMap<>();
     this.actionStatus = new TreeMap<>();
@@ -159,10 +160,10 @@ class ExperimentalStateTracker {
   }
 
   void loadingComplete(LoadingPhaseCompleteEvent event) {
-    int count = event.getTargets().size();
+    int count = event.getLabels().size();
     status = "Analyzing";
     if (count == 1) {
-      additionalMessage = "target " + event.getTargets().asList().get(0).getLabel();
+      additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
       additionalMessage = "" + count + " targets";
     }
@@ -248,9 +249,9 @@ class ExperimentalStateTracker {
     // bus before the start notification. In this case the action is already executing,
     // otherwise not yet.
     if (notStartedExecutingActions.remove(name)) {
-      executingActions.addLast(name);
+      executingActions.add(name);
     } else {
-      nonExecutingActions.addLast(name);
+      nonExecutingActions.add(name);
     }
     actions.put(name, action);
     actionNanoStartTimes.put(name, nanoStartTime);
@@ -276,7 +277,7 @@ class ExperimentalStateTracker {
       actionStatus.put(name, strategy);
       // only add the action, if we already know about it being started
       if (actions.get(name) != null) {
-        executingActions.addLast(name);
+        executingActions.add(name);
       } else {
         notStartedExecutingActions.add(name);
       }
@@ -285,7 +286,7 @@ class ExperimentalStateTracker {
       actionStatus.put(name, message);
       // only add the action, if we already know about it being started
       if (actions.get(name) != null) {
-        nonExecutingActions.addLast(name);
+        nonExecutingActions.add(name);
       }
       notStartedExecutingActions.remove(name);
     }

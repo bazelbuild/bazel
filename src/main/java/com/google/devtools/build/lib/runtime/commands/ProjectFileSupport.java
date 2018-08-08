@@ -74,7 +74,7 @@ public final class ProjectFileSupport {
                   BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
               .getPathEntries();
       ProjectFile projectFile = projectFileProvider.getProjectFile(
-          workingDir, packagePath, projectFilePath);
+          workingDir, packagePath, projectFilePath, optionsParser);
       eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
       optionsParser.parse(

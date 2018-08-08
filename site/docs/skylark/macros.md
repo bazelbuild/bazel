@@ -29,14 +29,6 @@ def my_macro(name, visibility=None):
 If you need to know the package name (i.e. which BUILD file is calling the
 macro), use the function [native.package_name()](lib/native.html#package_name).
 
-## Examples
-
-* [Macro creating rules](cookbook.md#macro).
-
-* [Macro creating native rules](cookbook.md#macro_native).
-
-* [Macro combining multiple rules](cookbook.md#macro_compound).
-
 ## Debugging
 
 *   `bazel query --output=build //my/path:all` will show you how the BUILD file

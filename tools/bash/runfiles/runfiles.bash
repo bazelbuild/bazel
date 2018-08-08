@@ -35,8 +35,8 @@
 #     up the library's runtime location, thus we have a chicken-and-egg problem.
 #     Insert the following code snippet to the top of your main script:
 #
-#       set -euo pipefail
 #       # --- begin runfiles.bash initialization ---
+#       set -euo pipefail
 #       if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
 #         if [[ -f "$0.runfiles_manifest" ]]; then
 #           export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"

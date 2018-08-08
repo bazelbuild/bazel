@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
-import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
@@ -45,14 +43,13 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
-import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -82,7 +79,7 @@ public final class AnalysisPhaseRunner {
           InvalidConfigurationException {
 
     // Target pattern evaluation.
-    LoadingResult loadingResult;
+    TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.LOAD);
     try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
       loadingResult = evaluateTargetPatterns(request, validator);
@@ -91,62 +88,44 @@ public final class AnalysisPhaseRunner {
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
-      String instrumentationFilter =
-          InstrumentationFilterSupport.computeInstrumentationFilter(
-              env.getReporter(), loadingResult.getTestsToRun());
-      try {
-        // We're modifying the buildOptions in place, which is not ideal, but we also don't want
-        // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
-        // problem (and the performance loss may not be a big deal).
-        buildOptions.get(BuildConfiguration.Options.class).instrumentationFilter =
-            new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
-      } catch (OptionsParsingException e) {
-        throw new InvalidConfigurationException(e);
+      try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
+        String instrumentationFilter =
+            InstrumentationFilterSupport.computeInstrumentationFilter(
+                env.getReporter(),
+                // TODO(ulfjack): Expensive. Make this part of the TargetPatternPhaseValue or write
+                // a new SkyFunction to compute it?
+                loadingResult.getTestsToRun(env.getReporter(), env.getPackageManager()));
+        try {
+          // We're modifying the buildOptions in place, which is not ideal, but we also don't want
+          // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
+          // problem (and the performance loss may not be a big deal).
+          buildOptions.get(BuildConfiguration.Options.class).instrumentationFilter =
+              new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
+        } catch (OptionsParsingException e) {
+          throw new InvalidConfigurationException(e);
+        }
       }
     }
 
     // Exit if there are any pending exceptions from modules.
     env.throwPendingException();
 
-    // Configuration creation.
-    // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
-    // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
-    BuildConfigurationCollection configurations;
-    try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
-      configurations =
-          env.getSkyframeExecutor()
-              .createConfigurations(
-                  env.getReporter(),
-                  env.getRuntime().getConfigurationFragmentFactories(),
-                  buildOptions,
-                  request.getMultiCpus(),
-                  request.getKeepGoing());
-    }
-
-    env.throwPendingException();
-    if (configurations.getTargetConfigurations().size() == 1) {
-      // TODO(bazel-team): This is not optimal - we retain backwards compatibility in the case
-      // where there's only a single configuration, but we don't send an event in the multi-config
-      // case. Can we do better? [multi-config]
-      env.getEventBus()
-          .post(
-              new MakeEnvironmentEvent(
-                  configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
-    }
-    logger.info("Configurations created");
+    env.getSkyframeExecutor().setConfigurationFragmentFactories(
+        env.getRuntime().getConfigurationFragmentFactories());
 
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult = runAnalysisPhase(request, loadingResult, configurations);
+        analysisResult =
+            runAnalysisPhase(request, loadingResult, buildOptions, request.getMultiCpus());
       }
 
       // Check licenses.
       // We check licenses if the first target configuration has license checking enabled. Right
       // now, it is not possible to have multiple target configurations with different settings
       // for this flag, which allows us to take this short cut.
-      boolean checkLicenses = configurations.getTargetConfigurations().get(0).checkLicenses();
+      boolean checkLicenses = buildOptions.get(BuildConfiguration.Options.class).checkLicenses;
       if (checkLicenses) {
         Profiler.instance().markPhase(ProfilePhase.LICENSE);
         try (SilentCloseable c = Profiler.instance().profile("validateLicensingForTargets")) {
@@ -182,32 +161,25 @@ public final class AnalysisPhaseRunner {
     return analysisResult;
   }
 
-  private final LoadingResult evaluateTargetPatterns(
+  private final TargetPatternPhaseValue evaluateTargetPatterns(
       final BuildRequest request, final TargetValidator validator)
       throws LoadingFailedException, TargetParsingException, InterruptedException {
-
-    final boolean keepGoing = request.getKeepGoing();
-
-    LoadingCallback callback =
-        new LoadingCallback() {
-          @Override
-          public void notifyTargets(Collection<Target> targets) throws LoadingFailedException {
-            if (validator != null) {
-              validator.validateTargets(targets, keepGoing);
-            }
-          }
-        };
-
-    LoadingResult result =
+    boolean keepGoing = request.getKeepGoing();
+    TargetPatternPhaseValue result =
         env.getSkyframeExecutor()
             .loadTargetPatterns(
                 env.getReporter(),
                 request.getTargets(),
                 env.getRelativeWorkingDirectory(),
                 request.getLoadingOptions(),
+                request.getLoadingPhaseThreadCount(),
                 keepGoing,
-                request.shouldRunTests(),
-                callback);
+                request.shouldRunTests());
+    if (validator != null) {
+      Collection<Target> targets =
+          result.getTargets(env.getReporter(), env.getSkyframeExecutor().getPackageManager());
+      validator.validateTargets(targets, keepGoing);
+    }
     return result;
   }
 
@@ -223,9 +195,10 @@ public final class AnalysisPhaseRunner {
    */
   private AnalysisResult runAnalysisPhase(
       BuildRequest request,
-      LoadingResult loadingResult,
-      BuildConfigurationCollection configurations)
-      throws InterruptedException, ViewCreationFailedException {
+      TargetPatternPhaseValue loadingResult,
+      BuildOptions targetOptions,
+      Set<String> multiCpu)
+      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
@@ -238,7 +211,8 @@ public final class AnalysisPhaseRunner {
     AnalysisResult analysisResult =
         view.update(
             loadingResult,
-            configurations,
+            targetOptions,
+            multiCpu,
             request.getAspects(),
             request.getViewOptions(),
             request.getKeepGoing(),

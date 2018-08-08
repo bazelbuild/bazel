@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -39,12 +40,21 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public BuildOptions patch(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
 
-    if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
-      return buildOptions;
-    }
-
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
     BuildConfiguration.Options configOptions = buildOptions.get(BuildConfiguration.Options.class);
+
+    if (appleOptions.appleCrosstoolInOutputDirectoryName) {
+      if (appleOptions.configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
+        // The configuration distinguisher is only set by AppleCrosstoolTransition and
+        // AppleBinaryTransition, both of which also set the Crosstool and the CPU to Apple ones.
+        // So we are fine not doing anything.
+        return buildOptions;
+      }
+    } else {
+      if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
+        return buildOptions;
+      }
+    }
 
     String cpu =
         ApplePlatform.cpuStringForTarget(
@@ -69,6 +79,10 @@ public class AppleCrosstoolTransition implements PatchTransition {
     to.get(CppOptions.class).crosstoolTop =
         from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
     to.get(AppleCommandLineOptions.class).targetUsesAppleCrosstool = true;
+    if (from.get(AppleCommandLineOptions.class).appleCrosstoolInOutputDirectoryName) {
+      to.get(AppleCommandLineOptions.class).configurationDistinguisher =
+          ConfigurationDistinguisher.APPLE_CROSSTOOL;
+    }
 
     // --compiler = "compiler" for all OSX toolchains.  We do not support asan/tsan, cfi, etc. on
     // darwin.

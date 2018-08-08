@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.lang.reflect.Array;
@@ -146,7 +147,7 @@ final class DebuggerSerialization {
     }
     ImmutableList.Builder<Value> children = ImmutableList.builder();
     for (String fieldName : fieldNames) {
-      FuncallExpression.MethodDescriptor method =
+      MethodDescriptor method =
           FuncallExpression.getStructField(skylarkValue.getClass(), fieldName);
       try {
         children.add(
