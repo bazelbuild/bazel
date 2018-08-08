@@ -35,9 +35,9 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
     this.eventHandler = eventHandler;
   }
 
-  private static ValueOrUntypedException toUntypedValue(NodeEntry nodeEntry)
-      throws InterruptedException {
+  private ValueOrUntypedException toUntypedValue(NodeEntry nodeEntry) throws InterruptedException {
     if (nodeEntry == null || !nodeEntry.isDone()) {
+      valuesMissing = true;
       return ValueOrUntypedException.ofNull();
     }
     SkyValue maybeWrappedValue = nodeEntry.getValueMaybeWithMetadata();
@@ -45,6 +45,7 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
     if (justValue != null) {
       return ValueOrUntypedException.ofValueUntyped(justValue);
     }
+    errorMightHaveBeenFound = true;
     ErrorInfo errorInfo =
         Preconditions.checkNotNull(ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue));
     Exception exception = errorInfo.getException();
