@@ -744,12 +744,13 @@ public final class FuncallExpression extends Expression {
       Environment env)
       throws EvalException, InterruptedException {
     Location location = call.getLocation();
+    if (function != null) {
+      return function.call(positionalArgs, keyWordArgs, call, env);
+    }
     @Nullable
     Object fieldValue =
         (value instanceof ClassObject) ? ((ClassObject) value).getValue(method) : null;
-    if (function != null) {
-      return function.call(positionalArgs, keyWordArgs, call, env);
-    } else if (fieldValue != null) {
+    if (fieldValue != null) {
       if (!(fieldValue instanceof BaseFunction)) {
         throw new EvalException(
             location, String.format("struct field '%s' is not a function", method));
