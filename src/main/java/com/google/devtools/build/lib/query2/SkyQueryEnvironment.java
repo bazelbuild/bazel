@@ -1208,6 +1208,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpressionContext<Target> context,
       Callback<Target> callback) {
     return transformAsync(
+        // Even if we need to do edge filtering, it's fine to construct the rdeps universe via an
+        // unfiltered DTC visitation; the subsequent rdeps visitation will perform the edge
+        // filtering.
         getUnfilteredUniverseDTCSkyKeyPredicateFuture(universe, context),
         unfilteredUniversePredicate -> ParallelSkyQueryUtils.getRdepsInUniverseUnboundedParallel(
             this, expression, unfilteredUniversePredicate, context, callback, packageSemaphore));
@@ -1236,6 +1239,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpressionContext<Target> context,
       Callback<Target> callback) {
     return transformAsync(
+        // Even if we need to do edge filtering, it's fine to construct the rdeps universe via an
+        // unfiltered DTC visitation; the subsequent rdeps visitation will perform the edge
+        // filtering.
         getUnfilteredUniverseDTCSkyKeyPredicateFuture(universe, context),
         universePredicate -> ParallelSkyQueryUtils.getRdepsInUniverseBoundedParallel(
             this, expression, depth, universePredicate, context, callback, packageSemaphore));
