@@ -246,37 +246,6 @@ public class AndroidResourcesProcessorBuilder {
         dataBindingContext);
   }
 
-  public ResourceContainer build(
-      AndroidDataContext dataContext,
-      ResourceContainer primary,
-      DataBindingContext dataBindingContext) {
-    build(
-        dataContext,
-        primary.getAndroidResources(),
-        primary.getAndroidAssets(),
-        ProcessedAndroidManifest.from(primary),
-        dataBindingContext);
-
-    ResourceContainer.Builder builder =
-        primary.toBuilder().setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut).setSymbols(symbols);
-
-    // If there is an apk to be generated, use it, else reuse the apk from the primary resources.
-    // All android_binary ResourceContainers have to have an apk, but if a new one is not
-    // requested to be built for this resource processing action (in case of just creating an
-    // R.txt or proguard merging), reuse the primary resource from the dependencies.
-    if (apkOut != null) {
-      builder.setApk(apkOut);
-    }
-    if (manifestOut != null) {
-      builder.setManifest(manifestOut);
-    }
-    if (mergedResourcesOut != null) {
-      builder.setMergedResources(mergedResourcesOut);
-    }
-
-    return builder.build();
-  }
-
   public ProcessedAndroidData build(
       AndroidDataContext dataContext,
       AndroidResources primaryResources,

@@ -57,12 +57,6 @@ public class RClassGeneratorActionBuilder {
     return this;
   }
 
-  public ResourceContainer build(AndroidDataContext dataContext, ResourceContainer primary) {
-    build(dataContext, primary.getRTxt(), ProcessedAndroidManifest.from(primary));
-
-    return primary.toBuilder().setJavaClassJar(classJarOut).build();
-  }
-
   public ResourceApk build(AndroidDataContext dataContext, ProcessedAndroidData data) {
     build(dataContext, data.getRTxt(), data.getManifest());
 

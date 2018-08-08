@@ -117,7 +117,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     // This will iterate over all (direct) resources. If this turns out to be a performance
-    // problem, {@link ResourceContainer#getArtifacts} can be changed to return NestedSets.
+    // problem, {@link ValidatedAndroidData#getArtifacts()} can be changed to return NestedSets.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
         Iterables.concat(

@@ -124,15 +124,15 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return getGeneratingSpawnAction(resource.getApk());
   }
 
-  protected static ResourceContainer getResourceContainer(ConfiguredTarget target) {
-    return getResourceContainer(target, /* transitive= */ false);
+  protected static ValidatedAndroidResources getValidatedResources(ConfiguredTarget target) {
+    return getValidatedResources(target, /* transitive= */ false);
   }
 
-  protected static ResourceContainer getResourceContainer(
+  protected static ValidatedAndroidResources getValidatedResources(
       ConfiguredTarget target, boolean transitive) {
     ValidatedAndroidData validated = getValidatedData(target, transitive);
-    assertThat(validated).isInstanceOf(ResourceContainer.class);
-    return (ResourceContainer) validated;
+    assertThat(validated).isInstanceOf(ValidatedAndroidResources.class);
+    return (ValidatedAndroidResources) validated;
   }
 
   protected static ValidatedAndroidData getValidatedData(ConfiguredTarget target) {

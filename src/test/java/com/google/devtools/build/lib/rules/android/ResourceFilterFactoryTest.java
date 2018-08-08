@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.BooleanSubject;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -39,34 +38,22 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResourceFilterFactoryTest extends ResourceTestBase {
 
-  private NestedSet<ValidatedAndroidData> getResourceContainers(
-      ImmutableList<Artifact>... resources) throws Exception {
+  private NestedSet<ValidatedAndroidData> getResources(ImmutableList<Artifact>... resources)
+      throws Exception {
     NestedSetBuilder<ValidatedAndroidData> builder = NestedSetBuilder.naiveLinkOrder();
     for (ImmutableList<Artifact> resourceList : resources) {
-      builder.add(getResourceContainer(resourceList));
+      builder.add(getResources(resourceList));
     }
     return builder.build();
   }
 
-  private ResourceContainer getResourceContainer(ImmutableList<Artifact> resources)
+  private ValidatedAndroidResources getResources(ImmutableList<Artifact> resources)
       throws Exception {
-    // Get dummy objects for irrelevant values required by the builder.
-    Artifact manifest = getResource("manifest");
-
-    // Include a hashCode of the resources in the label. A hack in ResourceContainer currently means
-    // that class has a limited hashCode method that doesn't take resources into account.
-    // TODO(bazel-team): Remove this hack once that one no longer exists.
-    Label label =
-        Label.create(
-            manifest.getOwnerLabel().getPackageName(), "resourceContainer_" + resources.hashCode());
-
-    return ResourceContainer.builder()
-        .setAndroidResources(
-            AndroidResources.forResources(errorConsumer, resources, "resource_files"))
-        .setLabel(label)
-        .setManifestExported(false)
-        .setManifest(manifest)
-        .build();
+    return makeValidatedResourcesFor(
+        resources,
+        /* includeAapt2Outs = */ true,
+        new ProcessedAndroidManifest(getOutput("manifest"), "com.some.pkg", /* exported = */ false),
+        ResourceDependencies.empty());
   }
 
   @Test
@@ -363,10 +350,10 @@ public class ResourceFilterFactoryTest extends ResourceTestBase {
     ResourceDependencies resourceDependencies =
         ResourceDependencies.empty()
             .withResources(
-                getResourceContainers(
+                getResources(
                     ImmutableList.of(transitiveResourceToDiscard),
                     ImmutableList.of(transitiveResourceToKeep)),
-                getResourceContainers(
+                getResources(
                     ImmutableList.of(directResourceToDiscard),
                     ImmutableList.of(directResourceToKeep)),
                 new NestedSetBuilder<Artifact>(Order.NAIVE_LINK_ORDER)

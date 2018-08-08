@@ -52,35 +52,6 @@ public final class ResourceApk {
   @Nullable private final Artifact mainDexProguardConfig;
   private final DataBindingContext dataBindingContext;
 
-  static ResourceApk of(
-      ResourceContainer resourceContainer,
-      ResourceDependencies resourceDeps,
-      DataBindingContext dataBindingContext) {
-    return of(resourceContainer, resourceDeps, null, null, dataBindingContext);
-  }
-
-  static ResourceApk of(
-      ResourceContainer resourceContainer,
-      ResourceDependencies resourceDeps,
-      @Nullable Artifact resourceProguardConfig,
-      @Nullable Artifact mainDexProguardConfig,
-      DataBindingContext dataBindingContext) {
-    return new ResourceApk(
-        resourceContainer.getApk(),
-        resourceContainer.getJavaSourceJar(),
-        resourceContainer.getJavaClassJar(),
-        resourceDeps,
-        AssetDependencies.empty(),
-        resourceContainer,
-        resourceContainer.getAndroidResources(),
-        resourceContainer.getAndroidAssets(),
-        resourceContainer.getProcessedManifest(),
-        resourceContainer.getRTxt(),
-        resourceProguardConfig,
-        mainDexProguardConfig,
-        dataBindingContext);
-  }
-
   public static ResourceApk of(
       ValidatedAndroidResources resources,
       MergedAndroidAssets assets,
