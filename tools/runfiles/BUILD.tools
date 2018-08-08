@@ -1,8 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
-alias(
+java_library(
     name = "java-runfiles",
-    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
-    # Add `deprecation` argument and advise to use "@bazel_tools//tools/java/runfiles" after
-    # https://github.com/bazelbuild/bazel/issues/5802 is fixed.
+    exports = ["//src/tools/runfiles/java/com/google/devtools/build/runfiles"],
+    deprecation = "Depend on @bazel_tools//tools/java/runfiles instead. This target goes away in Bazel release 0.18.0",
 )
