@@ -242,3 +242,31 @@ end_of_record"
     tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" | grep "$expected_result_t_cc" \
         || fail "Wrong coverage results for coverage_srcs/t.cc"
 }
+
+function test_cc_test_coverage_gcov() {
+  check_env
+
+  setup_script_environment
+  setup_cc_sources
+  setup_gcc_gcda_files
+  export GCOV_COVERAGE=1
+  export CC_COVERAGE_OUTPUT_FILE="$COVERAGE_DIR/_coverage.gcov"
+
+  eval tools/test/collect_cc_coverage.sh
+
+  cat <<EOF > result.dat
+file:a.cc
+function:3,1,_Z1ab
+lcount:3,1
+lcount:4,1
+branch:4,taken
+branch:4,nottaken
+lcount:5,1
+lcount:7,0
+EOF
+
+  diff result.dat "$CC_COVERAGE_OUTPUT_FILE" >> $TEST_log || fail "Diff failed"
+  cmp result.dat "$CC_COVERAGE_OUTPUT_FILE" || fail "Coverage output file is different than the expected file"
+}
+
+run_suite "Testing tools/test/collect_cc_coverage.sh"
