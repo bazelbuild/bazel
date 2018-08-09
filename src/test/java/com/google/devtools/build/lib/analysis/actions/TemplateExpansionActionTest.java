@@ -192,7 +192,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
         null,
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

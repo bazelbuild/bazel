@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -62,9 +61,6 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
             .put(LicensesProvider.class, this)
             .add(fileProvider)
             .add(filesToRunProvider);
-    if (this instanceof FilesetProvider) {
-      builder.put(FilesetProvider.class, this);
-    }
     if (this instanceof InstrumentedFilesProvider) {
       builder.put(InstrumentedFilesProvider.class, this);
     }

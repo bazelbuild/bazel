@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1555,9 +1554,12 @@ public final class RuleContext extends TargetContext
     }
 
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
-      if (src.getConfiguredTarget().getProvider(FilesetProvider.class) != null) {
+      NestedSet<Artifact> filesToBuild =
+          src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
+      if (filesToBuild.isSingleton() && Iterables.getOnlyElement(filesToBuild).isFileset()) {
         return true;
       }
+
       if (filesetEntry.isSourceFileset()) {
         return true;
       }

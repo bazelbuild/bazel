@@ -69,6 +69,7 @@ public class ActionExecutionContext implements Closeable {
   @Nullable private final Environment env;
 
   @Nullable private final FileSystem actionFileSystem;
+  @Nullable private final Object skyframeDepsResult;
 
   @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
@@ -85,7 +86,8 @@ public class ActionExecutionContext implements Closeable {
       ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env,
-      @Nullable FileSystem actionFileSystem) {
+      @Nullable FileSystem actionFileSystem,
+      @Nullable Object skyframeDepsResult) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -97,6 +99,7 @@ public class ActionExecutionContext implements Closeable {
     this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
+    this.skyframeDepsResult = skyframeDepsResult;
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
@@ -112,7 +115,8 @@ public class ActionExecutionContext implements Closeable {
       Map<String, String> clientEnv,
       ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
       ArtifactExpander artifactExpander,
-      @Nullable FileSystem actionFileSystem) {
+      @Nullable FileSystem actionFileSystem,
+      @Nullable Object skyframeDepsResult) {
     this(
         executor,
         actionInputFileCache,
@@ -124,7 +128,8 @@ public class ActionExecutionContext implements Closeable {
         inputFilesetMappings,
         artifactExpander,
         /*env=*/ null,
-        actionFileSystem);
+        actionFileSystem,
+        skyframeDepsResult);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -148,7 +153,8 @@ public class ActionExecutionContext implements Closeable {
         ImmutableMap.of(),
         /*artifactExpander=*/ null,
         env,
-        actionFileSystem);
+        actionFileSystem,
+        /*skyframeDepsResult=*/ null);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -278,6 +284,11 @@ public class ActionExecutionContext implements Closeable {
     return artifactExpander;
   }
 
+  @Nullable
+  public Object getSkyframeDepsResult() {
+    return skyframeDepsResult;
+  }
+
   /**
    * Provide that {@code FileOutErr} that the action should use for redirecting the output and error
    * stream.
@@ -318,6 +329,7 @@ public class ActionExecutionContext implements Closeable {
         inputFilesetMappings,
         artifactExpander,
         env,
-        actionFileSystem);
+        actionFileSystem,
+        skyframeDepsResult);
   }
 }

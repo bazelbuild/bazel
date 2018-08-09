@@ -520,7 +520,8 @@ public final class SkyframeActionExecutor {
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
       ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
-      @Nullable FileSystem actionFileSystem) {
+      @Nullable FileSystem actionFileSystem,
+      @Nullable Object skyframeDepsResult) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot()));
     return new ActionExecutionContext(
@@ -533,7 +534,8 @@ public final class SkyframeActionExecutor {
         clientEnv,
         inputFilesetMappings,
         new ArtifactExpanderImpl(expandedInputs),
-        actionFileSystem);
+        actionFileSystem,
+        skyframeDepsResult);
   }
 
   /**
