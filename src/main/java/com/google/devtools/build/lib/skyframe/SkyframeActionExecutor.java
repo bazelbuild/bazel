@@ -373,7 +373,7 @@ public final class SkyframeActionExecutor {
     return executorEngine.getExecRoot();
   }
 
-  /** REQUIRES: {@link usesActionFileSystem} is true */
+  /** REQUIRES: {@link #usesActionFileSystem()} is true */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
@@ -388,8 +388,9 @@ public final class SkyframeActionExecutor {
   }
 
   void updateActionFileSystemContext(
-      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer) {
-    outputService.updateActionFileSystemContext(actionFileSystem, env, consumer);
+      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets) throws IOException {
+    outputService.updateActionFileSystemContext(actionFileSystem, env, consumer, filesets);
   }
 
   void executionOver() {

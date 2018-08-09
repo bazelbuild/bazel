@@ -423,7 +423,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
-          state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
+          try {
+            state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler,
+                ImmutableMap.of());
+          } catch (IOException e) {
+            throw new ActionExecutionException(
+                "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);
+          }
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
                   action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
@@ -476,13 +482,20 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       filesetMappings.put(actionInput.getExecPath(), filesetValue.getOutputSymlinks());
     }
 
-    state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
+    ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets =
+        filesetMappings.build();
+    try {
+      state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler, filesets);
+    } catch (IOException e) {
+      throw new ActionExecutionException(
+          "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);
+    }
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             perActionFileCache,
             metadataHandler,
             Collections.unmodifiableMap(state.expandedArtifacts),
-            filesetMappings.build(),
+            filesets,
             state.actionFileSystem)) {
       if (!state.hasExecutedAction()) {
         state.value =
@@ -792,11 +805,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     /** Must be called to assign values to the given variables as they change. */
     void updateFileSystemContext(
         SkyframeActionExecutor executor,
-        SkyFunction.Environment env,
-        ActionMetadataHandler metadataHandler) {
+        Environment env,
+        ActionMetadataHandler metadataHandler,
+        ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets)
+        throws IOException {
       if (actionFileSystem != null) {
         executor.updateActionFileSystemContext(
-            actionFileSystem, env, metadataHandler::injectOutputData);
+            actionFileSystem, env, metadataHandler::injectOutputData, filesets);
       }
     }
 
