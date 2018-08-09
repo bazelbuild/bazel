@@ -19,6 +19,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -162,16 +165,15 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(final AcceptsLabelAttribute observer) throws InterruptedException {
-    Type.LabelVisitor<Attribute> visitor = new Type.LabelVisitor<Attribute>() {
-      @Override
-      public void visit(@Nullable Label label, Attribute attribute) throws InterruptedException {
-        if (label != null) {
-          Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
-          observer.acceptLabelAttribute(absoluteLabel, attribute);
-        }
-      }
-    };
+  public Collection<DepEdge> visitLabels() throws InterruptedException {
+    List<DepEdge> edges = new ArrayList<>();
+    Type.LabelVisitor<Attribute> visitor =
+        (label, attribute) -> {
+          if (label != null) {
+            Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
+            edges.add(AttributeMap.DepEdge.create(absoluteLabel, attribute));
+          }
+        };
     for (Attribute attribute : ruleClass.getAttributes()) {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
@@ -181,6 +183,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
         visitLabels(attribute, visitor);
       }
     }
+    return edges;
   }
 
   /** Visits all labels reachable from the given attribute. */

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.Collection;
 
 /**
  * An {@link AttributeMap} that supports attribute type queries on both a rule and its aspects and
@@ -134,7 +135,7 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException {
+  public Collection<DepEdge> visitLabels() throws InterruptedException {
     throw new UnsupportedOperationException("rule + aspects label visition is not supported");
   }
 

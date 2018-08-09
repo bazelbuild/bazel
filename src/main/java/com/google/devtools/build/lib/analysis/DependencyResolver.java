@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -56,11 +57,12 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -214,8 +216,8 @@ public abstract class DependencyResolver {
       @Nullable RuleTransitionFactory trimmingTransitionFactory)
       throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
           InterruptedException {
-    Preconditions.checkArgument(node.getTarget() instanceof Rule);
-    BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration());
+    Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
+    BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration(), node);
     Rule rule = (Rule) node.getTarget();
 
     ConfiguredAttributeMapper attributeMap = ConfiguredAttributeMapper.of(rule, configConditions);
@@ -289,31 +291,31 @@ public abstract class DependencyResolver {
   private void resolveExplicitAttributes(final RuleResolver depResolver)
       throws InterruptedException, InconsistentAspectOrderException {
 
-    // Record error that might happen during label visitation.
-    final InconsistentAspectOrderException[] exception = new InconsistentAspectOrderException[1];
+    // Track size of filtered iterable by having an always-true clause that only gets checked after
+    // all relevant clauses are checked.
+    Collection<AttributeMap.DepEdge> depEdges = depResolver.attributeMap.visitLabels();
+    Iterable<AttributeMap.DepEdge> filteredEdges =
+        Iterables.filter(
+            depEdges,
+            depEdge ->
+                depEdge.getAttribute().getType() != BuildType.NODEP_LABEL
+                    && !depEdge.getAttribute().isImplicit()
+                    && !depEdge.getAttribute().isLateBound());
+    Map<Label, Target> result =
+        getTargets(
+            Iterables.transform(filteredEdges, AttributeMap.DepEdge::getLabel),
+            depResolver.rule,
+            depResolver.rootCauses,
+            depEdges.size());
+    if (result == null) {
+      return;
+    }
 
-    depResolver.attributeMap.visitLabels(
-        new AttributeMap.AcceptsLabelAttribute() {
-          @Override
-          public void acceptLabelAttribute(Label label, Attribute attribute)
-              throws InterruptedException {
-            if (attribute.getType() == BuildType.NODEP_LABEL
-                || attribute.isImplicit()
-                || attribute.isLateBound()) {
-              return;
-            }
-            try {
-              depResolver.resolveDep(new AttributeAndOwner(attribute), label);
-            } catch (InconsistentAspectOrderException e) {
-              if (exception[0] == null) {
-                exception[0] = e;
-              }
-            }
-          }
-        });
-
-    if (exception[0] != null) {
-      throw exception[0];
+    for (AttributeMap.DepEdge depEdge : filteredEdges) {
+      Target target = result.get(depEdge.getLabel());
+      if (target != null) {
+        depResolver.registerEdge(new AttributeAndOwner(depEdge.getAttribute()), target);
+      }
     }
   }
 
@@ -328,33 +330,57 @@ public abstract class DependencyResolver {
     Label ruleLabel = rule.getLabel();
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
     ImmutableSet<String> mappedAttributes = ImmutableSet.copyOf(attributeMap.getAttributeNames());
-    for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
-      Attribute attribute = attributeAndOwner.attribute;
-      if (!attribute.isImplicit() || !attribute.getCondition().apply(attributeMap)) {
-        continue;
-      }
-
-      if (attribute.getType() == BuildType.LABEL) {
-        Label label = mappedAttributes.contains(attribute.getName())
-            ? attributeMap.get(attribute.getName(), BuildType.LABEL)
-            : BuildType.LABEL.cast(attribute.getDefaultValue(rule));
-
-        if (label != null) {
-          label = ruleLabel.resolveRepositoryRelative(label);
-          depResolver.resolveDep(attributeAndOwner, label);
+    Set<Label> labelsToFetch = new HashSet<>();
+    Map<Label, Target> targetLookupResult = null;
+    for (boolean collectingLabels : ImmutableList.of(Boolean.TRUE, Boolean.FALSE)) {
+      for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
+        Attribute attribute = attributeAndOwner.attribute;
+        if (!attribute.isImplicit() || !attribute.getCondition().apply(attributeMap)) {
+          continue;
         }
-      } else if (attribute.getType() == BuildType.LABEL_LIST) {
-        List<Label> labelList;
-        if (mappedAttributes.contains(attribute.getName())) {
-          labelList = new ArrayList<>();
-          for (Label label : attributeMap.get(attribute.getName(), BuildType.LABEL_LIST)) {
-            labelList.add(label);
+
+        if (attribute.getType() == BuildType.LABEL) {
+          Label label =
+              mappedAttributes.contains(attribute.getName())
+                  ? attributeMap.get(attribute.getName(), BuildType.LABEL)
+                  : BuildType.LABEL.cast(attribute.getDefaultValue(rule));
+
+          if (label != null) {
+            label = ruleLabel.resolveRepositoryRelative(label);
+            if (collectingLabels) {
+              labelsToFetch.add(label);
+            } else {
+              Target target = targetLookupResult.get(label);
+              if (target != null) {
+                depResolver.registerEdge(attributeAndOwner, target);
+              }
+            }
           }
-        } else {
-          labelList = BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
+        } else if (attribute.getType() == BuildType.LABEL_LIST) {
+          List<Label> labelList;
+          if (mappedAttributes.contains(attribute.getName())) {
+            labelList = attributeMap.get(attribute.getName(), BuildType.LABEL_LIST);
+          } else {
+            labelList = BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
+          }
+          Stream<Label> labelStream = labelList.stream().map(ruleLabel::resolveRepositoryRelative);
+          if (collectingLabels) {
+            labelStream.forEach(labelsToFetch::add);
+          } else {
+            for (Label label : (Iterable<Label>) labelStream::iterator) {
+              Target target = targetLookupResult.get(label);
+              if (target != null) {
+                depResolver.registerEdge(attributeAndOwner, target);
+              }
+            }
+          }
         }
-        for (Label label : labelList) {
-          depResolver.resolveDep(attributeAndOwner, ruleLabel.resolveRepositoryRelative(label));
+      }
+      if (collectingLabels) {
+        targetLookupResult =
+            getTargets(labelsToFetch, rule, depResolver.rootCauses, labelsToFetch.size());
+        if (targetLookupResult == null) {
+          return;
         }
       }
     }
@@ -396,51 +422,86 @@ public abstract class DependencyResolver {
       throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
           InterruptedException {
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
-    for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
-      Attribute attribute = attributeAndOwner.attribute;
-      if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
-        continue;
-      }
-
-      LateBoundDefault<?, ?> lateBoundDefault = attribute.getLateBoundDefault();
-
-      boolean hasSplitTransition = false;
-      List<BuildOptions> splitOptions = null;
-      if (attribute.hasSplitConfigurationTransition()) {
-        splitOptions =
-            attribute.getSplitTransition(attributeMap).split(ruleConfig.getOptions());
-        hasSplitTransition = !SplitTransition.equals(ruleConfig.getOptions(), splitOptions);
-      }
-
-      if (hasSplitTransition && !ruleConfig.isHostConfiguration()) {
-        // Late-bound attribute with a split transition:
-        // Since we want to get the same results as TransitionResolver.evaluateTransition (but
-        // skip it since we've already applied the split), we want to make sure this logic
-        // doesn't do anything differently. TransitionResolver.evaluateTransition has additional
-        // logic for host configs. So when we're in the host configuration we fall back to the
-        // non-split branch, which calls TransitionResolver.evaluateTransition, which returns its
-        // "host mode" result without ever looking at the split.
-        Iterable<BuildConfiguration> splitConfigs =
-            getConfigurations(ruleConfig.fragmentClasses(), splitOptions, defaultBuildOptions);
-        if (splitConfigs == null) {
-          continue; // Need Skyframe deps.
+    Set<Label> labelsToFetch = new HashSet<>();
+    Map<Label, Target> targetLookupResult = null;
+    for (boolean collectingLabels : ImmutableList.of(Boolean.TRUE, Boolean.FALSE)) {
+      for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
+        Attribute attribute = attributeAndOwner.attribute;
+        if (!attribute.isLateBound() || !attribute.getCondition().apply(attributeMap)) {
+          continue;
         }
-        for (BuildConfiguration splitConfig : splitConfigs) {
-          for (Label dep : resolveLateBoundAttribute(depResolver.rule, attribute,
-              lateBoundDefault.useHostConfiguration() ? hostConfig : splitConfig, attributeMap)) {
-            // Skip the normal config transition pipeline and directly feed the split config. This
-            // is because the split already had to be applied to determine the attribute's value.
-            // This makes the split logic in the normal pipeline redundant and potentially
-            // incorrect.
-            depResolver.resolveDep(attributeAndOwner, dep, splitConfig);
+
+        LateBoundDefault<?, ?> lateBoundDefault = attribute.getLateBoundDefault();
+
+        boolean hasSplitTransition = false;
+        List<BuildOptions> splitOptions = null;
+        if (attribute.hasSplitConfigurationTransition()) {
+          splitOptions = attribute.getSplitTransition(attributeMap).split(ruleConfig.getOptions());
+          hasSplitTransition = !SplitTransition.equals(ruleConfig.getOptions(), splitOptions);
+        }
+
+        if (hasSplitTransition && !ruleConfig.isHostConfiguration()) {
+          // Late-bound attribute with a split transition:
+          // Since we want to get the same results as TransitionResolver.evaluateTransition (but
+          // skip it since we've already applied the split), we want to make sure this logic
+          // doesn't do anything differently. TransitionResolver.evaluateTransition has additional
+          // logic for host configs. So when we're in the host configuration we fall back to the
+          // non-split branch, which calls TransitionResolver.evaluateTransition, which returns its
+          // "host mode" result without ever looking at the split.
+          Iterable<BuildConfiguration> splitConfigs =
+              getConfigurations(ruleConfig.fragmentClasses(), splitOptions, defaultBuildOptions);
+          if (splitConfigs == null) {
+            Preconditions.checkState(collectingLabels, attributeAndOwner);
+            continue; // Need Skyframe deps.
+          }
+          for (BuildConfiguration splitConfig : splitConfigs) {
+            for (Label dep :
+                resolveLateBoundAttribute(
+                    depResolver.rule,
+                    attribute,
+                    lateBoundDefault.useHostConfiguration() ? hostConfig : splitConfig,
+                    attributeMap)) {
+              if (collectingLabels) {
+                labelsToFetch.add(dep);
+              } else {
+                // Skip the normal config transition pipeline and directly feed the split config.
+                // This is because the split already had to be applied to determine the attribute's
+                // value. This makes the split logic in the normal pipeline redundant and
+                // potentially incorrect.
+                Target target = targetLookupResult.get(dep);
+                if (target != null) {
+                  depResolver.registerEdge(attributeAndOwner, target, splitConfig);
+                }
+              }
+            }
+          }
+        } else {
+          List<Label> deps =
+              resolveLateBoundAttribute(
+                  depResolver.rule,
+                  attribute,
+                  lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig,
+                  attributeMap);
+          if (collectingLabels) {
+            labelsToFetch.addAll(deps);
+          } else {
+            // Late-bound attribute without a split transition:
+            for (Label dep : deps) {
+              Target target = targetLookupResult.get(dep);
+              if (target != null) {
+                // Process this dep like a normal attribute.
+                depResolver.registerEdge(attributeAndOwner, target);
+              }
+            }
           }
         }
-      } else {
-        // Late-bound attribute without a split transition:
-        for (Label dep : resolveLateBoundAttribute(depResolver.rule, attribute,
-            lateBoundDefault.useHostConfiguration() ? hostConfig : ruleConfig, attributeMap)) {
-          // Process this dep like a normal attribute.
-          depResolver.resolveDep(attributeAndOwner, dep);
+      }
+      if (collectingLabels) {
+        targetLookupResult =
+            getTargets(
+                labelsToFetch, depResolver.rule, depResolver.rootCauses, labelsToFetch.size());
+        if (targetLookupResult == null) {
+          return;
         }
       }
     }
@@ -464,12 +525,9 @@ public abstract class DependencyResolver {
    * @param config the configuration to evaluate the attribute in
    * @param attributeMap mapper to attribute values
    */
-  private Iterable<Label> resolveLateBoundAttribute(
-      Rule rule,
-      Attribute attribute,
-      BuildConfiguration config,
-      AttributeMap attributeMap)
-      throws EvalException, InterruptedException {
+  private List<Label> resolveLateBoundAttribute(
+      Rule rule, Attribute attribute, BuildConfiguration config, AttributeMap attributeMap)
+      throws EvalException {
     Preconditions.checkArgument(attribute.isLateBound());
 
     Object actualValue =
@@ -533,7 +591,7 @@ public abstract class DependencyResolver {
    * @param attrName the name of the attribute to add dependency labels to
    * @param labels the dependencies to add
    */
-  private void addExplicitDeps(RuleResolver depResolver, String attrName, Iterable<Label> labels)
+  private void addExplicitDeps(RuleResolver depResolver, String attrName, Collection<Label> labels)
       throws InterruptedException, InconsistentAspectOrderException {
     Rule rule = depResolver.rule;
     if (!rule.isAttrDefined(attrName, BuildType.LABEL_LIST)
@@ -541,8 +599,14 @@ public abstract class DependencyResolver {
       return;
     }
     Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
-    for (Label label : labels) {
-      depResolver.resolveDep(new AttributeAndOwner(attribute), label);
+    Map<Label, Target> result = getTargets(labels, rule, depResolver.rootCauses, labels.size());
+    if (result == null) {
+      return;
+    }
+    AttributeAndOwner attributeAndOwner = new AttributeAndOwner(attribute);
+
+    for (Target target : result.values()) {
+      depResolver.registerEdge(attributeAndOwner, target);
     }
   }
 
@@ -550,8 +614,11 @@ public abstract class DependencyResolver {
    * Converts the given multimap of attributes to labels into a multi map of attributes to {@link
    * Dependency} objects using the proper configuration transition for each attribute.
    *
+   * <p>Returns null if Skyframe dependencies are missing.
+   *
    * @throws IllegalArgumentException if the {@code node} does not refer to a {@link Rule} instance
    */
+  @Nullable
   public final Collection<Dependency> resolveRuleLabels(
       TargetAndConfiguration node,
       OrderedSetMultimap<Attribute, Label> depLabels,
@@ -570,10 +637,17 @@ public abstract class DependencyResolver {
             rootCauses,
             outgoingEdges,
             trimmingTransitionFactory);
-    Map<Attribute, Collection<Label>> m = depLabels.asMap();
+    Map<Label, Target> result = getTargets(depLabels.values(), rule, rootCauses, depLabels.size());
+    if (result == null) {
+      return null;
+    }
     for (Map.Entry<Attribute, Collection<Label>> entry : depLabels.asMap().entrySet()) {
+      AttributeAndOwner attributeAndOwner = new AttributeAndOwner(entry.getKey());
       for (Label depLabel : entry.getValue()) {
-        depResolver.resolveDep(new AttributeAndOwner(entry.getKey()), depLabel);
+        Target target = result.get(depLabel);
+        if (target != null) {
+          depResolver.registerEdge(attributeAndOwner, target);
+        }
       }
     }
     return outgoingEdges.values();
@@ -585,20 +659,23 @@ public abstract class DependencyResolver {
       NestedSetBuilder<Cause> rootCauses,
       Collection<Dependency> outgoingEdges)
       throws InterruptedException {
-    for (Label label : packageGroup.getIncludes()) {
-      Target target = getTarget(packageGroup, label, rootCauses);
-      if (target == null) {
-        continue;
-      }
+    List<Label> includes = packageGroup.getIncludes();
+    Map<Label, Target> targetMap = getTargets(includes, packageGroup, rootCauses, includes.size());
+    if (targetMap == null) {
+      return;
+    }
+    Collection<Target> targets = targetMap.values();
+
+    for (Target target : targets) {
       if (!(target instanceof PackageGroup)) {
         // Note that this error could also be caught in PackageGroupConfiguredTarget, but since
         // these have the null configuration, visiting the corresponding target would trigger an
         // analysis of a rule with a null configuration, which doesn't work.
-        invalidPackageGroupReferenceHook(node, label);
+        invalidPackageGroupReferenceHook(node, target.getLabel());
         continue;
       }
 
-      outgoingEdges.add(Dependency.withNullConfiguration(label));
+      outgoingEdges.add(Dependency.withNullConfiguration(target.getLabel()));
     }
   }
 
@@ -749,15 +826,11 @@ public abstract class DependencyResolver {
     }
 
     /**
-     * Resolves the given dep for the given attribute, including determining which configurations to
-     * apply to it.
+     * Resolves the given dep for the given attribute, determining which configurations to apply to
+     * it.
      */
-    void resolveDep(AttributeAndOwner attributeAndOwner, Label depLabel)
-        throws InterruptedException, InconsistentAspectOrderException {
-      Target toTarget = getTarget(rule, depLabel, rootCauses);
-      if (toTarget == null) {
-        return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
-      }
+    void registerEdge(AttributeAndOwner attributeAndOwner, Target toTarget)
+        throws InconsistentAspectOrderException {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
               ruleConfig,
@@ -769,32 +842,31 @@ public abstract class DependencyResolver {
       outgoingEdges.put(
           attributeAndOwner.attribute,
           transition == NullTransition.INSTANCE
-              ? Dependency.withNullConfiguration(depLabel)
-              : Dependency.withTransitionAndAspects(depLabel, transition,
-                    requiredAspects(attributeAndOwner, toTarget)));
+              ? Dependency.withNullConfiguration(toTarget.getLabel())
+              : Dependency.withTransitionAndAspects(
+                  toTarget.getLabel(), transition, requiredAspects(attributeAndOwner, toTarget)));
     }
 
     /**
      * Resolves the given dep for the given attribute using a pre-prepared configuration.
      *
      * <p>Use this method with care: it skips Bazel's standard config transition semantics ({@link
-     * TransitionResolver#evaluateTransition}). That means attributes passed through here won't
-     * obey standard rules on which configurations apply to their deps. This should only be done for
+     * TransitionResolver#evaluateTransition}). That means attributes passed through here won't obey
+     * standard rules on which configurations apply to their deps. This should only be done for
      * special circumstances that really justify the difference. When in doubt, use {@link
-     * #resolveDep(AttributeAndOwner, Label)}.
+     * #registerEdge(AttributeAndOwner, Target)}.
      */
-    void resolveDep(AttributeAndOwner attributeAndOwner, Label depLabel, BuildConfiguration config)
-        throws InterruptedException, InconsistentAspectOrderException {
-      Target toTarget = getTarget(rule, depLabel, rootCauses);
-      if (toTarget == null) {
-        return; // Skip this round: this is either a loading error or unevaluated Skyframe dep.
-      }
+    void registerEdge(
+        AttributeAndOwner attributeAndOwner, Target toTarget, BuildConfiguration config)
+        throws InconsistentAspectOrderException {
       outgoingEdges.put(
           attributeAndOwner.attribute,
           TransitionResolver.usesNullConfiguration(toTarget)
-              ? Dependency.withNullConfiguration(depLabel)
-              : Dependency.withTransitionAndAspects(depLabel, new FixedTransition(
-                    config.getOptions()), requiredAspects(attributeAndOwner, toTarget)));
+              ? Dependency.withNullConfiguration(toTarget.getLabel())
+              : Dependency.withTransitionAndAspects(
+                  toTarget.getLabel(),
+                  new FixedTransition(config.getOptions()),
+                  requiredAspects(attributeAndOwner, toTarget)));
     }
 
     private AspectCollection requiredAspects(AttributeAndOwner attributeAndOwner,
@@ -844,23 +916,26 @@ public abstract class DependencyResolver {
       Collection<Dependency> outgoingEdges)
       throws InterruptedException {
     Target target = node.getTarget();
-    for (Label label : target.getVisibility().getDependencyLabels()) {
-      Target visibilityTarget = getTarget(target, label, rootCauses);
-      if (visibilityTarget == null) {
-        continue;
-      }
+    List<Label> dependencyLabels = target.getVisibility().getDependencyLabels();
+    Map<Label, Target> targetMap =
+        getTargets(dependencyLabels, target, rootCauses, dependencyLabels.size());
+    if (targetMap == null) {
+      return;
+    }
+    Collection<Target> targets = targetMap.values();
+    for (Target visibilityTarget : targets) {
       if (!(visibilityTarget instanceof PackageGroup)) {
         // Note that this error could also be caught in
         // AbstractConfiguredTarget.convertVisibility(), but we have an
         // opportunity here to avoid dependency cycles that result from
         // the visibility attribute of a rule referring to a rule that
         // depends on it (instead of its package)
-        invalidVisibilityReferenceHook(node, label);
+        invalidVisibilityReferenceHook(node, visibilityTarget.getLabel());
         continue;
       }
 
       // Visibility always has null configuration
-      outgoingEdges.add(Dependency.withNullConfiguration(label));
+      outgoingEdges.add(Dependency.withNullConfiguration(visibilityTarget.getLabel()));
     }
   }
 
@@ -886,23 +961,26 @@ public abstract class DependencyResolver {
    *
    * @param from the target referencing the missing target
    * @param to the missing target
-   * @param e the exception that was thrown, e.g., by {@link #getTarget}
+   * @param e the exception that was thrown, e.g., by {@link #getTargets}
    */
   protected abstract void missingEdgeHook(Target from, Label to, NoSuchThingException e)
       throws InterruptedException;
 
   /**
-   * Returns the target by the given label.
+   * Returns the targets for the given labels.
    *
-   * <p>Returns null if the target is not ready to be returned at this moment. If getTarget returns
-   * null once or more during a {@link #dependentNodeMap} call, the results of that call will be
-   * incomplete. For use within Skyframe, where several iterations may be needed to discover all
-   * dependencies.
+   * <p>Returns null if any targets are not ready to be returned at this moment because of missing
+   * Skyframe dependencies. If getTargets returns null once or more during a {@link
+   * #dependentNodeMap} call, the results of that call will be incomplete. As is usual in these
+   * situation, the caller must return control to Skyframe and wait for the SkyFunction to be
+   * restarted, at which point the requested dependencies will be available.
    */
-  @Nullable
-  protected abstract Target getTarget(Target from, Label label, NestedSetBuilder<Cause> rootCauses)
+  protected abstract Map<Label, Target> getTargets(
+      Iterable<Label> labels,
+      Target fromTarget,
+      NestedSetBuilder<Cause> rootCauses,
+      int labelsSizeHint)
       throws InterruptedException;
-
   /**
    * Returns the build configurations with the given fragments and {@link
    * BuildOptions.OptionsDiffForReconstruction} resulting from calling {@link
