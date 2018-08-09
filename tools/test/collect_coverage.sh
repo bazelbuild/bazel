@@ -74,22 +74,18 @@ export COVERAGE=1
 export BULK_COVERAGE_RUN=1
 
 
-# Only check if file exists when LCOV_MERGER is set
-if [[ ! "$COVERAGE_LEGACY_MODE" ]]; then
-  for name in "$LCOV_MERGER"; do
-    if [[ ! -e $name ]]; then
-      echo --
-      echo Coverage runner: cannot locate file $name
-      exit 1
-    fi
-  done
+for name in "$LCOV_MERGER"; do
+if [[ ! -e $name ]]; then
+  echo --
+  echo Coverage runner: cannot locate file $name
+  exit 1
 fi
+done
 
-if [[ "$COVERAGE_LEGACY_MODE" ]]; then
-  export GCOV_PREFIX_STRIP=3
-  export GCOV_PREFIX="${COVERAGE_DIR}"
-  export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-fi
+# Setting up the environment for executing the C++ tests.
+export GCOV_PREFIX_STRIP=3
+export GCOV_PREFIX="${COVERAGE_DIR}"
+export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 
 # TODO(iirina): cd should be avoided.
 cd "$TEST_SRCDIR/$TEST_WORKSPACE"
@@ -112,12 +108,12 @@ fi
 cd $ROOT
 
 if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
+    export CC_COVERAGE_OUTPUT_FILE=$COVERAGE_DIR/lcov-cov.dat
     eval "${CC_CODE_COVERAGE_SCRIPT}"
-    exit $TEST_STATUS
 fi
 
 export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
---output_file=${COVERAGE_OUTPUT_FILE}"
+--output_file=${COVERAGE_OUTPUT_FILE} --filter_sources=/usr/.+,.+external.+"
 
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then
