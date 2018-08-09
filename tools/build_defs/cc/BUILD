@@ -6,8 +6,8 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//devtools/blaze/integration:__pkg__",
         "//:__pkg__",
+        "//devtools/blaze/integration:__pkg__",
         "//tools:__pkg__",
     ],
 )

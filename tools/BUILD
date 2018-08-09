@@ -77,3 +77,17 @@ filegroup(
         "//tools/zip:srcs",
     ],
 )
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        "//tools/bash:all_windows_tests",
+        "//tools/build_defs:all_windows_tests",
+        "//tools/cpp:all_windows_tests",
+        "//tools/java:all_windows_tests",
+        "//tools/jdk:all_windows_tests",
+        "//tools/python:all_windows_tests",
+        "//tools/test:all_windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
+)

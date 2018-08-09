@@ -29,5 +29,20 @@ sh_test(
     data = ["sha256"],
     # TODO(laszlocsomor): use the runfiles library after
     # https://github.com/bazelbuild/bazel/issues/4460 is fixed for sh_*
-    tags = ["-no_windows"],
+    tags = ["no_windows"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [":windows_tests"],
+    visibility = ["//tools/build_defs:__pkg__"],
 )
