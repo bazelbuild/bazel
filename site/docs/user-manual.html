@@ -20,6 +20,7 @@ title: User Manual
 
   Available commands:
     <a href='#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
+    <a href='#aquery'>aquery</a>             Executes a query on the <a href='#analysis-phase'>post-analysis</a> action graph.
     <a href='#build'>build</a>               Builds the specified targets.
 
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
@@ -3064,6 +3065,30 @@ Examples:
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
 </pre>
 
+<h2 id='aquery'>Querying the action graph with Bazel</h2>
+
+<b>Caution</b>: The aquery command is still experimental and its API will change.
+
+<p>
+  The <code>aquery</code> command allows you to query for actions in your build graph.
+  It operates on the post-analysis configured target graph and exposes
+  information about actions, artifacts and their relationships.
+</p>
+
+<p>
+  The tool accepts several command-line options.
+  <code class='flag'>--output</code> selects the output format
+  (<code>proto</code> is the default, use <code>text</code> for human readable
+  output).
+  Notably, the aquery command runs on top of a regular Bazel build and inherits
+  the set of options available during a build.
+</p>
+
+<p>
+  It supports the same set of functions that is also available to traditional
+  <code>query</code> but <code>siblings</code>, <code>buildfiles</code> and
+  <code>tests</code>.
+</p>
 
 <h2 id='misc'>Miscellaneous Bazel commands and options</h2>
 
