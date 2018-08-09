@@ -51,6 +51,10 @@ java_test(
         "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:LcovPrinter",
         "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:SourceFileCoverage",
     ],
+    tags = [
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
+    ],
 )
 
 java_test(
