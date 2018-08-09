@@ -80,16 +80,7 @@ function assert_cc_test() {
   assert_contains "^DA:5,1$" "$coverage_file_path"  # true branch should be taken
   assert_contains "^DA:7,0$" "$coverage_file_path"  # false branch should not be
 
-  # Verify the files are reported correctly in the build event protocol.
-  assert_contains 'name: "test.lcov"' bep.txt
-  assert_contains 'name: "baseline.lcov"' bep.txt
 
-  # Verify that this is also true for cached coverage actions.
-  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
-      &>$TEST_log || fail "Coverage for //:t failed"
-  expect_log '//:t.*cached'
-  assert_contains 'name: "test.lcov"' bep.txt
-  assert_contains 'name: "baseline.lcov"' bep.txt
 
 }
 
@@ -100,6 +91,14 @@ function test_cc_test_coverage() {
       &>$TEST_log || fail "Coverage for //:t failed"
 
   assert_cc_test
+
+  # Verify that this is also true for cached coverage actions.
+  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
+  expect_log '//:t.*cached'
+  # Verify the files are reported correctly in the build event protocol.
+  assert_contains 'name: "test.lcov"' bep.txt
+  assert_contains 'name: "baseline.lcov"' bep.txt
 }
 
 function test_cc_test_coverage_gcov() {
@@ -109,6 +108,14 @@ function test_cc_test_coverage_gcov() {
       &>$TEST_log || fail "Coverage for //:t failed"
 
   assert_cc_test
+
+  # Verify that this is also true for cached coverage actions.
+  bazel coverage --experimental_use_gcov_coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
+  expect_log '//:t.*cached'
+  # Verify the files are reported correctly in the build event protocol.
+  assert_contains 'name: "test.lcov"' bep.txt
+  assert_contains 'name: "baseline.lcov"' bep.txt
 }
 
 function test_failed_coverage() {
