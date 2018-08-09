@@ -32,7 +32,6 @@ public interface RPCServer {
         BlazeCommandDispatcher dispatcher,
         Clock clock,
         int port,
-        Path workspace,
         Path serverDirectory,
         int maxIdleSeconds,
         boolean idleServerTasks)

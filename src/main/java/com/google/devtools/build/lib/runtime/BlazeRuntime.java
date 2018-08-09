@@ -930,7 +930,6 @@ public final class BlazeRuntime {
                 dispatcher,
                 runtime.getClock(),
                 startupOptions.commandPort,
-                runtime.getWorkspace().getWorkspace(),
                 runtime.getServerDirectory(),
                 startupOptions.maxIdleSeconds,
                 startupOptions.idleServerTasks);
