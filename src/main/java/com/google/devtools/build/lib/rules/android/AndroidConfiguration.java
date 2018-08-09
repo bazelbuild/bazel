@@ -221,7 +221,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       }
     }
 
-    // TODO(corysmith): Move to ApplicationManifest when no longer needed as a public function.
+    // TODO(corysmith): Move to an appropriate place when no longer needed as a public function.
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext)
         throws RuleErrorException {

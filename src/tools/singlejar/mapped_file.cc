@@ -11,20 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.rules.android;
 
-import com.google.devtools.build.lib.actions.Artifact;
+#include "src/tools/singlejar/mapped_file.h"
 
-/**
- * A {@link MergableAndroidData} that may also contain a compiled symbols file.
- *
- * <p>TODO(b/76418178): Once resources and assets are completely decoupled and {@link
- * ResourceContainer} is removed, this interface can be replaced with {@link ParsedAndroidResources}
- */
-public interface CompiledMergableAndroidData extends MergableAndroidData {
-  Iterable<Artifact> getArtifacts();
-
-  Artifact getManifest();
-
-  boolean isManifestExported();
-}
+#ifdef _WIN32
+#include "src/tools/singlejar/mapped_file_windows.inc"
+#else  // not _WIN32
+#include "src/tools/singlejar/mapped_file_posix.inc"
+#endif  // _WIN32

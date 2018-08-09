@@ -306,7 +306,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         new JavaPrimaryClassProvider(
             semantics.getPrimaryClass(ruleContext, common.getSrcsArtifacts())));
     if (generatedExtensionRegistryProvider != null) {
-      builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
 
     Artifact deployJar =

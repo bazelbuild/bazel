@@ -46,34 +46,34 @@ public class AndroidResourcesProcessorBuilder {
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
-          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
+          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getCompiledSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> RESOURCE_DEP_TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidData::getResourceRoots)
-          .withRoots(ValidatedAndroidData::getAssetRoots)
-          .withArtifact(ValidatedAndroidData::getManifest)
-          .maybeWithArtifact(ValidatedAndroidData::getRTxt)
-          .maybeWithArtifact(ValidatedAndroidData::getSymbols)
+  static final AndroidDataConverter<ValidatedAndroidResources> RESOURCE_DEP_TO_ARG =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+          .withRoots(ValidatedAndroidResources::getResourceRoots)
+          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withArtifact(ValidatedAndroidResources::getManifest)
+          .maybeWithArtifact(ValidatedAndroidResources::getRTxt)
+          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   private ResourceDependencies resourceDependencies = ResourceDependencies.empty();
@@ -244,37 +244,6 @@ public class AndroidResourcesProcessorBuilder {
         manifest.withProcessedManifest(manifestOut == null ? manifest.getManifest() : manifestOut),
         rTxtOut,
         dataBindingContext);
-  }
-
-  public ResourceContainer build(
-      AndroidDataContext dataContext,
-      ResourceContainer primary,
-      DataBindingContext dataBindingContext) {
-    build(
-        dataContext,
-        primary.getAndroidResources(),
-        primary.getAndroidAssets(),
-        ProcessedAndroidManifest.from(primary),
-        dataBindingContext);
-
-    ResourceContainer.Builder builder =
-        primary.toBuilder().setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut).setSymbols(symbols);
-
-    // If there is an apk to be generated, use it, else reuse the apk from the primary resources.
-    // All android_binary ResourceContainers have to have an apk, but if a new one is not
-    // requested to be built for this resource processing action (in case of just creating an
-    // R.txt or proguard merging), reuse the primary resource from the dependencies.
-    if (apkOut != null) {
-      builder.setApk(apkOut);
-    }
-    if (manifestOut != null) {
-      builder.setManifest(manifestOut);
-    }
-    if (mergedResourcesOut != null) {
-      builder.setMergedResources(mergedResourcesOut);
-    }
-
-    return builder.build();
   }
 
   public ProcessedAndroidData build(

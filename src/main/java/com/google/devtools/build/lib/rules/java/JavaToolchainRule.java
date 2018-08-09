@@ -82,10 +82,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .value(ImmutableList.of())
                 .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
-        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(encoding) -->
-        The encoding of the java files (e.g., 'UTF-8').
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("encoding", STRING)) // javac -encoding flag value.
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->
         The list of warning to add or removes from default list. Precedes it with a dash to
         removes it. Please see the Javac documentation on the -Xlint options for more information.

@@ -86,3 +86,19 @@ def default_java_toolchain(name, **kwargs):
         name = name,
         **toolchain_args
     )
+
+def java_runtime_files(name, srcs):
+    """Copies the given sources out of the current Java runtime."""
+
+    native.filegroup(
+        name = name,
+        srcs = srcs,
+    )
+    for src in srcs:
+        native.genrule(
+            name = "gen_%s" % src,
+            srcs = ["//tools/jdk:current_java_runtime"],
+            toolchains = ["//tools/jdk:current_java_runtime"],
+            cmd = "cp $(JAVABASE)/%s $@" % src,
+            outs = [src],
+        )

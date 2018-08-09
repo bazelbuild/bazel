@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
@@ -183,15 +184,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidResources.validateRuleContext(ruleContext);
 
     final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
+    Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
     StampedAndroidManifest manifest =
         AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
             .mergeWithDeps(
                 dataContext,
                 androidSemantics,
+                ruleContext,
                 resourceDeps,
-                ApplicationManifest.getManifestValues(ruleContext),
-                ApplicationManifest.useLegacyMerging(ruleContext));
+                manifestValues,
+                ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
+                    ? ruleContext.attributes().get("manifest_merger", STRING)
+                    : null);
 
     AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
     final ResourceApk resourceApk =
@@ -201,7 +206,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 manifest,
                 /* conditionalKeepRules = */ shouldShrinkResourceCycles(
                     dataContext.getAndroidConfig(), ruleContext, shrinkResources),
-                ApplicationManifest.getManifestValues(ruleContext),
+                manifestValues,
                 aaptVersion,
                 AndroidResources.from(ruleContext, "resource_files"),
                 AndroidAssets.from(ruleContext),
@@ -834,7 +839,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   static Optional<Artifact> maybeShrinkResources(
       AndroidDataContext dataContext,
-      ValidatedAndroidData validatedResources,
+      ValidatedAndroidResources validatedResources,
       ResourceDependencies resourceDeps,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardOutputJar,

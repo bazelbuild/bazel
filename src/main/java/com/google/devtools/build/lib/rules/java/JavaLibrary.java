@@ -177,7 +177,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     semantics.addProviders(ruleContext, common, genSourceJar, builder);
     if (generatedExtensionRegistryProvider != null) {
-      builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
 
     JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;

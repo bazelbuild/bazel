@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidA
 public class AndroidResourceValidatorActionBuilder {
 
   // Inputs
-  private CompiledMergableAndroidData primary;
+  private ParsedAndroidResources primary;
   private Artifact mergedResources;
 
   // Outputs
@@ -50,7 +50,7 @@ public class AndroidResourceValidatorActionBuilder {
   }
 
   /** The primary resource container. We mostly propagate its values, but update the R.txt. */
-  private AndroidResourceValidatorActionBuilder withPrimary(CompiledMergableAndroidData primary) {
+  private AndroidResourceValidatorActionBuilder withPrimary(ParsedAndroidResources primary) {
     this.primary = primary;
     return this;
   }
@@ -104,25 +104,6 @@ public class AndroidResourceValidatorActionBuilder {
     if (compiledSymbols != null) {
       createLinkStaticLibraryAction(dataContext);
     }
-  }
-
-  public ResourceContainer build(
-      AndroidDataContext dataContext, ResourceContainer resourceContainer) {
-    withPrimary(resourceContainer).build(dataContext);
-    ResourceContainer.Builder builder = resourceContainer.toBuilder();
-
-    if (rTxtOut != null) {
-      builder.setJavaSourceJar(sourceJarOut).setRTxt(rTxtOut);
-    }
-
-    if (compiledSymbols != null) {
-      builder
-          .setAapt2JavaSourceJar(aapt2SourceJarOut)
-          .setAapt2RTxt(aapt2RTxtOut)
-          .setStaticLibrary(staticLibraryOut);
-    }
-
-    return builder.build();
   }
 
   public ValidatedAndroidResources build(

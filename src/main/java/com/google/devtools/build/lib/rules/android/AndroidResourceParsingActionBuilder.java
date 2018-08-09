@@ -145,26 +145,4 @@ public class AndroidResourceParsingActionBuilder {
 
     return ParsedAndroidAssets.of(assets, output, compiledSymbols, dataContext.getLabel());
   }
-
-  /**
-   * Builds and registers the action, and updates the given resourceContainer with the output
-   * symbols.
-   */
-  public ResourceContainer buildAndUpdate(
-      AndroidDataContext dataContext, ResourceContainer resourceContainer) {
-    build(dataContext);
-
-    ResourceContainer.Builder builder =
-        resourceContainer
-            .toBuilder()
-            .setSymbols(output)
-            .setAndroidAssets(assets)
-            .setAndroidResources(resources);
-
-    if (compiledSymbols != null) {
-      builder.setCompiledSymbols(compiledSymbols);
-    }
-
-    return builder.build();
-  }
 }

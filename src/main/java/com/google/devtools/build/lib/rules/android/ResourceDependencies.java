@@ -29,14 +29,13 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Represents a container for the {@link ResourceContainer}s for a given library. This is
- * abstraction simplifies the process of managing and exporting the direct and transitive resource
- * dependencies of an android rule, as well as providing type safety.
+ * Represents a container for the resource dependencies for a given target. This abstraction
+ * simplifies the process of managing and exporting the direct and transitive resource dependencies
+ * of an android rule, as well as providing type safety.
  *
  * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a library is
  * included in both the transitive and direct dependencies, it will appear twice. This requires
  * consumers to manage duplicated resources gracefully.
- *
  *
  * <p>TODO(b/76418178): Once resource processing is fully decoupled from asset and manifest
  * processing, remove asset and manifest fields from this class.
@@ -51,7 +50,7 @@ public final class ResourceDependencies {
    *     This should allow greater efficiency since we don't need to unroll this NestedSet to get a
    *     particular input. TODO (b/67996945): Complete this migration.
    */
-  @Deprecated private final NestedSet<ValidatedAndroidData> transitiveResourceContainers;
+  @Deprecated private final NestedSet<ValidatedAndroidResources> transitiveResourceContainers;
 
   /**
    * Contains all the direct dependencies of the current target. Since a given direct dependency can
@@ -62,7 +61,7 @@ public final class ResourceDependencies {
    * @deprecated Similarly to {@link #transitiveResourceContainers}, we are moving away from storing
    *     ResourceContainer objects here. TODO (b/67996945): Complete this migration.
    */
-  @Deprecated private final NestedSet<ValidatedAndroidData> directResourceContainers;
+  @Deprecated private final NestedSet<ValidatedAndroidResources> directResourceContainers;
 
   /**
    * Transitive resource files for this target.
@@ -98,9 +97,10 @@ public final class ResourceDependencies {
 
   public static ResourceDependencies fromProviders(
       Iterable<AndroidResourcesInfo> providers, boolean neverlink) {
-    NestedSetBuilder<ValidatedAndroidData> transitiveDependencies =
+    NestedSetBuilder<ValidatedAndroidResources> transitiveDependencies =
         NestedSetBuilder.naiveLinkOrder();
-    NestedSetBuilder<ValidatedAndroidData> directDependencies = NestedSetBuilder.naiveLinkOrder();
+    NestedSetBuilder<ValidatedAndroidResources> directDependencies =
+        NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveResources = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveAssets = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveManifests = NestedSetBuilder.naiveLinkOrder();
@@ -175,8 +175,8 @@ public final class ResourceDependencies {
 
   private ResourceDependencies(
       boolean neverlink,
-      NestedSet<ValidatedAndroidData> transitiveResourceContainers,
-      NestedSet<ValidatedAndroidData> directResourceContainers,
+      NestedSet<ValidatedAndroidResources> transitiveResourceContainers,
+      NestedSet<ValidatedAndroidResources> directResourceContainers,
       NestedSet<Artifact> transitiveResources,
       NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveManifests,
@@ -220,8 +220,8 @@ public final class ResourceDependencies {
 
   @VisibleForTesting
   ResourceDependencies withResources(
-      NestedSet<ValidatedAndroidData> transitiveResourceContainers,
-      NestedSet<ValidatedAndroidData> directResourceContainers,
+      NestedSet<ValidatedAndroidResources> transitiveResourceContainers,
+      NestedSet<ValidatedAndroidResources> directResourceContainers,
       NestedSet<Artifact> transitiveResources) {
     return new ResourceDependencies(
         neverlink,
@@ -248,7 +248,7 @@ public final class ResourceDependencies {
    * @param newDirectResource The new direct dependency for AndroidResourcesInfo
    * @return A provider with the current resources and label.
    */
-  public AndroidResourcesInfo toInfo(ValidatedAndroidData newDirectResource) {
+  public AndroidResourcesInfo toInfo(ValidatedAndroidResources newDirectResource) {
     if (neverlink) {
       return ResourceDependencies.empty()
           .toInfo(
@@ -260,11 +260,11 @@ public final class ResourceDependencies {
         newDirectResource.getLabel(),
         newDirectResource.getProcessedManifest(),
         newDirectResource.getRTxt(),
-        NestedSetBuilder.<ValidatedAndroidData>naiveLinkOrder()
+        NestedSetBuilder.<ValidatedAndroidResources>naiveLinkOrder()
             .addTransitive(transitiveResourceContainers)
             .addTransitive(directResourceContainers)
             .build(),
-        NestedSetBuilder.<ValidatedAndroidData>naiveLinkOrder()
+        NestedSetBuilder.<ValidatedAndroidResources>naiveLinkOrder()
             .add(newDirectResource.export())
             .build(),
         NestedSetBuilder.<Artifact>naiveLinkOrder()
@@ -332,8 +332,8 @@ public final class ResourceDependencies {
    *     get the specific Artifacts you need instead.
    */
   @Deprecated
-  public NestedSet<ValidatedAndroidData> getResourceContainers() {
-    return NestedSetBuilder.<ValidatedAndroidData>naiveLinkOrder()
+  public NestedSet<ValidatedAndroidResources> getResourceContainers() {
+    return NestedSetBuilder.<ValidatedAndroidResources>naiveLinkOrder()
         .addTransitive(directResourceContainers)
         .addTransitive(transitiveResourceContainers)
         .build();
@@ -344,7 +344,7 @@ public final class ResourceDependencies {
    *     get the specific Artifacts you need instead.
    */
   @Deprecated
-  public NestedSet<ValidatedAndroidData> getTransitiveResourceContainers() {
+  public NestedSet<ValidatedAndroidResources> getTransitiveResourceContainers() {
     return transitiveResourceContainers;
   }
 
@@ -353,7 +353,7 @@ public final class ResourceDependencies {
    *     get the specific Artifacts you need instead.
    */
   @Deprecated
-  public NestedSet<ValidatedAndroidData> getDirectResourceContainers() {
+  public NestedSet<ValidatedAndroidResources> getDirectResourceContainers() {
     return directResourceContainers;
   }
 

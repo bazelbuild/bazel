@@ -109,23 +109,16 @@ public abstract class AndroidSkylarkData
     String pkg = fromNoneable(customPackage, String.class);
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      if (pkg == null) {
-        pkg =
-            AndroidManifest.getDefaultPackage(
-                env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter);
-      }
-    }
-
-    Artifact primaryManifest = fromNoneable(manifest, Artifact.class);
-    if (primaryManifest == null) {
-      return StampedAndroidManifest.createEmpty(ctx.getActionConstructionContext(), pkg, exported)
+      return AndroidManifest.from(
+              ctx,
+              errorReporter,
+              fromNoneable(manifest, Artifact.class),
+              getAndroidSemantics(),
+              pkg,
+              exported)
+          .stamp(ctx)
           .toProvider();
     }
-
-    // If needed, rename the manifest to "AndroidManifest.xml", which aapt expects.
-    Artifact renamedManifest = getAndroidSemantics().renameManifest(ctx, primaryManifest);
-
-    return new AndroidManifest(renamedManifest, pkg, exported).stamp(ctx).toProvider();
   }
 
   @Override
@@ -216,16 +209,10 @@ public abstract class AndroidSkylarkData
     boolean definesLocalResources = resourcesInfo.getDirectAndroidResources().isSingleton();
     AndroidResources resources = AndroidResources.empty();
     if (definesLocalResources) {
-      ValidatedAndroidData validatedAndroidData =
+      ValidatedAndroidResources validatedAndroidResources =
           resourcesInfo.getDirectAndroidResources().toList().get(0);
-      if (validatedAndroidData.getLabel().equals(ctx.getLabel())) {
-        // TODO(b/77574966): Remove this cast once we get rid of ResourceContainer and can guarantee
-        // that only properly processed resources are passed into this object.
-        if (!(validatedAndroidData instanceof ValidatedAndroidResources)) {
-          throw new EvalException(
-              Location.BUILTIN, "Old data processing pipeline does not support the Skylark API");
-        }
-        resources = (ValidatedAndroidResources) validatedAndroidData;
+      if (validatedAndroidResources.getLabel().equals(ctx.getLabel())) {
+        resources = validatedAndroidResources;
       } else {
         definesLocalResources = false;
       }
@@ -425,6 +412,7 @@ public abstract class AndroidSkylarkData
           AndroidLocalTestBase.buildResourceApk(
               ctx,
               getAndroidSemantics(),
+              errorReporter,
               DataBinding.asDisabledDataBindingContext(),
               rawManifest,
               AndroidResources.from(errorReporter, getFileProviders(resources), "resource_files"),
@@ -554,10 +542,10 @@ public abstract class AndroidSkylarkData
           rawManifest.mergeWithDeps(
               ctx,
               getAndroidSemantics(),
+              errorReporter,
               resourceDeps,
               manifestValues,
-              ApplicationManifest.useLegacyMerging(
-                  errorReporter, ctx.getAndroidConfig(), manifestMerger));
+              manifestMerger);
 
       ResourceApk resourceApk =
           ProcessedAndroidData.processBinaryDataFrom(
