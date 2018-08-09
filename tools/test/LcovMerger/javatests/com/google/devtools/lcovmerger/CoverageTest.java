@@ -22,11 +22,14 @@ import static com.google.devtools.lcovmerger.LcovMergerTestUtils.createLinesExec
 import static com.google.devtools.lcovmerger.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.lcovmerger.LcovMergerTestUtils.createSourceFile2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.Collection;
 
 /**
  * Test for LcovMerger.
@@ -77,5 +80,92 @@ public class CoverageTest {
     assertThat(coverage.getAllSourceFiles()).hasSize(2);
     assertTracefile1(Iterables.get(coverage.getAllSourceFiles(), 0));
     assertTracefile1(Iterables.get(coverage.getAllSourceFiles(), 1));
+  }
+
+  @Test
+  public void testFilterSources() {
+    Coverage coverage = new Coverage();
+
+    coverage.add(new SourceFileCoverage("/x/y/a.c"));
+    coverage.add(new SourceFileCoverage("/x/y/b.c"));
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    coverage.add(validSource1);
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    coverage.add(validSource2);
+    Collection<SourceFileCoverage> filteredSources =
+            Coverage.filterOutMatchingSources(coverage, new String[] {"/x/y/.+"})
+                .getAllSourceFiles();
+
+    assertThat(filteredSources).containsExactly(validSource1, validSource2);
+  }
+
+  @Test
+  public void testFilterSourcesEmptyResult() {
+    Coverage coverage = new Coverage();
+
+    coverage.add(new SourceFileCoverage("/x/y/a.c"));
+    coverage.add(new SourceFileCoverage("/x/y/b.c"));
+    Collection<SourceFileCoverage> filteredSources =
+            Coverage.filterOutMatchingSources(coverage, new String[] {"/x/y/.+"})
+                    .getAllSourceFiles();
+
+    assertThat(filteredSources).isEmpty();
+  }
+
+  @Test
+  public void testFilterSourcesNoMatches() {
+    Coverage coverage = new Coverage();
+
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    coverage.add(validSource1);
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    coverage.add(validSource2);
+    Collection<SourceFileCoverage> filteredSources =
+            Coverage.filterOutMatchingSources(coverage, new String[] {"/something/else/.+"})
+                    .getAllSourceFiles();
+
+    assertThat(filteredSources).containsExactly(validSource1, validSource2);
+  }
+
+  @Test
+  public void testFilterSourcesMultipleRegex() {
+    Coverage coverage = new Coverage();
+
+    coverage.add(new SourceFileCoverage("/x/y/a.c"));
+    coverage.add(new SourceFileCoverage("/x/y/b.c"));
+    coverage.add(new SourceFileCoverage("/repo/external/p.c"));
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    coverage.add(validSource1);
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    coverage.add(validSource2);
+    Collection<SourceFileCoverage> filteredSources =
+            Coverage.filterOutMatchingSources(coverage, new String[] {"/x/y/.+", ".+external.+"})
+                    .getAllSourceFiles();
+
+    assertThat(filteredSources).containsExactly(validSource1, validSource2);
+  }
+
+  @Test
+  public void testFilterSourcesNoFilter() {
+    Coverage coverage = new Coverage();
+
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    coverage.add(validSource1);
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    coverage.add(validSource2);
+    Collection<SourceFileCoverage> filteredSources =
+            Coverage.filterOutMatchingSources(coverage, new String[] {}).getAllSourceFiles();
+
+    assertThat(filteredSources).containsExactly(validSource1, validSource2);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testFilterSourcesNullCoverage() {
+    Coverage.filterOutMatchingSources(null, new String[] {});
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testFilterSourcesNullRegex() {
+    Coverage.filterOutMatchingSources(new Coverage(), null);
   }
 }

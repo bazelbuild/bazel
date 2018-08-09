@@ -67,6 +67,11 @@ public class Main {
       System.exit(1);
     }
 
+    if (flags.containsKey("filter_sources")) {
+      String[] regex = flags.get("filter_sources").split(",");
+      coverage = Coverage.filterOutMatchingSources(coverage, regex);
+    }
+
     int exitStatus = 0;
     String outputFile = flags.get("output_file");
     try {
@@ -194,6 +199,7 @@ public class Main {
         case "coverage_dir":
         case "reports_file":
         case "output_file":
+        case "filter_sources":
           continue;
         default:
           throw new IllegalArgumentException("Unknown flag --" + flag);
