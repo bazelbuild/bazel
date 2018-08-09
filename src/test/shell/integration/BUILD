@@ -183,8 +183,10 @@ sh_test(
     name = "aquery_test",
     size = "large",
     srcs = ["aquery_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
