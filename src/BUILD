@@ -252,7 +252,7 @@ genrule(
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second and install base key is the
         # third
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "tiny-server.jar",
         "install_base_key" + suffix,
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -260,6 +260,7 @@ genrule(
         "//src/main/tools:jdk-support",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
     ],
     outs = ["package" + suffix + ".zip"],
     cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
