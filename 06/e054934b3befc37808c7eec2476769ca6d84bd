@@ -1,0 +1,12 @@
+This release is a patch release that contains fixes for several serious
+regressions that were found after the release of Bazel 0.16.0.
+
+In particular this release resolves the following issues:
+
+ - Bazel crashes with a StackOverflowError on Windows (See #5730)
+ - Bazel requires a locally installed JDK and does not fall back
+   to the embedded JDK (See #5744)
+ - Bazel fails to build for Homebrew on macOS El Capitan (See #5777)
+ - A regression in apple_static_library (See #5683)
+
+Please watch our blog for a more detailed release announcement.
