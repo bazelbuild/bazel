@@ -147,8 +147,10 @@ sh_test(
     name = "output_filter_test",
     size = "large",
     srcs = ["output_filter_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
