@@ -63,9 +63,11 @@ function create_test_files() {
   # test adds a unique file to the directory and then removes it.
   local -r testfiles="$(mktemp -d "$TEST_TMPDIR/tmp.XXXXXXXX")"
 
-  mkdir pkg
+  if [[ ! -d dir ]]; then
+    mkdir dir
+  fi
 
-  cat <<EOF > pkg/test.sh
+  cat <<EOF > dir/test.sh
 #!/bin/sh
 
 z=\$(mktemp "$testfiles/tmp.XXXXXXXX")
@@ -90,9 +92,9 @@ sleep 1
 rm \${z}
 EOF
 
-  chmod +x pkg/test.sh
+  chmod +x dir/test.sh
 
-  cat <<EOF > pkg/BUILD
+  cat <<EOF > dir/BUILD
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],
@@ -105,7 +107,7 @@ EOF
 function test_local_test_jobs_constrains_test_execution() {
   create_test_files
   # 3 local test jobs, so no more than 3 tests in parallel.
-  bazel test --test_output=errors --local_test_jobs=3 --local_resources=10000,10,100 --runs_per_test=10 \
+  bazel test --local_test_jobs=3 --local_resources=10000,10,100 --runs_per_test=10 \
       //dir:test >& $TEST_log || fail "Expected success"
 }
 
