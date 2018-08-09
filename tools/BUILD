@@ -66,7 +66,7 @@ filegroup(
         "//tools/objc:srcs",
         "//tools/python:embedded_tools",
         "//tools/runfiles:embedded_tools",
-        "//tools/test:srcs",
+        "//tools/test:embedded_tools",
         "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:embedded_tools",
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
