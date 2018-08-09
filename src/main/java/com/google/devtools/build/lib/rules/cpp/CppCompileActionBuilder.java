@@ -66,7 +66,6 @@ public class CppCompileActionBuilder {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
-  private boolean allowUsingHeaderModules;
   private UUID actionClassId = GUID;
   private CppConfiguration cppConfiguration;
   private final ArrayList<Artifact> additionalIncludeScanningRoots;
@@ -117,7 +116,6 @@ public class CppCompileActionBuilder {
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ArrayList<>();
-    this.allowUsingHeaderModules = true;
     this.env = configuration.getActionEnvironment();
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.ccToolchain = ccToolchain;
@@ -151,7 +149,6 @@ public class CppCompileActionBuilder {
     this.cppConfiguration = other.cppConfiguration;
     this.configuration = other.configuration;
     this.usePic = other.usePic;
-    this.allowUsingHeaderModules = other.allowUsingHeaderModules;
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.executionInfo = new LinkedHashMap<>(other.executionInfo);
     this.env = other.env;
@@ -398,8 +395,9 @@ public class CppCompileActionBuilder {
   }
 
   private boolean useHeaderModules() {
-    return allowUsingHeaderModules
-        && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+    Preconditions.checkNotNull(featureConfiguration);
+    Preconditions.checkNotNull(sourceFile);
+    return featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
         && (sourceFile.isFileType(CppFileTypes.CPP_SOURCE)
             || sourceFile.isFileType(CppFileTypes.CPP_HEADER)
             || sourceFile.isFileType(CppFileTypes.CPP_MODULE_MAP));
@@ -517,7 +515,7 @@ public class CppCompileActionBuilder {
         ruleContext,
         CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName),
         configuration);
-    if (generateDotd) {
+    if (generateDotd && !(cppConfiguration.getNoDotdScanningWithModules() && useHeaderModules())) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleContext, ccToolchain, outputCategory, outputName);
       if (cppConfiguration.getInmemoryDotdFiles()) {
@@ -587,12 +585,6 @@ public class CppCompileActionBuilder {
   /** Sets whether the CompileAction should use pic mode. */
   public CppCompileActionBuilder setPicMode(boolean usePic) {
     this.usePic = usePic;
-    return this;
-  }
-
-  /** Sets whether the CompileAction should use header modules. */
-  public CppCompileActionBuilder setAllowUsingHeaderModules(boolean allowUsingHeaderModules) {
-    this.allowUsingHeaderModules = allowUsingHeaderModules;
     return this;
   }
 

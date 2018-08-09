@@ -218,7 +218,8 @@ public class FakeCppCompileAction extends CppCompileAction {
                         outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
                   }
                   if (input.equals(outputFile.getExecPathString())
-                      || input.equals(getDotdFile().getSafeExecPath().getPathString())) {
+                      || (getDotdFile() != null
+                          && input.equals(getDotdFile().getSafeExecPath().getPathString()))) {
                     result = outputPrefix + ShellEscaper.escapeString(input);
                   }
                   return result;
@@ -231,8 +232,12 @@ public class FakeCppCompileAction extends CppCompileAction {
     try {
       // Ensure that the .d file and .o file are siblings, so that the "mkdir" below works for
       // both.
-      Preconditions.checkState(outputFile.getExecPath().getParentDirectory().equals(
-          getDotdFile().getSafeExecPath().getParentDirectory()));
+      Preconditions.checkState(
+          getDotdFile() == null
+              || outputFile
+                  .getExecPath()
+                  .getParentDirectory()
+                  .equals(getDotdFile().getSafeExecPath().getParentDirectory()));
       FileSystemUtils.writeContent(
           actionExecutionContext.getInputPath(outputFile),
           ISO_8859_1,
