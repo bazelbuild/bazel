@@ -605,7 +605,21 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public boolean experimentalJavaCoverage;
 
-
+    @Option(
+        name = "experimental_use_gcov_coverage",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+            OptionEffectTag.CHANGES_INPUTS,
+            OptionEffectTag.AFFECTS_OUTPUTS,
+            OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help =
+            "If specified, Bazel will use gcov to collect code coverage for C++ test targets. "
+                + "This option only works for gcc compilation."
+    )
+    public boolean useGcovCoverage;
 
     @Option(
       name = "build_runfile_manifests",
@@ -1713,6 +1727,8 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public boolean isExperimentalJavaCoverage() {
     return options.experimentalJavaCoverage;
   }
+
+  public boolean useGcovCoverage() { return options.useGcovCoverage; }
 
   public RunUnder getRunUnder() {
     return options.runUnder;

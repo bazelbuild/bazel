@@ -21,7 +21,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_cc_test_coverage() {
+function setup_cc_test() {
   if [[ ! -x /usr/bin/lcov ]]; then
     echo "lcov not installed. Skipping test."
     return
@@ -65,10 +65,9 @@ int main(void) {
   a(true);
 }
 EOF
+}
 
-  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
-      &>$TEST_log || fail "Coverage for //:t failed"
-
+function assert_cc_test() {
   ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
 
   coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
@@ -90,6 +89,25 @@ EOF
   expect_log '//:t.*cached'
   assert_contains 'name: "test.lcov"' bep.txt
   assert_contains 'name: "baseline.lcov"' bep.txt
+
+}
+
+function test_cc_test_coverage() {
+  setup_cc_test
+
+  bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
+
+  assert_cc_test
+}
+
+function test_cc_test_coverage_gcov() {
+  setup_cc_test
+
+  bazel coverage --experimental_use_gcov_coverage --test_output=all --build_event_text_file=bep.txt //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
+
+  assert_cc_test
 }
 
 function test_failed_coverage() {

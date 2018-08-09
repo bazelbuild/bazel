@@ -65,7 +65,7 @@ function setup_gcc_gcda_files() {
 function setup_script_environment() {
   export COVERAGE_DIR="$PWD/coverage"
   export ROOT="$PWD"
-  export COVERAGE_OUTPUT_FILE="$PWD/coverage_report.dat"
+  export CC_COVERAGE_OUTPUT_FILE="$PWD/coverage_report.dat"
   export COVERAGE_MANIFEST="$PWD/coverage_manifest.txt"
 
   # The script expects gcov to be at $COVERAGE_DIR/gcov.
@@ -73,7 +73,7 @@ function setup_script_environment() {
   cp $gcov_location $COVERAGE_DIR/gcov
 
   # The script expects the output file to already exist.
-  touch $COVERAGE_OUTPUT_FILE
+  touch $CC_COVERAGE_OUTPUT_FILE
   echo "coverage/a.gcno" >> $COVERAGE_MANIFEST
 }
 
@@ -127,8 +127,8 @@ LH:3
 end_of_record
 EOF
 
-  diff result.dat "$COVERAGE_OUTPUT_FILE" >> $TEST_log
-  cmp result.dat "$COVERAGE_OUTPUT_FILE" || fail "Coverage output file is different than the expected file"
+  diff result.dat "$CC_COVERAGE_OUTPUT_FILE" >> $TEST_log
+  cmp result.dat "$CC_COVERAGE_OUTPUT_FILE" || fail "Coverage output file is different than the expected file"
 }
 
 run_suite "testing tools/test/collect_cc_coverage.sh"
