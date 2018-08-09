@@ -60,15 +60,18 @@ function test_output_filter_cc() {
   # "test warning filter for C compilation"
   local -r pkg=$FUNCNAME
 
+  if is_windows; then
+    local -r copts=\"/W3\"
+  else
+    local -r copts=""
+  fi
+
   mkdir -p $pkg/cc/main
   cat > $pkg/cc/main/BUILD <<EOF
 cc_library(
     name = "cc",
     srcs = ["main.c"],
-    copts = select({
-        "@bazel_tools//src/conditions:windows": ["/W3"],
-        "//conditions:default": [],
-    }),
+    copts = [$copts],
     nocopts = "-Werror",
 )
 EOF
@@ -92,7 +95,7 @@ EOF
   expect_not_log "triggers_a_warning"
 
   echo "/* adding a comment forces recompilation */" >> $pkg/cc/main/main.c
-  bazel build --verbose_failures $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
+  bazel build $pkg/cc/main:cc >&"$TEST_log" || fail "build failed"
   expect_log "triggers_a_warning"
 }
 
