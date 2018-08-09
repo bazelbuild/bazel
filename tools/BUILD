@@ -81,6 +81,7 @@ filegroup(
 test_suite(
     name = "all_windows_tests",
     tests = [
+        "//tools/android:all_windows_tests",
         "//tools/bash:all_windows_tests",
         "//tools/build_defs:all_windows_tests",
         "//tools/cpp:all_windows_tests",
