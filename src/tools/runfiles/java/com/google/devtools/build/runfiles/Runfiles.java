@@ -35,7 +35,7 @@ import java.util.Map;
  *   java_binary(
  *       name = "my_binary",
  *       ...
- *       deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+ *       deps = ["@bazel_tools//tools/java/runfiles"],
  *   )
  * </pre>
  *
