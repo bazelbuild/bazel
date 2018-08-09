@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -28,7 +30,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -277,6 +281,69 @@ public class MultisetSemaphoreTest {
       Thread.currentThread().interrupt();
       throw new InterruptedException();
     }
+  }
+
+  @Test
+  @Ignore("Fails due to exposing actual deadlock bug (b/112412784)")
+  public void testSimpleDeadlock() throws Exception {
+    final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
+        .maxNumUniqueValues(2)
+        .build();
+
+    CountDownLatch thread1AcquiredLatch = new CountDownLatch(1);
+    CountDownLatch thread2AboutToAcquireLatch = new CountDownLatch(1);
+    CountDownLatch thread3AboutToAcquireLatch = new CountDownLatch(1);
+
+    TestThread thread1 =
+        new TestThread() {
+          @Override
+          public void runTest() throws InterruptedException {
+            multisetSemaphore.acquireAll(ImmutableSet.of("a", "b"));
+            thread1AcquiredLatch.countDown();
+            thread2AboutToAcquireLatch.await(
+                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+            thread3AboutToAcquireLatch.await(
+                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+            Thread.sleep(1000);
+            multisetSemaphore.releaseAll(ImmutableSet.of("a", "b"));
+          }
+        };
+    thread1.setName("Thread1");
+
+    TestThread thread2 =
+        new TestThread() {
+          @Override
+          public void runTest() throws InterruptedException {
+            thread1AcquiredLatch.await(
+                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+            thread2AboutToAcquireLatch.countDown();
+            multisetSemaphore.acquireAll(ImmutableSet.of("b", "c"));
+            multisetSemaphore.releaseAll(ImmutableSet.of("b", "c"));
+          }
+        };
+    thread2.setName("Thread2");
+
+    TestThread thread3 =
+        new TestThread() {
+          @Override
+          public void runTest() throws InterruptedException {
+            thread2AboutToAcquireLatch.await(
+                TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+            Thread.sleep(1000);
+            thread3AboutToAcquireLatch.countDown();
+            multisetSemaphore.acquireAll(ImmutableSet.of("a", "d"));
+            multisetSemaphore.releaseAll(ImmutableSet.of("a", "d"));
+          }
+        };
+    thread3.setName("Thread3");
+
+    thread1.start();
+    thread2.start();
+    thread3.start();
+
+    thread1.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    thread2.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    thread3.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 }
 
