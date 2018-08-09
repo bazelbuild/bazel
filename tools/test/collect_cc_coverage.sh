@@ -27,8 +27,8 @@
 # - COVERAGE_DIR            Directory containing metadata files needed for
 #                           coverage collection (e.g. gcda files, profraw).
 # - COVERAGE_MANIFEST       Location of the instrumented file manifest.
-# - COVERAGE_OUTPUT_FILE    Location of the final coverage report.
 # - COVERAGE_GCOV_PATH      Location of gcov. This is set by the TestRunner.
+# - CC_COVERAGE_OUTPUT_FILE Location of the final coverage report.
 # - ROOT                    Location from where the code coverage collection
 #                           was invoked.
 #
@@ -44,6 +44,13 @@ function uses_llvm() {
   return 1
 }
 
+function uses_gcov() {
+  if [[ "$GCOV_COVERAGE" ]]; then
+    return
+  fi
+  false
+}
+
 function init_gcov() {
   # Symlink the gcov tool such with a link called gcov. Clang comes with a tool
   # called llvm-cov, which behaves like gcov if symlinked in this way (otherwise
@@ -57,7 +64,7 @@ function init_gcov() {
 # Writes the collected coverage into ${COVERAGE_OUTPUT_FILE}.
 function llvm_coverage() {
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
+  "${COVERAGE_GCOV_PATH}" merge -output "${CC_COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
 }
 
 # Computes code coverage data using gcda files found under $COVERAGE_DIR.
@@ -67,6 +74,7 @@ function lcov_coverage() {
     mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
     cp "${ROOT}/${gcno}" "${COVERAGE_DIR}/${gcno}"
   done
+
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
   # -c                    - Collect coverage data
   # --no-external         - Do not collect coverage data for system files
@@ -76,22 +84,39 @@ function lcov_coverage() {
   # -b /proc/self/cwd     - Use this as a prefix for all source files instead of
   #                         the current directory
   # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
-  # -o "${COVERAGE_OUTPUT_FILE}" - Output file
+  # -o "${CC_COVERAGE_OUTPUT_FILE}" - Output file
   LCOV=$(which lcov)
   if [[ ! -x $LCOV ]]; then
     LCOV=/usr/bin/lcov
   fi
   $LCOV -c --no-external --ignore-errors graph -q \
       --gcov-tool "${GCOV}" -b /proc/self/cwd \
-      -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
+      -d "${COVERAGE_DIR}" -o "${CC_COVERAGE_OUTPUT_FILE}"
    # Fix up the paths to be relative by removing the prefix we specified above.
-  sed -i -e "s*/proc/self/cwd/**g" "${COVERAGE_OUTPUT_FILE}"
+  sed -i -e "s*/proc/self/cwd/**g" "${CC_COVERAGE_OUTPUT_FILE}"
+}
+
+function gcc_gcov_coverage() {
+  cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
+    mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
+    cp "$ROOT/${gcno}" "${COVERAGE_DIR}/${gcno}"
+    gcda="${COVERAGE_DIR}/$(dirname ${gcno})/$(basename ${gcno} .gcno).gcda"
+    "${GCOV}" --branch-probabilities --branch-counts --function-summaries --intermediate-format "${gcda}"
+  done
+
+  export CC_COVERAGE_OUTPUT_FILE="$COVERAGE_DIR/_coverage.gcov"
+  find . -name "*.gcov" | while read path; do
+    echo "Processing $path"
+    cat $path >> "${CC_COVERAGE_OUTPUT_FILE}"
+  done
 }
 
 function main() {
   init_gcov
   if uses_llvm; then
     llvm_coverage
+  elif uses_gcov; then
+    gcc_gcov_coverage
   else
     lcov_coverage
   fi
