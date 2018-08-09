@@ -39,16 +39,14 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
         .addOutput("--assetsOutput", mergedAssets)
         .addInput(
             "--primaryData",
-            AndroidDataConverter.MERGABLE_DATA_CONVERTER.map(parsed),
+            AndroidDataConverter.PARSED_ASSET_CONVERTER.map(parsed),
             Iterables.concat(parsed.getAssets(), ImmutableList.of(parsed.getSymbols())))
         .addTransitiveFlag(
             "--directData",
             deps.getDirectParsedAssets(),
-            AndroidDataConverter.MERGABLE_DATA_CONVERTER)
+            AndroidDataConverter.PARSED_ASSET_CONVERTER)
         .addTransitiveFlag(
-            "--data",
-            deps.getTransitiveParsedAssets(),
-            AndroidDataConverter.MERGABLE_DATA_CONVERTER)
+            "--data", deps.getTransitiveParsedAssets(), AndroidDataConverter.PARSED_ASSET_CONVERTER)
         .addTransitiveInputValues(deps.getTransitiveAssets())
         .addTransitiveInputValues(deps.getTransitiveSymbols())
         .buildAndRegister("Merging Android assets", "AndroidAssetMerger");

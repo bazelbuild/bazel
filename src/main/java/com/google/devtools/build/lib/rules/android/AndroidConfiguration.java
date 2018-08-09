@@ -1200,11 +1200,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return robolectricTestDeprecationLevel;
   }
 
-  public boolean decoupleDataProcessing() {
-    // TODO(b/76418450): Entirely remove this method and code that depends on it
-    return true;
-  }
-
   public boolean checkForMigrationTag() {
     return checkForMigrationTag;
   }

@@ -135,7 +135,6 @@ public class FakeAndroidResourcesInfo extends NativeInfo
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,
         SkylarkNestedSet transitiveResources,
-        SkylarkNestedSet transitiveAssets,
         SkylarkNestedSet transitiveManifests,
         SkylarkNestedSet transitiveAapt2RTxt,
         SkylarkNestedSet transitiveSymbolsBin,

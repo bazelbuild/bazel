@@ -28,52 +28,13 @@ import java.util.List;
 public class AndroidResourcesProcessorBuilder {
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG =
-      AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
-          .withRoots(ParsedAndroidAssets::getResourceRoots)
-          .withRoots(ParsedAndroidAssets::getAssetRoots)
-          .withLabel(ParsedAndroidAssets::getLabel)
-          .withArtifact(ParsedAndroidAssets::getSymbols)
-          .build();
-
-  @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ParsedAndroidAssets> AAPT2_ASSET_DEP_TO_ARG_NO_PARSE =
-      AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
-          .withRoots(ParsedAndroidAssets::getResourceRoots)
-          .withRoots(ParsedAndroidAssets::getAssetRoots)
-          .withLabel(ParsedAndroidAssets::getLabel)
-          .withArtifact(ParsedAndroidAssets::getCompiledSymbols)
-          .build();
-
-  @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidResources::getResourceRoots)
-          .withRoots(ValidatedAndroidResources::getAssetRoots)
-          .withArtifact(ValidatedAndroidResources::getManifest)
-          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
-          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
-          .build();
-
-  @AutoCodec @VisibleForSerialization
   static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE =
       AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
           .withRoots(ValidatedAndroidResources::getResourceRoots)
-          .withRoots(ValidatedAndroidResources::getAssetRoots)
+          .withEmpty()
           .withArtifact(ValidatedAndroidResources::getManifest)
           .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
           .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
-          .build();
-
-  @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidResources> RESOURCE_DEP_TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidResources::getResourceRoots)
-          .withRoots(ValidatedAndroidResources::getAssetRoots)
-          .withArtifact(ValidatedAndroidResources::getManifest)
-          .maybeWithArtifact(ValidatedAndroidResources::getRTxt)
-          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
           .build();
 
   private ResourceDependencies resourceDependencies = ResourceDependencies.empty();
@@ -349,15 +310,14 @@ public class AndroidResourcesProcessorBuilder {
               resourceDependencies.getTransitiveResourceContainers(),
               useCompiledResourcesForMerge
                   ? AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE
-                  : AAPT2_RESOURCE_DEP_TO_ARG)
+                  : AndroidDataConverter.AAPT2_RESOURCES_AND_MANIFEST_CONVERTER)
           .addTransitiveFlag(
               "--directData",
               resourceDependencies.getDirectResourceContainers(),
               useCompiledResourcesForMerge
                   ? AAPT2_RESOURCE_DEP_TO_ARG_NO_PARSE
-                  : AAPT2_RESOURCE_DEP_TO_ARG)
+                  : AndroidDataConverter.AAPT2_RESOURCES_AND_MANIFEST_CONVERTER)
           .addTransitiveInputValues(resourceDependencies.getTransitiveResources())
-          .addTransitiveInputValues(resourceDependencies.getTransitiveAssets())
           .addTransitiveInputValues(resourceDependencies.getTransitiveManifests())
           .addTransitiveInputValues(resourceDependencies.getTransitiveAapt2RTxt())
           .addTransitiveInputValues(resourceDependencies.getTransitiveCompiledSymbols());
@@ -373,14 +333,14 @@ public class AndroidResourcesProcessorBuilder {
               "--directAssets",
               assetDependencies.getDirectParsedAssets(),
               useCompiledResourcesForMerge
-                  ? AAPT2_ASSET_DEP_TO_ARG_NO_PARSE
-                  : AAPT2_ASSET_DEP_TO_ARG)
+                  ? AndroidDataConverter.COMPILED_ASSET_CONVERTER
+                  : AndroidDataConverter.PARSED_ASSET_CONVERTER)
           .addTransitiveFlag(
               "--assets",
               assetDependencies.getTransitiveParsedAssets(),
               useCompiledResourcesForMerge
-                  ? AAPT2_ASSET_DEP_TO_ARG_NO_PARSE
-                  : AAPT2_ASSET_DEP_TO_ARG)
+                  ? AndroidDataConverter.COMPILED_ASSET_CONVERTER
+                  : AndroidDataConverter.PARSED_ASSET_CONVERTER)
           .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
           .addTransitiveInputValues(
               useCompiledResourcesForMerge
@@ -406,13 +366,14 @@ public class AndroidResourcesProcessorBuilder {
     if (resourceDependencies != null) {
       builder
           .addTransitiveFlag(
-              "--data", resourceDependencies.getTransitiveResourceContainers(), RESOURCE_DEP_TO_ARG)
+              "--data",
+              resourceDependencies.getTransitiveResourceContainers(),
+              AndroidDataConverter.AAPT_RESOURCES_AND_MANIFEST_CONVERTER)
           .addTransitiveFlag(
               "--directData",
               resourceDependencies.getDirectResourceContainers(),
-              RESOURCE_DEP_TO_ARG)
+              AndroidDataConverter.AAPT_RESOURCES_AND_MANIFEST_CONVERTER)
           .addTransitiveInputValues(resourceDependencies.getTransitiveResources())
-          .addTransitiveInputValues(resourceDependencies.getTransitiveAssets())
           .addTransitiveInputValues(resourceDependencies.getTransitiveManifests())
           .addTransitiveInputValues(resourceDependencies.getTransitiveRTxt())
           .addTransitiveInputValues(resourceDependencies.getTransitiveSymbolsBin());
@@ -423,11 +384,11 @@ public class AndroidResourcesProcessorBuilder {
           .addTransitiveFlag(
               "--directAssets",
               assetDependencies.getDirectParsedAssets(),
-              AndroidDataConverter.MERGABLE_DATA_CONVERTER)
+              AndroidDataConverter.PARSED_ASSET_CONVERTER)
           .addTransitiveFlag(
               "--assets",
               assetDependencies.getTransitiveParsedAssets(),
-              AndroidDataConverter.MERGABLE_DATA_CONVERTER)
+              AndroidDataConverter.PARSED_ASSET_CONVERTER)
           .addTransitiveInputValues(assetDependencies.getTransitiveAssets())
           .addTransitiveInputValues(assetDependencies.getTransitiveSymbols());
     }

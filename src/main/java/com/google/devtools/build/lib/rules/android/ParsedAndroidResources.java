@@ -27,7 +27,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Wraps parsed (and, if requested, compiled) android resources. */
-public class ParsedAndroidResources extends AndroidResources implements MergableAndroidData {
+public class ParsedAndroidResources extends AndroidResources {
   private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;

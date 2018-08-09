@@ -70,9 +70,6 @@ public final class ResourceDependencies {
    */
   private final NestedSet<Artifact> transitiveResources;
 
-  /** Transitive asset files for this target. */
-  private final NestedSet<Artifact> transitiveAssets;
-
   private final NestedSet<Artifact> transitiveManifests;
 
   private final NestedSet<Artifact> transitiveAapt2RTxt;
@@ -102,7 +99,6 @@ public final class ResourceDependencies {
     NestedSetBuilder<ValidatedAndroidResources> directDependencies =
         NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveResources = NestedSetBuilder.naiveLinkOrder();
-    NestedSetBuilder<Artifact> transitiveAssets = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveManifests = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveAapt2RTxt = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> transitiveSymbolsBin = NestedSetBuilder.naiveLinkOrder();
@@ -114,7 +110,6 @@ public final class ResourceDependencies {
       transitiveDependencies.addTransitive(resources.getTransitiveAndroidResources());
       directDependencies.addTransitive(resources.getDirectAndroidResources());
       transitiveResources.addTransitive(resources.getTransitiveResources());
-      transitiveAssets.addTransitive(resources.getTransitiveAssets());
       transitiveManifests.addTransitive(resources.getTransitiveManifests());
       transitiveAapt2RTxt.addTransitive(resources.getTransitiveAapt2RTxt());
       transitiveSymbolsBin.addTransitive(resources.getTransitiveSymbolsBin());
@@ -128,7 +123,6 @@ public final class ResourceDependencies {
         transitiveDependencies.build(),
         directDependencies.build(),
         transitiveResources.build(),
-        transitiveAssets.build(),
         transitiveManifests.build(),
         transitiveAapt2RTxt.build(),
         transitiveSymbolsBin.build(),
@@ -143,7 +137,6 @@ public final class ResourceDependencies {
         .add("transitiveResourceContainers", transitiveResourceContainers)
         .add("directResourceContainers", directResourceContainers)
         .add("transitiveResources", transitiveResources)
-        .add("transitiveAssets", transitiveAssets)
         .add("transitiveManifests", transitiveManifests)
         .add("transitiveAapt2RTxt", transitiveAapt2RTxt)
         .add("transitiveSymbolsBin", transitiveSymbolsBin)
@@ -169,7 +162,6 @@ public final class ResourceDependencies {
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
   }
 
@@ -178,7 +170,6 @@ public final class ResourceDependencies {
       NestedSet<ValidatedAndroidResources> transitiveResourceContainers,
       NestedSet<ValidatedAndroidResources> directResourceContainers,
       NestedSet<Artifact> transitiveResources,
-      NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveManifests,
       NestedSet<Artifact> transitiveAapt2RTxt,
       NestedSet<Artifact> transitiveSymbolsBin,
@@ -189,7 +180,6 @@ public final class ResourceDependencies {
     this.transitiveResourceContainers = transitiveResourceContainers;
     this.directResourceContainers = directResourceContainers;
     this.transitiveResources = transitiveResources;
-    this.transitiveAssets = transitiveAssets;
     this.transitiveManifests = transitiveManifests;
     this.transitiveAapt2RTxt = transitiveAapt2RTxt;
     this.transitiveSymbolsBin = transitiveSymbolsBin;
@@ -228,7 +218,6 @@ public final class ResourceDependencies {
         transitiveResourceContainers,
         directResourceContainers,
         transitiveResources,
-        transitiveAssets,
         transitiveManifests,
         transitiveAapt2RTxt,
         transitiveSymbolsBin,
@@ -271,10 +260,6 @@ public final class ResourceDependencies {
             .addTransitive(transitiveResources)
             .addAll(newDirectResource.getResources())
             .build(),
-        NestedSetBuilder.<Artifact>naiveLinkOrder()
-            .addTransitive(transitiveAssets)
-            .addAll(newDirectResource.getAssets())
-            .build(),
         withDirectAndTransitive(newDirectResource.getManifest(), transitiveManifests),
         withDirectAndTransitive(newDirectResource.getAapt2RTxt(), transitiveAapt2RTxt),
         withDirectAndTransitive(newDirectResource.getSymbols(), transitiveSymbolsBin),
@@ -305,7 +290,6 @@ public final class ResourceDependencies {
         transitiveResourceContainers,
         directResourceContainers,
         transitiveResources,
-        transitiveAssets,
         transitiveManifests,
         transitiveAapt2RTxt,
         transitiveSymbolsBin,
@@ -359,10 +343,6 @@ public final class ResourceDependencies {
 
   public NestedSet<Artifact> getTransitiveResources() {
     return transitiveResources;
-  }
-
-  public NestedSet<Artifact> getTransitiveAssets() {
-    return transitiveAssets;
   }
 
   public NestedSet<Artifact> getTransitiveManifests() {

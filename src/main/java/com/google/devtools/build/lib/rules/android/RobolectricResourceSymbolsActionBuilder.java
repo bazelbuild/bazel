@@ -17,9 +17,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
  * Builder for generating R classes for robolectric action.
@@ -28,26 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  * resource ids for the transitive closure of dependencies that provide resources.
  */
 public class RobolectricResourceSymbolsActionBuilder {
-
-  @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidResources> TO_ARG =
-      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidResources::getResourceRoots)
-          .withRoots(ValidatedAndroidResources::getAssetRoots)
-          .withArtifact(ValidatedAndroidResources::getManifest)
-          .maybeWithArtifact(ValidatedAndroidResources::getRTxt)
-          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
-          .build();
-
-  @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidResources> TO_ARG_AAPT2 =
-      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
-          .withRoots(ValidatedAndroidResources::getResourceRoots)
-          .withRoots(ValidatedAndroidResources::getAssetRoots)
-          .withArtifact(ValidatedAndroidResources::getManifest)
-          .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
-          .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
-          .build();
 
   private Artifact classJarOut;
   private final ResourceDependencies dependencies;
@@ -81,13 +58,14 @@ public class RobolectricResourceSymbolsActionBuilder {
           .addTransitiveFlag(
               "--data",
               dependencies.getResourceContainers(),
-              androidAaptVersion == AndroidAaptVersion.AAPT2 ? TO_ARG_AAPT2 : TO_ARG)
+              androidAaptVersion == AndroidAaptVersion.AAPT2
+                  ? AndroidDataConverter.AAPT2_RESOURCES_AND_MANIFEST_CONVERTER
+                  : AndroidDataConverter.AAPT_RESOURCES_AND_MANIFEST_CONVERTER)
           .addTransitiveInputValues(
               androidAaptVersion == AndroidAaptVersion.AAPT2
                   ? dependencies.getTransitiveAapt2RTxt()
                   : dependencies.getTransitiveRTxt())
           .addTransitiveInputValues(dependencies.getTransitiveResources())
-          .addTransitiveInputValues(dependencies.getTransitiveAssets())
           .addTransitiveInputValues(dependencies.getTransitiveManifests())
           .addTransitiveInputValues(dependencies.getTransitiveSymbolsBin());
     }
