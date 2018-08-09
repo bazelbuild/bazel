@@ -120,7 +120,8 @@ public class GcovParser {
   }
 
   /**
-   * Valid lines: function:start_line_number,end_line_number,execution_count,function_name
+   * Valid lines:
+   * function:start_line_number,end_line_number,execution_count,function_name
    * function:start_line_number,execution_count,function_name
    */
   private boolean parseFunction(String line) {
@@ -145,8 +146,9 @@ public class GcovParser {
   }
 
   /**
-   * Valid lines: lcount:line number,execution_count,has_unexecuted_block lcount:line
-   * number,execution_count
+   * Valid lines:
+   * lcount:line number,execution_count,has_unexecuted_block
+   * lcount:line number,execution_count
    */
   private boolean parseLCount(String line) {
     String lineContent = line.substring(GCOV_LINE_MARKER.length());
