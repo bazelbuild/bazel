@@ -45,6 +45,32 @@ class Coverage {
     return merged;
   }
 
+  static Coverage filterOutMatchingSources(Coverage coverage, String[] regexes) throws IllegalArgumentException {
+    if (regexes.length == 0) {
+      return coverage;
+    }
+    if (coverage == null || regexes == null) {
+      throw new IllegalArgumentException("Can not filter coverage.");
+    }
+    Coverage filteredCoverage = new Coverage();
+    Collection<SourceFileCoverage> sources = coverage.getAllSourceFiles();
+    for (SourceFileCoverage source : sources) {
+      if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
+        filteredCoverage.add(source);
+      }
+    }
+    return filteredCoverage;
+  }
+
+  private static boolean matchesAnyRegex(String input, String[] regexes) {
+    for (String regex : regexes) {
+      if (input.matches(regex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   boolean isEmpty() {
     return sourceFiles.isEmpty();
   }

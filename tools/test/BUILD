@@ -24,6 +24,12 @@ filegroup(
 )
 
 filegroup(
+    name = "collect_cc_coverage",
+    srcs = ["collect_cc_coverage.sh"]
+)
+
+
+filegroup(
     name = "coverage_support",
     srcs = ["collect_coverage.sh"],
 )
