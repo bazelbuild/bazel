@@ -59,21 +59,13 @@ add_to_bazelrc "test --nocache_test_results"
 # End of preamble.
 
 function create_test_files() {
-  local -r pkg="$PWD/dir"
-  local -r test_sh="$pkg/test.sh"
-  if [[ -f "$test_sh" ]]; then
-    # Every test method uses the same directory structure, so don't create it
-    # more than once.
-    return 0
-  fi
-
   # We use this directory as a communication mechanism between test runs. Each
   # test adds a unique file to the directory and then removes it.
   local -r testfiles="$(mktemp -d "$TEST_TMPDIR/tmp.XXXXXXXX")"
 
-  mkdir "$pkg"
+  mkdir pkg
 
-  cat <<EOF > "$test_sh"
+  cat <<EOF > pkg/test.sh
 #!/bin/sh
 
 z=\$(mktemp "$testfiles/tmp.XXXXXXXX")
@@ -98,9 +90,9 @@ sleep 1
 rm \${z}
 EOF
 
-  chmod +x "$test_sh"
+  chmod +x pkg/test.sh
 
-  cat <<EOF > "$pkg/BUILD"
+  cat <<EOF > pkg/BUILD
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],
