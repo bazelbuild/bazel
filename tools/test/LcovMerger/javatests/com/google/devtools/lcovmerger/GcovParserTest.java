@@ -73,6 +73,47 @@ public class GcovParserTest {
           "branch:35,nottaken",
           "lcount:36,1,0");
 
+  private static final ImmutableList<String> GCOV_INFO_FILE2 =
+          ImmutableList.of(
+                  "file:tmp.cpp",
+                  "function:7,0,_ZN3FooIcEC2Ev",
+                  "function:7,1,_ZN3FooIiEC2Ev",
+                  "function:8,0,_ZN3FooIcE3incEv",
+                  "function:8,2,_ZN3FooIiE3incEv",
+                  "function:18,1,main",
+                  "lcount:7,0",
+                  "lcount:7,1",
+                  "lcount:8,0",
+                  "lcount:8,2",
+                  "lcount:18,1",
+                  "lcount:21,1",
+                  "branch:21,taken",
+                  "branch:21,nottaken",
+                  "lcount:23,1",
+                  "branch:23,taken",
+                  "branch:23,nottaken",
+                  "lcount:24,1",
+                  "branch:24,taken",
+                  "branch:24,nottaken",
+                  "lcount:25,1",
+                  "lcount:27,11",
+                  "branch:27,taken",
+                  "branch:27,taken",
+                  "lcount:28,10",
+                  "lcount:30,1",
+                  "branch:30,nottaken",
+                  "branch:30,taken",
+                  "lcount:32,1",
+                  "branch:32,nottaken",
+                  "branch:32,taken",
+                  "lcount:33,0",
+                  "branch:33,notexec",
+                  "branch:33,notexec",
+                  "lcount:35,1",
+                  "branch:35,taken",
+                  "branch:35,nottaken",
+                  "lcount:36,1");
+
   @Test(expected = IOException.class)
   public void testParseInvalidFile() throws IOException {
     GcovParser.parse(new ByteArrayInputStream("Invalid gcov file".getBytes(UTF_8)));
@@ -84,6 +125,15 @@ public class GcovParserTest {
     List<SourceFileCoverage> sourceFiles =
         GcovParser.parse(
             new ByteArrayInputStream(Joiner.on("\n").join(GCOV_INFO_FILE).getBytes(UTF_8)));
+    assertThat(sourceFiles).hasSize(1);
+    assertGcovInfoFile(sourceFiles.get(0));
+  }
+
+  @Test
+  public void testParseTracefilWithDifferentFormat() throws IOException {
+    List<SourceFileCoverage> sourceFiles =
+            GcovParser.parse(
+                    new ByteArrayInputStream(Joiner.on("\n").join(GCOV_INFO_FILE2).getBytes(UTF_8)));
     assertThat(sourceFiles).hasSize(1);
     assertGcovInfoFile(sourceFiles.get(0));
   }
