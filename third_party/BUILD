@@ -310,16 +310,16 @@ java_import(
     name = "error_prone_annotations",
     jars = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "error_prone/error_prone_type_annotations-2.3.1.jar",
+        "error_prone/error_prone_type_annotations-2.3.2-SNAPSHOT.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.1.jar",
-        "error_prone/error_prone_check_api-2.3.1.jar",
-        "error_prone/error_prone_core-2.3.1.jar",
+        "error_prone/error_prone_annotation-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_check_api-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.3.2-SNAPSHOT.jar",
     ],
     exports = [
         ":error_prone_annotations",
