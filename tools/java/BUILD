@@ -14,3 +14,11 @@ filegroup(
     srcs = ["//tools/java/runfiles:embedded_tools"],
     visibility = ["//tools:__pkg__"],
 )
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        "//tools/java/runfiles:all_windows_tests",
+    ],
+    visibility = ["//tools:__pkg__"],
+)

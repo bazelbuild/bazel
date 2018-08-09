@@ -372,3 +372,11 @@ filegroup(
 load(":compiler_flag.bzl", "compiler_flag")
 
 compiler_flag(name = "compiler")
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        "//tools/cpp/runfiles:all_windows_tests",
+    ],
+    visibility = ["//tools/cpp:__pkg__"],
+)

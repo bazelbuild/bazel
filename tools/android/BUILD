@@ -15,6 +15,10 @@ sh_test(
         ":build_incremental_dexmanifest",
         "//tools/zip:zipper",
     ],
+    tags = [
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
+    ],
 )
 
 py_binary(
@@ -49,6 +53,10 @@ py_test(
         ":incremental_install",
         "//third_party/py/mock",
     ],
+    tags = [
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
+    ],
 )
 
 py_binary(
@@ -64,6 +72,10 @@ sh_test(
     data = [
         ":strip_resources",
         "//tools/zip:zipper",
+    ],
+    tags = [
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
     ],
 )
 
@@ -190,7 +202,10 @@ genrule(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
+    srcs = glob(
+        ["**"],
+        exclude = ["*~", ".*"],
+    ) + ["//tools/android/emulator:srcs"],
 )
 
 filegroup(
@@ -200,6 +215,8 @@ filegroup(
         exclude = [
             "*_test.py",
             "*_test.sh",
+            "*~",
+            ".*",
         ],
     ) + [
         ":desugar_jdk_libs.jar",
@@ -209,3 +226,18 @@ filegroup(
 
 # Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.
 exports_files(["android_sdk_repository_template.bzl"])
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [":windows_tests"],
+    visibility = ["//tools:__pkg__"],
+)

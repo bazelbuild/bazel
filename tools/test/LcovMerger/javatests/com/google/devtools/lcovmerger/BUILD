@@ -51,6 +51,10 @@ java_test(
         "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:LcovPrinter",
         "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:SourceFileCoverage",
     ],
+    tags = [
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
+    ],
 )
 
 java_test(
@@ -126,4 +130,19 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//visibility:public"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [":windows_tests"],
+    visibility = ["//tools/test:__pkg__"],
 )
