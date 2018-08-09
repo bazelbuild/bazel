@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.StampedLock;
 
 /**
@@ -25,55 +27,63 @@ import java.util.concurrent.locks.StampedLock;
  * corresponding Map<Object, byte[]>.
  *
  * <p>Keys use reference equality.
+ *
+ * <p>Reading is lock free. During writes a read lock is taken. If we need to resize the table, a
+ * write lock is taken to flush all the readers and writers before the table is resized.
  */
 final class DigestMap {
+  private static final Object INSERTION_IN_PROGRESS = new Object();
   private final int digestSize;
   private final StampedLock readWriteLock = new StampedLock();
-  private Object[] keys;
-  private byte[] bytes;
-  private int tableSize;
-  private int nextResize;
-  private int size;
+
+  static class Table {
+    final int tableSize;
+    final int nextResize;
+    final AtomicReferenceArray<Object> keys;
+    final byte[] bytes;
+
+    Table(int tableSize, int digestSize) {
+      this.tableSize = tableSize;
+      this.nextResize = getNextResize(tableSize);
+      this.keys = new AtomicReferenceArray<>(tableSize);
+      this.bytes = new byte[tableSize * digestSize];
+    }
+  }
+
+  private volatile Table table;
+  private final AtomicInteger allocatedSlots;
 
   DigestMap(int digestSize, int initialSize) {
     Preconditions.checkArgument(
         initialSize > 0 && (initialSize & (initialSize - 1)) == 0,
         "initialSize must be a power of 2 greater than 0");
     this.digestSize = digestSize;
-    this.keys = new Object[initialSize];
-    this.bytes = new byte[initialSize * digestSize];
-    this.tableSize = initialSize;
-    this.nextResize = getNextResize(initialSize);
+    this.table = new Table(initialSize, digestSize);
+    this.allocatedSlots = new AtomicInteger();
   }
 
   /** Finds the digest for the corresponding key and adds it to the passed fingerprint. */
   boolean readDigest(Object key, Fingerprint fingerprint) {
-    long stamp = readWriteLock.readLock();
-    try {
-      int index = findKeyReadLocked(key);
-      if (index >= 0) {
-        fingerprint.addBytes(bytes, index * digestSize, digestSize);
-        return true;
-      } else {
-        return false;
-      }
-    } finally {
-      readWriteLock.unlockRead(stamp);
+    Table table = this.table; // Read once for duration of method
+    int index = findKey(table, key);
+    if (index >= 0) {
+      fingerprint.addBytes(table.bytes, index * digestSize, digestSize);
+      return true;
     }
+    return false;
   }
 
-  // Finds the key in the array. Must be called under read lock.
-  private int findKeyReadLocked(Object key) {
+  private static int findKey(Table table, Object key) {
     int hash = hash(key);
-    int index = hash & (tableSize - 1);
+    int index = hash & (table.tableSize - 1);
     while (true) {
-      Object currentKey = keys[index];
+      Object currentKey = table.keys.get(index);
       if (currentKey == key) {
         return index;
       } else if (currentKey == null) {
         return -1;
       }
-      index = probe(index, tableSize);
+      index = probe(index, table.tableSize);
     }
   }
 
@@ -89,64 +99,87 @@ final class DigestMap {
    * @param readTo A fingerprint to read the just-added fingerprint into.
    */
   void insertAndReadDigest(Object key, Fingerprint digest, Fingerprint readTo) {
-    long stamp = readWriteLock.writeLock();
-    try {
-      int index = insertKeyWriteLocked(key);
-      digest.digestAndReset(bytes, index * digestSize, digestSize);
-      readTo.addBytes(bytes, index * digestSize, digestSize);
-    } finally {
-      readWriteLock.unlockWrite(stamp);
+    // Check if we have to resize the table first and do that under write lock
+    // We assume that we are going to insert an item. If we do not do this, multiple
+    // threads could race and all think they do not need to resize, then some get stuck
+    // trying to insert the item.
+    Table table = this.table;
+    if (allocatedSlots.incrementAndGet() >= table.nextResize) {
+      long resizeLock = readWriteLock.writeLock();
+      try {
+        // Guard against race to make sure only one thread resizes
+        if (table == this.table) {
+          resizeTableWriteLocked();
+        }
+      } finally {
+        readWriteLock.unlockWrite(resizeLock);
+      }
     }
+    final int index;
+    long stamp = readWriteLock.readLock();
+    try {
+      table = this.table; // Grab the table again under read lock
+      index = insertKey(table, key, digest);
+    } finally {
+      readWriteLock.unlockRead(stamp);
+    }
+    // This can be done outside of the read lock since the slot is immutable once inserted
+    readTo.addBytes(table.bytes, index * digestSize, digestSize);
   }
 
-  // Inserts a key into the array and returns the index. Must be called under write lock.
-  private int insertKeyWriteLocked(Object key) {
-    if (size >= nextResize) {
-      resizeTableWriteLocked();
-    }
+  // Inserts a key into the passed table and returns the index.
+  @SuppressWarnings("ThreadPriorityCheck") // We're not relying on thread scheduler for correctness
+  private int insertKey(Table table, Object key, Fingerprint digest) {
     int hash = hash(key);
-    int index = hash & (tableSize - 1);
+    int index = hash & (table.tableSize - 1);
     while (true) {
-      Object currentKey = keys[index];
+      Object currentKey = table.keys.get(index);
       if (currentKey == null) {
-        keys[index] = key;
-        ++size;
+        if (!table.keys.compareAndSet(index, null, INSERTION_IN_PROGRESS)) {
+          // We raced to insert a key in a free slot, retry this slot in case it's the same key.
+          // Failure to do so could lead to a double insertion.
+          continue;
+        }
+        digest.digestAndReset(table.bytes, index * digestSize, digestSize);
+        table.keys.set(index, key);
         return index;
       } else if (currentKey == key) {
-        // Key is already present
+        // Key is already present, give back the slot allocation
+        allocatedSlots.decrementAndGet();
         return index;
+      } else if (currentKey == INSERTION_IN_PROGRESS) {
+        // We are in the progress of inserting an item in this slot, but we don't yet know
+        // what the item is. Since it could be an insertion of ourselves we need to wait
+        // until done to avoid double insertion. We yield the thread in case the other
+        // thread is stuck between insertion and completion.
+        Thread.yield();
+        continue;
       }
-      index = probe(index, tableSize);
+      index = probe(index, table.tableSize);
     }
   }
 
   private void resizeTableWriteLocked() {
     int digestSize = this.digestSize;
-    int tableSize = this.tableSize;
-    Object[] keys = this.keys;
-    byte[] bytes = this.bytes;
-    int newTableSize = this.tableSize * 2;
-    Object[] newKeys = new Object[newTableSize];
-    byte[] newBytes = new byte[newTableSize * digestSize];
-    for (int i = 0; i < tableSize; ++i) {
-      Object key = keys[i];
+    Table oldTable = this.table;
+    Table newTable = new Table(oldTable.tableSize * 2, digestSize);
+    for (int i = 0; i < oldTable.tableSize; ++i) {
+      Object key = oldTable.keys.get(i);
       if (key != null) {
-        int newIndex = firstFreeIndex(newKeys, newTableSize, key);
-        newKeys[newIndex] = key;
-        System.arraycopy(bytes, i * digestSize, newBytes, newIndex * digestSize, digestSize);
+        int newIndex = firstFreeIndex(newTable.keys, newTable.tableSize, key);
+        newTable.keys.set(newIndex, key);
+        System.arraycopy(
+            oldTable.bytes, i * digestSize, newTable.bytes, newIndex * digestSize, digestSize);
       }
     }
-    this.tableSize = newTableSize;
-    this.keys = newKeys;
-    this.bytes = newBytes;
-    this.nextResize = getNextResize(newTableSize);
+    this.table = newTable;
   }
 
-  private static int firstFreeIndex(Object[] keys, int tableSize, Object key) {
+  private static int firstFreeIndex(AtomicReferenceArray<Object> keys, int tableSize, Object key) {
     int hash = hash(key);
     int index = hash & (tableSize - 1);
     while (true) {
-      Object currentKey = keys[index];
+      Object currentKey = keys.get(index);
       if (currentKey == null) {
         return index;
       }
