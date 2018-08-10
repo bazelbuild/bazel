@@ -1,6 +1,8 @@
-alias(
+java_library(
     name = "runfiles",
-    # TODO(laszlocsomor): move the sources to this package.
-    actual = "//src/tools/runfiles/java/com/google/devtools/build/runfiles",
+    srcs = [
+        "Runfiles.java",
+        "Util.java",
+    ],
     visibility = ["//visibility:public"],
 )

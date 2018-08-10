@@ -1,7 +1,6 @@
-package(default_visibility = ["//visibility:public"])
-
 java_library(
     name = "java-runfiles",
-    exports = ["//src/tools/runfiles/java/com/google/devtools/build/runfiles"],
-    deprecation = "Depend on @bazel_tools//tools/java/runfiles instead. This target goes away in Bazel release 0.18.0",
+    exports = ["//tools/java/runfiles"],
+    visibility = ["//visibility:public"],
+    deprecation = "Depend on @bazel_tools//tools/java/runfiles instead. This target will be deleted in Bazel 0.18.0",
 )
