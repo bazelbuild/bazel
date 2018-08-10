@@ -3,7 +3,7 @@ licenses(["notice"])  # Apache 2.0
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools:__pkg__"],
+    visibility = ["//tools/build_defs:__pkg__"],
 )
 
 exports_files(
@@ -32,8 +32,12 @@ py_test(
     ],
     data = [":archive_testdata"],
     srcs_version = "PY2AND3",
-    # archive.py requires xzcat, which is not available by default on Mac
-    tags = ["noci"],
+    tags = [
+        # archive.py requires xzcat, which is not available by default on Mac
+        "noci",
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
+    ],
     deps = [":archive"],
 )
 
@@ -240,9 +244,28 @@ sh_test(
         ":test-tar-xz.tar.xz",
         ":titi_test_all.changes",
     ],
-    # archive.py requires xzcat, which is not available by default on Mac
-    tags = ["noci"],
+    tags = [
+        # archive.py requires xzcat, which is not available by default on Mac
+        "noci",
+        # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
+        "no_windows",
+    ],
     deps = [
         "//src/test/shell:bashunit",
     ],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [":windows_tests"],
+    visibility = ["//tools/build_defs:__pkg__"],
 )

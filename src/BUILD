@@ -410,6 +410,7 @@ test_suite(
         "//src/tools/launcher:all_windows_tests",
         "//src/tools/runfiles:all_windows_tests",
         "//third_party/def_parser:all_windows_tests",
+        "//tools:all_windows_tests",
     ],
 )
 

@@ -10,13 +10,7 @@ filegroup(
         "//tools/android:srcs",
         "//tools/bash:srcs",
         "//tools/buildstamp:srcs",
-        "//tools/build_defs/apple:srcs",
-        "//tools/build_defs/cc:srcs",
-        "//tools/build_defs/apple/test:srcs",
-        "//tools/build_defs/docker:srcs",
-        "//tools/build_defs/hash:srcs",
-        "//tools/build_defs/pkg:srcs",
-        "//tools/build_defs/repo:srcs",
+        "//tools/build_defs:srcs",
         "//tools/build_rules:srcs",
         "//tools/coverage:srcs",
         "//tools/java:srcs",
@@ -47,11 +41,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
-        "//tools/build_defs/apple:srcs",
-        "//tools/build_defs/cc:srcs",
-        "//tools/build_defs/hash:srcs",
-        "//tools/build_defs/pkg:srcs",
-        "//tools/build_defs/repo:srcs",
+        "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
         "//tools/buildstamp:srcs",
         "//tools/coverage:srcs",
@@ -76,4 +66,19 @@ filegroup(
         "//tools/whitelists:srcs",
         "//tools/zip:srcs",
     ],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        "//tools/android:all_windows_tests",
+        "//tools/bash:all_windows_tests",
+        "//tools/build_defs:all_windows_tests",
+        "//tools/cpp/runfiles:all_windows_tests",
+        "//tools/java:all_windows_tests",
+        "//tools/jdk:all_windows_tests",
+        "//tools/python:all_windows_tests",
+        "//tools/test:all_windows_tests",
+    ],
+    visibility = ["//src:__pkg__"],
 )
