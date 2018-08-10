@@ -66,7 +66,6 @@ public class ExecutableSymlinkActionTest {
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
         null,
-        null,
         null);
   }
 

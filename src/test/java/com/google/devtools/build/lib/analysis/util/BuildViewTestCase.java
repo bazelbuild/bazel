@@ -2168,8 +2168,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           clientEnv,
           ImmutableMap.of(),
           artifactExpander,
-          /*actionFileSystem=*/ null,
-          /*skyframeDepsResult*/ null);
+          /*actionFileSystem=*/ null);
     }
   }
 }
