@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -39,14 +39,21 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 class TreeArtifactValue implements SkyValue {
+  private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
+      new Function<Artifact, PathFragment>() {
+        @Override
+        public PathFragment apply(Artifact artifact) {
+            return artifact.getParentRelativePath();
+        }
+      };
 
   private final byte[] digest;
-  private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
+  private final Map<TreeFileArtifact, FileArtifactValue> childData;
 
   @AutoCodec.VisibleForSerialization
   TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
     this.digest = digest;
-    this.childData = sortedCopy(childData);
+    this.childData = ImmutableMap.copyOf(childData);
   }
 
   /**
@@ -62,13 +69,7 @@ class TreeArtifactValue implements SkyValue {
 
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe(),
-        sortedCopy(childFileValues));
-  }
-
-  private static ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> sortedCopy(
-      Map<TreeFileArtifact, FileArtifactValue> data) {
-    return ImmutableSortedMap.copyOf(data,
-        Comparator.comparing(TreeFileArtifact::getParentRelativePath));
+        ImmutableMap.copyOf(childFileValues));
   }
 
   FileArtifactValue getSelfData() {
@@ -80,8 +81,7 @@ class TreeArtifactValue implements SkyValue {
   }
 
   Set<PathFragment> getChildPaths() {
-    return ImmutableSet.copyOf(Iterables.transform(childData.keySet(),
-        TreeFileArtifact::getParentRelativePath));
+    return ImmutableSet.copyOf(Iterables.transform(childData.keySet(), PARENT_RELATIVE_PATHS));
   }
 
   @Nullable
