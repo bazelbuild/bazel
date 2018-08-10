@@ -375,6 +375,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
         "@googleapis//:dist_jars",
+        "@remoteapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
