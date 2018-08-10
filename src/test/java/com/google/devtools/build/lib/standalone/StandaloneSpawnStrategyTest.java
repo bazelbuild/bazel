@@ -194,8 +194,7 @@ public class StandaloneSpawnStrategyTest {
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
         SIMPLE_ARTIFACT_EXPANDER,
-        /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*actionFileSystem=*/ null);
   }
 
   @Test

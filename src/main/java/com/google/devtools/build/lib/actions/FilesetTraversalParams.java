@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -279,14 +280,14 @@ public interface FilesetTraversalParams {
   Optional<DirectTraversal> getDirectTraversal();
 
   /**
-   * Returns the Fileset Artifact of the nested traversal request, if any.
+   * Returns the parameters of the nested traversal request, if any.
    *
    * <p>A nested traversal is the traversal of another Fileset referenced by FilesetEntry.srcdir.
    *
-   * <p>The value is null when {@link #getDirectTraversal} is absent.
+   * <p>The value is non-empty when {@link #getDirectTraversal} is absent AND the nested Fileset has
+   * non-empty FilesetEntries.
    */
-  @Nullable
-  Artifact getNestedArtifact();
+  ImmutableList<FilesetTraversalParams> getNestedTraversal();
 
   /** Adds the fingerprint of this traversal object. */
   void fingerprint(Fingerprint fp);

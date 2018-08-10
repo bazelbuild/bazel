@@ -116,8 +116,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   private ActionExecutionContext makeDummyContext() {
     DummyExecutor executor = new DummyExecutor(fileSystem, rootDirectory);
     return new ActionExecutionContext(
-        executor, null, null, null, null, null, ImmutableMap.of(), ImmutableMap.of(), null, null,
-        null);
+        executor, null, null, null, null, null, ImmutableMap.of(), ImmutableMap.of(), null, null);
   }
 
   @Test

@@ -203,8 +203,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
         artifactExpander,
-        /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*actionFileSystem=*/ null);
   }
 
   private enum KeyAttributes {
