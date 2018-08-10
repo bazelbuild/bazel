@@ -68,6 +68,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             null,
+            null,
             null);
   }
 

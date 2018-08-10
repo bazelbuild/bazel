@@ -147,7 +147,8 @@ public final class ActionsTestUtil {
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -182,7 +183,8 @@ public final class ActionsTestUtil {
         ImmutableMap.of(),
         ImmutableMap.of(),
         createDummyArtifactExpander(),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
