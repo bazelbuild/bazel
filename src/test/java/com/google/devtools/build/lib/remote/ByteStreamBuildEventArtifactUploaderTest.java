@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
@@ -159,6 +160,21 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     assertThat(uploader.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
+  @Test
+  public void testUploadDirectoryDoesNotCrash() throws Exception {
+    Path dir = fs.getPath("/dir");
+    dir.createDirectoryAndParents();
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(dir, new LocalFile(dir, LocalFileType.OUTPUT));
+    ByteStreamUploader uploader = mock(ByteStreamUploader.class);
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        new ByteStreamBuildEventArtifactUploader(
+            uploader, "localhost", withEmptyMetadata, "instance");
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    assertThat(pathConverter.apply(dir)).isNull();
+    artifactUploader.shutdown();
   }
 
   @Test
