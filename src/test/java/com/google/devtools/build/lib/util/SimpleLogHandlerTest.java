@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.util.SimpleLogHandler.HandlerQuerier;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -39,9 +41,11 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.Optional;
 import java.util.TimeZone;
+import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -385,5 +389,54 @@ public final class SimpleLogHandlerTest {
     assertThat(Files.exists(keptThenDeleted)).isFalse();
     assertThat(Files.exists(kept)).isTrue();
     assertThat(Files.exists(currentLogPath)).isTrue();
+  }
+
+  @Test
+  public void getLoggerFilePath_onSimpleLogHandler_withFile_returnsPath() throws Exception {
+    HandlerQuerier handlerQuerier = new HandlerQuerier();
+    SimpleLogHandler handler =
+        SimpleLogHandler.builder().setPrefix(tmp.getRoot() + File.separator + "hello").build();
+    Logger logger = Logger.getAnonymousLogger();
+    logger.addHandler(handler);
+    handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // Ensure log file is opened.
+
+    Optional<Path> retrievedLogPath = handlerQuerier.getLoggerFilePath(logger);
+
+    assertThat(retrievedLogPath).isPresent();
+    assertThat(retrievedLogPath.get().toString())
+        .startsWith(tmp.getRoot() + File.separator + "hello");
+
+    handler.close();
+  }
+
+  @Test
+  public void getLoggerFilePath_onSimpleLogHandler_withoutFile_returnsEmpty() throws Exception {
+    HandlerQuerier handlerQuerier = new HandlerQuerier();
+    SimpleLogHandler handler =
+        SimpleLogHandler.builder().setPrefix(tmp.getRoot() + File.separator + "hello").build();
+    Logger logger = Logger.getAnonymousLogger();
+    logger.addHandler(handler);
+
+    assertThat(handlerQuerier.getLoggerFilePath(logger)).isEmpty();
+  }
+
+  @Test
+  public void getLoggerFilePath_onUnsupportedLogHandler_fails() throws Exception {
+    HandlerQuerier handlerQuerier = new HandlerQuerier();
+    FileHandler unsupportedHandler = new FileHandler(tmp.getRoot() + File.separator + "hello");
+    Logger logger = Logger.getAnonymousLogger();
+    logger.addHandler(unsupportedHandler);
+
+    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+
+    unsupportedHandler.close();
+  }
+
+  @Test
+  public void getLoggerFilePath_onMissingLogHandler_fails() throws Exception {
+    HandlerQuerier handlerQuerier = new HandlerQuerier();
+    Logger logger = Logger.getAnonymousLogger();
+
+    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 }

@@ -103,6 +103,29 @@ public final class SimpleLogHandler extends Handler {
   @GuardedBy("this")
   private final SimpleDateFormat timestampFormat = new SimpleDateFormat(DEFAULT_TIMESTAMP_FORMAT);
 
+  /**
+   * A {@link} LogHandlerQuerier for working with {@code SimpleLogHandler} instances.
+   *
+   * <p>This querier is intended for situations where the logging handler is configured on the JVM
+   * command line to be {@link SimpleLogHandler}, but where the code which needs to query the
+   * handler does not know the handler's class or cannot import it. The command line then should in
+   * addition specify {@code
+   * -Dcom.google.devtools.build.lib.util.LogHandlerQuerier.class=com.google.devtools.build.lib.util.SimpleLogHandler$HandlerQuerier}
+   * and an instance of {@link SimpleLogHandler.HandlerQuerier} class can then be obtained from
+   * {@code LogHandlerQuerier.getInstance()}.
+   */
+  public static final class HandlerQuerier extends LogHandlerQuerier {
+    @Override
+    protected boolean canQuery(Handler handler) {
+      return handler instanceof SimpleLogHandler;
+    }
+
+    @Override
+    protected Optional<Path> getLogHandlerFilePath(Handler handler) {
+      return ((SimpleLogHandler) handler).getCurrentLogFilePath();
+    }
+  }
+
   /** Creates a new {@link Builder}. */
   public static Builder builder() {
     return new Builder();
