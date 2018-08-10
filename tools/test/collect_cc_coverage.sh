@@ -69,7 +69,11 @@ function lcov_coverage() {
   #                         the current directory
   # -d "${COVERAGE_DIR}"  - Directory to search for .gcda files
   # -o "${COVERAGE_OUTPUT_FILE}" - Output file
-  /usr/bin/lcov -c --no-external --ignore-errors graph -q \
+  LCOV=$(which lcov)
+  if [[ ! -x $LCOV ]]; then
+    LCOV=/usr/bin/lcov
+  fi
+  $LCOV -c --no-external --ignore-errors graph -q \
       --gcov-tool "${GCOV}" -b /proc/self/cwd \
       -d "${COVERAGE_DIR}" -o "${COVERAGE_OUTPUT_FILE}"
    # Fix up the paths to be relative by removing the prefix we specified above.
