@@ -261,7 +261,7 @@ public class ResourcesZip {
               shrunkApkProto,
               toolAttributes.getOrDefault(SdkConstants.ATTR_KEEP, ImmutableSet.of()),
               toolAttributes.getOrDefault(SdkConstants.ATTR_DISCARD, ImmutableSet.of()));
-      return new ShrunkProtoApk(shrunkApkProto, logFile);
+      return new ShrunkProtoApk(shrunkApkProto, logFile, ids);
     }
   }
 
@@ -277,16 +277,18 @@ public class ResourcesZip {
   static class ShrunkProtoApk {
     private final Path apk;
     private final Path report;
+    private final Path ids;
 
-    ShrunkProtoApk(Path apk, Path report) {
+    ShrunkProtoApk(Path apk, Path report, Path ids) {
       this.apk = apk;
       this.report = report;
+      this.ids = ids;
     }
 
     ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
         throws IOException {
       Files.copy(
-          writeAsProto ? apk : linker.optimizeApk(linker.convertToBinary(apk)),
+          writeAsProto ? apk : linker.link(ProtoApk.readFrom(apk), ids),
           binaryOut,
           StandardCopyOption.REPLACE_EXISTING);
       return this;
