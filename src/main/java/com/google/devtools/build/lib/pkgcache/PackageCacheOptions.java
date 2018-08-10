@@ -153,7 +153,7 @@ public class PackageCacheOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_tools_defaults_package",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
