@@ -319,6 +319,20 @@ public class ExperimentalEventHandler implements EventHandler {
         clearProgressBar();
         terminal.flush();
         outErr.getOutputStream().write((event + "\n").getBytes(StandardCharsets.UTF_8));
+        if (event.getStdOut() != null) {
+          outErr
+              .getOutputStream()
+              .write(
+                  ("... with STDOUT: " + event.getStdOut() + "\n")
+                      .getBytes(StandardCharsets.UTF_8));
+        }
+        if (event.getStdErr() != null) {
+          outErr
+              .getOutputStream()
+              .write(
+                  ("... with STDERR: " + event.getStdErr() + "\n")
+                      .getBytes(StandardCharsets.UTF_8));
+        }
         outErr.getOutputStream().flush();
         addProgressBar();
         terminal.flush();
@@ -336,10 +350,10 @@ public class ExperimentalEventHandler implements EventHandler {
               stream.flush();
             } else {
               byte[] message = event.getMessageBytes();
-              double cap = remainingCapacity(message.length);
-              if (cap < 0) {
+              if (remainingCapacity() < 0) {
                 return;
               }
+              double cap = remainingCapacity(message.length);
               if (cap < CAPACITY_LIMIT_OUT_ERR_EVENTS) {
                 // Have to ensure the message is not too large.
                 long allowedLength =
@@ -438,6 +452,12 @@ public class ExperimentalEventHandler implements EventHandler {
           case TIMEOUT:
           case DEPCHECKER:
             break;
+        }
+        if (event.getStdErr() != null) {
+          handle(Event.of(EventKind.STDERR, null, event.getStdErr()));
+        }
+        if (event.getStdOut() != null) {
+          handle(Event.of(EventKind.STDOUT, null, event.getStdOut()));
         }
       }
     } catch (IOException e) {

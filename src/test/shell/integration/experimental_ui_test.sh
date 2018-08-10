@@ -146,7 +146,17 @@ sh_test(
   deps = [":outputlib"],
 )
 EOF
+  mkdir -p error
+  cat > error/BUILD <<'EOF'
+genrule(
+  name = "failwitherror",
+  outs = ["fail.txt"],
+  cmd = "echo Here is the error message; exit 1",
+)
+EOF
   chmod -w pkg/*  # prevent accidental editing
+  # keep directories writable though, so that test clean up can work
+  chmod 755 error
 }
 
 #### TESTS #############################################################
@@ -329,6 +339,17 @@ function test_streamed {
     || fail "expected success"
   expect_log 'foobar'
 }
+
+function test_stdout_bundled {
+    # Verify that the error message is part of the error event
+    bazel build --experimental_ui --experimental_ui_debug_all_events \
+          error:failwitherror > "${TEST_log}" 2>&1 \
+    && fail "expected failure" || :
+    grep -A1 '^ERROR' "${TEST_log}" \
+        | grep -q "with STDOUT: Here is the error message" \
+        || fail "Error message not bundled"
+}
+
 
 function test_output_limit {
     # Verify that output limting works

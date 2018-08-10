@@ -329,6 +329,13 @@ public class BlazeCommandEventHandler implements EventHandler {
 
     // Event messages go to stderr; results (e.g. 'blaze query') go to stdout.
     errPrintStream.println(buf);
+
+    if (event.getStdErr() != null) {
+      handle(Event.of(EventKind.STDERR, null, event.getStdErr()));
+    }
+    if (event.getStdOut() != null) {
+      handle(Event.of(EventKind.STDOUT, null, event.getStdOut()));
+    }
   }
 
   private void putOutput(OutputStream out, Event event) {
