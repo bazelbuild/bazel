@@ -34,7 +34,7 @@ filegroup(
 )
 
 cc_binary(
-    name = "test_wrapper",
+    name = "test_wrapper_bin",
     srcs = select({
         "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
         "//conditions:default": ["empty_test_wrapper.cc"],

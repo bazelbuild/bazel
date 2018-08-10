@@ -36,7 +36,7 @@ filegroup(
 filegroup(
     name = "test_wrapper",
     srcs = select({
-        "@bazel_tools//src/conditions:windows": ["test_wrapper.exe"],
-        "//conditions:default": ["test_wrapper"],
+        "@bazel_tools//src/conditions:windows": ["test_wrapper_bin.exe"],
+        "//conditions:default": ["test_wrapper_bin"],
     }),
 )
