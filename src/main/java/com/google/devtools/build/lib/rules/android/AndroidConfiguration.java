@@ -843,7 +843,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
     @Option(
         name = "experimental_persistent_android_resource_processor",
-        defaultValue = "false",
+        defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Enable the experimental persistent Android resource processor.",
@@ -885,7 +885,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-      host.persistentResourceProcessor = persistentResourceProcessor;
       return host;
     }
   }
