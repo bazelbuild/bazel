@@ -249,11 +249,12 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public void establishSkyframeDependencies(Environment env)
+    public Object establishSkyframeDependencies(Environment env)
         throws ExceptionBase, InterruptedException {
       // Establish some Skyframe dependency. A real action would then use this to compute and
       // cache data for the execute(...) method.
       env.getValue(actionDepKey);
+      return null;
     }
   }
 
@@ -797,8 +798,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     registerAction(
         new SingleOutputSkyframeAwareAction(genFile1, genFile2) {
           @Override
-          public void establishSkyframeDependencies(Environment env) throws ExceptionBase {
+          public Object establishSkyframeDependencies(Environment env) throws ExceptionBase {
             assertThat(env.valuesMissing()).isFalse();
+            return null;
           }
 
           @Override

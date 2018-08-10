@@ -90,7 +90,8 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             null,
-            /*actionFileSystem=*/ null);
+            /*actionFileSystem=*/ null,
+            /*skyframeDepsResult=*/ null);
   }
 
   @Test
