@@ -591,10 +591,14 @@ public final class CcCommon {
         .getPathUnderExecRoot();
     result.add(rulePackage);
 
-    // Add in any 'includes' attribute values as relative path fragments
-    if (ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
-      PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier()
-          .getPathUnderExecRoot();
+    if (ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CppOptions.class)
+            .experimentalIncludesAttributeSubpackageTraversal
+        && ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
+      PathFragment packageFragment =
+          ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot();
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
     }

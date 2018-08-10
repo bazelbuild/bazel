@@ -860,6 +860,18 @@ public class CppOptions extends FragmentOptions {
       help = "If false, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
   public boolean enableCcToolchainFromCrosstool;
 
+  @Option(
+      name = "experimental_includes_attribute_subpackage_traversal",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If a cc target has loose headers checking, disabled layering check and an "
+              + "includes attribute set, it is allowed to include anything under its folder, even "
+              + "across subpackage boundaries.")
+  public boolean experimentalIncludesAttributeSubpackageTraversal;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
