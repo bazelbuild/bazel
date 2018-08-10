@@ -55,7 +55,7 @@ filegroup(
         "generate-xml.sh",
         "collect_coverage.sh",
     ] + glob(["LcovMerger/**"]) + select({
-        "@bazel_tools//src/conditions:windows": ["test_wrapper"],
+        "@bazel_tools//src/conditions:windows": ["test_wrapper_bin"],
         "//conditions:default": [],
     }),
     visibility = ["//tools:__pkg__"],
