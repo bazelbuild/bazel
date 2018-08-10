@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -77,6 +78,7 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
   private final ImmutableSet<ThinTarget> filteredTargets;
   private final ImmutableSet<ThinTarget> testFilteredTargets;
   private final ImmutableSet<ThinTarget> expandedTargets;
+  private final ImmutableSetMultimap<String, Label> originalPatternsToLabels;
 
   /**
    * Construct the event.
@@ -89,24 +91,27 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
       Collection<Target> testFilteredTargets,
       List<String> originalTargetPattern,
       Collection<Target> expandedTargets,
-      List<String> failedTargetPatterns) {
+      List<String> failedTargetPatterns,
+      ImmutableSetMultimap<String, Label> originalPatternsToLabels) {
     this.targets = asThinTargets(targets);
     this.filteredTargets = asThinTargets(filteredTargets);
     this.testFilteredTargets = asThinTargets(testFilteredTargets);
     this.originalTargetPattern = ImmutableList.copyOf(originalTargetPattern);
     this.expandedTargets = asThinTargets(expandedTargets);
     this.failedTargetPatterns = ImmutableList.copyOf(failedTargetPatterns);
+    this.originalPatternsToLabels = originalPatternsToLabels;
   }
 
   @VisibleForTesting
   public TargetParsingCompleteEvent(Collection<Target> targets) {
     this(
         targets,
-        ImmutableSet.<Target>of(),
-        ImmutableSet.<Target>of(),
-        ImmutableList.<String>of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableList.of(),
         targets,
-        ImmutableList.<String>of());
+        ImmutableList.of(),
+        ImmutableSetMultimap.of());
   }
 
   public ImmutableList<String> getOriginalTargetPattern() {
@@ -142,6 +147,20 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
   /** @return the test-filtered targets, if --build_test_only is in effect */
   public ImmutableSet<ThinTarget> getTestFilteredTargets() {
     return testFilteredTargets;
+  }
+
+  /**
+   * Returns a mapping from patterns originally passed on the command line to the labels they were
+   * expanded to.
+   *
+   * <p>Negative patterns are not included here. Neither are labels of targets that are skipped due
+   * to matching a negative pattern (even if they also matched a positive pattern).
+   *
+   * <p>Test suite labels are included here, but not the labels of the tests that the suite expanded
+   * to.
+   */
+  public ImmutableSetMultimap<String, Label> getOriginalPatternsToLabels() {
+    return originalPatternsToLabels;
   }
 
   @Override
