@@ -468,6 +468,14 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "bazel_java_test",
+    size = "medium",
+    srcs = ["bazel_java_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
 ########################################################################
 # Test suites.
 
