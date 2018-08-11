@@ -151,18 +151,13 @@ public class CppCompileAction extends AbstractAction
   private CcToolchainVariables overwrittenVariables = null;
 
   /**
-   * Set when a two-stage input discovery is used.
+   * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
+   * stores the modules necessary for building this module as they will later also be required for
+   * building users of this module. Such users can get to this data through this action's {@link
+   * com.google.devtools.build.lib.skyframe.ActionExecutionValue}
    *
-   * <p>This field is used in the following scenarios.
-   *
-   * <ul>
-   *   <li><i>Action caching.</i> It is set when restoring from the action cache. It is queried
-   *       immediately after restoration to populate the {@link
-   *       com.google.devtools.build.lib.skyframe.ActionExecutionValue}.
-   *   <li><i>Input discovery</i>It is set by {@link #discoverInputs}. It is queried to
-   *       populate the {@link com.google.devtools.build.lib.skyframe.ActionExecutionValue}.
-   *   <li><i>Compilation</i>Compilation reads this field to know what needs to be staged.
-   * </ul>
+   * <p>This field is populated either based on the discovered headers in {@link #discoverInputs} or
+   * extracted from the action inputs when restoring it from the action cache.
    */
   private ImmutableList<Artifact> discoveredModules = null;
 
@@ -465,10 +460,15 @@ public class CppCompileAction extends AbstractAction
       return null;
     }
 
-    discoveredModules = ImmutableList.copyOf(Sets.union(usedModules, transitivelyUsedModules));
+    ImmutableList<Artifact> discoveredModules =
+        ImmutableList.copyOf(Sets.union(usedModules, transitivelyUsedModules));
     topLevelModules = ImmutableList.copyOf(Sets.difference(usedModules, transitivelyUsedModules));
     usedModules = null;
-    return Iterables.concat(additionalInputs, discoveredModules);
+    additionalInputs = Iterables.concat(additionalInputs, discoveredModules);
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      this.discoveredModules = discoveredModules;
+    }
+    return additionalInputs;
   }
 
   @Override
@@ -506,7 +506,10 @@ public class CppCompileAction extends AbstractAction
     return grepIncludes;
   }
 
-  /** Set by {@link #discoverInputsStage2} */
+  /**
+   * Set by {@link #discoverInputs}. Returns a subset of {@link #getAdditionalInputs()} or null, if
+   * this is not a compile action producing a C++ module.
+   */
   @Override
   @Nullable
   public ImmutableList<Artifact> getDiscoveredModules() {
@@ -904,19 +907,18 @@ public class CppCompileAction extends AbstractAction
   /**
    * Called by {@link com.google.devtools.build.lib.actions.ActionCacheChecker}
    *
-   * <p>Restores the value of {@link #discoveredModules}, which is used to create the {@link
-   * com.google.devtools.build.lib.skyframe.ActionExecutionValue} after an action cache hit.
+   * <p>If this is compiling a module, restores the value of {@link #discoveredModules}, which is
+   * used to create the {@link com.google.devtools.build.lib.skyframe.ActionExecutionValue} after an
+   * action cache hit.
    */
   @Override
   public synchronized void updateInputs(Iterable<Artifact> inputs) {
     super.updateInputs(inputs);
-    ImmutableList.Builder<Artifact> discoveredModules = ImmutableList.builder();
-    for (Artifact input : inputs) {
-      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
-        discoveredModules.add(input);
-      }
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      discoveredModules =
+          ImmutableList.copyOf(
+              Iterables.filter(inputs, input -> input.isFileType(CppFileTypes.CPP_MODULE)));
     }
-    this.discoveredModules = discoveredModules.build();
   }
 
   private static void addNonSources(HashSet<Artifact> result, Iterable<Artifact> artifacts) {
@@ -1006,9 +1008,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     if (!shouldScanDotdFiles()) {
-      updateActionInputs(
-          NestedSetBuilder.wrap(
-              Order.STABLE_ORDER, Iterables.concat(discoveredModules, additionalInputs)));
+      updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
     }
 
     List<SpawnResult> spawnResults;

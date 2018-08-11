@@ -96,5 +96,6 @@ public interface IncludeScannable {
    */
   Artifact getGrepIncludes();
 
+  /** Returns modules necessary for building and using the output of this action. */
   ImmutableList<Artifact> getDiscoveredModules();
 }
