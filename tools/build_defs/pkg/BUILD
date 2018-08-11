@@ -218,6 +218,25 @@ pkg_deb(
     version = "test",
 )
 
+py_library(
+    name = "test_py_library",
+    srcs = ["testdata/test_py_library.py"],
+)
+
+py_binary(
+    name = "test_py_binary",
+    srcs = ["testdata/test_py_binary.py"],
+    deps = [":test_py_library"],
+)
+
+pkg_tar(
+    name = "test-tar-py-runfiles",
+    build_tar = ":build_tar",
+    srcs = [":test_py_binary"],
+    include_runfiles = True,
+    strip_prefix = ".",
+)
+
 sh_test(
     name = "build_test",
     size = "medium",
@@ -237,6 +256,7 @@ sh_test(
         ":test-tar-inclusion-bz2.tar",
         ":test-tar-inclusion-gz.tar",
         ":test-tar-inclusion-xz.tar",
+        ":test-tar-py-runfiles.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",

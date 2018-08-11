@@ -165,6 +165,24 @@ drwxrwxrwx 0/0               0 1970-01-01 00:00 ./pmt/" \
       "$(get_tar_verbose_listing test-tar-empty_dirs.tar)"
 }
 
+function test_tar_py_runfiless() {
+  local listing="./
+./testdata/
+./testdata/test_py_binary.py
+./test_py_binary
+./test_py_binary.runfiles/
+./test_py_binary.runfiles/io_bazel/
+./test_py_binary.runfiles/io_bazel/tools/
+./test_py_binary.runfiles/io_bazel/tools/build_defs/
+./test_py_binary.runfiles/io_bazel/tools/build_defs/pkg/
+./test_py_binary.runfiles/io_bazel/tools/build_defs/pkg/testdata/
+./test_py_binary.runfiles/io_bazel/tools/build_defs/pkg/testdata/test_py_binary.py
+./test_py_binary.runfiles/io_bazel/tools/build_defs/pkg/test_py_binary
+./test_py_binary.runfiles/io_bazel/tools/build_defs/pkg/testdata/test_py_library.py"
+
+  check_eq "${listing}" "$(get_tar_listing test-tar-py-runfiles.tar)"
+}
+
 function test_deb() {
   if ! (which dpkg-deb); then
     echo "Unable to run test for debian, no dpkg-deb!" >&2

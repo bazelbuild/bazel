@@ -36,17 +36,43 @@ def _pkg_tar_impl(ctx):
 
     file_inputs = ctx.files.srcs[:]
 
+    runfiles_inputs = dict()
+    aggregated_runfiles = []
     # Add runfiles if requested
     if ctx.attr.include_runfiles:
         for f in ctx.attr.srcs:
             if hasattr(f, "default_runfiles"):
-                run_files = f.default_runfiles.files.to_list()
-                file_inputs += run_files
+                is_python = False
+                for file in f.files.to_list():
+                    # We need to check if the input rule is a py_* rule,
+                    # since those rules depend on a *.runfiles folder
+                    if "py" in file.extension:
+                        is_python = True
+                        break
+                if is_python:
+                    runfiles_inputs[f.label.name] = f.default_runfiles.files.to_list()
+                    aggregated_runfiles += f.default_runfiles.files.to_list()
+                else:
+                    run_files = f.default_runfiles.files.to_list()
+                    file_inputs += run_files
 
     args += [
         "--file=%s=%s" % (f.path, dest_path(f, data_path))
         for f in file_inputs
     ]
+
+    for name, runfiles in runfiles_inputs.items():
+        for f in runfiles:
+            data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
+            file_dest_path = dest_path(f, "")
+            runfiles_dest_path = ""
+            if len(file_dest_path) > 3 and file_dest_path[0:3] == "../":
+                runfiles_dest_path = file_dest_path[3:]
+            else:
+                runfiles_dest_path = "%s/%s" % (ctx.workspace_name, file_dest_path)
+            a = "%s.runfiles/%s" % (name, runfiles_dest_path)
+            args += ["--file=%s=%s" % (f.path, a)]
+
     for target, f_dest_path in ctx.attr.files.items():
         target_files = target.files.to_list()
         if len(target_files) != 1:
@@ -81,7 +107,7 @@ def _pkg_tar_impl(ctx):
 
     ctx.actions.run_shell(
         command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
-        inputs = file_inputs + ctx.files.deps + [arg_file],
+        inputs = file_inputs + aggregated_runfiles + ctx.files.deps + [arg_file],
         tools = [build_tar],
         outputs = [ctx.outputs.out],
         mnemonic = "PackageTar",
