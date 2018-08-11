@@ -513,8 +513,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               errorKey,
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  env.buildEvents(parentEntry, /*expectDoneDeps=*/ false),
-                  env.buildPosts(parentEntry, /*expectDoneDeps=*/ false)));
+                  env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
+                  env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
           continue;
         }
       } finally {
@@ -526,8 +526,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           errorKey,
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              env.buildEvents(parentEntry, /*expectDoneDeps=*/ false),
-              env.buildPosts(parentEntry, /*expectDoneDeps=*/ false)));
+              env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
+              env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
