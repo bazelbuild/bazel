@@ -938,8 +938,12 @@ public class CppCompileAction extends AbstractAction
     super.updateInputs(inputs);
     if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
       discoveredModules =
+<<<<<<< HEAD
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER,
+=======
+          ImmutableList.copyOf(
+>>>>>>> Only remember discovered modules for modules. For all other compiles, we won't
               Iterables.filter(inputs, input -> input.isFileType(CppFileTypes.CPP_MODULE)));
     }
   }
