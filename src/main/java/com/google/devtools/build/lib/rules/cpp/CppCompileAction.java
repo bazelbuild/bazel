@@ -1271,6 +1271,17 @@ public class CppCompileAction extends AbstractAction
     return message.toString();
   }
 
+  @Override
+  public boolean hasLooseHeaders() {
+    // Layering check is stricter than hdrs_check = strict, so when it's enabled, there can't be
+    // loose headers.
+    return ccCompilationContext
+            .getHeadersCheckingMode()
+            .equals(CppConfiguration.HeadersCheckingMode.LOOSE)
+        && !(featureConfiguration.isEnabled(CppRuleClasses.LAYERING_CHECK)
+            && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
+  }
+
   public CompileCommandLine getCompileCommandLine() {
     return compileCommandLine;
   }

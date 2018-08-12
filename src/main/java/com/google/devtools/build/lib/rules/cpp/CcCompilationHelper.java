@@ -982,6 +982,7 @@ public final class CcCompilationHelper {
       for (PathFragment looseIncludeDir : looseIncludeDirs) {
         ccCompilationContextBuilder.addDeclaredIncludeDir(looseIncludeDir);
       }
+      ccCompilationContextBuilder.setHeadersCheckingMode(headersCheckingMode);
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
