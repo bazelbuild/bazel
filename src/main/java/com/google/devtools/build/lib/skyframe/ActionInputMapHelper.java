@@ -17,25 +17,39 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Map;
 
 class ActionInputMapHelper {
 
-  // Adds a value obtained by an Artifact skyvalue lookup to the action input map
+  // Adds a value obtained by an Artifact skyvalue lookup to the action input map. May do Skyframe
+  // lookups.
   static void addToMap(
       ActionInputMap inputMap,
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       Artifact key,
-      SkyValue value) {
+      SkyValue value,
+      Environment env) throws InterruptedException {
     if (value instanceof AggregatingArtifactValue) {
       AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
       for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getFileArtifacts()) {
-        inputMap.put(entry.first, entry.second);
+        Artifact artifact = entry.first;
+        inputMap.put(artifact, entry.second);
+        if (artifact.isFileset()) {
+          ImmutableList<FilesetOutputSymlink> expandedFileset = getFilesets(env, artifact);
+          if (expandedFileset != null) {
+            expandedFilesets.put(artifact, expandedFileset);
+          }
+        }
       }
       for (Pair<Artifact, TreeArtifactValue> entry : aggregatingValue.getTreeArtifacts()) {
         expandTreeArtifactAndPopulateArtifactData(
@@ -68,6 +82,26 @@ class ActionInputMapHelper {
       Preconditions.checkState(value instanceof FileArtifactValue);
       inputMap.put(key, (FileArtifactValue) value);
     }
+  }
+
+  static ImmutableList<FilesetOutputSymlink> getFilesets(Environment env,
+      Artifact actionInput) throws InterruptedException {
+    Preconditions.checkState(actionInput.isFileset(), actionInput);
+    ActionLookupKey filesetActionLookupKey = (ActionLookupKey) actionInput.getArtifactOwner();
+    // Index 0 for the Fileset ConfiguredTarget indicates the SkyframeFilesetManifestAction where
+    // we compute the fileset's outputSymlinks.
+    SkyKey filesetActionKey = ActionExecutionValue.key(filesetActionLookupKey, 0);
+    ActionExecutionValue filesetValue = (ActionExecutionValue) env.getValue(filesetActionKey);
+    if (filesetValue == null) {
+      // At this point skyframe does not guarantee that the filesetValue will be ready, since
+      // the current action does not directly depend on the outputs of the
+      // SkyframeFilesetManifestAction whose ActionExecutionValue (filesetValue) is needed here.
+      // TODO(kush): Get rid of this hack by making the outputSymlinks available in the Fileset
+      // artifact, which this action depends on, so its value will be guaranteed to be present.
+      // Also, unify handling of Fileset with Artifact expansion.
+      return null;
+    }
+    return filesetValue.getOutputSymlinks();
   }
 
   private static void expandTreeArtifactAndPopulateArtifactData(

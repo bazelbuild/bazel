@@ -356,7 +356,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
-        actionExecutionContext.getInputFilesetMappings());
+        actionExecutionContext.getTopLevelFilesets());
   }
 
   Spawn getSpawn(

@@ -493,9 +493,12 @@ public final class SkyframeActionExecutor {
 
   private static class ArtifactExpanderImpl implements ArtifactExpander {
     private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
-    private ArtifactExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
+    private ArtifactExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputMiddlemen;
+      this.expandedFilesets = expandedFilesets;
     }
 
     @Override
@@ -506,6 +509,12 @@ public final class SkyframeActionExecutor {
       if (result != null) {
         output.addAll(result);
       }
+    }
+
+    @Override
+    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+      Preconditions.checkState(artifact.isFileset());
+      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
     }
   }
 
@@ -518,7 +527,8 @@ public final class SkyframeActionExecutor {
       MetadataProvider graphFileCache,
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(
@@ -531,8 +541,8 @@ public final class SkyframeActionExecutor {
         metadataHandler,
         fileOutErr,
         clientEnv,
-        inputFilesetMappings,
-        new ArtifactExpanderImpl(expandedInputs),
+        topLevelFilesets,
+        new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
         actionFileSystem,
         skyframeDepsResult);
   }
