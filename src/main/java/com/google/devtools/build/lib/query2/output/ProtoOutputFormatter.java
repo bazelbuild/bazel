@@ -58,6 +58,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,11 +72,13 @@ import javax.annotation.Nullable;
  * {@code Build.QueryResult} object the full result can be reconstructed.
  */
 public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
-
   /**
    * A special attribute name for the rule implementation hash code.
    */
   public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
+
+  private static final Comparator<Build.Attribute> ATTRIBUTE_NAME =
+      Comparator.comparing(Build.Attribute::getName);
 
   @SuppressWarnings("unchecked")
   private static final ImmutableSet<Type<?>> SCALAR_TYPES =
@@ -214,7 +217,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
         attributes.add(serializedAttribute);
       }
-      rulePb.addAllAttribute(attributes.stream().distinct().collect(Collectors.toList()));
+      rulePb.addAllAttribute(
+          attributes.stream().distinct().sorted(ATTRIBUTE_NAME).collect(Collectors.toList()));
       if (includeRuleInputsAndOutputs()) {
         // Add all deps from aspects as rule inputs of current target.
          aspectsDependencies
@@ -360,7 +364,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       serializedAttributes.put(attr, serializedAttribute);
     }
     rulePb.addAllAttribute(
-        serializedAttributes.values().stream().distinct().collect(Collectors.toList()));
+        serializedAttributes
+            .values()
+            .stream()
+            .distinct()
+            .sorted(ATTRIBUTE_NAME)
+            .collect(Collectors.toList()));
 
     postProcess(rule, rulePb, serializedAttributes);
   }

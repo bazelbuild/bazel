@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.io.IOException;
+import com.google.common.util.concurrent.ListenableFuture;
+import java.util.function.Supplier;
 
 /** Readable view of transitive version information. */
 public interface TransitiveVersionTable {
@@ -22,9 +23,10 @@ public interface TransitiveVersionTable {
 
   /** Encapsulates transitive version information. */
   interface VersionAggregator {
-    /** @return the maximum transitive source version or -1 if no sources were found */
-    long getMaxTransitiveVersion(
-        long baselineVersion, InterruptibleIOLongSupplier deferredMaxDepVersion)
-        throws InterruptedException, IOException;
+    /** @return future with the maximum transitive source version or -1 if no sources were found */
+    ListenableFuture<Long> getMaxTransitiveVersion(
+        SkyKey key,
+        InterruptibleSupplier<SkyValue> valueSupplier,
+        Supplier<ListenableFuture<Long>> deferredMaxDepVersion);
   }
 }

@@ -30,9 +30,15 @@ static constexpr const char* BASH_BIN_PATH = "bash_bin_path";
 
 ExitCode BashBinaryLauncher::Launch() {
   wstring bash_binary = this->GetLaunchInfoByKey(BASH_BIN_PATH);
-  // If specified bash binary path doesn't exist, then fall back to
-  // bash.exe and hope it's in PATH.
-  if (!DoesFilePathExist(bash_binary.c_str())) {
+  if (DoesFilePathExist(bash_binary.c_str())) {
+    wstring bash_bin_dir = GetParentDirFromPath(bash_binary);
+    wstring path_env;
+    GetEnv(L"PATH", &path_env);
+    path_env = bash_bin_dir + L";" + path_env;
+    SetEnv(L"PATH", path_env);
+  } else {
+    // If specified bash binary path doesn't exist, then fall back to
+    // bash.exe and hope it's in PATH.
     bash_binary = L"bash.exe";
   }
 

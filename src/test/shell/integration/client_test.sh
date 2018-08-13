@@ -90,7 +90,10 @@ function test_server_restart_due_to_startup_options_with_client_debug_informatio
   local server_pid2=$(bazel --client_debug --nowrite_command_log info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "\\[bazel WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "\\[bazel INFO .*\\] .* the running server has option --write_command_log, and requested option is: --nowrite_command_log"
+  expect_log "\\[bazel INFO .*\\] Args from the running server that are not included in the current request:"
+  expect_log "\\[bazel INFO .*\\]   --write_command_log"
+  expect_log "\\[bazel INFO .*\\] Args from the current request that were not included when creating the server:"
+  expect_log "\\[bazel INFO .*\\]   --nowrite_command_log"
 }
 
 function test_exit_code() {

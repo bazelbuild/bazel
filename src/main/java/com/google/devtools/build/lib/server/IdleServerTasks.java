@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.util.StringUtilities;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -29,9 +33,7 @@ class IdleServerTasks {
   private final ScheduledThreadPoolExecutor executor;
   private static final Logger logger = Logger.getLogger(IdleServerTasks.class.getName());
 
-  /**
-   * Must be called from the main thread.
-   */
+  /** Must be called from the main thread. */
   public IdleServerTasks() {
     this.executor = new ScheduledThreadPoolExecutor(1);
   }
@@ -43,14 +45,23 @@ class IdleServerTasks {
   public void idle() {
     Preconditions.checkState(!executor.isShutdown());
 
-    // Do a GC cycle while the server is idle.
     @SuppressWarnings("unused")
     Future<?> possiblyIgnoredError =
         executor.schedule(
             () -> {
+              MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
+              MemoryUsage before = memBean.getHeapMemoryUsage();
               try (AutoProfiler p = AutoProfiler.logged("Idle GC", logger)) {
                 System.gc();
               }
+              MemoryUsage after = memBean.getHeapMemoryUsage();
+              logger.info(
+                  String.format(
+                      "[Idle GC] used: %s -> %s, committed: %s -> %s",
+                      StringUtilities.prettyPrintBytes(before.getUsed()),
+                      StringUtilities.prettyPrintBytes(after.getUsed()),
+                      StringUtilities.prettyPrintBytes(before.getCommitted()),
+                      StringUtilities.prettyPrintBytes(after.getCommitted())));
             },
             10,
             TimeUnit.SECONDS);

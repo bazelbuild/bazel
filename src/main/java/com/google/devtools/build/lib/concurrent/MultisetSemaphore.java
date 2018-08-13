@@ -133,14 +133,15 @@ public abstract class MultisetSemaphore<T> {
   }
 
   private static class NaiveMultisetSemaphore<T> extends MultisetSemaphore<T> {
+    private final int maxNumUniqueValues;
     private final Semaphore semaphore;
     private final Object lock = new Object();
     // Protected by 'lock'.
-    private final HashMultiset<T> actualValues;
+    private final HashMultiset<T> actualValues = HashMultiset.create();
 
     private NaiveMultisetSemaphore(int maxNumUniqueValues) {
+      this.maxNumUniqueValues = maxNumUniqueValues;
       this.semaphore = new Semaphore(maxNumUniqueValues);
-      actualValues = HashMultiset.create();
     }
 
     @Override
@@ -173,11 +174,7 @@ public abstract class MultisetSemaphore<T> {
 
     @Override
     public int estimateCurrentNumUniqueValues() {
-      // Notes:
-      //   (1) The race here is completely benign; we're just supposed to return an estimate.
-      //   (2) See the javadoc for Multiset#size, which explains to use entrySet().size() to get the
-      //       number of unique values.
-      return actualValues.entrySet().size();
+      return maxNumUniqueValues - semaphore.availablePermits();
     }
   }
 }

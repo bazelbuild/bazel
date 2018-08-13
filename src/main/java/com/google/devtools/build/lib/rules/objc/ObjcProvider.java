@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
@@ -670,7 +670,7 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
   /** Skylark constructor and identifier for ObjcProvider. */
-  public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
       SkylarkSemantics semantics,
@@ -1133,10 +1133,10 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
     }
   }
 
-  private static class Constructor extends NativeProvider<ObjcProvider>
+  private static class Constructor extends BuiltinProvider<ObjcProvider>
       implements WithLegacySkylarkName {
     public Constructor() {
-      super(ObjcProvider.class, ObjcProvider.SKYLARK_NAME);
+      super(ObjcProvider.SKYLARK_NAME, ObjcProvider.class);
     }
 
     @Override

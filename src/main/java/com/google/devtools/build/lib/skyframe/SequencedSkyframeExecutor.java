@@ -761,17 +761,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler) {
     Map<String, RuleStat> ruleStats = new HashMap<>();
-    for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
-        memoizingEvaluator.getGraphMap().entrySet()) {
-      NodeEntry entry = skyKeyAndNodeEntry.getValue();
-      if (entry == null || !entry.isDone()) {
-        continue;
-      }
-      SkyKey key = skyKeyAndNodeEntry.getKey();
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+        memoizingEvaluator.getDoneValues().entrySet()) {
+      SkyValue value = skyKeyAndValue.getValue();
+      SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
       if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-        try {
-          ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
           ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
           if (configuredTarget instanceof RuleConfiguredTarget) {
 
@@ -790,20 +786,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                     ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
             ruleStat.addRule(ctValue.getNumActions());
           }
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("No interruption in sequenced evaluation", e);
-        }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
-        try {
-          AspectValue aspectValue = (AspectValue) entry.getValue();
+        AspectValue aspectValue = (AspectValue) value;
           AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
           RuleStat ruleStat =
               ruleStats.computeIfAbsent(
                   aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
           ruleStat.addRule(aspectValue.getNumActions());
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("No interruption in sequenced evaluation", e);
-        }
       }
     }
     return new ArrayList<>(ruleStats.values());
@@ -814,13 +803,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<String> actionGraphTargets, boolean includeActionCmdLine)
       throws CommandLineExpansionException {
     ActionGraphDump actionGraphDump = new ActionGraphDump(actionGraphTargets, includeActionCmdLine);
-    for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
-        memoizingEvaluator.getGraphMap().entrySet()) {
-      NodeEntry entry = skyKeyAndNodeEntry.getValue();
-      SkyKey key = skyKeyAndNodeEntry.getKey();
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+        memoizingEvaluator.getDoneValues().entrySet()) {
+      SkyKey key = skyKeyAndValue.getKey();
+      SkyValue skyValue = skyKeyAndValue.getValue();
       SkyFunctionName functionName = key.functionName();
       try {
-        SkyValue skyValue = entry.getValue();
         // The skyValue may be null in case analysis of the previous build failed.
         if (skyValue != null) {
           if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {

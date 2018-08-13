@@ -59,15 +59,6 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   // <== Add new options here in alphabetic order ==>
 
   @Option(
-      name = "experimental_enable_repo_mapping",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to true, enables the use of the `repo_mapping` attribute in WORKSPACE files."
-  )
-  public boolean experimentalEnableRepoMapping;
-
-  @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
       defaultValue = "",
@@ -78,6 +69,22 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
           "Passes list of packages that can use the C++ Skylark API. Don't enable this flag yet, "
               + "we will be making breaking changes.")
   public List<String> experimentalCcSkylarkApiEnabledPackages;
+
+  @Option(
+      name = "experimental_enable_repo_mapping",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If set to true, enables the use of the `repo_mapping` attribute in WORKSPACE files.")
+  public boolean experimentalEnableRepoMapping;
+
+  @Option(
+      name = "experimental_remap_main_repo",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help = "If set to true, will treat references to '@<main repo name>' the same as '@'.")
+  public boolean experimentalRemapMainRepo;
 
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
@@ -363,6 +370,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         // <== Add new options here in alphabetic order ==>
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
+        .experimentalRemapMainRepo(experimentalRemapMainRepo)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)
         .incompatibleDepsetIsNotIterable(incompatibleDepsetIsNotIterable)
         .incompatibleDepsetUnion(incompatibleDepsetUnion)

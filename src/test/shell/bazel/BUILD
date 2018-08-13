@@ -417,6 +417,14 @@ sh_test(
 )
 
 sh_test(
+    name = "bazelignore_test",
+    size = "medium",
+    srcs = ["bazelignore_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "workspace_resolved_test",
     size = "medium",
     srcs = ["workspace_resolved_test.sh"],

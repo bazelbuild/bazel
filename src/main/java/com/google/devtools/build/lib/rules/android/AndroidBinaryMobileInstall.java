@@ -38,8 +38,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
-import com.google.devtools.build.lib.rules.java.ProguardHelper;
-import com.google.devtools.build.lib.syntax.Type;
 import java.util.Map;
 
 /** Encapsulates the logic for creating actions for mobile-install. */
@@ -58,72 +56,40 @@ public final class AndroidBinaryMobileInstall {
   }
 
   static MobileInstallResourceApks createMobileInstallResourceApks(
-      RuleContext ruleContext,
-      AndroidDataContext dataContext,
-      ApplicationManifest applicationManifest,
-      ResourceDependencies resourceDeps)
+      RuleContext ruleContext, AndroidDataContext dataContext, StampedAndroidManifest manifest)
       throws RuleErrorException, InterruptedException {
 
     final ResourceApk incrementalResourceApk;
     final ResourceApk splitResourceApk;
-    if (AndroidResources.decoupleDataProcessing(dataContext)) {
-      StampedAndroidManifest manifest =
-          new StampedAndroidManifest(
-              applicationManifest.getManifest(), /* pkg = */ null, /* exported = */ true);
 
-      incrementalResourceApk =
-          ProcessedAndroidData.processIncrementalBinaryDataFrom(
-                  ruleContext,
-                  dataContext,
-                  manifest.addMobileInstallStubApplication(ruleContext),
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
-                  getMobileInstallArtifact(ruleContext, "merged_incremental_resources.bin"),
-                  "incremental",
-                  applicationManifest.getManifestValues())
-              // Intentionally skip building an R class JAR - incremental binaries handle this
-              // separately.
-              .withValidatedResources(null);
+    Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
-      splitResourceApk =
-          ProcessedAndroidData.processIncrementalBinaryDataFrom(
-                  ruleContext,
-                  dataContext,
-                  manifest.createSplitManifest(ruleContext, "android_resources", false),
-                  getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
-                  getMobileInstallArtifact(ruleContext, "merged_split_resources.bin"),
-                  "incremental_split",
-                  applicationManifest.getManifestValues())
-              // Intentionally skip building an R class JAR - incremental binaries handle this
-              // separately.
-              .withValidatedResources(null);
-    } else {
-      incrementalResourceApk =
-          applicationManifest
-              .addMobileInstallStubApplication(ruleContext)
-              .packIncrementalBinaryWithDataAndResources(
-                  ruleContext,
-                  dataContext,
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
-                  resourceDeps,
-                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
-      ruleContext.assertNoErrors();
+    incrementalResourceApk =
+        ProcessedAndroidData.processIncrementalBinaryDataFrom(
+                ruleContext,
+                dataContext,
+                manifest.addMobileInstallStubApplication(ruleContext),
+                ruleContext.getImplicitOutputArtifact(
+                    AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
+                getMobileInstallArtifact(ruleContext, "merged_incremental_resources.bin"),
+                "incremental",
+                manifestValues)
+            // Intentionally skip building an R class JAR - incremental binaries handle this
+            // separately.
+            .withValidatedResources(null);
 
-      splitResourceApk =
-          applicationManifest
-              .createSplitManifest(ruleContext, "android_resources", false)
-              .packIncrementalBinaryWithDataAndResources(
-                  ruleContext,
-                  dataContext,
-                  getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
-                  resourceDeps,
-                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
-    }
+    splitResourceApk =
+        ProcessedAndroidData.processIncrementalBinaryDataFrom(
+                ruleContext,
+                dataContext,
+                manifest.createSplitManifest(ruleContext, "android_resources", false),
+                getMobileInstallArtifact(ruleContext, "android_resources.ap_"),
+                getMobileInstallArtifact(ruleContext, "merged_split_resources.bin"),
+                "incremental_split",
+                manifestValues)
+            // Intentionally skip building an R class JAR - incremental binaries handle this
+            // separately.
+            .withValidatedResources(null);
     ruleContext.assertNoErrors();
 
     return new MobileInstallResourceApks(incrementalResourceApk, splitResourceApk);
@@ -141,8 +107,7 @@ public final class AndroidBinaryMobileInstall {
       FilesToRunProvider resourceExtractor,
       NestedSet<Artifact> nativeLibsAar,
       Artifact signingKey,
-      ImmutableList<Artifact> additionalMergedManifests,
-      ApplicationManifest applicationManifest)
+      ImmutableList<Artifact> additionalMergedManifests)
       throws InterruptedException, RuleErrorException {
 
     Artifact incrementalApk =
@@ -242,7 +207,7 @@ public final class AndroidBinaryMobileInstall {
     for (int i = 0; i < shardDexZips.size(); i++) {
       String splitName = "dex" + (i + 1);
       Artifact splitApkResources =
-          createSplitApkResources(ruleContext, applicationManifest, splitName, true);
+          createSplitApkResources(ruleContext, resourceApk.getProcessedManifest(), splitName, true);
       Artifact splitApk = getMobileInstallArtifact(ruleContext, splitName + ".apk");
       ApkActionsBuilder.create("split dex apk " + (i + 1))
           .setClassesDex(shardDexZips.get(i))
@@ -254,7 +219,7 @@ public final class AndroidBinaryMobileInstall {
     }
 
     Artifact nativeSplitApkResources =
-        createSplitApkResources(ruleContext, applicationManifest, "native", false);
+        createSplitApkResources(ruleContext, resourceApk.getProcessedManifest(), "native", false);
     Artifact nativeSplitApk = getMobileInstallArtifact(ruleContext, "native.apk");
     ApkActionsBuilder.create("split native apk")
         .addInputZip(nativeSplitApkResources)
@@ -265,7 +230,8 @@ public final class AndroidBinaryMobileInstall {
     splitApkSetBuilder.add(nativeSplitApk);
 
     Artifact javaSplitApkResources =
-        createSplitApkResources(ruleContext, applicationManifest, "java_resources", false);
+        createSplitApkResources(
+            ruleContext, resourceApk.getProcessedManifest(), "java_resources", false);
     Artifact javaSplitApk = getMobileInstallArtifact(ruleContext, "java_resources.apk");
     ApkActionsBuilder.create("split Java resource apk")
         .addInputZip(javaSplitApkResources)
@@ -502,7 +468,7 @@ public final class AndroidBinaryMobileInstall {
 
   private static Artifact createSplitApkResources(
       RuleContext ruleContext,
-      ApplicationManifest mainManifest,
+      ProcessedAndroidManifest mainManifest,
       String splitName,
       boolean hasCode) {
     Artifact splitManifest =

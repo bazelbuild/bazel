@@ -33,11 +33,4 @@ public class ProcessedAndroidManifest extends StampedAndroidManifest implements 
   public boolean equals(Object object) {
     return (object instanceof ProcessedAndroidManifest) && super.equals(object);
   }
-
-  public static ProcessedAndroidManifest from(ResourceContainer resourceContainer) {
-    return new ProcessedAndroidManifest(
-        resourceContainer.getManifest(),
-        resourceContainer.getJavaPackage(),
-        resourceContainer.isManifestExported());
-  }
 }

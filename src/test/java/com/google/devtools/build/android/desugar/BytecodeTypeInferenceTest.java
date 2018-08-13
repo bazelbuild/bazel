@@ -24,7 +24,6 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,7 +36,6 @@ public class BytecodeTypeInferenceTest {
   private static final Path JAR_PATH = Paths.get(System.getProperty("jar_path"));
   private static final Path GOLDEN_PATH = Paths.get(System.getProperty("golden_file"));
 
-  @Ignore // TODO(b/112134205): re-enable after ASM update
   @Test
   public void testTypeInference() throws IOException {
     StringWriter stringWriter = new StringWriter();

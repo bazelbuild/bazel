@@ -144,12 +144,12 @@ public class AarImportTest extends BuildViewTestCase {
                 .collect(Collectors.toSet()))
         .containsExactly("a/foo_symbols/symbols.zip", "a/library_symbols/symbols.zip");
 
-    NestedSet<ValidatedAndroidData> directResources =
+    NestedSet<ValidatedAndroidResources> directResources =
         libTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
 
     assertThat(directResources).hasSize(1);
 
-    ValidatedAndroidData resourceContainer = directResources.iterator().next();
+    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
     Truth.assertThat(resourceContainer.getAapt2RTxt()).isNotNull();
   }
 
@@ -157,11 +157,11 @@ public class AarImportTest extends BuildViewTestCase {
   public void testResourcesProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    NestedSet<ValidatedAndroidData> directResources =
+    NestedSet<ValidatedAndroidResources> directResources =
         aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
     assertThat(directResources).hasSize(1);
 
-    ValidatedAndroidData resourceContainer = directResources.iterator().next();
+    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
     assertThat(resourceContainer.getManifest()).isNotNull();
 
     Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
@@ -182,7 +182,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testResourcesExtractor() throws Exception {
-    ValidatedAndroidData resourceContainer =
+    ValidatedAndroidResources resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
@@ -384,7 +384,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testNoCustomJavaPackage() throws Exception {
-    ValidatedAndroidData resourceContainer =
+    ValidatedAndroidResources resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()

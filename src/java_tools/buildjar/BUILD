@@ -77,7 +77,7 @@ java_toolchain(
     # class path after -bootclasspath. For convenience, we currently have a
     # single jar that contains the contents of both the bootclasspath and
     # extdirs.
-    bootclasspath = ["//tools/jdk:platformclasspath-impl.jar"],
+    bootclasspath = ["//tools/jdk:platformclasspath.jar"],
     extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],

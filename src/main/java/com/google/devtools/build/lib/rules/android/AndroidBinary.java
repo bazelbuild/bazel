@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
@@ -183,85 +184,49 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidResources.validateRuleContext(ruleContext);
 
     final AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
-    final ApplicationManifest applicationManifest;
-    final ResourceApk resourceApk;
+    Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
-    if (AndroidResources.decoupleDataProcessing(dataContext)) {
-      StampedAndroidManifest manifest =
-          AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
-              .mergeWithDeps(
-                  dataContext,
-                  androidSemantics,
-                  resourceDeps,
-                  ApplicationManifest.getManifestValues(ruleContext),
-                  ApplicationManifest.useLegacyMerging(ruleContext));
-      applicationManifest =
-          ApplicationManifest.fromExplicitManifest(ruleContext, manifest.getManifest());
+    StampedAndroidManifest manifest =
+        AndroidManifest.fromAttributes(ruleContext, dataContext, androidSemantics)
+            .mergeWithDeps(
+                dataContext,
+                androidSemantics,
+                ruleContext,
+                resourceDeps,
+                manifestValues,
+                ruleContext.getRule().isAttrDefined("manifest_merger", STRING)
+                    ? ruleContext.attributes().get("manifest_merger", STRING)
+                    : null);
 
-      AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
-      resourceApk =
-          ProcessedAndroidData.processBinaryDataFrom(
-                  dataContext,
-                  ruleContext,
-                  manifest,
-                  /* conditionalKeepRules = */ shouldShrinkResourceCycles(
-                      dataContext.getAndroidConfig(), ruleContext, shrinkResources),
-                  applicationManifest.getManifestValues(),
-                  aaptVersion,
-                  AndroidResources.from(ruleContext, "resource_files"),
-                  AndroidAssets.from(ruleContext),
-                  resourceDeps,
-                  AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
-                  ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
-                  ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-                  ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
-                      ? ruleContext
-                          .getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER)
-                          .getApk()
-                      : null,
-                  ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
-                      ? ruleContext
-                          .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
-                          .getApk()
-                      : null,
-                  DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()))
-              .generateRClass(dataContext, aaptVersion);
-    } else {
-      applicationManifest =
-          androidSemantics
-              .getManifestForRule(ruleContext)
-              .mergeWith(ruleContext, dataContext, androidSemantics, resourceDeps);
-
-      Artifact featureOfArtifact =
-          ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
-              ? ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER).getApk()
-              : null;
-      Artifact featureAfterArtifact =
-          ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
-              ? ruleContext.getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER).getApk()
-              : null;
-
-      resourceApk =
-          applicationManifest.packBinaryWithDataAndResources(
-              ruleContext,
-              dataContext,
-              DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
-              resourceDeps,
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
-              ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
-              ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-              ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
-              createMainDexProguardSpec(ruleContext.getLabel(), ruleContext),
-              shouldShrinkResourceCycles(
-                  dataContext.getAndroidConfig(), ruleContext, shrinkResources),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-              featureOfArtifact,
-              featureAfterArtifact);
-    }
+    AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
+    final ResourceApk resourceApk =
+        ProcessedAndroidData.processBinaryDataFrom(
+                dataContext,
+                ruleContext,
+                manifest,
+                /* conditionalKeepRules = */ shouldShrinkResourceCycles(
+                    dataContext.getAndroidConfig(), ruleContext, shrinkResources),
+                manifestValues,
+                aaptVersion,
+                AndroidResources.from(ruleContext, "resource_files"),
+                AndroidAssets.from(ruleContext),
+                resourceDeps,
+                AssetDependencies.fromRuleDeps(ruleContext, /* neverlink = */ false),
+                ResourceFilterFactory.fromRuleContextAndAttrs(ruleContext),
+                ruleContext.getExpander().withDataLocations().tokenized("nocompress_extensions"),
+                ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
+                    ? ruleContext
+                        .getPrerequisite("feature_of", Mode.TARGET, ApkInfo.PROVIDER)
+                        .getApk()
+                    : null,
+                ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
+                    ? ruleContext
+                        .getPrerequisite("feature_after", Mode.TARGET, ApkInfo.PROVIDER)
+                        .getApk()
+                    : null,
+                DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()))
+            .generateRClass(dataContext, aaptVersion);
 
     ruleContext.assertNoErrors();
 
@@ -339,7 +304,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     MobileInstallResourceApks mobileInstallResourceApks =
         AndroidBinaryMobileInstall.createMobileInstallResourceApks(
-            ruleContext, dataContext, applicationManifest, resourceDeps);
+            ruleContext, dataContext, manifest);
 
     return createAndroidBinary(
         ruleContext,
@@ -352,7 +317,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         javaSemantics,
         androidSemantics,
         nativeLibs,
-        applicationManifest,
         resourceApk,
         mobileInstallResourceApks,
         shrinkResources,
@@ -375,7 +339,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,
       NativeLibs nativeLibs,
-      ApplicationManifest applicationManifest,
       ResourceApk resourceApk,
       @Nullable MobileInstallResourceApks mobileInstallResourceApks,
       boolean shrinkResources,
@@ -392,7 +355,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             dataContext,
             androidSemantics,
             resourceApk.getResourceProguardConfig(),
-            applicationManifest.getManifest(),
+            resourceApk.getManifest(),
             ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
                 ? ruleContext
                     .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS, Mode.TARGET)
@@ -564,7 +527,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       FilesToRunProvider checker =
           ruleContext.getExecutablePrerequisite("$instrumentation_test_check", Mode.HOST);
       Artifact targetManifest = targetApkProvider.getMergedManifest();
-      Artifact instrumentationManifest = applicationManifest.getManifest();
+      Artifact instrumentationManifest = resourceApk.getManifest();
       Artifact checkOutput =
           ruleContext.getImplicitOutputArtifact(
               AndroidRuleClasses.INSTRUMENTATION_TEST_CHECK_RESULTS);
@@ -623,8 +586,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceExtractor,
           nativeLibsAar,
           signingKey,
-          additionalMergedManifests,
-          applicationManifest);
+          additionalMergedManifests);
     }
 
     return builder
@@ -646,7 +608,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 zipAlignedApk,
                 unsignedApk,
                 androidCommon.getInstrumentedJar(),
-                applicationManifest.getManifest(),
+                resourceApk.getManifest(),
                 AndroidCommon.getApkDebugSigningKey(ruleContext)))
         .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
         .addNativeDeclaredProvider(
@@ -877,7 +839,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   static Optional<Artifact> maybeShrinkResources(
       AndroidDataContext dataContext,
-      ValidatedAndroidData validatedResources,
+      ValidatedAndroidResources validatedResources,
       ResourceDependencies resourceDeps,
       ImmutableList<Artifact> proguardSpecs,
       Artifact proguardOutputJar,

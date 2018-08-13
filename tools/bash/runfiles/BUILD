@@ -46,5 +46,5 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src:__pkg__"],
+    visibility = ["//tools/bash:__pkg__"],
 )

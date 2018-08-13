@@ -29,7 +29,7 @@ For example:
 ```python
 cc_library(
     name = "build-all-the-files",
-    srcs = glob(["*.cc"])
+    srcs = glob(["*.cc"]),
     hdrs = glob(["*.h"]),
 )
 ```

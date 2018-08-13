@@ -221,7 +221,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       }
     }
 
-    // TODO(corysmith): Move to ApplicationManifest when no longer needed as a public function.
+    // TODO(corysmith): Move to an appropriate place when no longer needed as a public function.
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext)
         throws RuleErrorException {
@@ -1198,11 +1198,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   public AndroidRobolectricTestDeprecationLevel getRobolectricTestDeprecationLevel() {
     return robolectricTestDeprecationLevel;
-  }
-
-  public boolean decoupleDataProcessing() {
-    // TODO(b/76418450): Entirely remove this method and code that depends on it
-    return true;
   }
 
   public boolean checkForMigrationTag() {

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -1318,6 +1319,43 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("WARNING /workspace/foo/BUILD:8:12: in deps attribute of custom_rule rule "
         + "//foo:foo: genrule rule '//foo:genlib' is unexpected here (expected java_library or "
         + "java_binary); continuing anyway");
+  }
+
+  @Test
+  public void errorInImplicitDeps() throws Exception {
+    setRulesAvailableInTests(
+        (MockRule)
+            () -> {
+              try {
+                return MockRule.define(
+                    "custom_rule",
+                    attr("$implicit1", BuildType.LABEL_LIST)
+                        .defaultValue(
+                            ImmutableList.of(
+                                Label.parseAbsoluteUnchecked("//bad2:label"),
+                                Label.parseAbsoluteUnchecked("//foo:dep"))),
+                    attr("$implicit2", BuildType.LABEL)
+                        .defaultValue(Label.parseAbsoluteUnchecked("//bad:label")));
+              } catch (Type.ConversionException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+    scratch.file("foo/BUILD", "custom_rule(name = 'foo')", "sh_library(name = 'dep')");
+    scratch.file(
+        "bad/BUILD",
+        "sh_library(name = 'other_label', nonexistent_attribute = 'blah')",
+        "sh_library(name = 'label')");
+    // bad2/BUILD is completely missing.
+    reporter.removeHandler(failFastHandler);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//foo:foo");
+    assertContainsEvent(
+        "every rule of type custom_rule implicitly depends upon the target '//bad2:label', but this"
+            + " target could not be found because of: no such package 'bad2': BUILD file not found "
+            + "on package path");
+    assertContainsEvent(
+        "every rule of type custom_rule implicitly depends upon the target '//bad:label', but this "
+            + "target could not be found because of: Target '//bad:label' contains an error and its"
+            + " package is in error");
   }
 
   @Test

@@ -568,8 +568,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // conditions evaluate over the current target's configuration).
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
     try {
-      for (Dependency dep : resolver.resolveRuleLabels(
-          ctgValue, configLabelMap, transitiveRootCauses, trimmingTransitionFactory)) {
+      Iterable<Dependency> dependencies =
+          resolver.resolveRuleLabels(
+              ctgValue, configLabelMap, transitiveRootCauses, trimmingTransitionFactory);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      for (Dependency dep : dependencies) {
         if (dep.hasExplicitConfiguration() && dep.getConfiguration() == null) {
           // Bazel assumes non-existent labels are source files, which have a null configuration.
           // Keep those as is. Otherwise ConfiguredTargetAndData throws an exception about a
@@ -583,9 +588,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
     } catch (InconsistentAspectOrderException e) {
       throw new DependencyEvaluationException(e);
-    }
-    if (env.valuesMissing()) {
-      return null;
     }
     ImmutableList<Dependency> configConditionDeps = depsBuilder.build();
 

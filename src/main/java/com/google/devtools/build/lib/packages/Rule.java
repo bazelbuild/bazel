@@ -406,12 +406,11 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   /** Returns a new List instance containing all direct dependencies (all types). */
   public Collection<Label> getLabels() throws InterruptedException {
     final List<Label> labels = Lists.newArrayList();
-    AggregatingAttributeMapper.of(this).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
-      @Override
-      public void acceptLabelAttribute(Label label, Attribute attribute) {
-        labels.add(label);
-      }
-    });
+    AggregatingAttributeMapper.of(this)
+        .visitLabels()
+        .stream()
+        .map(AttributeMap.DepEdge::getLabel)
+        .forEach(labels::add);
     return labels;
   }
 
@@ -444,14 +443,11 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
     // be visited may depend on the calling context. We shouldn't implicitly decide this for
     // the caller.
-    AggregatingAttributeMapper.of(this).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
-      @Override
-      public void acceptLabelAttribute(Label label, Attribute attribute) {
-        if (predicate.apply(Rule.this, attribute)) {
-          transitions.put(attribute, label);
-        }
-      }
-    });
+    AggregatingAttributeMapper.of(this)
+        .visitLabels()
+        .stream()
+        .filter(depEdge -> predicate.apply(Rule.this, depEdge.getAttribute()))
+        .forEach(depEdge -> transitions.put(depEdge.getAttribute(), depEdge.getLabel()));
     return transitions;
   }
 
@@ -706,16 +702,10 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   // the introduction of this code is #2210848 (NullPointerException in
   // Package.checkForConflicts() ).
   void checkForNullLabels() throws InterruptedException {
-    AggregatingAttributeMapper.of(this).visitLabels(
-        new AttributeMap.AcceptsLabelAttribute() {
-          @Override
-          public void acceptLabelAttribute(Label labelToCheck, Attribute attribute) {
-            checkForNullLabel(labelToCheck, attribute);
-          }
-        });
-    for (OutputFile outputFile : getOutputFiles()) {
-      checkForNullLabel(outputFile.getLabel(), "output file");
-    }
+    AggregatingAttributeMapper.of(this)
+        .visitLabels()
+        .forEach(depEdge -> checkForNullLabel(depEdge.getLabel(), depEdge.getAttribute()));
+    getOutputFiles().forEach(outputFile -> checkForNullLabel(outputFile.getLabel(), "output file"));
   }
 
   /**

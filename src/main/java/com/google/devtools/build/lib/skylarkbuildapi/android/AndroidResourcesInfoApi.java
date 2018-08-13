@@ -157,13 +157,6 @@ public interface AndroidResourcesInfoApi<
               type = SkylarkNestedSet.class,
               generic1 = FileApi.class),
           @Param(
-              name = "transitive_assets",
-              doc = "A depset of Artifacts of Android Assets in the transitive closure.",
-              positional = true,
-              named = false,
-              type = SkylarkNestedSet.class,
-              generic1 = FileApi.class),
-          @Param(
               name = "transitive_manifests",
               doc = "A depset of Artifacts of Android Manifests in the transitive closure.",
               positional = true,
@@ -217,7 +210,6 @@ public interface AndroidResourcesInfoApi<
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,
         SkylarkNestedSet transitiveResources,
-        SkylarkNestedSet transitiveAssets,
         SkylarkNestedSet transitiveManifests,
         SkylarkNestedSet transitiveAapt2RTxt,
         SkylarkNestedSet transitiveSymbolsBin,

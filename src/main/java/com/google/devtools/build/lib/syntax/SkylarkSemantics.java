@@ -45,6 +45,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean experimentalEnableRepoMapping();
 
+  public abstract boolean experimentalRemapMainRepo();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
@@ -102,6 +104,7 @@ public abstract class SkylarkSemantics {
           // <== Add new options here in alphabetic order ==>
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableRepoMapping(false)
+          .experimentalRemapMainRepo(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
@@ -132,6 +135,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
 
     public abstract Builder experimentalEnableRepoMapping(boolean value);
+
+    public abstract Builder experimentalRemapMainRepo(boolean value);
 
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 

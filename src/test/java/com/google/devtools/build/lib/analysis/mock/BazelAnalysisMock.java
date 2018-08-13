@@ -80,7 +80,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "package(default_visibility=['//visibility:public'])",
         "java_toolchain(",
         "  name = 'toolchain',",
-        "  encoding = 'UTF-8',",
         "  source_version = '8',",
         "  target_version = '8',",
         "  bootclasspath = [':bootclasspath'],",

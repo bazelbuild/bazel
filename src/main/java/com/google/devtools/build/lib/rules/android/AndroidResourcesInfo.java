@@ -27,7 +27,8 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
 public class AndroidResourcesInfo extends NativeInfo
-    implements AndroidResourcesInfoApi<Artifact, ValidatedAndroidData, ProcessedAndroidManifest> {
+    implements AndroidResourcesInfoApi<
+        Artifact, ValidatedAndroidResources, ProcessedAndroidManifest> {
 
   public static final String PROVIDER_NAME = "AndroidResourcesInfo";
   public static final Provider PROVIDER = new Provider();
@@ -52,10 +53,9 @@ public class AndroidResourcesInfo extends NativeInfo
    * Transitive information used for resource processing
    */
 
-  private final NestedSet<ValidatedAndroidData> transitiveAndroidResources;
-  private final NestedSet<ValidatedAndroidData> directAndroidResources;
+  private final NestedSet<ValidatedAndroidResources> transitiveAndroidResources;
+  private final NestedSet<ValidatedAndroidResources> directAndroidResources;
   private final NestedSet<Artifact> transitiveResources;
-  private final NestedSet<Artifact> transitiveAssets;
   private final NestedSet<Artifact> transitiveManifests;
   private final NestedSet<Artifact> transitiveAapt2RTxt;
   private final NestedSet<Artifact> transitiveSymbolsBin;
@@ -67,10 +67,9 @@ public class AndroidResourcesInfo extends NativeInfo
       Label label,
       ProcessedAndroidManifest manifest,
       Artifact rTxt,
-      NestedSet<ValidatedAndroidData> transitiveAndroidResources,
-      NestedSet<ValidatedAndroidData> directAndroidResources,
+      NestedSet<ValidatedAndroidResources> transitiveAndroidResources,
+      NestedSet<ValidatedAndroidResources> directAndroidResources,
       NestedSet<Artifact> transitiveResources,
-      NestedSet<Artifact> transitiveAssets,
       NestedSet<Artifact> transitiveManifests,
       NestedSet<Artifact> transitiveAapt2RTxt,
       NestedSet<Artifact> transitiveSymbolsBin,
@@ -84,7 +83,6 @@ public class AndroidResourcesInfo extends NativeInfo
     this.transitiveAndroidResources = transitiveAndroidResources;
     this.directAndroidResources = directAndroidResources;
     this.transitiveResources = transitiveResources;
-    this.transitiveAssets = transitiveAssets;
     this.transitiveManifests = transitiveManifests;
     this.transitiveAapt2RTxt = transitiveAapt2RTxt;
     this.transitiveSymbolsBin = transitiveSymbolsBin;
@@ -109,24 +107,18 @@ public class AndroidResourcesInfo extends NativeInfo
   }
 
   @Override
-  public NestedSet<ValidatedAndroidData> getTransitiveAndroidResources() {
+  public NestedSet<ValidatedAndroidResources> getTransitiveAndroidResources() {
     return transitiveAndroidResources;
   }
 
   @Override
-  public NestedSet<ValidatedAndroidData> getDirectAndroidResources() {
+  public NestedSet<ValidatedAndroidResources> getDirectAndroidResources() {
     return directAndroidResources;
   }
 
   @Override
   public NestedSet<Artifact> getTransitiveResources() {
     return transitiveResources;
-  }
-
-  /** @deprecated Assets are being decoupled from resources */
-  @Deprecated
-  public NestedSet<Artifact> getTransitiveAssets() {
-    return transitiveAssets;
   }
 
   @Override
@@ -162,7 +154,7 @@ public class AndroidResourcesInfo extends NativeInfo
   /** Provider for {@link AndroidResourcesInfo}. */
   public static class Provider extends BuiltinProvider<AndroidResourcesInfo>
       implements AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<
-          Artifact, ValidatedAndroidData, ProcessedAndroidManifest> {
+          Artifact, ValidatedAndroidResources, ProcessedAndroidManifest> {
 
     private Provider() {
       super(PROVIDER_NAME, AndroidResourcesInfo.class);
@@ -176,7 +168,6 @@ public class AndroidResourcesInfo extends NativeInfo
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,
         SkylarkNestedSet transitiveResources,
-        SkylarkNestedSet transitiveAssets,
         SkylarkNestedSet transitiveManifests,
         SkylarkNestedSet transitiveAapt2RTxt,
         SkylarkNestedSet transitiveSymbolsBin,
@@ -188,10 +179,9 @@ public class AndroidResourcesInfo extends NativeInfo
           label,
           manifest,
           rTxt,
-          nestedSet(transitiveAndroidResources, ValidatedAndroidData.class),
-          nestedSet(directAndroidResources, ValidatedAndroidData.class),
+          nestedSet(transitiveAndroidResources, ValidatedAndroidResources.class),
+          nestedSet(directAndroidResources, ValidatedAndroidResources.class),
           nestedSet(transitiveResources, Artifact.class),
-          nestedSet(transitiveAssets, Artifact.class),
           nestedSet(transitiveManifests, Artifact.class),
           nestedSet(transitiveAapt2RTxt, Artifact.class),
           nestedSet(transitiveSymbolsBin, Artifact.class),

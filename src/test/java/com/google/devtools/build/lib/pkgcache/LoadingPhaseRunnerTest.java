@@ -23,6 +23,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.MoreCollectors;
@@ -695,6 +696,30 @@ public class LoadingPhaseRunnerTest {
     assertThat(err.getPattern()).containsExactly("//test:cycle1");
   }
 
+  @Test
+  public void mapsOriginalPatternsToLabels() throws Exception {
+    tester.addFile("test/a/BUILD", "cc_library(name = 'a_lib', srcs = ['a.cc'])");
+    tester.addFile("test/b/BUILD", "cc_library(name = 'b_lib', srcs = ['b.cc'])");
+
+    tester.load("test/a:all", "test/b:all", "test/...");
+
+    assertThat(tester.getOriginalPatternsToLabels())
+        .containsExactly(
+            "test/a:all", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
+            "test/b:all", Label.parseAbsoluteUnchecked("//test/b:b_lib"),
+            "test/...", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
+            "test/...", Label.parseAbsoluteUnchecked("//test/b:b_lib"));
+  }
+
+  @Test
+  public void mapsOriginalPatternsToLabels_omitsExcludedTargets() throws Exception {
+    tester.addFile("test/a/BUILD", "cc_library(name = 'a_lib', srcs = ['a.cc'])");
+
+    tester.load("test/...", "-test/a:a_lib");
+
+    assertThat(tester.getOriginalPatternsToLabels()).isEmpty();
+  }
+
   private static class LoadingPhaseTester {
     private final ManualClock clock = new ManualClock();
     private final Path workspace;
@@ -889,6 +914,10 @@ public class LoadingPhaseRunnerTest {
 
     public ImmutableSet<Label> getOriginalTargets() {
       return ImmutableSet.copyOf(targetParsingCompleteEvent.getLabels());
+    }
+
+    public ImmutableSetMultimap<String, Label> getOriginalPatternsToLabels() {
+      return targetParsingCompleteEvent.getOriginalPatternsToLabels();
     }
 
     public ImmutableSet<Label> getTestSuiteTargets() {

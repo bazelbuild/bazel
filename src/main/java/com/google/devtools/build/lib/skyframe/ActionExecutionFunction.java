@@ -187,8 +187,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       return null;
     }
 
+    Object skyframeDepsResult;
     try {
-      establishSkyframeDependencies(env, action);
+      skyframeDepsResult = establishSkyframeDependencies(env, action);
     } catch (ActionExecutionException e) {
       throw new ActionExecutionFunctionException(e);
     }
@@ -213,7 +214,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan);
+              action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan,
+              skyframeDepsResult);
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -363,7 +365,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
-      boolean sharedActionAlreadyRan)
+      boolean sharedActionAlreadyRan,
+      Object skyframeDepsResult)
       throws ActionExecutionException, InterruptedException {
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
@@ -423,7 +426,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
-          state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
+          try {
+            state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler,
+                ImmutableMap.of());
+          } catch (IOException e) {
+            throw new ActionExecutionException(
+                "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);
+          }
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
                   action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
@@ -476,14 +485,22 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       filesetMappings.put(actionInput.getExecPath(), filesetValue.getOutputSymlinks());
     }
 
-    state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler);
+    ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets =
+        filesetMappings.build();
+    try {
+      state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler, filesets);
+    } catch (IOException e) {
+      throw new ActionExecutionException(
+          "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);
+    }
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             perActionFileCache,
             metadataHandler,
             Collections.unmodifiableMap(state.expandedArtifacts),
-            filesetMappings.build(),
-            state.actionFileSystem)) {
+            filesets,
+            state.actionFileSystem,
+            skyframeDepsResult)) {
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
@@ -584,7 +601,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
   }
 
-  private static void establishSkyframeDependencies(Environment env, Action action)
+  private static Object establishSkyframeDependencies(Environment env, Action action)
       throws ActionExecutionException, InterruptedException {
     // Before we may safely establish Skyframe dependencies, we must build all action inputs by
     // requesting their ArtifactValues.
@@ -601,11 +618,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Preconditions.checkState(action.executeUnconditionally(), action);
 
       try {
-        ((SkyframeAwareAction) action).establishSkyframeDependencies(env);
+        return ((SkyframeAwareAction) action).establishSkyframeDependencies(env);
       } catch (SkyframeAwareAction.ExceptionBase e) {
         throw new ActionExecutionException(e, action, false);
       }
     }
+    return null;
   }
 
   private static Iterable<SkyKey> toKeys(
@@ -792,11 +810,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     /** Must be called to assign values to the given variables as they change. */
     void updateFileSystemContext(
         SkyframeActionExecutor executor,
-        SkyFunction.Environment env,
-        ActionMetadataHandler metadataHandler) {
+        Environment env,
+        ActionMetadataHandler metadataHandler,
+        ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets)
+        throws IOException {
       if (actionFileSystem != null) {
         executor.updateActionFileSystemContext(
-            actionFileSystem, env, metadataHandler::injectOutputData);
+            actionFileSystem, env, metadataHandler::injectOutputData, filesets);
       }
     }
 

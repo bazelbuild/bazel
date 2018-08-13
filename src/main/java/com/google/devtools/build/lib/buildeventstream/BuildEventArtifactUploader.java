@@ -13,30 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
-import com.google.devtools.build.lib.buildeventstream.PathConverter.FileUriPathConverter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map;
 
 /** Uploads artifacts referenced by the Build Event Protocol (BEP). */
 public interface BuildEventArtifactUploader {
-  BuildEventArtifactUploader LOCAL_FILES_UPLOADER =
-      new BuildEventArtifactUploader() {
-        private final ListenableFuture<PathConverter> completedPathConverter =
-            Futures.immediateFuture(new FileUriPathConverter());
-
-        @Override
-        public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-          return completedPathConverter;
-        }
-
-        @Override
-        public void shutdown() {
-          // Intentionally left empty.
-        }
-      };
+  BuildEventArtifactUploader LOCAL_FILES_UPLOADER = new LocalFilesArtifactUploader();
 
   /**
    * Asynchronously uploads a set of files referenced by the protobuf representation of a {@link

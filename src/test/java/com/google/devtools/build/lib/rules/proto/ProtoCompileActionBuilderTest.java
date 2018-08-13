@@ -83,6 +83,7 @@ public class ProtoCompileActionBuilderTest {
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*protoSourceRoot=*/ "",
             /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
@@ -122,6 +123,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /* transitiveImports= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*protoSourceRoot=*/ "",
             /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
@@ -159,6 +161,7 @@ public class ProtoCompileActionBuilderTest {
                 artifact("//:dont-care", "import1.proto"),
                 artifact("//:dont-care", "import2.proto")),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*protoSourceRoot=*/ "",
             /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
@@ -195,6 +198,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*protoSourceRoot=*/ "",
             /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
@@ -241,6 +245,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*protoSourceRoot=*/ "",
             /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 
@@ -274,6 +279,7 @@ public class ProtoCompileActionBuilderTest {
             /* protosInDirectDeps= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             /*transitiveProtoPathFlags=*/ NestedSetBuilder.<String>emptySet(STABLE_ORDER),
+            /*protoSourceRoot=*/ "",
             /*directProtoSourceRoots=*/ NestedSetBuilder.<String>stableOrder().build(),
             /* hasProtoSources= */ true);
 

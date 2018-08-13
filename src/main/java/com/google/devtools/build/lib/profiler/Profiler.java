@@ -419,9 +419,8 @@ public final class Profiler {
       @Override
       boolean isProfiling(ProfilerTask type) {
         return !type.isVfs()
-            // Exclude the critical path - it's not useful in the Json trace output.
+            // CRITICAL_PATH corresponds to writing the file.
             && type != ProfilerTask.CRITICAL_PATH
-            && type != ProfilerTask.CRITICAL_PATH_COMPONENT
             && type != ProfilerTask.SKYFUNCTION
             && type != ProfilerTask.ACTION_EXECUTE
             && type != ProfilerTask.ACTION_COMPLETE
@@ -1003,6 +1002,8 @@ public final class Profiler {
     private final long profileStartTimeNanos;
     private final ThreadLocal<Boolean> metadataPosted =
         ThreadLocal.withInitial(() -> Boolean.FALSE);
+    // The JDK never returns 0 as thread id so we use that as fake thread id for the critical path.
+    private static final long CRITICAL_PATH_THREAD_ID = 0;
 
     JsonTraceFileWriter(OutputStream outStream, long profileStartTimeNanos) {
       this.outStream = outStream;
@@ -1041,6 +1042,21 @@ public final class Profiler {
                     new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
           writer.beginArray();
           TaskData data;
+
+          // Generate metadata event for the critical path as thread 0 in disguise.
+          writer.setIndent("  ");
+          writer.beginObject();
+          writer.setIndent("");
+          writer.name("name").value("thread_name");
+          writer.name("ph").value("M");
+          writer.name("pid").value(1);
+          writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
+          writer.name("args");
+          writer.beginObject();
+          writer.name("name").value("Critical Path");
+          writer.endObject();
+          writer.endObject();
+
           while ((data = queue.take()) != POISON_PILL) {
             if (data.duration == 0 && data.type != ProfilerTask.THREAD_NAME) {
               continue;
@@ -1075,7 +1091,11 @@ public final class Profiler {
               writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
             }
             writer.name("pid").value(1);
-            writer.name("tid").value(data.threadId);
+            long threadId =
+                data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
+                    ? CRITICAL_PATH_THREAD_ID
+                    : data.threadId;
+            writer.name("tid").value(threadId);
             writer.endObject();
           }
           receivedPoisonPill = true;

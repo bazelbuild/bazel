@@ -21,8 +21,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** Parsed Android assets which can be merged together with assets from dependencies. */
-public class ParsedAndroidAssets extends AndroidAssets
-    implements MergableAndroidData, ParsedAndroidAssetsApi {
+public class ParsedAndroidAssets extends AndroidAssets implements ParsedAndroidAssetsApi {
   private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
   private final Label label;
@@ -64,17 +63,14 @@ public class ParsedAndroidAssets extends AndroidAssets
     return MergedAndroidAssets.mergeFrom(dataContext, this, assetDeps);
   }
 
-  @Override
   public Label getLabel() {
     return label;
   }
 
-  @Override
   public Artifact getSymbols() {
     return symbols;
   }
 
-  @Override
   @Nullable
   public Artifact getCompiledSymbols() {
     return compiledSymbols;

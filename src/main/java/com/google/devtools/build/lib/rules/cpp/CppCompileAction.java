@@ -74,6 +74,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -145,26 +146,21 @@ public class CppCompileAction extends AbstractAction
    */
   private Set<Artifact> usedModules = null;
 
+  /**
+   * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
+   * stores the modules necessary for building this module as they will later also be required for
+   * building users of this module. Such users can get to this data through this action's {@link
+   * com.google.devtools.build.lib.skyframe.ActionExecutionValue}
+   *
+   * <p>This field is populated either based on the discovered headers in {@link #discoverInputs} or
+   * extracted from the action inputs when restoring it from the action cache.
+   */
+  private NestedSet<Artifact> discoveredModules = null;
+
   /** Used modules that are not transitively used through other topLevelModules. */
-  private Iterable<Artifact> topLevelModules = null;
+  private NestedSet<Artifact> topLevelModules = null;
 
   private CcToolchainVariables overwrittenVariables = null;
-
-  /**
-   * Set when a two-stage input discovery is used.
-   *
-   * <p>This field is used in the following scenarios.
-   *
-   * <ul>
-   *   <li><i>Action caching.</i> It is set when restoring from the action cache. It is queried
-   *       immediately after restoration to populate the {@link
-   *       com.google.devtools.build.lib.skyframe.ActionExecutionValue}.
-   *   <li><i>Input discovery</i>It is set by {@link #discoverInputs}. It is queried to
-   *       populate the {@link com.google.devtools.build.lib.skyframe.ActionExecutionValue}.
-   *   <li><i>Compilation</i>Compilation reads this field to know what needs to be staged.
-   * </ul>
-   */
-  private ImmutableList<Artifact> discoveredModules = null;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -458,17 +454,43 @@ public class CppCompileAction extends AbstractAction
       usedModules =
           ccCompilationContext.getUsedModules(usePic, ImmutableSet.copyOf(additionalInputs));
     }
-    Set<Artifact> transitivelyUsedModules =
+    Map<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         computeTransitivelyUsedModules(
             actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
     if (transitivelyUsedModules == null) {
       return null;
     }
 
-    discoveredModules = ImmutableList.copyOf(Sets.union(usedModules, transitivelyUsedModules));
-    topLevelModules = ImmutableList.copyOf(Sets.difference(usedModules, transitivelyUsedModules));
+    // Compute top-level modules, i.e. used modules that aren't also dependencies of other
+    // used modules. Combining the NestedSets of transitive deps of the top-level modules also
+    // gives us an effective way to compute and store discoveredModules.
+    Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
     usedModules = null;
-    return Iterables.concat(additionalInputs, discoveredModules);
+    for (NestedSet<Artifact> transitive : transitivelyUsedModules.values()) {
+      // It is better to iterate over each nested set here instead of creating a joint one and
+      // iterating over it, as this makes use of NestedSet's memoization (each of them has likely
+      // been iterated over before). Don't use Set.removeAll() here as that iterates over the
+      // smaller set (topLevel, which would support efficient lookup) and looks up in the larger one
+      // (transitive, which is a linear scan).
+      for (Artifact module : transitive) {
+        topLevel.remove(module);
+      }
+    }
+    NestedSetBuilder<Artifact> topLevelModulesBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> discoveredModulesBuilder = NestedSetBuilder.stableOrder();
+    for (Artifact module : topLevel) {
+      topLevelModulesBuilder.add(module);
+      discoveredModulesBuilder.addTransitive(transitivelyUsedModules.get(module));
+    }
+    topLevelModules = topLevelModulesBuilder.build();
+    discoveredModulesBuilder.addTransitive(topLevelModules);
+    NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.build();
+
+    additionalInputs = Iterables.concat(additionalInputs, discoveredModules);
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      this.discoveredModules = discoveredModules;
+    }
+    return additionalInputs;
   }
 
   @Override
@@ -506,10 +528,13 @@ public class CppCompileAction extends AbstractAction
     return grepIncludes;
   }
 
-  /** Set by {@link #discoverInputsStage2} */
+  /**
+   * Set by {@link #discoverInputs}. Returns a subset of {@link #getAdditionalInputs()} or null, if
+   * this is not a compile action producing a C++ module.
+   */
   @Override
   @Nullable
-  public ImmutableList<Artifact> getDiscoveredModules() {
+  public NestedSet<Artifact> getDiscoveredModules() {
     return discoveredModules;
   }
 
@@ -904,19 +929,19 @@ public class CppCompileAction extends AbstractAction
   /**
    * Called by {@link com.google.devtools.build.lib.actions.ActionCacheChecker}
    *
-   * <p>Restores the value of {@link #discoveredModules}, which is used to create the {@link
-   * com.google.devtools.build.lib.skyframe.ActionExecutionValue} after an action cache hit.
+   * <p>If this is compiling a module, restores the value of {@link #discoveredModules}, which is
+   * used to create the {@link com.google.devtools.build.lib.skyframe.ActionExecutionValue} after an
+   * action cache hit.
    */
   @Override
   public synchronized void updateInputs(Iterable<Artifact> inputs) {
     super.updateInputs(inputs);
-    ImmutableList.Builder<Artifact> discoveredModules = ImmutableList.builder();
-    for (Artifact input : inputs) {
-      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
-        discoveredModules.add(input);
-      }
+    if (outputFile.isFileType(CppFileTypes.CPP_MODULE)) {
+      discoveredModules =
+          NestedSetBuilder.wrap(
+              Order.STABLE_ORDER,
+              Iterables.filter(inputs, input -> input.isFileType(CppFileTypes.CPP_MODULE)));
     }
-    this.discoveredModules = discoveredModules.build();
   }
 
   private static void addNonSources(HashSet<Artifact> result, Iterable<Artifact> artifacts) {
@@ -1006,9 +1031,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     if (!shouldScanDotdFiles()) {
-      updateActionInputs(
-          NestedSetBuilder.wrap(
-              Order.STABLE_ORDER, Iterables.concat(discoveredModules, additionalInputs)));
+      updateActionInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs));
     }
 
     List<SpawnResult> spawnResults;
@@ -1248,6 +1271,17 @@ public class CppCompileAction extends AbstractAction
     return message.toString();
   }
 
+  @Override
+  public boolean hasLooseHeaders() {
+    // Layering check is stricter than hdrs_check = strict, so when it's enabled, there can't be
+    // loose headers.
+    return ccCompilationContext
+            .getHeadersCheckingMode()
+            .equals(CppConfiguration.HeadersCheckingMode.LOOSE)
+        && !(featureConfiguration.isEnabled(CppRuleClasses.LAYERING_CHECK)
+            && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
+  }
+
   public CompileCommandLine getCompileCommandLine() {
     return compileCommandLine;
   }
@@ -1255,38 +1289,41 @@ public class CppCompileAction extends AbstractAction
   /**
    * For the given {@code usedModules}, looks up modules discovered by their generating actions.
    *
-   * <p>The returned value only contains elements of {@code usedModules} if they happen to be
-   * transitively used from other elements of {@code usedModules}. It can be null when skyframe
-   * lookups return null.
+   * <p>The returned value only contains a map from elements of {@code usedModules} to the
+   * {@link #discoveredModules} required to use them. If dependent actions have not been executed
+   * yet (and thus {@link #discoveredModules} aren't known yet, returns null.
    */
   @Nullable
-  private static Set<Artifact> computeTransitivelyUsedModules(
+  private static Map<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Set<Artifact> usedModules) throws InterruptedException {
     // ActionLookupKey → ActionLookupValue
     Map<SkyKey, SkyValue> actionLookupValues =
         env.getValues(
             Iterables.transform(
                 usedModules, module -> (ActionLookupKey) module.getArtifactOwner()));
+    if (env.valuesMissing()) {
+      return null;
+    }
     ArrayList<ActionLookupData> executionValueLookups = new ArrayList<>(usedModules.size());
     for (Artifact module : usedModules) {
       ActionLookupData lookupData = lookupDataFromModule(actionLookupValues, module);
-      if (lookupData == null) {
-        return null;
-      }
-      executionValueLookups.add(lookupData);
+      executionValueLookups.add(Preconditions.checkNotNull(lookupData, module));
     }
 
-    Set<Artifact> additionalModules = Sets.newLinkedHashSet();
     // ActionLookupData → ActionExecutionValue
     Map<SkyKey, SkyValue> actionExecutionValues = env.getValues(executionValueLookups);
-    for (ActionLookupData lookup : executionValueLookups) {
-      ActionExecutionValue value = (ActionExecutionValue) actionExecutionValues.get(lookup);
-      if (value == null) {
-        return null;
-      }
-      additionalModules.addAll(value.getDiscoveredModules());
+    if (env.valuesMissing()) {
+      return null;
     }
-    return additionalModules;
+    ImmutableMap.Builder<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
+        ImmutableMap.builderWithExpectedSize(usedModules.size());
+    int pos = 0;
+    for (Artifact module : usedModules) {
+      ActionLookupData lookup = executionValueLookups.get(pos++);
+      ActionExecutionValue value = (ActionExecutionValue) actionExecutionValues.get(lookup);
+      transitivelyUsedModules.put(module, value.getDiscoveredModules());
+    }
+    return transitivelyUsedModules.build();
   }
 
   @Nullable

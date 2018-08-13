@@ -467,7 +467,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
             null,
             null);
 
-    ValidatedAndroidData validated =
+    ValidatedAndroidResources validated =
         processedData
             .generateRClass(
                 AndroidDataContext.forNative(ruleContext),

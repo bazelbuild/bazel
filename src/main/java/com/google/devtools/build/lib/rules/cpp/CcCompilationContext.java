@@ -79,6 +79,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   // Derived from depsContexts.
   private final ImmutableSet<Artifact> compilationPrerequisites;
 
+  private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
+
   @AutoCodec.Instantiator
   @VisibleForSerialization
   CcCompilationContext(
@@ -96,7 +98,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
       CppHeaderMap internalCppHeaderMap,
-      CppHeaderMap publicCppHeaderMap) {
+      CppHeaderMap publicCppHeaderMap,
+      CppConfiguration.HeadersCheckingMode headersCheckingMode) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -113,6 +116,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
+    this.headersCheckingMode = headersCheckingMode;
   }
 
   /**
@@ -310,7 +314,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.verificationModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
         ccCompilationContext.internalCppHeaderMap,
-        ccCompilationContext.publicCppHeaderMap);
+        ccCompilationContext.publicCppHeaderMap,
+        ccCompilationContext.headersCheckingMode);
   }
 
   /** @return the C++ module map of the owner. */
@@ -328,6 +333,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   /** @return the public header map of the owner */
   public CppHeaderMap getPublicCppHeaderMap() { return publicCppHeaderMap; }
+
+  public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
+    return headersCheckingMode;
+  }
 
   /**
    * The parts of the {@code CcCompilationContext} that influence the command line of compilation
@@ -379,6 +388,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private CppHeaderMap publicCppHeaderMap;
 
     private boolean propagateModuleMapAsActionInput = true;
+    private CppConfiguration.HeadersCheckingMode headersCheckingMode =
+        CppConfiguration.HeadersCheckingMode.STRICT;
 
     /** The rule that owns the context */
     private final RuleContext ruleContext;
@@ -603,6 +614,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    public Builder setHeadersCheckingMode(
+        CppConfiguration.HeadersCheckingMode headersCheckingMode) {
+      this.headersCheckingMode = headersCheckingMode;
+      return this;
+    }
+
     /** Builds the {@link CcCompilationContext}. */
     public CcCompilationContext build() {
       return build(
@@ -640,7 +657,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           verificationModuleMap,
           propagateModuleMapAsActionInput,
           internalCppHeaderMap,
-          publicCppHeaderMap);
+          publicCppHeaderMap,
+          headersCheckingMode);
     }
 
     /**

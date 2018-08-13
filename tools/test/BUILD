@@ -37,3 +37,32 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "test-setup.sh",
+        "generate-xml.sh",
+        "collect_coverage.sh",
+    ] + glob(["LcovMerger/**"]),
+    visibility = ["//tools:__pkg__"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//tools/test/LcovMerger/javatests/com/google/devtools/lcovmerger:all_windows_tests",
+    ],
+    visibility = ["//tools:__pkg__"],
+)

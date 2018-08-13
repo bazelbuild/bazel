@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -902,10 +901,34 @@ public final class RuleContext extends TargetContext
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
+   *
+   * @deprecated use {@link #getPrerequisitesByConfiguration(String, Mode, BuiltinProvider)}
+   *     instead
+   */
+  @Deprecated
+  public <C extends Info>
+  ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+      String attributeName, Mode mode, final NativeProvider<C> provider) {
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
+        ImmutableListMultimap.builder();
+    for (ConfiguredTargetAndData prerequisite :
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode)) {
+      C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
+      if (prerequisiteProvider != null) {
+        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * For a given attribute, returns all declared provider provided by targets of that attribute.
+   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
+   * created.
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, Mode mode, final NativeProvider<C> provider) {
+          String attributeName, Mode mode, final BuiltinProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1531,9 +1554,12 @@ public final class RuleContext extends TargetContext
     }
 
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
-      if (src.getConfiguredTarget().getProvider(FilesetProvider.class) != null) {
+      NestedSet<Artifact> filesToBuild =
+          src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
+      if (filesToBuild.isSingleton() && Iterables.getOnlyElement(filesToBuild).isFileset()) {
         return true;
       }
+
       if (filesetEntry.isSourceFileset()) {
         return true;
       }

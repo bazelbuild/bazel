@@ -447,7 +447,7 @@ prematurely and mark it as having failed.</p>
     </tr>
 
     <tr>
-      <th><code>manual</code></th>
+      <th><code>manual*</code></th>
 
       <td>don't include test target in wildcard target patterns like <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
     </tr>
@@ -473,6 +473,7 @@ prematurely and mark it as having failed.</p>
   </tbody>
 </table>
 
+*Note: bazel <code>query</code> does not respect the manual tag.
 <h3>Runfiles</h3>
 
 <p>In the following, assume there is a *_binary() rule labeled <code>//foo/bar:unittest</code>,

@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -656,6 +655,60 @@ public class MemoizingEvaluatorTest {
       assertThat(value.getValue()).isEqualTo("y");
       assertThatEvents(eventCollector).containsExactly("fizzlepop");
     }
+  }
+
+  @Test
+  public void depMessageBeforeNodeMessageOrNodeValue() throws Exception {
+    SkyKey top = skyKey("top");
+    AtomicBoolean depWarningEmitted = new AtomicBoolean(false);
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (key.equals(top) && type == EventType.SET_VALUE) {
+            assertThat(depWarningEmitted.get()).isTrue();
+          }
+        },
+        /*deterministic=*/ false);
+    String depWarning = "dep warning";
+    Event topWarning = Event.warn("top warning");
+    reporter =
+        new DelegatingEventHandler(reporter) {
+          @Override
+          public void handle(Event e) {
+            if (e.getMessage().equals(depWarning)) {
+              depWarningEmitted.set(true);
+            }
+            if (e.equals(topWarning)) {
+              assertThat(depWarningEmitted.get()).isTrue();
+            }
+            super.handle(e);
+          }
+        };
+    SkyKey leaf = skyKey("leaf");
+    tester.getOrCreate(leaf).setWarning(depWarning).setConstantValue(new StringValue("leaf"));
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new NoExtractorFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                SkyValue depValue = env.getValue(leaf);
+                if (depValue != null) {
+                  // Default GraphTester implementation warns before requesting deps, which doesn't
+                  // work
+                  // for ordering assertions with memoizing evaluator subclsses that don't store
+                  // events
+                  // and instead just pass them through directly. By warning after the dep is done
+                  // we
+                  // avoid that issue.
+                  env.getListener().handle(topWarning);
+                }
+                return depValue;
+              }
+            });
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, top);
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("leaf"));
+    assertThatEvents(eventCollector).containsExactly(depWarning, topWarning.getMessage()).inOrder();
   }
 
   @Test
@@ -2079,46 +2132,66 @@ public class MemoizingEvaluatorTest {
   private void dirtyChildEnqueuesParentDuringCheckDependencies(final boolean throwError)
       throws Exception {
     // Value to be built. It will be signaled to rebuild before it has finished checking its deps.
-    final SkyKey top = GraphTester.toSkyKey("top");
+    final SkyKey top = GraphTester.toSkyKey("a_top");
+    // otherTop is alphabetically after top.
+    SkyKey otherTop = skyKey("z_otherTop");
     // Dep that blocks before it acknowledges being added as a dep by top, so the firstKey value has
     // time to signal top. (Importantly its key is alphabetically after 'firstKey').
     final SkyKey slowAddingDep = GraphTester.toSkyKey("slowDep");
+    // Value that is modified on the second build. Its thread won't finish until it signals top,
+    // which will wait for the signal before it enqueues its next dep. We prevent the thread from
+    // finishing by having the graph listener block on the second reverse dep to signal.
+    SkyKey firstKey = GraphTester.nonHermeticKey("first");
+    tester.set(firstKey, new StringValue("biding"));
     // Don't perform any blocking on the first build.
     final AtomicBoolean delayTopSignaling = new AtomicBoolean(false);
     final CountDownLatch topSignaled = new CountDownLatch(1);
-    final CountDownLatch topRestartedBuild = new CountDownLatch(1);
+    final CountDownLatch topRequestedDepOrRestartedBuild = new CountDownLatch(1);
+    final CountDownLatch parentsRequested = new CountDownLatch(2);
     injectGraphListenerForTesting(
-        new Listener() {
-          @Override
-          public void accept(SkyKey key, EventType type, Order order, @Nullable Object context) {
-            if (!delayTopSignaling.get()) {
-              return;
+        (key, type, order, context) -> {
+          if (!delayTopSignaling.get()) {
+            return;
+          }
+          if (key.equals(otherTop) && type == EventType.SIGNAL) {
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                topRequestedDepOrRestartedBuild, "top's builder did not start in time");
+            return;
+          }
+          if (key.equals(firstKey) && type == EventType.ADD_REVERSE_DEP && order == Order.AFTER) {
+            parentsRequested.countDown();
+            return;
+          }
+          if (key.equals(firstKey) && type == EventType.CHECK_IF_DONE && order == Order.AFTER) {
+            parentsRequested.countDown();
+            if (throwError) {
+              topRequestedDepOrRestartedBuild.countDown();
             }
-            if (key.equals(top) && type == EventType.SIGNAL && order == Order.AFTER) {
-              // top is signaled by firstKey (since slowAddingDep is blocking), so slowAddingDep
-              // is now free to acknowledge top as a parent.
-              topSignaled.countDown();
-              return;
-            }
-            if (key.equals(slowAddingDep)
-                && type == EventType.ADD_REVERSE_DEP
-                && top.equals(context)
-                && order == Order.BEFORE) {
-              // If top is trying to declare a dep on slowAddingDep, wait until firstKey has
-              // signaled top. Then this add dep will return DONE and top will be signaled,
-              // making it ready, so it will be enqueued.
-              TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                  topSignaled, "first key didn't signal top in time");
-            }
+            return;
+          }
+          if (key.equals(top) && type == EventType.SIGNAL && order == Order.AFTER) {
+            // top is signaled by firstKey (since slowAddingDep is blocking), so slowAddingDep
+            // is now free to acknowledge top as a parent.
+            topSignaled.countDown();
+            return;
+          }
+          if (key.equals(firstKey) && type == EventType.SET_VALUE && order == Order.BEFORE) {
+            // Make sure both parents add themselves as rdeps.
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                parentsRequested, "parents did not request dep in time");
+          }
+          if (key.equals(slowAddingDep)
+              && type == EventType.CHECK_IF_DONE
+              && top.equals(context)
+              && order == Order.BEFORE) {
+            // If top is trying to declare a dep on slowAddingDep, wait until firstKey has
+            // signaled top. Then this add dep will return DONE and top will be signaled,
+            // making it ready, so it will be enqueued.
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                topSignaled, "first key didn't signal top in time");
           }
         },
         /*deterministic=*/ true);
-    // Value that is modified on the second build. Its thread won't finish until it signals top,
-    // which will wait for the signal before it enqueues its next dep. We prevent the thread from
-    // finishing by having the listener to which it reports its warning block until top's builder
-    // starts.
-    SkyKey firstKey = GraphTester.nonHermeticKey("first");
-    tester.set(firstKey, new StringValue("biding"));
     tester.set(slowAddingDep, new StringValue("dep"));
     final AtomicInteger numTopInvocations = new AtomicInteger(0);
     tester
@@ -2130,9 +2203,9 @@ public class MemoizingEvaluatorTest {
                   throws InterruptedException {
                 numTopInvocations.incrementAndGet();
                 if (delayTopSignaling.get()) {
-                  // The reporter will be given firstKey's warning to emit when it is requested as a dep
-                  // below, if firstKey is already built, so we release the reporter's latch beforehand.
-                  topRestartedBuild.countDown();
+                  // The graph listener will block on firstKey's signaling of otherTop above until
+                  // this thread starts running.
+                  topRequestedDepOrRestartedBuild.countDown();
                 }
                 // top's builder just requests both deps in a group.
                 env.getValuesOrThrow(
@@ -2140,31 +2213,37 @@ public class MemoizingEvaluatorTest {
                 return env.valuesMissing() ? null : new StringValue("top");
               }
             });
-    reporter =
-        new DelegatingEventHandler(reporter) {
-          @Override
-          public void handle(Event e) {
-            super.handle(e);
-            if (e.getKind() == EventKind.WARNING) {
-              if (!throwError) {
-                TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                    topRestartedBuild, "top's builder did not start in time");
-              }
-            }
-          }
-        };
     // First build : just prime the graph.
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertThat(result.hasError()).isFalse();
     assertThat(result.get(top)).isEqualTo(new StringValue("top"));
     assertThat(numTopInvocations.get()).isEqualTo(2);
     // Now dirty the graph, and maybe have firstKey throw an error.
-    String warningText = "warning text";
-    tester.getOrCreate(firstKey, /*markAsModified=*/true).setHasError(throwError)
-        .setWarning(warningText);
+    if (throwError) {
+      tester
+          .getOrCreate(firstKey, /*markAsModified=*/ true)
+          .setConstantValue(null)
+          .setBuilder(
+              new NoExtractorFunction() {
+                @Nullable
+                @Override
+                public SkyValue compute(SkyKey skyKey, Environment env)
+                    throws SkyFunctionException {
+                  TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                      parentsRequested, "both parents didn't request in time");
+                  throw new GenericFunctionException(
+                      new SomeErrorException(firstKey.toString()), Transience.PERSISTENT);
+                }
+              });
+    } else {
+      tester
+          .getOrCreate(firstKey, /*markAsModified=*/ true)
+          .setConstantValue(new StringValue("new"));
+    }
+    tester.getOrCreate(otherTop).addDependency(firstKey).setComputedValue(CONCATENATE);
     tester.invalidate();
     delayTopSignaling.set(true);
-    result = tester.eval(/*keepGoing=*/false, top);
+    result = tester.eval(/*keepGoing=*/ false, top, otherTop);
     if (throwError) {
       assertThat(result.hasError()).isTrue();
       assertThat(result.keyNames()).isEmpty(); // No successfully evaluated values.
@@ -2184,9 +2263,8 @@ public class MemoizingEvaluatorTest {
           .that(numTopInvocations.get())
           .isEqualTo(3);
     }
-    assertThatEvents(eventCollector).containsExactly(warningText);
     assertThat(topSignaled.getCount()).isEqualTo(0);
-    assertThat(topRestartedBuild.getCount()).isEqualTo(0);
+    assertThat(topRequestedDepOrRestartedBuild.getCount()).isEqualTo(0);
   }
 
   @Test

@@ -27,7 +27,7 @@ public class ResourceShrinkerActionBuilder {
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
   private Artifact proguardMapping;
-  private ValidatedAndroidData primaryResources;
+  private ValidatedAndroidResources primaryResources;
   private ResourceDependencies dependencyResources;
   private Artifact resourceApkOut;
   private Artifact shrunkResourcesOut;
@@ -68,10 +68,10 @@ public class ResourceShrinkerActionBuilder {
   }
 
   /**
-   * @param primary The fully processed {@link ValidatedAndroidData} of the resources to be shrunk.
-   *     Must contain both an R.txt and merged manifest.
+   * @param primary The fully processed {@link ValidatedAndroidResources} of the resources to be
+   *     shrunk. Must contain both an R.txt and merged manifest.
    */
-  public ResourceShrinkerActionBuilder withPrimary(ValidatedAndroidData primary) {
+  public ResourceShrinkerActionBuilder withPrimary(ValidatedAndroidResources primary) {
     checkNotNull(primary);
     checkNotNull(primary.getManifest());
     checkNotNull(primary.getRTxt());
@@ -79,7 +79,7 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /** @param resourceDeps The full dependency tree of {@link ResourceContainer}s. */
+  /** @param resourceDeps The full dependency tree of resources. */
   public ResourceShrinkerActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencyResources = resourceDeps;
     return this;
@@ -150,7 +150,7 @@ public class ResourceShrinkerActionBuilder {
 
   private ImmutableList<Artifact> getManifests(ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<Artifact> manifests = ImmutableList.builder();
-    for (ValidatedAndroidData resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
       if (resources.getManifest() != null) {
         manifests.add(resources.getManifest());
       }
@@ -159,10 +159,10 @@ public class ResourceShrinkerActionBuilder {
   }
 
   private ImmutableList<String> getResourcePackages(
-      ValidatedAndroidData primaryResources, ResourceDependencies resourceDependencies) {
+      ValidatedAndroidResources primaryResources, ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
     resourcePackages.add(primaryResources.getJavaPackage());
-    for (ValidatedAndroidData resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
       resourcePackages.add(resources.getJavaPackage());
     }
     return resourcePackages.build();

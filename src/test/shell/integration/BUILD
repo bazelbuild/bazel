@@ -147,16 +147,20 @@ sh_test(
     name = "output_filter_test",
     size = "large",
     srcs = ["output_filter_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
     name = "bazel_testjobs_test",
     srcs = ["bazel_testjobs_test.sh"],
-    data = [":test-deps"],
-    shard_count = 3,
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 2,
 )
 
 sh_test(
@@ -171,16 +175,20 @@ sh_test(
     name = "configured_query_test",
     size = "large",
     srcs = ["configured_query_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
     name = "aquery_test",
     size = "large",
     srcs = ["aquery_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -242,24 +250,30 @@ sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
     name = "rc_options_test",
     size = "medium",
     srcs = ["rc_options_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
     name = "cpp_test",
     size = "large",
     srcs = ["cpp_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -466,6 +480,14 @@ sh_test(
     name = "sandboxfs_test",
     size = "medium",
     srcs = ["sandboxfs_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "bazel_java_test",
+    size = "medium",
+    srcs = ["bazel_java_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )

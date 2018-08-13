@@ -91,6 +91,12 @@ new_local_repository(
     build_file = "./third_party/googleapis/BUILD",
 )
 
+new_local_repository(
+    name = "remoteapis",
+    path = "./third_party/remoteapis/",
+    build_file = "./third_party/remoteapis/BUILD.bazel",
+)
+
 http_archive(
     name = "desugar_jdk_libs",
     url = "https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",

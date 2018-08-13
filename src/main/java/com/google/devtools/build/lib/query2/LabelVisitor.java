@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -353,15 +352,13 @@ final class LabelVisitor {
     private void visitRule(final Rule rule, final int depth, final int count)
         throws InterruptedException {
       // Follow all labels defined by this rule:
-      AggregatingAttributeMapper.of(rule).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
-        @Override
-        public void acceptLabelAttribute(Label label, Attribute attribute) {
-          if (!edgeFilter.apply(rule, attribute)) {
-            return;
-          }
-          enqueueTarget(rule, attribute, label, depth, count);
-        }
-      });
+      AggregatingAttributeMapper.of(rule)
+          .visitLabels()
+          .stream()
+          .filter(depEdge -> edgeFilter.apply(rule, depEdge.getAttribute()))
+          .forEach(
+              depEdge ->
+                  enqueueTarget(rule, depEdge.getAttribute(), depEdge.getLabel(), depth, count));
     }
 
     @ThreadSafe
