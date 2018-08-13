@@ -44,3 +44,5 @@ function test_server_process_name_has_workspace_name() {
   expect_log "^bazel(foobarspace)"
   bazel shutdown
 }
+
+run_suite "${PRODUCT_NAME} client test"
