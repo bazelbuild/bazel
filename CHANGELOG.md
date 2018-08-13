@@ -1,3 +1,61 @@
+## Release 0.16.1 (2018-08-13)
+
+```
+Baseline: 4f64b77a3dd8e4ccdc8077051927985f9578a3a5
+
+Cherry picks:
+   + 4c9a0c82d308d5df5c524e2a26644022ff525f3e:
+     reduce the size of bazel's embedded jdk
+   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
+     remote: limit number of open tcp connections by default. Fixes
+     #5491
+   + 8ff87c164f48dbabe3b20becd00dde90c50d46f5:
+     Fix autodetection of linker flags
+   + c4622ac9205d2f1b42dac8c598e83113d39e7f11:
+     Fix autodetection of -z linker flags
+   + 10219659f58622d99034288cf9f491865f818218:
+     blaze_util_posix.cc: fix order of #define
+   + ab1f269017171223932e0da9bb539e8a17dd99ed:
+     blaze_util_freebsd.cc: include path.h explicitly
+   + 68e92b45a37f2142c768a56eb7ecfa484b8b22df:
+     openjdk: update macOS openjdk image. Fixes #5532
+   + f45c22407e6b00fcba706eb62141cb9036bd38d7:
+     Set the start time of binary and JSON profiles to zero correctly.
+   + bca1912853086b8e9a28a85a1b144ec0dc9717cc:
+     remote: fix race on download error. Fixes #5047
+   + 3842bd39e10612c7eef36c6048407e81bcd0a8fb:
+     jdk: use parallel old gc and disable compact strings
+   + 6bd0bdf5140525cb33dc2db068b210261d9df271:
+     Add objc-fully-link to the list of actions that require the
+     apple_env feature. This fixes apple_static_library functionality.
+   + f330439fb970cfa17c70fc59c1458bb1c31c9522:
+     Add the action_names_test_files target to the OSS version of
+     tools/buils_defs/cc/BUILD.
+   + d215b64362c4ede61c8ba87b5f3f57bce4785d15:
+     Fix StackOverflowError on Windows. Fixes #5730
+   + 366da4cf27b7f957ef39f89206db77fa2ac289df:
+     In java_rules_skylark depend on the javabase through
+     //tools/jdk:current_java_runtime
+   + 30c601dc13d9e1b40a57434c022c888c7578cc56:
+     Don't use @local_jdk for jni headers
+   + c56699db5f9173739ba3ac55aa9fa69b6457a99b:
+     'DumpPlatformClasspath' now dumps the current JDK's default
+     platform classpath
+```
+
+This release is a patch release that contains fixes for several serious
+regressions that were found after the release of Bazel 0.16.0.
+
+In particular this release resolves the following issues:
+
+ - Bazel crashes with a StackOverflowError on Windows (See #5730)
+ - Bazel requires a locally installed JDK and does not fall back
+   to the embedded JDK (See #5744)
+ - Bazel fails to build for Homebrew on macOS El Capitan (See #5777)
+ - A regression in apple_static_library (See #5683)
+
+Please watch our blog for a more detailed release announcement.
+
 ## Release 0.16.0 (2018-07-31)
 
 ```
@@ -3064,6 +3122,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
