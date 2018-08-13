@@ -93,7 +93,7 @@ public class CoverageTest {
     SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, new String[] {"/x/y/.+"})
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/x/y/.+"))
                 .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -106,7 +106,7 @@ public class CoverageTest {
     coverage.add(new SourceFileCoverage("/x/y/a.c"));
     coverage.add(new SourceFileCoverage("/x/y/b.c"));
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, new String[] {"/x/y/.+"})
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/x/y/.+"))
                     .getAllSourceFiles();
 
     assertThat(filteredSources).isEmpty();
@@ -121,7 +121,7 @@ public class CoverageTest {
     SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, new String[] {"/something/else/.+"})
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/something/else/.+"))
                     .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -139,7 +139,7 @@ public class CoverageTest {
     SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, new String[] {"/x/y/.+", ".+external.+"})
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/x/y/.+", ".+external.+"))
                     .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -154,14 +154,14 @@ public class CoverageTest {
     SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, new String[] {}).getAllSourceFiles();
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of()).getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testFilterSourcesNullCoverage() {
-    Coverage.filterOutMatchingSources(null, new String[] {});
+    Coverage.filterOutMatchingSources(null, ImmutableList.of());
   }
 
   @Test(expected = IllegalArgumentException.class)
