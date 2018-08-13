@@ -43,3 +43,16 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_binary(
+    name = "profiler-grapher",
+    srcs = glob([
+        "grapher/*.java",
+    ]),
+    main_class = "com.google.devtools.build.lib.profiler.grapher.ProfileGrapher",
+    deps = [
+        ":profiler",
+        "//third_party:gson",
+        "//third_party:guava",
+    ],
+)
