@@ -22,9 +22,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-
 function setup_cc_sources() {
-  mkdir coverage
+  mkdir -p coverage
   cat << EOF > coverage/a.h
 int a(bool what);
 EOF
@@ -51,7 +50,7 @@ int main(void) {
 EOF
 }
 
-function setup_gcc_gcda_files() {
+function generate_gcc_and_gcda_files() {
   cd coverage/
   # Generate .gcno files.
   g++ -fprofile-arcs -ftest-coverage -c a.h a.cc t.cc
@@ -95,11 +94,13 @@ function test_cc_test_coverage() {
   check_env
 
   setup_cc_sources
-  setup_gcc_gcda_files
+  generate_gcc_and_gcda_files
   setup_script_environment
-  eval tools/test/collect_cc_coverage.sh
+  $(tools/test/collect_cc_coverage.sh) >> $TEST_log
 
-  cat <<EOF > result.dat
+  # After running the test in t.cc, the sources covered are the test itself and
+  # the source file a.cc.
+  cat <<EOF > expected_result.dat
 TN:
 SF:a.cc
 FN:3,_Z1ab
@@ -127,8 +128,9 @@ LH:3
 end_of_record
 EOF
 
-  diff result.dat "$COVERAGE_OUTPUT_FILE" >> $TEST_log
-  cmp result.dat "$COVERAGE_OUTPUT_FILE" || fail "Coverage output file is different than the expected file"
+  # tools/test/collect_cc_coverage.sh places the coverage result in $COVERAGE_OUTPUT_FILE
+  diff -u expected_result.dat "$COVERAGE_OUTPUT_FILE" >> $TEST_log \
+    || fail "Coverage output file is different than the expected file"
 }
 
 run_suite "testing tools/test/collect_cc_coverage.sh"

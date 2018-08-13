@@ -16,7 +16,8 @@
 # This script collects code coverage data for C++ sources, after the tests
 # were executed.
 #
-# Bazel C++ code coverage collection support is poor and limited.
+# Bazel C++ code coverage collection support is poor and limited. There is
+# an ongoing effort to improve this (tracking issue #1118).
 #
 # Bazel uses the lcov tool for gathering coverage data. There is also
 # an experimental support for clang llvm coverage, which uses the .profraw
@@ -34,6 +35,7 @@
 # gcda or profraw) and uses either lcov or gcov to get the coverage data.
 # The coverage data is placed in $COVERAGE_OUTPUT_FILE.
 
+# Checks if clang llvm coverage should be used instead of lcov.
 function uses_llvm() {
   if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
     return
@@ -49,11 +51,15 @@ function init_gcov() {
   ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
 }
 
+# Computes code coverage data using the clang generated metadata found under $COVERAGE_DIR.
+# Writes the collected coverage into ${COVERAGE_OUTPUT_FILE}.
 function llvm_coverage() {
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
   "${COVERAGE_GCOV_PATH}" merge -output "${COVERAGE_OUTPUT_FILE}" "${COVERAGE_DIR}"/*.profraw
 }
 
+# Computes code coverage data using gcda files found under $COVERAGE_DIR.
+# Writes the collected coverage into ${COVERAGE_OUTPUT_FILE} in lcov format.
 function lcov_coverage() {
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
@@ -80,9 +86,13 @@ function lcov_coverage() {
   sed -i -e "s*/proc/self/cwd/**g" "${COVERAGE_OUTPUT_FILE}"
 }
 
-init_gcov
-if uses_llvm; then
-  llvm_coverage
-else
-  lcov_coverage
-fi
+function compute_coverage() {
+  init_gcov
+  if uses_llvm; then
+    llvm_coverage
+  else
+    lcov_coverage
+  fi
+}
+
+compute_coverage
