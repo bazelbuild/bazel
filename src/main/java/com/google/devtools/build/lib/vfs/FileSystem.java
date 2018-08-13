@@ -275,7 +275,7 @@ public abstract class FileSystem {
       public InputStream openStream() throws IOException {
         return getInputStream(path);
       }
-    }.hash(digestFunction.getHash()).asBytes();
+    }.hash(digestFunction.getHashFunction()).asBytes();
   }
 
   /**

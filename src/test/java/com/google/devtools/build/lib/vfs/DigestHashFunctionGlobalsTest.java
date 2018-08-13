@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
  * equality.
  */
 @RunWith(JUnit4.class)
-public class DigestHashFunctionTest {
+public class DigestHashFunctionGlobalsTest {
   private final DigestFunctionConverter converter = new DigestFunctionConverter();
 
   @Before
@@ -64,22 +64,26 @@ public class DigestHashFunctionTest {
 
   @Test
   public void lateRegistrationGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(Hashing.goodFastHash(32), "goodFastHash32");
+    DigestHashFunction.register(Hashing.goodFastHash(32), "SHA-512");
 
-    assertThat(converter.convert("goodFastHash32")).isSameAs(converter.convert("GOODFASTHASH32"));
+    assertThat(converter.convert("SHA-512")).isSameAs(converter.convert("sha-512"));
   }
 
   @Test
   public void lateRegistrationWithAlternativeNamesGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(
-        Hashing.goodFastHash(64), "goodFastHash64", "goodFastHash-64", "good-fast-hash-64");
+    DigestHashFunction.register(Hashing.goodFastHash(64), "SHA-384", "SHA384", "SHA_384");
 
-    assertThat(converter.convert("goodFastHash64")).isSameAs(converter.convert("GOODFASTHASH64"));
-    assertThat(converter.convert("goodFastHash64")).isSameAs(converter.convert("goodFastHash-64"));
-    assertThat(converter.convert("goodFastHash64"))
-        .isSameAs(converter.convert("good-fast-hash-64"));
-    assertThat(converter.convert("goodFastHash64"))
-        .isSameAs(converter.convert("GOOD-fast-HASH-64"));
+    assertThat(converter.convert("SHA-384")).isSameAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("Sha-384")).isSameAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("sha-384")).isSameAs(converter.convert("SHA-384"));
+
+    assertThat(converter.convert("SHA384")).isSameAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("Sha384")).isSameAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("sha384")).isSameAs(converter.convert("SHA-384"));
+
+    assertThat(converter.convert("SHA_384")).isSameAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("Sha_384")).isSameAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("sha_384")).isSameAs(converter.convert("SHA-384"));
   }
 
   @Test

@@ -59,7 +59,7 @@ public class DigestUtil {
   }
 
   public Digest compute(byte[] blob) {
-    return buildDigest(hashFn.getHash().hashBytes(blob).toString(), blob.length);
+    return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
   }
 
   public Digest compute(Path file) throws IOException {
@@ -114,7 +114,7 @@ public class DigestUtil {
   }
 
   public HashingOutputStream newHashingOutputStream(OutputStream out) {
-    return new HashingOutputStream(hashFn.getHash(), out);
+    return new HashingOutputStream(hashFn.getHashFunction(), out);
   }
 
   public String toString(Digest digest) {

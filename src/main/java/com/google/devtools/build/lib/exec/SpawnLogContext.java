@@ -221,7 +221,7 @@ public class SpawnLogContext implements ActionContext {
         ((VirtualActionInput) input).writeTo(buffer);
         byte[] blob = buffer.toByteArray();
         return digest
-            .setHash(hashFunction.getHash().hashBytes(blob).toString())
+            .setHash(hashFunction.getHashFunction().hashBytes(blob).toString())
             .setSizeBytes(blob.length)
             .build();
       }

@@ -86,8 +86,11 @@ public final class SandboxModule extends BlazeModule {
     if (options.sandboxBase.isEmpty()) {
       return env.getOutputBase().getRelative("sandbox");
     } else {
-      String dirName = String.format("%s-sandbox.%s", env.getRuntime().getProductName(),
-          Fingerprint.md5Digest(env.getOutputBase().toString()));
+      String dirName =
+          String.format(
+              "%s-sandbox.%s",
+              env.getRuntime().getProductName(),
+              Fingerprint.getHexDigest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
       Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
       return resolvedSandboxBase.getRelative(dirName);
