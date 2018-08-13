@@ -191,11 +191,18 @@ new_git_repository(
   build_file_content="exports_files([\"hello.txt\"])",
 )
 EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
   bazel sync --experimental_repository_resolved_file=../repo.bzl
-  # some of the file systems on our test machines are really slow to
-  # notice the creation of a file---even after the call to sync(1).
-  bazel shutdown; sync; sleep 10
-
+  bazel build :out
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       && fail "Unexpected content in out.txt" || :
   cd ..
   echo; cat repo.bzl; echo
 
@@ -204,6 +211,17 @@ EOF
   (cd extgit
    git add .
    git commit --author="A U Thor <author@example.com>" -m 'change hello.txt')
+
+
+  # First verify that `bazel sync` sees the new commit (we don't record it).
+  cd branchcheckout
+  bazel sync
+  bazel build :out
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       || fail "sync did not update the external repository"
+  bazel shutdown; sync; sleep 10
+  cd ..
+  echo
 
   # Verify that the recorded resolved information is what we expect. In
   # particular, verify that we don't get the new upstream commit.
@@ -236,6 +254,62 @@ EOF
        || fail "ext not taken at the right commit"
   grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
        && fail "not taking the frozen commit" || :
+}
+
+test_sync_follows_git_branch() {
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  rm -f gitdir
+  mkdir gitdir
+  (cd gitdir && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello World > gitdir/hello.txt
+  (cd gitdir
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit')
+  echo Hello Stable World > gitdir/hello.txt
+  (cd gitdir
+   git checkout -b stable
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'stable commit')
+
+  # Follow the stable branch of the git repository
+  mkdir followbranch
+  cat > followbranch/WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/gitdir/.git",
+  branch="stable",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  cat > followbranch/BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  (cd followbranch && bazel build :out \
+       && cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}")
+  expect_log 'Hello Stable World'
+
+  # New upstream commits on the branch followed
+  echo CHANGED > gitdir/hello.txt
+  (cd gitdir
+   git checkout stable
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'stable commit')
+
+  # Verify that sync followed by build gets the correct version
+  (cd followbranch && bazel sync && bazel build :out \
+       && cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}")
+  expect_log 'CHANGED'
+  expect_not_log 'Hello Stable World'
 }
 
 
