@@ -62,7 +62,7 @@ abstract class LcovMergerFlags {
               filterSources.add(parts[1]);
             break;
           default:
-            throw new IllegalArgumentException("Unknown flag --" + parts[0]);
+            throw new IllegalArgumentException("Unknown flag " + arg);
         }
       }
 
@@ -75,8 +75,7 @@ abstract class LcovMergerFlags {
             "Only one of --coverage_dir or --reports_file must be specified.");
       }
       if (outputFile == null) {
-        // Different from blaze, this should be mandatory
-        throw new IllegalArgumentException("--output_file was not specified");
+        throw new IllegalArgumentException("--output_file was not specified.");
       }
       return new AutoValue_LcovMergerFlags(
               coverageDir, reportsFile, outputFile, filterSources.build());
