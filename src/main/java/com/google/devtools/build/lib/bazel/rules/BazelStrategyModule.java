@@ -96,6 +96,7 @@ public class BazelStrategyModule extends BlazeModule {
     // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
     builder.addStrategyByMnemonic("Javac", "worker");
     builder.addStrategyByMnemonic("Closure", "worker");
+    builder.addStrategyByMnemonic("DexBuilder", "worker");
 
     for (Map.Entry<String, String> strategy : options.strategy) {
       String strategyName = strategy.getValue();
