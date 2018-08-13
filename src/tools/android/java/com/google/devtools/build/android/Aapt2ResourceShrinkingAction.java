@@ -63,7 +63,7 @@ public class Aapt2ResourceShrinkingAction {
   public static final class Aapt2ShrinkOptions extends OptionsBase {
     @Option(
         name = "useProtoApk",
-        defaultValue = "false",
+        defaultValue = "true",
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
