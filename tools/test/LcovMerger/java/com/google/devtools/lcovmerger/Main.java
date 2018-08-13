@@ -19,7 +19,6 @@ import static com.google.devtools.lcovmerger.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,9 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -49,7 +46,7 @@ public class Main {
   public static void main(String[] args) {
     LcovMergerFlags flags = null;
     try {
-       flags = LcovMergerFlags.parseFlags(args);
+      flags = LcovMergerFlags.parseFlags(args);
     } catch (IllegalArgumentException e) {
       logger.log(Level.SEVERE, e.getMessage());
       System.exit(1);
@@ -96,7 +93,7 @@ public class Main {
   }
 
   private static List<File> getTracefiles(
-      LcovMergerFlags flags, List<File> filesInCoverageDir) {
+          LcovMergerFlags flags, List<File> filesInCoverageDir) {
     List<File> lcovTracefiles = new ArrayList<>();
     if (flags.coverageDir() != null) {
       lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);

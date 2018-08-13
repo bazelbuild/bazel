@@ -47,25 +47,25 @@ class Coverage {
   }
 
   static Coverage filterOutMatchingSources(
-      Coverage coverage, List<String> regex) throws IllegalArgumentException {
-    if (coverage == null || regex == null) {
+      Coverage coverage, List<String> regexes) throws IllegalArgumentException {
+    if (coverage == null || regexes == null) {
       throw new IllegalArgumentException("Coverage and regex should not be null.");
     }
-    if (regex.isEmpty()) {
+    if (regexes.isEmpty()) {
       return coverage;
     }
     Coverage filteredCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
-      if (!matchesAnyRegex(source.sourceFileName(), regex)) {
+      if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
         filteredCoverage.add(source);
       }
     }
     return filteredCoverage;
   }
 
-  private static boolean matchesAnyRegex(String input, List<String> regex) {
-    for (String currRegex : regex) {
-      if (input.matches(currRegex)) {
+  private static boolean matchesAnyRegex(String input, List<String> regexes) {
+    for (String regex : regexes) {
+      if (input.matches(regex)) {
         return true;
       }
     }

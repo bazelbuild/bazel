@@ -86,14 +86,14 @@ public class CoverageTest {
   public void testFilterSources() {
     Coverage coverage = new Coverage();
 
-    coverage.add(new SourceFileCoverage("/x/y/a.c"));
-    coverage.add(new SourceFileCoverage("/x/y/b.c"));
-    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
+    coverage.add(new SourceFileCoverage("/filterOut/package/file2.c"));
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/valid/package/file3.c");
     coverage.add(validSource1);
-    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/valid/package/file4.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/x/y/.+"))
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/filterOut/package/.+"))
                 .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -103,10 +103,10 @@ public class CoverageTest {
   public void testFilterSourcesEmptyResult() {
     Coverage coverage = new Coverage();
 
-    coverage.add(new SourceFileCoverage("/x/y/a.c"));
-    coverage.add(new SourceFileCoverage("/x/y/b.c"));
+    coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
+    coverage.add(new SourceFileCoverage("/filterOut/package/file2.c"));
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/x/y/.+"))
+            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/filterOut/package/.+"))
                     .getAllSourceFiles();
 
     assertThat(filteredSources).isEmpty();
@@ -116,9 +116,9 @@ public class CoverageTest {
   public void testFilterSourcesNoMatches() {
     Coverage coverage = new Coverage();
 
-    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/valid/package/file3.c");
     coverage.add(validSource1);
-    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/valid/package/file4.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
             Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/something/else/.+"))
@@ -131,15 +131,16 @@ public class CoverageTest {
   public void testFilterSourcesMultipleRegex() {
     Coverage coverage = new Coverage();
 
-    coverage.add(new SourceFileCoverage("/x/y/a.c"));
-    coverage.add(new SourceFileCoverage("/x/y/b.c"));
+    coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
+    coverage.add(new SourceFileCoverage("/filterOut/package/file2.c"));
     coverage.add(new SourceFileCoverage("/repo/external/p.c"));
-    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/valid/package/file3.c");
     coverage.add(validSource1);
-    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/valid/package/file4.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-            Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/x/y/.+", ".+external.+"))
+            Coverage.filterOutMatchingSources(
+                    coverage, ImmutableList.of("/filterOut/package/.+", ".+external.+"))
                     .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -149,9 +150,9 @@ public class CoverageTest {
   public void testFilterSourcesNoFilter() {
     Coverage coverage = new Coverage();
 
-    SourceFileCoverage validSource1 = new SourceFileCoverage("/z/c.c");
+    SourceFileCoverage validSource1 = new SourceFileCoverage("/valid/package/file3.c");
     coverage.add(validSource1);
-    SourceFileCoverage validSource2 = new SourceFileCoverage("/z/d.c");
+    SourceFileCoverage validSource2 = new SourceFileCoverage("/valid/package/file4.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
             Coverage.filterOutMatchingSources(coverage, ImmutableList.of()).getAllSourceFiles();

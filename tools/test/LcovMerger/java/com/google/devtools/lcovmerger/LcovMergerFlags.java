@@ -16,7 +16,6 @@ package com.google.devtools.lcovmerger;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-
 import javax.annotation.Nullable;
 import java.util.List;
 
@@ -29,7 +28,6 @@ abstract class LcovMergerFlags {
     abstract String reportsFile();
     abstract String outputFile();
     abstract List<String> filterSources();
-
 
     /**
      * Parse flags in the form of "--coverage_dir=... -output_file=..."
