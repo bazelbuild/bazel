@@ -33,6 +33,7 @@ public final class CppHeaderMap {
   private final String includePrefix;
   private final boolean flattenVirtualHeaders;
   private final ImmutableList<Artifact> headers;
+  private final ImmutableMap<String, PathFragment> headerMapContents;
 
   CppHeaderMap(
       Artifact artifact,
@@ -47,6 +48,7 @@ public final class CppHeaderMap {
     this.headers = ImmutableList.<Artifact>builder()
         .addAll(headers)
         .build();
+    this.headerMapContents = getMapping();
   }
 
   public Artifact getArtifact() {
@@ -65,7 +67,9 @@ public final class CppHeaderMap {
     return headers;
   }
 
-  public ImmutableMap<String, PathFragment> getMapping() {
+  public ImmutableMap<String, PathFragment> getHeaderMapContents() { return headerMapContents; }
+
+  private ImmutableMap<String, PathFragment> getMapping() {
     ImmutableMap.Builder builder = ImmutableMap.builder();
     for (Artifact header : headers) {
       String key;
