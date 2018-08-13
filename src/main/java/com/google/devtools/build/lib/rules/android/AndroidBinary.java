@@ -1693,8 +1693,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .add("-dontwarn")
             .add("-dontnote")
             .add("-dontoptimize")
-            .add("-dontobfuscate")
-            .add("-dontpreverify");
+            .add("-dontobfuscate");
 
     List<Artifact> specs = new ArrayList<>();
     specs.addAll(
