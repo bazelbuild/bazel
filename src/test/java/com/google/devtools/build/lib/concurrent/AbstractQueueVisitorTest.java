@@ -564,7 +564,6 @@ public class AbstractQueueVisitorTest {
           TimeUnit.SECONDS,
           /* failFastOnException= */ false,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 
@@ -603,7 +602,6 @@ public class AbstractQueueVisitorTest {
           TimeUnit.SECONDS,
           /* failFastOnException= */ false,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 
@@ -614,7 +612,6 @@ public class AbstractQueueVisitorTest {
           TimeUnit.SECONDS,
           failFast,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 

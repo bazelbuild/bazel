@@ -249,7 +249,6 @@ final class LabelVisitor {
           TimeUnit.SECONDS,
           !keepGoing,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
       this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;

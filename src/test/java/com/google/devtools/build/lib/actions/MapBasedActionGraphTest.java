@@ -89,7 +89,6 @@ public class MapBasedActionGraphTest {
           TimeUnit.SECONDS,
           /*failFastOnException=*/ true,
           "action-graph-test",
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
       Path execRoot = fileSystem.getPath("/");
       Path root = fileSystem.getPath("/root");

@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -35,7 +34,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -88,15 +86,6 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       TGraph graph,
       DirtyTrackingProgressReceiver progressReceiver,
       InvalidationState state) {
-    this(
-        graph, progressReceiver, state, AbstractQueueVisitor.EXECUTOR_FACTORY);
-  }
-
-  protected InvalidatingNodeVisitor(
-      TGraph graph,
-      DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state,
-      Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
     this.executor =
         new AbstractQueueVisitor(
             /*parallelism=*/ DEFAULT_THREAD_COUNT,
@@ -104,7 +93,6 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
             /*units=*/ TimeUnit.SECONDS,
             /*failFastOnException=*/ true,
             "skyframe-invalidator",
-            executorFactory,
             errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
@@ -357,9 +345,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
     protected DirtyingNodeVisitor(
         QueryableGraph graph,
         DirtyTrackingProgressReceiver progressReceiver,
-        InvalidationState state,
-        Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
-      super(graph, progressReceiver, state, executorFactory);
+        InvalidationState state) {
+      super(graph, progressReceiver, state);
       this.supportInterruptions = true;
     }
 

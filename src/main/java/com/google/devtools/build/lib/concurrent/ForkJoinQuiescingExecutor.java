@@ -92,7 +92,7 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   }
 
   @Override
-  protected void executeRunnable(Runnable runnable) {
+  protected void executeRunnable(WrappedRunnable runnable) {
     if (ForkJoinTask.inForkJoinPool()) {
       @SuppressWarnings("unused") 
       Future<?> possiblyIgnoredError = ForkJoinTask.adapt(runnable).fork();

@@ -249,7 +249,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey);
+            // Low priority because this node is not needed by any other currently evaluating node.
+            // So keep it at the back of the queue as long as there's other useful work to be done.
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);

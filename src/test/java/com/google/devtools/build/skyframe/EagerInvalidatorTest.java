@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -562,8 +561,7 @@ public class EagerInvalidatorTest {
       ImmutableList<SkyKey> diff = ImmutableList.of(GraphTester.nonHermeticKey("a"));
       InvalidationState state1 = new DirtyingInvalidationState();
       Preconditions.checkNotNull(
-              EagerInvalidator.createInvalidatingVisitorIfNeeded(
-                  graph, diff, receiver, state1, AbstractQueueVisitor.EXECUTOR_FACTORY))
+              EagerInvalidator.createInvalidatingVisitorIfNeeded(graph, diff, receiver, state1))
           .run();
       assertThat(receiver.getUnenqueuedDirtyKeys()).containsExactly(diff.get(0), skyKey("ab"));
 
@@ -585,12 +583,7 @@ public class EagerInvalidatorTest {
         throws InterruptedException {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       DirtyingNodeVisitor dirtyingNodeVisitor =
-          EagerInvalidator.createInvalidatingVisitorIfNeeded(
-              graph,
-              diff,
-              progressReceiver,
-              state,
-              AbstractQueueVisitor.EXECUTOR_FACTORY);
+          EagerInvalidator.createInvalidatingVisitorIfNeeded(graph, diff, progressReceiver, state);
       if (dirtyingNodeVisitor != null) {
         visitor.set(dirtyingNodeVisitor);
         dirtyingNodeVisitor.run();
