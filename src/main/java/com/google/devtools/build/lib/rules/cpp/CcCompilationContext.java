@@ -71,7 +71,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   private final CppModuleMap cppModuleMap;
   private final CppModuleMap verificationModuleMap;
-  private final CppHeaderMap internalCppHeaderMap;
+  private final CppHeaderMap privateCppHeaderMap;
   private final CppHeaderMap publicCppHeaderMap;
 
   private final boolean propagateModuleMapAsActionInput;
@@ -97,7 +97,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
-      CppHeaderMap internalCppHeaderMap,
+      CppHeaderMap privateCppHeaderMap,
       CppHeaderMap publicCppHeaderMap,
       CppConfiguration.HeadersCheckingMode headersCheckingMode) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
@@ -110,7 +110,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.transitiveModules = transitiveModules;
     this.transitivePicModules = transitivePicModules;
     this.cppModuleMap = cppModuleMap;
-    this.internalCppHeaderMap = internalCppHeaderMap;
+    this.privateCppHeaderMap = privateCppHeaderMap;
     this.publicCppHeaderMap = publicCppHeaderMap;
     this.nonCodeInputs = nonCodeInputs;
     this.verificationModuleMap = verificationModuleMap;
@@ -259,8 +259,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
-    if (internalCppHeaderMap != null) {
-      builder.add(internalCppHeaderMap.getArtifact());
+    if (privateCppHeaderMap != null) {
+      builder.add(privateCppHeaderMap.getArtifact());
     }
     if (publicCppHeaderMap != null) {
       builder.add(publicCppHeaderMap.getArtifact());
@@ -313,7 +313,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.verificationModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.internalCppHeaderMap,
+        ccCompilationContext.privateCppHeaderMap,
         ccCompilationContext.publicCppHeaderMap,
         ccCompilationContext.headersCheckingMode);
   }
@@ -328,8 +328,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     return verificationModuleMap;
   }
 
-  /** @return the internal header map of the owner */
-  public CppHeaderMap getInternalCppHeaderMap() { return internalCppHeaderMap; }
+  /** @return the private header map of the owner */
+  public CppHeaderMap getPrivateCppHeaderMap() { return privateCppHeaderMap; }
 
   /** @return the public header map of the owner */
   public CppHeaderMap getPublicCppHeaderMap() { return publicCppHeaderMap; }
@@ -384,7 +384,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
-    private CppHeaderMap internalCppHeaderMap;
+    private CppHeaderMap privateCppHeaderMap;
     private CppHeaderMap publicCppHeaderMap;
 
     private boolean propagateModuleMapAsActionInput = true;
@@ -569,9 +569,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
-    /** Sets the internal header map. */
-    public Builder setInternalHeaderMap(CppHeaderMap internalCppHeaderMap) {
-      this.internalCppHeaderMap = internalCppHeaderMap;
+    /** Sets the private header map. */
+    public Builder setPrivateCppHeaderMap(CppHeaderMap privateCppHeaderMap) {
+      this.privateCppHeaderMap = privateCppHeaderMap;
       return this;
     }
 
@@ -656,7 +656,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           cppModuleMap,
           verificationModuleMap,
           propagateModuleMapAsActionInput,
-          internalCppHeaderMap,
+          privateCppHeaderMap,
           publicCppHeaderMap,
           headersCheckingMode);
     }

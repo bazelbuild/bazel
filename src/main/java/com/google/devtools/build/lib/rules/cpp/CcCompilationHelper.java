@@ -952,7 +952,7 @@ public final class CcCompilationHelper {
     if (headerMapsEnabled) {
       Iterable<Artifact> internalHeaders = Iterables.unmodifiableIterable(
           Iterables.concat(publicHeaders.getHeaders(), privateHeaders, publicTextualHeaders));
-      CppHeaderMap internalHeaderMap =
+      CppHeaderMap privateHeaderMap =
           CppHelper.createDefaultCppHeaderMap(ruleContext,
               /*suffix=*/ "_internal",
               /*includePrefix=*/ "",
@@ -960,10 +960,10 @@ public final class CcCompilationHelper {
               internalHeaders);
 
       ruleContext.registerAction(
-          createHeaderMapAction(internalHeaderMap, ImmutableList.of()));
-      ccCompilationContextBuilder.setInternalHeaderMap(internalHeaderMap);
+          createHeaderMapAction(privateHeaderMap, ImmutableList.of()));
+      ccCompilationContextBuilder.setPrivateCppHeaderMap(privateHeaderMap);
 
-      ccCompilationContextBuilder.addQuoteIncludeDir(internalHeaderMap.getArtifact().getExecPath());
+      ccCompilationContextBuilder.addQuoteIncludeDir(privateHeaderMap.getArtifact().getExecPath());
 
       String includePrefix;
       if (ruleContext.attributes().has("include_prefix")) {
