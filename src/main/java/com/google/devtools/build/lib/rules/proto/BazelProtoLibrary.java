@@ -60,6 +60,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             protosInDirectDeps,
             transitiveImports,
             protoPathFlags,
+            protoSourceRoot,
             directProtoSourceRoots,
             !protoSources.isEmpty());
 

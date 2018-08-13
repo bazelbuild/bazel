@@ -35,6 +35,7 @@ public abstract class SupportData {
       NestedSet<Artifact> protosInDirectDeps,
       NestedSet<Artifact> transitiveImports,
       NestedSet<String> transitiveProtoPathFlags,
+      String protoSourceRoot,
       NestedSet<String> directProtoSourceRoots,
       boolean hasProtoSources) {
     return new AutoValue_SupportData(
@@ -43,6 +44,7 @@ public abstract class SupportData {
         transitiveImports,
         protosInDirectDeps,
         transitiveProtoPathFlags,
+        protoSourceRoot,
         directProtoSourceRoots,
         hasProtoSources);
   }
@@ -63,6 +65,9 @@ public abstract class SupportData {
    * to {@code protoc} in the specified order, via the {@code --proto_path} flag.
    */
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
+
+  /** The {@code proto_source_root} of the current library. */
+  public abstract String getProtoSourceRoot();
 
   /**
    * The {@code proto_source_root}'s collected from the current library and the direct dependencies.

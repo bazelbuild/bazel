@@ -175,6 +175,16 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       compilationHelper.addPublicTextualHeaders(
           ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());
     }
+    if (ruleContext.getRule().isAttrDefined("include_prefix", Type.STRING)
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")) {
+      compilationHelper.setIncludePrefix(
+          ruleContext.attributes().get("include_prefix", Type.STRING));
+    }
+    if (ruleContext.getRule().isAttrDefined("strip_include_prefix", Type.STRING)
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("strip_include_prefix")) {
+      compilationHelper.setStripIncludePrefix(
+          ruleContext.attributes().get("strip_include_prefix", Type.STRING));
+    }
 
     if (common.getLinkopts().contains("-static")) {
       ruleContext.attributeWarning("linkopts", "Using '-static' here won't work. "
