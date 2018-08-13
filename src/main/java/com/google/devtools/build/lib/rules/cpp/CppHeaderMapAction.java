@@ -51,15 +51,10 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
 
   // C++ header map of the current target
   private final CppHeaderMap cppHeaderMap;
-  // Data required to build the actual header map
-  // NOTE: If you add a field here, you'll likely need to add it to the cache key in computeKey().
-  private final ImmutableList<CppHeaderMap> dependencies;
-  private final ImmutableMap<String, PathFragment> mapping;
 
   public CppHeaderMapAction(
       ActionOwner owner,
-      CppHeaderMap cppHeaderMap,
-      Iterable<CppHeaderMap> dependencies
+      CppHeaderMap cppHeaderMap
   ) {
     super(
         owner,
@@ -67,15 +62,6 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
         cppHeaderMap.getArtifact(),
         /*makeExecutable=*/ false);
     this.cppHeaderMap = cppHeaderMap;
-    this.dependencies = ImmutableList.copyOf(dependencies);
-    ImmutableMap.Builder builder = ImmutableMap.builder();
-    builder.putAll(cppHeaderMap.getHeaderMapContents());
-    if (dependencies != null) {
-      for (CppHeaderMap headerMap : dependencies) {
-        builder.putAll(headerMap.getHeaderMapContents());
-      }
-    }
-    this.mapping = builder.build();
   }
 
   @Override
@@ -83,7 +69,7 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        ClangHeaderMapImpl clangHeaderMapImpl = new ClangHeaderMapImpl(mapping);
+        ClangHeaderMapImpl clangHeaderMapImpl = new ClangHeaderMapImpl(cppHeaderMap.getHeaderMapContents());
         int size = clangHeaderMapImpl.getBufferSize();
         ByteBuffer buffer = ByteBuffer.wrap(new byte[size]).order(ByteOrder.LITTLE_ENDIAN);
         clangHeaderMapImpl.serialize(buffer);
@@ -104,7 +90,7 @@ public final class CppHeaderMapAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint f) {
     f.addString(GUID);
-    mapping.forEach(
+    cppHeaderMap.getHeaderMapContents().forEach(
         (key, value) -> {
           f.addString(key);
           f.addString(value.getPathString());

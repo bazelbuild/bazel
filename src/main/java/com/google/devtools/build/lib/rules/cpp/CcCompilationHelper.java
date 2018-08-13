@@ -959,8 +959,7 @@ public final class CcCompilationHelper {
               /*flattenVirtualHeaders=*/ true,
               internalHeaders);
 
-      ruleContext.registerAction(
-          createHeaderMapAction(privateHeaderMap, ImmutableList.of()));
+      ruleContext.registerAction(createHeaderMapAction(privateHeaderMap));
       ccCompilationContextBuilder.setPrivateCppHeaderMap(privateHeaderMap);
 
       ccCompilationContextBuilder.addQuoteIncludeDir(privateHeaderMap.getArtifact().getExecPath());
@@ -985,10 +984,8 @@ public final class CcCompilationHelper {
               flattenVirtualHeaders,
               Iterables.unmodifiableIterable(
                   Iterables.concat(publicHeaders.getHeaders(), publicTextualHeaders)));
-      Iterable<CppHeaderMap> dependentHeaderMaps = collectHeaderMaps();
 
-      ruleContext.registerAction(
-          createHeaderMapAction(publicHeaderMap, dependentHeaderMaps));
+      ruleContext.registerAction(createHeaderMapAction(publicHeaderMap));
 
       ccCompilationContextBuilder.setPublicHeaderMap(publicHeaderMap);
 
@@ -1182,12 +1179,10 @@ public final class CcCompilationHelper {
   }
 
   private CppHeaderMapAction createHeaderMapAction(
-      CppHeaderMap headerMap,
-      Iterable<CppHeaderMap> dependentHeaderMaps) {
+      CppHeaderMap headerMap) {
     return new CppHeaderMapAction(
         ruleContext.getActionOwner(),
-        headerMap,
-        dependentHeaderMaps);
+        headerMap);
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {
@@ -1209,13 +1204,6 @@ public final class CcCompilationHelper {
       result.add(additionalCppModuleMap);
     }
 
-    return Iterables.filter(result, Predicates.notNull());
-  }
-
-  private Iterable<CppHeaderMap> collectHeaderMaps() {
-    // Cpp header maps may be null for some rules. We filter the nulls out at the end.
-    List<CppHeaderMap> result =
-        deps.stream().map(CPP_DEPS_TO_HEADER_MAPS).collect(toCollection(ArrayList::new));
     return Iterables.filter(result, Predicates.notNull());
   }
 
