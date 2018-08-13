@@ -46,7 +46,13 @@ public final class ExecutionProgressReceiver
     extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
     implements SkyframeActionExecutor.ProgressSupplier,
         SkyframeActionExecutor.ActionCompletedReceiver {
-  private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
+  private static final ThreadLocal<NumberFormat> PROGRESS_MESSAGE_NUMBER_FORMATTER =
+      ThreadLocal.withInitial(
+          () -> {
+            NumberFormat numberFormat = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+            numberFormat.setGroupingUsed(true);
+            return numberFormat;
+          });
 
   // Must be thread-safe!
   private final Set<ConfiguredTargetKey> builtTargets;
@@ -58,11 +64,6 @@ public final class ExecutionProgressReceiver
   private final Object activityIndicator = new Object();
   /** Number of exclusive tests. To be accounted for in progress messages. */
   private final int exclusiveTestsCount;
-
-  static {
-    PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
-    PROGRESS_MESSAGE_NUMBER_FORMATTER.setGroupingUsed(true);
-  }
 
   /**
    * {@code builtTargets} is accessed through a synchronized set, and so no other access to it is
@@ -153,8 +154,10 @@ public final class ExecutionProgressReceiver
   public String getProgressString() {
     return String.format(
         "[%s / %s]",
-        PROGRESS_MESSAGE_NUMBER_FORMATTER.format(completedActions.size()),
-        PROGRESS_MESSAGE_NUMBER_FORMATTER.format(exclusiveTestsCount + enqueuedActions.size()));
+        PROGRESS_MESSAGE_NUMBER_FORMATTER.get().format(completedActions.size()),
+        PROGRESS_MESSAGE_NUMBER_FORMATTER
+            .get()
+            .format(exclusiveTestsCount + enqueuedActions.size()));
   }
 
   ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(

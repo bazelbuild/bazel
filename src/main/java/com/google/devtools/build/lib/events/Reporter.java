@@ -17,8 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * The reporter is the primary means of reporting events such as errors, warnings, progress
@@ -30,11 +29,11 @@ import java.util.List;
  * reporter's main use is in the blaze runtime and its lifetime is the lifetime of the blaze server.
  *
  * <p>Thread-safe: calls to {@code #report} may be made on any thread. Handlers may be run in an
- * arbitary thread (but right now, they will not be run concurrently).
+ * arbitrary thread (but right now, they will not be run concurrently).
  */
 public final class Reporter implements ExtendedEventHandler, ExceptionListener {
 
-  private final List<EventHandler> handlers = new ArrayList<>();
+  private final ConcurrentLinkedQueue<EventHandler> handlers = new ConcurrentLinkedQueue<>();
   private EventBus eventBus;
 
   /** An OutErr that sends all of its output to this Reporter.
@@ -83,26 +82,19 @@ public final class Reporter implements ExtendedEventHandler, ExceptionListener {
     return outErrToReporter;
   }
 
-  /**
-   * Adds a handler to this reporter.
-   */
-  public synchronized void addHandler(EventHandler handler) {
-    Preconditions.checkNotNull(handler);
-    handlers.add(handler);
+  /** Adds a handler to this reporter. */
+  public void addHandler(EventHandler handler) {
+    handlers.add(Preconditions.checkNotNull(handler));
   }
 
-  /**
-   * Removes handler from this reporter.
-   */
-  public synchronized void removeHandler(EventHandler handler) {
+  /** Removes handler from this reporter. */
+  public void removeHandler(EventHandler handler) {
      handlers.remove(handler);
   }
 
-  /**
-   * This method is called by the build system to report an event.
-   */
+  /** This method is called by the build system to report an event. */
   @Override
-  public synchronized void handle(Event e) {
+  public void handle(Event e) {
     if (e.getKind() != EventKind.ERROR
         && e.getKind() != EventKind.DEBUG
         && e.getTag() != null

@@ -312,7 +312,16 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Override
-  public synchronized void handle(Event event) {
+  public void handle(Event event) {
+    if (!debugAllEvents
+        && !showTimestamp
+        && (event.getKind() == EventKind.START || event.getKind() == EventKind.FINISH)) {
+      return;
+    }
+    handleLocked(event);
+  }
+
+  private synchronized void handleLocked(Event event) {
     try {
       if (debugAllEvents) {
         // Debugging only: show all events visible to the new UI.
