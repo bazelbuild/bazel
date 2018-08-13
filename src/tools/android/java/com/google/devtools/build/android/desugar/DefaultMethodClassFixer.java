@@ -522,7 +522,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
             owner,
             name,
             InterfaceDesugaring.companionDefaultMethodDescriptor(receiverName, desc),
-            /*itf=*/ false);
+            /*isInterface=*/ false);
         stubMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
 
         stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
@@ -555,7 +555,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
               internalName,
               name,
               neededType.getDescriptor(),
-              /*itf=*/ false);
+              /*isInterface=*/ false);
           stubMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
 
           stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
