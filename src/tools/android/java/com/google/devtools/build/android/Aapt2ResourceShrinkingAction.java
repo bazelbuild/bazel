@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.ResourceShrinkerAction.Options;
+import com.google.devtools.build.android.ResourcesZip.ShrunkProtoApk;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
@@ -108,19 +109,22 @@ public class Aapt2ResourceShrinkingAction {
               .collect(toSet());
 
       if (aapt2ShrinkOptions.useProtoApk) {
-        resourcesZip
-            .shrinkUsingProto(
+        try (final ShrunkProtoApk shrunk =
+            resourcesZip.shrinkUsingProto(
                 packages,
                 options.shrunkJar,
                 options.proguardMapping,
                 options.log,
-                scopedTmp.subDirectoryOf("shrunk-resources"))
-            .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
-            .writeReportTo(options.log)
-            .writeResourcesToZip(options.shrunkResources);
-        if (options.rTxtOutput != null) {
-          // Fufill the contract -- however, we do not generate an R.txt from the shrunk resources.
-          Files.copy(options.rTxt, options.rTxtOutput);
+                scopedTmp.subDirectoryOf("shrunk-resources"))) {
+          shrunk
+              .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
+              .writeReportTo(options.log)
+              .writeResourcesToZip(options.shrunkResources);
+          if (options.rTxtOutput != null) {
+            // Fufill the contract -- however, we do not generate an R.txt from the shrunk
+            // resources.
+            Files.copy(options.rTxt, options.rTxtOutput);
+          }
         }
       } else {
         final ResourceCompiler resourceCompiler =
