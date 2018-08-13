@@ -38,6 +38,7 @@ import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -50,6 +51,7 @@ import java.util.concurrent.ExecutionException;
 public class BuildRequest implements OptionsClassProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
+  private final Map<String, Object> skylarkOptions;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -105,10 +107,15 @@ public class BuildRequest implements OptionsClassProvider {
             return Optional.fromNullable(result);
           }
         });
+    this.skylarkOptions = options.getSkylarkOptions();
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
     }
+  }
+
+  private Map<String, Object> getSkylarkOptions() {
+    return skylarkOptions;
   }
 
   /**
@@ -176,6 +183,7 @@ public class BuildRequest implements OptionsClassProvider {
       throw new IllegalStateException(e);
     }
   }
+
 
   /**
    * Returns the set of command-line options specified for this request.

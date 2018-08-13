@@ -15,12 +15,26 @@
 package com.google.devtools.common.options;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * A read-only interface for options parser results, which does not allow any
  * further parsing of options.
  */
 public interface OptionsProvider extends OptionsClassProvider {
+
+
+  /**
+   * Returns the skylark options in a name:value map.
+   *
+   * <p>These follow the basics of the option syntax, --<name>=<value> but are parsed and stored
+   * differently than native options based on <name> starting with "//". This is a sufficient
+   * demarcation between skylark flags and native flags for now since all skylark flags are targets
+   * and are identified by their package path. But in the future when we implement short names for
+   * skylark options, this will need to change.
+   */
+  Map<String, Object> getSkylarkOptions();
+
 
   /**
    * Returns an immutable copy of the residue, that is, the arguments that

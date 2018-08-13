@@ -176,6 +176,7 @@ public class OptionsParser implements OptionsProvider {
   private final OptionsParserImpl impl;
   private final List<String> residue = new ArrayList<String>();
   private boolean allowResidue = true;
+  private Map<String, Object> skylarkOptions = new HashMap<>();
 
   OptionsParser(OptionsData optionsData) {
     impl = new OptionsParserImpl(optionsData);
@@ -189,6 +190,15 @@ public class OptionsParser implements OptionsProvider {
    */
   public void setAllowResidue(boolean allowResidue) {
     this.allowResidue = allowResidue;
+  }
+
+  @Override
+  public Map<String, Object> getSkylarkOptions() {
+    return skylarkOptions;
+  }
+
+  void setSkylarkOptions(Map<String, Object> skylarkOptions) {
+    this.skylarkOptions = skylarkOptions;
   }
 
   /**
