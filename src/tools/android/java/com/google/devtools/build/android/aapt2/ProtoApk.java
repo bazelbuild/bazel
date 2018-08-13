@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.aapt2;
 
+import static com.google.common.base.Predicates.not;
 import static java.util.stream.Collectors.joining;
 
 import com.android.aapt.Resources;
@@ -65,6 +66,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Predicate;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -73,6 +76,7 @@ import javax.annotation.Nullable;
  */
 public class ProtoApk implements Closeable {
 
+  static final Logger logger = Logger.getLogger(ProtoApk.class.getName());
   private static final String RESOURCE_TABLE = "resources.pb";
   private static final String MANIFEST = "AndroidManifest.xml";
   private static final String RES_DIRECTORY = "res";
@@ -128,7 +132,8 @@ public class ProtoApk implements Closeable {
         dstTableBuilder.build().writeTo(output);
       }
 
-      Files.walkFileTree(apkFileSystem.getPath("/"), new CopyingFileVisitor(dstZip));
+      Files.walkFileTree(
+          apkFileSystem.getPath("/"), new CopyingFileVisitor(dstZip, not(RESOURCE_TABLE::equals)));
     }
 
     return readFrom(dstZipUri);
@@ -504,7 +509,7 @@ public class ProtoApk implements Closeable {
         .stream()
         .filter(Symbol::hasName)
         .map(Symbol::getName)
-        .forEach(r -> visitReference(entryVisitor, r));
+        .forEach(name -> visitReference(entryVisitor, name));
   }
 
   private void visitStyleable(ResourceValueVisitor entryVisitor, CompoundValue value) {
@@ -519,7 +524,8 @@ public class ProtoApk implements Closeable {
     for (Style.Entry entry : style.getEntryList()) {
       if (entry.hasItem()) {
         visitItem(entryVisitor, entry.getItem());
-      } else if (entry.hasKey()) {
+      }
+      if (entry.hasKey()) {
         visitReference(entryVisitor, entry.getKey());
       }
     }
@@ -575,10 +581,14 @@ public class ProtoApk implements Closeable {
 
   private void visitReference(ReferenceVisitor visitor, Reference ref) {
     if (ref.getId() != 0) {
+      logger.finest(
+          "Visiting ref by id " + ref.getName() + "=" + "0x" + Integer.toHexString(ref.getId()));
       visitor.accept(ref.getId());
     } else if (!ref.getName().isEmpty()) {
+      logger.finest("Visiting ref by name " + ref);
       visitor.accept(ref.getName());
     } else {
+      logger.finest("Visiting null by name " + ref);
       visitor.acceptNullReference();
     }
   }
@@ -649,9 +659,12 @@ public class ProtoApk implements Closeable {
   private static class CopyingFileVisitor extends SimpleFileVisitor<Path> {
 
     private final FileSystem dstZip;
+    private final Predicate<String> shouldCopy;
+    private final Predicate<Path> notDirectory = not(Files::isDirectory);
 
-    CopyingFileVisitor(FileSystem dstZip) {
+    CopyingFileVisitor(FileSystem dstZip, Predicate<String> shouldCopy) {
       this.dstZip = dstZip;
+      this.shouldCopy = shouldCopy;
     }
 
     @Override
@@ -664,11 +677,10 @@ public class ProtoApk implements Closeable {
     }
 
     @Override
-    @SuppressWarnings("JavaOptionalSuggestions")
     // Not using Files.copy(Path, Path), as it has been shown to corrupt on certain OSs when copying
     // between filesystems.
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      if (!RESOURCE_TABLE.equals(file.getFileName().toString()) && !Files.isDirectory(file)) {
+      if (notDirectory.test(file) && shouldCopy.test(file.getFileName().toString())) {
         Path dest = dstZip.getPath(file.toString());
         Files.createDirectories(dest.getParent());
         try (InputStream in = Files.newInputStream(file)) {
