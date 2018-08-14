@@ -82,6 +82,8 @@ platforms:
     - "--test_timeout=1200"
     test_targets:
     - "//src:all_windows_tests"
+    # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
+    - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   rbe_ubuntu1604:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
