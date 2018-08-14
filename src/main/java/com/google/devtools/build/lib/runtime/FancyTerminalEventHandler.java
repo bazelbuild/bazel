@@ -128,7 +128,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
   }
 
   @Override
-  public void handle(Event event) {
+  public synchronized void handle(Event event) {
     if (terminalClosed) {
       return;
     }
