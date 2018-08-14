@@ -921,6 +921,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.buildRunfilesManifests = buildRunfilesManifests;
       host.buildRunfiles = buildRunfiles;
 
+      // === Filesets ===
+      host.strictFilesetOutput = strictFilesetOutput;
+      host.strictFilesets = strictFilesets;
+
       // === Linkstamping ===
       // Disable all link stamping for the host configuration, to improve action
       // cache hit rates for tools.
