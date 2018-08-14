@@ -139,7 +139,10 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         resource.references.forEach(
             r -> {
               referenceLog.put(r, resource);
-              queue.add(r);
+              // add if it has not been marked reachable, therefore processed.
+              if (!reachable.contains(r)) {
+                queue.add(r);
+              }
             });
       }
       // if we see it, it is reachable.
