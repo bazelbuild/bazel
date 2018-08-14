@@ -937,7 +937,7 @@ public final class CcCompilationHelper {
   private CcCompilationContext initializeCcCompilationContext() {
 
     boolean headerMapsEnabled =
-        ruleContext.getFragment(CppConfiguration.class).experimentalEnableImplicitHeaderMaps();
+        featureConfiguration.isEnabled(CppRuleClasses.HEADER_MAPS);
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
         new CcCompilationContext.Builder(ruleContext);
@@ -1345,6 +1345,8 @@ public final class CcCompilationHelper {
           Label.parseAbsoluteUnchecked(ccCompilationContext.getCppModuleMap().getName());
       Collection<Artifact> modules =
           createModuleAction(result, ccCompilationContext.getCppModuleMap());
+      Collection<Artifact> headerMaps =
+          createHeaderMapAction(result, ccCompilationContext.getPublicCppHeaderMap());
       if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
         for (Artifact module : modules) {
           // TODO(djasper): Investigate whether we need to use a label separate from that of the
@@ -1407,6 +1409,7 @@ public final class CcCompilationHelper {
                     ? ArtifactCategory.CLIF_OUTPUT_PROTO
                     : ArtifactCategory.OBJECT_FILE,
                 ccCompilationContext.getCppModuleMap(),
+                ccCompilationContext.getPublicCppHeaderMap(),
                 /* addObject= */ true,
                 isCodeCoverageEnabled(),
                 // The source action does not generate dwo when it has bitcode
@@ -1483,6 +1486,7 @@ public final class CcCompilationHelper {
             usePic,
             /* ccRelativeName= */ null,
             ccCompilationContext.getCppModuleMap(),
+            ccCompilationContext.getPublicCppHeaderMap(),
             /* gcnoFile= */ null,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
@@ -1533,6 +1537,7 @@ public final class CcCompilationHelper {
       boolean usePic,
       PathFragment ccRelativeName,
       CppModuleMap cppModuleMap,
+      CppHeaderMap cppHeaderMap,
       Artifact gcnoFile,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
@@ -1574,6 +1579,7 @@ public final class CcCompilationHelper {
         ImmutableList.of(),
         userCompileFlags.build(),
         cppModuleMap,
+        cppHeaderMap,
         usePic,
         builder.getTempOutputFile(),
         CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
@@ -1581,6 +1587,7 @@ public final class CcCompilationHelper {
         ImmutableList.copyOf(variablesExtensions),
         allAdditionalBuildVariables.build(),
         ccCompilationContext.getDirectModuleMaps(),
+        ccCompilationContext.getDirectHeaderMaps(),
         ccCompilationContext.getIncludeDirs(),
         ccCompilationContext.getQuoteIncludeDirs(),
         ccCompilationContext.getSystemIncludeDirs(),
@@ -1650,6 +1657,7 @@ public final class CcCompilationHelper {
             /* usePic= */ pic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
+            ccCompilationContext.getPublicCppHeaderMap(),
             gcnoFile,
             dwoFile,
             /* ltoIndexingFile= */ null,
@@ -1700,6 +1708,7 @@ public final class CcCompilationHelper {
             generatePicAction,
             /* ccRelativeName= */ null,
             ccCompilationContext.getCppModuleMap(),
+            ccCompilationContext.getPublicCppHeaderMap(),
             /* gcnoFile= */ null,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
@@ -1709,6 +1718,30 @@ public final class CcCompilationHelper {
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
     result.addHeaderTokenFile(tokenFile);
+  }
+
+  private Collection<Artifact> createHeaderMapAction(
+      CcCompilationOutputs.Builder result, CppHeaderMap cppHeaderMap) throws RuleErrorException {
+    AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
+    Artifact headerMapArtifact = cppHeaderMap.getArtifact();
+    CppCompileActionBuilder builder = initializeCompileAction(headerMapArtifact);
+
+    builder.setSemantics(semantics);
+
+    return createSourceAction(
+        Label.parseAbsoluteUnchecked(cppHeaderMap.getName()),
+        headerMapArtifact.getExecPathString(),
+        result,
+        env,
+        headerMapArtifact,
+        builder,
+        ArtifactCategory.GENERATED_HEADER_MAP,
+        CppHelper.createDefaultCppModuleMap(ruleContext, "_empty"),
+        cppHeaderMap,
+        /* addObject= */ false,
+        /* enableCoverage= */ false,
+        /* generatedDwo= */ false,
+        isGenerateDotdFile(headerMapArtifact));
   }
 
   private Collection<Artifact> createModuleAction(
@@ -1731,6 +1764,11 @@ public final class CcCompilationHelper {
         builder,
         ArtifactCategory.CPP_MODULE,
         cppModuleMap,
+        CppHelper.createDefaultCppHeaderMap(ruleContext,
+            /* suffix= */ "_empty",
+            /* includePrefix= */ "",
+            /* flattenVirtualHeaders= */ false,
+            /* headers= */ ImmutableList.of()),
         /* addObject= */ false,
         /* enableCoverage= */ false,
         /* generateDwo= */ false,
@@ -1746,6 +1784,7 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder,
       ArtifactCategory outputCategory,
       CppModuleMap cppModuleMap,
+      CppHeaderMap cppHeaderMap,
       boolean addObject,
       boolean enableCoverage,
       boolean generateDwo,
@@ -1798,6 +1837,7 @@ public final class CcCompilationHelper {
                 /* usePic= */ true,
                 ccRelativeName,
                 ccCompilationContext.getCppModuleMap(),
+                ccCompilationContext.getPublicCppHeaderMap(),
                 gcnoFile,
                 dwoFile,
                 ltoIndexingFile,
@@ -1864,6 +1904,7 @@ public final class CcCompilationHelper {
                 /* usePic= */ false,
                 ccRelativeName,
                 cppModuleMap,
+                cppHeaderMap,
                 gcnoFile,
                 noPicDwoFile,
                 ltoIndexingFile,
@@ -1964,6 +2005,7 @@ public final class CcCompilationHelper {
             usePic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
+            ccCompilationContext.getPublicCppHeaderMap(),
             /* gcnoFile= */ null,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
@@ -2076,6 +2118,7 @@ public final class CcCompilationHelper {
             usePic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
+            ccCompilationContext.getPublicCppHeaderMap(),
             /* gcnoFile= */ null,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
@@ -2097,6 +2140,7 @@ public final class CcCompilationHelper {
             usePic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
+            ccCompilationContext.getPublicCppHeaderMap(),
             /* gcnoFile= */ null,
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,

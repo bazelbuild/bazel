@@ -72,8 +72,12 @@ public enum CompileBuildVariables {
   SYSTEM_INCLUDE_PATHS("system_include_paths"),
   /** Variable for the module map file name. */
   MODULE_MAP_FILE("module_map_file"),
+  /** Variable for the module map file name. */
+  HEADER_MAP_FILE("header_map_file"),
   /** Variable for the dependent module map file name. */
   DEPENDENT_MODULE_MAP_FILES("dependent_module_map_files"),
+  /** Variable for the dependent header map file name */
+  DEPENDENT_HEADER_MAP_FILES("depenedent_header_map_files"),
   /** Variable for the collection of module files. */
   MODULE_FILES("module_files"),
   /** Variable for the collection of macros defined for preprocessor. */
@@ -117,6 +121,7 @@ public enum CompileBuildVariables {
       ImmutableList<String> includes,
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
+      CppHeaderMap cppHeaderMap,
       boolean usePic,
       PathFragment fakeOutputFile,
       String fdoStamp,
@@ -124,6 +129,7 @@ public enum CompileBuildVariables {
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
+      Iterable<Artifact> directHeaderMaps,
       Iterable<PathFragment> includeDirs,
       Iterable<PathFragment> quoteIncludeDirs,
       Iterable<PathFragment> systemIncludeDirs,
@@ -140,6 +146,7 @@ public enum CompileBuildVariables {
           includes,
           userCompileFlags,
           cppModuleMap,
+          cppHeaderMap,
           usePic,
           toPathString(fakeOutputFile),
           fdoStamp,
@@ -147,6 +154,7 @@ public enum CompileBuildVariables {
           variablesExtensions,
           additionalBuildVariables,
           directModuleMaps,
+          directHeaderMaps,
           getSafePathStrings(includeDirs),
           getSafePathStrings(quoteIncludeDirs),
           getSafePathStrings(systemIncludeDirs),
@@ -174,6 +182,7 @@ public enum CompileBuildVariables {
       ImmutableList<String> includes,
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
+      CppHeaderMap cppHeaderMap,
       boolean usePic,
       String fakeOutputFile,
       String fdoStamp,
@@ -181,6 +190,7 @@ public enum CompileBuildVariables {
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
+      Iterable<Artifact> directHeaderMaps,
       Iterable<String> includeDirs,
       Iterable<String> quoteIncludeDirs,
       Iterable<String> systemIncludeDirs,
@@ -188,6 +198,7 @@ public enum CompileBuildVariables {
       boolean addLegacyCxxOptions)
       throws EvalException {
     Preconditions.checkNotNull(directModuleMaps);
+    Preconditions.checkNotNull(directHeaderMaps);
     Preconditions.checkNotNull(includeDirs);
     Preconditions.checkNotNull(quoteIncludeDirs);
     Preconditions.checkNotNull(systemIncludeDirs);
@@ -251,6 +262,15 @@ public enum CompileBuildVariables {
         sequence.addValue(artifact.getExecPathString());
       }
       buildVariables.addCustomBuiltVariable(DEPENDENT_MODULE_MAP_FILES.getVariableName(), sequence);
+    }
+    if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MAPS) && cppHeaderMap != null) {
+      buildVariables.addStringVariable(
+          HEADER_MAP_FILE.getVariableName(), cppHeaderMap.getArtifact().getExecPathString());
+      StringSequenceBuilder sequence = new StringSequenceBuilder();
+      for (Artifact artifact : directHeaderMaps) {
+        sequence.addValue(artifact.getExecPathString());
+      }
+      buildVariables.addCustomBuiltVariable(DEPENDENT_HEADER_MAP_FILES.getVariableName(), sequence);
     }
     if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)) {
       // Module inputs will be set later when the action is executed.

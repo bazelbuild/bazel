@@ -60,6 +60,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   /** Module maps from direct dependencies. */
   private final ImmutableList<Artifact> directModuleMaps;
+  private final ImmutableList<Artifact> directHeaderMaps;
 
   /** Non-code mandatory compilation inputs. */
   private final NestedSet<Artifact> nonCodeInputs;
@@ -94,6 +95,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       NestedSet<Artifact> transitiveModules,
       NestedSet<Artifact> transitivePicModules,
       ImmutableList<Artifact> directModuleMaps,
+      ImmutableList<Artifact> directHeaderMaps,
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
@@ -105,6 +107,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.declaredIncludeDirs = declaredIncludeDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
+    this.directHeaderMaps = directHeaderMaps;
     this.headerInfo = headerInfo;
     this.transitiveHeaderInfos = transitiveHeaderInfos;
     this.transitiveModules = transitiveModules;
@@ -255,6 +258,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     builder.addAll(directModuleMaps);
+    builder.addAll(directHeaderMaps);
     builder.addTransitive(nonCodeInputs);
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
@@ -271,6 +275,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   /** @return modules maps from direct dependencies. */
   public Iterable<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
+  }
+
+  /** @return header maps for direct dependencies. */
+  public Iterable<Artifact> getDirectHeaderMaps() {
+    return directHeaderMaps;
   }
 
   /**
@@ -310,6 +319,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.transitiveModules,
         ccCompilationContext.transitivePicModules,
         ccCompilationContext.directModuleMaps,
+        ccCompilationContext.directHeaderMaps,
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.verificationModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
@@ -381,6 +391,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
     private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
+    private final Set<Artifact> directHeaderMaps = new LinkedHashSet<>();
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
@@ -447,6 +458,12 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       // the build type.
       if (otherCcCompilationContext.getCppModuleMap() != null) {
         directModuleMaps.add(otherCcCompilationContext.getCppModuleMap().getArtifact());
+      }
+
+      // All header maps of direct dependencies are inputs to the current compile independently of
+      // the build type.
+      if (otherCcCompilationContext.getPublicCppHeaderMap() != null) {
+        directHeaderMaps.add(otherCcCompilationContext.getPublicCppHeaderMap().getArtifact());
       }
 
       defines.addAll(otherCcCompilationContext.getDefines());
@@ -653,6 +670,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           transitiveModules.build(),
           transitivePicModules.build(),
           ImmutableList.copyOf(directModuleMaps),
+          ImmutableList.copyOf(directHeaderMaps),
           cppModuleMap,
           verificationModuleMap,
           propagateModuleMapAsActionInput,

@@ -36,6 +36,7 @@ public enum ArtifactCategory {
   CPP_MODULE("", ".pcm"),
   GENERATED_ASSEMBLY("", ".s", ".asm"),
   PROCESSED_HEADER("", ".processed"),
+  GENERATED_HEADER_MAP("", ".hmap"),
   GENERATED_HEADER("", ".h"),
   PREPROCESSED_C_SOURCE("", ".i"),
   PREPROCESSED_CPP_SOURCE("", ".ii"),

@@ -573,6 +573,10 @@ toolchain {
     name: "module_maps"
   }
   feature {
+    name: "header_maps"
+    enabled: true
+  }
+  feature {
     name: "use_objc_modules"
     flag_set {
       action: "objc-compile"
@@ -2228,6 +2232,10 @@ toolchain {
   }
   feature {
     name: "module_maps"
+  }
+  feature {
+    name: "header_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -3892,6 +3900,10 @@ toolchain {
   }
   feature {
     name: "module_maps"
+  }
+  feature {
+    name: "header_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -5559,6 +5571,10 @@ toolchain {
   }
   feature {
     name: "module_maps"
+  }
+  feature {
+    name: "header_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -7255,6 +7271,10 @@ toolchain {
     name: "module_maps"
   }
   feature {
+    name: "header_maps"
+    enabled: true
+  }
+  feature {
     name: "use_objc_modules"
     flag_set {
       action: "objc-compile"
@@ -8919,6 +8939,10 @@ toolchain {
     name: "module_maps"
   }
   feature {
+    name: "header_maps"
+    enabled: true
+  }
+  feature {
     name: "use_objc_modules"
     flag_set {
       action: "objc-compile"
@@ -10569,6 +10593,10 @@ toolchain {
   }
   feature {
     name: "module_maps"
+  }
+  feature {
+    name: "header_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -12224,6 +12252,10 @@ toolchain {
   }
   feature {
     name: "module_maps"
+  }
+  feature {
+    name: "header_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -13908,6 +13940,10 @@ toolchain {
     name: "module_maps"
   }
   feature {
+    name: "header_maps"
+    enabled: true
+  }
+  feature {
     name: "use_objc_modules"
     flag_set {
       action: "objc-compile"
@@ -15559,6 +15595,10 @@ toolchain {
   }
   feature {
     name: "module_maps"
+  }
+  feature {
+    name: "header_maps"
+    enabled: true
   }
   feature {
     name: "use_objc_modules"

@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.ImmutableGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -188,6 +189,7 @@ public class CcModule
         /* includes= */ ImmutableList.of(),
         asStringNestedSet(userCompileFlags),
         /* cppModuleMap= */ null,
+        /* cppHeaderMap= */ null,
         usePic,
         /* fakeOutputFile= */ null,
         /* fdoStamp= */ null,
@@ -195,6 +197,7 @@ public class CcModule
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
+        /* directHeaderMaps= */ ImmutableList.of(),
         asStringNestedSet(includeDirs),
         asStringNestedSet(quoteIncludeDirs),
         asStringNestedSet(systemIncludeDirs),
