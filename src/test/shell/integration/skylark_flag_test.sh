@@ -46,8 +46,14 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
 case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
+msys*)
+  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
   ;;
 *)
@@ -56,6 +62,8 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
 fi
