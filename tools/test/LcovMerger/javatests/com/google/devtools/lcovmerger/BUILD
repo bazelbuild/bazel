@@ -103,6 +103,16 @@ java_test(
 )
 
 java_test(
+    name = "LcovMergerFlagsTest",
+    srcs = ["LcovMergerFlagsTest.java"],
+    deps = [
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:LcovMergerFlags",
+    ],
+)
+
+java_test(
     name = "MainTest",
     srcs = ["MainTest.java"],
     deps = [

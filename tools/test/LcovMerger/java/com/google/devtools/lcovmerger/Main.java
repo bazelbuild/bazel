@@ -19,6 +19,7 @@ import static com.google.devtools.lcovmerger.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,9 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -45,17 +44,16 @@ public class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getName());
 
   public static void main(String[] args) {
-    Map<String, String> flags = null;
+    LcovMergerFlags flags = null;
     try {
-      flags = parseFlags(args);
+      flags = LcovMergerFlags.parseFlags(args);
     } catch (IllegalArgumentException e) {
       logger.log(Level.SEVERE, e.getMessage());
       System.exit(1);
     }
 
-    List<File> filesInCoverageDir =
-        flags.containsKey("coverage_dir")
-            ? getCoverageFilesInDir(flags.get("coverage_dir"))
+    List<File> filesInCoverageDir = flags.coverageDir() != null
+            ? getCoverageFilesInDir(flags.coverageDir())
             : Collections.emptyList();
     Coverage coverage =
         Coverage.merge(
@@ -67,8 +65,12 @@ public class Main {
       System.exit(1);
     }
 
+    if (!flags.filterSources().isEmpty()) {
+      coverage = Coverage.filterOutMatchingSources(coverage, flags.filterSources());
+    }
+
     int exitStatus = 0;
-    String outputFile = flags.get("output_file");
+    String outputFile = flags.outputFile();
     try {
       LcovPrinter.print(new FileOutputStream(new File(outputFile)), coverage);
     } catch (IOException e) {
@@ -91,12 +93,12 @@ public class Main {
   }
 
   private static List<File> getTracefiles(
-      Map<String, String> flags, List<File> filesInCoverageDir) {
+          LcovMergerFlags flags, List<File> filesInCoverageDir) {
     List<File> lcovTracefiles = new ArrayList<>();
-    if (flags.containsKey("coverage_dir")) {
+    if (flags.coverageDir() != null) {
       lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);
-    } else if (flags.containsKey("reports_file")) {
-      lcovTracefiles = getTracefilesFromFile(flags.get("reports_file"));
+    } else if (flags.reportsFile() != null) {
+      lcovTracefiles = getTracefilesFromFile(flags.reportsFile());
     }
     if (lcovTracefiles.isEmpty()) {
       logger.log(Level.SEVERE, "No lcov file found.");
@@ -169,50 +171,5 @@ public class Main {
       logger.log(Level.SEVERE, "Error reading file " + reportsFile + ": " + e.getMessage());
     }
     return datFiles;
-  }
-
-  /**
-   * Parse flags in the form of "--coverage_dir=... -output_file=..."
-   */
-  private static Map<String, String> parseFlags(String[] args) {
-    Map<String, String> flags = new HashMap<>();
-
-    for (String arg : args) {
-      if (!arg.startsWith("--")) {
-        throw new IllegalArgumentException("Argument (" + arg + ") should start with --");
-      }
-      String[] parts = arg.substring(2).split("=", 2);
-      if (parts.length != 2) {
-        throw new IllegalArgumentException("There should be = in argument (" + arg + ")");
-      }
-      flags.put(parts[0], parts[1]);
-    }
-
-    // Validate flags
-    for (String flag : flags.keySet()) {
-      switch (flag) {
-        case "coverage_dir":
-        case "reports_file":
-        case "output_file":
-          continue;
-        default:
-          throw new IllegalArgumentException("Unknown flag --" + flag);
-      }
-    }
-
-    if (!flags.containsKey("coverage_dir") && !flags.containsKey("reports_file")) {
-      throw new IllegalArgumentException(
-          "At least one of --coverage_dir or --reports_file should be specified.");
-    }
-    if (flags.containsKey("coverage_dir") && flags.containsKey("reports_file")) {
-      throw new IllegalArgumentException(
-          "Only one of --coverage_dir or --reports_file must be specified.");
-    }
-    if (!flags.containsKey("output_file")) {
-      // Different from blaze, this should be mandatory
-      throw new IllegalArgumentException("--output_file was not specified");
-    }
-
-    return flags;
   }
 }
