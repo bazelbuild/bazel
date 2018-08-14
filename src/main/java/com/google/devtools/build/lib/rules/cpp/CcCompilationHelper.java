@@ -989,6 +989,12 @@ public final class CcCompilationHelper {
 
       ccCompilationContextBuilder.setPublicHeaderMap(publicHeaderMap);
 
+      // add dependent header maps
+      Iterable<CppHeaderMap> dependentHeaderMaps = collectHeaderMaps();
+      for (CppHeaderMap depHeaderMap: dependentHeaderMaps) {
+        ccCompilationContextBuilder.addIncludeDir(depHeaderMap.getArtifact().getExecPath());
+      }
+
       ccCompilationContextBuilder.addIncludeDir(publicHeaderMap.getArtifact().getExecPath());
     }
 
@@ -1183,6 +1189,13 @@ public final class CcCompilationHelper {
     return new CppHeaderMapAction(
         ruleContext.getActionOwner(),
         headerMap);
+  }
+
+  private Iterable<CppHeaderMap> collectHeaderMaps() {
+    // Cpp header maps may be null for some rules. We filter the nulls out at the end.
+    List<CppHeaderMap> result =
+        deps.stream().map(CPP_DEPS_TO_HEADER_MAPS).collect(toCollection(ArrayList::new));
+    return Iterables.filter(result, Predicates.notNull());
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {
