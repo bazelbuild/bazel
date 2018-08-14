@@ -731,26 +731,22 @@ public final class FuncallExpression extends Expression {
   /**
    * Call a method depending on the type of an object it is called on.
    *
-   * @param positionals The first object is expected to be the object the method is called on.
+   * @param positionalArgs positional arguments to pass to the method
    * @param call the original expression that caused this call, needed for rules especially
    */
   private Object invokeObjectMethod(
+      Object value,
       String method,
-      ImmutableList<Object> positionals,
+      @Nullable BaseFunction function,
+      ImmutableList<Object> positionalArgs,
       ImmutableMap<String, Object> keyWordArgs,
       FuncallExpression call,
       Environment env)
       throws EvalException, InterruptedException {
     Location location = call.getLocation();
-    Object value = positionals.get(0);
-    BaseFunction function = Runtime.getBuiltinRegistry().getFunction(value.getClass(), method);
+    @Nullable
     Object fieldValue =
         (value instanceof ClassObject) ? ((ClassObject) value).getValue(method) : null;
-    ImmutableList<Object> positionalArgs =
-        includeSelfAsArg(value, function)
-            ? positionals
-            : positionals.subList(1, positionals.size());
-
     if (function != null) {
       return function.call(positionalArgs, keyWordArgs, call, env);
     } else if (fieldValue != null) {
@@ -880,14 +876,19 @@ public final class FuncallExpression extends Expression {
   private Object invokeObjectMethod(Environment env, DotExpression dot)
       throws EvalException, InterruptedException {
     Object objValue = dot.getObject().eval(env);
+    String method = dot.getField().getName();
+    @Nullable
+    BaseFunction function = Runtime.getBuiltinRegistry().getFunction(objValue.getClass(), method);
     ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
-    posargs.add(objValue);
+    if (includeSelfAsArg(objValue, function)) {
+      posargs.add(objValue);
+    }
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new LinkedHashMap<>();
     evalArguments(posargs, kwargs, env);
     return invokeObjectMethod(
-        dot.getField().getName(), posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
+        objValue, method, function, posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
   }
 
   /**
