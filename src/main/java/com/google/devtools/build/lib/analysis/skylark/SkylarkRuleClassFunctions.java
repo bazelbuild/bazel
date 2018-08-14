@@ -166,6 +166,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         .add(attr("args", STRING_LIST))
         // Input files for every test action
         .add(
+            attr("$test_wrapper", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
+        .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.INSTANCE)
                 .value(

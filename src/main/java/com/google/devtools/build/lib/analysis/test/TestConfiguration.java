@@ -216,6 +216,23 @@ public class TestConfiguration extends Fragment {
     )
     public Label coverageReportGenerator;
 
+    @Option(
+        name = "windows_native_test_wrapper",
+        // Undocumented: this features is under development and not yet ready for production use.
+        // We define the flag to be able to test the feature.
+        // Design:
+        // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        // Affects loading and analysis: this flag affects which target Bazel loads and creates test
+        // actions with on Windows.
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        defaultValue = "false",
+        help =
+            "Do not use yet, this flag's functionality is not yet implemented. "
+                + "(On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
+                + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.)")
+    public boolean windowsNativeTestWrapper;
+
     @Override
     public Map<String, Set<Label>> getDefaultsLabels() {
       return ImmutableMap.<String, Set<Label>>of(
@@ -296,6 +313,10 @@ public class TestConfiguration extends Fragment {
 
   public Label getCoverageReportGenerator(){
     return options.coverageReportGenerator;
+  }
+
+  public boolean isUsingWindowsNativeTestWrapper() {
+    return options.windowsNativeTestWrapper;
   }
 
   /**

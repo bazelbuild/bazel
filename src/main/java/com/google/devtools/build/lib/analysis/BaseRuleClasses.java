@@ -166,6 +166,11 @@ public class BaseRuleClasses {
           .add(attr("args", STRING_LIST))
           // Input files for every test action
           .add(
+              attr("$test_wrapper", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/test:test_wrapper")))
+          .add(
               attr("$test_runtime", LABEL_LIST)
                   .cfg(HostTransition.INSTANCE)
                   .value(ImmutableList.of(env.getToolsLabel("//tools/test:runtime"))))
