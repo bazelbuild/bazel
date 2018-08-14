@@ -76,7 +76,7 @@ public enum ProfilerTask {
   CRITICAL_PATH("critical path", 0x666699),
   CRITICAL_PATH_COMPONENT("critical path component", 0x666699),
   HANDLE_GC_NOTIFICATION("gc notification", 0x996633),
-  __INCLUSION_LOOKUP("inclusion lookup", 0x000000), // unused
+  LOCAL_CPU_USAGE("cpu counters", 0x000000),
   __INCLUSION_PARSE("inclusion parse", 0x000000), // unused
   __PROCESS_SCAN("process scan", 0x000000), // unused
   __LOOP_OUTPUT_ARTIFACTS("loop output artifacts"), // unused
