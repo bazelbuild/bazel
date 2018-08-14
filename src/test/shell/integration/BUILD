@@ -321,8 +321,8 @@ sh_test(
     data = [
         ":discard_graph_edges_lib.sh",
         ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
 )
 
 sh_test(
