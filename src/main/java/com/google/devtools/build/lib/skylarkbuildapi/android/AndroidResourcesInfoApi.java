@@ -202,7 +202,7 @@ public interface AndroidResourcesInfoApi<
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidResourcesInfoApi.class)
+    @SkylarkConstructor(objectType = AndroidResourcesInfoApi.class, receiverNameForDoc = NAME)
     AndroidResourcesInfoApi<FileT, ValidatedAndroidDataT, AndroidManifestT> createInfo(
         Label label,
         AndroidManifestT manifest,

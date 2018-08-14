@@ -53,7 +53,9 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcLinkingInfoApi> exte
               type = CcLinkingInfoApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidCcLinkParamsProviderApi.class)
+    @SkylarkConstructor(
+        objectType = AndroidCcLinkParamsProviderApi.class,
+        receiverNameForDoc = NAME)
     public AndroidCcLinkParamsProviderApi<T> createInfo(T store) throws EvalException;
   }
 }

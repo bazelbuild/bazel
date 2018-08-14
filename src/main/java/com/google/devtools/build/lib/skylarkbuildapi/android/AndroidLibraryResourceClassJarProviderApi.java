@@ -55,7 +55,9 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidLibraryResourceClassJarProviderApi.class)
+    @SkylarkConstructor(
+        objectType = AndroidLibraryResourceClassJarProviderApi.class,
+        receiverNameForDoc = NAME)
     AndroidLibraryResourceClassJarProviderApi<FileT> create(SkylarkNestedSet jars)
         throws EvalException;
   }

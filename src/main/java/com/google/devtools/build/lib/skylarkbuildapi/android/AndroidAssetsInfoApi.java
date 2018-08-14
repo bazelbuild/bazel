@@ -149,7 +149,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidAssetsInfoApi.class)
+    @SkylarkConstructor(objectType = AndroidAssetsInfoApi.class, receiverNameForDoc = NAME)
     public AndroidAssetsInfoApi<FileT, AssetsT> createInfo(
         Label label,
         FileT validationResult,
