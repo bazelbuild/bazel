@@ -128,10 +128,6 @@ def main():
     zipinfo.external_attr = 0o644 << 16
     output_zip.writestr(zipinfo, 'workspace(name = "bazel_tools")\n')
 
-    zipinfo = zipfile.ZipInfo('tools/defaults/BUILD', (1980, 1, 1, 0, 0, 0))
-    zipinfo.external_attr = 0o644 << 16
-    output_zip.writestr(zipinfo, '')
-
     for archive_file, input_file in input_files:
       if os.path.basename(archive_file) in ('jdk.tar.gz', 'jdk.zip'):
         copy_jdk_into_archive(output_zip, archive_file, input_file)
