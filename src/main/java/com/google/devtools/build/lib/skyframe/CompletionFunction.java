@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -328,11 +326,9 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
     boolean createPathResolver = pathResolverFactory.shouldCreatePathResolverForArtifactValues();
     ActionInputMap inputMap = null;
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = null;
     if (createPathResolver) {
       inputMap = new ActionInputMap(inputDeps.size());
       expandedArtifacts = new HashMap<>();
-      expandedFilesets = new HashMap<>();
     }
 
     int missingCount = 0;
@@ -345,13 +341,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       try {
         SkyValue artifactValue = depsEntry.getValue().get();
         if (createPathResolver && artifactValue != null) {
-          ActionInputMapHelper.addToMap(
-              inputMap,
-              expandedArtifacts,
-              expandedFilesets,
-              input,
-              artifactValue,
-              env);
+          ActionInputMapHelper.addToMap(inputMap, expandedArtifacts, input, artifactValue);
         }
       } catch (MissingInputFileException e) {
         missingCount++;
