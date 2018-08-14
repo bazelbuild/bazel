@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import javax.annotation.Nullable;
 
 /** A helper class for the *Support classes containing some data from ProtoLibrary. */
 @AutoCodec
@@ -37,7 +38,9 @@ public abstract class SupportData {
       NestedSet<String> transitiveProtoPathFlags,
       String protoSourceRoot,
       NestedSet<String> directProtoSourceRoots,
-      boolean hasProtoSources) {
+      boolean hasProtoSources,
+      @Nullable NestedSet<Artifact> protosInExports,
+      @Nullable NestedSet<String> exportedProtoSourceRoots) {
     return new AutoValue_SupportData(
         nonWeakDepsPredicate,
         directProtoSources,
@@ -46,7 +49,9 @@ public abstract class SupportData {
         transitiveProtoPathFlags,
         protoSourceRoot,
         directProtoSourceRoots,
-        hasProtoSources);
+        hasProtoSources,
+        protosInExports,
+        exportedProtoSourceRoots);
   }
 
   public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
@@ -75,6 +80,15 @@ public abstract class SupportData {
   public abstract NestedSet<String> getDirectProtoSourceRoots();
 
   public abstract boolean hasProtoSources();
+
+  /** .proto files in the exported dependencies of this proto_library. */
+  public abstract @Nullable NestedSet<Artifact> getProtosInExports();
+
+  /**
+   * The {@code proto_source_root}'s collected from the current library and the exported
+   * dependencies.
+   */
+  public abstract @Nullable NestedSet<String> getExportedProtoSourceRoots();
 
   SupportData() {}
 }

@@ -113,6 +113,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
             .propagateAlongAttribute("deps")
+            .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSourcesProvider.class)
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
@@ -154,8 +155,13 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
      */
     private final JavaCompilationArgsProvider dependencyCompilationArgs;
 
+    // Compilation-args from all exports, merged together.
+    private final JavaCompilationArgsProvider exportsCompilationArgs;
+
     private final JavaProtoAspectCommon aspectCommon;
     private final Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders;
+
+    private final boolean isJavaProtoExportsEnabled;
 
     Impl(
         RuleContext ruleContext,
@@ -172,6 +178,22 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           JavaCompilationArgsProvider.merge(
               WrappingProvider.Helper.unwrapProviders(
                   javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
+
+      this.isJavaProtoExportsEnabled =
+          ruleContext.getFragment(JavaConfiguration.class).isJavaProtoExportsEnabled();
+
+      if (this.isJavaProtoExportsEnabled) {
+        this.exportsCompilationArgs =
+            JavaCompilationArgsProvider.merge(
+                WrappingProvider.Helper.unwrapProviders(
+                    ruleContext.getPrerequisites(
+                        "exports",
+                        RuleConfiguredTarget.Mode.TARGET,
+                        JavaProtoLibraryAspectProvider.class),
+                    JavaCompilationArgsProvider.class));
+      } else {
+        this.exportsCompilationArgs = null;
+      }
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) {
@@ -225,6 +247,12 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         javaProvidersBuilder.add(JavaRuleOutputJarsProvider.EMPTY);
       }
 
+      if (isJavaProtoExportsEnabled) {
+        generatedCompilationArgsProvider =
+            JavaCompilationArgsProvider.merge(
+                ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
+      }
+
       javaProvidersBuilder.add(generatedCompilationArgsProvider);
       javaProvidersBuilder.add(createCcLinkParamsStore(
           ruleContext, aspectCommon.getProtoRuntimeDeps()));
@@ -260,7 +288,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "JavaLite",
-          /* allowServices= */ true);
+          /* allowServices= */ true,
+          supportData.getProtosInExports(),
+          supportData.getExportedProtoSourceRoots());
     }
   }
 }

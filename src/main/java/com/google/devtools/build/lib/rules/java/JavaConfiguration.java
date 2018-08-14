@@ -154,6 +154,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final boolean protoGeneratedStrictDeps;
+  private final boolean isJavaProtoExportsEnabled;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
@@ -204,6 +205,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.protoGeneratedStrictDeps = javaOptions.protoGeneratedStrictDeps;
+    this.isJavaProtoExportsEnabled = javaOptions.isJavaProtoExportsEnabled;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
@@ -246,6 +248,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       boolean generateJavaDeps,
       boolean strictDepsJavaProtos,
       boolean protoGeneratedStrictDeps,
+      boolean isJavaProtoExportsEnabled,
       OneVersionEnforcementLevel enforceOneVersion,
       boolean enforceOneVersionOnJavaTests,
       ImportDepsCheckingLevel importDepsCheckingLevel,
@@ -276,6 +279,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.generateJavaDeps = generateJavaDeps;
     this.strictDepsJavaProtos = strictDepsJavaProtos;
     this.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
+    this.isJavaProtoExportsEnabled = isJavaProtoExportsEnabled;
     this.enforceOneVersion = enforceOneVersion;
     this.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = importDepsCheckingLevel;
@@ -510,6 +514,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean isProtoGeneratedStrictDeps() {
     return protoGeneratedStrictDeps;
+  }
+
+  public boolean isJavaProtoExportsEnabled() {
+    return isJavaProtoExportsEnabled;
   }
 
   public boolean jplPropagateCcLinkParamsStore() {

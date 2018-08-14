@@ -121,6 +121,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
             .propagateAlongAttribute("deps")
+            .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSourcesProvider.class)
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
@@ -163,7 +164,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      */
     private final JavaCompilationArgsProvider dependencyCompilationArgs;
 
+    // Compilation-args from all exports, merged together.
+    private final JavaCompilationArgsProvider exportsCompilationArgs;
+
     private final Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders;
+
+    private final boolean isJavaProtoExportsEnabled;
 
     Impl(
         RuleContext ruleContext,
@@ -178,10 +184,27 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ruleContext.getPrerequisites(
               "deps", RuleConfiguredTarget.Mode.TARGET, JavaProtoLibraryAspectProvider.class);
 
-      dependencyCompilationArgs =
+      this.dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
               WrappingProvider.Helper.unwrapProviders(
                   javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
+
+      this.isJavaProtoExportsEnabled =
+          ruleContext.getFragment(JavaConfiguration.class).isJavaProtoExportsEnabled();
+
+      if (this.isJavaProtoExportsEnabled) {
+        this.exportsCompilationArgs =
+            JavaCompilationArgsProvider.merge(
+                WrappingProvider.Helper.unwrapProviders(
+                    ruleContext.getPrerequisites(
+                        "exports",
+                        RuleConfiguredTarget.Mode.TARGET,
+                        JavaProtoLibraryAspectProvider.class),
+                    JavaCompilationArgsProvider.class));
+      } else {
+        this.exportsCompilationArgs = null;
+      }
+
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) {
@@ -233,6 +256,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         // Simply propagate the compilation-args from its dependencies.
         generatedCompilationArgsProvider = dependencyCompilationArgs;
         javaProvidersBuilder.add(JavaRuleOutputJarsProvider.EMPTY);
+      }
+
+      if (isJavaProtoExportsEnabled) {
+        generatedCompilationArgsProvider =
+            JavaCompilationArgsProvider.merge(
+                ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
       }
 
       javaProvidersBuilder.add(generatedCompilationArgsProvider);
@@ -289,7 +318,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           ruleContext.getLabel(),
           ImmutableList.of(sourceJar),
           "Java (Immutable)",
-          rpcSupport.allowServices(ruleContext));
+          rpcSupport.allowServices(ruleContext),
+          supportData.getProtosInExports(),
+          supportData.getExportedProtoSourceRoots());
     }
   }
 }

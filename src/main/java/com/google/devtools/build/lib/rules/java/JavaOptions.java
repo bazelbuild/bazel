@@ -467,6 +467,16 @@ public class JavaOptions extends FragmentOptions {
   public boolean protoGeneratedStrictDeps;
 
   @Option(
+      name = "experimental_enable_java_proto_exports",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Enables exports forwarding for proto_library targets depended on by "
+              + "java_proto_library targets.")
+  public boolean isJavaProtoExportsEnabled;
+
+  @Option(
     name = "experimental_java_header_compilation_disable_javac_fallback",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
