@@ -72,8 +72,14 @@ import java.util.stream.Stream;
 public class ResourceLinker {
 
   private static final Predicate<String> IS_JAR = s -> s.endsWith(".jar");
-  private static final String PROTO_EXTENSION = "-pb.apk";
-  private static final String BINARY_EXTENSION = "apk";
+
+  /**
+   * A file extension to indicate whether an apk is a proto or binary format.
+   *
+   * The file extension is tremendously important to aapt2 -- it uses it determine how to
+   * interpret the contents of the file.
+   */
+  public static final String PROTO_EXTENSION = "-pb.apk";
   private boolean debug;
   private static final Predicate<DirectoryEntry> IS_FLAT_FILE =
       h -> h.getFilename().endsWith(".flat");

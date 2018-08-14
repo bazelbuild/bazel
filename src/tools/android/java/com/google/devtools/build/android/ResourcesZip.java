@@ -269,7 +269,8 @@ public class ResourcesZip {
       Path logFile,
       Path workingDirectory)
       throws ParserConfigurationException, IOException, SAXException {
-    final Path shrunkApkProto = workingDirectory.resolve("shrunk.apk.pb");
+    final Path shrunkApkProto =
+        workingDirectory.resolve("shrunk." + ResourceLinker.PROTO_EXTENSION);
     try (final ProtoApk apk = ProtoApk.readFrom(proto)) {
       final Map<String, Set<String>> toolAttributes = toAttributes();
       // record resources and manifest
