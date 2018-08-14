@@ -574,7 +574,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -2235,7 +2234,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -3903,7 +3901,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -5574,7 +5571,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -7272,7 +7268,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -8940,7 +8935,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -10596,7 +10590,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -12255,7 +12248,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -13941,7 +13933,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
@@ -15598,7 +15589,6 @@ toolchain {
   }
   feature {
     name: "header_maps"
-    enabled: true
   }
   feature {
     name: "use_objc_modules"
