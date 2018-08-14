@@ -363,7 +363,7 @@ foo = _foo
 
 This way, the name is still re-exported but doesn't generate a warning.
 
-### Deprecated API [deprecated-api]
+### Deprecated API
 
 See [documentation](https://docs.bazel.build/versions/master/skylark/lib/ctx.html)
 for more information.
