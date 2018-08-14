@@ -76,10 +76,10 @@ public class BazelJavaCompiler {
   private static class LangtoolsClassLoader extends URLClassLoader {
 
     public LangtoolsClassLoader() throws MalformedURLException {
-      super(new URL[] {getLangtoolsJar().toURI().toURL()}, getPlatformClassLoader());
+      super(new URL[] {getLangtoolsJar().toURI().toURL()}, getPlatformClassLoaderInternal());
     }
 
-    private static ClassLoader getPlatformClassLoader() {
+    private static ClassLoader getPlatformClassLoaderInternal() {
       try {
         return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
       } catch (ReflectiveOperationException e) {

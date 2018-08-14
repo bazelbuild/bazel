@@ -32,6 +32,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -946,7 +947,7 @@ public final class Profiler {
           ObjectDescriber describer = new ObjectDescriber();
           TaskData data;
           while ((data = queue.take()) != POISON_PILL) {
-            sink.clear();
+            ((Buffer) sink).clear();
 
             VarInt.putVarLong(data.threadId, sink);
             VarInt.putVarInt(data.id, sink);
