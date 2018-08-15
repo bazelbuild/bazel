@@ -332,10 +332,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     @Override
-    public ArtifactPathResolver createPathResolverForArtifactValues(ActionInputMap actionInputMap) {
+    public ArtifactPathResolver createPathResolverForArtifactValues(
+        ActionInputMap actionInputMap, Map<Artifact, Collection<Artifact>> expandedArtifacts) {
       Preconditions.checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(
-          directories.getExecRoot().asFragment(), fileSystem, getPathEntries(), actionInputMap);
+          directories.getExecRoot().asFragment(),
+          fileSystem,
+          getPathEntries(),
+          actionInputMap,
+          expandedArtifacts);
     }
   }
 

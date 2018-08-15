@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -488,33 +488,6 @@ public final class SkyframeActionExecutor {
         completionReceiver.actionCompleted(actionLookupData);
         reporter.finishTask(null, prependExecPhaseStats(message));
       }
-    }
-  }
-
-  private static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputs;
-    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
-
-    private ArtifactExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
-      this.expandedInputs = expandedInputMiddlemen;
-      this.expandedFilesets = expandedFilesets;
-    }
-
-    @Override
-    public void expand(Artifact artifact, Collection<? super Artifact> output) {
-      Preconditions.checkState(artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(),
-          artifact);
-      Collection<Artifact> result = expandedInputs.get(artifact);
-      if (result != null) {
-        output.addAll(result);
-      }
-    }
-
-    @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
-      Preconditions.checkState(artifact.isFileset());
-      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
     }
   }
 

@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -153,7 +155,8 @@ public interface OutputService {
       PathFragment execRoot,
       FileSystem fileSystem,
       ImmutableList<Root> pathEntries,
-      ActionInputMap actionInputMap) {
+      ActionInputMap actionInputMap,
+      Map<Artifact, Collection<Artifact>> expandedArtifacts) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 }
