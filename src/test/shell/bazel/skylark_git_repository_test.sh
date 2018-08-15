@@ -41,6 +41,11 @@ function set_up() {
   tar zxf outer-planets-repo.tar.gz
   tar zxf refetch-repo.tar.gz
 
+  # TODO - get from argument or ENV
+  local cache_dir=/tmp/bazel_cache
+  rm -rf $cache_dir/pluto
+  rm -rf $cache_dir/outer_planets
+
   # Fix environment variables for a hermetic use of git.
   export GIT_CONFIG_NOSYSTEM=1
   export GIT_CONFIG_NOGLOBAL=1

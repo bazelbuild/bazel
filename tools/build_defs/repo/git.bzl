@@ -48,6 +48,13 @@ def _clone_or_update(ctx):
                   ctx.attr.strip_prefix if ctx.attr.strip_prefix else "None",
               ))
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
+
+    if ctx.attr.init_submodules:
+        # the cache feature isn't supported for submodules
+        remote = ctx.attr.remote
+    else:
+        remote = _clone_cache_directory(ctx, bash_exe, ref)
+
     st = ctx.execute([bash_exe, "-c", """
 set -ex
 ( cd {working_dir} &&
@@ -63,7 +70,7 @@ set -ex
         working_dir = ctx.path(".").dirname,
         dir_link = ctx.path("."),
         directory = directory,
-        remote = ctx.attr.remote,
+        remote = remote,
         ref = ref,
         shallow = shallow,
     )], environment = ctx.os.environ)
@@ -103,6 +110,26 @@ set -ex
         ),
     ]).stdout
     return {"commit": actual_commit, "shallow_since": shallow_date}
+
+def _clone_cache_directory(ctx, bash_exe, ref):
+    # TODO - get from argument or ENV
+    cache_directory = "/tmp/bazel_cache/" + ctx.attr.name
+    clone_to_cache_dir = ctx.execute([bash_exe, "-c", """
+                if ! ( cd '{directory}' && [[ "$(git rev-parse --git-dir)" == '.git' ]] ) >/dev/null 2>&1; then
+                  git clone '{remote}' '{directory}' 
+                elif ! ( cd '{directory}' && git cat-file -t {ref}) >/dev/null 2>&1; then
+                  git -C '{directory}' pull
+                fi
+            """.format(
+        remote=ctx.attr.remote,
+        directory=cache_directory,
+        ref=ref
+    )], environment=ctx.os.environ)
+
+    if clone_to_cache_dir.return_code:
+        fail("error cloning cache %s:\n%s" % (ctx.name, clone_to_cache_dir.stderr))
+
+    return cache_directory
 
 def _remove_dot_git(ctx):
     # Remove the .git directory, if present
