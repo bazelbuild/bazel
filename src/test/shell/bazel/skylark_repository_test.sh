@@ -879,26 +879,27 @@ function test_skylark_repository_context_downloads_return_struct() {
   cat >test.bzl <<EOF
 def _impl(repository_ctx):
   no_sha_return = repository_ctx.download(
-    "http://localhost:${fileserver_port}/download_no_sha256.txt",
-    "download_no_sha256.txt")
+    url = "http://localhost:${fileserver_port}/download_no_sha256.txt",
+    output = "download_no_sha256.txt")
   with_sha_return = repository_ctx.download(
-    "http://localhost:${fileserver_port}/download_with_sha256.txt",
-    "download_with_sha256.txt", "${provided_sha256}")
+    url = "http://localhost:${fileserver_port}/download_with_sha256.txt",
+    output = "download_with_sha256.txt", 
+    sha256 = "${provided_sha256}")
   compressed_no_sha_return = repository_ctx.download_and_extract(
-    "http://localhost:${fileserver_port}/compressed_no_sha256.txt.zip",
-    "compressed_no_sha256.txt.zip")
+    url = "http://localhost:${fileserver_port}/compressed_no_sha256.txt.zip",
+    output = "compressed_no_sha256.txt.zip")
   compressed_with_sha_return = repository_ctx.download_and_extract(
-      "http://localhost:${fileserver_port}/compressed_with_sha256.txt.zip",
-      "compressed_with_sha256.txt.zip",
-      "${compressed_provided_sha256}")
+      url = "http://localhost:${fileserver_port}/compressed_with_sha256.txt.zip",
+      output = "compressed_with_sha256.txt.zip",
+      sha256 = "${compressed_provided_sha256}")
 
-  file_content = "no_sha_return " + no_sha_return["sha256"] + "\n"
-  file_content += "with_sha_return " + with_sha_return["sha256"] + "\n"
-  file_content += "compressed_no_sha_return " + compressed_no_sha_return["sha256"] + "\n"
-  file_content += "compressed_with_sha_return " + compressed_with_sha_return["sha256"]
+  file_content = "no_sha_return " + no_sha_return.sha256 + "\n"
+  file_content += "with_sha_return " + with_sha_return.sha256 + "\n"
+  file_content += "compressed_no_sha_return " + compressed_no_sha_return.sha256 + "\n"
+  file_content += "compressed_with_sha_return " + compressed_with_sha_return.sha256
   repository_ctx.file("returned_shas.txt", content = file_content, executable = False)  
   repository_ctx.file("BUILD")  # necessary directories should already created by download function
-repo = repository_rule(implementation=_impl, local=False)
+repo = repository_rule(implementation = _impl, local = False)
 EOF
 
   bazel build @foo//:all >& $TEST_log && shutdown_server \
