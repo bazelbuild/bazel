@@ -290,7 +290,10 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else if (commandUnchecked instanceof SkylarkList) {
       SkylarkList commandList = (SkylarkList) commandUnchecked;
-
+      if (argumentList.size() > 0) {
+        throw new EvalException(location,
+            "'arguments' must be empty if 'command' is a sequence of strings");
+      }
       @SuppressWarnings("unchecked")
       List<String> command = commandList.getContents(String.class, "command");
       builder.setShellCommand(command);

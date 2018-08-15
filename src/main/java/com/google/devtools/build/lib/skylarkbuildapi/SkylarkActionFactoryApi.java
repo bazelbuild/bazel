@@ -369,12 +369,11 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             positional = false,
             doc =
                 "Shell command to execute.<br><br>"
-                    + "<b>Passing a sequence of strings to this attribute is deprecated and Blaze"
-                    + "may "
-                    + "stop accepting such values in the future.</b><br><br>"
-                    + "The command can access the elements of the <code>arguments</code> object "
-                    + "via "
-                    + "<code>$1</code>, <code>$2</code>, etc.<br>"
+                    + "<b>Passing a sequence of strings to this attribute is deprecated and Blaze "
+                    + "may stop accepting such values in the future.</b> If a sequence of strings "
+                    + "is passed, then <code>arguments</code> must not be used.<br><br> "
+                    + "The command string can access the elements of the <code>arguments</code> "
+                    + "object via <code>$1</code>, <code>$2</code>, etc.<br> "
                     + "When this argument is a string, it must be a valid shell command. For "
                     + "example: "
                     + "\"<code>echo foo > $1</code>\". Blaze uses the same shell to execute the "

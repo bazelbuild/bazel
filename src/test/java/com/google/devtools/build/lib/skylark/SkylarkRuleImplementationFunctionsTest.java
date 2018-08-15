@@ -400,6 +400,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  command = 'dummy_command')");
   }
 
+  @Test
+  public void testRunShellArgumentsWithCommandSequence() throws Exception {
+    checkErrorContains(
+        createRuleContext("//foo:foo"),
+        "'arguments' must be empty if 'command' is a sequence of strings",
+        "ruleContext.actions.run_shell(outputs = ruleContext.files.srcs,",
+        "  command = [\"echo\", \"'hello world'\", \"&&\", \"touch\"],",
+        "  arguments = [ruleContext.files.srcs[0].path])");
+  }
+
   private void setupToolInInputsTest(String... ruleImpl) throws Exception {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     lines.add("def _main_rule_impl(ctx):");
