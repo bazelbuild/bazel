@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -57,8 +58,8 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -299,7 +300,7 @@ public final class SkylarkRuleConfiguredTargetUtil {
       throws EvalException {
 
     Info oldStyleProviders = StructProvider.STRUCT.createEmpty(loc);
-    ArrayList<Info> declaredProviders = new ArrayList<>();
+    Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
 
     if (target instanceof Info) {
       // Either an old-style struct or a single declared provider (not in a list)
@@ -319,12 +320,19 @@ public final class SkylarkRuleConfiguredTargetUtil {
                     Info.class,
                     loc,
                     "The value of 'providers' should be a sequence of declared providers");
-            declaredProviders.add(declaredProvider);
+            Provider.Key providerKey = declaredProvider.getProvider().getKey();
+            if (declaredProviders.put(providerKey, declaredProvider) != null) {
+              if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
+                context.getRuleContext()
+                    .ruleError("Multiple conflicting returned providers with key " + providerKey);
+              }
+            }
           }
         }
       } else {
+        Provider.Key providerKey = struct.getProvider().getKey();
         // Single declared provider
-        declaredProviders.add(struct);
+        declaredProviders.put(providerKey, struct);
       }
     } else if (target instanceof Iterable) {
       // Sequence of declared providers
@@ -336,13 +344,19 @@ public final class SkylarkRuleConfiguredTargetUtil {
                 loc,
                 "A return value of a rule implementation function should be "
                     + "a sequence of declared providers");
-        declaredProviders.add(declaredProvider);
+        Provider.Key providerKey = declaredProvider.getProvider().getKey();
+        if (declaredProviders.put(providerKey, declaredProvider)  != null) {
+          if (context.getSkylarkSemantics().incompatibleDisallowConflictingProviders()) {
+            context.getRuleContext()
+                .ruleError("Multiple conflicting returned providers with key " + providerKey);
+          }
+        }
       }
     }
 
     boolean defaultProviderProvidedExplicitly = false;
 
-    for (Info declaredProvider : declaredProviders) {
+    for (Info declaredProvider : declaredProviders.values()) {
       if (declaredProvider
           .getProvider()
           .getKey()

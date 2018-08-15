@@ -1185,6 +1185,104 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testConflictingProviderKeys_fromStruct_allowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=false");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return struct(providers = [my_provider(x = 1), other_provider(), my_provider(x = 2)])",
+        "my_rule = rule(_impl)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')"
+    );
+
+    ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    Info declaredProvider = configuredTarget.get(key);
+    assertThat(declaredProvider).isNotNull();
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(2);
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromStruct_disallowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=true");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return struct(providers = [my_provider(x = 1), other_provider(), my_provider(x = 2)])",
+        "my_rule = rule(_impl)"
+    );
+
+    checkError(
+        "test",
+        "r",
+        "Multiple conflicting returned providers with key my_provider",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')");
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromIterable_allowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=false");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return [my_provider(x = 1), other_provider(), my_provider(x = 2)]",
+        "my_rule = rule(_impl)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')"
+    );
+
+    ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    Info declaredProvider = configuredTarget.get(key);
+    assertThat(declaredProvider).isNotNull();
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(2);
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromIterable_disallowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=true");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return [my_provider(x = 1), other_provider(), my_provider(x = 2)]",
+        "my_rule = rule(_impl)"
+    );
+
+    checkError(
+        "test",
+        "r",
+        "Multiple conflicting returned providers with key my_provider",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')");
+  }
+
+  @Test
   public void testRecursionDetection() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(

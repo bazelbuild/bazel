@@ -1012,6 +1012,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
         helper.getToolsRunfilesSuppliers());
   }
 
+  public SkylarkSemantics getSkylarkSemantics() {
+    return skylarkSemantics;
+  }
+
   /**
    * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
    * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.

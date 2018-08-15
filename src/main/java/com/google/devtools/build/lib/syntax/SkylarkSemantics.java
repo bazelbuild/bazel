@@ -57,6 +57,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisableObjcProviderResources();
 
+  public abstract boolean incompatibleDisallowConflictingProviders();
+
   public abstract boolean incompatibleDisallowDataTransition();
 
   public abstract boolean incompatibleDisallowDictPlus();
@@ -110,6 +112,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDepsetUnion(false)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
+          .incompatibleDisallowConflictingProviders(false)
           .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
@@ -147,6 +150,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
+
+    public abstract Builder incompatibleDisallowConflictingProviders(boolean value);
 
     public abstract Builder incompatibleDisallowDataTransition(boolean value);
 
