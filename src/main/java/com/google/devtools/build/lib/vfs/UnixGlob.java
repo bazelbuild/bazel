@@ -21,9 +21,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -42,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -148,7 +146,7 @@ public final class UnixGlob {
   }
 
   /**
-   * Calls {@link #matches(String, String, Cache) matches(pattern, str, null)}
+   * Calls {@link #matches(String, String, ConcurrentHashMap) matches(pattern, str, null)}
    */
   public static boolean matches(String pattern, String str) {
     return matches(pattern, str, null);
@@ -164,7 +162,7 @@ public final class UnixGlob {
    *        {@code null} to skip caching
    */
   public static boolean matches(String pattern, String str,
-      Cache<String, Pattern> patternCache) {
+      ConcurrentHashMap<String, Pattern> patternCache) {
     if (pattern.length() == 0 || str.length() == 0) {
       return false;
     }
@@ -196,13 +194,10 @@ public final class UnixGlob {
       return str.startsWith(pattern.substring(0, lastIndex));
     }
 
-    Pattern regex = patternCache == null ? null : patternCache.getIfPresent(pattern);
-    if (regex == null) {
-      regex = makePatternFromWildcard(pattern);
-      if (patternCache != null) {
-        patternCache.put(pattern, regex);
-      }
-    }
+    Pattern regex =
+        patternCache == null
+            ? makePatternFromWildcard(pattern)
+            : patternCache.computeIfAbsent(pattern, p -> makePatternFromWildcard(p));
     return regex.matcher(str).matches();
   }
 
@@ -477,13 +472,7 @@ public final class UnixGlob {
   private static final class GlobVisitor {
     // These collections are used across workers and must therefore be thread-safe.
     private final Collection<Path> results = Sets.newConcurrentHashSet();
-    private final Cache<String, Pattern> cache = CacheBuilder.newBuilder().build(
-        new CacheLoader<String, Pattern>() {
-            @Override
-            public Pattern load(String wildcard) {
-              return makePatternFromWildcard(wildcard);
-            }
-          });
+    private final ConcurrentHashMap<String, Pattern> cache = new ConcurrentHashMap<>();
 
     private final GlobFuture result;
     private final ThreadPoolExecutor executor;
