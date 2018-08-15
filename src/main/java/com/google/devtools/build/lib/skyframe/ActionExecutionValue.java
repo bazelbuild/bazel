@@ -130,7 +130,7 @@ public class ActionExecutionValue implements SkyValue {
    * ActionMetadataHandler#getAdditionalOutputData} for when that can happen.
    */
   @Nullable
-  FileArtifactValue getArtifactValue(Artifact artifact) {
+  public FileArtifactValue getArtifactValue(Artifact artifact) {
     return additionalOutputData.get(artifact);
   }
 
