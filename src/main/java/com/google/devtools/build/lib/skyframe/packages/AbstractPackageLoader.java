@@ -342,6 +342,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             preinjectedDifferencer,
             new EvaluationProgressReceiver.NullEvaluationProgressReceiver(),
             GraphInconsistencyReceiver.THROWING,
+            InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
             new MemoizingEvaluator.EmittedEventState(),
             /*keepEdges=*/ false));
   }

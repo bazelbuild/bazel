@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
@@ -88,6 +89,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -146,8 +148,10 @@ import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.ImmutableDiff;
+import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
@@ -670,10 +674,44 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             evaluatorDiffer(),
             progressReceiver,
             graphInconsistencyReceiver,
+            DEFAULT_FILTER_WITH_ACTIONS,
             emittedEventState,
             tracksStateForIncrementality());
     buildDriver = getBuildDriver();
   }
+
+  /**
+   * Use the fact that analysis of a target must occur before execution of that target, and in a
+   * separate Skyframe evaluation, to avoid propagating events from configured target nodes (and
+   * more generally action lookup nodes) to action execution nodes. We take advantage of the fact
+   * that if a node depends on an action lookup node and is not itself an action lookup node, then
+   * it is an execution-phase node: the action lookup nodes are terminal in the analysis phase.
+   */
+  private static final EventFilter DEFAULT_FILTER_WITH_ACTIONS =
+      new EventFilter() {
+        @Override
+        public boolean storeEventsAndPosts() {
+          return true;
+        }
+
+        @Override
+        public boolean apply(Event input) {
+          // Use the filtering defined in the default filter: no info/progress messages.
+          return InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER.apply(input);
+        }
+
+        @Override
+        public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
+          if (primaryKey instanceof ActionLookupValue.ActionLookupKey) {
+            return Predicates.alwaysTrue();
+          } else {
+            return NO_ACTION_LOOKUP;
+          }
+        }
+      };
+
+  private static final Predicate<SkyKey> NO_ACTION_LOOKUP =
+      (key) -> !(key instanceof ActionLookupValue.ActionLookupKey);
 
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
     return new SkyframeProgressReceiver();

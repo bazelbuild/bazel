@@ -166,6 +166,7 @@ public interface MemoizingEvaluator {
         Differencer differencer,
         EvaluationProgressReceiver progressReceiver,
         GraphInconsistencyReceiver graphInconsistencyReceiver,
+        EventFilter eventFilter,
         EmittedEventState emittedEventState,
         boolean keepEdges);
   }

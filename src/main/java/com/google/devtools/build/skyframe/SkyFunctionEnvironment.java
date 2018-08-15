@@ -266,7 +266,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   NestedSet<TaggedEvents> buildAndReportEvents(NodeEntry entry, boolean expectDoneDeps)
       throws InterruptedException {
-    if (!evaluatorContext.getStoredEventFilter().storeEventsAndPosts()) {
+    EventFilter eventFilter = evaluatorContext.getStoredEventFilter();
+    if (!eventFilter.storeEventsAndPosts()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     NestedSetBuilder<TaggedEvents> eventBuilder = NestedSetBuilder.stableOrder();
@@ -278,7 +279,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
     Collection<SkyValue> deps =
         getDepValuesForDoneNodeFromErrorOrDepsOrGraph(
-            depKeys.getAllElementsAsIterable(), expectDoneDeps, depKeys.numElements());
+            Iterables.filter(
+                depKeys.getAllElementsAsIterable(),
+                eventFilter.depEdgeFilterForEventsAndPosts(skyKey)),
+            expectDoneDeps,
+            depKeys.numElements());
     for (SkyValue value : deps) {
       eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
     }
@@ -289,7 +294,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
 
   NestedSet<Postable> buildAndReportPostables(NodeEntry entry, boolean expectDoneDeps)
       throws InterruptedException {
-    if (!evaluatorContext.getStoredEventFilter().storeEventsAndPosts()) {
+    EventFilter eventFilter = evaluatorContext.getStoredEventFilter();
+    if (!eventFilter.storeEventsAndPosts()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     NestedSetBuilder<Postable> postBuilder = NestedSetBuilder.stableOrder();
@@ -298,7 +304,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
     Collection<SkyValue> deps =
         getDepValuesForDoneNodeFromErrorOrDepsOrGraph(
-            depKeys.getAllElementsAsIterable(), expectDoneDeps, depKeys.numElements());
+            Iterables.filter(
+                depKeys.getAllElementsAsIterable(),
+                eventFilter.depEdgeFilterForEventsAndPosts(skyKey)),
+            expectDoneDeps,
+            depKeys.numElements());
     for (SkyValue value : deps) {
       postBuilder.addTransitive(ValueWithMetadata.getPosts(value));
     }

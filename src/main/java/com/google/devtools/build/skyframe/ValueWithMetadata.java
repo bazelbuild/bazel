@@ -279,7 +279,8 @@ public abstract class ValueWithMetadata implements SkyValue {
     return null;
   }
 
-  static NestedSet<TaggedEvents> getEvents(SkyValue value) {
+  @VisibleForTesting
+  public static NestedSet<TaggedEvents> getEvents(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return ((ValueWithMetadata) value).getTransitiveEvents();
     }

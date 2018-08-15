@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.events.Event;
 
 /** Filters out events which should not be stored during evaluation in {@link ParallelEvaluator}. */
@@ -23,4 +24,8 @@ public interface EventFilter extends Predicate<Event> {
    * avoid doing unnecessary work when evaluating node entries.
    */
   boolean storeEventsAndPosts();
+
+  default Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
+    return Predicates.alwaysTrue();
+  }
 }
