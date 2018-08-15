@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -632,18 +633,21 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void actionStarted(ActionStartedEvent event) {
     stateTracker.actionStarted(event);
     refresh();
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void actionStatusMessage(ActionStatusMessage event) {
     stateTracker.actionStatusMessage(event);
     refresh();
   }
 
   @Subscribe
+  @AllowConcurrentEvents
   public void actionCompletion(ActionCompletionEvent event) {
     stateTracker.actionCompletion(event);
     refreshSoon();
