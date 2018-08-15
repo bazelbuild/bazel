@@ -161,6 +161,15 @@ public class Artifact
      * Only aggregating middlemen and tree artifacts are expanded.
      */
     void expand(Artifact artifact, Collection<? super Artifact> output);
+
+    /**
+     * Retrieve the expansion of Filesets for the given artifact.
+     *
+     * @param artifact {@code artifact.isFileset()} must be true.
+     */
+    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();

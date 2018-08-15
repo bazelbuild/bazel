@@ -63,8 +63,7 @@ public class ActionExecutionContext implements Closeable {
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
   private final ImmutableMap<String, String> clientEnv;
-  private final ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>>
-      inputFilesetMappings;
+  private final ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets;
   @Nullable private final ArtifactExpander artifactExpander;
   @Nullable private final Environment env;
 
@@ -83,7 +82,7 @@ public class ActionExecutionContext implements Closeable {
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env,
       @Nullable FileSystem actionFileSystem,
@@ -94,7 +93,7 @@ public class ActionExecutionContext implements Closeable {
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
-    this.inputFilesetMappings = inputFilesetMappings;
+    this.topLevelFilesets = topLevelFilesets;
     this.executor = executor;
     this.artifactExpander = artifactExpander;
     this.env = env;
@@ -113,7 +112,7 @@ public class ActionExecutionContext implements Closeable {
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult) {
@@ -125,7 +124,7 @@ public class ActionExecutionContext implements Closeable {
         metadataHandler,
         fileOutErr,
         clientEnv,
-        inputFilesetMappings,
+        topLevelFilesets,
         artifactExpander,
         /*env=*/ null,
         actionFileSystem,
@@ -229,8 +228,8 @@ public class ActionExecutionContext implements Closeable {
     return executor.getEventHandler();
   }
 
-  public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getInputFilesetMappings() {
-    return inputFilesetMappings;
+  public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getTopLevelFilesets() {
+    return topLevelFilesets;
   }
 
   @Nullable
@@ -326,7 +325,7 @@ public class ActionExecutionContext implements Closeable {
         metadataHandler,
         fileOutErr,
         clientEnv,
-        inputFilesetMappings,
+        topLevelFilesets,
         artifactExpander,
         env,
         actionFileSystem,
