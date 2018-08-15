@@ -1266,6 +1266,30 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testXcodeVersionFeatureTwoComponentsTooMany() throws Exception {
+    useConfiguration("--xcode_version=7.3.1");
+
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m")
+        .write();
+    CommandAction action = compileAction("//objc:lib", "a.o");
+
+    assertThat(action.getArguments()).contains("-DXCODE_FEATURE_FOR_TESTING=xcode_7.3");
+  }
+
+  @Test
+  public void testXcodeVersionFeatureTwoComponentsTooFew() throws Exception {
+    useConfiguration("--xcode_version=5");
+
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m")
+        .write();
+    CommandAction action = compileAction("//objc:lib", "a.o");
+
+    assertThat(action.getArguments()).contains("-DXCODE_FEATURE_FOR_TESTING=xcode_5.0");
+  }
+
+  @Test
   public void testIosSdkVersionCannotBeDefinedButEmpty() throws Exception {
     try {
       useConfiguration("--ios_sdk_version=");

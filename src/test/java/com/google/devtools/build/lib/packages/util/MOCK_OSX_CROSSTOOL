@@ -648,6 +648,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -659,6 +674,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -2389,6 +2419,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -2400,6 +2445,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -4125,6 +4185,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -4136,6 +4211,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -5861,6 +5951,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -5872,6 +5977,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -7601,6 +7721,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -7612,6 +7747,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -9347,6 +9497,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -9358,6 +9523,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -11096,6 +11276,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -11107,6 +11302,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -12872,6 +13082,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -12883,6 +13108,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -14618,6 +14858,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -14629,6 +14884,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -16384,6 +16654,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -16395,6 +16680,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -18153,6 +18453,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -18164,6 +18479,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }
@@ -19949,6 +20279,21 @@ toolchain {
     }
   }
   feature {
+    name: "xcode_5.0"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.0"
+      }
+    }
+  }
+  feature {
     name: "xcode_5.8"
     flag_set {
       action: "preprocess-assemble"
@@ -19960,6 +20305,21 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_5.8"
+      }
+    }
+  }
+  feature {
+    name: "xcode_7.3"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-DXCODE_FEATURE_FOR_TESTING=xcode_7.3"
       }
     }
   }

@@ -553,8 +553,11 @@ public class CompilationSupport {
     // next release.
     activatedCrosstoolSelectables.add(NO_DSYM_ZIPS_FEATURE_NAME);
 
+    // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
+    // particular versions of Xcode. To ensure consistency across platforms, use exactly two
+    // components in the version number.
     activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
-        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithMinimumComponents(2));
+        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithComponents(2));
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
