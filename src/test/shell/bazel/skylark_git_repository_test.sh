@@ -125,6 +125,35 @@ function test_git_repository() {
   do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 }
 
+# This test:
+# 1. Creates a git_repository rule with some commit hash
+# 2. Reverts 2 commits which technically make the code revert to the commit from stage 1, this is needed
+#    because these commits removed the WORKSPACE and BUILD files
+# 3. Updates the commit has on the git_repository rule to the new one
+# 4. Make sure worksapce can be built and repository cache is updated
+function test_git_repositry_cache_is_updated() {
+  local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
+  local cache_dir=/tmp/bazel_cache/pluto
+
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
+
+  cd $pluto_repo_dir
+  git revert 8753495c2536c9e24fa764f06bf3015758461dd4 --no-edit
+  git revert dbf9236251a9ea01b7a2eb563ca8e911060fc97c --no-edit
+  commit_hash="$(git log -1 --pretty=format:%H)"
+
+  cd $WORKSPACE_DIR
+  sed -i '' -e "s/52f9a3f87a2dd17ae0e5847bbae9734f09354afd/$commit_hash/g" WORKSPACE
+
+  bazel run //planets:planet-info >& $TEST_log \
+    || echo "Expected build/run to succeed"
+  expect_log "Pluto is a dwarf planet"
+
+  cd $cache_dir
+  cache_commit_hash="$(git log -1 --pretty=format:%H)"
+  assert_equals $commit_hash $cache_commit_hash
+}
+
 function test_git_repository_strip_prefix() {
   # This commit has the files in a subdirectory named 'pluto'
   # so we strip_prefix and the build should still work.
