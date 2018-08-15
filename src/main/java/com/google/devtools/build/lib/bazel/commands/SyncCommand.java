@@ -39,7 +39,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /** Syncs all repositories specifed in the workspace file */
 @Command(
@@ -63,7 +63,7 @@ public final class SyncCommand implements BlazeCommand {
   }
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     try {
       env.setupPackageCache(options, env.getRuntime().getDefaultsPackageContent());
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();

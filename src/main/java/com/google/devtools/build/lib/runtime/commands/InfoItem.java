@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -308,9 +308,9 @@ public abstract class InfoItem {
    * Info item for package_path
    */
   public static final class PackagePathInfoItem extends InfoItem {
-    private final OptionsProvider commandOptions;
+    private final OptionsParsingResult commandOptions;
 
-    public PackagePathInfoItem(OptionsProvider commandOptions) {
+    public PackagePathInfoItem(OptionsParsingResult commandOptions) {
       super("package_path",
           "The search path for resolving package labels.",
           false);
@@ -659,9 +659,9 @@ public abstract class InfoItem {
    */
   @Deprecated
   public static final class DefaultPackagePathInfoItem extends InfoItem {
-    private final OptionsProvider commandOptions;
+    private final OptionsParsingResult commandOptions;
 
-    public DefaultPackagePathInfoItem(OptionsProvider commandOptions) {
+    public DefaultPackagePathInfoItem(OptionsParsingResult commandOptions) {
       super("default-package-path",
           "The default package path",
           true);

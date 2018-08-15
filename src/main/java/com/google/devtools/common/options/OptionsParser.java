@@ -66,7 +66,7 @@ import java.util.stream.Collectors;
  *
  * @see Options a simpler class which you can use if you only have one options specification class
  */
-public class OptionsParser implements OptionsProvider {
+public class OptionsParser implements OptionsParsingResult {
 
   // TODO(b/65049598) make ConstructionException checked.
   /**

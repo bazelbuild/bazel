@@ -26,7 +26,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -76,13 +76,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private final AnsiTerminalPrinter printer;
-  private final OptionsProvider options;
+  private final OptionsParsingResult options;
   private final TestSummaryOptions summaryOptions;
 
   /**
    * @param printer The terminal to print to
    */
-  public TerminalTestResultNotifier(AnsiTerminalPrinter printer, OptionsProvider options) {
+  public TerminalTestResultNotifier(AnsiTerminalPrinter printer, OptionsParsingResult options) {
     this.printer = printer;
     this.options = options;
     this.summaryOptions = options.getOptions(TestSummaryOptions.class);

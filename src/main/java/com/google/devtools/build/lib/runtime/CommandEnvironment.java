@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -79,7 +79,7 @@ public final class CommandEnvironment {
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
-  private final OptionsProvider options;
+  private final OptionsParsingResult options;
 
   private String[] crashData;
 
@@ -123,7 +123,7 @@ public final class CommandEnvironment {
       EventBus eventBus,
       Thread commandThread,
       Command command,
-      OptionsProvider options,
+      OptionsParsingResult options,
       List<String> warnings) {
     this.runtime = runtime;
     this.workspace = workspace;
@@ -229,7 +229,7 @@ public final class CommandEnvironment {
     return command.name();
   }
 
-  public OptionsProvider getOptions() {
+  public OptionsParsingResult getOptions() {
     return options;
   }
 
@@ -561,7 +561,7 @@ public final class CommandEnvironment {
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
   void beforeCommand(
-      OptionsProvider options,
+      OptionsParsingResult options,
       CommonCommandOptions commonOptions,
       long waitTimeInMs,
       InvocationPolicy invocationPolicy)

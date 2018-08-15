@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
@@ -195,7 +195,7 @@ public final class BlazeWorkspace {
    *     fully configured at this point.
    */
   public CommandEnvironment initCommand(
-      Command command, OptionsProvider options, List<String> warnings) {
+      Command command, OptionsParsingResult options, List<String> warnings) {
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,

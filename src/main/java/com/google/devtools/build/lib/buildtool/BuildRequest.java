@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -83,8 +83,8 @@ public class BuildRequest implements OptionsClassProvider {
           LoadingPhaseThreadsOption.class);
 
   private BuildRequest(String commandName,
-                       final OptionsProvider options,
-                       final OptionsProvider startupOptions,
+                       final OptionsParsingResult options,
+                       final OptionsParsingResult startupOptions,
                        List<String> targets,
                        OutErr outErr,
                        UUID id,
@@ -301,8 +301,8 @@ public class BuildRequest implements OptionsClassProvider {
     return ImmutableList.copyOf(getBuildOptions().aspects);
   }
 
-  public static BuildRequest create(String commandName, OptionsProvider options,
-      OptionsProvider startupOptions,
+  public static BuildRequest create(String commandName, OptionsParsingResult options,
+      OptionsParsingResult startupOptions,
       List<String> targets, OutErr outErr, UUID commandId, long commandStartTime) {
 
     BuildRequest request = new BuildRequest(commandName, options, startupOptions, targets, outErr,

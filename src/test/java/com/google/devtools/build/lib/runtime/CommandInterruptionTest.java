@@ -36,7 +36,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.BrokenBarrierException;
@@ -92,7 +92,7 @@ public final class CommandInterruptionTest {
     }
 
     @Override
-    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       CommandState commandState = new CommandState(
           env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
       commandStateHandoff.getAndSet(null).set(commandState);

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -70,7 +70,7 @@ public abstract class BlazeModule {
    *
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void globalInit(OptionsProvider startupOptions) throws AbruptExitException {
+  public void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {
   }
 
   /**
@@ -82,7 +82,7 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server's startup options
    */
-  public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
+  public FileSystem getFileSystem(OptionsParsingResult startupOptions) throws AbruptExitException {
     return null;
   }
 
@@ -99,7 +99,7 @@ public abstract class BlazeModule {
    * @throws AbruptExitException to shut down the server immediately
    */
   public void blazeStartup(
-      OptionsProvider startupOptions,
+      OptionsParsingResult startupOptions,
       BlazeVersionInfo versionInfo,
       UUID instanceId,
       FileSystem fileSystem,
@@ -117,7 +117,7 @@ public abstract class BlazeModule {
    *
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder)
       throws AbruptExitException {
   }
 
@@ -148,13 +148,13 @@ public abstract class BlazeModule {
 
   /**
    * Called to notify modules that the given command is about to be executed. This allows capturing
-   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link OptionsProvider}.
+   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link
+   * OptionsParsingResult}.
    *
    * @param env the command
    * @throws AbruptExitException modules can throw this exception to abort the command
    */
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-  }
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {}
 
   /**
    * Returns additional listeners to the console output stream. Called at the beginning of each

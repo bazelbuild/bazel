@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -89,7 +89,7 @@ public final class QueryCommand implements BlazeCommand {
    *        (only when --keep_going is in effect.)
    */
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 

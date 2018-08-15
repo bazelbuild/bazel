@@ -21,7 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,7 +38,7 @@ public final class BuildEventArtifactUploaderFactoryMapTest {
   @Before
   public void setUp() {
     noConversionUploaderFactory =
-        (OptionsProvider options) ->
+        (OptionsParsingResult options) ->
             new BuildEventArtifactUploader() {
               @Override
               public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {

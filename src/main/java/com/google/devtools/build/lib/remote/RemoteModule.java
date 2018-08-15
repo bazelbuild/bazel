@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.PreconditionFailure;
@@ -71,7 +71,7 @@ public final class RemoteModule extends BlazeModule {
       buildEventArtifactUploaderFactoryDelegate = new BuildEventArtifactUploaderFactoryDelegate();
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addBuildEventArtifactUploaderFactory(buildEventArtifactUploaderFactoryDelegate, "remote");
   }
 
@@ -310,7 +310,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     @Override
-    public BuildEventArtifactUploader create(OptionsProvider options) {
+    public BuildEventArtifactUploader create(OptionsParsingResult options) {
       BuildEventArtifactUploaderFactory uploaderFactory0 = this.uploaderFactory;
       if (uploaderFactory0 == null) {
         return BuildEventArtifactUploader.LOCAL_FILES_UPLOADER;

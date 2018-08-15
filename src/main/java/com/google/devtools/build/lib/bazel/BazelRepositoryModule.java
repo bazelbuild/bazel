@@ -90,7 +90,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
@@ -187,7 +187,7 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new SyncCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
