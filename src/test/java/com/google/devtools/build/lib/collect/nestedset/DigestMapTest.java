@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -23,11 +25,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Tests for {@link DigestMap}. */
-@RunWith(JUnit4.class)
+@RunWith(Parameterized.class)
 public class DigestMapTest {
+
+  @Parameters(name = "Hash: {0}")
+  public static Iterable<Object[]> hashFunction() {
+    return ImmutableList.of(
+        new Object[] {DigestHashFunction.MD5}, new Object[] {DigestHashFunction.SHA256});
+  }
+
+  @Parameter public DigestHashFunction digestHashFunction;
+
+  private Fingerprint fingerprint() {
+    return new Fingerprint(digestHashFunction);
+  }
 
   @Test
   public void simpleTest() {
@@ -37,20 +53,18 @@ public class DigestMapTest {
       keys[i] = new Object();
     }
 
-    DigestMap digestMap = new DigestMap(16, 4);
+    DigestMap digestMap = new DigestMap(digestHashFunction, 4);
     for (int i = 0; i < count; ++i) {
-      Fingerprint digest = new Fingerprint().addInt(i);
-      Fingerprint fingerprint = new Fingerprint();
+      Fingerprint digest = fingerprint().addInt(i);
+      Fingerprint fingerprint = fingerprint();
       digestMap.insertAndReadDigest(keys[i], digest, fingerprint);
-      Fingerprint reference =
-          new Fingerprint().addBytes(new Fingerprint().addInt(i).digestAndReset());
+      Fingerprint reference = fingerprint().addBytes(fingerprint().addInt(i).digestAndReset());
       assertThat(fingerprint.hexDigestAndReset()).isEqualTo(reference.hexDigestAndReset());
     }
     for (int i = 0; i < count; ++i) {
-      Fingerprint fingerprint = new Fingerprint();
+      Fingerprint fingerprint = fingerprint();
       assertThat(digestMap.readDigest(keys[i], fingerprint)).isTrue();
-      Fingerprint reference =
-          new Fingerprint().addBytes(new Fingerprint().addInt(i).digestAndReset());
+      Fingerprint reference = fingerprint().addBytes(fingerprint().addInt(i).digestAndReset());
       assertThat(fingerprint.hexDigestAndReset()).isEqualTo(reference.hexDigestAndReset());
     }
   }
@@ -62,7 +76,7 @@ public class DigestMapTest {
     for (int i = 0; i < count; ++i) {
       keys[i] = new Object();
     }
-    DigestMap digestMap = new DigestMap(16, 4);
+    DigestMap digestMap = new DigestMap(digestHashFunction, 4);
 
     AtomicBoolean done = new AtomicBoolean();
     AtomicReference<Exception> exception = new AtomicReference<>();
@@ -76,13 +90,13 @@ public class DigestMapTest {
                 while (!done.get()) {
                   int index = random.nextInt(count);
                   Object key = keys[index];
-                  Fingerprint fingerprint = new Fingerprint();
+                  Fingerprint fingerprint = fingerprint();
                   if (!digestMap.readDigest(key, fingerprint)) {
-                    Fingerprint digest = new Fingerprint().addInt(index);
+                    Fingerprint digest = fingerprint().addInt(index);
                     digestMap.insertAndReadDigest(key, digest, fingerprint);
                   }
                   Fingerprint reference =
-                      new Fingerprint().addBytes(new Fingerprint().addInt(index).digestAndReset());
+                      fingerprint().addBytes(fingerprint().addInt(index).digestAndReset());
                   String hexDigest = fingerprint.hexDigestAndReset();
                   String referenceDigest = reference.hexDigestAndReset();
                   if (!hexDigest.equals(referenceDigest)) {

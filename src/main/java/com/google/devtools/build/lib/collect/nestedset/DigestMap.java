@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestLength;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.StampedLock;
@@ -33,7 +35,7 @@ import java.util.concurrent.locks.StampedLock;
  */
 final class DigestMap {
   private static final Object INSERTION_IN_PROGRESS = new Object();
-  private final int digestSize;
+  private final DigestLength digestLength;
   private final StampedLock readWriteLock = new StampedLock();
 
   static class Table {
@@ -42,23 +44,23 @@ final class DigestMap {
     final AtomicReferenceArray<Object> keys;
     final byte[] bytes;
 
-    Table(int tableSize, int digestSize) {
+    Table(int tableSize, int digestLength) {
       this.tableSize = tableSize;
       this.nextResize = getNextResize(tableSize);
       this.keys = new AtomicReferenceArray<>(tableSize);
-      this.bytes = new byte[tableSize * digestSize];
+      this.bytes = new byte[tableSize * digestLength];
     }
   }
 
   private volatile Table table;
   private final AtomicInteger allocatedSlots;
 
-  DigestMap(int digestSize, int initialSize) {
+  DigestMap(DigestHashFunction digestHashFunction, int initialSize) {
     Preconditions.checkArgument(
         initialSize > 0 && (initialSize & (initialSize - 1)) == 0,
         "initialSize must be a power of 2 greater than 0");
-    this.digestSize = digestSize;
-    this.table = new Table(initialSize, digestSize);
+    this.digestLength = digestHashFunction.getDigestLength();
+    this.table = new Table(initialSize, digestLength.getDigestMaximumLength());
     this.allocatedSlots = new AtomicInteger();
   }
 
@@ -67,7 +69,9 @@ final class DigestMap {
     Table table = this.table; // Read once for duration of method
     int index = findKey(table, key);
     if (index >= 0) {
-      fingerprint.addBytes(table.bytes, index * digestSize, digestSize);
+      int offset = index * this.digestLength.getDigestMaximumLength();
+      int digestLength = this.digestLength.getDigestLength(table.bytes, offset);
+      fingerprint.addBytes(table.bytes, offset, digestLength);
       return true;
     }
     return false;
@@ -124,7 +128,9 @@ final class DigestMap {
       readWriteLock.unlockRead(stamp);
     }
     // This can be done outside of the read lock since the slot is immutable once inserted
-    readTo.addBytes(table.bytes, index * digestSize, digestSize);
+    int offset = index * this.digestLength.getDigestMaximumLength();
+    int digestLength = this.digestLength.getDigestLength(table.bytes, offset);
+    readTo.addBytes(table.bytes, offset, digestLength);
   }
 
   // Inserts a key into the passed table and returns the index.
@@ -140,7 +146,10 @@ final class DigestMap {
           // Failure to do so could lead to a double insertion.
           continue;
         }
-        digest.digestAndReset(table.bytes, index * digestSize, digestSize);
+        digest.digestAndReset(
+            table.bytes,
+            index * digestLength.getDigestMaximumLength(),
+            digestLength.getDigestMaximumLength());
         table.keys.set(index, key);
         return index;
       } else if (currentKey == key) {
@@ -160,7 +169,7 @@ final class DigestMap {
   }
 
   private void resizeTableWriteLocked() {
-    int digestSize = this.digestSize;
+    int digestSize = this.digestLength.getDigestMaximumLength();
     Table oldTable = this.table;
     Table newTable = new Table(oldTable.tableSize * 2, digestSize);
     for (int i = 0; i < oldTable.tableSize; ++i) {
