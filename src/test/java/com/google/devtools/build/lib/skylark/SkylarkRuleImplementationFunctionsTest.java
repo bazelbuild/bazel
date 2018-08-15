@@ -400,16 +400,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  command = 'dummy_command')");
   }
 
-  @Test
-  public void testCreateSpawnActionCommandsListTooShort() throws Exception {
-    checkErrorContains(
-        createRuleContext("//foo:foo"),
-        "'command' list has to be of size at least 3",
-        "ruleContext.actions.run_shell(",
-        "  outputs = ruleContext.files.srcs,",
-        "  command = ['dummy_command', '--arg'])");
-  }
-
   private void setupToolInInputsTest(String... ruleImpl) throws Exception {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     lines.add("def _main_rule_impl(ctx):");

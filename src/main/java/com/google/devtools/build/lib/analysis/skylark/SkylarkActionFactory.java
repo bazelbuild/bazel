@@ -290,9 +290,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else if (commandUnchecked instanceof SkylarkList) {
       SkylarkList commandList = (SkylarkList) commandUnchecked;
-      if (commandList.size() < 3) {
-        throw new EvalException(null, "'command' list has to be of size at least 3");
-      }
+
       @SuppressWarnings("unchecked")
       List<String> command = commandList.getContents(String.class, "command");
       builder.setShellCommand(command);
