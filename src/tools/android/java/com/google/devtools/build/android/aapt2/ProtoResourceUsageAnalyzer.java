@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
+import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
 import com.android.tools.lint.checks.ResourceUsageModel;
 import com.android.tools.lint.checks.ResourceUsageModel.Resource;
@@ -35,6 +36,7 @@ import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
@@ -161,8 +163,7 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
                     .append(printResource(resource))
                     .append(" => [")
                     .append(
-                        referencesTo
-                            .stream()
+                        referencesTo.stream()
                             .map(ProtoResourceUsageAnalyzer::printResource)
                             .collect(joining(", ")))
                     .append("]\n"));
@@ -272,22 +273,34 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         if (pathString.endsWith(".js")) {
           model.tokenizeJs(
               declaredResource,
-              new String(java.nio.file.Files.readAllBytes(path), StandardCharsets.UTF_8));
+              new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".css")) {
           model.tokenizeCss(
               declaredResource,
-              new String(java.nio.file.Files.readAllBytes(path), StandardCharsets.UTF_8));
+              new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".html")) {
           model.tokenizeHtml(
               declaredResource,
-              new String(java.nio.file.Files.readAllBytes(path), StandardCharsets.UTF_8));
+              new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+        } else if (pathString.endsWith(".xml")) {
+          // Force parsing of raw xml files to get any missing keep attributes.
+          // The tool keep and discard attributes are held in raw files.
+          // There is already processing to handle this, but there has been flakiness.
+          // This step is to ensure as much stability as possible until the flakiness can be
+          // diagnosed.
+          model.recordResourceReferences(
+              ResourceFolderType.getTypeByName(declaredResource.type.getName()),
+              XmlUtils.parseDocumentSilently(
+                  new String(Files.readAllBytes(path), StandardCharsets.UTF_8), true),
+              declaredResource);
+
         } else {
           // Path is a reference to the apk zip -- unpack it before getting a file reference.
           model.tokenizeUnknownBinary(
               declaredResource,
-              java.nio.file.Files.copy(
+              Files.copy(
                       path,
-                      java.nio.file.Files.createTempFile("binary-resource", null),
+                      Files.createTempFile("binary-resource", null),
                       StandardCopyOption.REPLACE_EXISTING)
                   .toFile());
         }
