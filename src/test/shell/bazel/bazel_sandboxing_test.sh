@@ -348,6 +348,25 @@ EOF
   kill_nc
 }
 
+function test_sandbox_block_network_access() {
+  serve_file file_to_serve
+  cat << EOF >> examples/genrule/BUILD
+
+genrule(
+  name = "breaks4",
+  outs = [ "breaks4.txt" ],
+  cmd = "curl -o \$@ localhost:${nc_port}",
+)
+EOF
+  bazel build --experimental_sandbox_default_allow_network=false examples/genrule:breaks1 &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks4" || true
+  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt" ] || {
+    output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt")
+    fail "Non-hermetic genrule breaks1 succeeded with following output: $output"
+  }
+  kill_nc
+}
+
 function test_sandbox_network_access_with_local() {
   serve_file file_to_serve
   cat << EOF >> examples/genrule/BUILD
@@ -366,6 +385,24 @@ EOF
   kill_nc
 }
 
+function test_sandbox_network_access_with_requires_network() {
+  serve_file file_to_serve
+  cat << EOF >> examples/genrule/BUILD
+
+genrule(
+  name = "sandbox_network_access_with_requires_network",
+  outs = [ "sandbox_network_access_with_requires_network.txt" ],
+  cmd = "curl -o \$@ localhost:${nc_port}",
+  tags = [ "requires-network" ],
+)
+EOF
+  bazel build --experimental_sandbox_default_allow_network=false examples/genrule:sandbox_network_access_with_requires_network &> $TEST_log \
+    || fail "genrule failed even though tags=['requires-network']: examples/genrule:breaks4_works_with_requires_network"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_requires_network.txt" ] \
+    || fail "Genrule did not produce output: examples/genrule:sandbox_network_access_with_requires_network.txt"
+  kill_nc
+}
+
 function test_sandbox_network_access_with_block_network() {
   serve_file file_to_serve
   cat << EOF >> examples/genrule/BUILD
@@ -377,9 +414,9 @@ genrule(
   tags = [ "block-network" ],
 )
 EOF
-  bazel build examples/genrule:sandbox_network_access_with_block_network &> $TEST_log \
+  bazel build --experimental_sandbox_default_allow_network=true examples/genrule:sandbox_network_access_with_block_network &> $TEST_log \
     && fail "genrule 'sandbox_network_access_with_block_network' trying to use network succeeded, but should have failed" || true
-  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4_works_with_requires_network.txt" ] \
+  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_block_network.txt" ] \
     || fail "genrule 'sandbox_network_access_with_block_network' produced output, but was expected to fail"
   kill_nc
 }
