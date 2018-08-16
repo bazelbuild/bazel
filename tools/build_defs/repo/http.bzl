@@ -186,10 +186,10 @@ Args:
 
     Either `build_file` or `build_file_content` can be specified.
 
-    This attribute is a label relative to the main workspace. The file does not
-    need to be named `BUILD`, but can be (something like `BUILD.new-repo-name`
-    may work well for distinguishing it from the repository's actual `BUILD`
-    files.
+    This attribute is an absolute label (use '@//' for the main repo). The file
+    does not need to be named `BUILD`, but can be (something like
+    `BUILD.new-repo-name` may work well for distinguishing it from the
+    repository's actual `BUILD` files.
 
   build_file_content: The content for the BUILD file for this repository.
 
