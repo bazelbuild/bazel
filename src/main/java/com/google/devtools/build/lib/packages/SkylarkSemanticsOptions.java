@@ -89,8 +89,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_bzl_disallow_load_after_statement",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
     metadataTags = {
       OptionMetadataTag.INCOMPATIBLE_CHANGE,
       OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -104,8 +104,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_depset_union",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
     metadataTags = {
       OptionMetadataTag.INCOMPATIBLE_CHANGE,
       OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -119,8 +119,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_depset_is_not_iterable",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
     metadataTags = {
       OptionMetadataTag.INCOMPATIBLE_CHANGE,
       OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -135,8 +135,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
       name = "incompatible_disable_deprecated_attr_params",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -150,8 +150,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_disable_objc_provider_resources",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
     metadataTags = {
       OptionMetadataTag.INCOMPATIBLE_CHANGE,
       OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -163,7 +163,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
       name = "incompatible_disallow_conflicting_providers",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
@@ -178,8 +178,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
       name = "incompatible_disallow_data_transition",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -189,48 +189,49 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowDataTransition;
 
   @Option(
-    name = "incompatible_disallow_dict_plus",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, the `+` becomes disabled for dicts."
+      name = "incompatible_disallow_dict_plus",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the `+` becomes disabled for dicts."
   )
   public boolean incompatibleDisallowDictPlus;
 
   @Option(
-    name = "incompatible_disallow_filetype",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, function `FileType` is not available."
+      name = "incompatible_disallow_filetype",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, function `FileType` is not available."
   )
   public boolean incompatibleDisallowFileType;
 
   @Option(
       name = "incompatible_disallow_legacy_javainfo",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, old-style JavaInfo provider construction is disallowed.")
+      help = "If set to true, old-style JavaInfo provider construction is disallowed."
+  )
   public boolean incompatibleDisallowLegacyJavaInfo;
 
   @Option(
       name = "incompatible_generate_javacommon_source_jar",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -242,8 +243,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "incompatible_disallow_slash_operator",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
     metadataTags = {
       OptionMetadataTag.INCOMPATIBLE_CHANGE,
       OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -254,39 +255,39 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   /** Controls legacy arguments to ctx.actions.Args#add. */
   @Option(
-    name = "incompatible_disallow_old_style_args_add",
-    defaultValue = "false",
-    category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help = "If set to true, vectorized calls to Args#add are disallowed."
+      name = "incompatible_disallow_old_style_args_add",
+      defaultValue = "false",
+      category = "incompatible changes",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, vectorized calls to Args#add are disallowed."
   )
   public boolean incompatibleDisallowOldStyleArgsAdd;
 
   @Option(
-    name = "incompatible_new_actions_api",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, the API to create actions is only available on `ctx.actions`, "
-            + "not on `ctx`."
+      name = "incompatible_new_actions_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the API to create actions is only available on `ctx.actions`, "
+              + "not on `ctx`."
   )
   public boolean incompatibleNewActionsApi;
 
   @Option(
       name = "incompatible_no_support_tools_in_action_inputs",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
@@ -299,74 +300,75 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoSupportToolsInActionInputs;
 
   @Option(
-    name = "incompatible_package_name_is_a_function",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, the values PACKAGE_NAME and REPOSITORY_NAME are not available. "
-            + "Use the package_name() or repository_name() functions instead."
+      name = "incompatible_package_name_is_a_function",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the values PACKAGE_NAME and REPOSITORY_NAME are not available. "
+              + "Use the package_name() or repository_name() functions instead."
   )
   public boolean incompatiblePackageNameIsAFunction;
 
   @Option(
       name = "incompatible_range_type",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "If set to true, range() will use the 'range' type instead of 'list'.")
+      help = "If set to true, range() will use the 'range' type instead of 'list'."
+  )
   public boolean incompatibleRangeType;
 
   @Option(
-    name = "incompatible_remove_native_git_repository",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, the native git_repository rules are disabled; only the skylark version "
-            + "will be available"
+      name = "incompatible_remove_native_git_repository",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the native git_repository rules are disabled; only the skylark version "
+              + "will be available"
   )
   public boolean incompatibleRemoveNativeGitRepository;
 
   @Option(
-    name = "incompatible_remove_native_http_archive",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, the native http_archive rules are disabled; only the skylark version "
-            + "will be available"
+      name = "incompatible_remove_native_http_archive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the native http_archive rules are disabled; only the skylark version "
+              + "will be available"
   )
   public boolean incompatibleRemoveNativeHttpArchive;
 
   @Option(
-    name = "incompatible_string_is_not_iterable",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = {
-      OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-    },
-    help =
-        "If set to true, iterating over a string will throw an error. String indexing and `len` "
-            + "are still allowed."
+      name = "incompatible_string_is_not_iterable",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, iterating over a string will throw an error. String indexing and `len` "
+              + "are still allowed."
   )
   public boolean incompatibleStringIsNotIterable;
 
