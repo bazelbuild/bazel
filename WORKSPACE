@@ -109,14 +109,21 @@ load("//:distdir.bzl", "distdir_tar")
 distdir_tar(
     name = "additional_distfiles",
     dirname = "derived/distdir",
-    archives = ["fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
+    archives = [
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"
+    ],
     urls = {
         "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip" :
         ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz" :
+        ["https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"],
     },
     sha256 = {
         "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip" :
         "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz" :
+        "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14"
   },
 )
 
@@ -182,4 +189,13 @@ http_file(
   name = 'mount_path_toolchain',
   url = 'https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz',
   sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
+)
+
+http_archive(
+    name = "bazel_skylib",
+    urls = [
+        "https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
+    ],
+    sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
+    strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c"
 )

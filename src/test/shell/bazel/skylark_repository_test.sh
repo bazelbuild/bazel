@@ -1024,10 +1024,8 @@ function test_existing_rule() {
   repo2=$new_workspace_dir
 
   cat > BUILD
-  cat > WORKSPACE
 
-  cd ${WORKSPACE_DIR}
-  cat > WORKSPACE <<EOF
+  cat >> WORKSPACE <<EOF
 local_repository(name = 'existing', path='$repo2')
 load('//:test.bzl', 'macro')
 
@@ -1052,6 +1050,7 @@ EOF
   expect_log "existing = True,True"
   expect_log "non_existing = False,False"
 }
+
 
 function test_build_a_repo() {
   cat > WORKSPACE <<EOF
