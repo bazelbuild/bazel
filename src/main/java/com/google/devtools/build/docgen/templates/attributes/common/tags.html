@@ -42,6 +42,11 @@
     attribute has the same effect.
   </li>
 
+  <li><code>requires-network</code> keyword allows access to the external
+    network from inside the sandbox.  This tag only has an effect if sandboxing
+    is enabled.
+  </li>
+
   <li><code>block-network</code> keyword blocks access to the external
     network from inside the sandbox. In this case, only communication
     with localhost is allowed. This tag only has an effect if sandboxing is

@@ -38,8 +38,15 @@ public final class Spawns {
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
-  public static boolean requiresNetwork(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK);
+  public static boolean requiresNetwork(Spawn spawn, boolean defaultSandboxDisallowNetwork) {
+    if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK)) {
+      return false;
+    }
+    if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_NETWORK)) {
+      return true;
+    }
+
+    return defaultSandboxDisallowNetwork;
   }
 
   public static boolean mayBeExecutedRemotely(Spawn spawn) {
