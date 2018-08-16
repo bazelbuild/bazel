@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -29,11 +30,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /**
  * This class handles the generic tests that any filesystem must pass.
@@ -41,6 +47,7 @@ import org.junit.Test;
  * <p>Each filesystem-test should inherit from this class, thereby obtaining
  * all the tests.
  */
+@RunWith(Parameterized.class)
 public abstract class FileSystemTest {
 
   private long savedTime;
@@ -55,9 +62,22 @@ public abstract class FileSystemTest {
   protected Path xNonEmptyDirectoryFoo;
   protected Path xEmptyDirectory;
 
+  @Parameters(name = "{index}: digestHashFunction={0}")
+  public static Collection<DigestHashFunction[]> hashFunctions() {
+    // TODO(b/112537387): Remove the array-ification and return Collection<DigestHashFunction>. This
+    // is possible in Junit4.12, but 4.11 requires the array. Bazel 0.18 will have Junit4.12, so
+    // this can change then.
+    return DigestHashFunction.getPossibleHashFunctions()
+        .stream()
+        .map(dhf -> new DigestHashFunction[] {dhf})
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  @Parameter public DigestHashFunction digestHashFunction;
+
   @Before
   public final void createDirectories() throws Exception  {
-    testFS = getFreshFileSystem();
+    testFS = getFreshFileSystem(digestHashFunction);
     workingDir = testFS.getPath(getTestTmpDir());
     cleanUpWorkingDirectory(workingDir);
 
@@ -88,7 +108,8 @@ public abstract class FileSystemTest {
   /**
    * Returns an instance of the file system to test.
    */
-  protected abstract FileSystem getFreshFileSystem() throws IOException;
+  protected abstract FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction)
+      throws IOException;
 
   protected boolean isSymbolicLink(File file) {
     return NativePosixFiles.isSymbolicLink(file);
@@ -1294,21 +1315,21 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testGetMD5DigestForEmptyFile() throws Exception {
-    Fingerprint fp = new Fingerprint();
+  public void testGetDigestForEmptyFile() throws Exception {
+    Fingerprint fp = new Fingerprint(digestHashFunction);
     fp.addBytes(new byte[0]);
     assertThat(fp.hexDigestAndReset())
         .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getDigest()));
   }
 
   @Test
-  public void testGetMD5Digest() throws Exception {
+  public void testGetDigest() throws Exception {
     byte[] buffer = new byte[500000];
     for (int i = 0; i < buffer.length; ++i) {
       buffer[i] = 1;
     }
     FileSystemUtils.writeContent(xFile, buffer);
-    Fingerprint fp = new Fingerprint();
+    Fingerprint fp = new Fingerprint(digestHashFunction);
     fp.addBytes(buffer);
     assertThat(fp.hexDigestAndReset())
         .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getDigest()));
