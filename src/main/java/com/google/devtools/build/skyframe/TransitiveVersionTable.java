@@ -19,11 +19,20 @@ import java.util.function.Supplier;
 /** Readable view of transitive version information. */
 public interface TransitiveVersionTable {
 
-  VersionAggregator get(SkyKey key);
+  /**
+   * @param key instance of {@link
+   *     com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey}
+   */
+  VersionAggregator lookup(SkyKey key);
 
   /** Encapsulates transitive version information. */
   interface VersionAggregator {
-    /** @return future with the maximum transitive source version or -1 if no sources were found */
+    /**
+     * Internally memoized computation of max transitive version.
+     *
+     * @param key used to lookup this entry
+     * @return future with the maximum transitive source version or -1 if no sources were found
+     */
     ListenableFuture<Long> getMaxTransitiveVersion(
         SkyKey key,
         InterruptibleSupplier<SkyValue> valueSupplier,
