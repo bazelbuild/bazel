@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.IS_TTV;
 import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.SKYKEY_TO_LABEL;
 
@@ -106,24 +105,26 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
   protected Visit getVisitResult(Iterable<SkyKey> keys) throws InterruptedException {
     if (depsNeedFiltering) {
       // We have to targetify the keys here in order to determine the allowed dependencies.
-      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = env.makePackageKeyToTargetKeyMap(keys);
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
+          SkyQueryEnvironment.makePackageKeyToTargetKeyMap(keys);
       Set<PackageIdentifier> pkgIdsNeededForTargetification =
-          packageKeyToTargetKeyMap
-              .keySet()
-              .stream()
-              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
-              .collect(toImmutableSet());
+          SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
       packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
-      Iterable<Target> deps;
+      Iterable<SkyKey> depsAsSkyKeys;
       try {
-        deps = env.getFwdDeps(env.makeTargetsFromSkyKeys(keys).values(), context);
+        Iterable<Target> depsAsTargets =
+            env.getFwdDeps(
+                env.getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(
+                    packageKeyToTargetKeyMap).values(),
+                context);
+        depsAsSkyKeys = Iterables.transform(depsAsTargets, Target::getLabel);
       } finally {
         packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
       }
 
       return new Visit(
           /*keysToUseForResult=*/ keys,
-          /*keysToVisit=*/ Iterables.transform(deps, Target::getLabel));
+          /*keysToVisit=*/ depsAsSkyKeys);
     }
 
     // We need to explicitly check that all requested TTVs are actually in the graph.

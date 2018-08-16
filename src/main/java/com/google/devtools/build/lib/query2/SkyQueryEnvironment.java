@@ -388,7 +388,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     ImmutableMap.Builder<SkyKey, Collection<Target>> result = ImmutableMap.builder();
 
     Map<SkyKey, Target> allTargets =
-        makeTargetsFromPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap);
+        getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap);
 
     for (Map.Entry<SkyKey, ? extends Iterable<SkyKey>> entry : input.entrySet()) {
       Iterable<SkyKey> skyKeys = entry.getValue();
@@ -874,8 +874,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   static final Function<SkyKey, PackageIdentifier> PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER =
       skyKey -> (PackageIdentifier) skyKey.argument();
 
-  @ThreadSafe
-  Multimap<SkyKey, SkyKey> makePackageKeyToTargetKeyMap(Iterable<SkyKey> keys) {
+  public static Multimap<SkyKey, SkyKey> makePackageKeyToTargetKeyMap(Iterable<SkyKey> keys) {
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = ArrayListMultimap.create();
     for (SkyKey key : keys) {
       Label label = SKYKEY_TO_LABEL.apply(key);
@@ -887,14 +886,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return packageKeyToTargetKeyMap;
   }
 
-  @ThreadSafe
-  public Map<SkyKey, Target> makeTargetsFromSkyKeys(Iterable<SkyKey> keys)
-      throws InterruptedException {
-    return makeTargetsFromPackageKeyToTargetKeyMap(makePackageKeyToTargetKeyMap(keys));
+  public static Set<PackageIdentifier> getPkgIdsNeededForTargetification(
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap) {
+    return packageKeyToTargetKeyMap
+        .keySet()
+        .stream()
+        .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+        .collect(toImmutableSet());
   }
 
   @ThreadSafe
-  public Map<SkyKey, Target> makeTargetsFromPackageKeyToTargetKeyMap(
+  public Map<SkyKey, Target> getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap) throws InterruptedException {
     ImmutableMap.Builder<SkyKey, Target> result = ImmutableMap.builder();
     Set<SkyKey> processedTargets = new HashSet<>();
