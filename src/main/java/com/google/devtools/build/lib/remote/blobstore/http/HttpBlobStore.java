@@ -263,7 +263,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
   @SuppressWarnings("FutureReturnValueIgnored")
   private void releaseUploadChannel(Channel ch) {
-    if (ch.isOpen()) {
+    HttpUploadHandler handler = ch.pipeline().get(HttpUploadHandler.class);
+    if (handler == null || !handler.keepAlive()) {
+      ch.close();
+    } else if (ch.isOpen()) {
       ch.pipeline().remove(HttpResponseDecoder.class);
       ch.pipeline().remove(HttpObjectAggregator.class);
       ch.pipeline().remove(HttpRequestEncoder.class);
@@ -484,6 +487,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
     } finally {
       in.close();
       if (ch != null) {
+        ch.close().sync();
         releaseUploadChannel(ch);
       }
     }
