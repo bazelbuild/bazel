@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDefaultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeOutputGroupInfo.FakeOutputGroupInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAttrApi;
@@ -311,8 +310,7 @@ public class SkydocMain {
         new FakeAndroidResourcesInfoProvider(),
         new FakeAndroidNativeLibsInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
-    ConfigBootstrap configBootstrap =
-        new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi());
+    ConfigBootstrap configBootstrap = new ConfigBootstrap(new FakeConfigSkylarkCommon());
     CcBootstrap ccBootstrap = new CcBootstrap(new FakeCcModule());
     JavaBootstrap javaBootstrap = new JavaBootstrap(new FakeJavaCommon(),
         new FakeJavaInfoProvider(),
