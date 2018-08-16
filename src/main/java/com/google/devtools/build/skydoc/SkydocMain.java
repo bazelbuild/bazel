@@ -230,7 +230,8 @@ public class SkydocMain {
   private Environment recursiveEval(
       Label label, List<RuleInfo> ruleInfoList)
       throws InterruptedException, IOException, LabelSyntaxException {
-    Path path = Paths.get(label.toPathFragment().toString());
+    Path path = pathOfLabel(label);
+
     if (pending.contains(path)) {
       throw new IllegalStateException("cycle with " + path);
     } else if (loaded.containsKey(path)) {
@@ -244,7 +245,6 @@ public class SkydocMain {
     Map<String, Extension> imports = new HashMap<>();
     for (SkylarkImport anImport : buildFileAST.getImports()) {
       Label relativeLabel = label.getRelative(anImport.getImportString());
-      Path importPath = Paths.get(relativeLabel.toPathFragment().toString());
 
       try {
         Environment importEnv = recursiveEval(relativeLabel, ruleInfoList);
@@ -252,7 +252,7 @@ public class SkydocMain {
       } catch (NoSuchFileException noSuchFileException) {
         throw new IllegalStateException(
             String.format("File %s imported '%s', yet %s was not found.",
-                path, anImport.getImportString(), importPath));
+                path, anImport.getImportString(), pathOfLabel(relativeLabel)));
       }
     }
 
@@ -262,6 +262,14 @@ public class SkydocMain {
     env.mutability().freeze();
     loaded.put(path, env);
     return env;
+  }
+
+  private Path pathOfLabel(Label label) {
+    String workspacePrefix = label.getWorkspaceRoot().isEmpty()
+        ? ""
+        : label.getWorkspaceRoot() + "/";
+
+    return Paths.get(workspacePrefix + label.toPathFragment());
   }
 
   /**
