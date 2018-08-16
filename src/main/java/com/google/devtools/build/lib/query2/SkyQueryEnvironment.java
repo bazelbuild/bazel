@@ -113,6 +113,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -898,25 +899,39 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   public Map<SkyKey, Target> getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap) throws InterruptedException {
-    ImmutableMap.Builder<SkyKey, Target> result = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, Target> resultBuilder = ImmutableMap.builder();
+    getTargetsForPackageKeyToTargetKeyMapHelper(packageKeyToTargetKeyMap, resultBuilder::put);
+    return resultBuilder.build();
+  }
+
+  @ThreadSafe
+  public Multimap<PackageIdentifier, Target> getPkgIdToTargetMultimapForPackageKeyToTargetKeyMap(
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap) throws InterruptedException {
+    Multimap<PackageIdentifier, Target> result = ArrayListMultimap.create();
+    getTargetsForPackageKeyToTargetKeyMapHelper(
+        packageKeyToTargetKeyMap,
+        (k, t) -> result.put(t.getLabel().getPackageIdentifier(), t));
+    return result;
+  }
+
+  private void getTargetsForPackageKeyToTargetKeyMapHelper(
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap,
+      BiConsumer<SkyKey, Target> targetKeyAndTargetConsumer) throws InterruptedException {
     Set<SkyKey> processedTargets = new HashSet<>();
     Map<SkyKey, SkyValue> packageMap = graph.getSuccessfulValues(packageKeyToTargetKeyMap.keySet());
     for (Map.Entry<SkyKey, SkyValue> entry : packageMap.entrySet()) {
+      Package pkg = ((PackageValue) entry.getValue()).getPackage();
       for (SkyKey targetKey : packageKeyToTargetKeyMap.get(entry.getKey())) {
         if (processedTargets.add(targetKey)) {
           try {
-            result.put(
-                targetKey,
-                ((PackageValue) entry.getValue())
-                    .getPackage()
-                    .getTarget((SKYKEY_TO_LABEL.apply(targetKey)).getName()));
+            Target target = pkg.getTarget(SKYKEY_TO_LABEL.apply(targetKey).getName());
+            targetKeyAndTargetConsumer.accept(targetKey, target);
           } catch (NoSuchTargetException e) {
             // Skip missing target.
           }
         }
       }
     }
-    return result.build();
   }
 
   static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
