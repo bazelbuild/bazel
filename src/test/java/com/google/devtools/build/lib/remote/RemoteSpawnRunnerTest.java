@@ -26,6 +26,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ExecuteRequest;
+import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.LogFile;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
@@ -68,12 +75,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
-import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
-import com.google.devtools.remoteexecution.v1test.LogFile;
-import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
 import java.io.IOException;
 import java.io.InputStream;
@@ -200,13 +201,15 @@ public class RemoteSpawnRunnerTest {
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
     verify(executor).executeRemotely(requestCaptor.capture());
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
-    assertThat(requestCaptor.getValue().getAction().getDoNotCache()).isTrue();
+    // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(cache, never())
         .getCachedActionResult(any(ActionKey.class));
     verify(cache, never())
         .upload(
             any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
             any(Path.class),
             any(Collection.class),
             any(FileOutErr.class),
@@ -263,6 +266,8 @@ public class RemoteSpawnRunnerTest {
     verify(cache)
         .upload(
             any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
             any(Path.class),
             any(Collection.class),
             any(FileOutErr.class),
@@ -305,11 +310,21 @@ public class RemoteSpawnRunnerTest {
     assertThat(runner.exec(spawn, policy)).isSameAs(res);
 
     verify(localRunner).exec(eq(spawn), eq(policy));
-    verify(runner).execLocallyAndUpload(eq(spawn), eq(policy), any(SortedMap.class), eq(cache),
-        any(ActionKey.class));
+    verify(runner)
+        .execLocallyAndUpload(
+            eq(spawn),
+            eq(policy),
+            any(SortedMap.class),
+            eq(cache),
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            eq(true));
     verify(cache)
         .upload(
             any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
             any(Path.class),
             any(Collection.class),
             any(FileOutErr.class),
@@ -391,6 +406,8 @@ public class RemoteSpawnRunnerTest {
         .when(cache)
         .upload(
             any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
             any(Path.class),
             any(Collection.class),
             any(FileOutErr.class),
@@ -567,7 +584,7 @@ public class RemoteSpawnRunnerTest {
                 .build());
     SettableFuture<Void> completed = SettableFuture.create();
     completed.set(null);
-    when(cache.downloadFile(eq(logPath), eq(logDigest), eq(null))).thenReturn(completed);
+    when(cache.downloadFile(eq(logPath), eq(logDigest))).thenReturn(completed);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -576,7 +593,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).downloadFile(eq(logPath), eq(logDigest), eq(null));
+    verify(cache).downloadFile(eq(logPath), eq(logDigest));
   }
 
   @Test
@@ -612,7 +629,7 @@ public class RemoteSpawnRunnerTest {
                 "", 1, new ExecutionStatusException(resp.getStatus(), resp)));
     SettableFuture<Void> completed = SettableFuture.create();
     completed.set(null);
-    when(cache.downloadFile(eq(logPath), eq(logDigest), eq(null))).thenReturn(completed);
+    when(cache.downloadFile(eq(logPath), eq(logDigest))).thenReturn(completed);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -621,7 +638,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).downloadFile(eq(logPath), eq(logDigest), eq(null));
+    verify(cache).downloadFile(eq(logPath), eq(logDigest));
   }
 
   @Test
@@ -661,7 +678,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
-    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class), any(ByteString.class));
+    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
   }
 
   @Test
@@ -701,7 +718,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
     verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
-    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class), any(ByteString.class));
+    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
   }
 
   @Test

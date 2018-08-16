@@ -17,6 +17,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -33,12 +41,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.Directory;
-import com.google.devtools.remoteexecution.v1test.DirectoryNode;
-import com.google.devtools.remoteexecution.v1test.FileNode;
-import com.google.devtools.remoteexecution.v1test.Tree;
 import io.grpc.Context;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -334,20 +336,29 @@ public class SimpleBlobStoreActionCacheTest {
     final Path quxFile = execRoot.getRelative("bar/qux");
     quxFile.setExecutable(true);
     final Path barDir = execRoot.getRelative("bar");
+    Command cmd = Command.newBuilder().addOutputFiles("bla").build();
+    final Digest cmdDigest = DIGEST_UTIL.compute(cmd);
+    Action action = Action.newBuilder().setCommandDigest(cmdDigest).build();
+    final Digest actionDigest = DIGEST_UTIL.compute(action);
 
     final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
     final SimpleBlobStoreActionCache client = newClient(map);
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(result, execRoot, ImmutableList.<Path>of(fooFile, barDir));
+    client.upload(result, action, cmd, execRoot, ImmutableList.<Path>of(fooFile, barDir), true);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());
 
     assertThat(map.keySet())
-        .containsExactly(fooDigest.getHash(), quxDigest.getHash(), barDigest.getHash());
-  }
+        .containsExactly(
+            fooDigest.getHash(),
+            quxDigest.getHash(),
+            barDigest.getHash(),
+            cmdDigest.getHash(),
+            actionDigest.getHash());
+ }
 
   @Test
   public void testUploadDirectoryEmpty() throws Exception {
@@ -361,7 +372,7 @@ public class SimpleBlobStoreActionCacheTest {
     final SimpleBlobStoreActionCache client = newClient(map);
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(result, execRoot, ImmutableList.<Path>of(barDir));
+    client.upload(result, null, null, execRoot, ImmutableList.<Path>of(barDir), false);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());
@@ -404,7 +415,7 @@ public class SimpleBlobStoreActionCacheTest {
     final Path barDir = execRoot.getRelative("bar");
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(result, execRoot, ImmutableList.<Path>of(barDir));
+    client.upload(result, null, null, execRoot, ImmutableList.<Path>of(barDir), false);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());

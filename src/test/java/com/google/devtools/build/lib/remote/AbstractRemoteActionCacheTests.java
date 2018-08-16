@@ -17,6 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.OutputFile;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -38,10 +43,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Command;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.OutputFile;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -217,8 +218,9 @@ public class AbstractRemoteActionCacheTests {
     }
 
     @Override
-    public void ensureInputsPresent(TreeNodeRepository repository, Path execRoot, TreeNode root,
-        Command command) throws IOException, InterruptedException {
+    public void ensureInputsPresent(
+        TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
+        throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 
@@ -230,8 +232,15 @@ public class AbstractRemoteActionCacheTests {
     }
 
     @Override
-    void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr,
-        boolean uploadAction) throws ExecException, IOException, InterruptedException {
+    void upload(
+        ActionKey actionKey,
+        Action action,
+        Command command,
+        Path execRoot,
+        Collection<Path> files,
+        FileOutErr outErr,
+        boolean uploadAction)
+        throws ExecException, IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 
