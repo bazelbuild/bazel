@@ -476,7 +476,6 @@ public class ResourceLinker {
     // extract tool annotations from the compile resources.
     final SdkToolAttributeWriter writer = new SdkToolAttributeWriter(attributes);
     Stream.concat(include.stream(), Stream.of(compiled))
-        .parallel()
         .map(AndroidCompiledDataDeserializer.create()::readAttributes)
         .map(Map::entrySet)
         .flatMap(Set::stream)

@@ -91,6 +91,8 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
       Collection<String> discard)
       throws IOException, ParserConfigurationException, SAXException {
 
+    // Set the usage analyzer as parent to make sure that the usage log contains the subclass data.
+    logger.setParent(Logger.getLogger(ResourceUsageAnalyzer.class.getName()));
     // record resources and manifest
     apk.visitResources(
         // First, collect all declarations using the declaration visitor.
