@@ -39,7 +39,21 @@ test_broken_BUILD_files_ignored() {
     echo; echo
     echo ignoreme > .bazelignore
     bazel build ... \
-        || fail "directory mentioned in .bazelrc not ignored as it should"
+        || fail "directory mentioned in .bazelignore not ignored as it should"
+}
+
+test_symlink_loop_ignored() {
+    rm -rf work && mkdir work && cd work
+    touch WORKSPACE
+    mkdir -p ignoreme/deep
+    (cd ignoreme/deep && ln -s . loop)
+    touch BUILD
+    bazel build ... && fail "Expected failure" || :
+
+    echo; echo
+    echo ignoreme > .bazelignore
+    bazel build ... \
+        || fail "directory mentioned in .bazelignore not ignored as it should"
 }
 
 run_suite "Integration tests for .bazelignore"
