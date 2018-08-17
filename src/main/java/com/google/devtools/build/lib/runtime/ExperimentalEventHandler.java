@@ -56,6 +56,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -99,7 +100,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private boolean buildRunning;
   // Number of open build even protocol transports.
   private boolean progressBarNeedsRefresh;
-  private Thread updateThread;
+  private final AtomicReference<Thread> updateThread;
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
 
@@ -257,6 +258,7 @@ public class ExperimentalEventHandler implements EventHandler {
     this.stdoutBuffer = new byte[] {};
     this.stderrBuffer = new byte[] {};
     this.dateShown = false;
+    this.updateThread = new AtomicReference<>();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -823,10 +825,8 @@ public class ExperimentalEventHandler implements EventHandler {
     // Schedule an update of the progress bar in the near future, unless there is already
     // a future update scheduled.
     long nowMillis = clock.currentTimeMillis();
-    synchronized (this) {
-      if (mustRefreshAfterMillis <= lastRefreshMillis) {
-        mustRefreshAfterMillis = Math.max(nowMillis + minimalUpdateInterval, lastRefreshMillis + 1);
-      }
+    if (mustRefreshAfterMillis <= lastRefreshMillis) {
+      mustRefreshAfterMillis = Math.max(nowMillis + minimalUpdateInterval, lastRefreshMillis + 1);
     }
     startUpdateThread();
   }
@@ -858,34 +858,30 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   private void startUpdateThread() {
-    Thread threadToStart = null;
-    synchronized (this) {
-      // Refuse to start an update thread once the build is complete; such a situation might
-      // arise if the completion of the build is reported (shortly) before the completion of
-      // the last action is reported.
-      if (buildRunning && updateThread == null) {
-        final ExperimentalEventHandler eventHandler = this;
-        updateThread =
-            new Thread(
-                () -> {
-                  try {
-                    while (true) {
-                      Thread.sleep(minimalUpdateInterval);
-                      if (lastRefreshMillis < mustRefreshAfterMillis
-                          && mustRefreshAfterMillis < clock.currentTimeMillis()) {
-                        progressBarNeedsRefresh = true;
-                      }
-                      eventHandler.doRefresh(/* fromUpdateThread= */ true);
+    // Refuse to start an update thread once the build is complete; such a situation might
+    // arise if the completion of the build is reported (shortly) before the completion of
+    // the last action is reported.
+    if (buildRunning && updateThread.get() == null) {
+      final ExperimentalEventHandler eventHandler = this;
+      Thread threadToStart =
+          new Thread(
+              () -> {
+                try {
+                  while (true) {
+                    Thread.sleep(minimalUpdateInterval);
+                    if (lastRefreshMillis < mustRefreshAfterMillis
+                        && mustRefreshAfterMillis < clock.currentTimeMillis()) {
+                      progressBarNeedsRefresh = true;
                     }
-                  } catch (InterruptedException e) {
-                    // Ignore
+                    eventHandler.doRefresh(/* fromUpdateThread= */ true);
                   }
-                });
-        threadToStart = updateThread;
+                } catch (InterruptedException e) {
+                  // Ignore
+                }
+              });
+      if (updateThread.compareAndSet(null, threadToStart)) {
+        threadToStart.start();
       }
-    }
-    if (threadToStart != null) {
-      threadToStart.start();
     }
   }
 
@@ -895,13 +891,7 @@ public class ExperimentalEventHandler implements EventHandler {
    * NOT CALL from a SYNCHRONIZED block, as this will give the opportunity for dead locks.
    */
   private void stopUpdateThread() {
-    Thread threadToWaitFor = null;
-    synchronized (this) {
-      if (updateThread != null) {
-        threadToWaitFor = updateThread;
-        updateThread = null;
-      }
-    }
+    Thread threadToWaitFor = updateThread.getAndSet(null);
     if (threadToWaitFor != null) {
       threadToWaitFor.interrupt();
       Uninterruptibles.joinUninterruptibly(threadToWaitFor);
