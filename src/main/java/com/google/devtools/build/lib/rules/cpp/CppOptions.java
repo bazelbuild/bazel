@@ -232,17 +232,6 @@ public class CppOptions extends FragmentOptions {
   public DynamicMode dynamicMode;
 
   @Option(
-    name = "experimental_drop_fully_static_linking_mode",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If enabled, Bazel will not scan linkopts for -static. Rules have to define their fully"
-            + " static linking mode through 'fully_static_link' feature."
-  )
-  public boolean dropFullyStaticLinkingMode;
-
-  @Option(
     name = "experimental_link_compile_output_separately",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -266,15 +255,6 @@ public class CppOptions extends FragmentOptions {
             + " position-independent executables (\"-pie\")."
   )
   public boolean forcePic;
-
-  @Option(
-    name = "force_ignore_dash_static",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "If set, '-static' options in the linkopts of cc_* rules will be ignored."
-  )
-  public boolean forceIgnoreDashStatic;
 
   @Option(
     name = "process_headers_in_dependencies",

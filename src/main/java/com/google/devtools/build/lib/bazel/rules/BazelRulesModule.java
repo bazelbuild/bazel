@@ -68,6 +68,14 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         help = "This option is deprecated and has no effect.")
     public boolean shortenObjFilePath;
+
+    @Option(
+        name = "force_ignore_dash_static",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "noop")
+    public boolean forceIgnoreDashStatic;
   }
 
   @Override

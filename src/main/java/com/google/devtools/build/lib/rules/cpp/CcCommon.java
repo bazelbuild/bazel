@@ -20,7 +20,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -157,9 +155,6 @@ public final class CcCommon {
 
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
 
-  /** C++ configuration */
-  private final CppConfiguration cppConfiguration;
-
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
@@ -168,7 +163,6 @@ public final class CcCommon {
 
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
@@ -252,12 +246,6 @@ public final class CcCommon {
     Iterable<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
     List<String> result;
     if (ourLinkopts != null) {
-      boolean allowDashStatic =
-          !cppConfiguration.forceIgnoreDashStatic()
-              && (cppConfiguration.getDynamicModeFlag() != DynamicMode.FULLY);
-      if (!allowDashStatic) {
-        ourLinkopts = Iterables.filter(ourLinkopts, (v) -> !"-static".equals(v));
-      }
       result = CppHelper.expandLinkopts(ruleContext, "linkopts", ourLinkopts);
     } else {
       result = ImmutableList.of();

@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -503,10 +503,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
             .setCrosstoolInputs(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
-            .setLinkingMode(
-                type.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-                    ? Link.LinkingMode.LEGACY_FULLY_STATIC
-                    : Link.LinkingMode.STATIC);
+            .setLinkingMode(LinkingMode.STATIC);
     return builder;
   }
 
@@ -634,7 +631,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithSymbolsCountOutputIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier("foo")
             .setSymbolCountsOutput(scratchArtifact("dummySymbolCounts"));
 
@@ -645,7 +642,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithNativeDepsIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier("foo")
             .setNativeDeps(true);
 
@@ -656,7 +653,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testStaticLinkWithWholeArchiveIsError() throws Exception {
     CppLinkActionBuilder builder =
         createLinkBuilder(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier("foo")
             .setWholeArchive(true);
 

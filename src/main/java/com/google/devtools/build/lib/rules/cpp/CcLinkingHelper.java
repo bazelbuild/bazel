@@ -809,7 +809,7 @@ public final class CcLinkingHelper {
             .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setUsePicForLtoBackendActions(usePic)
             .setLinkType(linkTargetTypeUsedForNaming)
-            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtensions(variablesExtensions)
