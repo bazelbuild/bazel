@@ -571,6 +571,6 @@ API_LEVELS = [
 - Improved external dependency management
 - Remote test caching and execution
 
-We are planning to rewrite the Android rules in [Skylark](https://docs.bazel.build/versions/master/skylark/concepts.html).
+We are planning to rewrite the Android rules in [Starlark](https://docs.bazel.build/versions/master/skylark/concepts.html).
 The `android_instrumentation_test` rule will be part of the rewrite, however,
 its usage will remain unchanged from the end-user perspective.

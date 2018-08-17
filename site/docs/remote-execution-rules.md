@@ -10,7 +10,7 @@ a datacenter. A [gRPC protocol](https://github.com/googleapis/googleapis/blob/ma
 is currently in development. You can try remote execution with [bazel-buildfarm](https://github.com/bazelbuild/bazel-buildfarm),
 an open-source project that aims to provide a distributed remote execution
 platform. This document is intended for Bazel users writing custom build and
-test rules in Skylark who want to understand the requirements for Bazel rules in
+test rules who want to understand the requirements for Bazel rules in
 the context of remote execution.
 
 This document uses the following terminology when referring to different

@@ -7,7 +7,7 @@ title: Skylint
 
 [Style guide](https://docs.bazel.build/versions/master/skylark/bzl-style.html)
 
-This document explains how to use Skylint, the Skylark linter.
+This document explains how to use Skylint, the Starlark linter.
 
 <!-- [TOC] -->
 
@@ -100,7 +100,7 @@ See [documentation on depsets](depsets.md) for background and examples of use.
 <a name="bad-docstring-format"></a>
 Categories: [missing-module-docstring] [missing-function-docstring] [bad-docstring-format]
 
-The Skylark conventions for docstrings are similar to the [the Python
+The Starlark conventions for docstrings are similar to the [the Python
 conventions](https://google.github.io/styleguide/pyguide.html?showone=Comments#Comments).
 Docstrings are triple-quoted string literals and the closing quotes have to
 appear on their own line unless the docstring is only one line long.
@@ -176,7 +176,7 @@ order):
 <a name="confusing-name"></a>
 Categories: [name-with-wrong-case] [provider-name-suffix] [confusing-name]
 
-**TL;DR**: Most Skylark identifiers should be `snake_case`, not `camelCase`.
+**TL;DR**: Most Starlark identifiers should be `snake_case`, not `camelCase`.
 
 In detail, the rules are the following:
 
