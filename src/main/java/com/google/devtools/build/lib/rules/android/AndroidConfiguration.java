@@ -858,6 +858,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           "--strategy=AndroidAssetMerger=worker",
           "--strategy=AndroidResourceMerger=worker",
           "--strategy=AndroidCompiledResourceMerger=worker",
+          "--strategy=AndroidManifestMerger=worker",
         })
     public Void persistentResourceProcessor;
 
