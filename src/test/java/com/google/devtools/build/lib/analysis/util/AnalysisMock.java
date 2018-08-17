@@ -79,12 +79,6 @@ public abstract class AnalysisMock extends LoadingMock {
     return new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
   }
 
-  @Override
-  public String getDefaultsPackageContent() {
-    return createRuleClassProvider()
-        .getDefaultsPackageContent(getInvocationPolicyEnforcer().getInvocationPolicy());
-  }
-
   /**
    * This is called from test setup to create the mock directory layout needed to create the
    * configuration.

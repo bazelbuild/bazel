@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -507,15 +506,9 @@ public final class CommandEnvironment {
     }
   }
 
-  /**
-   * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects a defaults package and the skylark semantics using the options for the {@link
-   * BuildConfiguration}.
-   *
-   * @see DefaultsPackage
-   */
-  public void setupPackageCache(OptionsClassProvider options,
-      String defaultsPackageContents) throws InterruptedException, AbruptExitException {
+  /** Initializes the package cache using the given options, and syncs the package cache. */
+  public void setupPackageCache(OptionsClassProvider options)
+      throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .sync(
             reporter,
@@ -523,7 +516,6 @@ public final class CommandEnvironment {
             options.getOptions(SkylarkSemanticsOptions.class),
             getOutputBase(),
             getWorkingDirectory(),
-            defaultsPackageContents,
             getCommandId(),
             clientEnv,
             timestampGranularityMonitor,

@@ -127,8 +127,7 @@ public class InfoCommand implements BlazeCommand {
                 // In order to be able to answer configuration-specific queries, we need to set up
                 // the package path. Since info inherits all the build options, all the necessary
                 // information is available here.
-                env.setupPackageCache(
-                    optionsParsingResult, runtime.getDefaultsPackageContent(optionsParsingResult));
+                env.setupPackageCache(optionsParsingResult);
                 env.getSkyframeExecutor()
                     .setConfigurationFragmentFactories(runtime.getConfigurationFragmentFactories());
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
@@ -232,7 +231,6 @@ public class InfoCommand implements BlazeCommand {
             new InfoItem.JavaVirtualMachineInfoItem(),
             new InfoItem.JavaHomeInfoItem(),
             new InfoItem.CharacterEncodingInfoItem(),
-            new InfoItem.DefaultsPackageInfoItem(),
             new InfoItem.BuildLanguageInfoItem(),
             new InfoItem.DefaultPackagePathInfoItem(commandOptions));
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();

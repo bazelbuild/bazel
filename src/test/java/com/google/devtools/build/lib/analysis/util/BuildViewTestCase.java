@@ -283,7 +283,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         skylarkSemanticsOptions,
-        "",
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -402,7 +401,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
-        ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
@@ -511,11 +509,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Creates BuildView using current hostConfig/targetConfig values.
-   * Ensures that hostConfig is either identical to the targetConfig or has
-   * 'host' short name.
+   * Creates BuildView using current hostConfig/targetConfig values. Ensures that hostConfig is
+   * either identical to the targetConfig or has 'host' short name.
    */
-  protected final void createBuildView() throws Exception {
+  protected final void createBuildView() {
     Preconditions.checkNotNull(masterConfig);
     Preconditions.checkState(getHostConfiguration().equals(getTargetConfiguration())
         || getHostConfiguration().isHostConfiguration(),
@@ -523,8 +520,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         + "and does not match target configuration %s",
         getHostConfiguration(), getTargetConfiguration());
 
-    String defaultsPackageContent = ruleClassProvider.getDefaultsPackageContent(optionsParser);
-    skyframeExecutor.setupDefaultPackage(defaultsPackageContent);
     skyframeExecutor.handleConfiguredTargetChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);

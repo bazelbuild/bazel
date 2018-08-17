@@ -43,13 +43,4 @@ public class LoadingMock {
   public InvocationPolicyEnforcer getInvocationPolicyEnforcer() {
     return new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
   }
-
-  /**
-   * Returns the defaults package for the default settings using {@link #createRuleClassProvider}
-   * and applying {@link #getInvocationPolicyEnforcer}.
-   */
-  public String getDefaultsPackageContent() {
-    return createRuleClassProvider()
-        .getDefaultsPackageContent(getInvocationPolicyEnforcer().getInvocationPolicy());
-  }
 }

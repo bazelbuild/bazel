@@ -136,7 +136,6 @@ public class PackageCacheTest extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
-        analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

@@ -70,8 +70,6 @@ public final class Label
       ImmutableSet.of(
           // Used for select
           PathFragment.create("conditions"),
-          // dependencies that are a function of the configuration
-          PathFragment.create("tools/defaults"),
           // Visibility is labels aren't actually targets
           PathFragment.create("visibility"),
           // There is only one //external package

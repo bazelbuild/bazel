@@ -110,8 +110,6 @@ public class PackageFunction implements SkyFunction {
 
   private final IncrementalityIntent incrementalityIntent;
 
-  static final PathFragment DEFAULTS_PACKAGE_NAME = PathFragment.create("tools/defaults");
-
   public PackageFunction(
       PackageFactory packageFactory,
       CachingPackageLocator pkgLocator,
@@ -438,16 +436,9 @@ public class PackageFunction implements SkyFunction {
     Path buildFilePath = buildFileRootedPath.asPath();
     String replacementContents = null;
 
-    if (isDefaultsPackage(packageId) && PrecomputedValue.isInMemoryToolsDefaults(env)) {
-      replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
-      if (replacementContents == null) {
-        return null;
-      }
-    } else {
-      buildFileValue = getBuildFileValue(env, buildFileRootedPath);
-      if (buildFileValue == null) {
-        return null;
-      }
+    buildFileValue = getBuildFileValue(env, buildFileRootedPath);
+    if (buildFileValue == null) {
+      return null;
     }
 
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
@@ -1338,10 +1329,5 @@ public class PackageFunction implements SkyFunction {
       this.importMap = importMap;
       this.fileDependencies = fileDependencies;
     }
-  }
-
-  public static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
-    return packageIdentifier.getRepository().isMain()
-        && packageIdentifier.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME);
   }
 }
