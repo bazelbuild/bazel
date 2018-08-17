@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.vfs.Path;
@@ -51,7 +51,7 @@ public class RepositoryResolvedEvent implements ProgressLike {
    */
   private final Object resolvedInformation;
 
-  public RepositoryResolvedEvent(Rule rule, Info attrs, Path outputDirectory, Object result) {
+  public RepositoryResolvedEvent(Rule rule, StructImpl attrs, Path outputDirectory, Object result) {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
 
     String originalClass =

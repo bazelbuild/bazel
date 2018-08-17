@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -101,7 +101,7 @@ public class AndroidCommon {
     return builder.build();
   }
 
-  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
+  public static final <T extends InfoInterface> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, NativeProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
@@ -113,7 +113,7 @@ public class AndroidCommon {
     return builder.build();
   }
 
-  public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
+  public static final <T extends InfoInterface> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, Mode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();

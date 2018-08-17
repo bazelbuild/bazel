@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -67,7 +67,7 @@ public class SkylarkRepositoryContext
 
   private final Rule rule;
   private final Path outputDirectory;
-  private final Info attrObject;
+  private final StructImpl attrObject;
   private final SkylarkOS osObject;
   private final Environment env;
   private final HttpDownloader httpDownloader;
@@ -109,7 +109,7 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public Info getAttr() {
+  public StructImpl getAttr() {
     return attrObject;
   }
 
@@ -486,7 +486,7 @@ public class SkylarkRepositoryContext
    * potentially more expensive operations.
    */
   public void enforceLabelAttributes() throws EvalException, InterruptedException {
-    Info attr = getAttr();
+    StructImpl attr = getAttr();
     for (String name : attr.getFieldNames()) {
       Object value = attr.getValue(name);
       if (value instanceof Label) {

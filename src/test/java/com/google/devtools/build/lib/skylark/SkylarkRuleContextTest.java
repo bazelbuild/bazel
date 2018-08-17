@@ -36,9 +36,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -1631,8 +1632,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//test:testing");
 
     Object provider = evalRuleContextCode(ruleContext, "ruleContext.attr.dep[Actions]");
-    assertThat(provider).isInstanceOf(Info.class);
-    assertThat(((Info) provider).getProvider()).isEqualTo(ActionsProvider.INSTANCE);
+    assertThat(provider).isInstanceOf(StructImpl.class);
+    assertThat(((StructImpl) provider).getProvider()).isEqualTo(ActionsProvider.INSTANCE);
     update("actions", provider);
 
     Object mapping = eval("actions.by_file");
@@ -2185,6 +2186,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testMapAttributeOrdering() throws Exception {
     scratch.file("a/a.bzl",
         "key_provider = provider(fields=['keys'])",
@@ -2198,8 +2200,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a");
     SkylarkKey key =
         new SkylarkKey(Label.parseAbsolute("//a:a.bzl", ImmutableMap.of()), "key_provider");
-    @SuppressWarnings("unchecked")
-    SkylarkList<String> keys = (SkylarkList<String>) a.get(key).getValue("keys");
+
+    SkylarkInfo keyInfo = (SkylarkInfo) a.get(key);
+    SkylarkList<String> keys = (SkylarkList<String>) keyInfo.getValue("keys");
     assertThat(keys).containsExactly("c", "b", "a", "f", "e", "d").inOrder();
   }
 }

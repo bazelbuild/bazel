@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.List;
@@ -62,10 +63,11 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
     SkylarkKey fooKey =
         new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
 
-    assertThat(configuredAspect.get(fooKey).getValue("actions")).isNotNull();
+    StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
+    assertThat(fooProvider.getValue("actions")).isNotNull();
     @SuppressWarnings("unchecked")
     SkylarkList<ActionAnalysisMetadata> actions =
-        (SkylarkList<ActionAnalysisMetadata>) configuredAspect.get(fooKey).getValue("actions");
+        (SkylarkList<ActionAnalysisMetadata>) fooProvider.getValue("actions");
     assertThat(actions).isNotEmpty();
 
     ActionAnalysisMetadata action = actions.get(0);
@@ -116,33 +118,33 @@ public class SkylarkActionProviderTest extends AnalysisTestCase {
 
     SkylarkKey fooKey =
         new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
-
-    assertThat(configuredAspect.get(fooKey).getValue("actions")).isNotNull();
+    StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
+    assertThat(fooProvider.getValue("actions")).isNotNull();
 
     SkylarkList<ActionAnalysisMetadata> actions =
-        (SkylarkList<ActionAnalysisMetadata>) configuredAspect.get(fooKey).getValue("actions");
+        (SkylarkList<ActionAnalysisMetadata>) fooProvider.getValue("actions");
     assertThat(actions).hasSize(2);
 
     SkylarkList<String> mnemonics =
-        (SkylarkList<String>) configuredAspect.get(fooKey).getValue("mnemonics");
+        (SkylarkList<String>) fooProvider.getValue("mnemonics");
     assertThat(mnemonics).containsExactly("MyAction0", "MyAction1");
 
     SkylarkList<SkylarkDict<String, String>> envs =
-        (SkylarkList<SkylarkDict<String, String>>) configuredAspect.get(fooKey).getValue("envs");
+        (SkylarkList<SkylarkDict<String, String>>) fooProvider.getValue("envs");
     assertThat(envs).containsExactly(
         SkylarkDict.of(null, "foo", "bar", "pet", "puppy"),
         SkylarkDict.of(null, "pet", "bunny"));
 
     SkylarkList<SkylarkList<Artifact>> inputs =
-        (SkylarkList<SkylarkList<Artifact>>) configuredAspect.get(fooKey).getValue("inputs");
+        (SkylarkList<SkylarkList<Artifact>>) fooProvider.getValue("inputs");
     assertThat(flattenArtifactNames(inputs)).containsExactly("executable");
 
     SkylarkList<SkylarkList<Artifact>> outputs =
-        (SkylarkList<SkylarkList<Artifact>>) configuredAspect.get(fooKey).getValue("outputs");
+        (SkylarkList<SkylarkList<Artifact>>) fooProvider.getValue("outputs");
     assertThat(flattenArtifactNames(outputs)).containsExactly("myfile0", "executable", "myfile1");
 
     SkylarkList<SkylarkList<String>> argv =
-        (SkylarkList<SkylarkList<String>>) configuredAspect.get(fooKey).getValue("argv");
+        (SkylarkList<SkylarkList<String>>) fooProvider.getValue("argv");
     assertThat(argv.get(0)).hasSize(1);
     assertThat(argv.get(0).get(0)).endsWith("executable");
     assertThat(argv.get(1)).contains("fakecmd");

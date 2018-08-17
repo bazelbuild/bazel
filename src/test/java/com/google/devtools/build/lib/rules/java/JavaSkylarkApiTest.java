@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -194,8 +194,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -292,8 +292,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -771,8 +771,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -870,8 +870,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     // the target's own as well as :dep's and :export's annotation processing outputs, since those
     // two targets also use annotation processing.
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -930,8 +930,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
     // Extract out the information from skylark rule
-    Info info =
-        myConfiguredTarget.get(
+    StructImpl info =
+        (StructImpl) myConfiguredTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//java/test:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1225,7 +1225,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     SkylarkKey myProviderKey =
         new SkylarkKey(
             Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "my_provider");
-    Info declaredProvider = myRuleTarget.get(myProviderKey);
+    StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
     Object javaProvider = declaredProvider.getValue("p");
     assertThat(javaProvider).isInstanceOf(JavaInfo.class);
     assertThat(javaLibraryTarget.get(JavaInfo.PROVIDER)).isEqualTo(javaProvider);
@@ -1374,8 +1374,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
     @SuppressWarnings("unchecked") SkylarkList<Artifact> sourceJars =
@@ -1403,8 +1403,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1436,8 +1436,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1469,8 +1469,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1503,8 +1503,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1533,8 +1533,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1563,8 +1563,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
             new SkylarkKey(
                 Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
@@ -1722,8 +1722,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "myrule(name='myrule')"
     );
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("default");
   }
@@ -1747,8 +1747,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     );
     useConfiguration("--strict_java_deps=ERROR");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("error");
   }
@@ -1774,8 +1774,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "myrule(name='myrule')"
     );
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     Label javaToolchainLabel = ((Label) info.getValue("java_toolchain_label"));
     assertThat(javaToolchainLabel.toString()).endsWith("jdk:toolchain");
@@ -1803,8 +1803,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     );
     useConfiguration("--java_toolchain=//java/com/google/test:toolchain");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
-    Info info =
-        configuredTarget.get(
+    StructImpl info =
+        (StructImpl) configuredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl", ImmutableMap.of()), "result"));
     Label javaToolchainLabel = ((Label) info.getValue("java_toolchain_label"));
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");

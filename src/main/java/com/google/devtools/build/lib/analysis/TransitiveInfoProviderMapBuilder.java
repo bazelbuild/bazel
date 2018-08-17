@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -49,7 +49,8 @@ public class TransitiveInfoProviderMapBuilder {
     Preconditions.checkNotNull(providerClass);
     Preconditions.checkNotNull(provider);
     Preconditions.checkState(
-        !(provider instanceof Info), "Expose %s as native declared provider", providerClass);
+        !(provider instanceof InfoInterface), "Expose %s as native declared provider",
+        providerClass);
 
     // TODO(arielb): throw an exception if the providerClass is already present?
     // This is enforced by aspects but RuleConfiguredTarget presents violations
@@ -58,7 +59,7 @@ public class TransitiveInfoProviderMapBuilder {
     return this;
   }
 
-  public TransitiveInfoProviderMapBuilder put(Info classObject) {
+  public TransitiveInfoProviderMapBuilder put(InfoInterface classObject) {
     Preconditions.checkNotNull(classObject);
     Preconditions.checkState(!(classObject instanceof TransitiveInfoProvider),
         "Declared provider %s should not implement TransitiveInfoProvider",
@@ -104,8 +105,8 @@ public class TransitiveInfoProviderMapBuilder {
   }
 
   @Nullable
-  public Info getProvider(Provider.Key key) {
-    return (Info) providers.get(key);
+  public InfoInterface getProvider(Provider.Key key) {
+    return (InfoInterface) providers.get(key);
   }
 
   public TransitiveInfoProviderMap build() {

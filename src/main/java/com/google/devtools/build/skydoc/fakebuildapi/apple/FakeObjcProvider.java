@@ -15,11 +15,9 @@
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -215,16 +213,6 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   @Override
   public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
     return null;
-  }
-
-  @Override
-  public String toProto(Location loc) throws EvalException {
-    return "";
-  }
-
-  @Override
-  public String toJson(Location loc) throws EvalException {
-    return "";
   }
 
   @Override
