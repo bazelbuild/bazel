@@ -102,6 +102,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final int runNumber;
   private final String workspaceName;
 
+  // True if using the Windows-native test wrapper (the "$test_wrapper" attribute).
+  // Should only be true when the execution OS is Windows and `--windows_native_test_wrapper` is
+  // enabled.
+  private final boolean useTestWrapperInsteadOfTestSetupSh;
+
   // Mutable state related to test caching. Lazily initialized: null indicates unknown.
   private Boolean unconditionalExecution;
 
@@ -136,6 +141,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       ActionOwner owner,
       Iterable<Artifact> inputs,
       Artifact testSetupScript, // Must be in inputs
+      boolean useTestWrapperInsteadOfTestSetupSh,
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
@@ -159,6 +165,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
+    this.useTestWrapperInsteadOfTestSetupSh = useTestWrapperInsteadOfTestSetupSh;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
@@ -742,6 +749,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public Artifact getTestSetupScript() {
     return testSetupScript;
+  }
+
+  public boolean isUsingTestWrapperInsteadOfTestSetupScript() {
+    return useTestWrapperInsteadOfTestSetupSh;
   }
 
   public Artifact getTestXmlGeneratorScript() {
