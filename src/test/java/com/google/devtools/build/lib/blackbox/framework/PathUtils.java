@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.integration.blackbox.framework;
+package com.google.devtools.build.lib.blackbox.framework;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -146,8 +146,8 @@ public class PathUtils {
   }
 
   /**
-   * Reads the file under the <code>directory/parts[0]/parts[1]/.../parts[n]</code>
-   * using ISO_8859_1.
+   * Reads the file under the <code>directory/parts[0]/parts[1]/.../parts[n]</code> using
+   * ISO_8859_1.
    *
    * @param directory root directory for resolve
    * @param parts parts of the path relative to directory

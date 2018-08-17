@@ -5,7 +5,6 @@ java_test(
         "TimeoutTestWatcherBaseTest.java",
         "TimeoutTestWatcherTest.java",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//third_party:guava",
         "//third_party:junit4",
@@ -16,14 +15,17 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**/*"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__subpackages__"],
 )
 
 java_library(
-    name = "timeout_watcher",
-    srcs = ["TimeoutTestWatcher.java"],
-    visibility = ["//visibility:public"],
+    name = "test_base",
+    testonly = 1,
+    srcs = glob(["*.java"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__pkg__"],
     deps = [
+        "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
