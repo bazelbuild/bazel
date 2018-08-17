@@ -856,6 +856,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     return globals.getTransitiveBindings();
   }
 
+  public Object getGlobalsForConstantRegistration() {
+    return globals;
+  }
+
   /** Returns all registered {@link BuildConfiguration.Fragment} classes. */
   public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getAllFragments() {
     ImmutableSortedSet.Builder<Class<? extends BuildConfiguration.Fragment>> fragmentsBuilder =

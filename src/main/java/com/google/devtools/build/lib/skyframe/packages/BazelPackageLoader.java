@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryF
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
@@ -51,12 +50,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * caching or incrementality.
  */
 public class BazelPackageLoader extends AbstractPackageLoader {
-
-  /**
-   * Version is the string BazelPackageLoader reports in native.bazel_version to be used by Skylark.
-   */
-  private final String version;
-
   /** Returns a fresh {@link Builder} instance. */
   public static Builder builder(Path workspaceDir, Path installBase, Path outputBase) {
     // Prevent PackageLoader from fetching any remote repositories; these should only be fetched by
@@ -115,8 +108,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
 
     private final AtomicBoolean isFetch;
 
-    private String version = "";
-
     private static ConfiguredRuleClassProvider createRuleClassProvider() {
       ConfiguredRuleClassProvider.Builder classProvider = new ConfiguredRuleClassProvider.Builder();
       new BazelRepositoryModule().initializeRuleClasses(classProvider);
@@ -131,21 +122,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
 
     @Override
     public BazelPackageLoader buildImpl() {
-      return new BazelPackageLoader(this, version);
+      return new BazelPackageLoader(this);
     }
 
     @Override
-    protected RuleClassProvider getDefaultRuleClassProvider() {
+    protected ConfiguredRuleClassProvider getDefaultRuleClassProvider() {
       return DEFAULT_RULE_CLASS_PROVIDER;
-    }
-
-    /**
-     * Version is the string BazelPackageLoader reports in native.bazel_version to be used by
-     * Skylark.
-     */
-    public Builder setVersion(String version) {
-      this.version = version;
-      return this;
     }
 
     Builder setFetchForTesting() {
@@ -154,14 +136,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     }
   }
 
-  private BazelPackageLoader(Builder builder, String version) {
+  private BazelPackageLoader(Builder builder) {
     super(builder);
-    this.version = version;
-  }
-
-  @Override
-  protected String getVersion() {
-    return version;
   }
 
   @Override

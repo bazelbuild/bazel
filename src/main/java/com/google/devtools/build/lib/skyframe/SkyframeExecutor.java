@@ -291,7 +291,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final ImmutableSet<PathFragment> hardcodedBlacklistedPackagePrefixes;
   private final PathFragment additionalBlacklistedPackagePrefixesFile;
 
-  private final RuleClassProvider ruleClassProvider;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
 
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
 
@@ -391,7 +391,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.hardcodedBlacklistedPackagePrefixes = hardcodedBlacklistedPackagePrefixes;
     this.additionalBlacklistedPackagePrefixesFile = additionalBlacklistedPackagePrefixesFile;
 
-    this.ruleClassProvider = pkgFactory.getRuleClassProvider();
+    this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
     this.defaultBuildOptions = defaultBuildOptions;
     this.skyframeBuildView =
         new SkyframeBuildView(
