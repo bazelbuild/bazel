@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.blackbox.framework;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -97,19 +97,16 @@ public class PathUtils {
   }
 
   /**
-   * Creates the file under the <code>directory/parts[0]/parts[1]/.../parts[n]</code>. Will also
-   * create all subdirectories, if they do not exist.
+   * Creates the file under the <code>directory/subPath</code>. Will also create all subdirectories,
+   * if they do not exist.
    *
    * @param directory directory under which to create the subdirectories tree with a file
-   * @param parts parts of the path relative to directory, must be not empty, last element denotes
-   *     the file name
+   * @param subPath subpath under <code>directory</code> under which file will be created
    * @return Path to created file
    * @throws IOException in case file or subdirectory can not be created
    */
-  public static Path createFile(Path directory, String... parts) throws IOException {
-    Preconditions.checkArgument(parts.length > 0);
-    Path path = resolve(directory, parts);
-    return createFile(path);
+  public static Path createFile(Path directory, String subPath) throws IOException {
+    return createFile(resolve(directory, subPath));
   }
 
   /**
@@ -140,6 +137,9 @@ public class PathUtils {
   public static Path resolve(Path directory, String... parts) {
     Path current = directory;
     for (String part : parts) {
+      if (OS.WINDOWS.equals(OS.getCurrent())) {
+        part = part.replace('/', '\\');
+      }
       current = current.resolve(part);
     }
     return current;
@@ -170,6 +170,21 @@ public class PathUtils {
   }
 
   /**
+   * Writes the file in the <code>directory/subPath</code> location using ISO_8859_1. Overrides the
+   * file if it exists, creates the file if it does not exist.
+   *
+   * @param directory root directory, under which the subtree with the file is created
+   * @param subPath path under <code>directory</code>, under which the file is created
+   * @param lines lines to be written
+   * @return Path to created file
+   * @throws IOException in case file can not be written
+   */
+  public static Path writeFileInDir(Path directory, String subPath, String... lines)
+      throws IOException {
+    return writeFile(resolve(directory, subPath), lines);
+  }
+
+  /**
    * Writes the file in the <code>path</code> location using ISO_8859_1. Overrides the file if it
    * exists, creates the file if it does not exist.
    *
@@ -177,8 +192,9 @@ public class PathUtils {
    * @param lines lines to be written
    * @throws IOException in case file can not be written
    */
-  public static void writeFile(Path path, String... lines) throws IOException {
-    Files.write(path, Lists.newArrayList(lines), StandardCharsets.ISO_8859_1);
+  public static Path writeFile(Path path, String... lines) throws IOException {
+    Files.createDirectories(path.getParent());
+    return Files.write(path, Lists.newArrayList(lines), StandardCharsets.ISO_8859_1);
   }
 
   /**
@@ -216,5 +232,45 @@ public class PathUtils {
    */
   public static void append(Path path, String... lines) throws IOException {
     Files.write(path, Arrays.asList(lines), StandardOpenOption.APPEND);
+  }
+
+  /**
+   * Make a file or directory tree writable.
+   *
+   * <p>If the path is a directory, make all files under it (and all of its subdirectories)
+   * writable.
+   *
+   * @param path file or directory to make writable
+   */
+  public static void setTreeWritable(Path path) throws IOException {
+    if (!Files.exists(path)) {
+      throw new IOException(
+          String.format(
+              "Can not recursively modify files inside %s: directory does not exist",
+              path.toAbsolutePath().toString()));
+    }
+    Files.walkFileTree(
+        path,
+        new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+              throws IOException {
+            if (!dir.toFile().setWritable(true)) {
+              throw new IOException(
+                  String.format("Can not make %s writeable", dir.toAbsolutePath().toString()));
+            }
+            return FileVisitResult.CONTINUE;
+          }
+
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+              throws IOException {
+            if (!file.toFile().setWritable(true)) {
+              throw new IOException(
+                  String.format("Can not make %s writeable", file.toAbsolutePath().toString()));
+            }
+            return FileVisitResult.CONTINUE;
+          }
+        });
   }
 }

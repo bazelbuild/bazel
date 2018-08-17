@@ -118,7 +118,7 @@ public class PathUtilsTest {
       Path resolved = PathUtils.resolve(directory, "a", "b", "c");
       assertThat(Files.exists(resolved)).isFalse();
 
-      Path created = PathUtils.createFile(directory, "a", "b", "c");
+      Path created = PathUtils.createFile(directory, "a/b/c");
       assertThat(Files.exists(created)).isTrue();
       assertThat(Files.isRegularFile(created)).isTrue();
       // can not use assertThat here, because Path implements Iterable and there is ambiguity
