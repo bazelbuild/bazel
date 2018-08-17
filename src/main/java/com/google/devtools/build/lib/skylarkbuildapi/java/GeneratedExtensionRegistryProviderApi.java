@@ -91,7 +91,9 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = GeneratedExtensionRegistryProviderApi.class)
+    @SkylarkConstructor(
+        objectType = GeneratedExtensionRegistryProviderApi.class,
+        receiverNameForDoc = NAME)
     GeneratedExtensionRegistryProviderApi<FileT> create(
         Label generatingRuleLabel,
         boolean isLite,
