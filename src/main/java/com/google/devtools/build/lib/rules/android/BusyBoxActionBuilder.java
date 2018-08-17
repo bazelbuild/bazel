@@ -325,9 +325,9 @@ public final class BusyBoxActionBuilder {
             .useDefaultShellEnvironment()
             .addTransitiveInputs(inputs.build())
             .addOutputs(outputs.build())
-            // .addCommandLine(
-            //     commandLine.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
-            .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
+            .addCommandLine(
+                commandLine.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
+            // .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
             .setExecutable(dataContext.getBusybox())
             .setProgressMessage("%s for %s", message, dataContext.getLabel())
             .setMnemonic(mnemonic));

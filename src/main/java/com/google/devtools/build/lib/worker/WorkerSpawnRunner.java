@@ -240,7 +240,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
       throws IOException {
-    if (arg.startsWith("@") && !arg.startsWith("@@")) {
+    if (arg.startsWith("@") && !arg.startsWith("@@") && !arg.matches("^@.+//.*")) {
       for (String line :
           Files.readAllLines(
               Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
