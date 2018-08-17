@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 
 /**
  * A dummy implementation of Executor.
@@ -83,7 +83,7 @@ public final class DummyExecutor implements Executor {
   }
 
   @Override
-  public OptionsClassProvider getOptions() {
+  public OptionsProvider getOptions() {
     throw new UnsupportedOperationException();
   }
 

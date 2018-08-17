@@ -21,7 +21,7 @@ import java.util.Map;
  * A read-only interface for options parser results, which does not allow any
  * further parsing of options.
  */
-public interface OptionsParsingResult extends OptionsClassProvider {
+public interface OptionsParsingResult extends OptionsProvider {
 
 
   /**

@@ -19,8 +19,8 @@ import javax.annotation.Nullable;
  * A read-only interface for options parser results, which only allows to query the options of
  * a specific class, but not e.g. the residue any other information pertaining to the command line.
  */
-public interface OptionsClassProvider {
-  public static final OptionsClassProvider EMPTY = new OptionsClassProvider() {
+public interface OptionsProvider {
+  public static final OptionsProvider EMPTY = new OptionsProvider() {
     @Override @Nullable
     public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
       return null;
