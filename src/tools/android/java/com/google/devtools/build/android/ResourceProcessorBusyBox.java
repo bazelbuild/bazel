@@ -219,7 +219,7 @@ public class ResourceProcessorBusyBox {
           // Hint to the system that now would be a good time to run a gc.  After a compile
           // completes lots of objects should be available for collection and it should be cheap to
           // collect them.
-          System.gc();
+//          System.gc();
         }
       } catch (IOException e) {
         e.printStackTrace();
@@ -253,6 +253,7 @@ public class ResourceProcessorBusyBox {
   }
 
   private static void logSuppressed(Throwable e) {
+
     Arrays.stream(e.getSuppressed()).map(Throwable::getMessage).forEach(logger::severe);
   }
 }

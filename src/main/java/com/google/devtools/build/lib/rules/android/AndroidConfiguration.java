@@ -943,7 +943,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   private final boolean dataBindingV2;
-  private final boolean persistentResourceProcessor;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -985,7 +984,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
     this.dataBindingV2 = options.dataBindingV2;
-    this.persistentResourceProcessor = options.persistentResourceProcessor;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(

@@ -545,8 +545,8 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
   string java_log(
       blaze_util::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
   if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
-                             ".level=INFO\n"
-                             "java.util.logging.FileHandler.level=INFO\n"
+                             ".level=ALL\n"
+                             "java.util.logging.FileHandler.level=ALL\n"
                              "java.util.logging.FileHandler.pattern=" +
                                  java_log +
                                  "\n"
