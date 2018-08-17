@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -111,5 +112,10 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
 
   public void setOverloaded(boolean isOverloaded) {
     this.isOverloaded = isOverloaded;
+  }
+
+  @Override
+  public Boolean isCallable() {
+    return !SkylarkInterfaceUtils.getSkylarkCallable(this.method).structField();
   }
 }
