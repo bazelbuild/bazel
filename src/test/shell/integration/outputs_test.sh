@@ -17,15 +17,60 @@
 # Test rules with outputs definitions.
 #
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `tr` converts all upper case letters to lower case.
+# `case` matches the result if the `uname | tr` expression to string prefixes
+# that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
+# starting with "msys", and "*" matches everything (it's the default case).
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*)
+  # As of 2018-08-14, Bazel on Windows only supports MSYS Bash.
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  # Disable MSYS path conversion that converts path-looking command arguments to
+  # Windows paths (even if they arguments are not in fact paths).
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+#### TESTS #############################################################
 
 function test_plain_outputs() {
-  #create_new_workspace
-  cat >rule.bzl <<EOF
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
   ctx.file_action(
       output=ctx.outputs.out,
@@ -43,7 +88,7 @@ demo_rule = rule(
   })
 EOF
 
-  cat >BUILD <<EOF
+  cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
 demo_rule(
@@ -51,13 +96,14 @@ demo_rule(
   foo = 'demo_output_name')
 EOF
 
-  bazel build //:demo &> $TEST_log || fail "Build failed"
+  bazel build //$pkg:demo &> $TEST_log || fail "Build failed"
   expect_log "demo_output_name.txt"
 }
 
 function test_function_outputs() {
-  #create_new_workspace
-  cat >rule.bzl <<EOF
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat >$pkg/rule.bzl <<EOF
 def _outputs(foo):
   return {
     'out': foo + '.txt',
@@ -78,7 +124,7 @@ demo_rule = rule(
   outputs = _outputs)
 EOF
 
-  cat >BUILD <<EOF
+  cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
 demo_rule(
@@ -86,13 +132,14 @@ demo_rule(
   foo = 'demo_output_name')
 EOF
 
-  bazel build //:demo &> $TEST_log || fail "Build failed"
+  bazel build //$pkg:demo &> $TEST_log || fail "Build failed"
   expect_log "demo_output_name.txt"
 }
 
 function test_output_select_error() {
-  #create_new_workspace
-  cat >rule.bzl <<EOF
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
   ctx.file_action(
       output=ctx.outputs.out,
@@ -112,7 +159,7 @@ demo_rule = rule(
   }))
 EOF
 
-  cat >BUILD <<EOF
+  cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
 demo_rule(
@@ -120,13 +167,16 @@ demo_rule(
   foo = 'a_str')
 EOF
 
-  bazel build //:demo &> $TEST_log && fail "Build expected to fail"
+  if bazel build //$pkg:demo &> $TEST_log; then
+    fail "Build expected to fail"
+  fi
   expect_log "expected dict or dict-returning function or NoneType for 'outputs' while calling rule but got select of dict instead"
 }
 
 function test_configurable_output_error() {
-  #create_new_workspace
-  cat >rule.bzl <<EOF
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat >$pkg/rule.bzl <<EOF
 def _impl(ctx):
   ctx.file_action(
       output=ctx.outputs.out,
@@ -144,7 +194,7 @@ demo_rule = rule(
   })
 EOF
 
-  cat >BUILD <<EOF
+  cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
 demo_rule(
@@ -154,7 +204,9 @@ demo_rule(
   }))
 EOF
 
-  bazel build //:demo &> $TEST_log && fail "Build expected to fail"
+  if bazel build //$pkg:demo &> $TEST_log; then
+    fail "Build expected to fail"
+  fi
   expect_log "Attribute foo is configurable and cannot be used in outputs"
 }
 
