@@ -841,6 +841,27 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     )
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
+    @Option(
+        name = "experimental_persistent_android_resource_processor",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Enable the experimental persistent Android resource processor.",
+        expansion = {
+          "--strategy=AaptPackage=worker",
+          "--strategy=AndroidResourceParser=worker",
+          "--strategy=AndroidResourceValidator=worker",
+          "--strategy=AndroidResourceCompiler=worker",
+          "--strategy=RClassGenerator=worker",
+          "--strategy=AndroidResourceLink=worker",
+          "--strategy=AndroidAapt2=worker",
+          "--strategy=AndroidAssetMerger=worker",
+          "--strategy=AndroidResourceMerger=worker",
+          "--strategy=AndroidCompiledResourceMerger=worker",
+          "--strategy=ManifestMerger=worker",
+        })
+    public Void persistentResourceProcessor;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
