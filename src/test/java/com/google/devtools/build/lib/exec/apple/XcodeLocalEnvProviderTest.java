@@ -20,6 +20,7 @@ import static org.junit.Assume.assumeTrue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import java.io.IOException;
@@ -30,7 +31,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link XcodeLocalEnvProvider}. */
 @RunWith(JUnit4.class)
 public class XcodeLocalEnvProviderTest {
-  private final FileSystem fs = new JavaIoFileSystem();
+  private final FileSystem fs = new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
   @Test
   public void testIOSEnvironmentOnNonDarwin() {

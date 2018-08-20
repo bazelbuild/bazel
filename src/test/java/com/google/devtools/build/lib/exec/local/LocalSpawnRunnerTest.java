@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -809,7 +810,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem();
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
@@ -875,7 +876,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem();
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
