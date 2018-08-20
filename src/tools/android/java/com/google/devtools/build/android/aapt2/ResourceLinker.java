@@ -24,6 +24,7 @@ import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCFLG;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 import static java.util.stream.Collectors.toList;
 
+import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantType;
 import com.android.repository.Revision;
 import com.google.common.base.Joiner;
@@ -48,6 +49,7 @@ import com.google.devtools.build.android.ziputils.EntryHandler;
 import com.google.devtools.build.android.ziputils.LocalFileHeader;
 import com.google.devtools.build.android.ziputils.ZipIn;
 import com.google.devtools.build.android.ziputils.ZipOut;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -471,6 +473,17 @@ public class ResourceLinker {
     }
   }
 
+  private Path extractPackages(CompiledResources compiled) throws IOException {
+    Path packages = workingDirectory.resolve("packages");
+    try (BufferedWriter writer = Files.newBufferedWriter(packages, StandardOpenOption.CREATE_NEW)) {
+      for (CompiledResources resources : FluentIterable.from(include).append(compiled)) {
+        writer.append(VariantConfiguration.getManifestPackage(resources.getManifest().toFile()));
+        writer.newLine();
+      }
+    }
+    return packages;
+  }
+
   private Path extractAttributes(CompiledResources compiled) throws IOException {
     profiler.startTask("attributes");
     Path attributes = workingDirectory.resolve("tool.attributes");
@@ -527,7 +540,8 @@ public class ResourceLinker {
             mainDexProguard,
             javaSourceDirectory,
             resourceIds,
-            extractAttributes(compiled));
+            extractAttributes(compiled),
+            extractPackages(compiled));
       }
 
     } catch (IOException e) {
