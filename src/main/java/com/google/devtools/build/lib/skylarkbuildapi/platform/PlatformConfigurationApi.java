@@ -37,7 +37,8 @@ public interface PlatformConfigurationApi {
   @SkylarkCallable(name = "platform", structField = true, doc = "The current target platform")
   Label getTargetPlatform();
 
-  @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms")
+  @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms", documented = false)
+  @Deprecated
   ImmutableList<Label> getTargetPlatforms();
 
   @SkylarkCallable(
