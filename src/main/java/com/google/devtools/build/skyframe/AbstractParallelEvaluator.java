@@ -177,8 +177,9 @@ public abstract class AbstractParallelEvaluator {
     }
 
     @Override
-    public int compareTo(ParallelEvaluatorContext.ComparableRunnable o) {
-      return -1 * Integer.compare(this.evaluationPriority, ((Evaluate) o).evaluationPriority);
+    public int compareTo(ParallelEvaluatorContext.ComparableRunnable other) {
+      // Put other one first, so larger values come first in priority queue.
+      return Integer.compare(((Evaluate) other).evaluationPriority, this.evaluationPriority);
     }
 
     private void enqueueChild(
