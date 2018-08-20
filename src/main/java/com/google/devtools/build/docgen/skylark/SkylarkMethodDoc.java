@@ -54,6 +54,17 @@ public abstract class SkylarkMethodDoc extends SkylarkDoc {
   }
 
   /**
+   * Returns a string containing the method's name. GetName() returns the complete signature in case
+   * of overloaded methods. This is used to extract only the name of the method.
+   *
+   * <p>E.g. ctx.new_file is overloaded. In this case getName() returns "new_file(filename)", while
+   * getShortName() returns only "new_file".
+   */
+  public String getShortName() {
+    return getName();
+  }
+
+  /**
    * Returns a list containing the documentation for each of the method's parameters.
    */
   public List<SkylarkParamDoc> getParams() {

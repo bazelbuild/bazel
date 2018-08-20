@@ -76,7 +76,7 @@ public class ApiExporter {
 
   private static Value.Builder collectFieldInfo(SkylarkMethodDoc meth) {
     Value.Builder field = Value.newBuilder();
-    field.setName(meth.getName());
+    field.setName(meth.getShortName());
     field.setDoc(meth.getDocumentation());
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
