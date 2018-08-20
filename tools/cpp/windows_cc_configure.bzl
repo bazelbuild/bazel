@@ -153,6 +153,7 @@ def find_vc_path(repository_ctx):
     for path in [
         "Microsoft Visual Studio\\2017\\BuildTools\\VC",
         "Microsoft Visual Studio\\2017\\Community\\VC",
+        "Microsoft Visual Studio\\2017\\Professional\\VC",
         "Microsoft Visual Studio\\2017\\Enterprise\\VC",
         "Microsoft Visual Studio 14.0\\VC",
     ]:
