@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /** A loader that creates {@link PlatformConfiguration} instances based on command-line options. */
 public class PlatformConfigurationLoader implements ConfigurationFragmentFactory {
@@ -42,12 +44,13 @@ public class PlatformConfigurationLoader implements ConfigurationFragmentFactory
     return PlatformConfiguration.class;
   }
 
-  private PlatformConfiguration create(PlatformOptions options)
-      throws InvalidConfigurationException {
+  private PlatformConfiguration create(PlatformOptions options) {
+
+    Label targetPlatform = Iterables.getOnlyElement(options.platforms);
     return new PlatformConfiguration(
         options.hostPlatform,
         ImmutableList.copyOf(options.extraExecutionPlatforms),
-        ImmutableList.copyOf(options.platforms),
+        targetPlatform,
         ImmutableList.copyOf(options.extraToolchains),
         ImmutableList.copyOf(options.enabledToolchainTypes));
   }
