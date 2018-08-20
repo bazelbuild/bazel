@@ -35,6 +35,8 @@ import com.google.devtools.build.android.aapt2.ProtoApk.ResourcePackageVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,10 +61,12 @@ import org.xml.sax.SAXException;
 public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
   private static final Logger logger = Logger.getLogger(ProtoResourceUsageAnalyzer.class.getName());
+  private final Path mapping;
 
   public ProtoResourceUsageAnalyzer(Set<String> resourcePackages, Path mapping, Path logFile)
       throws DOMException, ParserConfigurationException {
-    super(resourcePackages, null, null, null, mapping, null, logFile);
+    super(resourcePackages, null, null, null, null, null, logFile);
+    this.mapping = mapping;
   }
 
   private static Resource parse(ResourceUsageModel model, String resourceTypeAndName) {
@@ -102,7 +106,16 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         // graph on.
         apk.visitResources(new ResourceDeclarationVisitor(model())).toUsageVisitor());
 
-    recordClassUsages(classes);
+    try {
+      // TODO(b/112810967): Remove reflection hack.
+      final Method recordMapping =
+          ResourceUsageAnalyzer.class.getDeclaredMethod("recordMapping", Path.class);
+      recordMapping.setAccessible(true);
+      recordMapping.invoke(this, mapping);
+      recordClassUsages(classes);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException(e);
+    }
 
     // Have to give the model xml attributes with keep and discard urls.
     final NamedNodeMap toolAttributes =
@@ -272,16 +285,13 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         String pathString = path.toString();
         if (pathString.endsWith(".js")) {
           model.tokenizeJs(
-              declaredResource,
-              new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+              declaredResource, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".css")) {
           model.tokenizeCss(
-              declaredResource,
-              new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+              declaredResource, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".html")) {
           model.tokenizeHtml(
-              declaredResource,
-              new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+              declaredResource, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".xml")) {
           // Force parsing of raw xml files to get any missing keep attributes.
           // The tool keep and discard attributes are held in raw files.
