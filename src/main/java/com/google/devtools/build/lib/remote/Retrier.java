@@ -373,7 +373,7 @@ public class Retrier {
       String message =
           waitMillis >= 0
               ? "Status not retriable."
-              : "Exhaused retry attempts (" + backoff.getRetryAttempts() + ")";
+              : "Exhausted retry attempts (" + backoff.getRetryAttempts() + ")";
       RetryException error = new RetryException(message, backoff.getRetryAttempts(), e);
       outerF.setException(error);
     }
