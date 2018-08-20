@@ -284,6 +284,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkylarkSemanticsOptions skylarkSemanticsOptions,
       Path outputBase,
       Path workingDirectory,
+      String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -295,16 +296,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       resetEvaluator();
       evaluatorNeedsReset = false;
     }
-    super.sync(
-        eventHandler,
-        packageCacheOptions,
-        skylarkSemanticsOptions,
-        outputBase,
-        workingDirectory,
-        commandId,
-        clientEnv,
-        tsgm,
-        options);
+    super.sync(eventHandler, packageCacheOptions, skylarkSemanticsOptions, outputBase,
+        workingDirectory, defaultsPackageContents, commandId, clientEnv, tsgm, options);
     handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
   }
 

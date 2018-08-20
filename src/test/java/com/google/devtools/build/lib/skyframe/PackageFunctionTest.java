@@ -88,6 +88,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
+            "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -319,6 +320,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageCacheOptions,
             Options.getDefaults(SkylarkSemanticsOptions.class),
+            "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             tsgm);

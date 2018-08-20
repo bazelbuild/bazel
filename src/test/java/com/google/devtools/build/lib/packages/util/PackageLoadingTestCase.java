@@ -137,7 +137,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return ImmutableList.<EnvironmentExtension>of();
   }
 
-  protected void setUpSkyframe(RuleVisibility defaultVisibility) {
+  protected void setUpSkyframe(RuleVisibility defaultVisibility, String defaultsPackageContents) {
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.defaultVisibility = defaultVisibility;
     packageCacheOptions.showLoadingProgress = true;
@@ -149,6 +149,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageCacheOptions,
         Options.getDefaults(SkylarkSemanticsOptions.class),
+        defaultsPackageContents,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -170,6 +171,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         skylarkSemanticsOptions,
+        loadingMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -128,6 +129,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     @Override
     protected ConfiguredRuleClassProvider getDefaultRuleClassProvider() {
       return DEFAULT_RULE_CLASS_PROVIDER;
+    }
+
+    @Override
+    protected String getDefaultDefaultPackageContents() {
+      return DEFAULT_RULE_CLASS_PROVIDER.getDefaultsPackageContent(
+          InvocationPolicy.getDefaultInstance());
     }
 
     Builder setFetchForTesting() {

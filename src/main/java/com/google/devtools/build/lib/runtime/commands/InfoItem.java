@@ -550,6 +550,28 @@ public abstract class InfoItem {
     }
   }
 
+  /**
+   * Info item for the default package. It is deprecated, it still works, when
+   * explicitly requested, but are not shown by default. It prints multi-line messages and thus
+   * don't play well with grep. We don't print them unless explicitly requested.
+   * @deprecated
+   */
+  @Deprecated
+  public static final class DefaultsPackageInfoItem extends InfoItem {
+    public DefaultsPackageInfoItem() {
+      super("defaults-package",
+          "Default packages used as implicit dependencies",
+          true);
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException {
+      checkNotNull(env);
+      return print(env.getRuntime().getDefaultsPackageContent());
+    }
+  }
+
   private static AllowedRuleClassInfo getAllowedRuleClasses(
       Collection<RuleClass> ruleClasses, Attribute attr) {
     AllowedRuleClassInfo.Builder info = AllowedRuleClassInfo.newBuilder();

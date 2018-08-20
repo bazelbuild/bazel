@@ -65,7 +65,7 @@ public final class SyncCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     try {
-      env.setupPackageCache(options);
+      env.setupPackageCache(options, env.getRuntime().getDefaultsPackageContent());
       SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
