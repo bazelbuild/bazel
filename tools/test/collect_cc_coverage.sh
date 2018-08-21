@@ -38,15 +38,16 @@
 # Checks if clang llvm coverage should be used instead of lcov.
 function uses_llvm() {
   if stat "${COVERAGE_DIR}"/*.profraw >/dev/null 2>&1; then
-    return
+    return 0
   fi
-  false
+  return 1
 }
 
 function init_gcov() {
   # Symlink the gcov tool such with a link called gcov. Clang comes with a tool
   # called llvm-cov, which behaves like gcov if symlinked in this way (otherwise
   # we would need to invoke it with "llvm-cov gcov").
+  # For more details see https://llvm.org/docs/CommandGuide/llvm-cov.html.
   GCOV="${COVERAGE_DIR}/gcov"
   ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
 }

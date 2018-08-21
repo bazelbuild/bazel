@@ -52,6 +52,9 @@ import javax.annotation.Nullable;
  */
 public final class TestActionBuilder {
 
+  private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
+  private static final String LCOV_MERGER = "LCOV_MERGER";
+
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
@@ -227,7 +230,7 @@ public final class TestActionBuilder {
         Artifact collectCcCoverage =
                 ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage");
         inputsBuilder.add(collectCcCoverage);
-        extraTestEnv.put("CC_CODE_COVERAGE_SCRIPT", collectCcCoverage.getExecPathString());
+        extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
 
       // We don't add this attribute to non-supported test target
@@ -236,7 +239,7 @@ public final class TestActionBuilder {
             ruleContext.getPrerequisite("$lcov_merger", Mode.TARGET);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
         if (lcovFilesToRun != null) {
-          extraTestEnv.put("LCOV_MERGER", lcovFilesToRun.getExecutable().getExecPathString());
+          extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
         } else {
           NestedSet<Artifact> filesToBuild =
@@ -244,7 +247,7 @@ public final class TestActionBuilder {
 
           if (Iterables.size(filesToBuild) == 1) {
             Artifact lcovMergerArtifact = Iterables.getOnlyElement(filesToBuild);
-            extraTestEnv.put("LCOV_MERGER", lcovMergerArtifact.getExecPathString());
+            extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
             inputsBuilder.add(lcovMergerArtifact);
           } else {
             ruleContext.attributeError("$lcov_merger",
