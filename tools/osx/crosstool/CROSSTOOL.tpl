@@ -718,6 +718,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -2375,6 +2376,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -4039,6 +4041,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -5706,6 +5709,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -7400,6 +7404,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -9064,6 +9069,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -10716,6 +10722,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -12371,6 +12378,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -14053,6 +14061,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -15706,6 +15715,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
