@@ -488,7 +488,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "gcov",
         "GCOV",
         overriden_tools,
-        warn = True,
     )
     if darwin:
         overriden_tools["gcc"] = "cc_wrapper.sh"
