@@ -86,7 +86,7 @@ function lcov_coverage() {
   sed -i -e "s*/proc/self/cwd/**g" "${COVERAGE_OUTPUT_FILE}"
 }
 
-function compute_coverage() {
+function main() {
   init_gcov
   if uses_llvm; then
     llvm_coverage
@@ -95,4 +95,4 @@ function compute_coverage() {
   fi
 }
 
-compute_coverage
+main

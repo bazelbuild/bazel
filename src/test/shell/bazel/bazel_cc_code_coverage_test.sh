@@ -23,12 +23,12 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function setup_cc_sources() {
-  mkdir -p coverage
-  cat << EOF > coverage/a.h
+  mkdir -p coverage_srcs/
+  cat << EOF > coverage_srcs/a.h
 int a(bool what);
 EOF
 
-  cat << EOF > coverage/a.cc
+  cat << EOF > coverage_srcs/a.cc
 #include "a.h"
 
 int a(bool what) {
@@ -40,7 +40,7 @@ int a(bool what) {
 }
 EOF
 
-  cat << EOF > coverage/t.cc
+  cat << EOF > coverage_srcs/t.cc
 #include <stdio.h>
 #include "a.h"
 
@@ -51,29 +51,37 @@ EOF
 }
 
 function generate_gcc_and_gcda_files() {
-  cd coverage/
   # Generate .gcno files.
-  g++ -fprofile-arcs -ftest-coverage -c a.h a.cc t.cc
+  g++ -fprofile-arcs -ftest-coverage -c coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
   # Produce instrumented binary.
-  g++ -fprofile-arcs -ftest-coverage a.h a.cc t.cc -o test
-  # Generate test.gcda file.
-  ./test
-  cd ..
+  g++ -fprofile-arcs -ftest-coverage coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc -o ./coverage_srcs/test
+  # Execute the test and generate test.gcda file.
+  ./coverage_srcs/test
 }
 
-function setup_script_environment() {
-  export COVERAGE_DIR="$PWD/coverage"
+function set_up() {
+  check_env
+  export COVERAGE_DIR="$PWD"
+  mkdir -p $COVERAGE_DIR
+  export COVERAGE_GCOV_PATH="$PWD/mygcov"
   export ROOT="$PWD"
   export COVERAGE_OUTPUT_FILE="$PWD/coverage_report.dat"
   export COVERAGE_MANIFEST="$PWD/coverage_manifest.txt"
 
-  # The script expects gcov to be at $COVERAGE_DIR/gcov.
+  # The script expects gcov to be at $COVERAGE_GCOV_PATH.
   gcov_location=$( which gcov )
-  cp $gcov_location $COVERAGE_DIR/gcov
+  cp $gcov_location $COVERAGE_GCOV_PATH
 
   # The script expects the output file to already exist.
   touch $COVERAGE_OUTPUT_FILE
-  echo "coverage/a.gcno" >> $COVERAGE_MANIFEST
+  echo "coverage_srcs/a.gcno" >> $COVERAGE_MANIFEST
+
+  setup_cc_sources
+  generate_gcc_and_gcda_files
+}
+
+function tear_down() {
+  rm -rf coverage_srcs/
 }
 
 function check_env() {
@@ -91,18 +99,13 @@ function check_env() {
 }
 
 function test_cc_test_coverage() {
-  check_env
-
-  setup_cc_sources
-  generate_gcc_and_gcda_files
-  setup_script_environment
   $(tools/test/collect_cc_coverage.sh) >> $TEST_log
 
   # After running the test in t.cc, the sources covered are the test itself and
   # the source file a.cc.
   cat <<EOF > expected_result.dat
 TN:
-SF:a.cc
+SF:coverage_srcs/a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
@@ -115,7 +118,7 @@ LF:4
 LH:3
 end_of_record
 TN:
-SF:t.cc
+SF:coverage_srcs/t.cc
 FN:4,main
 FNDA:1,main
 FNF:1
