@@ -20,6 +20,8 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +33,38 @@ import java.util.List;
 
 /** Helper class for work with java.nio.file.Path. */
 public class PathUtils {
+  /**
+   * Recursively delete a directory in a supposition that it might be still used by external
+   * process. (i.e. shutting down Bazel) Does not follow the symbolic links.
+   */
+  public static void deleteTreeWithRetry(final Path directory) throws IOException {
+    if (OS.WINDOWS.equals(OS.getCurrent())) {
+      // We are doing multiple attempts for deleting the directory, because on Windows
+      // files, still opened by the external process, can not be deleted.
+      // This behavior is a copy of shell integration tests behavior as of 2018/08/17.
+      int attempt = 120;
+      while (true) {
+        try {
+          deleteTree(directory);
+          return;
+        } catch (IOException e) {
+          --attempt;
+          if (attempt <= 0) {
+            throw e;
+          }
+          try {
+            Thread.sleep(500);
+          } catch (InterruptedException e1) {
+            // The user interrupted; propagate interruption status.
+            Thread.currentThread().interrupt();
+          }
+        }
+      }
+    } else {
+      deleteTree(directory);
+    }
+  }
+
   /** Recursively delete a directory. Does not follow the symbolic links. */
   public static void deleteTree(final Path directory) throws IOException {
     if (Files.exists(directory)) {
@@ -40,7 +74,33 @@ public class PathUtils {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
                 throws IOException {
-              Files.delete(file);
+              try {
+                Files.delete(file);
+              } catch (AccessDeniedException e) {
+                if (!file.toFile().setWritable(true)) {
+                  throw new IOException(
+                      String.format("Can not make %s writeable", file.toAbsolutePath().toString()));
+                }
+                Files.delete(file);
+              }
+              return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+                throws IOException {
+              // The code here is necessary to address the problem of deleting
+              // junction (symlink) directories on Windows (which might point to non-existing
+              // directory already and by that reason can not be read as directory
+              // (Files.walkFileTree does not detect that it is a symlink on Windows)).
+              try {
+                if (Files.deleteIfExists(dir)) {
+                  // `dir` was an empty directory or a junction (= directory symlink).
+                  return FileVisitResult.SKIP_SUBTREE;
+                }
+              } catch (DirectoryNotEmptyException e) {
+                // `dir` was a non-empty directory. Proceed to visit its children.
+              }
               return FileVisitResult.CONTINUE;
             }
 

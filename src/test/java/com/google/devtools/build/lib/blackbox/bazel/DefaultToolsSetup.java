@@ -27,7 +27,7 @@ public class DefaultToolsSetup implements ToolsSetup {
     Path outputRoot = Files.createTempDirectory(context.getTmpDir(), "root").toAbsolutePath();
     context.write(
         ".bazelrc",
-        "startup --output_user_root=" + outputRoot.toString(),
-        "build -j 8"); // TODO(ichern) not sure about this option, copying from the existing shell
+        "startup --output_user_root=" + outputRoot.toString().replace('\\', '/'),
+        "build -j 8");
   }
 }

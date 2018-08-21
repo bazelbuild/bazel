@@ -86,7 +86,7 @@ public abstract class AbstractBlackBoxTest {
       } finally {
         Path workDir = context.getWorkDir();
         if (workDir != null) {
-          PathUtils.deleteTree(workDir);
+          PathUtils.deleteTreeWithRetry(workDir);
         }
       }
     }
