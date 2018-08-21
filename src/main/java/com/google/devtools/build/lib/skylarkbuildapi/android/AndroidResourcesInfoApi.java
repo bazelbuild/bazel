@@ -79,7 +79,7 @@ public interface AndroidResourcesInfoApi<
   @SkylarkCallable(name = "transitive_resources", doc = "", documented = false, structField = true)
   NestedSet<FileT> getTransitiveResources();
 
-  @SkylarkCallable(name = "transitive_resources", doc = "", documented = false, structField = true)
+  @SkylarkCallable(name = "transitive_manifests", doc = "", documented = false, structField = true)
   NestedSet<FileT> getTransitiveManifests();
 
   @SkylarkCallable(
