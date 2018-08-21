@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.blackbox.bazel;
 
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
-import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,12 +24,7 @@ import java.nio.file.Path;
 public class DefaultToolsSetup implements ToolsSetup {
   @Override
   public void setup(BlackBoxTestContext context) throws IOException {
-    Path tools = context.getWorkDir().resolve("tools");
-    PathUtils.copyTree(RunfilesUtil.find("io_bazel/tools/BUILD").getParent(), tools);
-
-    context.write("tools/defaults/BUILD");
-
-    Path outputRoot = Files.createTempDirectory(context.getWorkDir(), "root").toAbsolutePath();
+    Path outputRoot = Files.createTempDirectory(context.getTmpDir(), "root").toAbsolutePath();
     context.write(
         ".bazelrc",
         "startup --output_user_root=" + outputRoot.toString(),

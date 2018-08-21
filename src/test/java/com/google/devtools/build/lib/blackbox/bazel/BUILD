@@ -6,6 +6,22 @@ package_group(
 )
 
 java_library(
+    name = "context",
+    testonly = 1,
+    srcs = [
+        "BlackBoxTestEnvironmentImpl.java",
+    ],
+    visibility = [
+        ":tests",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/junit:__pkg__",
+    ],
+    deps = [
+        ":common_tools_deps",
+        ":default",
+    ],
+)
+
+java_library(
     name = "common_tools_deps",
     testonly = 1,
     srcs = [

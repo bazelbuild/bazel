@@ -24,8 +24,10 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__pkg__"],
     deps = [
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
+        "//src/test/java/com/google/devtools/build/lib/blackbox:test_deps",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/bazel:common_tools",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/bazel:context",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/framework",
     ],
 )
