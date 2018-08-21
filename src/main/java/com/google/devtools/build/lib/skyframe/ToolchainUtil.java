@@ -103,7 +103,7 @@ public class ToolchainUtil {
       return null;
     }
     Label hostPlatformLabel = platformConfiguration.getHostPlatform();
-    Label targetPlatformLabel = platformConfiguration.getTargetPlatforms().get(0);
+    Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
 
     ConfiguredTargetKey hostPlatformKey = ConfiguredTargetKey.of(hostPlatformLabel, configuration);
     ConfiguredTargetKey targetPlatformKey =
