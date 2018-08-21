@@ -841,6 +841,15 @@ public class CppOptions extends FragmentOptions {
   public boolean enableCcToolchainFromCrosstool;
 
   @Option(
+      name = "experimental_enable_cc_toolchain_config_info",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, Bazel will allow creating a CcToolchainConfigInfo.")
+  public boolean enableCcToolchainConfigInfoFromSkylark;
+
+  @Option(
       name = "experimental_includes_attribute_subpackage_traversal",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

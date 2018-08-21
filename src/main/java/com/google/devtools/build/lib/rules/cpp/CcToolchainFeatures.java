@@ -102,17 +102,14 @@ public class CcToolchainFeatures implements Serializable {
   public static final String COLLIDING_PROVIDES_ERROR =
       "Symbol %s is provided by all of the following features: %s";
 
-  /**
-   * A single flag to be expanded under a set of variables.
-   */
+  /** A single flag to be expanded under a set of variables. */
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class Flag implements Serializable, Expandable {
+  public static class Flag implements Serializable, Expandable {
     private final ImmutableList<StringChunk> chunks;
 
-    @VisibleForSerialization
-    Flag(ImmutableList<StringChunk> chunks) {
+    public Flag(ImmutableList<StringChunk> chunks) {
       this.chunks = chunks;
     }
 
@@ -196,8 +193,7 @@ public class CcToolchainFeatures implements Serializable {
   /** A single environment key/value pair to be expanded under a set of variables. */
   @Immutable
   @AutoCodec
-  @VisibleForSerialization
-  static class EnvEntry implements Serializable {
+  public static class EnvEntry implements Serializable {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
 
@@ -208,8 +204,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+    public EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
       this.key = key;
       this.valueChunks = valueChunks;
     }
@@ -246,10 +241,10 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /** Used for equality check between a variable and a specific value. */
   @Immutable
   @AutoCodec
-  @VisibleForSerialization
-  static class VariableWithValue {
+  public static class VariableWithValue {
     public final String variable;
     public final String value;
 
@@ -266,7 +261,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class FlagGroup implements Serializable, Expandable {
+  public static class FlagGroup implements Serializable, Expandable {
     private final ImmutableList<Expandable> expandables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
@@ -463,7 +458,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class FlagSet implements Serializable {
+  public static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
@@ -493,8 +488,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    FlagSet(
+    public FlagSet(
         ImmutableSet<String> actions,
         ImmutableSet<String> expandIfAllAvailable,
         ImmutableSet<WithFeatureSet> withFeatureSets,
@@ -546,10 +540,14 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /**
+   * A set of positive and negative features. This stanza will evaluate to true when every 'feature'
+   * is enabled, and every 'not_feature' is not enabled.
+   */
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class WithFeatureSet implements Serializable {
+  public static class WithFeatureSet implements Serializable {
     private final ImmutableSet<String> features;
     private final ImmutableSet<String> notFeatures;
 
@@ -559,8 +557,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
+    public WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
       this.features = features;
       this.notFeatures = notFeatures;
     }
@@ -596,7 +593,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class EnvSet implements Serializable {
+  public static class EnvSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
@@ -617,8 +614,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    EnvSet(
+    public EnvSet(
         ImmutableSet<String> actions,
         ImmutableList<EnvEntry> envEntries,
         ImmutableSet<WithFeatureSet> withFeatureSets) {
@@ -685,7 +681,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class Feature implements Serializable, CrosstoolSelectable {
+  public static class Feature implements Serializable, CrosstoolSelectable {
     private static final Interner<Feature> FEATURE_INTERNER = BlazeInterners.newWeakInterner();
 
     private final String name;
@@ -721,7 +717,7 @@ public class CcToolchainFeatures implements Serializable {
       this.provides = ImmutableList.copyOf(feature.getProvidesList());
     }
 
-    private Feature(
+    public Feature(
         String name,
         ImmutableList<FlagSet> flagSets,
         ImmutableList<EnvSet> envSets,
@@ -890,7 +886,7 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   @AutoCodec
-  static class ActionConfig implements Serializable, CrosstoolSelectable {
+  public static class ActionConfig implements Serializable, CrosstoolSelectable {
     public static final String FLAG_SET_WITH_ACTION_ERROR =
         "action_config %s specifies actions.  An action_config's flag sets automatically apply "
             + "to the configured action.  Thus, you must not specify action lists in an "
@@ -938,7 +934,7 @@ public class CcToolchainFeatures implements Serializable {
       this.implies = ImmutableList.copyOf(actionConfig.getImpliesList());
     }
 
-    private ActionConfig(
+    public ActionConfig(
         String configName,
         String actionName,
         ImmutableList<Tool> tools,
@@ -1045,7 +1041,7 @@ public class CcToolchainFeatures implements Serializable {
 
   /** A description of how artifacts of a certain type are named. */
   @Immutable
-  static class ArtifactNamePattern {
+  public static class ArtifactNamePattern {
 
     private final ArtifactCategory artifactCategory;
     private final String prefix;
@@ -1080,6 +1076,12 @@ public class CcToolchainFeatures implements Serializable {
       this.artifactCategory = foundCategory;
       this.prefix = artifactNamePattern.getPrefix();
       this.extension = artifactNamePattern.getExtension();
+    }
+
+    public ArtifactNamePattern(ArtifactCategory artifactCategory, String prefix, String extension) {
+      this.artifactCategory = artifactCategory;
+      this.prefix = prefix;
+      this.extension = extension;
     }
 
     /** Returns the ArtifactCategory for this ArtifactNamePattern. */

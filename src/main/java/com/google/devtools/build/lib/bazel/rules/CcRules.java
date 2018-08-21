@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
@@ -80,6 +81,7 @@ public class CcRules implements RuleSet {
     builder.addSkylarkBootstrap(new CcBootstrap(new BazelCcModule()));
     builder.addSkylarkAccessibleTopLevels("CcCompilationInfo", CcCompilationInfo.PROVIDER);
     builder.addSkylarkAccessibleTopLevels("CcLinkingInfo", CcLinkingInfo.PROVIDER);
+    builder.addSkylarkAccessibleTopLevels("CcToolchainConfigInfo", CcToolchainConfigInfo.PROVIDER);
   }
 
   @Override

@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -31,28 +34,47 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ArtifactNamePattern;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcSkylarkInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /** A module that contains Skylark utilities for C++ support. */
@@ -545,5 +567,877 @@ public class CcModule
     return o instanceof SkylarkNestedSet
         ? ((SkylarkNestedSet) o).getSet(type)
         : NestedSetBuilder.wrap(Order.COMPILE_ORDER, (SkylarkList<T>) o);
+  }
+
+  @SkylarkCallable(
+      name = "create_cc_toolchain_config_info",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."),
+        @Param(
+            name = "features",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "action_configs",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "artifact_name_patterns",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "cxx_builtin_include_directories",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "toolchain_identifier",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "host_system_name",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "target_system_name",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "target_cpu",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "target_libc",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "compiler",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "abi_version",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "abi_libc_version",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "supports_gold_linker",
+            positional = false,
+            defaultValue = "False",
+            type = Boolean.class,
+            named = true),
+        @Param(
+            name = "supports_start_end_lib",
+            positional = false,
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true),
+        @Param(
+            name = "supports_interface_shared_objects",
+            positional = false,
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true),
+        @Param(
+            name = "supports_embedded_filegroup",
+            positional = false,
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true),
+        @Param(
+            name = "static_runtime_filegroup",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "dynamic_runtime_filegroup",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "supports_fission",
+            positional = false,
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true),
+        @Param(
+            name = "supports_dsym",
+            positional = false,
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true),
+        @Param(
+            name = "needs_pic",
+            positional = false,
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true),
+        @Param(
+            name = "tool_paths",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "compiler_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "cxx_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "unfiltered_cxx_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "linker_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "dynamic_library_linker_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "test_only_linker_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "objcopy_embed_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "ld_embed_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "compilation_mode_compiler_flags",
+            positional = false,
+            named = true,
+            defaultValue = "{}",
+            type = SkylarkDict.class),
+        @Param(
+            name = "compilation_mode_cxx_flags",
+            positional = false,
+            named = true,
+            defaultValue = "{}",
+            type = SkylarkDict.class),
+        @Param(
+            name = "compilation_mode_linker_flags",
+            positional = false,
+            named = true,
+            defaultValue = "{}",
+            type = SkylarkDict.class),
+        @Param(
+            name = "mostly_static_linking_mode_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "dynamic_linking_mode_flags",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            noneable = true,
+            allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = NoneType.class)
+            }),
+        @Param(
+            name = "fully_static_linking_mode_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "mostly_static_libraries_linking_mode_flags",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "make_variables",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = SkylarkList.class),
+        @Param(
+            name = "builtin_sysroot",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "default_libc_top",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+        @Param(
+            name = "cc_target_os",
+            positional = false,
+            noneable = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            named = true),
+      })
+  public CcToolchainConfigInfo ccToolchainConfigInfoFromSkylark(
+      SkylarkRuleContext skylarkRuleContext,
+      SkylarkList<Object> features,
+      SkylarkList<Object> actionConfigs,
+      SkylarkList<Object> artifactNamePatterns,
+      SkylarkList<String> cxxBuiltInIncludeDirectories,
+      Object toolchhainIdentifier,
+      Object hostSystemName,
+      Object targetSystemName,
+      Object targetCpu,
+      Object targetLibc,
+      Object compiler,
+      Object abiVersion,
+      Object abiLibcVersion,
+      Boolean supportsGoldLinker,
+      Boolean supportsStartEndLib,
+      Boolean supportsInterfaceSharedObjects,
+      Boolean supportsEmbeddedRuntimes,
+      Object staticRuntimesFilegroup,
+      Object dynamicRuntimesFilegroup,
+      Boolean supportsFission,
+      Boolean supportsDsym,
+      Boolean needsPic,
+      SkylarkList<Object> toolPaths,
+      SkylarkList<String> compilerFlags,
+      SkylarkList<String> cxxFlags,
+      SkylarkList<String> unfilteredCxxFlags,
+      SkylarkList<String> linkerFlags,
+      SkylarkList<String> dynamicLibraryLinkerFlags,
+      SkylarkList<String> testOnlyLinkerFlags,
+      SkylarkList<String> objcopyEmbedFlags,
+      SkylarkList<String> ldEmbedFlags,
+      Object compilationModeCompilerFlagsUnchecked,
+      Object compilationModeCxxFlagsUnchecked,
+      Object compilationModeLinkerFlagsUnchecked,
+      SkylarkList<String> mostlyStaticLinkingModeFlags,
+      Object dynamicLinkingModeFlags,
+      SkylarkList<String> fullyStaticLinkingModeFlags,
+      SkylarkList<String> mostlyStaticLibrariesLinkingModeFlags,
+      SkylarkList<Object> makeVariables,
+      Object builtinSysroot,
+      Object defaultLibcTop,
+      Object ccTargetOs)
+      throws InvalidConfigurationException, EvalException {
+
+    CppConfiguration config =
+        skylarkRuleContext.getConfiguration().getFragment(CppConfiguration.class);
+    if (!config.enableCcToolchainConfigInfoFromSkylark()) {
+      throw new InvalidConfigurationException("Creating a CcToolchainConfigInfo is not enabled.");
+    }
+
+    ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
+    for (Object feature : features) {
+      featureBuilder.add(featureFromSkylark((SkylarkInfo) feature));
+    }
+
+    ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
+    for (Object actionConfig : actionConfigs) {
+      actionConfigBuilder.add(actionConfigFromSkylark((SkylarkInfo) actionConfig));
+    }
+
+    ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternBuilder = ImmutableList.builder();
+    for (Object artifactNamePattern : artifactNamePatterns) {
+      artifactNamePatternBuilder.add(
+          artifactNamePatternFromSkylark((SkylarkInfo) artifactNamePattern));
+    }
+
+    ImmutableList.Builder<Pair<String, String>> toolPathPairs = ImmutableList.builder();
+    for (Object toolPath : toolPaths) {
+      toolPathPairs.add(toolPathFromSkylark((SkylarkInfo) toolPath));
+    }
+
+    ImmutableList.Builder<Pair<String, String>> makeVariablePairs = ImmutableList.builder();
+    for (Object makeVariable : makeVariables) {
+      makeVariablePairs.add(makeVariableFromSkylark((SkylarkInfo) makeVariable));
+    }
+
+    SkylarkList<String> dynamicModeFlags =
+        convertFromNoneable(dynamicLinkingModeFlags, /* defaultValue= */ null);
+    boolean hasDynamicLinkingModeFlags = dynamicModeFlags != null;
+
+    return new CcToolchainConfigInfo(
+        actionConfigBuilder.build(),
+        featureBuilder.build(),
+        artifactNamePatternBuilder.build(),
+        ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
+        convertFromNoneable(toolchhainIdentifier, /* defaultValue= */ null),
+        convertFromNoneable(hostSystemName, /* defaultValue= */ null),
+        convertFromNoneable(targetSystemName, /* defaultValue= */ null),
+        convertFromNoneable(targetCpu, /* defaultValue= */ null),
+        convertFromNoneable(targetLibc, /* defaultValue= */ null),
+        convertFromNoneable(compiler, /* defaultValue= */ null),
+        convertFromNoneable(abiVersion, /* defaultValue= */ null),
+        convertFromNoneable(abiLibcVersion, /* defaultValue= */ null),
+        supportsGoldLinker,
+        supportsStartEndLib,
+        supportsInterfaceSharedObjects,
+        supportsEmbeddedRuntimes,
+        convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ null),
+        convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ null),
+        supportsFission,
+        supportsDsym,
+        needsPic,
+        toolPathPairs.build(),
+        ImmutableList.copyOf(compilerFlags),
+        ImmutableList.copyOf(cxxFlags),
+        ImmutableList.copyOf(unfilteredCxxFlags),
+        ImmutableList.copyOf(linkerFlags),
+        ImmutableList.copyOf(dynamicLibraryLinkerFlags),
+        ImmutableList.copyOf(testOnlyLinkerFlags),
+        ImmutableList.copyOf(objcopyEmbedFlags),
+        ImmutableList.copyOf(ldEmbedFlags),
+        getCompilationModeFlagsFromSkylark(
+            compilationModeCompilerFlagsUnchecked, "compilation_mode_compiler_flags"),
+        getCompilationModeFlagsFromSkylark(
+            compilationModeCxxFlagsUnchecked, "compilation_mode_cxx_flags"),
+        getCompilationModeFlagsFromSkylark(
+            compilationModeLinkerFlagsUnchecked, "compilation_mode_linker_flags"),
+        ImmutableList.copyOf(mostlyStaticLinkingModeFlags),
+        hasDynamicLinkingModeFlags ? ImmutableList.copyOf(dynamicModeFlags) : ImmutableList.of(),
+        ImmutableList.copyOf(fullyStaticLinkingModeFlags),
+        ImmutableList.copyOf(mostlyStaticLibrariesLinkingModeFlags),
+        makeVariablePairs.build(),
+        convertFromNoneable(builtinSysroot, /* defaultValue= */ null),
+        convertFromNoneable(defaultLibcTop, /* defaultValue= */ null),
+        convertFromNoneable(ccTargetOs, /* defaultValue= */ null),
+        hasDynamicLinkingModeFlags);
+  }
+
+  /** Checks whether the {@link SkylarkInfo} is of the required type. */
+  private static void checkRightProviderType(SkylarkInfo provider, String type)
+      throws EvalException {
+    String providerType = (String) provider.getValueOrNull("type_name");
+    if (providerType == null) {
+      providerType = provider.getProvider().getPrintableName();
+    }
+    if (!provider.hasField("type_name") || !provider.getValue("type_name").equals(type)) {
+      throw new EvalException(
+          provider.getCreationLoc(),
+          String.format("Expected object of type '%s', received '%s'.", type, providerType));
+    }
+  }
+
+  /** Creates a {@link Feature} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static Feature featureFromSkylark(SkylarkInfo featureStruct)
+      throws InvalidConfigurationException, EvalException {
+    checkRightProviderType(featureStruct, "feature");
+    String name = getFieldFromSkylarkProvider(featureStruct, "name", String.class);
+    Boolean enabled = getFieldFromSkylarkProvider(featureStruct, "enabled", Boolean.class);
+    if (name == null || (name.isEmpty() && !enabled)) {
+      throw new EvalException(
+          featureStruct.getCreationLoc(),
+          "A feature must either have a nonempty 'name' field or be enabled.");
+    }
+
+    if (!name.matches("^[_a-z]*$")) {
+      throw new EvalException(
+          featureStruct.getCreationLoc(),
+          String.format(
+              "A feature's name must consist solely of lowercase letters and '_', got '%s'", name));
+    }
+
+    ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
+    ImmutableList<SkylarkInfo> flagSets =
+        getSkylarkProviderListFromSkylarkField(featureStruct, "flag_sets");
+    for (SkylarkInfo flagSet : flagSets) {
+      flagSetBuilder.add(flagSetFromSkylark(flagSet));
+    }
+
+    ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
+    ImmutableList<SkylarkInfo> envSets =
+        getSkylarkProviderListFromSkylarkField(featureStruct, "env_sets");
+    for (SkylarkInfo envSet : envSets) {
+      envSetBuilder.add(envSetFromSkylark(envSet));
+    }
+
+    ImmutableList.Builder<ImmutableSet<String>> requiresBuilder = ImmutableList.builder();
+
+    ImmutableList<SkylarkInfo> requires =
+        getSkylarkProviderListFromSkylarkField(featureStruct, "requires");
+    for (SkylarkInfo featureSetStruct : requires) {
+      if (!featureSetStruct.hasField("type_name")
+          || !featureSetStruct.getValue("type_name").equals("feature_set")) {
+        throw new EvalException(
+            featureStruct.getCreationLoc(), "expected object of type 'feature_set'.");
+      }
+      ImmutableSet<String> featureSet =
+          getStringSetFromSkylarkProviderField(featureSetStruct, "features");
+      requiresBuilder.add(featureSet);
+    }
+
+    ImmutableList<String> implies = getStringListFromSkylarkProviderField(featureStruct, "implies");
+
+    ImmutableList<String> provides =
+        getStringListFromSkylarkProviderField(featureStruct, "provides");
+
+    return new Feature(
+        name,
+        flagSetBuilder.build(),
+        envSetBuilder.build(),
+        enabled,
+        requiresBuilder.build(),
+        implies,
+        provides);
+  }
+
+  /**
+   * Creates a Pair(name, value) that represents a {@link
+   * com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeVariable} from a {@link
+   * SkylarkInfo}.
+   */
+  @VisibleForTesting
+  static Pair<String, String> makeVariableFromSkylark(SkylarkInfo makeVariableStruct)
+      throws EvalException {
+    checkRightProviderType(makeVariableStruct, "make_variable");
+    String name = getFieldFromSkylarkProvider(makeVariableStruct, "name", String.class);
+    String value = getFieldFromSkylarkProvider(makeVariableStruct, "value", String.class);
+    if (name == null || name.isEmpty()) {
+      throw new EvalException(
+          makeVariableStruct.getCreationLoc(),
+          "'name' parameter of make_variable must be a nonempty string.");
+    }
+    if (value == null || value.isEmpty()) {
+      throw new EvalException(
+          makeVariableStruct.getCreationLoc(),
+          "'value' parameter of make_variable must be a nonempty string.");
+    }
+    return Pair.of(name, value);
+  }
+
+  /**
+   * Creates a Pair(name, path) that represents a {@link
+   * com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath} from a {@link
+   * SkylarkInfo}.
+   */
+  @VisibleForTesting
+  static Pair<String, String> toolPathFromSkylark(SkylarkInfo toolPathStruct) throws EvalException {
+    checkRightProviderType(toolPathStruct, "tool_path");
+    String name = getFieldFromSkylarkProvider(toolPathStruct, "name", String.class);
+    String path = getFieldFromSkylarkProvider(toolPathStruct, "path", String.class);
+    if (name == null || name.isEmpty()) {
+      throw new EvalException(
+          toolPathStruct.getCreationLoc(),
+          "'name' parameter of tool_path must be a nonempty string.");
+    }
+    if (path == null || path.isEmpty()) {
+      throw new EvalException(
+          toolPathStruct.getCreationLoc(),
+          "'path' parameter of tool_path must be a nonempty string.");
+    }
+    return Pair.of(name, path);
+  }
+
+  /** Creates a {@link VariableWithValue} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static VariableWithValue variableWithValueFromSkylark(SkylarkInfo variableWithValueStruct)
+      throws EvalException {
+    checkRightProviderType(variableWithValueStruct, "variable_with_value");
+    String name = getFieldFromSkylarkProvider(variableWithValueStruct, "name", String.class);
+    String value = getFieldFromSkylarkProvider(variableWithValueStruct, "value", String.class);
+    if (name == null || name.isEmpty()) {
+      throw new EvalException(
+          variableWithValueStruct.getCreationLoc(),
+          "'name' parameter of variable_with_value must be a nonempty string.");
+    }
+    if (value == null || value.isEmpty()) {
+      throw new EvalException(
+          variableWithValueStruct.getCreationLoc(),
+          "'value' parameter of variable_with_value must be a nonempty string.");
+    }
+    return new VariableWithValue(name, value);
+  }
+
+  /** Creates an {@link EnvEntry} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static EnvEntry envEntryFromSkylark(SkylarkInfo envEntryStruct)
+      throws InvalidConfigurationException, EvalException {
+    checkRightProviderType(envEntryStruct, "env_entry");
+    String key = getFieldFromSkylarkProvider(envEntryStruct, "key", String.class);
+    String value = getFieldFromSkylarkProvider(envEntryStruct, "value", String.class);
+    if (key == null || key.isEmpty()) {
+      throw new EvalException(
+          envEntryStruct.getCreationLoc(),
+          "'key' parameter of env_entry must be a nonempty string.");
+    }
+    if (value == null || value.isEmpty()) {
+      throw new EvalException(
+          envEntryStruct.getCreationLoc(),
+          "'value' parameter of env_entry must be a nonempty string.");
+    }
+    StringValueParser parser = new StringValueParser(value);
+    return new EnvEntry(key, parser.getChunks());
+  }
+
+  /** Creates a {@link WithFeatureSet} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static WithFeatureSet withFeatureSetFromSkylark(SkylarkInfo withFeatureSetStruct)
+      throws EvalException {
+    checkRightProviderType(withFeatureSetStruct, "with_feature_set");
+    ImmutableSet<String> features =
+        getStringSetFromSkylarkProviderField(withFeatureSetStruct, "features");
+    ImmutableSet<String> notFeatures =
+        getStringSetFromSkylarkProviderField(withFeatureSetStruct, "not_features");
+    return new WithFeatureSet(features, notFeatures);
+  }
+
+  /** Creates an {@link EnvSet} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static EnvSet envSetFromSkylark(SkylarkInfo envSetStruct)
+      throws InvalidConfigurationException, EvalException {
+    checkRightProviderType(envSetStruct, "env_set");
+    ImmutableSet<String> actions = getStringSetFromSkylarkProviderField(envSetStruct, "actions");
+    if (actions.isEmpty()) {
+      throw new EvalException(
+          envSetStruct.getCreationLoc(), "actions parameter of env_set must be a nonempty list.");
+    }
+    ImmutableList.Builder<EnvEntry> envEntryBuilder = ImmutableList.builder();
+    ImmutableList<SkylarkInfo> envEntryStructs =
+        getSkylarkProviderListFromSkylarkField(envSetStruct, "env_entries");
+    for (SkylarkInfo envEntryStruct : envEntryStructs) {
+      envEntryBuilder.add(envEntryFromSkylark(envEntryStruct));
+    }
+
+    ImmutableSet.Builder<WithFeatureSet> withFeatureSetBuilder = ImmutableSet.builder();
+    ImmutableList<SkylarkInfo> withFeatureSetStructs =
+        getSkylarkProviderListFromSkylarkField(envSetStruct, "with_features");
+    for (SkylarkInfo withFeatureSetStruct : withFeatureSetStructs) {
+      withFeatureSetBuilder.add(withFeatureSetFromSkylark(withFeatureSetStruct));
+    }
+    return new EnvSet(actions, envEntryBuilder.build(), withFeatureSetBuilder.build());
+  }
+
+  /** Creates a {@link FlagGroup} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static FlagGroup flagGroupFromSkylark(SkylarkInfo flagGroupStruct)
+      throws InvalidConfigurationException, EvalException {
+    checkRightProviderType(flagGroupStruct, "flag_group");
+
+    ImmutableList.Builder<Expandable> expandableBuilder = ImmutableList.builder();
+    ImmutableList<String> flags = getStringListFromSkylarkProviderField(flagGroupStruct, "flags");
+    for (String flag : flags) {
+      StringValueParser parser = new StringValueParser(flag);
+      expandableBuilder.add(new Flag(parser.getChunks()));
+    }
+
+    ImmutableList<SkylarkInfo> flagGroups =
+        getSkylarkProviderListFromSkylarkField(flagGroupStruct, "flag_groups");
+    for (SkylarkInfo flagGroup : flagGroups) {
+      expandableBuilder.add(flagGroupFromSkylark(flagGroup));
+    }
+
+    if (flagGroups.size() > 0 && flags.size() > 0) {
+      throw new EvalException(
+          flagGroupStruct.getCreationLoc(),
+          "flag_group must contain either a list of flags or a list of flag_groups.");
+    }
+
+    if (flagGroups.size() == 0 && flags.size() == 0) {
+      throw new EvalException(
+          flagGroupStruct.getCreationLoc(), "Both 'flags' and 'flag_groups' are empty.");
+    }
+
+    String iterateOver = getFieldFromSkylarkProvider(flagGroupStruct, "iterate_over", String.class);
+    String expandIfAvailable =
+        getFieldFromSkylarkProvider(flagGroupStruct, "expand_if_available", String.class);
+    String expandIfNotAvailable =
+        getFieldFromSkylarkProvider(flagGroupStruct, "expand_if_not_available", String.class);
+    String expandIfTrue =
+        getFieldFromSkylarkProvider(flagGroupStruct, "expand_if_true", String.class);
+    String expandIfFalse =
+        getFieldFromSkylarkProvider(flagGroupStruct, "expand_if_false", String.class);
+    SkylarkInfo expandIfEqualStruct =
+        getFieldFromSkylarkProvider(flagGroupStruct, "expand_if_equal", SkylarkInfo.class);
+    VariableWithValue expandIfEqual =
+        expandIfEqualStruct == null ? null : variableWithValueFromSkylark(expandIfEqualStruct);
+
+    return new FlagGroup(
+        expandableBuilder.build(),
+        iterateOver,
+        expandIfAvailable == null ? ImmutableSet.of() : ImmutableSet.of(expandIfAvailable),
+        expandIfNotAvailable == null ? ImmutableSet.of() : ImmutableSet.of(expandIfNotAvailable),
+        expandIfTrue,
+        expandIfFalse,
+        expandIfEqual);
+  }
+
+  /** Creates a {@link FlagSet} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static FlagSet flagSetFromSkylark(SkylarkInfo flagSetStruct)
+      throws InvalidConfigurationException, EvalException {
+    checkRightProviderType(flagSetStruct, "flag_set");
+    ImmutableSet<String> actions = getStringSetFromSkylarkProviderField(flagSetStruct, "actions");
+    if (actions.isEmpty()) {
+      throw new EvalException(
+          flagSetStruct.getCreationLoc(), "'actions' field of flag_set must be a nonempty list.");
+    }
+    ImmutableList.Builder<FlagGroup> flagGroupsBuilder = ImmutableList.builder();
+    ImmutableList<SkylarkInfo> flagGroups =
+        getSkylarkProviderListFromSkylarkField(flagSetStruct, "flag_groups");
+    for (SkylarkInfo flagGroup : flagGroups) {
+      flagGroupsBuilder.add(flagGroupFromSkylark(flagGroup));
+    }
+
+    ImmutableSet.Builder<WithFeatureSet> withFeatureSetBuilder = ImmutableSet.builder();
+    ImmutableList<SkylarkInfo> withFeatureSetStructs =
+        getSkylarkProviderListFromSkylarkField(flagSetStruct, "with_features");
+    for (SkylarkInfo withFeatureSetStruct : withFeatureSetStructs) {
+      withFeatureSetBuilder.add(withFeatureSetFromSkylark(withFeatureSetStruct));
+    }
+
+    return new FlagSet(
+        actions, ImmutableSet.of(), withFeatureSetBuilder.build(), flagGroupsBuilder.build());
+  }
+
+  /**
+   * Creates a {@link com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Tool} from a
+   * {@link SkylarkInfo}.
+   */
+  @VisibleForTesting
+  static CcToolchainFeatures.Tool toolFromSkylark(SkylarkInfo toolStruct) throws EvalException {
+    checkRightProviderType(toolStruct, "tool");
+    String toolPathString = getFieldFromSkylarkProvider(toolStruct, "path", String.class);
+    PathFragment toolPath = toolPathString == null ? null : PathFragment.create(toolPathString);
+    if (toolPath != null && toolPath.isEmpty()) {
+      throw new EvalException(
+          toolStruct.getCreationLoc(), "The 'path' field of tool must be a nonempty string.");
+    }
+    ImmutableSet.Builder<WithFeatureSet> withFeatureSetBuilder = ImmutableSet.builder();
+    ImmutableList<SkylarkInfo> withFeatureSetStructs =
+        getSkylarkProviderListFromSkylarkField(toolStruct, "with_features");
+    for (SkylarkInfo withFeatureSetStruct : withFeatureSetStructs) {
+      withFeatureSetBuilder.add(withFeatureSetFromSkylark(withFeatureSetStruct));
+    }
+
+    ImmutableSet<String> executionRequirements =
+        getStringSetFromSkylarkProviderField(toolStruct, "execution_requirements");
+    return new CcToolchainFeatures.Tool(
+        toolPath, executionRequirements, withFeatureSetBuilder.build());
+  }
+
+  /** Creates an {@link ActionConfig} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static ActionConfig actionConfigFromSkylark(SkylarkInfo actionConfigStruct)
+      throws InvalidConfigurationException, EvalException {
+    checkRightProviderType(actionConfigStruct, "action_config");
+    String actionName =
+        getFieldFromSkylarkProvider(actionConfigStruct, "action_name", String.class);
+    if (actionName == null || actionName.isEmpty()) {
+      throw new EvalException(
+          actionConfigStruct.getCreationLoc(),
+          "The 'action_name' field of action_config must be a nonempty string.");
+    }
+    if (!actionName.matches("^[_a-z]*$")) {
+      throw new EvalException(
+          actionConfigStruct.getCreationLoc(),
+          String.format(
+              "An action_config's name must consist solely of lowercase letters and '_', got '%s'",
+              actionName));
+    }
+
+    Boolean enabled = getFieldFromSkylarkProvider(actionConfigStruct, "enabled", Boolean.class);
+
+    ImmutableList.Builder<CcToolchainFeatures.Tool> toolBuilder = ImmutableList.builder();
+    ImmutableList<SkylarkInfo> toolStructs =
+        getSkylarkProviderListFromSkylarkField(actionConfigStruct, "tools");
+    for (SkylarkInfo toolStruct : toolStructs) {
+      toolBuilder.add(toolFromSkylark(toolStruct));
+    }
+
+    ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
+    ImmutableList<SkylarkInfo> flagSets =
+        getSkylarkProviderListFromSkylarkField(actionConfigStruct, "flag_sets");
+    for (SkylarkInfo flagSet : flagSets) {
+      flagSetBuilder.add(flagSetFromSkylark(flagSet));
+    }
+
+    ImmutableList<String> implies =
+        getStringListFromSkylarkProviderField(actionConfigStruct, "implies");
+
+    return new ActionConfig(
+        actionName, actionName, toolBuilder.build(), flagSetBuilder.build(), enabled, implies);
+  }
+
+  /** Creates an {@link ArtifactNamePattern} from a {@link SkylarkInfo}. */
+  @VisibleForTesting
+  static ArtifactNamePattern artifactNamePatternFromSkylark(SkylarkInfo artifactNamePatternStruct)
+      throws EvalException {
+    checkRightProviderType(artifactNamePatternStruct, "artifact_name_pattern");
+    String categoryName =
+        getFieldFromSkylarkProvider(artifactNamePatternStruct, "category_name", String.class);
+    if (categoryName == null || categoryName.isEmpty()) {
+      throw new EvalException(
+          artifactNamePatternStruct.getCreationLoc(),
+          "The 'category_name' field of artifact_name_pattern must be a nonempty string.");
+    }
+    ArtifactCategory foundCategory = null;
+    for (ArtifactCategory artifactCategory : ArtifactCategory.values()) {
+      if (categoryName.equals(artifactCategory.getCategoryName())) {
+        foundCategory = artifactCategory;
+      }
+    }
+
+    if (foundCategory == null) {
+      throw new EvalException(
+          artifactNamePatternStruct.getCreationLoc(),
+          String.format("Artifact category %s not recognized.", categoryName));
+    }
+
+    String extension =
+        getFieldFromSkylarkProvider(artifactNamePatternStruct, "extension", String.class);
+    if (extension == null || extension.isEmpty()) {
+      throw new EvalException(
+          artifactNamePatternStruct.getCreationLoc(),
+          "The 'extension' field of artifact_name_pattern must be a nonempty string.");
+    }
+    if (!foundCategory.getAllowedExtensions().contains(extension)) {
+      throw new EvalException(
+          artifactNamePatternStruct.getCreationLoc(),
+          String.format(
+              "Unrecognized file extension '%s', allowed extensions are %s,"
+                  + " please check artifact_name_pattern configuration for %s in your rule.",
+              extension,
+              StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+              foundCategory.getCategoryName()));
+    }
+
+    String prefix = getFieldFromSkylarkProvider(artifactNamePatternStruct, "prefix", String.class);
+    if (prefix == null || prefix.isEmpty()) {
+      throw new EvalException(
+          artifactNamePatternStruct.getCreationLoc(),
+          "The 'prefix' field of artifact_name_pattern must be a nonempty string.");
+    }
+    return new ArtifactNamePattern(foundCategory, prefix, extension);
+  }
+
+  private static <T> T getFieldFromSkylarkProvider(
+      SkylarkInfo provider, String fieldName, Class<T> clazz) throws EvalException {
+    Object obj = provider.getValueOrNull(fieldName);
+    if (obj == null) {
+      throw new EvalException(
+          provider.getCreationLoc(), String.format("Missing mandatory field '%s'", fieldName));
+    }
+    if (clazz.isInstance(obj)) {
+      return clazz.cast(obj);
+    }
+    if (NoneType.class.isInstance(obj)) {
+      return null;
+    }
+    throw new EvalException(
+        provider.getCreationLoc(),
+        String.format("Field '%s' is not of '%s' type.", fieldName, clazz.getName()));
+  }
+
+  /** Returns a list of strings from a field of a {@link SkylarkInfo}. */
+  private static ImmutableList<String> getStringListFromSkylarkProviderField(
+      SkylarkInfo provider, String fieldName) throws EvalException {
+    return SkylarkList.castSkylarkListOrNoneToList(
+            provider.getValueOrNull(fieldName), String.class, fieldName)
+        .stream()
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  /** Returns a set of strings from a field of a {@link SkylarkInfo}. */
+  private static ImmutableSet<String> getStringSetFromSkylarkProviderField(
+      SkylarkInfo provider, String fieldName) throws EvalException {
+    return SkylarkList.castSkylarkListOrNoneToList(
+            provider.getValueOrNull(fieldName), String.class, fieldName)
+        .stream()
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
+  /** Returns a list of SkylarkInfo providers from a field of a {@link SkylarkInfo}. */
+  private static ImmutableList<SkylarkInfo> getSkylarkProviderListFromSkylarkField(
+      SkylarkInfo provider, String fieldName) throws EvalException {
+    return SkylarkList.castSkylarkListOrNoneToList(
+            provider.getValueOrNull(fieldName), SkylarkInfo.class, fieldName)
+        .stream()
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  private static ImmutableMap<CompilationMode, ImmutableList<String>>
+      getCompilationModeFlagsFromSkylark(Object compilationModeFlags, String field)
+          throws EvalException {
+    Map<String, SkylarkList> compilationModeLinkerFlagsMap =
+        SkylarkDict.castSkylarkDictOrNoneToDict(
+            compilationModeFlags, String.class, SkylarkList.class, field);
+    ImmutableMap.Builder<CompilationMode, ImmutableList<String>> compilationModeFlagsBuilder =
+        ImmutableMap.builder();
+    for (Entry<String, SkylarkList> entry : compilationModeLinkerFlagsMap.entrySet()) {
+      compilationModeFlagsBuilder.put(
+          CompilationMode.valueOf(entry.getKey()),
+          ImmutableList.copyOf(
+              convertSkylarkListOrNestedSetToList(entry.getValue(), String.class)));
+    }
+    return compilationModeFlagsBuilder.build();
   }
 }

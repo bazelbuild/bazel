@@ -156,7 +156,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    *
    * <p>To get a literal percent character, "%%" can be used in the string.
    */
-  static class StringValueParser {
+  public static class StringValueParser {
 
     private final String value;
 
@@ -168,13 +168,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final ImmutableList.Builder<StringChunk> chunks = ImmutableList.builder();
     private final ImmutableSet.Builder<String> usedVariables = ImmutableSet.builder();
 
-    StringValueParser(String value) throws InvalidConfigurationException {
+    public StringValueParser(String value) throws InvalidConfigurationException {
       this.value = value;
       parse();
     }
 
     /** @return the parsed chunks for this string. */
-    ImmutableList<StringChunk> getChunks() {
+    public ImmutableList<StringChunk> getChunks() {
       return chunks.build();
     }
 
@@ -262,7 +262,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /** A flag or flag group that can be expanded under a set of variables. */
-  interface Expandable {
+  public interface Expandable {
     /**
      * Expands the current expandable under the given {@code view}, adding new flags to {@code
      * commandLine}.

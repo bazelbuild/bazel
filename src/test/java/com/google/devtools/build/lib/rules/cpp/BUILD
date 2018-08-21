@@ -21,6 +21,7 @@ java_test(
     ) + ["proto/CcProtoLibraryTest.java"],
     resources = [
         "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/cpp:crosstool_utils",
         "//tools/cpp:lib_cc_configure",
     ],
