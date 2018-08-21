@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -137,7 +138,10 @@ final class RemoteSpawnCache implements SpawnCache {
                   .build();
           return SpawnCache.success(spawnResult);
         }
-      } catch (CacheNotFoundException e) {
+      } catch (RetryException e) {
+        if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
+          throw e;
+        }
         // There's a cache miss. Fall back to local execution.
       } catch (IOException e) {
         String errorMsg = e.getMessage();

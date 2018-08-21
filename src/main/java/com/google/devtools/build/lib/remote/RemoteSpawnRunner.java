@@ -185,7 +185,10 @@ class RemoteSpawnRunner implements SpawnRunner {
                 .setCacheHit(true)
                 .setRunnerName("remote cache hit")
                 .build();
-          } catch (CacheNotFoundException e) {
+          } catch (RetryException e) {
+            if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
+              throw e;
+            }
             // No cache hit, so we fall through to local or remote execution.
             // We set acceptCachedResult to false in order to force the action re-execution.
             acceptCachedResult = false;
