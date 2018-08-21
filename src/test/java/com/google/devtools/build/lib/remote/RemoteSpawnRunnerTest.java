@@ -743,7 +743,10 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(cachedResult);
-    doThrow(CacheNotFoundException.class)
+    Retrier.RetryException downloadFailure =
+        new Retrier.RetryException(
+            "", 1, new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil));
+    doThrow(downloadFailure)
         .when(cache)
         .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
