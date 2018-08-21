@@ -445,7 +445,8 @@ public class DumpCommand implements BlazeCommand {
     if (allocationTracker == null) {
       out.println(
           "Cannot dump skylark heap without running in memory tracking mode. "
-              + "Please refer to the user manual for the dump commnd "
+              + "Please refer to "
+              + "https://docs.bazel.build/versions/master/command-line-reference.html#dump "
               + "for information how to turn on memory tracking.");
       return;
     }
