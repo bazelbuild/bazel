@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashingOutputStream;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -189,6 +190,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
   @Override
   protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+    if (digest.getSizeBytes() == 0) {
+      return Futures.immediateFuture(null);
+    }
     String resourceName = "";
     if (!options.remoteInstanceName.isEmpty()) {
       resourceName += options.remoteInstanceName + "/";

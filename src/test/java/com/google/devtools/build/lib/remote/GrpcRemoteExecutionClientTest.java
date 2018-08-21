@@ -94,6 +94,7 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -1048,10 +1049,10 @@ public class GrpcRemoteExecutionClientTest {
 
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
-            // First read is a retriable error, next read succeeds.
+            // First read is a cache miss, next read succeeds.
             if (first) {
               first = false;
-              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+              responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
             } else {
               responseObserver.onNext(
                   ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("stdout")).build());
@@ -1078,10 +1079,12 @@ public class GrpcRemoteExecutionClientTest {
             };
           }
         });
+    AtomicInteger numExecuteCalls = new AtomicInteger();
     serviceRegistry.addService(
         new ExecutionImplBase() {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            numExecuteCalls.incrementAndGet();
             assertThat(request.getSkipCacheLookup()).isTrue(); // Action will be re-executed.
             responseObserver.onNext(
                 Operation.newBuilder()
@@ -1107,7 +1110,8 @@ public class GrpcRemoteExecutionClientTest {
     SpawnResult result = client.exec(simpleSpawn, simplePolicy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(result.isCacheHit()).isTrue();
+    assertThat(result.isCacheHit()).isFalse();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(numExecuteCalls.get()).isEqualTo(1);
   }
 }
