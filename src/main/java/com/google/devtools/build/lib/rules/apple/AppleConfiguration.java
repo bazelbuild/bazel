@@ -484,8 +484,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
    */
   public enum ConfigurationDistinguisher {
     UNKNOWN("unknown"),
-    /** Split transition distinguisher for {@code ios_application} rule. */
-    IOS_APPLICATION("ios_application"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),
     /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
