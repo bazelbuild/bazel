@@ -30,7 +30,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
 
 /** Adds support for coverage report generation. */
@@ -73,7 +73,7 @@ public class BazelCoverageReportModule extends BlazeModule {
   }
 
   @Override
-  public CoverageReportActionFactory getCoverageReportFactory(OptionsClassProvider commandOptions) {
+  public CoverageReportActionFactory getCoverageReportFactory(OptionsProvider commandOptions) {
     final Options options = commandOptions.getOptions(Options.class);
     return new CoverageReportActionFactory() {
       @Override

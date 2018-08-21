@@ -171,6 +171,17 @@ java_library(
 )
 
 java_library(
+    name = "simple-log-handler",
+    srcs = ["util/SimpleLogHandler.java"],
+    deps = [
+        ":single-line-formatter",
+        ":util",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
@@ -184,6 +195,7 @@ java_library(
             "util/OS.java",
             "util/ProcessUtils.java",
             "util/ResourceUsage.java",
+            "util/SimpleLogHandler.java",
             "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
@@ -213,6 +225,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

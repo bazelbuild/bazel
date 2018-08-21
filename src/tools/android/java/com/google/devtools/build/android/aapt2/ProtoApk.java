@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android.aapt2;
 
+import static com.google.common.base.Predicates.not;
+import static java.util.stream.Collectors.joining;
+
 import com.android.aapt.Resources;
 import com.android.aapt.Resources.Array;
 import com.android.aapt.Resources.Attribute.Symbol;
@@ -30,11 +33,13 @@ import com.android.aapt.Resources.Type;
 import com.android.aapt.Resources.Value;
 import com.android.aapt.Resources.XmlAttribute;
 import com.android.aapt.Resources.XmlElement;
+import com.android.aapt.Resources.XmlNamespace;
 import com.android.aapt.Resources.XmlNode;
 import com.android.resources.ResourceType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.ByteString;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,17 +48,26 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Predicate;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -62,6 +76,7 @@ import javax.annotation.Nullable;
  */
 public class ProtoApk implements Closeable {
 
+  static final Logger logger = Logger.getLogger(ProtoApk.class.getName());
   private static final String RESOURCE_TABLE = "resources.pb";
   private static final String MANIFEST = "AndroidManifest.xml";
   private static final String RES_DIRECTORY = "res";
@@ -117,7 +132,8 @@ public class ProtoApk implements Closeable {
         dstTableBuilder.build().writeTo(output);
       }
 
-      Files.walkFileTree(apkFileSystem.getPath("/"), new CopyingFileVisitor(dstZip));
+      Files.walkFileTree(
+          apkFileSystem.getPath("/"), new CopyingFileVisitor(dstZip, not(RESOURCE_TABLE::equals)));
     }
 
     return readFrom(dstZipUri);
@@ -167,6 +183,140 @@ public class ProtoApk implements Closeable {
         Files.createDirectories(resourcePath.getParent());
         Files.copy(apkFileSystem.getPath(path), resourcePath);
       }
+    }
+  }
+
+  /** Copy manifest as xml to an external directory. */
+  public Path writeManifestAsXmlTo(Path directory) {
+    try (InputStream in = Files.newInputStream(apkFileSystem.getPath(MANIFEST));
+        XmlWriter out = XmlWriter.openNew(Files.createDirectories(directory).resolve(MANIFEST))) {
+      out.write(XmlNode.parseFrom(in));
+      return directory.resolve(MANIFEST);
+    } catch (IOException e) {
+      throw new ProtoApkException(e);
+    }
+  }
+
+  /** The apk as path. */
+  public Path asApkPath() {
+    return Paths.get(uri.toString().substring("jar:".length() + 1));
+  }
+
+  /** Thrown when errors occur during proto apk processing. */
+  public static class ProtoApkException extends Aapt2Exception {
+    ProtoApkException(IOException e) {
+      super(e);
+    }
+  }
+
+  private static class XmlWriter implements AutoCloseable {
+    static final ByteString ANGLE_OPEN = ByteString.copyFrom("<".getBytes(StandardCharsets.UTF_8));
+    static final ByteString SPACE = ByteString.copyFrom(" ".getBytes(StandardCharsets.UTF_8));
+    static final ByteString ANGLE_CLOSE = ByteString.copyFrom(">".getBytes(StandardCharsets.UTF_8));
+    static final ByteString FORWARD_SLASH =
+        ByteString.copyFrom("/".getBytes(StandardCharsets.UTF_8));
+    static final ByteString XMLNS = ByteString.copyFrom("xmlns:".getBytes(StandardCharsets.UTF_8));
+    static final ByteString EQUALS = ByteString.copyFrom("=".getBytes(StandardCharsets.UTF_8));
+    static final ByteString QUOTE = ByteString.copyFrom("\"".getBytes(StandardCharsets.UTF_8));
+    static final ByteString COLON = ByteString.copyFrom(":".getBytes(StandardCharsets.UTF_8));
+    private static final ByteString XML_PRELUDE =
+        ByteString.copyFrom(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>".getBytes(StandardCharsets.UTF_8));
+
+    private final OutputStream out;
+    private final Deque<Map<ByteString, ByteString>> namespaceStack;
+
+    static XmlWriter openNew(Path destination) throws IOException {
+      return new XmlWriter(Files.newOutputStream(destination, StandardOpenOption.CREATE_NEW));
+    }
+
+    private XmlWriter(OutputStream out) {
+      this.out = out;
+      this.namespaceStack = new ArrayDeque<>();
+    }
+
+    public void write(XmlNode node) throws IOException {
+      XML_PRELUDE.writeTo(out);
+      writeXmlFrom(node);
+    }
+
+    private void writeXmlFrom(XmlNode node) throws IOException {
+      if (node.hasElement()) {
+        writeXmlFrom(node.getElement());
+      } else {
+        out.write(node.getTextBytes().toByteArray());
+      }
+    }
+
+    private void writeXmlFrom(XmlElement element) throws IOException {
+      ANGLE_OPEN.writeTo(out);
+      final ByteString name = element.getNameBytes();
+      name.writeTo(out);
+      final Map<ByteString, ByteString> namespaces = new HashMap<>();
+      for (XmlNamespace namespace : element.getNamespaceDeclarationList()) {
+        final ByteString prefix = namespace.getPrefixBytes();
+        SPACE.writeTo(out);
+        XMLNS.writeTo(out);
+        prefix.writeTo(out);
+        EQUALS.writeTo(out);
+        quote(namespace.getUriBytes());
+        namespaces.put(namespace.getUriBytes(), prefix);
+      }
+      namespaceStack.push(namespaces);
+      for (XmlAttribute attribute : element.getAttributeList()) {
+        SPACE.writeTo(out);
+        if (!attribute.getNamespaceUriBytes().isEmpty()) {
+          findNamespacePrefix(attribute.getNamespaceUriBytes()).writeTo(out);
+          COLON.writeTo(out);
+        }
+        attribute.getNameBytes().writeTo(out);
+        EQUALS.writeTo(out);
+        quote(attribute.getValueBytes());
+      }
+      if (element.getChildList().isEmpty()) {
+        FORWARD_SLASH.writeTo(out);
+        ANGLE_CLOSE.writeTo(out);
+      } else {
+        ANGLE_CLOSE.writeTo(out);
+        for (XmlNode child : element.getChildList()) {
+          writeXmlFrom(child);
+        }
+        ANGLE_OPEN.writeTo(out);
+        FORWARD_SLASH.writeTo(out);
+        name.writeTo(out);
+        ANGLE_CLOSE.writeTo(out);
+      }
+      namespaceStack.pop();
+    }
+
+    private void quote(ByteString bytes) throws IOException {
+      QUOTE.writeTo(out);
+      bytes.writeTo(out);
+      QUOTE.writeTo(out);
+    }
+
+    private ByteString findNamespacePrefix(ByteString uri) {
+      for (Map<ByteString, ByteString> uriToPrefix : namespaceStack) {
+        if (uriToPrefix.containsKey(uri)) {
+          return uriToPrefix.get(uri);
+        }
+      }
+      throw new IllegalStateException(
+          "Unable to find prefix for "
+              + uri
+              + " in [ "
+              + namespaceStack
+                  .stream()
+                  .map(Map::keySet)
+                  .flatMap(Set::stream)
+                  .map(ByteString::toString)
+                  .collect(joining(", "))
+              + " ]");
+    }
+
+    @Override
+    public void close() throws IOException {
+      out.close();
     }
   }
 
@@ -359,7 +509,7 @@ public class ProtoApk implements Closeable {
         .stream()
         .filter(Symbol::hasName)
         .map(Symbol::getName)
-        .forEach(r -> visitReference(entryVisitor, r));
+        .forEach(name -> visitReference(entryVisitor, name));
   }
 
   private void visitStyleable(ResourceValueVisitor entryVisitor, CompoundValue value) {
@@ -374,7 +524,8 @@ public class ProtoApk implements Closeable {
     for (Style.Entry entry : style.getEntryList()) {
       if (entry.hasItem()) {
         visitItem(entryVisitor, entry.getItem());
-      } else if (entry.hasKey()) {
+      }
+      if (entry.hasKey()) {
         visitReference(entryVisitor, entry.getKey());
       }
     }
@@ -430,10 +581,14 @@ public class ProtoApk implements Closeable {
 
   private void visitReference(ReferenceVisitor visitor, Reference ref) {
     if (ref.getId() != 0) {
+      logger.finest(
+          "Visiting ref by id " + ref.getName() + "=" + "0x" + Integer.toHexString(ref.getId()));
       visitor.accept(ref.getId());
     } else if (!ref.getName().isEmpty()) {
+      logger.finest("Visiting ref by name " + ref);
       visitor.accept(ref.getName());
     } else {
+      logger.finest("Visiting null by name " + ref);
       visitor.acceptNullReference();
     }
   }
@@ -504,9 +659,12 @@ public class ProtoApk implements Closeable {
   private static class CopyingFileVisitor extends SimpleFileVisitor<Path> {
 
     private final FileSystem dstZip;
+    private final Predicate<String> shouldCopy;
+    private final Predicate<Path> notDirectory = not(Files::isDirectory);
 
-    CopyingFileVisitor(FileSystem dstZip) {
+    CopyingFileVisitor(FileSystem dstZip, Predicate<String> shouldCopy) {
       this.dstZip = dstZip;
+      this.shouldCopy = shouldCopy;
     }
 
     @Override
@@ -519,11 +677,10 @@ public class ProtoApk implements Closeable {
     }
 
     @Override
-    @SuppressWarnings("JavaOptionalSuggestions")
     // Not using Files.copy(Path, Path), as it has been shown to corrupt on certain OSs when copying
     // between filesystems.
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      if (!RESOURCE_TABLE.equals(file.getFileName().toString()) && !Files.isDirectory(file)) {
+      if (notDirectory.test(file) && shouldCopy.test(file.getFileName().toString())) {
         Path dest = dstZip.getPath(file.toString());
         Files.createDirectories(dest.getParent());
         try (InputStream in = Files.newInputStream(file)) {

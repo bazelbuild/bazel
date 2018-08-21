@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestCase {
 
-  private static final class ConfigFeatureFlagsOptionsProvider implements OptionsClassProvider {
+  private static final class ConfigFeatureFlagsOptionsProvider implements OptionsProvider {
     private final ImmutableMap<Label, String> flagValues;
 
     public ConfigFeatureFlagsOptionsProvider(Map<Label, String> flagValues) {
@@ -62,7 +62,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
 
   private static BuildOptions getOptionsWithoutFlagFragment() {
     return BuildOptions.of(
-        ImmutableList.<Class<? extends FragmentOptions>>of(), OptionsClassProvider.EMPTY);
+        ImmutableList.<Class<? extends FragmentOptions>>of(), OptionsProvider.EMPTY);
   }
 
   private static BuildOptions getOptionsWithFlagFragment(Map<Label, String> values) {

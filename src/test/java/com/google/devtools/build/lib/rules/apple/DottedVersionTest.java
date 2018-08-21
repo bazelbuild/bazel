@@ -60,6 +60,33 @@ public class DottedVersionTest {
   }
 
   @Test
+  public void testToStringWithComponents() throws Exception {
+    DottedVersion dottedVersion = DottedVersion.fromString("42.8");
+    assertThat(dottedVersion.toStringWithComponents(1)).isEqualTo("42");
+    assertThat(dottedVersion.toStringWithComponents(2)).isEqualTo("42.8");
+    assertThat(dottedVersion.toStringWithComponents(3)).isEqualTo("42.8.0");
+    assertThat(dottedVersion.toStringWithComponents(4)).isEqualTo("42.8.0.0");
+  }
+
+  @Test
+  public void testToStringWithComponents_trailingZero() throws Exception {
+    DottedVersion dottedVersion = DottedVersion.fromString("4.3alpha3.0");
+    assertThat(dottedVersion.toStringWithComponents(1)).isEqualTo("4");
+    assertThat(dottedVersion.toStringWithComponents(2)).isEqualTo("4.3alpha3");
+    assertThat(dottedVersion.toStringWithComponents(3)).isEqualTo("4.3alpha3.0");
+    assertThat(dottedVersion.toStringWithComponents(4)).isEqualTo("4.3alpha3.0.0");
+    assertThat(dottedVersion.toStringWithComponents(5)).isEqualTo("4.3alpha3.0.0.0");
+  }
+
+  @Test
+  public void testToStringWithComponents_zeroComponent() throws Exception {
+    DottedVersion zeroComponent = DottedVersion.fromString("0");
+    assertThat(zeroComponent.toStringWithComponents(1)).isEqualTo("0");
+    assertThat(zeroComponent.toStringWithComponents(2)).isEqualTo("0.0");
+    assertThat(zeroComponent.toStringWithComponents(3)).isEqualTo("0.0.0");
+  }
+
+  @Test
   public void testToStringWithMinimumComponent() throws Exception {
     DottedVersion dottedVersion = DottedVersion.fromString("42.8");
     assertThat(dottedVersion.toStringWithMinimumComponents(0)).isEqualTo("42.8");

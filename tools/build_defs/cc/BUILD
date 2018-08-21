@@ -8,7 +8,7 @@ filegroup(
     visibility = [
         "//devtools/blaze/integration:__pkg__",
         "//:__pkg__",
-        "//tools:__pkg__",
+        "//tools/build_defs:__pkg__",
     ],
 )
 

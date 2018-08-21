@@ -541,6 +541,11 @@ static vector<string> GetArgumentArray(
     // being "null" to set the programmatic default in the server.
     result.push_back("--digest_function=" + globals->options->digest_function);
   }
+  if (globals->options->idle_server_tasks) {
+    result.push_back("--idle_server_tasks");
+  } else {
+    result.push_back("--noidle_server_tasks");
+  }
   if (globals->options->oom_more_eagerly) {
     result.push_back("--experimental_oom_more_eagerly");
   } else {
@@ -1095,52 +1100,87 @@ static void ExtractData(const string &self_path) {
   }
 }
 
-// TODO(ccalvarin) when --batch is gone and the startup_options field in the
-// gRPC message is always set, there is no reason for client options that are
-// not used at server startup to be part of the startup command line. The server
-// command line difference logic can be simplified then.
-const std::vector<string> volatile_startup_options = {
-    "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
-    "--client_debug="};
-
 // Returns true if the server needs to be restarted to accommodate changes
 // between the two argument lists.
 static bool AreStartupOptionsDifferent(
     const vector<string> &running_server_args,
     const vector<string> &requested_args) {
+  // TODO(ccalvarin) when --batch is gone and the startup_options field in the
+  // gRPC message is always set, there is no reason for client options that are
+  // not used at server startup to be part of the startup command line. The
+  // server command line difference logic can be simplified then.
+  static const std::vector<string> volatile_startup_options = {
+      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
+      "--client_debug="};
+
   // We need not worry about one side missing an argument and the other side
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
   // is not, but this has nothing to do with the user's command line: it is
   // defined by GetArgumentArray(). Same applies for argument ordering.
+  bool options_different = false;
   if (running_server_args.size() != requested_args.size()) {
     BAZEL_LOG(INFO) << "The new command line has a different length from the "
                        "running server's.";
-    return true;
+    options_different = true;
   }
 
-  for (int i = 0; i < running_server_args.size(); i++) {
-    if (running_server_args[i] != requested_args[i]) {
-      bool option_volatile = false;
-      // Only check if this is a volatile option for dissimilar args.
-      for (const string &candidate : volatile_startup_options) {
-        if (running_server_args[i].substr(0, candidate.size()) == candidate &&
-            requested_args[i].substr(0, candidate.size()) == candidate) {
-          option_volatile = true;
-          break;
+  // Args in running_server_args that are not in requested_args.
+  bool found_missing_args = false;
+  for (const string &arg : running_server_args) {
+    // Split arg based on the first "=" if one exists in arg.
+    const string::size_type eq_pos = arg.find_first_of('=');
+    const string stripped_arg =
+        (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
+
+    // If arg is not volatile, then check whether or not it's in requested_args.
+    if (std::find(volatile_startup_options.begin(),
+                  volatile_startup_options.end(),
+                  stripped_arg) == volatile_startup_options.end()) {
+      if (std::find(requested_args.begin(), requested_args.end(), arg) ==
+          requested_args.end()) {
+        // If this is the first missing arg we've encountered, then print out
+        // the list header.
+        if (!found_missing_args) {
+          BAZEL_LOG(INFO) << "Args from the running server that are not "
+                             "included in the current request:";
+          found_missing_args = true;
         }
-      }
-      if (!option_volatile) {
-        BAZEL_LOG(INFO)
-            << "A difference was found between the command lines at position "
-            << i << ": the running server has option " << running_server_args[i]
-            << ", and requested option is: " << requested_args[i];
-        return true;
+        BAZEL_LOG(INFO) << "  " << arg;
+        options_different = true;
       }
     }
   }
 
-  return false;
+  // Args in requested_args that are not in running_server_args.
+  bool found_new_args = false;
+  for (const string &arg : requested_args) {
+    // Split arg based on the first "=" if one exists in arg.
+    const string::size_type eq_pos = arg.find_first_of('=');
+    const string stripped_arg =
+        (eq_pos == string::npos) ? arg : arg.substr(0, eq_pos + 1);
+
+    // If arg is not volatile, then check whether or not it's in
+    // running_server_args.
+    if (std::find(volatile_startup_options.begin(),
+                  volatile_startup_options.end(),
+                  stripped_arg) == volatile_startup_options.end()) {
+      if (std::find(running_server_args.begin(), running_server_args.end(),
+                    arg) == running_server_args.end()) {
+        // If this is the first new arg we've encountered, then print out the
+        // list header.
+        if (!found_new_args) {
+          BAZEL_LOG(INFO) << "Args from the current request that were not "
+                             "included when creating the server:";
+          found_new_args = true;
+        }
+        BAZEL_LOG(INFO) << "  " << arg;
+        options_different = true;
+      }
+    }
+  }
+
+  return options_different;
 }
 
 // Kills the running Blaze server, if any, if the startup options do not match.

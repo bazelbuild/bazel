@@ -430,4 +430,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "Changed the expansion of --config flags to be done in-place, as opposed to in a fixed "
               + "point expansion between normal rc options and command-line specified options.")
   public boolean expandConfigsInPlace;
+
+  @Option(
+      name = "idle_server_tasks",
+      defaultValue = "true", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+      },
+      help = "Run System.gc() when the server is idle")
+  public boolean idleServerTasks;
 }

@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.EnumSet;
 
@@ -61,7 +61,7 @@ public final class FetchCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) { }
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeRuntime runtime = env.getRuntime();
     if (options.getResidue().isEmpty()) {
       env.getReporter().handle(Event.error(String.format(

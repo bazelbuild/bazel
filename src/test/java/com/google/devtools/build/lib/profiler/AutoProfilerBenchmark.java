@@ -27,14 +27,16 @@ public class AutoProfilerBenchmark {
 
   @BeforeExperiment
   void startProfiler() throws Exception {
-    Profiler.instance().start(
-        ProfiledTaskKinds.ALL,
-        new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
-        Profiler.Format.BINARY_BAZEL_FORMAT,
-        "benchmark",
-        false,
-        BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+    Profiler.instance()
+        .start(
+            ProfiledTaskKinds.ALL,
+            new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
+            Profiler.Format.BINARY_BAZEL_FORMAT,
+            "benchmark",
+            false,
+            BlazeClock.instance(),
+            BlazeClock.instance().nanoTime(),
+            /* enabledCpuUsageProfiling= */ false);
   }
 
   @BeforeExperiment

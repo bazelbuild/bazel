@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ComparisonChain;
@@ -169,6 +170,31 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   /**
+   * Returns the string representation of this dotted version, padded or truncated to the specified
+   * number of components.
+   *
+   * <p>For example, a dotted version of "7.3.0" will return "7" if one is requested, "7.3" if two
+   * are requested, "7.3.0" if three are requested, and "7.3.0.0" if four are requested.
+   *
+   * @param numComponents a positive number of dot-separated numbers that should be present in the
+   *     returned string representation
+   */
+  public String toStringWithComponents(int numComponents) {
+    Preconditions.checkArgument(numComponents > 0,
+        "Can't serialize as a version with %s components", numComponents);
+    ImmutableList.Builder<Component> stringComponents = ImmutableList.builder();
+    if (numComponents <= components.size()) {
+      stringComponents.addAll(components.subList(0, numComponents));
+    } else {
+      stringComponents.addAll(components);
+      for (int i = components.size(); i < numComponents; i++) {
+        stringComponents.add(ZERO_COMPONENT);
+      }
+    }
+    return Joiner.on('.').join(stringComponents.build());
+  }
+
+  /**
    * Returns the string representation of this dotted version, padded to a minimum number of
    * components if the string representation does not already contain that many components.
    *
@@ -183,14 +209,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
    *     the returned string representation
    */
   public String toStringWithMinimumComponents(int numMinComponents) {
-    ImmutableList.Builder<Component> stringComponents = ImmutableList.builder();
-    stringComponents.addAll(components);
-    int numComponents = Math.max(this.numOriginalComponents, numMinComponents);
-    int zeroesToPad = numComponents - components.size();
-    for (int i = 0; i < zeroesToPad; i++) {
-      stringComponents.add(ZERO_COMPONENT);
-    }
-    return Joiner.on('.').join(stringComponents.build());
+    return toStringWithComponents(Math.max(this.numOriginalComponents, numMinComponents));
   }
 
   /**

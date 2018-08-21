@@ -34,7 +34,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.devtools.common.options.proto.OptionFilters;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -61,15 +61,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
   /** A CommandLineEvent that stores functions and values common to both Bazel command lines. */
   public abstract static class BazelCommandLineEvent extends CommandLineEvent {
     protected final String productName;
-    protected final OptionsProvider activeStartupOptions;
+    protected final OptionsParsingResult activeStartupOptions;
     protected final String commandName;
-    protected final OptionsProvider commandOptions;
+    protected final OptionsParsingResult commandOptions;
 
     BazelCommandLineEvent(
         String productName,
-        OptionsProvider activeStartupOptions,
+        OptionsParsingResult activeStartupOptions,
         String commandName,
-        OptionsProvider commandOptions) {
+        OptionsParsingResult commandOptions) {
       this.productName = productName;
       this.activeStartupOptions = activeStartupOptions;
       this.commandName = commandName;
@@ -187,7 +187,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     public OriginalCommandLineEvent(
         BlazeRuntime runtime,
         String commandName,
-        OptionsProvider commandOptions,
+        OptionsParsingResult commandOptions,
         Optional<List<Pair<String, String>>> originalStartupOptions) {
       this(
           runtime.getProductName(),
@@ -200,9 +200,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     @VisibleForTesting
     OriginalCommandLineEvent(
         String productName,
-        OptionsProvider activeStartupOptions,
+        OptionsParsingResult activeStartupOptions,
         String commandName,
-        OptionsProvider commandOptions,
+        OptionsParsingResult commandOptions,
         Optional<List<Pair<String, String>>> originalStartupOptions) {
       super(productName, activeStartupOptions, commandName, commandOptions);
       this.originalStartupOptions = originalStartupOptions;
@@ -280,7 +280,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     public static final String LABEL = "canonical";
 
     public CanonicalCommandLineEvent(
-        BlazeRuntime runtime, String commandName, OptionsProvider commandOptions) {
+        BlazeRuntime runtime, String commandName, OptionsParsingResult commandOptions) {
       this(
           runtime.getProductName(),
           runtime.getStartupOptionsProvider(),
@@ -291,9 +291,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     @VisibleForTesting
     CanonicalCommandLineEvent(
         String productName,
-        OptionsProvider activeStartupOptions,
+        OptionsParsingResult activeStartupOptions,
         String commandName,
-        OptionsProvider commandOptions) {
+        OptionsParsingResult commandOptions) {
       super(productName, activeStartupOptions, commandName, commandOptions);
     }
 

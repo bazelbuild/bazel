@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -33,7 +32,7 @@ import javax.annotation.Nullable;
  * Parameters of a filesystem traversal requested by a Fileset rule.
  *
  * <p>This object stores the details of the traversal request, e.g. whether it's a direct or nested
- * traversal (see {@link #getDirectTraversal()} and {@link #getNestedTraversal()}) or who the owner
+ * traversal (see {@link #getDirectTraversal()} and {@link #getNestedArtifact()}) or who the owner
  * of the traversal is.
  */
 public interface FilesetTraversalParams {
@@ -105,7 +104,7 @@ public interface FilesetTraversalParams {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
       if (o == this) {
         return true;
       }
@@ -275,19 +274,19 @@ public interface FilesetTraversalParams {
    * directory (when FilesetEntry.srcdir is specified) or traversal of a single file (when
    * FilesetEntry.files is specified). See {@link DirectTraversal} for more detail.
    *
-   * <p>The value is present if and only if {@link #getNestedTraversal} is empty.
+   * <p>The value is present if and only if {@link #getNestedArtifact} is empty.
    */
   Optional<DirectTraversal> getDirectTraversal();
 
   /**
-   * Returns the parameters of the nested traversal request, if any.
+   * Returns the Fileset Artifact of the nested traversal request, if any.
    *
    * <p>A nested traversal is the traversal of another Fileset referenced by FilesetEntry.srcdir.
    *
-   * <p>The value is non-empty when {@link #getDirectTraversal} is absent AND the nested Fileset has
-   * non-empty FilesetEntries.
+   * <p>The value is null when {@link #getDirectTraversal} is absent.
    */
-  ImmutableList<FilesetTraversalParams> getNestedTraversal();
+  @Nullable
+  Artifact getNestedArtifact();
 
   /** Adds the fingerprint of this traversal object. */
   void fingerprint(Fingerprint fp);

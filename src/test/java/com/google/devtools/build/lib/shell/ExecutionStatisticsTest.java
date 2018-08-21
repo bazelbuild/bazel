@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
@@ -37,7 +38,7 @@ public final class ExecutionStatisticsTest {
 
   @Before
   public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem();
+    testFS = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     workingDir = testFS.getPath(TestUtils.makeTempDir().getCanonicalPath());
   }
 

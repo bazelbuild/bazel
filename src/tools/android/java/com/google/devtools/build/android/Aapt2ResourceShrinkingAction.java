@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static java.util.stream.Collectors.toSet;
 
 import com.android.builder.core.VariantConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.ResourceShrinkerAction.Options;
+import com.google.devtools.build.android.ResourcesZip.ShrunkProtoApk;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
@@ -35,6 +35,7 @@ import java.io.File;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -62,7 +63,7 @@ public class Aapt2ResourceShrinkingAction {
   public static final class Aapt2ShrinkOptions extends OptionsBase {
     @Option(
         name = "useProtoApk",
-        defaultValue = "false",
+        defaultValue = "true",
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -95,31 +96,28 @@ public class Aapt2ResourceShrinkingAction {
       final ResourceLinker linker =
           ResourceLinker.create(
                   aapt2ConfigOptions.aapt2, executorService, scopedTmp.subDirectoryOf("linking"))
-              .profileUsing(profiler);
+              .profileUsing(profiler)
+              .dependencies(ImmutableList.of(StaticLibrary.from(aapt2ConfigOptions.androidJar)));
 
-      final Set<String> packages =
-          options
-              .dependencyManifests
-              .stream()
-              .map(Path::toFile)
-              .map(manifestToPackageUsing(executorService))
-              .map(futureToString())
-              .collect(toSet());
+      final Set<String> packages = new HashSet<>(resourcesZip.asPackages());
 
       if (aapt2ShrinkOptions.useProtoApk) {
-        resourcesZip
-            .shrinkUsingProto(
+        try (final ShrunkProtoApk shrunk =
+            resourcesZip.shrinkUsingProto(
                 packages,
                 options.shrunkJar,
                 options.proguardMapping,
                 options.log,
-                scopedTmp.subDirectoryOf("shrunk-resources"))
-            .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
-            .writeReportTo(options.log)
-            .writeResourcesToZip(options.shrunkResources);
-        if (options.rTxtOutput != null) {
-          // Fufill the contract -- however, we do not generate an R.txt from the shrunk resources.
-          Files.copy(options.rTxt, options.rTxtOutput);
+                scopedTmp.subDirectoryOf("shrunk-resources"))) {
+          shrunk
+              .writeBinaryTo(linker, options.shrunkApk, aapt2ConfigOptions.resourceTableAsProto)
+              .writeReportTo(options.log)
+              .writeResourcesToZip(options.shrunkResources);
+          if (options.rTxtOutput != null) {
+            // Fufill the contract -- however, we do not generate an R.txt from the shrunk
+            // resources.
+            Files.copy(options.rTxt, options.rTxtOutput);
+          }
         }
       } else {
         final ResourceCompiler resourceCompiler =

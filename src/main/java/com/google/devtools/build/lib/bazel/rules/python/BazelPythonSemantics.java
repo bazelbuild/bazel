@@ -18,9 +18,11 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -40,9 +42,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -365,18 +364,16 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public CcLinkingInfo buildCcLinkingInfoProvider(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    AbstractCcLinkParamsStore ccLinkParamsStore =
-        new AbstractCcLinkParamsStore() {
-          @Override
-          protected void collect(
-              CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-            builder.addTransitiveTargets(
-                deps, CcLinkParamsStore.TO_LINK_PARAMS, PyCcLinkParamsProvider.TO_LINK_PARAMS);
-          }
-        };
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .addAll(
+                Streams.stream(AnalysisUtils.getProviders(deps, PyCcLinkParamsProvider.PROVIDER))
+                    .map(PyCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .build();
+
     // TODO(plf): return empty CcLinkingInfo.
-    ccLinkingInfoBuilder.setCcLinkParamsStore(new CcLinkParamsStore(ccLinkParamsStore));
-    return ccLinkingInfoBuilder.build();
+    return CcLinkingInfo.merge(ccLinkingInfos);
   }
 }

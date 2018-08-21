@@ -140,19 +140,19 @@ public class ProtoCommon {
 
   /**
    * Returns a set of the {@code proto_source_root} collected from the current library and the
-   * direct dependencies.
+   * specified attribute.
    *
    * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
-  public static NestedSet<String> getProtoSourceRootsOfDirectDependencies(
-      RuleContext ruleContext, String currentProtoSourceRoot) {
+  private static NestedSet<String> getProtoSourceRootsOfAttribute(
+      RuleContext ruleContext, String currentProtoSourceRoot, String attributeName) {
     NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
     if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
       protoSourceRoots.add(currentProtoSourceRoot);
     }
 
     for (ProtoSourcesProvider provider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+        ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoSourcesProvider.class)) {
       String protoSourceRoot = provider.getProtoSourceRoot();
       if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
         protoSourceRoots.add(provider.getProtoSourceRoot());
@@ -160,6 +160,28 @@ public class ProtoCommon {
     }
 
     return protoSourceRoots.build();
+  }
+
+  /**
+   * Returns a set of the {@code proto_source_root} collected from the current library and the
+   * direct dependencies.
+   *
+   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
+   */
+  public static NestedSet<String> getProtoSourceRootsOfDirectDependencies(
+      RuleContext ruleContext, String currentProtoSourceRoot) {
+    return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "deps");
+  }
+
+  /**
+   * Returns a set of the {@code proto_source_root} collected from the current library and the
+   * exported dependencies.
+   *
+   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
+   */
+  public static NestedSet<String> getProtoSourceRootsOfExportedDependencies(
+      RuleContext ruleContext, String currentProtoSourceRoot) {
+    return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "exports");
   }
 
   private static void checkProtoSourceRootIsTheSameAsPackage(
@@ -267,6 +289,19 @@ public class ProtoCommon {
         result.addTransitive(provider.getCheckDepsProtoSources());
       }
       result.addAll(srcs);
+    }
+    return result.build();
+  }
+
+  /**
+   * Returns the .proto files that are the direct srcs of the exported dependencies of this rule.
+   */
+  @Nullable
+  public static NestedSet<Artifact> computeProtosInExportedDeps(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+    for (ProtoSupportDataProvider provider :
+        ruleContext.getPrerequisites("exports", TARGET, ProtoSupportDataProvider.class)) {
+      result.addTransitive(provider.getSupportData().getProtosInDirectDeps());
     }
     return result.build();
   }

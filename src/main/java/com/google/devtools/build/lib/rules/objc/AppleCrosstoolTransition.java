@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -75,9 +76,25 @@ public class AppleCrosstoolTransition implements PatchTransition {
    */
   public static void setAppleCrosstoolTransitionConfiguration(BuildOptions from,
       BuildOptions to, String cpu) {
-    to.get(BuildConfiguration.Options.class).cpu = cpu;
-    to.get(CppOptions.class).crosstoolTop =
-        from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+    Label crosstoolTop = from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+
+    BuildConfiguration.Options toOptions = to.get(BuildConfiguration.Options.class);
+    CppOptions toCppOptions = to.get(CppOptions.class);
+
+    if (toOptions.cpu.equals(cpu) && toCppOptions.crosstoolTop.equals(crosstoolTop)
+        && from.get(AppleCommandLineOptions.class).appleCrosstoolInOutputDirectoryName) {
+      // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
+      // Objective-C dependencies work if the top-level configuration is already an Apple one.
+      // This is arguably a hack, but it helps with rolling out
+      // --apple_crosstool_in_output_directory_name, which in turn helps with removing the
+      // configuration distinguisher (which can't be set from the command line) and putting the
+      // platform type in the output directory name, which would obviate the need for this hack.
+      // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
+      return;
+    }
+
+    toOptions.cpu = cpu;
+    toCppOptions.crosstoolTop = crosstoolTop;
     to.get(AppleCommandLineOptions.class).targetUsesAppleCrosstool = true;
     if (from.get(AppleCommandLineOptions.class).appleCrosstoolInOutputDirectoryName) {
       to.get(AppleCommandLineOptions.class).configurationDistinguisher =

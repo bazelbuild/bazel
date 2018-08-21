@@ -117,7 +117,8 @@ class OptionProcessor {
 
   // Finds and parses the appropriate RcFiles:
   //   - system rc (unless --nosystem_rc)
-  //   - workspace, %workspace%/.bazelrc (unless --noworkspace_rc)
+  //   - workspace, %workspace%/.bazelrc (unless --noworkspace_rc, or we aren't
+  //     in a workspace directory, indicated by an empty workspace parameter)
   //   - user, $HOME/.bazelrc (unless --nohome_rc)
   //   - command-line provided, if a value is passed with --bazelrc.
   virtual blaze_exit_code::ExitCode GetRcFiles(

@@ -15,18 +15,23 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataConsumer;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -116,7 +121,7 @@ public interface OutputService {
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
    * @param outputArtifacts required outputs of the action
-   * @return an action-scoped filesystem if {@link supportsActionFileSystem} is true
+   * @return an action-scoped filesystem if {@link #supportsActionFileSystem} is true
    */
   @Nullable
   default FileSystem createActionFileSystem(
@@ -130,12 +135,28 @@ public interface OutputService {
   }
 
   /**
-   * Updates the context used by the filesystem returned by {@link createActionFileSystem}.
+   * Updates the context used by the filesystem returned by {@link #createActionFileSystem}.
    *
    * <p>Should be called as context changes throughout action execution.
    *
-   * @param actionFileSystem must be a filesystem returned by {@link createActionFileSystem}.
+   * @param actionFileSystem must be a filesystem returned by {@link #createActionFileSystem}.
+   * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
-      FileSystem actionFileSystem, SkyFunction.Environment env, MetadataConsumer consumer) {}
+      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets)
+      throws IOException {}
+
+  default boolean supportsPathResolverForArtifactValues() {
+    return false;
+  }
+
+  default ArtifactPathResolver createPathResolverForArtifactValues(
+      PathFragment execRoot,
+      FileSystem fileSystem,
+      ImmutableList<Root> pathEntries,
+      ActionInputMap actionInputMap,
+      Map<Artifact, Collection<Artifact>> expandedArtifacts) {
+    throw new IllegalStateException("Path resolver not supported by this class");
+  }
 }

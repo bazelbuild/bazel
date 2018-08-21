@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -32,6 +33,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -419,9 +421,8 @@ public final class Profiler {
       @Override
       boolean isProfiling(ProfilerTask type) {
         return !type.isVfs()
-            // Exclude the critical path - it's not useful in the Json trace output.
+            // CRITICAL_PATH corresponds to writing the file.
             && type != ProfilerTask.CRITICAL_PATH
-            && type != ProfilerTask.CRITICAL_PATH_COMPONENT
             && type != ProfilerTask.SKYFUNCTION
             && type != ProfilerTask.ACTION_EXECUTE
             && type != ProfilerTask.ACTION_COMPLETE
@@ -472,6 +473,9 @@ public final class Profiler {
       new SlowestTaskAggregator[ProfilerTask.values().length];
 
   private final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
+
+  /** Thread that collects local cpu usage data (if enabled). */
+  private CollectLocalCpuUsage cpuUsageThread;
 
   private Profiler() {
     initHistograms();
@@ -550,7 +554,8 @@ public final class Profiler {
       String comment,
       boolean recordAllDurations,
       Clock clock,
-      long execStartTimeNanos)
+      long execStartTimeNanos,
+      boolean enabledCpuUsageProfiling)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -585,6 +590,12 @@ public final class Profiler {
 
     // activate profiler
     profileStartTime = execStartTimeNanos;
+
+    if (enabledCpuUsageProfiling) {
+      cpuUsageThread = new CollectLocalCpuUsage();
+      cpuUsageThread.setDaemon(true);
+      cpuUsageThread.start();
+    }
   }
 
   /**
@@ -613,6 +624,18 @@ public final class Profiler {
     if (!isActive()) {
       return;
     }
+
+    if (cpuUsageThread != null) {
+      cpuUsageThread.stopCollecting();
+      try {
+        cpuUsageThread.join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+      cpuUsageThread.logCollectedData();
+      cpuUsageThread = null;
+    }
+
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");
     FileWriter writer = writerRef.getAndSet(null);
@@ -749,11 +772,17 @@ public final class Profiler {
     }
   }
 
-  /** Used to log "events" - tasks with zero duration. */
-  void logEvent(ProfilerTask type, String description) {
+  /** Used to log "events" happening at a specific time - tasks with zero duration. */
+  public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
     if (isActive() && isProfiling(type)) {
-      logTask(clock.nanoTime(), 0, type, description);
+      logTask(atTimeNanos, 0, type, description);
     }
+  }
+
+  /** Used to log "events" - tasks with zero duration. */
+  @VisibleForTesting
+  void logEvent(ProfilerTask type, String description) {
+    logEventAtTime(clock.nanoTime(), type, description);
   }
 
   /**
@@ -947,7 +976,7 @@ public final class Profiler {
           ObjectDescriber describer = new ObjectDescriber();
           TaskData data;
           while ((data = queue.take()) != POISON_PILL) {
-            sink.clear();
+            ((Buffer) sink).clear();
 
             VarInt.putVarLong(data.threadId, sink);
             VarInt.putVarInt(data.id, sink);
@@ -1003,6 +1032,8 @@ public final class Profiler {
     private final long profileStartTimeNanos;
     private final ThreadLocal<Boolean> metadataPosted =
         ThreadLocal.withInitial(() -> Boolean.FALSE);
+    // The JDK never returns 0 as thread id so we use that as fake thread id for the critical path.
+    private static final long CRITICAL_PATH_THREAD_ID = 0;
 
     JsonTraceFileWriter(OutputStream outStream, long profileStartTimeNanos) {
       this.outStream = outStream;
@@ -1041,10 +1072,22 @@ public final class Profiler {
                     new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
           writer.beginArray();
           TaskData data;
+
+          // Generate metadata event for the critical path as thread 0 in disguise.
+          writer.setIndent("  ");
+          writer.beginObject();
+          writer.setIndent("");
+          writer.name("name").value("thread_name");
+          writer.name("ph").value("M");
+          writer.name("pid").value(1);
+          writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
+          writer.name("args");
+          writer.beginObject();
+          writer.name("name").value("Critical Path");
+          writer.endObject();
+          writer.endObject();
+
           while ((data = queue.take()) != POISON_PILL) {
-            if (data.duration == 0 && data.type != ProfilerTask.THREAD_NAME) {
-              continue;
-            }
             if (data.type == ProfilerTask.THREAD_NAME) {
               writer.setIndent("  ");
               writer.beginObject();
@@ -1057,6 +1100,27 @@ public final class Profiler {
 
               writer.beginObject();
               writer.name("name").value(data.description);
+              writer.endObject();
+
+              writer.endObject();
+              continue;
+            }
+            if (data.type == ProfilerTask.LOCAL_CPU_USAGE) {
+              writer.setIndent("  ");
+              writer.beginObject();
+              writer.setIndent("");
+              writer.name("name").value(data.type.description);
+              writer.name("ph").value("C");
+              writer
+                  .name("ts")
+                  .value(
+                      TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos));
+              writer.name("pid").value(1);
+              writer.name("tid").value(data.threadId);
+              writer.name("args");
+
+              writer.beginObject();
+              writer.name("cpu").value(data.description);
               writer.endObject();
 
               writer.endObject();
@@ -1075,7 +1139,11 @@ public final class Profiler {
               writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
             }
             writer.name("pid").value(1);
-            writer.name("tid").value(data.threadId);
+            long threadId =
+                data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
+                    ? CRITICAL_PATH_THREAD_ID
+                    : data.threadId;
+            writer.name("tid").value(threadId);
             writer.endObject();
           }
           receivedPoisonPill = true;

@@ -18,7 +18,7 @@ import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Type;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
-import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
@@ -36,6 +36,13 @@ public class ApiExporter {
       Builtins.Builder builtins = Builtins.newBuilder();
 
       Map<String, SkylarkModuleDoc> allTypes = SkylarkDocumentationCollector.collectModules();
+
+      // Add all global variables and functions in Builtins as Values.
+      SkylarkModuleDoc topLevelModule =
+          allTypes.remove(SkylarkDocumentationCollector.getTopLevelModule().name());
+      for (SkylarkMethodDoc meth : topLevelModule.getMethods()) {
+        builtins.addGlobal(collectFieldInfo(meth));
+      }
       for (Map.Entry<String, SkylarkModuleDoc> modEntry : allTypes.entrySet()) {
         SkylarkModuleDoc mod = modEntry.getValue();
 
@@ -44,7 +51,12 @@ public class ApiExporter {
         type.setName(mod.getName());
         type.setDoc(mod.getDocumentation());
         for (SkylarkMethodDoc meth : mod.getJavaMethods()) {
-          type.addField(collectFieldInfo(meth));
+          // Constructors should be exported as globals.
+          if (meth instanceof SkylarkConstructorMethodDoc) {
+            builtins.addGlobal(collectFieldInfo(meth));
+          } else {
+            type.addField(collectFieldInfo(meth));
+          }
         }
         builtins.addType(type);
 
@@ -54,13 +66,6 @@ public class ApiExporter {
         value.setType(mod.getName());
         value.setDoc(mod.getDocumentation());
         builtins.addGlobal(value);
-
-        // Add all global variables and functions in Builtins as Values.
-        for (Map.Entry<String, SkylarkBuiltinMethodDoc> methEntry :
-            mod.getBuiltinMethods().entrySet()) {
-          SkylarkBuiltinMethodDoc meth = methEntry.getValue();
-          builtins.addGlobal(collectFieldInfo(meth));
-        }
       }
       Builtins build = builtins.build();
       build.writeTo(out);
@@ -71,7 +76,7 @@ public class ApiExporter {
 
   private static Value.Builder collectFieldInfo(SkylarkMethodDoc meth) {
     Value.Builder field = Value.newBuilder();
-    field.setName(meth.getName());
+    field.setName(meth.getShortName());
     field.setDoc(meth.getDocumentation());
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
@@ -84,6 +89,8 @@ public class ApiExporter {
       }
       callable.setReturnType(meth.getReturnType());
       field.setCallable(callable);
+    } else {
+      field.setType(meth.getReturnType());
     }
     return field;
   }

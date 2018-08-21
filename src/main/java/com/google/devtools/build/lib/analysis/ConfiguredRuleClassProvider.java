@@ -65,7 +65,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -772,7 +772,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Returns the defaults package for the given options taken from an optionsProvider.
    */
-  public String getDefaultsPackageContent(OptionsClassProvider optionsProvider) {
+  public String getDefaultsPackageContent(OptionsProvider optionsProvider) {
     return DefaultsPackage.getDefaultsPackageContent(
         BuildOptions.of(configurationOptions, optionsProvider));
   }
@@ -780,7 +780,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
-  public BuildOptions createBuildOptions(OptionsClassProvider optionsProvider) {
+  public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
@@ -871,6 +871,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /** Returns all skylark objects in global scope for this RuleClassProvider. */
   public Map<String, Object> getTransitiveGlobalBindings() {
     return globals.getTransitiveBindings();
+  }
+
+  public Object getGlobalsForConstantRegistration() {
+    return globals;
   }
 
   /** Returns all registered {@link BuildConfiguration.Fragment} classes. */

@@ -33,7 +33,7 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -84,9 +84,11 @@ public final class BlazeOptionHandler {
     this.invocationPolicy = invocationPolicy;
   }
 
-  // Return options as OptionsProvider so the options can't be easily modified after we've
-  // applied the invocation policy.
-  OptionsProvider getOptionsResult() {
+  /**
+   * Return options as {@link OptionsParsingResult} so the options can't be easily modified after
+   * we've applied the invocation policy.
+   */
+  OptionsParsingResult getOptionsResult() {
     return optionsParser;
   }
 

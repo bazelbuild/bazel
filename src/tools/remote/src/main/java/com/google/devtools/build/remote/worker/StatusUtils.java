@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
-import com.google.devtools.remoteexecution.v1test.Digest;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.protobuf.Any;
 import com.google.rpc.BadRequest;
 import com.google.rpc.BadRequest.FieldViolation;

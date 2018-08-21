@@ -777,7 +777,7 @@ public class Path
   public String getDirectoryDigest() throws IOException {
     List<String> entries = new ArrayList<String>(fileSystem.getDirectoryEntries(this));
     Collections.sort(entries);
-    Hasher hasher = fileSystem.getDigestFunction().getHash().newHasher();
+    Hasher hasher = fileSystem.getDigestFunction().getHashFunction().newHasher();
     for (String entry : entries) {
       Path path = this.getChild(entry);
       FileStatus stat = path.stat(Symlinks.NOFOLLOW);

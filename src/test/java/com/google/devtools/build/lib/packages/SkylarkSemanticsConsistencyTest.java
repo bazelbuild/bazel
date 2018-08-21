@@ -123,11 +123,13 @@ public class SkylarkSemanticsConsistencyTest {
             + ","
             + rand.nextDouble(),
         "--experimental_enable_repo_mapping=" + rand.nextBoolean(),
+        "--experimental_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
         "--incompatible_depset_is_not_iterable=" + rand.nextBoolean(),
         "--incompatible_depset_union=" + rand.nextBoolean(),
         "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_objc_provider_resources=" + rand.nextBoolean(),
+        "--incompatible_disallow_conflicting_providers=" + rand.nextBoolean(),
         "--incompatible_disallow_data_transition=" + rand.nextBoolean(),
         "--incompatible_disallow_dict_plus=" + rand.nextBoolean(),
         "--incompatible_disallow_filetype=" + rand.nextBoolean(),
@@ -155,11 +157,13 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableRepoMapping(rand.nextBoolean())
+        .experimentalRemapMainRepo(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())
         .incompatibleDepsetIsNotIterable(rand.nextBoolean())
         .incompatibleDepsetUnion(rand.nextBoolean())
         .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableObjcProviderResources(rand.nextBoolean())
+        .incompatibleDisallowConflictingProviders(rand.nextBoolean())
         .incompatibleDisallowDataTransition(rand.nextBoolean())
         .incompatibleDisallowDictPlus(rand.nextBoolean())
         .incompatibleDisallowFileType(rand.nextBoolean())

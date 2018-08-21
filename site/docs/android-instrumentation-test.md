@@ -24,8 +24,7 @@ For more information on Android instrumentation tests, check out the [Android
 developer
 documentation](https://developer.android.com/training/testing/unit-testing/instrumented-unit-tests.html).
 
-The current state is __experimental__ as of Bazel 0.12.0. Please file issues in
-the [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
+Please file issues in the [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
 
 **Table of Contents**
 
@@ -170,6 +169,36 @@ The main attributes of the rule `android_instrumentation_test` are:
   specifications of the Android emulator which Bazel uses to create, launch and
   run the tests. See the [section on choosing an Android
   device](#choosing-an-android_device) for more information.
+
+The test app's `AndroidManifest.xml` must include
+[an `<instrumentation>` tag](https://developer.android.com/studio/test/#configure_instrumentation_manifest_settings).
+This tag must specify the attributes for the **package of the target app** and
+the **fully qualified class name of the instrumentation test runner**,
+`android.support.test.runner.AndroidJUnitRunner`.
+
+Here is an example `AndroidTestManifest.xml` for the test app:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.example.android.app.test"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <instrumentation
+        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:targetPackage="com.example.android.app" />
+
+    <uses-sdk
+        android:minSdkVersion="16"
+        android:targetSdkVersion="27" />
+
+    <application >
+       <!-- ... -->
+    </application>
+</manifest>
+```
 
 ## `WORKSPACE` dependencies
 
@@ -542,6 +571,6 @@ API_LEVELS = [
 - Improved external dependency management
 - Remote test caching and execution
 
-We are planning to rewrite the Android rules in [Skylark](https://docs.bazel.build/versions/master/skylark/concepts.html).
+We are planning to rewrite the Android rules in [Starlark](https://docs.bazel.build/versions/master/skylark/concepts.html).
 The `android_instrumentation_test` rule will be part of the rewrite, however,
 its usage will remain unchanged from the end-user perspective.

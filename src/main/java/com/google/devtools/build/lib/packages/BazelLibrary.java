@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -25,7 +26,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 public class BazelLibrary {
 
   /** A global frame containing pure Skylark builtins and some Bazel builtins. */
-  public static final GlobalFrame GLOBALS = createGlobals();
+  @AutoCodec public static final GlobalFrame GLOBALS = createGlobals();
 
   private static GlobalFrame createGlobals() {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();

@@ -155,7 +155,7 @@ public class SkylarkDebugServerTest {
                 SkylarkDebuggingProtos.PausedThread.newBuilder()
                     .setId(threadId)
                     .setName(threadName)
-                    .setPauseReason(PauseReason.ALL_THREADS_PAUSED)
+                    .setPauseReason(PauseReason.INITIALIZING)
                     .setLocation(expectedLocation)
                     .build()));
 

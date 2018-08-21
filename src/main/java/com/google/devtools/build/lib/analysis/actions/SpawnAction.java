@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -306,7 +307,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           failMessage =
               "error executing shell command: "
                   + "'"
-                  + truncate(Iterables.get(getArguments(), 2), 200)
+                  + truncate(Joiner.on(" ").join(getArguments()), 200)
                   + "'";
         } catch (CommandLineExpansionException commandLineExpansionException) {
           failMessage =
@@ -356,7 +357,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
-        actionExecutionContext.getInputFilesetMappings());
+        actionExecutionContext.getTopLevelFilesets());
   }
 
   Spawn getSpawn(

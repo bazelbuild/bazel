@@ -216,7 +216,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> compilerFlags;
   private final ImmutableList<String> cxxFlags;
   private final ImmutableList<String> unfilteredCompilerFlags;
-  private final ImmutableList<String> cOptions;
+  private final ImmutableList<String> conlyopts;
 
   private final ImmutableList<String> mostlyStaticLinkFlags;
   private final ImmutableList<String> mostlyStaticSharedLinkFlags;
@@ -224,7 +224,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
 
-  private final ImmutableList<String> linkOptions;
+  private final ImmutableList<String> linkopts;
   private final ImmutableList<String> ltoindexOptions;
   private final ImmutableList<String> ltobackendOptions;
 
@@ -236,7 +236,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final CompilationMode compilationMode;
 
   private final boolean shouldProvideMakeVariables;
-  private final boolean dropFullyStaticLinkingMode;
 
   private final CppToolchainInfo cppToolchainInfo;
 
@@ -313,7 +312,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
         params.commonOptions.makeVariableSource == MakeVariableSource.CONFIGURATION,
-        cppOptions.dropFullyStaticLinkingMode,
         cppToolchainInfo);
   }
 
@@ -332,13 +330,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> compilerFlags,
       ImmutableList<String> cxxFlags,
       ImmutableList<String> unfilteredCompilerFlags,
-      ImmutableList<String> cOptions,
+      ImmutableList<String> conlyopts,
       ImmutableList<String> mostlyStaticLinkFlags,
       ImmutableList<String> mostlyStaticSharedLinkFlags,
       ImmutableList<String> dynamicLinkFlags,
       ImmutableList<String> copts,
       ImmutableList<String> cxxopts,
-      ImmutableList<String> linkOptions,
+      ImmutableList<String> linkopts,
       ImmutableList<String> ltoindexOptions,
       ImmutableList<String> ltobackendOptions,
       CppOptions cppOptions,
@@ -346,7 +344,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean shouldProvideMakeVariables,
-      boolean dropFullyStaticLinkingMode,
       CppToolchainInfo cppToolchainInfo) {
     this.crosstoolTop = crosstoolTop;
     this.crosstoolFile = crosstoolFile;
@@ -361,13 +358,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.compilerFlags = compilerFlags;
     this.cxxFlags = cxxFlags;
     this.unfilteredCompilerFlags = unfilteredCompilerFlags;
-    this.cOptions = cOptions;
+    this.conlyopts = conlyopts;
     this.mostlyStaticLinkFlags = mostlyStaticLinkFlags;
     this.mostlyStaticSharedLinkFlags = mostlyStaticSharedLinkFlags;
     this.dynamicLinkFlags = dynamicLinkFlags;
     this.copts = copts;
     this.cxxopts = cxxopts;
-    this.linkOptions = linkOptions;
+    this.linkopts = linkopts;
     this.ltoindexOptions = ltoindexOptions;
     this.ltobackendOptions = ltobackendOptions;
     this.cppOptions = cppOptions;
@@ -375,7 +372,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
     this.shouldProvideMakeVariables = shouldProvideMakeVariables;
-    this.dropFullyStaticLinkingMode = dropFullyStaticLinkingMode;
     this.cppToolchainInfo = cppToolchainInfo;
   }
 
@@ -602,7 +598,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   public ImmutableList<String> getCOptions() {
-    return cOptions;
+    return conlyopts;
   }
 
   /**
@@ -683,24 +679,14 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   @Deprecated
   ImmutableList<String> getLinkOptionsDoNotUse(@Nullable PathFragment sysroot) {
     if (sysroot == null) {
-      return linkOptions;
+      return linkopts;
     } else {
-      return ImmutableList.<String>builder()
-          .addAll(linkOptions)
-          .add("--sysroot=" + sysroot)
-          .build();
+      return ImmutableList.<String>builder().addAll(linkopts).add("--sysroot=" + sysroot).build();
     }
-  }
-
-  public boolean hasStaticLinkOption() {
-    if (dropFullyStaticLinkingMode()) {
-      return false;
-    }
-    return linkOptions.contains("-static");
   }
 
   public boolean hasSharedLinkOption() {
-    return linkOptions.contains("-shared");
+    return linkopts.contains("-shared");
   }
 
   /** Returns the set of command-line LTO indexing options. */
@@ -861,10 +847,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return stlLabel;
   }
 
-  public boolean dropFullyStaticLinkingMode() {
-    return dropFullyStaticLinkingMode;
-  }
-
   public boolean isFdo() {
     return cppOptions.isFdo();
   }
@@ -944,10 +926,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** Returns true if --start_end_lib is set on this build. */
   public boolean startEndLibIsRequested() {
     return cppOptions.useStartEndLib;
-  }
-
-  public boolean forceIgnoreDashStatic() {
-    return cppOptions.forceIgnoreDashStatic;
   }
 
   public boolean legacyWholeArchive() {
@@ -1059,14 +1037,28 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.experimentalOmitfp;
   }
 
-  /** Returns copts given at the Bazel command line. */
+  /** Returns flags passed to Bazel by --copt option. */
+  @Override
   public ImmutableList<String> getCopts() {
     return copts;
   }
 
-  /** Returns copts for c++ given at the Bazel command line. */
+  /** Returns flags passed to Bazel by --cxxopt option. */
+  @Override
   public ImmutableList<String> getCxxopts() {
     return cxxopts;
+  }
+
+  /** Returns flags passed to Bazel by --conlyopt option. */
+  @Override
+  public ImmutableList<String> getConlyopts() {
+    return conlyopts;
+  }
+
+  /** Returns flags passed to Bazel by --linkopt option. */
+  @Override
+  public ImmutableList<String> getLinkopts() {
+    return linkopts;
   }
 
   @Override

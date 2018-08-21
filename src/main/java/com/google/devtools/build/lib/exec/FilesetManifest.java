@@ -59,7 +59,7 @@ public final class FilesetManifest {
       Path execRoot,
       String workspaceName,
       RelativeSymlinkBehavior relSymlinkBehavior)
-          throws IOException {
+      throws IOException {
     Path file = execRoot.getRelative(AnalysisUtils.getManifestPathFromFilesetPath(manifest));
     try {
       return FileSystemUtils.asByteSource(file).asCharSource(UTF_8)
@@ -79,14 +79,14 @@ public final class FilesetManifest {
       throws IOException {
     LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
     Map<PathFragment, String> relativeLinks = new HashMap<>();
-    Map<PathFragment, FileArtifactValue> artifactValues = new HashMap<>();
+    Map<String, FileArtifactValue> artifactValues = new HashMap<>();
     for (FilesetOutputSymlink outputSymlink : outputSymlinks) {
       PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
       String artifact = outputSymlink.getTargetPath().getPathString();
       artifact = artifact.isEmpty() ? null : artifact;
       addSymlinkEntry(artifact, fullLocation, relSymlinkbehavior, entries, relativeLinks);
       if (outputSymlink.getMetadata() instanceof FileArtifactValue) {
-        artifactValues.put(fullLocation, (FileArtifactValue) outputSymlink.getMetadata());
+        artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
       }
     }
     return constructFilesetManifest(entries, relativeLinks, artifactValues);
@@ -180,7 +180,7 @@ public final class FilesetManifest {
 
   private static FilesetManifest constructFilesetManifest(
       Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks,
-      Map<PathFragment, FileArtifactValue> artifactValues) {
+      Map<String, FileArtifactValue> artifactValues) {
     // Resolve relative symlinks if possible. Note that relativeLinks only contains entries in
     // RESOLVE mode.
     for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
@@ -207,10 +207,10 @@ public final class FilesetManifest {
   }
 
   private final Map<PathFragment, String> entries;
-  private final Map<PathFragment, FileArtifactValue> artifactValues;
+  private final Map<String, FileArtifactValue> artifactValues;
 
   private FilesetManifest(Map<PathFragment, String> entries,
-      Map<PathFragment, FileArtifactValue> artifactValues) {
+      Map<String, FileArtifactValue> artifactValues) {
     this.entries = Collections.unmodifiableMap(entries);
     this.artifactValues = artifactValues;
   }
@@ -219,7 +219,7 @@ public final class FilesetManifest {
     return entries;
   }
 
-  public Map<PathFragment, FileArtifactValue> getArtifactValues() {
+  public Map<String, FileArtifactValue> getArtifactValues() {
     return artifactValues;
   }
 

@@ -63,6 +63,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   private final InvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
+  private final EventFilter eventFilter;
 
   // Keep edges in graph. Can be false to save memory, in which case incremental builds are
   // not possible.
@@ -90,6 +91,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         differencer,
         progressReceiver,
         GraphInconsistencyReceiver.THROWING,
+        DEFAULT_STORED_EVENT_FILTER,
         new EmittedEventState(),
         true);
   }
@@ -99,12 +101,14 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       Differencer differencer,
       @Nullable EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
+      EventFilter eventFilter,
       EmittedEventState emittedEventState,
       boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = new DirtyTrackingProgressReceiver(progressReceiver);
     this.graphInconsistencyReceiver = Preconditions.checkNotNull(graphInconsistencyReceiver);
+    this.eventFilter = eventFilter;
     this.graph = new InMemoryGraphImpl(keepEdges);
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
@@ -187,7 +191,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               skyFunctions,
               eventHandler,
               emittedEventState,
-              DEFAULT_STORED_EVENT_FILTER,
+              eventFilter,
               ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
               keepGoing,
               numThreads,
@@ -299,7 +303,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   @Nullable
   public SkyValue getExistingValue(SkyKey key) {
-    NodeEntry entry = getExistingEntryForTesting(key);
+    NodeEntry entry = getExistingEntryAtLatestVersion(key);
     try {
       return isDone(entry) ? entry.getValue() : null;
     } catch (InterruptedException e) {
@@ -309,7 +313,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = getExistingEntryForTesting(key);
+    NodeEntry entry = getExistingEntryAtLatestVersion(key);
     try {
       return isDone(entry) ? entry.getErrorInfo() : null;
     } catch (InterruptedException e) {
@@ -319,7 +323,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Nullable
   @Override
-  public NodeEntry getExistingEntryForTesting(SkyKey key) {
+  public NodeEntry getExistingEntryAtLatestVersion(SkyKey key) {
     return graph.get(null, Reason.OTHER, key);
   }
 

@@ -71,7 +71,7 @@ You can format the structured data as a .bzl file. You can `load()` the file to
 access it during the loading and analysis phases. You can pass it as an input or
 runfile to actions and executables that need it during the execution phase.
 
-## How should I document Skylark code?
+## How should I document Starlark code?
 
 For rules and rule attributes, you can pass a docstring literal (possibly
 triple-quoted) to the `doc` parameter of `rule` or `attr.*()`. For helper

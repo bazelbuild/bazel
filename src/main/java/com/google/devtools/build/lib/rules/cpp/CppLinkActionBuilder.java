@@ -122,7 +122,7 @@ public class CppLinkActionBuilder {
   private ImmutableList<String> additionalLinkstampDefines = ImmutableList.of();
   private final List<String> linkopts = new ArrayList<>();
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
-  private Link.LinkingMode linkingMode = Link.LinkingMode.LEGACY_FULLY_STATIC;
+  private Link.LinkingMode linkingMode = LinkingMode.STATIC;
   private String libraryIdentifier = null;
   private ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
   private Artifact defFile;
@@ -987,8 +987,7 @@ public class CppLinkActionBuilder {
       toolchainLibrariesSolibDir = null;
 
       Preconditions.checkArgument(
-          linkingMode == Link.LinkingMode.LEGACY_FULLY_STATIC,
-          "static library link must be static");
+          linkingMode == Link.LinkingMode.STATIC, "static library link must be static");
       Preconditions.checkArgument(
           symbolCounts == null, "the symbol counts output must be null for static links");
       Preconditions.checkArgument(
@@ -1080,7 +1079,7 @@ public class CppLinkActionBuilder {
     ImmutableSet.Builder<String> executionRequirements = ImmutableSet.builder();
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       executionRequirements.addAll(
-          featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements());
+          featureConfiguration.getToolRequirementsForAction(getActionName()));
     }
 
     if (!isLtoIndexing) {
@@ -1177,13 +1176,10 @@ public class CppLinkActionBuilder {
       Collection<String> linkopts,
       boolean isNativeDeps,
       CppConfiguration cppConfig) {
-    boolean fullyStatic = (staticness == Link.LinkingMode.LEGACY_FULLY_STATIC);
     boolean mostlyStatic = (staticness == Link.LinkingMode.STATIC);
     boolean sharedLinkopts =
         type.isDynamicLibrary() || linkopts.contains("-shared") || cppConfig.hasSharedLinkOption();
-    return (isNativeDeps || cppConfig.legacyWholeArchive())
-        && (fullyStatic || mostlyStatic)
-        && sharedLinkopts;
+    return (isNativeDeps || cppConfig.legacyWholeArchive()) && mostlyStatic && sharedLinkopts;
   }
 
   private static ImmutableSet<Artifact> constructOutputs(
@@ -1438,7 +1434,7 @@ public class CppLinkActionBuilder {
   /**
    * Sets the degree of "staticness" of the link: fully static (static binding of all symbols),
    * mostly static (use dynamic binding only for symbols from glibc), dynamic (use dynamic binding
-   * wherever possible). The default is {@link Link.LinkingMode#LEGACY_FULLY_STATIC}.
+   * wherever possible). The default is {@link LinkingMode#STATIC}.
    */
   public CppLinkActionBuilder setLinkingMode(Link.LinkingMode linkingMode) {
     this.linkingMode = linkingMode;

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.io.ByteArrayInputStream;
@@ -240,7 +240,9 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
         .setKillDelay(timeoutKillDelay)
-        .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
+        .setCreateNetworkNamespace(
+            !(allowNetwork
+                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the

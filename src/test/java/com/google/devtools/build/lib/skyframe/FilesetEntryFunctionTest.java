@@ -593,147 +593,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testNestedFileFilesetTraversal() throws Exception {
-    Artifact path1 = getSourceArtifact("foo/bar.file");
-    createFile(path1, "blah");
-    Artifact path2 = getSourceArtifact("foo/baz.file");
-    createFile(path2, "what");
-    FilesetTraversalParams inner1 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ path1,
-            PathFragment.create("inner-out1"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    FilesetTraversalParams inner2 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ path2,
-            PathFragment.create("inner-out2"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    FilesetTraversalParams outer =
-        FilesetTraversalParamsFactory.nestedTraversal(
-            /*ownerLabel=*/ label("//foo:bar"),
-            /*nested=*/ ImmutableList.of(inner1, inner2),
-            PathFragment.create("outer-out"),
-            /*excludes=*/ null);
-    assertSymlinksCreatedInOrder(
-        outer,
-        symlink("outer-out/inner-out1", rootedPath(path1)),
-        symlink("outer-out/inner-out2", rootedPath(path2)));
-  }
-
-  @Test
-  public void testMultiLevelNesting() throws Exception {
-    Artifact path1 = getSourceArtifact("foo/bar.file");
-    createFile(path1, "blah");
-    Artifact path2 = getSourceArtifact("foo/baz.file");
-    createFile(path2, "what");
-    Artifact path3 = getSourceArtifact("foo/hw.file");
-    createFile(path3, "hello");
-    FilesetTraversalParams inner1 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ path1,
-            PathFragment.create("inner-out1"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    FilesetTraversalParams inner2 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*fileToTraverse=*/ path2,
-            PathFragment.create("inner-out2"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    FilesetTraversalParams middle1 =
-        FilesetTraversalParamsFactory.nestedTraversal(
-            /*ownerLabel=*/ label("//foo:middle1"),
-            /*nested=*/ ImmutableList.of(inner1, inner2),
-            PathFragment.create("middle-out1"),
-            /*excludes=*/ null);
-
-    FilesetTraversalParams inner3 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//foo:inner3"),
-            /*fileToTraverse=*/ path3,
-            PathFragment.create("inner-out3"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    FilesetTraversalParams middle2 =
-        FilesetTraversalParamsFactory.nestedTraversal(
-            /*ownerLabel=*/ label("//foo:middle2"),
-            /*nested=*/ ImmutableList.of(inner3),
-            PathFragment.create("middle-out2"),
-            /*excludes=*/ null);
-
-    FilesetTraversalParams outer =
-        FilesetTraversalParamsFactory.nestedTraversal(
-            /*ownerLabel=*/ label("//foo:bar"),
-            /*nested=*/ ImmutableList.of(middle1, middle2),
-            PathFragment.create("outer-out"),
-            /*excludes=*/ null);
-    assertSymlinksCreatedInOrder(
-        outer,
-        symlink("outer-out/middle-out1/inner-out1", rootedPath(path1)),
-        symlink("outer-out/middle-out1/inner-out2", rootedPath(path2)),
-        symlink("outer-out/middle-out2/inner-out3", rootedPath(path3)));
-  }
-
-  private void assertNestedRecursiveFilesetTraversal(boolean useInnerDir) throws Exception {
-    Artifact dir = getSourceArtifact("foo/dir");
-    RootedPath fileA = createFile(childOf(dir, "file.a"), "hello");
-    RootedPath fileB = createFile(childOf(dir, "file.b"), "hello");
-    RootedPath fileC = createFile(childOf(dir, "sub/file.c"), "world");
-
-    FilesetTraversalParams inner =
-        FilesetTraversalParamsFactory.recursiveTraversalOfDirectory(
-            /*ownerLabel=*/ label("//foo"),
-            /*directoryToTraverse=*/ dir,
-            PathFragment.create(useInnerDir ? "inner-dir" : ""),
-            /*excludes=*/ null,
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    FilesetTraversalParams outer =
-        FilesetTraversalParamsFactory.nestedTraversal(
-            /*ownerLabel=*/ label("//foo"),
-            /*nested=*/ ImmutableList.of(inner),
-            PathFragment.create("outer-dir"),
-            /*excludes=*/ ImmutableSet.of("file.a", "sub/file.c"));
-
-    if (useInnerDir) {
-      assertSymlinksCreatedInOrder(
-          outer,
-          // no file is excluded, since no files from "inner" are top-level in the outer Fileset
-          symlink("outer-dir/inner-dir/file.a", fileA),
-          symlink("outer-dir/inner-dir/file.b", fileB),
-          symlink("outer-dir/inner-dir/sub/file.c", fileC)); // only top-level files are excluded
-    } else {
-      assertSymlinksCreatedInOrder(
-          outer,
-          // file.a can be excluded because it's top-level (there's no output directory for "inner")
-          symlink("outer-dir/file.b", fileB),
-          symlink("outer-dir/sub/file.c", fileC)); // only top-level files could be excluded
-    }
-  }
-
-  @Test
-  public void testNestedRecursiveFilesetTraversalWithInnerDestDir() throws Exception {
-    assertNestedRecursiveFilesetTraversal(true);
-  }
-
-  @Test
-  public void testNestedRecursiveFilesetTraversalWithoutInnerDestDir() throws Exception {
-    assertNestedRecursiveFilesetTraversal(false);
-  }
-
-  @Test
   public void testFileTraversalForDanglingSymlink() throws Exception {
     Artifact linkName = getSourceArtifact("foo/dangling.sym");
     RootedPath linkTarget = createFile(siblingOf(linkName, "target.file"), "blah");
@@ -1071,48 +930,13 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   @Test
   public void testFingerprintOfNestedTraversal() throws Exception {
-    FilesetTraversalParams n1 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//blah"),
-            /*fileToTraverse=*/ getSourceArtifact("blah/file.a"),
-            PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-
-    FilesetTraversalParams n2 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//blah"),
-            /*fileToTraverse=*/ getSourceArtifact("meow/file.b"),
-            PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    ImmutableList<FilesetTraversalParams> nested1 = ImmutableList.of(n1, n2);
-
-    FilesetTraversalParams n3 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//blah"),
-            /*fileToTraverse=*/ getSourceArtifact("brrr/file.c"),
-            PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-
-    FilesetTraversalParams n4 =
-        FilesetTraversalParamsFactory.fileTraversal(
-            /*ownerLabel=*/ label("//blah"),
-            /*fileToTraverse=*/ getSourceArtifact("hurr/file.d"),
-            PathFragment.create("output-name"),
-            /*symlinkBehaviorMode=*/ SymlinkBehavior.COPY,
-            /*pkgBoundaryMode=*/ DONT_CROSS,
-            /*strictFilesetOutput=*/ false);
-    ImmutableList<FilesetTraversalParams> nested2 = ImmutableList.of(n3, n4);
+    Artifact nested1 = getSourceArtifact("a/b");
+    Artifact nested2 = getSourceArtifact("a/c");
 
     new FingerprintTester(
         ImmutableMap.<String, Domain>of(
             "ownerLabel", notPartOfFingerprint("//foo", "//bar"),
-            "nested", partOfFingerprint(nested1, nested2),
+            "nestedArtifact", partOfFingerprint(nested1, nested2),
             "destDir", partOfFingerprint("out1", "out2"),
             "excludes",
                 partOfFingerprint(ImmutableSet.<String>of(), ImmutableSet.<String>of("x")))) {
@@ -1121,7 +945,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
       FilesetTraversalParams create(Map<String, ?> kwArgs) throws Exception {
         return FilesetTraversalParamsFactory.nestedTraversal(
             label((String) kwArgs.get("ownerLabel")),
-            (ImmutableList<FilesetTraversalParams>) kwArgs.get("nested"),
+            (Artifact) kwArgs.get("nestedArtifact"),
             PathFragment.create((String) kwArgs.get("destDir")),
             (Set<String>) kwArgs.get("excludes"));
       }

@@ -138,10 +138,7 @@ public class CcModule
 
   @Override
   public String getToolForAction(FeatureConfiguration featureConfiguration, String actionName) {
-    return featureConfiguration
-        .getToolForAction(actionName)
-        .getToolPathFragment()
-        .getSafePathString();
+    return featureConfiguration.getToolPathForAction(actionName);
   }
 
   @Override

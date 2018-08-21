@@ -24,7 +24,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -69,7 +69,7 @@ public class AbstractCommandTest {
 
   private static class ConcreteCommand implements BlazeCommand {
     @Override
-    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       throw new UnsupportedOperationException();
     }
 

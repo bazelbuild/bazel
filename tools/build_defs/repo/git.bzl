@@ -29,12 +29,15 @@ def _clone_or_update(ctx):
         shallow = "--depth=1"
     else:
         ref = ctx.attr.branch
+        shallow = "--depth=1"
     directory = str(ctx.path("."))
     if ctx.attr.strip_prefix:
         directory = directory + "-tmp"
     if ctx.attr.shallow_since:
         if ctx.attr.tag:
             fail("shallow_since not allowed if a tag is specified; --depth=1 will be used for tags")
+        if ctx.attr.branch:
+            fail("shallow_since not allowed if a branch is specified; --depth=1 will be used for branches")
         shallow = "--shallow-since=%s" % ctx.attr.shallow_since
 
     if (ctx.attr.verbose):
@@ -52,9 +55,10 @@ set -ex
       rm -rf '{directory}' '{dir_link}'
       git clone {shallow} '{remote}' '{directory}' || git clone '{remote}' '{directory}'
     fi
-    cd '{directory}'
-    git reset --hard {ref} || ((git fetch {shallow} origin {ref}:{ref} || git fetch origin {ref}:{ref}) && git reset --hard {ref})
-    git clean -xdf )
+    git -C '{directory}' reset --hard {ref} || \
+    ((git -C '{directory}' fetch {shallow} origin {ref}:{ref} || \
+      git -C '{directory}' fetch origin {ref}:{ref}) && git -C '{directory}' reset --hard {ref})
+      git -C '{directory}' clean -xdf )
   """.format(
         working_dir = ctx.path(".").dirname,
         dir_link = ctx.path("."),
@@ -62,7 +66,7 @@ set -ex
         remote = ctx.attr.remote,
         ref = ref,
         shallow = shallow,
-    )])
+    )], environment = ctx.os.environ)
 
     if st.return_code:
         fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
@@ -76,11 +80,10 @@ set -ex
     if ctx.attr.init_submodules:
         st = ctx.execute([bash_exe, "-c", """
 set -ex
-(   cd '{directory}'
-    git submodule update --init --checkout --force )
+(   git -C '{directory}' submodule update --init --checkout --force )
   """.format(
             directory = ctx.path("."),
-        )])
+        )], environment = ctx.os.environ)
     if st.return_code:
         fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
 
@@ -88,14 +91,14 @@ set -ex
     actual_commit = ctx.execute([
         bash_exe,
         "-c",
-        "(cd '{directory}' && git log -n 1 --pretty='format:%H')".format(
+        "(git -C '{directory}' log -n 1 --pretty='format:%H')".format(
             directory = ctx.path("."),
         ),
     ]).stdout
     shallow_date = ctx.execute([
         bash_exe,
         "-c",
-        "(cd '{directory}' && git log -n 1 --pretty='format:%cd' --date='format:%Y-%d-%m')".format(
+        "(git -C '{directory}' log -n 1 --pretty='format:%cd' --date='format:%Y-%m-%d')".format(
             directory = ctx.path("."),
         ),
     ]).stdout
@@ -183,7 +186,7 @@ Args:
   build_file: The file to use as the BUILD file for this repository.
     Either build_file or build_file_content must be specified.
 
-    This attribute is a label relative to the main workspace. The file
+    This attribute is an absolute label (use '@//' for the main repo). The file
     does not need to be named BUILD, but can be (something like
     BUILD.new-repo-name may work well for distinguishing it from the
     repository's actual BUILD files.

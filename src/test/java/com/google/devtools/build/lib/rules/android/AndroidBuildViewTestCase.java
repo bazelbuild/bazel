@@ -115,31 +115,20 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .isNotNull();
   }
 
-  protected List<String> resourceArguments(ValidatedAndroidData resource)
+  protected List<String> resourceArguments(ValidatedAndroidResources resource)
       throws CommandLineExpansionException {
     return getGeneratingSpawnActionArgs(resource.getApk());
   }
 
-  protected SpawnAction resourceGeneratingAction(ValidatedAndroidData resource) {
+  protected SpawnAction resourceGeneratingAction(ValidatedAndroidResources resource) {
     return getGeneratingSpawnAction(resource.getApk());
   }
 
-  protected static ResourceContainer getResourceContainer(ConfiguredTarget target) {
-    return getResourceContainer(target, /* transitive= */ false);
+  protected static ValidatedAndroidResources getValidatedResources(ConfiguredTarget target) {
+    return getValidatedResources(target, /* transitive= */ false);
   }
 
-  protected static ResourceContainer getResourceContainer(
-      ConfiguredTarget target, boolean transitive) {
-    ValidatedAndroidData validated = getValidatedData(target, transitive);
-    assertThat(validated).isInstanceOf(ResourceContainer.class);
-    return (ResourceContainer) validated;
-  }
-
-  protected static ValidatedAndroidData getValidatedData(ConfiguredTarget target) {
-    return getValidatedData(target, /* transitive = */ false);
-  }
-
-  protected static ValidatedAndroidData getValidatedData(
+  protected static ValidatedAndroidResources getValidatedResources(
       ConfiguredTarget target, boolean transitive) {
     Preconditions.checkNotNull(target);
     final AndroidResourcesInfo info = target.get(AndroidResourcesInfo.PROVIDER);

@@ -243,7 +243,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 p.addLast(new HttpObjectAggregator(10 * 1024));
                 p.addLast(new HttpRequestEncoder());
                 p.addLast(new ChunkedWriteHandler());
-                p.addLast(new HttpUploadHandler(creds));
+                synchronized (credentialsLock) {
+                  p.addLast(new HttpUploadHandler(creds));
+                }
 
                 channelReady.setSuccess(ch);
               } catch (Throwable t) {
@@ -289,7 +291,9 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 ch.pipeline()
                     .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
                 p.addLast(new HttpClientCodec());
-                p.addLast(new HttpDownloadHandler(creds));
+                synchronized (credentialsLock) {
+                  p.addLast(new HttpDownloadHandler(creds));
+                }
 
                 channelReady.setSuccess(ch);
               } catch (Throwable t) {

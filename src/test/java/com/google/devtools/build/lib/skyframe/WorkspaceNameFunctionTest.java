@@ -77,13 +77,10 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEqualsAndHashCode(){
+  public void testEqualsAndHashCode() {
     new EqualsTester()
-        .addEqualityGroup(
-            WorkspaceNameValue.withName("foo"),
-            WorkspaceNameValue.withName("foo"))
-        .addEqualityGroup(
-            WorkspaceNameValue.withName("bar"),
-            WorkspaceNameValue.withName("bar"));
+        .addEqualityGroup(WorkspaceNameValue.withName("foo"), WorkspaceNameValue.withName("foo"))
+        .addEqualityGroup(WorkspaceNameValue.withName("bar"), WorkspaceNameValue.withName("bar"))
+        .testEquals();
   }
 }

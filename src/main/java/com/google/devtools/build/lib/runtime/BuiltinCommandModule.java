@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.build.lib.runtime.commands.ShutdownCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
  * Internal module for the built-in commands.
@@ -43,7 +43,7 @@ public class BuiltinCommandModule extends BlazeModule {
   }
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(
         new BuildCommand(),
         new CanonicalizeCommand(),

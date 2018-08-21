@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -161,6 +162,44 @@ public class Artifact
      * Only aggregating middlemen and tree artifacts are expanded.
      */
     void expand(Artifact artifact, Collection<? super Artifact> output);
+
+    /**
+     * Retrieve the expansion of Filesets for the given artifact.
+     *
+     * @param artifact {@code artifact.isFileset()} must be true.
+     */
+    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /** Implementation of {@link ArtifactExpander} */
+  public static class ArtifactExpanderImpl implements ArtifactExpander {
+    private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
+
+    public ArtifactExpanderImpl(
+        Map<Artifact, Collection<Artifact>> expandedInputMiddlemen,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
+      this.expandedInputs = expandedInputMiddlemen;
+      this.expandedFilesets = expandedFilesets;
+    }
+
+    @Override
+    public void expand(Artifact artifact, Collection<? super Artifact> output) {
+      Preconditions.checkState(
+          artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
+      Collection<Artifact> result = expandedInputs.get(artifact);
+      if (result != null) {
+        output.addAll(result);
+      }
+    }
+
+    @Override
+    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+      Preconditions.checkState(artifact.isFileset());
+      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+    }
   }
 
   public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();

@@ -145,5 +145,12 @@ public class DeterministicHelper extends NotifyingHelper {
       result.addAll(super.getInProgressReverseDeps());
       return result;
     }
+
+    @Override
+    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+      TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
+      result.addAll(super.setValue(value, version));
+      return result;
+    }
   }
 }

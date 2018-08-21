@@ -15,9 +15,7 @@ package com.google.devtools.build.android;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 import android.aapt.pb.internal.ResourcesInternal.CompiledFile;
 import com.android.SdkConstants;
@@ -95,7 +93,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -104,14 +101,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 import javax.annotation.concurrent.NotThreadSafe;
 
 /** Deserializes {@link DataKey}, {@link DataValue} entries from compiled resource files. */
@@ -614,41 +610,26 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
   }
 
   public Map<DataKey, DataResource> readAttributes(CompiledResources resources) {
-    try (ZipFile zipFile = new ZipFile(resources.getZip().toFile())) {
-      return zipFile
-          .stream()
-          .filter(e -> e.getName().endsWith(".attributes"))
-          .flatMap(
-              entry -> {
-                try {
-                  final Stream.Builder<Entry<DataKey, DataResource>> builder = Stream.builder();
-                  final BiConsumer<DataKey, DataResource> consumeToStream =
-                      (k, v) -> builder.add(new SimpleImmutableEntry<>(k, v));
-                  readAttributesFile(
-                      zipFile.getInputStream(entry),
-                      FileSystems.getDefault(),
-                      consumeToStream,
-                      consumeToStream);
-                  return builder.build();
-                } catch (IOException e) {
-                  throw new DeserializationException(e);
-                }
-              })
-          .collect(toImmutableSetMultimap(Entry::getKey, Entry::getValue))
-          .asMap()
-          .entrySet()
-          .stream()
-          .collect(
-              toMap(
-                  Entry::getKey,
-                  e ->
-                      e.getValue()
-                          .stream()
-                          .reduce(
-                              ((FullyQualifiedName) e.getKey()).isOverwritable()
-                                  ? DataResource::overwrite
-                                  : DataResource::combineWith)
-                          .orElseThrow(IllegalStateException::new)));
+    try (ZipInputStream zipStream = new ZipInputStream(Files.newInputStream(resources.getZip()))) {
+      Map<DataKey, DataResource> attributes = new HashMap<>();
+      for (ZipEntry entry = zipStream.getNextEntry();
+          entry != null;
+          entry = zipStream.getNextEntry()) {
+        if (entry.getName().endsWith(".attributes")) {
+          readAttributesFile(
+              zipStream,
+              FileSystems.getDefault(),
+              (key, value) ->
+                  attributes.put(
+                      key,
+                      attributes.containsKey(key) ? attributes.get(key).combineWith(value) : value),
+              (key, value) ->
+                  attributes.put(
+                      key,
+                      attributes.containsKey(key) ? attributes.get(key).overwrite(value) : value));
+        }
+      }
+      return attributes;
     } catch (IOException e) {
       throw new DeserializationException(e);
     }

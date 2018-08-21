@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -36,7 +35,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.UUID;
@@ -70,7 +69,7 @@ public abstract class BlazeModule {
    *
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void globalInit(OptionsProvider startupOptions) throws AbruptExitException {
+  public void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {
   }
 
   /**
@@ -82,7 +81,7 @@ public abstract class BlazeModule {
    *
    * @param startupOptions the server's startup options
    */
-  public FileSystem getFileSystem(OptionsProvider startupOptions) throws AbruptExitException {
+  public FileSystem getFileSystem(OptionsParsingResult startupOptions) throws AbruptExitException {
     return null;
   }
 
@@ -99,7 +98,7 @@ public abstract class BlazeModule {
    * @throws AbruptExitException to shut down the server immediately
    */
   public void blazeStartup(
-      OptionsProvider startupOptions,
+      OptionsParsingResult startupOptions,
       BlazeVersionInfo versionInfo,
       UUID instanceId,
       FileSystem fileSystem,
@@ -117,7 +116,7 @@ public abstract class BlazeModule {
    *
    * @throws AbruptExitException to shut down the server immediately
    */
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder)
       throws AbruptExitException {
   }
 
@@ -148,13 +147,13 @@ public abstract class BlazeModule {
 
   /**
    * Called to notify modules that the given command is about to be executed. This allows capturing
-   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link OptionsProvider}.
+   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link
+   * OptionsParsingResult}.
    *
    * @param env the command
    * @throws AbruptExitException modules can throw this exception to abort the command
    */
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-  }
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {}
 
   /**
    * Returns additional listeners to the console output stream. Called at the beginning of each
@@ -264,7 +263,8 @@ public abstract class BlazeModule {
    * does not provide any helper, it should return null. Note that only one helper per Bazel/Blaze
    * runtime is allowed.
    */
-  public Package.Builder.Helper getPackageBuilderHelper(RuleClassProvider ruleClassProvider) {
+  public Package.Builder.Helper getPackageBuilderHelper(
+      ConfiguredRuleClassProvider ruleClassProvider) {
     return null;
   }
 
@@ -286,7 +286,7 @@ public abstract class BlazeModule {
    * @param commandOptions the options for the current command
    */
   @Nullable
-  public CoverageReportActionFactory getCoverageReportFactory(OptionsClassProvider commandOptions) {
+  public CoverageReportActionFactory getCoverageReportFactory(OptionsProvider commandOptions) {
     return null;
   }
 

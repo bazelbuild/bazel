@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -1413,12 +1412,10 @@ public class Package {
         // All labels mentioned in a rule that refer to an unknown target in the
         // current package are assumed to be InputFiles, so let's create them:
         for (final Rule rule : sortedRules) {
-          AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
-            @Override
-            public void acceptLabelAttribute(Label label, Attribute attribute) {
-              createInputFileMaybe(label, rule.getAttributeLocation(attribute.getName()));
-            }
-          });
+          for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
+            createInputFileMaybe(
+                depEdge.getLabel(), rule.getAttributeLocation(depEdge.getAttribute().getName()));
+          }
         }
       }
 

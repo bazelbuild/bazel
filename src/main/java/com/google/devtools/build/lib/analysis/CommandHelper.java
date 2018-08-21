@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -48,6 +49,62 @@ import javax.annotation.Nullable;
  *  at which point the shell script is added to the list of inputs.
  */
 public final class CommandHelper {
+
+  /**
+   * Returns a new {@link Builder} to create a {@link CommandHelper} based on the given {@link
+   * RuleContext}.
+   */
+  public static Builder builder(RuleContext ruleContext) {
+    return new Builder(ruleContext);
+  }
+
+  /**
+   * Builder class to assist with creating an instance of {@link CommandHelper}. The Builder can
+   * optionally add additional tools as dependencies, and a map of labels to be resolved.
+   */
+  public static final class Builder {
+    private final RuleContext ruleContext;
+    private final ImmutableList.Builder<Iterable<? extends TransitiveInfoCollection>>
+        toolDependencies = ImmutableList.builder();
+    private final ImmutableMap.Builder<Label, Iterable<Artifact>> labelMap = ImmutableMap.builder();
+
+    private Builder(RuleContext ruleContext) {
+      this.ruleContext = ruleContext;
+    }
+
+    /**
+     * Adds tools, as a set of executable binaries, by fetching them from the given attribute on the
+     * {@code ruleContext}, in HOST mode. Populates manifests, remoteRunfiles and label map where
+     * required.
+     */
+    public Builder addHostToolDependencies(String toolAttributeName) {
+      List<? extends TransitiveInfoCollection> dependencies =
+          ruleContext.getPrerequisites(toolAttributeName, Mode.HOST);
+      addToolDependencies(dependencies);
+      return this;
+    }
+
+    /**
+     * Adds tools, as a set of executable binaries. Populates manifests, remoteRunfiles and label
+     * map where required.
+     */
+    public Builder addToolDependencies(
+        Iterable<? extends TransitiveInfoCollection> toolDependencies) {
+      this.toolDependencies.add(toolDependencies);
+      return this;
+    }
+
+    /** Adds files to set of known files of label. Used for resolving $(location) variables. */
+    public Builder addLabelMap(Map<Label, ? extends Iterable<Artifact>> labelMap) {
+      this.labelMap.putAll(labelMap);
+      return this;
+    }
+
+    /** Returns the built {@link CommandHelper}. */
+    public CommandHelper build() {
+      return new CommandHelper(ruleContext, toolDependencies.build(), labelMap.build());
+    }
+  }
 
   /**
    * Maximum total command-line length, in bytes, not counting "/bin/bash -c ".
@@ -85,15 +142,16 @@ public final class CommandHelper {
   /**
    * Creates a {@link CommandHelper}.
    *
-   * @param tools resolves set of tools into set of executable binaries. Populates manifests,
+   * @param toolsList resolves sets of tools into set of executable binaries. Populates manifests,
    *     remoteRunfiles and label map where required.
    * @param labelMap adds files to set of known files of label. Used for resolving $(location)
    *     variables.
    */
-  public CommandHelper(
+  private CommandHelper(
       RuleContext ruleContext,
-      Iterable<? extends TransitiveInfoCollection> tools,
+      ImmutableList<Iterable<? extends TransitiveInfoCollection>> toolsList,
       ImmutableMap<Label, ? extends Iterable<Artifact>> labelMap) {
+
     this.ruleContext = ruleContext;
 
     ImmutableList.Builder<Artifact> resolvedToolsBuilder = ImmutableList.builder();
@@ -104,24 +162,26 @@ public final class CommandHelper {
       Iterables.addAll(mapGet(tempLabelMap, entry.getKey()), entry.getValue());
     }
 
-    for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
-      Label label = AliasProvider.getDependencyLabel(dep);
-      FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
-      if (tool == null) {
-        continue;
-      }
+    for (Iterable<? extends TransitiveInfoCollection> tools : toolsList) {
+      for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
+        Label label = AliasProvider.getDependencyLabel(dep);
+        FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
+        if (tool == null) {
+          continue;
+        }
 
-      Iterable<Artifact> files = tool.getFilesToRun();
-      resolvedToolsBuilder.addAll(files);
-      Artifact executableArtifact = tool.getExecutable();
-      // If the label has an executable artifact add that to the multimaps.
-      if (executableArtifact != null) {
-        mapGet(tempLabelMap, label).add(executableArtifact);
-        // Also send the runfiles when running remotely.
-        toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
-      } else {
-        // Map all depArtifacts to the respective label using the multimaps.
-        Iterables.addAll(mapGet(tempLabelMap, label), files);
+        Iterable<Artifact> files = tool.getFilesToRun();
+        resolvedToolsBuilder.addAll(files);
+        Artifact executableArtifact = tool.getExecutable();
+        // If the label has an executable artifact add that to the multimaps.
+        if (executableArtifact != null) {
+          mapGet(tempLabelMap, label).add(executableArtifact);
+          // Also send the runfiles when running remotely.
+          toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
+        } else {
+          // Map all depArtifacts to the respective label using the multimaps.
+          Iterables.addAll(mapGet(tempLabelMap, label), files);
+        }
       }
     }
 

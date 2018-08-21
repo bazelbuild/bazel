@@ -146,6 +146,15 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     )
     public List<String> ccProtoLibrarySourceSuffixes;
 
+    @Option(
+        name = "experimental_java_proto_add_allowed_public_imports",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "If true, add --allowed_public_imports to the java compile actions.")
+    public boolean experimentalJavaProtoAddAllowedPublicImports;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -160,6 +169,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.strictProtoDeps = strictProtoDeps;
       host.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
+      host.experimentalJavaProtoAddAllowedPublicImports =
+          experimentalJavaProtoAddAllowedPublicImports;
       return host;
     }
   }
@@ -241,5 +252,9 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
+  }
+
+  public boolean strictPublicImports() {
+    return options.experimentalJavaProtoAddAllowedPublicImports;
   }
 }

@@ -17,9 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
@@ -110,30 +108,23 @@ public final class FilesetTraversalParamsFactory {
   }
 
   /**
-   * Creates traversal request parameters for a FilesetEntry wrapping another Fileset. If possible,
-   * the original {@code nested} is returned to avoid unnecessary object creation. In that case, the
-   * {@code ownerLabelForErrorMessages} may be ignored. Since the wrapping traversal could not have
-   * an error on its own, any error messages printed will still be correct.
+   * Creates traversal request parameters for a FilesetEntry wrapping another Fileset.
    *
    * @param ownerLabel the rule that created this object
-   * @param nested the list of traversal params that were used for the nested (inner) Fileset
-   * @param destDir path in the Fileset's output directory that will be the root of files coming
+   * @param artifact the Fileset Artifact of traversal params that were used for the nested (inner)
+   *     Fileset
+   * @param destPath path in the Fileset's output directory that will be the root of files coming
    *     from the nested Fileset
    * @param excludes optional; set of files directly below (not in a subdirectory of) the nested
    *     Fileset that should be excluded from the outer Fileset
    */
   public static FilesetTraversalParams nestedTraversal(
       Label ownerLabel,
-      ImmutableList<FilesetTraversalParams> nested,
-      PathFragment destDir,
+      Artifact artifact,
+      PathFragment destPath,
       @Nullable Set<String> excludes) {
-    if (nested.size() == 1 && destDir.isEmpty() && (excludes == null || excludes.isEmpty())) {
-      // Wrapping the traversal here would not lead to a different result: the output location is
-      // the same and there are no additional excludes.
-      return Iterables.getOnlyElement(nested);
-    }
     // When srcdir is another Fileset, then files must be null so strip_prefix must also be null.
-    return NestedTraversalParams.getNestedTraversal(ownerLabel, nested, destDir, excludes);
+    return NestedTraversalParams.getNestedTraversal(ownerLabel, artifact, destPath, excludes);
   }
 
   private static ImmutableSortedSet<String> getOrderedExcludes(@Nullable Set<String> excludes) {
@@ -147,8 +138,8 @@ public final class FilesetTraversalParamsFactory {
   @AutoValue
   abstract static class DirectoryTraversalParams implements FilesetTraversalParams {
     @Override
-    public ImmutableList<FilesetTraversalParams> getNestedTraversal() {
-      return ImmutableList.of();
+    public Artifact getNestedArtifact() {
+      return null;
     }
 
     @Memoized
@@ -218,7 +209,7 @@ public final class FilesetTraversalParamsFactory {
       if (!getExcludedFiles().isEmpty()) {
         fp.addStrings(getExcludedFiles());
       }
-      getNestedTraversal().forEach(nestedTraversal -> nestedTraversal.fingerprint(fp));
+      fp.addPath(getNestedArtifact().getExecPath());
       return fp.digestAndReset();
     }
 
@@ -229,10 +220,10 @@ public final class FilesetTraversalParamsFactory {
 
     static NestedTraversalParams getNestedTraversal(
         Label ownerLabel,
-        ImmutableList<FilesetTraversalParams> nested,
-        PathFragment destDir,
+        Artifact nestedArtifact,
+        PathFragment destPath,
         @Nullable Set<String> excludes) {
-      return create(ownerLabel, destDir, getOrderedExcludes(excludes), nested);
+      return create(ownerLabel, destPath, getOrderedExcludes(excludes), nestedArtifact);
     }
 
     @AutoCodec.VisibleForSerialization
@@ -241,9 +232,9 @@ public final class FilesetTraversalParamsFactory {
         Label ownerLabelForErrorMessages,
         PathFragment destPath,
         ImmutableSortedSet<String> excludedFiles,
-        ImmutableList<FilesetTraversalParams> nestedTraversal) {
+        Artifact nestedArtifact) {
       return new AutoValue_FilesetTraversalParamsFactory_NestedTraversalParams(
-          ownerLabelForErrorMessages, destPath, excludedFiles, nestedTraversal);
+          ownerLabelForErrorMessages, destPath, excludedFiles, nestedArtifact);
     }
   }
 }

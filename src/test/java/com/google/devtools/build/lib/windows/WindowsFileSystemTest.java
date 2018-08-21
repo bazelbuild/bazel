@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -53,7 +54,7 @@ public class WindowsFileSystemTest {
   public void loadJni() throws Exception {
     scratchRoot = new File(System.getenv("TEST_TMPDIR"), "x").getAbsolutePath();
     testUtil = new WindowsTestUtil(scratchRoot);
-    fs = new WindowsFileSystem();
+    fs = new WindowsFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     cleanupScratchDir();
   }
 

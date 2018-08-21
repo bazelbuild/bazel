@@ -382,7 +382,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     @Option(
         name = "defer_param_files",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -390,7 +390,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
           OptionEffectTag.ACTION_COMMAND_LINES
         },
         help =
-            "Whether to use deferred param files. WHen set, param files will not be "
+            "Whether to use deferred param files. When set, param files will not be "
                 + "added to the action graph. Instead, they will be added as virtual action inputs "
                 + "and written at the same time as the action executes.")
     public boolean deferParamFiles;
@@ -920,6 +920,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
       // === Runfiles ===
       host.buildRunfilesManifests = buildRunfilesManifests;
       host.buildRunfiles = buildRunfiles;
+
+      // === Filesets ===
+      host.strictFilesetOutput = strictFilesetOutput;
+      host.strictFilesets = strictFilesets;
 
       // === Linkstamping ===
       // Disable all link stamping for the host configuration, to improve action

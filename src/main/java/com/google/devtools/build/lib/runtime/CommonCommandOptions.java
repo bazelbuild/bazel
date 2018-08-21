@@ -212,6 +212,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean postProfileStartedEvent;
 
   @Option(
+      name = "experimental_profile_cpu_usage",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
+  public boolean enableCpuUsageProfiling;
+
+  @Option(
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

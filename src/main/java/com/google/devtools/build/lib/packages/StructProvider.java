@@ -26,18 +26,18 @@ import java.util.Map;
  *
  * <p>Its singleton instance is {@link StructProvider#STRUCT}.
  */
-public final class StructProvider extends BuiltinProvider<Info>
+public final class StructProvider extends BuiltinProvider<StructImpl>
     implements StructApi.StructProviderApi {
 
   /** "struct" function. */
   public static final StructProvider STRUCT = new StructProvider();
 
   StructProvider() {
-    super("struct", Info.class);
+    super("struct", StructImpl.class);
   }
 
   @Override
-  public Info createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
+  public StructImpl createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException {
     Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
     if (kwargsMap.containsKey("to_json")) {
       throw new EvalException(loc, "cannot override built-in struct function 'to_json'");

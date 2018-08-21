@@ -15,8 +15,10 @@
 package com.google.devtools.build.android.aapt2;
 
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
+import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
 import com.android.tools.lint.checks.ResourceUsageModel;
 import com.android.tools.lint.checks.ResourceUsageModel.Resource;
@@ -24,21 +26,31 @@ import com.android.tools.lint.detector.api.LintUtils;
 import com.android.utils.XmlUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.aapt2.ProtoApk.ManifestVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ReferenceVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourcePackageVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.Attr;
 import org.w3c.dom.DOMException;
@@ -48,9 +60,13 @@ import org.xml.sax.SAXException;
 /** A resource usage analyzer tha functions on apks in protocol buffer format. */
 public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
+  private static final Logger logger = Logger.getLogger(ProtoResourceUsageAnalyzer.class.getName());
+  private final Path mapping;
+
   public ProtoResourceUsageAnalyzer(Set<String> resourcePackages, Path mapping, Path logFile)
       throws DOMException, ParserConfigurationException {
-    super(resourcePackages, null, null, null, mapping, null, logFile);
+    super(resourcePackages, null, null, null, null, null, logFile);
+    this.mapping = mapping;
   }
 
   private static Resource parse(ResourceUsageModel model, String resourceTypeAndName) {
@@ -72,7 +88,8 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
    * @param keep A list of resource urls to keep, unused or not.
    * @param discard A list of resource urls to always discard.
    */
-  public void shrink(
+  @CheckReturnValue
+  public ProtoApk shrink(
       ProtoApk apk,
       Path classes,
       Path destination,
@@ -80,6 +97,8 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
       Collection<String> discard)
       throws IOException, ParserConfigurationException, SAXException {
 
+    // Set the usage analyzer as parent to make sure that the usage log contains the subclass data.
+    logger.setParent(Logger.getLogger(ResourceUsageAnalyzer.class.getName()));
     // record resources and manifest
     apk.visitResources(
         // First, collect all declarations using the declaration visitor.
@@ -87,7 +106,16 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         // graph on.
         apk.visitResources(new ResourceDeclarationVisitor(model())).toUsageVisitor());
 
-    recordClassUsages(classes);
+    try {
+      // TODO(b/112810967): Remove reflection hack.
+      final Method recordMapping =
+          ResourceUsageAnalyzer.class.getDeclaredMethod("recordMapping", Path.class);
+      recordMapping.setAccessible(true);
+      recordMapping.invoke(this, mapping);
+      recordClassUsages(classes);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException(e);
+    }
 
     // Have to give the model xml attributes with keep and discard urls.
     final NamedNodeMap toolAttributes =
@@ -107,30 +135,61 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
     keepPossiblyReferencedResources();
 
-    dumpReferences();
+    final List<Resource> resources = model().getResources();
 
-    // Remove unused.
-    final ImmutableSet<Resource> unused = ImmutableSet.copyOf(model().findUnused());
+    List<Resource> roots =
+        resources.stream().filter(r -> r.isKeep() || r.isReachable()).collect(toList());
 
-    // ResourceUsageAnalyzer uses the logger to generate the report.
-    Logger logger = Logger.getLogger(getClass().getName());
-    unused.forEach(
-        resource ->
-            logger.fine(
-                "Deleted unused file "
-                    + ((resource.locations != null && resource.locations.getFile() != null)
-                        ? resource.locations.getFile().toString()
-                        : "<apk>" + " for resource " + resource)));
-
-    apk.copy(
+    final Set<Resource> reachable = findReachableResources(roots);
+    return apk.copy(
         destination,
-        (resourceType, name) ->
-            !unused.contains(
-                Preconditions.checkNotNull(
-                    model().getResource(resourceType, name),
-                    "%s/%s was not declared but is copied!",
-                    resourceType,
-                    name)));
+        (resourceType, name) -> reachable.contains(model().getResource(resourceType, name)));
+  }
+
+  private Set<Resource> findReachableResources(List<Resource> roots) {
+    final Multimap<Resource, Resource> referenceLog = HashMultimap.create();
+    Deque<Resource> queue = new ArrayDeque<>(roots);
+    final Set<Resource> reachable = new HashSet<>();
+    while (!queue.isEmpty()) {
+      Resource resource = queue.pop();
+      if (resource.references != null) {
+        resource.references.forEach(
+            r -> {
+              referenceLog.put(r, resource);
+              // add if it has not been marked reachable, therefore processed.
+              if (!reachable.contains(r)) {
+                queue.add(r);
+              }
+            });
+      }
+      // if we see it, it is reachable.
+      reachable.add(resource);
+    }
+
+    // dump resource reference map:
+    final StringBuilder keptResourceLog = new StringBuilder();
+    referenceLog
+        .asMap()
+        .forEach(
+            (resource, referencesTo) ->
+                keptResourceLog
+                    .append(printResource(resource))
+                    .append(" => [")
+                    .append(
+                        referencesTo.stream()
+                            .map(ProtoResourceUsageAnalyzer::printResource)
+                            .collect(joining(", ")))
+                    .append("]\n"));
+
+    logger.fine("Kept resource references:\n" + keptResourceLog);
+
+    return reachable;
+  }
+
+  private static String printResource(Resource res) {
+    return String.format(
+        "{%s[isRoot: %s] = %s}",
+        res.getUrl(), res.isReachable() || res.isKeep(), "0x" + Integer.toHexString(res.value));
   }
 
   private static final class ResourceDeclarationVisitor implements ResourceVisitor {
@@ -138,11 +197,11 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
     private final ResourceShrinkerUsageModel model;
     private final Set<Integer> packageIds = new HashSet<>();
 
-    public ResourceDeclarationVisitor(ResourceShrinkerUsageModel model) {
+    private ResourceDeclarationVisitor(ResourceShrinkerUsageModel model) {
       this.model = model;
     }
 
-    @javax.annotation.Nullable
+    @Nullable
     @Override
     public ManifestVisitor enteringManifest() {
       return null;
@@ -226,23 +285,32 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
         String pathString = path.toString();
         if (pathString.endsWith(".js")) {
           model.tokenizeJs(
-              declaredResource,
-              new String(java.nio.file.Files.readAllBytes(path), StandardCharsets.UTF_8));
+              declaredResource, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".css")) {
           model.tokenizeCss(
-              declaredResource,
-              new String(java.nio.file.Files.readAllBytes(path), StandardCharsets.UTF_8));
+              declaredResource, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
         } else if (pathString.endsWith(".html")) {
           model.tokenizeHtml(
-              declaredResource,
-              new String(java.nio.file.Files.readAllBytes(path), StandardCharsets.UTF_8));
+              declaredResource, new String(Files.readAllBytes(path), StandardCharsets.UTF_8));
+        } else if (pathString.endsWith(".xml")) {
+          // Force parsing of raw xml files to get any missing keep attributes.
+          // The tool keep and discard attributes are held in raw files.
+          // There is already processing to handle this, but there has been flakiness.
+          // This step is to ensure as much stability as possible until the flakiness can be
+          // diagnosed.
+          model.recordResourceReferences(
+              ResourceFolderType.getTypeByName(declaredResource.type.getName()),
+              XmlUtils.parseDocumentSilently(
+                  new String(Files.readAllBytes(path), StandardCharsets.UTF_8), true),
+              declaredResource);
+
         } else {
           // Path is a reference to the apk zip -- unpack it before getting a file reference.
           model.tokenizeUnknownBinary(
               declaredResource,
-              java.nio.file.Files.copy(
+              Files.copy(
                       path,
-                      java.nio.file.Files.createTempFile("binary-resource", null),
+                      Files.createTempFile("binary-resource", null),
                       StandardCopyOption.REPLACE_EXISTING)
                   .toFile());
         }

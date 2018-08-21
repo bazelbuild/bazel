@@ -58,20 +58,19 @@ public interface AndroidInstrumentationInfoApi<FileT extends FileApi> extends St
         name = "AndroidInstrumentationInfo",
         doc = "The <code>AndroidInstrumentationInfo</code> constructor.",
         parameters = {
-            @Param(
-                name = "target_apk",
-                type = FileApi.class,
-                named = true,
-                doc = "The target APK of the instrumentation test."
-            ),
-            @Param(
-                name = "instrumentation_apk",
-                type = FileApi.class,
-                named = true,
-                doc = "The instrumentation APK that should be executed."
-            )},
+          @Param(
+              name = "target_apk",
+              type = FileApi.class,
+              named = true,
+              doc = "The target APK of the instrumentation test."),
+          @Param(
+              name = "instrumentation_apk",
+              type = FileApi.class,
+              named = true,
+              doc = "The instrumentation APK that should be executed.")
+        },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidInstrumentationInfoApi.class)
+    @SkylarkConstructor(objectType = AndroidInstrumentationInfoApi.class, receiverNameForDoc = NAME)
     public AndroidInstrumentationInfoApi<FileT> createInfo(
         FileT targetApk, FileT instrumentationApk) throws EvalException;
   }

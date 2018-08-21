@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutionException;
 /** A {@link SimpleBlobStore} implementation using a {@link ConcurrentMap}. */
 public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   private final ConcurrentMap<String, byte[]> map;
+  static final String ACTION_KEY_PREFIX = "ac_";
 
   public ConcurrentMapBlobStore(ConcurrentMap<String, byte[]> map) {
     this.map = map;
@@ -56,7 +57,7 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
   @Override
   public boolean getActionResult(String key, OutputStream out)
       throws IOException, InterruptedException {
-    return getFromFuture(get(key, out));
+    return getFromFuture(get(ACTION_KEY_PREFIX + key, out));
   }
 
   @Override
@@ -68,7 +69,7 @@ public final class ConcurrentMapBlobStore implements SimpleBlobStore {
 
   @Override
   public void putActionResult(String key, byte[] in) {
-    map.put(key, in);
+    map.put(ACTION_KEY_PREFIX + key, in);
   }
 
   @Override

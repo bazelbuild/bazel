@@ -33,7 +33,48 @@ filegroup(
     srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
 )
 
+cc_binary(
+    name = "test_wrapper_bin",
+    srcs = select({
+        "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
+        "//conditions:default": ["empty_test_wrapper.cc"],
+    }),
+    visibility = ["//visibility:private"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "test-setup.sh",
+        "generate-xml.sh",
+        "collect_coverage.sh",
+    ] + glob(["LcovMerger/**"]) + select({
+        "@bazel_tools//src/conditions:windows": ["test_wrapper_bin"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//tools:__pkg__"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [
+        ":windows_tests",
+        "//tools/test/LcovMerger/javatests/com/google/devtools/lcovmerger:all_windows_tests",
+    ],
+    visibility = ["//tools:__pkg__"],
 )

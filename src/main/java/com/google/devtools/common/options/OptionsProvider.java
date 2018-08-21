@@ -11,75 +11,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.common.options;
 
-import java.util.List;
+import javax.annotation.Nullable;
 
 /**
- * A read-only interface for options parser results, which does not allow any
- * further parsing of options.
+ * A read-only interface for options parser results, which only allows to query the options of
+ * a specific class, but not e.g. the residue any other information pertaining to the command line.
  */
-public interface OptionsProvider extends OptionsClassProvider {
+public interface OptionsProvider {
+  public static final OptionsProvider EMPTY = new OptionsProvider() {
+    @Override @Nullable
+    public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
+      return null;
+    }
+  };
 
   /**
-   * Returns an immutable copy of the residue, that is, the arguments that
-   * have not been parsed.
-   */
-  List<String> getResidue();
-
-  /**
-   * Returns if the named option was specified explicitly in a call to parse.
-   */
-  boolean containsExplicitOption(String string);
-
-  /**
-   * Returns a mutable copy of the list of all options that were specified either explicitly or
-   * implicitly. These options are sorted by priority, and by the order in which they were
-   * specified. If an option was specified multiple times, it is included in the result multiple
-   * times. Does not include the residue.
+   * Returns the options instance for the given {@code optionsClass}, that is,
+   * the parsed options, or null if it is not among those available.
    *
-   * <p>The returned list includes undocumented, hidden or implicit options, and should be filtered
-   * as needed. Since it includes all options parsed, it will also include both an expansion option
-   * and the options it expanded to, and so blindly using this list for a new invocation will cause
-   * double-application of these options.
+   * <p>The returned options should be treated by library code as immutable and
+   * a provider is permitted to return the same options instance multiple times.
    */
-  List<ParsedOptionDescription> asCompleteListOfParsedOptions();
-
-  /**
-   * Returns a list of all explicitly specified options, suitable for logging or for displaying back
-   * to the user. These options are sorted by priority, and by the order in which they were
-   * specified. If an option was explicitly specified multiple times, it is included in the result
-   * multiple times. Does not include the residue.
-   *
-   * <p>The list includes undocumented options.
-   */
-  List<ParsedOptionDescription> asListOfExplicitOptions();
-
-  /**
-   * Returns a list of the parsed options whose values are in the final value of the option, i.e.
-   * the options that were added explicitly, expanded if necessary to the valued options they
-   * affect. This will not include values that were set and then overridden by a later value of the
-   * same option.
-   *
-   * <p>The list includes undocumented options.
-   */
-  List<ParsedOptionDescription> asListOfCanonicalOptions();
-
-  /**
-   * Returns a list of all options, including undocumented ones, and their effective values. There
-   * is no guaranteed ordering for the result.
-   */
-  List<OptionValueDescription> asListOfOptionValues();
-
-  /**
-   * Canonicalizes the list of options that this OptionsParser has parsed.
-   *
-   * <p>The contract is that if the returned set of options is passed to an options parser with the
-   * same options classes, then that will have the same effect as using the original args (which are
-   * passed in here), except for cosmetic differences. We do not guarantee that the 'canonical' list
-   * is unique, since some flags may have effects unknown to the parser (--config, for Bazel), so we
-   * do not reorder flags to further simplify the list.
-   */
-  List<String> canonicalize();
+  @Nullable <O extends OptionsBase> O getOptions(Class<O> optionsClass);
 }

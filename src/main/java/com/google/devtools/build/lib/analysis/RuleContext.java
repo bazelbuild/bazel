@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -77,6 +76,7 @@ import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -755,18 +755,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the list of transitive info collections that feed into this target through the
-   * specified attribute. Note that you need to specify the correct mode for the attribute,
-   * otherwise an assertion will be raised.
-   */
-  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
-      Mode mode) {
-    return Lists.transform(
-        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
-        ConfiguredTargetAndData::getConfiguredTarget);
-  }
-
-  /**
    * Returns the prerequisites keyed by the CPU of their configurations. If the split transition
    * is not active (e.g. split() returned an empty list), the key is an empty Optional.
    */
@@ -902,10 +890,34 @@ public final class RuleContext extends TargetContext
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
+   *
+   * @deprecated use {@link #getPrerequisitesByConfiguration(String, Mode, BuiltinProvider)}
+   *     instead
+   */
+  @Deprecated
+  public <C extends Info>
+  ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+      String attributeName, Mode mode, final NativeProvider<C> provider) {
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
+        ImmutableListMultimap.builder();
+    for (ConfiguredTargetAndData prerequisite :
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode)) {
+      C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
+      if (prerequisiteProvider != null) {
+        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * For a given attribute, returns all declared provider provided by targets of that attribute.
+   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
+   * created.
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, Mode mode, final NativeProvider<C> provider) {
+          String attributeName, Mode mode, final BuiltinProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -935,6 +947,18 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the list of transitive info collections that feed into this target through the
+   * specified attribute. Note that you need to specify the correct mode for the attribute,
+   * otherwise an assertion will be raised.
+   */
+  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
+      Mode mode) {
+    return Lists.transform(
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
+        ConfiguredTargetAndData::getConfiguredTarget);
+  }
+
+  /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file.
    */
@@ -948,7 +972,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends InfoInterface> Iterable<T> getPrerequisites(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -957,7 +981,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends InfoInterface> Iterable<T> getPrerequisites(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -968,7 +992,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends Info> T getPrerequisite(
+  public <T extends InfoInterface> T getPrerequisite(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -980,7 +1004,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends Info> T getPrerequisite(
+  public <T extends InfoInterface> T getPrerequisite(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -1420,7 +1444,6 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Aspect> aspects;
     private ToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
-    private ConfiguredTargetAndData associatedTarget;
 
     @VisibleForTesting
     public Builder(
@@ -1531,9 +1554,12 @@ public final class RuleContext extends TargetContext
     }
 
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
-      if (src.getConfiguredTarget().getProvider(FilesetProvider.class) != null) {
+      NestedSet<Artifact> filesToBuild =
+          src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
+      if (filesToBuild.isSingleton() && Iterables.getOnlyElement(filesToBuild).isFileset()) {
         return true;
       }
+
       if (filesetEntry.isSourceFileset()) {
         return true;
       }

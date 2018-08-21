@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import javax.annotation.Nullable;
@@ -28,7 +28,7 @@ import javax.annotation.concurrent.Immutable;
  *
  * <ul>
  *   <li>Declared providers. They are exposed to Skylark and identified by {@link Provider.Key}.
- *       Provider instances are {@link Info}s.
+ *       Provider instances are {@link InfoInterface}s.
  *   <li>Native providers. They are identified by their {@link Class} and their instances are
  *       instances of that class. They should implement {@link TransitiveInfoProvider} marker
  *       interface.
@@ -47,7 +47,7 @@ public interface TransitiveInfoProviderMap {
    * present.
    */
   @Nullable
-  Info getProvider(Provider.Key key);
+  InfoInterface getProvider(Provider.Key key);
 
   /**
    * Returns the instance of a legacy Skylark  with the given name, or {@code null} if not present.

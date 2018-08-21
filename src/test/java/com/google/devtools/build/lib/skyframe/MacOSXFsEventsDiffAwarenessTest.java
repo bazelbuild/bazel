@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -60,7 +60,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
 
   private MacOSXFsEventsDiffAwareness underTest;
   private Path watchedPath;
-  private OptionsClassProvider watchFsEnabledProvider;
+  private OptionsProvider watchFsEnabledProvider;
 
   @Before
   public void setUp() throws Exception {
@@ -123,7 +123,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   /**
    * Only returns a fixed options class for {@link LocalDiffAwareness.Options}.
    */
-  private static final class LocalDiffAwarenessOptionsProvider implements OptionsClassProvider {
+  private static final class LocalDiffAwarenessOptionsProvider implements OptionsProvider {
     private final Options localDiffOptions;
 
     private LocalDiffAwarenessOptionsProvider(Options localDiffOptions) {

@@ -58,7 +58,7 @@ public class FingerprintTest {
   public void bytesFingerprint() {
     assertThat(new Fingerprint().addBytes("Hello World!".getBytes(UTF_8)).hexDigestAndReset())
         .isEqualTo("ed076287532e86365e841e92bfc50d8c");
-    assertThat(Fingerprint.md5Digest("Hello World!"))
+    assertThat(Fingerprint.getHexDigest("Hello World!"))
         .isEqualTo("ed076287532e86365e841e92bfc50d8c");
   }
 

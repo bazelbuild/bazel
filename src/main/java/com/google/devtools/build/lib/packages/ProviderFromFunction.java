@@ -66,6 +66,6 @@ abstract class ProviderFromFunction extends BaseFunction implements Provider {
    *
    * @param args an array of argument values sorted as per the signature ({@see BaseFunction#call})
    */
-  protected abstract Info createInstanceFromSkylark(Object[] args, Environment env, Location loc)
-      throws EvalException;
+  protected abstract InfoInterface createInstanceFromSkylark(
+      Object[] args, Environment env, Location loc) throws EvalException;
 }

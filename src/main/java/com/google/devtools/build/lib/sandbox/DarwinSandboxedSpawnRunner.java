@@ -255,7 +255,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addAll(processWrapperCommandLineBuilder.build())
             .build();
 
-    boolean allowNetworkForThisSpawn = allowNetwork || Spawns.requiresNetwork(spawn);
+    boolean allowNetworkForThisSpawn =
+        allowNetwork
+            || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
     Map<PathFragment, Path> inputs = SandboxHelpers.processInputFiles(spawn, context, execRoot);
 

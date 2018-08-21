@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TestOptions;
 import java.util.Arrays;
 import org.junit.Before;
@@ -103,7 +103,7 @@ public class BlazeOptionHandlerTest {
   )
   private static class C0Command implements BlazeCommand {
     @Override
-    public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       throw new UnsupportedOperationException();
     }
 

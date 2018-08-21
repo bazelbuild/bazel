@@ -51,7 +51,7 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -141,7 +141,7 @@ public class MobileInstallCommand implements BlazeCommand {
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     Options mobileInstallOptions = options.getOptions(Options.class);
     WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
 

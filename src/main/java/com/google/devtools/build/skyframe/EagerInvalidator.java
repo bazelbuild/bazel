@@ -13,14 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ErrorHandler;
-import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingNodeVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 
@@ -73,11 +68,9 @@ public final class EagerInvalidator {
       QueryableGraph graph,
       Iterable<SkyKey> diff,
       DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state,
-      Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
+      InvalidationState state) {
     state.update(diff);
-    return state.isEmpty() ? null
-        : new DirtyingNodeVisitor(graph, progressReceiver, state, executorFactory);
+    return state.isEmpty() ? null : new DirtyingNodeVisitor(graph, progressReceiver, state);
   }
 
   @Nullable
@@ -87,8 +80,7 @@ public final class EagerInvalidator {
       DirtyTrackingProgressReceiver progressReceiver,
       InvalidationState state,
       ForkJoinPool forkJoinPool,
-      boolean supportInterruptions,
-      ErrorHandler errorHandler) {
+      boolean supportInterruptions) {
     state.update(diff);
     return state.isEmpty()
         ? null
@@ -99,20 +91,15 @@ public final class EagerInvalidator {
             forkJoinPool,
             supportInterruptions);
   }
-  /**
-   * Invalidates given values and their upward transitive closure in the graph if necessary, using
-   * an executor constructed with the provided factory.
-   */
+  /** Invalidates given values and their upward transitive closure in the graph if necessary. */
   public static void invalidate(
       QueryableGraph graph,
       Iterable<SkyKey> diff,
       DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state,
-      Function<ExecutorParams, ? extends ExecutorService> executorFactory)
+      InvalidationState state)
       throws InterruptedException {
     DirtyingNodeVisitor visitor =
-        createInvalidatingVisitorIfNeeded(
-            graph, diff, progressReceiver, state, executorFactory);
+        createInvalidatingVisitorIfNeeded(graph, diff, progressReceiver, state);
     if (visitor != null) {
       visitor.run();
     }
@@ -132,26 +119,9 @@ public final class EagerInvalidator {
       throws InterruptedException {
     DirtyingNodeVisitor visitor =
         createInvalidatingVisitorIfNeeded(
-            graph,
-            diff,
-            progressReceiver,
-            state,
-            forkJoinPool,
-            supportInterruptions,
-            ErrorHandler.NullHandler.INSTANCE);
+            graph, diff, progressReceiver, state, forkJoinPool, supportInterruptions);
     if (visitor != null) {
       visitor.run();
     }
   }
-
-  /** Invalidates given values and their upward transitive closure in the graph. */
-  public static void invalidate(
-      QueryableGraph graph,
-      Iterable<SkyKey> diff,
-      DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state)
-      throws InterruptedException {
-    invalidate(graph, diff, progressReceiver, state, AbstractQueueVisitor.EXECUTOR_FACTORY);
-  }
-
 }

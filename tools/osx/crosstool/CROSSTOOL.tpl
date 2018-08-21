@@ -718,6 +718,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -983,6 +984,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -2374,6 +2376,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -2639,6 +2642,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -4037,6 +4041,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -4304,6 +4309,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -5703,6 +5709,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -5968,6 +5975,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -7396,6 +7404,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -7661,6 +7670,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -9059,6 +9069,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -9324,6 +9335,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -10710,6 +10722,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -10977,6 +10990,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -12364,6 +12378,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -12629,6 +12644,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -14045,6 +14061,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -14310,6 +14327,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"
@@ -15697,6 +15715,7 @@ toolchain {
       action: "c++-module-compile"
       flag_group {
         flag: "-frandom-seed=%{output_file}"
+        expand_if_all_available: "output_file"
       }
     }
   }
@@ -15962,6 +15981,7 @@ toolchain {
       action: "objc-compile"
       action: "objc++-compile"
       action: "objc-archive"
+      action: "objc-fully-link"
       action: "c++-link-executable"
       action: "c++-link-dynamic-library"
       action: "c++-link-nodeps-dynamic-library"

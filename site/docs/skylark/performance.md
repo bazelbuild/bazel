@@ -7,11 +7,15 @@ title: Optimizing Performance
 
 <!-- [TOC] -->
 
-Skylark efficiency often involves avoiding O(N^2) in time and/or space.
-Crucially this involves understanding depsets and avoiding their expansion.
+When writing rules, the most common performance pitfall is to traverse or copy
+data that is accumulated from dependencies. When aggregated over the whole
+build, these operations can easily take O(N^2) time or space. To avoid this, it
+is crucial to understand how to use depsets effectively.
 
 This can be hard to get right, so Bazel also provides a memory profiler that
-assists you in finding spots where you might have made a mistake.
+assists you in finding spots where you might have made a mistake. Be warned:
+The cost of writing an inefficient rule may not be evident until it is in
+widespread use.
 
 ## Use depsets
 
@@ -196,7 +200,7 @@ Then, open the generated HTML file (`/tmp/prof.html` in the example).
 ## Memory Profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule's
-memory use. If there is a problem you can dump the Skylark heap to find the
+memory use. If there is a problem you can dump the heap to find the
 exact line of code that is causing the problem.
 
 ### Enabling Memory Tracking

@@ -321,6 +321,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private void createProtoCompileAction(SupportData supportData, Collection<Artifact> outputs) {
+      String protoRoot = supportData.getProtoSourceRoot();
       String genfilesPath =
           ruleContext
               .getConfiguration()
@@ -331,6 +332,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
                       .getPackageIdentifier()
                       .getRepository()
                       .getPathUnderExecRoot())
+              .getRelative(protoRoot == null ? "" : protoRoot)
               .getPathString();
 
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();

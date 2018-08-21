@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -35,6 +38,8 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -88,39 +93,53 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   @Nullable
   @Override
-  protected Target getTarget(Target from, Label label, NestedSetBuilder<Cause> rootCauses)
+  protected Map<Label, Target> getTargets(
+      Iterable<Label> labels,
+      Target fromTarget,
+      NestedSetBuilder<Cause> rootCauses,
+      int labelsSizeHint)
       throws InterruptedException {
-    SkyKey key = PackageValue.key(label.getPackageIdentifier());
-    PackageValue packageValue;
-    try {
-      packageValue = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
-    } catch (NoSuchPackageException e) {
-      rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
-      missingEdgeHook(from, label, e);
+    Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
+        env.getValuesOrThrow(
+            Iterables.transform(labels, label -> PackageValue.key(label.getPackageIdentifier())),
+            NoSuchPackageException.class);
+    if (env.valuesMissing()) {
       return null;
     }
-    if (packageValue == null) {
-      return null;
+    if (labels instanceof Collection) {
+      labelsSizeHint = ((Collection<Label>) labels).size();
+    } else if (labelsSizeHint <= 0) {
+      labelsSizeHint = 2 * packages.size();
     }
-    Package pkg = packageValue.getPackage();
-    try {
-      Target target = pkg.getTarget(label.getName());
-      if (pkg.containsErrors()) {
-        NoSuchTargetException e = new NoSuchTargetException(target);
-        missingEdgeHook(from, label, e);
-        if (target != null) {
-          rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
-          return target;
-        } else {
-          return null;
-        }
+    // Duplicates can occur, so we can't use ImmutableMap.
+    HashMap<Label, Target> result = Maps.newHashMapWithExpectedSize(labelsSizeHint);
+    for (Label label : labels) {
+      PackageValue packageValue;
+      try {
+        packageValue =
+            Preconditions.checkNotNull(
+                (PackageValue) packages.get(PackageValue.key(label.getPackageIdentifier())).get(),
+                label);
+      } catch (NoSuchPackageException e) {
+        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        missingEdgeHook(fromTarget, label, e);
+        continue;
       }
-      return target;
-    } catch (NoSuchTargetException e) {
-      rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
-      missingEdgeHook(from, label, e);
-      return null;
+      Package pkg = packageValue.getPackage();
+      try {
+        Target target = pkg.getTarget(label.getName());
+        if (pkg.containsErrors()) {
+          NoSuchTargetException e = new NoSuchTargetException(target);
+          missingEdgeHook(fromTarget, label, e);
+          rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        }
+        result.put(label, target);
+      } catch (NoSuchTargetException e) {
+        rootCauses.add(new LoadingFailedCause(label, e.getMessage()));
+        missingEdgeHook(fromTarget, label, e);
+      }
     }
+    return result;
   }
 
   @Nullable

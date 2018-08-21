@@ -14,19 +14,19 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
- * Interface implemented by Blaze commands. In addition to implementing this interface, each
- * command must be annotated with a {@link Command} annotation.
+ * Interface implemented by Blaze commands. In addition to implementing this interface, each command
+ * must be annotated with a {@link Command} annotation.
  */
 public interface BlazeCommand {
   /**
-   * This method provides the imperative portion of the command. It takes a {@link OptionsProvider}
-   * instance {@code options}, which provides access to the options instances via {@link
-   * OptionsProvider#getOptions(Class)}, and access to the residue (the remainder of the command
-   * line) via {@link OptionsProvider#getResidue()}. The framework parses and makes available
-   * exactly the options that the command class specifies via the annotation {@link
+   * This method provides the imperative portion of the command. It takes a {@link
+   * OptionsParsingResult} instance {@code options}, which provides access to the options instances
+   * via {@link OptionsParsingResult#getOptions(Class)}, and access to the residue (the remainder of
+   * the command line) via {@link OptionsParsingResult#getResidue()}. The framework parses and makes
+   * available exactly the options that the command class specifies via the annotation {@link
    * Command#options()}. The command indicates success / failure via its return value, which becomes
    * the Unix exit status of the Blaze client process. It may indicate that the server needs to be
    * shut down or that a particular binary needs to be exec()ed on the terminal where Blaze was
@@ -37,12 +37,11 @@ public interface BlazeCommand {
    *     in {@link Command#options()}.
    * @return The Unix exit status for the Blaze client.
    */
-  BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options);
+  BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options);
 
   /**
-   * Allows the command to provide command-specific option defaults and/or
-   * requirements. This method is called after all command-line and rc file options have been
-   * parsed.
+   * Allows the command to provide command-specific option defaults and/or requirements. This method
+   * is called after all command-line and rc file options have been parsed.
    *
    * @param optionsParser the options parser for the current command
    */

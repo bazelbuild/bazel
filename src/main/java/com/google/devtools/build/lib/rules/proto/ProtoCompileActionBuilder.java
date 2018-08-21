@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -350,8 +351,10 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
+            /* protosInExports= */ null,
             protoSourceRoots,
             directProtoSourceRoots,
+            /* exportedProtoSourceRoots= */ null,
             ruleContext.getLabel(),
             ImmutableList.of(output),
             "Descriptor Set",
@@ -380,6 +383,34 @@ public class ProtoCompileActionBuilder {
         outReplacement);
   }
 
+  public static void registerActions(
+      RuleContext ruleContext,
+      List<ToolchainInvocation> toolchainInvocations,
+      Iterable<Artifact> protosToCompile,
+      NestedSet<Artifact> transitiveSources,
+      NestedSet<Artifact> protosInDirectDeps,
+      NestedSet<String> protoSourceRoots,
+      NestedSet<String> directProtoSourceRoots,
+      Label ruleLabel,
+      Iterable<Artifact> outputs,
+      String flavorName,
+      boolean allowServices) {
+    registerActions(
+        ruleContext,
+        toolchainInvocations,
+        protosToCompile,
+        transitiveSources,
+        protosInDirectDeps,
+        protoSourceRoots,
+        directProtoSourceRoots,
+        ruleLabel,
+        outputs,
+        flavorName,
+        allowServices,
+        /* protosInExports= */ null,
+        /* exportedProtoSourceRoots= */ null);
+  }
+
   /**
    * Registers actions to generate code from .proto files.
    *
@@ -403,7 +434,9 @@ public class ProtoCompileActionBuilder {
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
-      boolean allowServices) {
+      boolean allowServices,
+      NestedSet<Artifact> protosInExports,
+      NestedSet<String> exportedProtoSourceRoots) {
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
@@ -411,8 +444,10 @@ public class ProtoCompileActionBuilder {
             protosToCompile,
             transitiveSources,
             protosInDirectDeps,
+            protosInExports,
             protoSourceRoots,
             directProtoSourceRoots,
+            exportedProtoSourceRoots,
             ruleLabel,
             outputs,
             flavorName,
@@ -429,8 +464,10 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
+      @Nullable NestedSet<Artifact> protosInExports,
       NestedSet<String> protoSourceRoots,
       NestedSet<String> directProtoSourceRoots,
+      @Nullable NestedSet<String> exportedProtoSourceRoots,
       Label ruleLabel,
       Iterable<Artifact> outputs,
       String flavorName,
@@ -467,7 +504,9 @@ public class ProtoCompileActionBuilder {
                 transitiveSources,
                 protoSourceRoots,
                 directProtoSourceRoots,
+                exportedProtoSourceRoots,
                 areDepsStrict(ruleContext) ? protosInDirectDeps : null,
+                arePublicImportsStrict(ruleContext) ? protosInExports : null,
                 ruleLabel,
                 allowServices,
                 ruleContext.getFragment(ProtoConfiguration.class).protocOpts()),
@@ -476,6 +515,10 @@ public class ProtoCompileActionBuilder {
         .setMnemonic(MNEMONIC);
 
     return result;
+  }
+
+  public static boolean arePublicImportsStrict(RuleContext ruleContext) {
+    return ruleContext.getFragment(ProtoConfiguration.class).strictPublicImports();
   }
 
   /**
@@ -505,7 +548,9 @@ public class ProtoCompileActionBuilder {
       NestedSet<Artifact> transitiveSources,
       NestedSet<String> transitiveProtoPathFlags,
       NestedSet<String> directProtoSourceRoots,
+      NestedSet<String> exportedProtoSourceRoots,
       @Nullable NestedSet<Artifact> protosInDirectDeps,
+      @Nullable NestedSet<Artifact> protosInExports,
       Label ruleLabel,
       boolean allowServices,
       ImmutableList<String> protocOpts) {
@@ -553,6 +598,19 @@ public class ProtoCompileActionBuilder {
       cmdLine.addFormatted(STRICT_DEPS_FLAG_TEMPLATE, ruleLabel);
     }
 
+    if (protosInExports != null) {
+      if (protosInExports.isEmpty()) {
+        // This line is necessary to trigger the check.
+        cmdLine.add("--allowed_public_imports=");
+      } else {
+        cmdLine.addAll(
+            "--allowed_public_imports",
+            VectorArg.join(":")
+                .each(protosInExports)
+                .mapped(new ExpandToPathFn(exportedProtoSourceRoots)));
+      }
+    }
+
     for (Artifact src : protosToCompile) {
       cmdLine.addPath(src.getExecPath());
     }
@@ -570,7 +628,11 @@ public class ProtoCompileActionBuilder {
       @Nullable NestedSet<Artifact> protosInDirectDependencies,
       NestedSet<String> directProtoSourceRoots,
       NestedSet<Artifact> transitiveImports) {
-    commandLine.addAll(VectorArg.of(transitiveImports).mapped(EXPAND_TRANSITIVE_IMPORT_ARG));
+    // For each import, include both the import as well as the import relativized against its
+    // protoSourceRoot. This ensures that protos can reference either the full path or the short
+    // path when including other protos.
+    commandLine.addAll(
+        VectorArg.of(transitiveImports).mapped(new ExpandImportArgsFn(directProtoSourceRoots)));
     if (protosInDirectDependencies != null) {
       if (!protosInDirectDependencies.isEmpty()) {
         commandLine.addAll(
@@ -590,11 +652,31 @@ public class ProtoCompileActionBuilder {
   static final CommandLineItem.MapFn<String> EXPAND_TRANSITIVE_PROTO_PATH_FLAGS =
       (flag, args) -> args.accept("--proto_path=" + flag);
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
-  static final CommandLineItem.MapFn<Artifact> EXPAND_TRANSITIVE_IMPORT_ARG =
-      (artifact, args) ->
-          args.accept(
-              "-I" + getPathIgnoringRepository(artifact) + "=" + artifact.getExecPathString());
+  @AutoCodec
+  @AutoCodec.VisibleForSerialization
+  static final class ExpandImportArgsFn implements CapturingMapFn<Artifact> {
+    private final NestedSet<String> directProtoSourceRoots;
+
+    public ExpandImportArgsFn(NestedSet<String> directProtoSourceRoots) {
+      this.directProtoSourceRoots = directProtoSourceRoots;
+    }
+
+    /**
+     * Generates up to two import flags for each artifact: one for full path (only relative to the
+     * repository root) and one for the path relative to the proto source root (if one exists
+     * corresponding to the artifact).
+     */
+    @Override
+    public void expandToCommandLine(Artifact proto, Consumer<String> args) {
+      for (String directProtoSourceRoot : directProtoSourceRoots) {
+        String path = getPathIgnoringSourceRoot(proto, directProtoSourceRoot);
+        if (path != null) {
+          args.accept("-I" + path + "=" + proto.getExecPathString());
+        }
+      }
+      args.accept("-I" + getPathIgnoringRepository(proto) + "=" + proto.getExecPathString());
+    }
+  }
 
   @AutoCodec
   @AutoCodec.VisibleForSerialization
@@ -608,15 +690,14 @@ public class ProtoCompileActionBuilder {
     @Override
     public void expandToCommandLine(Artifact proto, Consumer<String> args) {
       for (String directProtoSourceRoot : directProtoSourceRoots) {
-        expandToPathIgnoringSourceRoot(proto, directProtoSourceRoot, args);
+        String path = getPathIgnoringSourceRoot(proto, directProtoSourceRoot);
+        if (path != null) {
+          args.accept(path);
+        }
       }
-      EXPAND_TO_PATH_IGNORING_REPOSITORY.expandToCommandLine(proto, args);
+      args.accept(getPathIgnoringRepository(proto));
     }
   }
-
-  @AutoCodec @AutoCodec.VisibleForSerialization
-  static final CommandLineItem.MapFn<Artifact> EXPAND_TO_PATH_IGNORING_REPOSITORY =
-      (artifact, args) -> args.accept(getPathIgnoringRepository(artifact));
 
   /**
    * Gets the artifact's path relative to the root, ignoring the external repository the artifact is
@@ -633,27 +714,25 @@ public class ProtoCompileActionBuilder {
         .toString();
   }
 
-  private static void expandToPathIgnoringSourceRoot(
-      Artifact artifact, String directProtoSourceRoot, Consumer<String> args) {
+  /**
+   * Gets the artifact's path relative to the proto source root, ignoring the external repository
+   * the artifact is at. For example, <code>
+   * //a/b/c:d.proto with proto source root a/b --> c/d.proto
+   * {@literal @}foo//a/b/c:d.proto with proto source root a/b --> c/d.proto
+   * </code>
+   */
+  private static String getPathIgnoringSourceRoot(Artifact artifact, String directProtoSourceRoot) {
     // TODO(bazel-team): IAE is caught here because every artifact is relativized against every
     // directProtoSourceRoot. Instead of catching the exception, a check should be performed
     // to see if the artifact has the root as a substring before relativizing.
     try {
-      String relativePath =
-          artifact
-              .getRootRelativePath()
-              .relativeTo(
-                  artifact
-                      .getOwnerLabel()
-                      .getPackageIdentifier()
-                      .getRepository()
-                      .getPathUnderExecRoot())
-              .relativeTo(directProtoSourceRoot)
-              .toString();
-      args.accept(relativePath);
+      return PathFragment.createAlreadyNormalized(getPathIgnoringRepository(artifact))
+          .relativeTo(directProtoSourceRoot)
+          .toString();
     } catch (IllegalArgumentException exception) {
       // do nothing
     }
+    return null;
   }
 
   /**

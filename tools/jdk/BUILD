@@ -3,8 +3,7 @@ package(default_visibility = ["//visibility:public"])
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
-    "JDK8_JVM_OPTS",
-    "JDK10_JVM_OPTS",
+    "java_runtime_files",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -34,29 +33,29 @@ alias(
     actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
-alias(
+java_runtime_files(
     name = "jni_header",
-    actual = "@local_jdk//:jni_header",
+    srcs = ["include/jni.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-darwin",
-    actual = "@local_jdk//:jni_md_header-darwin",
+    srcs = ["include/darwin/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-linux",
-    actual = "@local_jdk//:jni_md_header-linux",
+    srcs = ["include/linux/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-windows",
-    actual = "@local_jdk//:jni_md_header-windows",
+    srcs = ["include/win32/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-freebsd",
-    actual = "@local_jdk//:jni_md_header-freebsd",
+    srcs = ["include/freebsd/jni_md.h"],
 )
 
 alias(
@@ -171,51 +170,43 @@ alias(
 )
 
 genrule(
-    name = "gen_platformclasspath",
+    name = "platformclasspath",
     srcs = ["DumpPlatformClassPath.java"],
-    outs = ["platformclasspath-impl.jar"],
+    outs = ["platformclasspath.jar"],
     cmd = """
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
-$(JAVABASE)/bin/javac $< -d $$TMPDIR
-$(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
+$(JAVABASE)/bin/javac -source 8 -target 8 \
+    -cp $(JAVABASE)/lib/tools.jar \
+    -d $$TMPDIR $<
+$(JAVA) -XX:+IgnoreUnrecognizedVMOptions \
+    --add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED \
+    -cp $$TMPDIR DumpPlatformClassPath $@
 rm -rf $$TMPDIR
 """,
     toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
 )
 
-# run ijar separately so we can skip it for bootstrapping
-genrule(
-    name = "platformclasspath",
-    srcs = ["platformclasspath-impl.jar"],
-    outs = ["platformclasspath.jar"],
-    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
-    tools = ["@bazel_tools//tools/jdk:ijar"],
-)
-
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
-    jvm_opts = JDK8_JVM_OPTS,
+    bootclasspath = [":platformclasspath"],
+    jvm_opts = [
+        "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
+    ],
     source_version = "8",
     target_version = "8",
 )
 
 default_java_toolchain(
-    name = "toolchain_hostjdk10",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
-    jvm_opts = JDK10_JVM_OPTS,
+    name = "toolchain",
+    bootclasspath = [":platformclasspath"],
     source_version = "8",
     target_version = "8",
 )
 
 default_java_toolchain(
     name = "toolchain_java9",
-    # We use the same flags for JDK9 and 10
-    jvm_opts = JDK10_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS + [
         "--release",
         "9",
@@ -224,16 +215,10 @@ default_java_toolchain(
 
 default_java_toolchain(
     name = "toolchain_java10",
-    jvm_opts = JDK10_JVM_OPTS,
     misc = DEFAULT_JAVACOPTS + [
         "--release",
         "10",
     ],
-)
-
-alias(
-    name = "toolchain",
-    actual = "//external:java_toolchain",
 )
 
 filegroup(
@@ -281,4 +266,19 @@ alias(
 java_import(
     name = "JacocoCoverage",
     jars = [":JacocoCoverage_deploy.jar"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [":windows_tests"],
+    visibility = ["//tools:__pkg__"],
 )

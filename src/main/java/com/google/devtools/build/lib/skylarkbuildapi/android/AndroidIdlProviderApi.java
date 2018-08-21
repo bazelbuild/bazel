@@ -108,7 +108,7 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidIdlProviderApi.class)
+    @SkylarkConstructor(objectType = AndroidIdlProviderApi.class, receiverNameForDoc = NAME)
     AndroidIdlProviderApi<FileT> createInfo(
         SkylarkNestedSet transitiveIdlImportRoots,
         SkylarkNestedSet transitiveIdlImports,

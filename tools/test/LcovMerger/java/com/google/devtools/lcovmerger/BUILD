@@ -104,12 +104,23 @@ java_library(
 )
 
 java_library(
+    name = "LcovMergerFlags",
+    srcs = ["LcovMergerFlags.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "MainLibrary",
     srcs = ["Main.java"],
     deps = [
         ":Constants",
         ":Coverage",
         ":GcovParser",
+        ":LcovMergerFlags",
         ":LcovParser",
         ":LcovPrinter",
         ":SourceFileCoverage",

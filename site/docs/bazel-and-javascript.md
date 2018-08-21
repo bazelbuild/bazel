@@ -19,3 +19,5 @@ The following resources will help you work with Bazel on JavaScript projects:
 *  [NodeJS rules API documentation](https://bazelbuild.github.io/rules_nodejs/)
 *  [TypeScript rules](https://github.com/bazelbuild/rules_typescript)
 *  [TypeScript rules API documentation](http://tsetse.info/api)
+*  [Angular rules](https://www.npmjs.com/package/@angular/bazel)
+*  [Angular rules API documentation](https://angular.github.io/bazel-builds/)

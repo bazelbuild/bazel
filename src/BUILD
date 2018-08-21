@@ -131,7 +131,6 @@ py_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/launcher:srcs",
-        "//src/tools/runfiles:embedded_tools",
         "//src/tools/singlejar:embedded_tools",
         "//src/main/cpp/util:embedded_tools",
         "//src/main/native:embedded_tools",
@@ -352,7 +351,6 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
-        "//src/tools/runfiles:srcs",
         "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",
         "//src/tools/skylark/javatests/com/google/devtools/skylark/skylint:srcs",
@@ -377,6 +375,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
         "@googleapis//:dist_jars",
+        "@remoteapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
@@ -408,8 +407,8 @@ test_suite(
         "//src/test/py/bazel:all_windows_tests",
         "//src/test/shell:all_windows_tests",
         "//src/tools/launcher:all_windows_tests",
-        "//src/tools/runfiles:all_windows_tests",
         "//third_party/def_parser:all_windows_tests",
+        "//tools:all_windows_tests",
     ],
 )
 

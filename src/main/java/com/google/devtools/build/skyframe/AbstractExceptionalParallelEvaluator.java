@@ -249,7 +249,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey);
+            // Low priority because this node is not needed by any other currently evaluating node.
+            // So keep it at the back of the queue as long as there's other useful work to be done.
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);
@@ -513,8 +515,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               errorKey,
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  env.buildEvents(parentEntry, /*expectDoneDeps=*/ false),
-                  env.buildPosts(parentEntry, /*expectDoneDeps=*/ false)));
+                  env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
+                  env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
           continue;
         }
       } finally {
@@ -526,8 +528,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           errorKey,
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              env.buildEvents(parentEntry, /*expectDoneDeps=*/ false),
-              env.buildPosts(parentEntry, /*expectDoneDeps=*/ false)));
+              env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
+              env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.

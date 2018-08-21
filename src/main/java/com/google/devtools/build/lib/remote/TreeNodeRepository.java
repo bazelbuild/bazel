@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
@@ -39,8 +41,6 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.Directory;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -475,11 +475,13 @@ public final class TreeNodeRepository {
    * or Directory messages by cached digests and adds them to the lists.
    */
   public void getDataFromDigests(
-      Iterable<Digest> digests, List<ActionInput> actionInputs, List<Directory> nodes) {
+      Iterable<Digest> digests,
+      Map<Digest, ActionInput> actionInputs,
+      Map<Digest, Directory> nodes) {
     for (Digest digest : digests) {
       TreeNode treeNode = digestTreeNodeCache.get(digest);
       if (treeNode != null) {
-        nodes.add(Preconditions.checkNotNull(directoryCache.get(treeNode)));
+        nodes.put(digest, Preconditions.checkNotNull(directoryCache.get(treeNode)));
       } else { // If not there, it must be an ActionInput.
         ByteString hexDigest = ByteString.copyFromUtf8(digest.getHash());
         ActionInput input = reverseInputMap.get(hexDigest);
@@ -487,7 +489,7 @@ public final class TreeNodeRepository {
           // ... or a VirtualActionInput.
           input = digestVirtualInputCache.get(digest);
         }
-        actionInputs.add(Preconditions.checkNotNull(input));
+        actionInputs.put(digest, Preconditions.checkNotNull(input));
       }
     }
   }

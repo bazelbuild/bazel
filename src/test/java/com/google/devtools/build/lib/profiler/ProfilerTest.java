@@ -79,13 +79,27 @@ public class ProfilerTest {
       throws IOException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
-        kinds, buffer, format, "test", false, BlazeClock.instance(), BlazeClock.nanoTime());
+        kinds,
+        buffer,
+        format,
+        "test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
     return buffer;
   }
 
   private void startUnbuffered(ProfiledTaskKinds kinds) throws IOException {
     profiler.start(
-        kinds, null, null, "test", false, BlazeClock.instance(), BlazeClock.nanoTime());
+        kinds,
+        null,
+        null,
+        "test",
+        false,
+        BlazeClock.instance(),
+        BlazeClock.nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
   }
 
   @Test
@@ -183,7 +197,8 @@ public class ProfilerTest {
         "basic test",
         true,
         BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+        BlazeClock.instance().nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
       clock.advanceMillis(1);
@@ -212,7 +227,8 @@ public class ProfilerTest {
         "test",
         true,
         BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+        BlazeClock.instance().nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     profiler.logSimpleTask(20000, 30000, ProfilerTask.REMOTE_EXECUTION, "remote execution");
 
@@ -320,7 +336,8 @@ public class ProfilerTest {
         "test",
         true,
         BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+        BlazeClock.instance().nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -539,7 +556,8 @@ public class ProfilerTest {
         "testResilenceToNonDecreasingNanoTimes",
         false,
         badClock,
-        initialNanoTime);
+        initialNanoTime,
+        /* enabledCpuUsageProfiling= */ false);
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
   }
@@ -589,7 +607,8 @@ public class ProfilerTest {
         "basic test",
         false,
         BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+        BlazeClock.instance().nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     try {
@@ -615,7 +634,8 @@ public class ProfilerTest {
         "basic test",
         false,
         BlazeClock.instance(),
-        BlazeClock.instance().nanoTime());
+        BlazeClock.instance().nanoTime(),
+        /* enabledCpuUsageProfiling= */ false);
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     try {

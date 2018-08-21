@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.LabelAndLocation;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
  * A provider that advertises which environments the associated target is compatible with
@@ -43,6 +45,47 @@ public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
   EnvironmentCollection getRefinedEnvironments();
 
   /**
+   * Provides all context necessary to communicate which dependencies caused an environment to be
+   * refined out of the current rule.
+   *
+   * <p>The culprit<b>s</b> are actually two rules:
+   *
+   * <pre>
+   *   some_rule(name = "adep", restricted_to = ["//foo:a"])
+   *
+   *   some_rule(name = "bdep", restricted_to = ["//foo:b"])
+   *
+   *   some_rule(
+   *       name = "has_select",
+   *       restricted_to = ["//foo:a", "//foo:b"],
+   *       deps = select({
+   *         ":acond": [:"adep"],
+   *         ":bcond": [:"bdep"],
+   *       }
+   * </pre>
+   *
+   * <p>If we build a target with <code>":has_select"</code> somewhere in its deps and trigger
+   * <code>":bcond"</code> and that strips <code>"//foo:a"</code> out of the top-level target's
+   * environments in a way that triggers an error, the user needs to understand two rules to trace
+   * this error. <code>":has_select"</code> is the direct culprit, because this is the first rule
+   * that strips <code>"//foo:a"</code>. But it does that because its <code>select()</code> path
+   * chooses <code>":bdep"</code>, and <code>":bdep"</code> is why <code>":has_select"</code>
+   * decides it's a <code>"//foo:b"</code>-only rule for this build.
+   */
+  @AutoValue
+  abstract class RemovedEnvironmentCulprit {
+    @AutoCodec.Instantiator
+    public static RemovedEnvironmentCulprit create(LabelAndLocation culprit,
+        Label selectedDepForCulprit) {
+      return new AutoValue_SupportedEnvironmentsProvider_RemovedEnvironmentCulprit(culprit,
+          selectedDepForCulprit);
+    }
+
+    abstract LabelAndLocation culprit();
+    abstract Label selectedDepForCulprit();
+  }
+
+  /**
    * If the given environment was refined away from this target's set of supported environments,
    * returns the dependency that originally removed the environment.
    *
@@ -55,5 +98,5 @@ public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
    *
    * <p>See {@link ConstraintSemantics} class documentation for more details on refinement.
    */
-  LabelAndLocation getRemovedEnvironmentCulprit(Label environment);
+  RemovedEnvironmentCulprit getRemovedEnvironmentCulprit(Label environment);
 }

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -107,7 +107,7 @@ public enum BuildEventTransportFactory {
    * @throws IOException Exception propagated from a {@link BuildEventTransport} creation failure.
    */
   public static ImmutableSet<BuildEventTransport> createFromOptions(
-      OptionsProvider options,
+      OptionsParsingResult options,
       BuildEventArtifactUploaderFactoryMap artifactUploaders,
       Consumer<AbruptExitException> exitFunc)
       throws IOException {

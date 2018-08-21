@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -1152,7 +1152,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         new SkylarkProvider.SkylarkKey(
             Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
             "my_provider");
-    Info declaredProvider = configuredTarget.get(key);
+    StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
     assertThat(declaredProvider.getValue("x")).isEqualTo(1);
@@ -1178,10 +1178,134 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         new SkylarkProvider.SkylarkKey(
             Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
             "my_provider");
-    Info declaredProvider = configuredTarget.get(key);
+    StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
     assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
     assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+  }
+
+  @Test
+  public void testRuleReturningUnwrappedDeclaredProvider() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "def _impl(ctx):",
+        "   return my_provider(x = 1)",
+        "my_rule = rule(_impl)"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')"
+    );
+
+    ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
+    assertThat(declaredProvider).isNotNull();
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(1);
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromStruct_allowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=false");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return struct(providers = [my_provider(x = 1), other_provider(), my_provider(x = 2)])",
+        "my_rule = rule(_impl)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')"
+    );
+
+    ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
+    assertThat(declaredProvider).isNotNull();
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(2);
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromStruct_disallowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=true");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return struct(providers = [my_provider(x = 1), other_provider(), my_provider(x = 2)])",
+        "my_rule = rule(_impl)"
+    );
+
+    checkError(
+        "test",
+        "r",
+        "Multiple conflicting returned providers with key my_provider",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')");
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromIterable_allowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=false");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return [my_provider(x = 1), other_provider(), my_provider(x = 2)]",
+        "my_rule = rule(_impl)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')"
+    );
+
+    ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
+    Provider.Key key =
+        new SkylarkProvider.SkylarkKey(
+            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            "my_provider");
+    StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
+    assertThat(declaredProvider).isNotNull();
+    assertThat(declaredProvider.getProvider().getKey()).isEqualTo(key);
+    assertThat(declaredProvider.getValue("x")).isEqualTo(2);
+  }
+
+  @Test
+  public void testConflictingProviderKeys_fromIterable_disallowed() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_disallow_conflicting_providers=true");
+    scratch.file(
+        "test/extension.bzl",
+        "my_provider = provider()",
+        "other_provider = provider()",
+        "def _impl(ctx):",
+        "   return [my_provider(x = 1), other_provider(), my_provider(x = 2)]",
+        "my_rule = rule(_impl)"
+    );
+
+    checkError(
+        "test",
+        "r",
+        "Multiple conflicting returned providers with key my_provider",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'r')");
   }
 
   @Test
@@ -1643,13 +1767,16 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         new SkylarkKey(Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "PInfo");
 
     ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
-    assertThat(targetXXX.get(pInfoKey).getValue("s"))
+    StructImpl structXXX = (StructImpl) targetXXX.get(pInfoKey);
+
+    assertThat(structXXX.getValue("s"))
         .isEqualTo(
             "ctx.outputs(executable = <generated file test/xxx>, "
                 + "other = <generated file test/xxx.other>)");
 
     ConfiguredTarget targetYYY = getConfiguredTarget("//test:yyy");
-    assertThat(targetYYY.get(pInfoKey).getValue("s"))
+    StructImpl structYYY = (StructImpl) targetYYY.get(pInfoKey);
+    assertThat(structYYY.getValue("s"))
         .isEqualTo("ctx.outputs(for //test:xxx)");
   }
 

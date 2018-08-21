@@ -19,6 +19,10 @@ import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
+import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,11 +56,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
-import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
-import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Server;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
@@ -95,7 +94,6 @@ public final class RemoteWorker {
   private final ActionCacheImplBase actionCacheServer;
   private final ByteStreamImplBase bsServer;
   private final ContentAddressableStorageImplBase casServer;
-  private final WatcherImplBase watchServer;
   private final ExecutionImplBase execServer;
 
   static FileSystem getFileSystem() {
@@ -142,12 +140,10 @@ public final class RemoteWorker {
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
           new ConcurrentHashMap<>();
       FileSystemUtils.createDirectoryAndParents(workPath);
-      watchServer = new WatcherServer(operationsCache);
       execServer =
           new ExecutionServer(
               workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
     } else {
-      watchServer = null;
       execServer = null;
     }
   }
@@ -162,7 +158,6 @@ public final class RemoteWorker {
 
     if (execServer != null) {
       b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));
-      b.addService(ServerInterceptors.intercept(watchServer, headersInterceptor));
     } else {
       logger.info("Execution disabled, only serving cache requests.");
     }

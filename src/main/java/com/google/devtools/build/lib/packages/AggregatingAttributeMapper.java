@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.syntax.Type.ListType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -521,8 +522,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
 
       @Override
-      public void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException {
-        owner.visitLabels(observer);
+      public Collection<DepEdge> visitLabels() throws InterruptedException {
+        return owner.visitLabels();
       }
 
       @Override

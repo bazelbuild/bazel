@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.remote.logging;
 
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.GetActionResultRequest;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetActionResultDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 
 /**
  * LoggingHandler for {@link google.devtools.remoteexecution.v1test.ActionCache.GetActionResult}

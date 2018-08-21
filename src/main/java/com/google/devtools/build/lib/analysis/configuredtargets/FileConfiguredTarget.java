@@ -23,13 +23,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
@@ -62,9 +61,6 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
             .put(LicensesProvider.class, this)
             .add(fileProvider)
             .add(filesToRunProvider);
-    if (this instanceof FilesetProvider) {
-      builder.put(FilesetProvider.class, this);
-    }
     if (this instanceof InstrumentedFilesProvider) {
       builder.put(InstrumentedFilesProvider.class, this);
     }
@@ -94,7 +90,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
     return providers.getProvider(providerKey);
   }
 

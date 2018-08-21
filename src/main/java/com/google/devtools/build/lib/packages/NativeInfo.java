@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import java.util.Map;
 
-/** Base class for native implementations of {@link Info}. */
+/** Base class for native implementations of {@link StructImpl}. */
 // todo(vladmos,dslomov): make abstract once DefaultInfo stops instantiating it.
-public class NativeInfo extends Info {
+public class NativeInfo extends StructImpl {
   protected final ImmutableMap<String, Object> values;
 
   // Initialized lazily.

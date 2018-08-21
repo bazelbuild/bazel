@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
@@ -63,7 +63,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   }
 
   @Override
-  public View getCurrentView(OptionsClassProvider options) throws BrokenDiffAwarenessException {
+  public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
     // We need to consider 4 cases for watchFs:
     // previous view    current view
     //  disabled         disabled  -> EVERYTHING_MODIFIED

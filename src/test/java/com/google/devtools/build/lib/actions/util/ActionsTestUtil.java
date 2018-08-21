@@ -147,7 +147,8 @@ public final class ActionsTestUtil {
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -182,7 +183,8 @@ public final class ActionsTestUtil {
         ImmutableMap.of(),
         ImmutableMap.of(),
         createDummyArtifactExpander(),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -233,6 +235,7 @@ public final class ActionsTestUtil {
           result.put(key, ValueOrUntypedException.ofValueUntyped(value));
           continue;
         }
+        errorMightHaveBeenFound = true;
         ErrorInfo errorInfo = evaluationResult.getError(key);
         if (errorInfo == null || errorInfo.getException() == null) {
           result.put(key, ValueOrUntypedException.ofNull());

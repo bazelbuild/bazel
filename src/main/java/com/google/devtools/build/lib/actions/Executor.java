@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 
 /**
  * The Executor provides the context for the execution of actions. It is only valid during the
@@ -68,7 +68,7 @@ public interface Executor {
   /**
    * Returns the command line options of the Blaze command being executed.
    */
-  OptionsClassProvider getOptions();
+  OptionsProvider getOptions();
 
   /**
    * Whether this Executor reports subcommands. If not, reportSubcommand has no effect.

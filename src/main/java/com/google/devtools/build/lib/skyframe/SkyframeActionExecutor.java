@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -81,7 +81,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -373,7 +372,7 @@ public final class SkyframeActionExecutor {
     return executorEngine.getExecRoot();
   }
 
-  /** REQUIRES: {@link usesActionFileSystem} is true */
+  /** REQUIRES: {@link #usesActionFileSystem()} is true */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
@@ -388,8 +387,9 @@ public final class SkyframeActionExecutor {
   }
 
   void updateActionFileSystemContext(
-      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer) {
-    outputService.updateActionFileSystemContext(actionFileSystem, env, consumer);
+      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets) throws IOException {
+    outputService.updateActionFileSystemContext(actionFileSystem, env, consumer, filesets);
   }
 
   void executionOver() {
@@ -491,24 +491,6 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputs;
-
-    private ArtifactExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
-      this.expandedInputs = expandedInputMiddlemen;
-    }
-
-    @Override
-    public void expand(Artifact artifact, Collection<? super Artifact> output) {
-      Preconditions.checkState(artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(),
-          artifact);
-      Collection<Artifact> result = expandedInputs.get(artifact);
-      if (result != null) {
-        output.addAll(result);
-      }
-    }
-  }
-
   /**
    * Returns an ActionExecutionContext suitable for executing a particular action. The caller should
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
@@ -518,8 +500,10 @@ public final class SkyframeActionExecutor {
       MetadataProvider graphFileCache,
       MetadataHandler metadataHandler,
       Map<Artifact, Collection<Artifact>> expandedInputs,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> inputFilesetMappings,
-      @Nullable FileSystem actionFileSystem) {
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
+      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      @Nullable FileSystem actionFileSystem,
+      @Nullable Object skyframeDepsResult) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot()));
     return new ActionExecutionContext(
@@ -530,9 +514,10 @@ public final class SkyframeActionExecutor {
         metadataHandler,
         fileOutErr,
         clientEnv,
-        inputFilesetMappings,
-        new ArtifactExpanderImpl(expandedInputs),
-        actionFileSystem);
+        topLevelFilesets,
+        new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
+        actionFileSystem,
+        skyframeDepsResult);
   }
 
   /**
@@ -1210,20 +1195,20 @@ public final class SkyframeActionExecutor {
    * @param outErrBuffer The OutErr that recorded the actions output
    */
   private void dumpRecordedOutErr(Event prefixEvent, FileOutErr outErrBuffer) {
-    // Synchronize this on the reporter, so that the output from multiple
-    // actions will not be interleaved.
-    synchronized (reporter) {
-      // Only print the output if we're not winding down.
-      if (isBuilderAborting()) {
-        return;
-      }
+    // Only print the output if we're not winding down.
+    if (isBuilderAborting()) {
+      return;
+    }
+    if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
+      // Bind the output to the prefix event.
+      // Note: here we temporarily (until the event is handled by the UI) read all
+      // output into memory; as the output of regular actions (as opposed to test runs) usually is
+      // short, so this should not be a problem. If it does turn out to be a problem, we have to
+      // pass the outErrbuffer instead.
+      reporter.handle(
+          prefixEvent.withStdoutStderr(outErrBuffer.outAsLatin1(), outErrBuffer.errAsLatin1()));
+    } else {
       reporter.handle(prefixEvent);
-
-      if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
-        OutErr outErr = this.reporter.getOutErr();
-        outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
-        outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
-      }
     }
   }
 

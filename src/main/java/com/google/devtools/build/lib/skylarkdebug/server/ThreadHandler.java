@@ -77,13 +77,15 @@ final class ThreadHandler {
     }
   }
 
-  /**
-   * If true, all threads will pause at the earliest possible opportunity. New threads will also be
-   * immediately paused upon creation.
-   *
-   * <p>The debugger starts with all threads paused, until a StartDebuggingRequest is received.
-   */
-  private volatile boolean pausingAllThreads = true;
+  /** Whether threads are globally paused, and if so, why. */
+  private enum DebuggerState {
+    INITIALIZING, // no StartDebuggingRequest has yet been received; all threads are paused
+    ALL_THREADS_PAUSED, // all threads are paused in response to a PauseThreadRequest with id=0
+    RUNNING, // normal running: threads are not globally paused
+  }
+
+  /** The debugger starts with all threads paused, until a StartDebuggingRequest is received. */
+  private volatile DebuggerState debuggerState = DebuggerState.INITIALIZING;
 
   /** A map from identifiers of paused threads to their state info. */
   @GuardedBy("this")
@@ -114,7 +116,7 @@ final class ThreadHandler {
 
   /** Mark all current and future threads paused. Will take effect asynchronously. */
   void pauseAllThreads() {
-    pausingAllThreads = true;
+    debuggerState = DebuggerState.ALL_THREADS_PAUSED;
   }
 
   /** Mark the given thread paused. Will take effect asynchronously. */
@@ -152,7 +154,7 @@ final class ThreadHandler {
    */
   void resumeAllThreads() {
     threadsToPause.clear();
-    pausingAllThreads = false;
+    debuggerState = DebuggerState.RUNNING;
     synchronized (this) {
       for (PausedThreadState thread : ImmutableList.copyOf(pausedThreads.values())) {
         // continue-all doesn't support stepping.
@@ -163,14 +165,14 @@ final class ThreadHandler {
   }
 
   /**
-   * Unpauses the given thread if it is currently paused. Also unsets {@link #pausingAllThreads}. If
-   * the thread is not paused, but currently stepping, it clears the stepping behavior so it will
-   * run unconditionally.
+   * Unpauses the given thread if it is currently paused. Also sets {@link #debuggerState} to
+   * RUNNING. If the thread is not paused, but currently stepping, it clears the stepping behavior
+   * so it will run unconditionally.
    */
   void resumeThread(long threadId, SkylarkDebuggingProtos.Stepping stepping)
       throws DebugRequestException {
     // once the user has requested any thread be resumed, don't continue pausing future threads
-    pausingAllThreads = false;
+    debuggerState = DebuggerState.RUNNING;
     synchronized (this) {
       threadsToPause.remove(threadId);
       if (steppingThreads.remove(threadId) != null) {
@@ -326,8 +328,12 @@ final class ThreadHandler {
   private PauseReason shouldPauseCurrentThread(Environment env, Location location)
       throws ConditionalBreakpointException {
     long threadId = Thread.currentThread().getId();
-    if (pausingAllThreads) {
+    DebuggerState state = debuggerState;
+    if (state == DebuggerState.ALL_THREADS_PAUSED) {
       return PauseReason.ALL_THREADS_PAUSED;
+    }
+    if (state == DebuggerState.INITIALIZING) {
+      return PauseReason.INITIALIZING;
     }
     if (threadsToPause.contains(threadId)) {
       return PauseReason.PAUSE_THREAD_REQUEST;

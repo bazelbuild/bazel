@@ -31,6 +31,7 @@ public class PackagedResources {
   private final Path javaSourceDirectory;
   private final Path resourceIds;
   private final Path attributes;
+  private final Path packages;
 
   private PackagedResources(
       Path apk,
@@ -40,7 +41,8 @@ public class PackagedResources {
       Path mainDexProguard,
       Path javaSourceDirectory,
       Path resourceIds,
-      Path attributes) {
+      Path attributes,
+      Path packages) {
     this.apk = apk;
     this.proto = proto;
     this.rTxt = rTxt;
@@ -49,6 +51,7 @@ public class PackagedResources {
     this.javaSourceDirectory = javaSourceDirectory;
     this.resourceIds = resourceIds;
     this.attributes = attributes;
+    this.packages = packages;
   }
 
   public static PackagedResources of(
@@ -59,7 +62,8 @@ public class PackagedResources {
       Path mainDexProguard,
       Path javaSourceDirectory,
       Path resourceIds,
-      Path attributes)
+      Path attributes,
+      Path packages)
       throws IOException {
     return new PackagedResources(
         outPath,
@@ -69,7 +73,8 @@ public class PackagedResources {
         mainDexProguard,
         javaSourceDirectory,
         resourceIds,
-        attributes);
+        attributes,
+        packages);
   }
 
   public PackagedResources copyPackageTo(Path packagePath) throws IOException {
@@ -81,7 +86,8 @@ public class PackagedResources {
         mainDexProguard,
         javaSourceDirectory,
         resourceIds,
-        attributes);
+        attributes,
+        packages);
   }
 
   public PackagedResources copyRTxtTo(Path rOutput) throws IOException {
@@ -96,7 +102,8 @@ public class PackagedResources {
         mainDexProguard,
         javaSourceDirectory,
         resourceIds,
-        attributes);
+        attributes,
+        packages);
   }
 
   private Path copy(Path from, Path out) throws IOException {
@@ -117,7 +124,8 @@ public class PackagedResources {
         mainDexProguard,
         javaSourceDirectory,
         resourceIds,
-        attributes);
+        attributes,
+        packages);
   }
 
   public PackagedResources copyMainDexProguardTo(Path mainDexProguardOut) throws IOException {
@@ -132,7 +140,8 @@ public class PackagedResources {
         copy(mainDexProguard, mainDexProguardOut),
         javaSourceDirectory,
         resourceIds,
-        attributes);
+        attributes,
+        packages);
   }
 
   public PackagedResources createSourceJar(@Nullable Path sourceJarPath) throws IOException {
@@ -141,11 +150,20 @@ public class PackagedResources {
     }
     AndroidResourceOutputs.createSrcJar(javaSourceDirectory, sourceJarPath, false);
     return of(
-        apk, proto, rTxt, proguardConfig, mainDexProguard, sourceJarPath, resourceIds, attributes);
+        apk,
+        proto,
+        rTxt,
+        proguardConfig,
+        mainDexProguard,
+        sourceJarPath,
+        resourceIds,
+        attributes,
+        packages);
   }
 
   public ResourcesZip packageWith(Path resourceRoot) {
-    return ResourcesZip.fromApkWithProto(proto, attributes, resourceRoot, apk, resourceIds);
+    return ResourcesZip.fromApkWithProto(
+        proto, attributes, resourceRoot, apk, resourceIds, packages);
   }
 
   public Path getResourceIds() {

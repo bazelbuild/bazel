@@ -16,19 +16,18 @@ syntax = "proto3";
 
 package remote_logging;
 
+import "build/bazel/remote/execution/v2/remote_execution.proto";
 import "google/protobuf/timestamp.proto";
 import "google/bytestream/bytestream.proto";
-import "google/devtools/remoteexecution/v1test/remote_execution.proto";
 import "google/longrunning/operations.proto";
 import "google/rpc/status.proto";
-import "google/watcher/v1/watch.proto";
 
 option java_package = "com.google.devtools.build.lib.remote.logging";
 
 // A single log entry for gRPC calls related to remote execution.
 message LogEntry {
   // Request metadata included in call.
-  google.devtools.remoteexecution.v1test.RequestMetadata metadata = 1;
+  build.bazel.remote.execution.v2.RequestMetadata metadata = 1;
 
   // Status of the call on close.
   google.rpc.Status status = 2;
@@ -49,47 +48,46 @@ message LogEntry {
 }
 
 // Details for a call to
-// google.devtools.remoteexecution.v1test.Execution.Execute.
+// build.bazel.remote.execution.v2.Execution.Execute.
 message ExecuteDetails {
-  // The google.devtools.remoteexecution.v1test.ExecuteRequest sent by the
+  // The build.bazel.remote.execution.v2.ExecuteRequest sent by the
   // call.
-  google.devtools.remoteexecution.v1test.ExecuteRequest request = 1;
+  build.bazel.remote.execution.v2.ExecuteRequest request = 1;
 
-  // The google.longrunning.Operation received by the Execute call.
-  google.longrunning.Operation response = 2;
+  // Each google.longrunning.Operation received by the Execute call in order.
+  repeated google.longrunning.Operation responses = 2;
 }
 
 // Details for a call to
-// google.devtools.remoteexecution.v1test.ActionCache.GetActionResult.
+// build.bazel.remote.execution.v2.ActionCache.GetActionResult.
 message GetActionResultDetails {
-  // The google.devtools.remoteexecution.v1test.GetActionResultRequest sent by
+  // The build.bazel.remote.execution.v2.GetActionResultRequest sent by
   // the call.
-  google.devtools.remoteexecution.v1test.GetActionResultRequest request = 1;
+  build.bazel.remote.execution.v2.GetActionResultRequest request = 1;
 
-  // The received google.devtools.remoteexecution.v1test.ActionResult.
-  google.devtools.remoteexecution.v1test.ActionResult response = 2;
+  // The received build.bazel.remote.execution.v2.ActionResult.
+  build.bazel.remote.execution.v2.ActionResult response = 2;
 }
 
-// Details for a call to google.watcher.v1.Watch.
-message WatchDetails {
+// Details for a call to build.bazel.remote.execution.v2.WaitExecution.
+message WaitExecutionDetails {
   // The google.watcher.v1.Request sent by the Watch call.
-  google.watcher.v1.Request request = 1;
+  build.bazel.remote.execution.v2.WaitExecutionRequest request = 1;
 
-  // Each google.watcher.v1.ChangeBatch response received from the
-  // Watch call in order.
-  repeated google.watcher.v1.ChangeBatch responses = 2;
+  // Each google.longrunning.Operation received by the call in order.
+  repeated google.longrunning.Operation responses = 2;
 }
 
 // Details for a call to
-// google.devtools.remoteexecution.v1test.ContentAddressableStorage.FindMissingBlobs.
+// build.bazel.remote.execution.v2.ContentAddressableStorage.FindMissingBlobs.
 message FindMissingBlobsDetails {
-  // The google.devtools.remoteexecution.v1test.FindMissingBlobsRequest request
+  // The build.bazel.remote.execution.v2.FindMissingBlobsRequest request
   // sent.
-  google.devtools.remoteexecution.v1test.FindMissingBlobsRequest request = 1;
+  build.bazel.remote.execution.v2.FindMissingBlobsRequest request = 1;
 
-  // The google.devtools.remoteexecution.v1test.FindMissingBlobsResponse
+  // The build.bazel.remote.execution.v2.FindMissingBlobsResponse
   // received.
-  google.devtools.remoteexecution.v1test.FindMissingBlobsResponse response = 2;
+  build.bazel.remote.execution.v2.FindMissingBlobsResponse response = 2;
 }
 
 // Details for a call to google.bytestream.Read.
@@ -124,11 +122,12 @@ message WriteDetails {
 
 // Contains details for specific types of calls.
 message RpcCallDetails {
+  reserved 1 to 4;
   oneof details {
-    ExecuteDetails execute = 1;
-    GetActionResultDetails get_action_result = 2;
-    WatchDetails watch = 3;
-    FindMissingBlobsDetails find_missing_blobs = 4;
+    ExecuteDetails execute = 7;
+    GetActionResultDetails get_action_result = 8;
+    WaitExecutionDetails wait_execution = 9;
+    FindMissingBlobsDetails find_missing_blobs = 10;
     ReadDetails read = 5;
     WriteDetails write = 6;
   }

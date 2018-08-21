@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -57,17 +55,14 @@ abstract class AbstractEdgeVisitor<T> extends ParallelVisitor<T, Target> {
       Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
       throws QueryException, InterruptedException {
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
-        env.makePackageKeyToTargetKeyMap(keysToUseForResult);
+        SkyQueryEnvironment.makePackageKeyToTargetKeyMap(keysToUseForResult);
     Set<PackageIdentifier> pkgIdsNeededForResult =
-        packageKeyToTargetKeyMap
-            .keySet()
-            .stream()
-            .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
-            .collect(toImmutableSet());
+        SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
     packageSemaphore.acquireAll(pkgIdsNeededForResult);
     Iterable<Target> targets;
     try {
-      targets = env.makeTargetsFromPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap).values();
+      targets =
+          env.getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(packageKeyToTargetKeyMap).values();
       callback.process(targets);
     } finally {
       packageSemaphore.releaseAll(pkgIdsNeededForResult);

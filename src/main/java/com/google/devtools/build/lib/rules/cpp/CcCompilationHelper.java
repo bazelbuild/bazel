@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExt
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -232,6 +231,8 @@ public final class CcCompilationHelper {
   private boolean generateNoPicAction;
   private boolean generatePicAction;
   private boolean allowCoverageInstrumentation = true;
+  private String stripIncludePrefix = null;
+  private String includePrefix = null;
 
   // TODO(plf): Pull out of class.
   private CcCompilationContext ccCompilationContext;
@@ -705,6 +706,18 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  /** Sets the include prefix to append to the public headers. */
+  public CcCompilationHelper setIncludePrefix(@Nullable String includePrefix) {
+    this.includePrefix = includePrefix;
+    return this;
+  }
+
+  /** Sets the include prefix to remove from the public headers. */
+  public CcCompilationHelper setStripIncludePrefix(@Nullable String stripIncludePrefix) {
+    this.stripIncludePrefix = stripIncludePrefix;
+    return this;
+  }
+
   public void setAllowCoverageInstrumentation(boolean allowCoverageInstrumentation) {
     this.allowCoverageInstrumentation = allowCoverageInstrumentation;
   }
@@ -811,33 +824,23 @@ public final class CcCompilationHelper {
   }
 
   private PublicHeaders computePublicHeaders() {
-    if (!ruleContext.attributes().has("strip_include_prefix", Type.STRING)
-        || !ruleContext.attributes().has("include_prefix", Type.STRING)) {
-      return new PublicHeaders(
-          ImmutableList.copyOf(Iterables.concat(publicHeaders, nonModuleMapHeaders)),
-          ImmutableList.copyOf(publicHeaders),
-          null);
-    }
-
     PathFragment prefix = null;
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")) {
-      String prefixAttr = ruleContext.attributes().get("include_prefix", Type.STRING);
-      prefix = PathFragment.create(prefixAttr);
-      if (PathFragment.containsUplevelReferences(prefixAttr)) {
-        ruleContext.attributeError("include_prefix", "should not contain uplevel references");
+    if (includePrefix != null) {
+      prefix = PathFragment.create(includePrefix);
+      if (PathFragment.containsUplevelReferences(includePrefix)) {
+        ruleContext.ruleError("include prefix should not contain uplevel references");
       }
       if (prefix.isAbsolute()) {
-        ruleContext.attributeError("include_prefix", "should be a relative path");
+        ruleContext.ruleError("include prefix should be a relative path");
       }
     }
 
     PathFragment stripPrefix;
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("strip_include_prefix")) {
-      String stripPrefixAttr = ruleContext.attributes().get("strip_include_prefix", Type.STRING);
-      if (PathFragment.containsUplevelReferences(stripPrefixAttr)) {
-        ruleContext.attributeError("strip_include_prefix", "should not contain uplevel references");
+    if (stripIncludePrefix != null) {
+      if (PathFragment.containsUplevelReferences(stripIncludePrefix)) {
+        ruleContext.ruleError("strip include prefix should not contain uplevel references");
       }
-      stripPrefix = PathFragment.create(stripPrefixAttr);
+      stripPrefix = PathFragment.create(stripIncludePrefix);
       if (stripPrefix.isAbsolute()) {
         stripPrefix =
             ruleContext
@@ -964,7 +967,7 @@ public final class CcCompilationHelper {
     // But defines come after those inherited from deps.
     ccCompilationContextBuilder.addDefines(defines);
 
-    // There are no ordering constraints for declared include dirs/srcs, or the pregrepped headers.
+    // There are no ordering constraints for declared include dirs/srcs.
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicHeaders.getHeaders());
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(privateHeaders);
@@ -973,12 +976,6 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addModularHdrs(publicHeaders.getHeaders());
     ccCompilationContextBuilder.addModularHdrs(privateHeaders);
     ccCompilationContextBuilder.addTextualHdrs(publicTextualHeaders);
-    ccCompilationContextBuilder.addPregreppedHeaders(
-        CppHelper.createExtractInclusions(ruleContext, semantics, publicHeaders.getHeaders()));
-    ccCompilationContextBuilder.addPregreppedHeaders(
-        CppHelper.createExtractInclusions(ruleContext, semantics, publicTextualHeaders));
-    ccCompilationContextBuilder.addPregreppedHeaders(
-        CppHelper.createExtractInclusions(ruleContext, semantics, privateHeaders));
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.
@@ -988,6 +985,7 @@ public final class CcCompilationHelper {
       for (PathFragment looseIncludeDir : looseIncludeDirs) {
         ccCompilationContextBuilder.addDeclaredIncludeDir(looseIncludeDir);
       }
+      ccCompilationContextBuilder.setHeadersCheckingMode(headersCheckingMode);
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {

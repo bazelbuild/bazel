@@ -81,6 +81,7 @@ test_suite(
     tests = [
         ":windows_tests",
         "//src/test/shell/bazel:all_windows_tests",
+        "//src/test/shell/integration:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )

@@ -30,8 +30,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
@@ -52,7 +53,7 @@ import java.util.Map;
  * deps that are needed for building Objective-C rules.
  */
 @Immutable
-public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Artifact> {
+public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact> {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
@@ -661,14 +662,14 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
   /** Skylark constructor and identifier for ObjcProvider. */
-  public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
       SkylarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
@@ -1124,10 +1125,10 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
     }
   }
 
-  private static class Constructor extends NativeProvider<ObjcProvider>
+  private static class Constructor extends BuiltinProvider<ObjcProvider>
       implements WithLegacySkylarkName {
     public Constructor() {
-      super(ObjcProvider.class, ObjcProvider.SKYLARK_NAME);
+      super(ObjcProvider.SKYLARK_NAME, ObjcProvider.class);
     }
 
     @Override

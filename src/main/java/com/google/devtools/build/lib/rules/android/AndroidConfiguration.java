@@ -52,6 +52,7 @@ import javax.annotation.Nullable;
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment
     implements AndroidConfigurationApi {
+
   /**
    * Converter for {@link
    * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
@@ -220,7 +221,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       }
     }
 
-    // TODO(corysmith): Move to ApplicationManifest when no longer needed as a public function.
+    // TODO(corysmith): Move to an appropriate place when no longer needed as a public function.
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext)
         throws RuleErrorException {
@@ -729,6 +730,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     public boolean compressJavaResources;
 
     @Option(
+        name = "experimental_android_databinding_v2",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Use android databinding v2")
+    public boolean dataBindingV2;
+
+    @Option(
       name = "experimental_android_library_exports_manifest_default",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -800,19 +814,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
               + "'warning', or 'deprecated'."
     )
     public AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
-
-    @Option(
-        name = "android_decouple_data_processing",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.ACTION_COMMAND_LINES
-        },
-        help =
-            "If true, Android data (assets, resources, and manifests) will be processed seperately "
-                + "when possible. Otherwise, they will all be processed together.")
-    public boolean decoupleDataProcessing;
 
     @Option(
       name = "android_migration_tag_check",
@@ -919,9 +920,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
-  private final boolean decoupleDataProcessing;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  private final boolean dataBindingV2;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -959,10 +960,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
-    this.decoupleDataProcessing = options.decoupleDataProcessing;
     this.checkForMigrationTag = options.checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.dataBindingV2 = options.dataBindingV2;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1013,9 +1014,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       boolean skipParsingAction,
       boolean fixedResourceNeverlinking,
       AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
-      boolean decoupleDataProcessing,
       boolean checkForMigrationTag,
-      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
+      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest,
+      boolean dataBindingV2) {
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1048,10 +1049,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.skipParsingAction = skipParsingAction;
     this.fixedResourceNeverlinking = fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = robolectricTestDeprecationLevel;
-    this.decoupleDataProcessing = decoupleDataProcessing;
     this.checkForMigrationTag = checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.dataBindingV2 = dataBindingV2;
   }
 
   public String getCpu() {
@@ -1199,16 +1200,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return robolectricTestDeprecationLevel;
   }
 
-  public boolean decoupleDataProcessing() {
-    return decoupleDataProcessing;
-  }
-
   public boolean checkForMigrationTag() {
     return checkForMigrationTag;
   }
 
   public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  }
+
+  public boolean useDataBindingV2() {
+    return dataBindingV2;
   }
 
   @Override

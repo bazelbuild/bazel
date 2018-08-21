@@ -24,6 +24,7 @@ filegroup(
         "diag.h",
         "input_jar.cc",
         "input_jar.h",
+        "mapped_file.cc",
         "mapped_file.h",
         "mapped_file_posix.inc",
         "mapped_file_windows.inc",
@@ -201,7 +202,6 @@ cc_test(
     ],
     deps = [
         ":options",
-        ":test_util",
         ":token_stream",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
@@ -293,7 +293,6 @@ cc_test(
         ":zlib_interface",
     ],
     deps = [
-        ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
@@ -350,13 +349,16 @@ cc_library(
 
 cc_library(
     name = "mapped_file",
-    srcs = select({
+    srcs = ["mapped_file.cc"] + select({
         "//src:windows": ["mapped_file_windows.inc"],
         "//conditions:default": ["mapped_file_posix.inc"],
     }),
     hdrs = ["mapped_file.h"],
     visibility = ["//visibility:private"],
-    deps = [":diag"],
+    deps = [
+        ":diag",
+        ":port",
+    ],
 )
 
 cc_library(

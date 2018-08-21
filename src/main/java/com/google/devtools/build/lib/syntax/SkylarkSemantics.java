@@ -45,6 +45,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean experimentalEnableRepoMapping();
 
+  public abstract boolean experimentalRemapMainRepo();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
@@ -54,6 +56,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleDisableDeprecatedAttrParams();
 
   public abstract boolean incompatibleDisableObjcProviderResources();
+
+  public abstract boolean incompatibleDisallowConflictingProviders();
 
   public abstract boolean incompatibleDisallowDataTransition();
 
@@ -102,11 +106,13 @@ public abstract class SkylarkSemantics {
           // <== Add new options here in alphabetic order ==>
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableRepoMapping(false)
+          .experimentalRemapMainRepo(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
           .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
+          .incompatibleDisallowConflictingProviders(false)
           .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
@@ -133,6 +139,8 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
+    public abstract Builder experimentalRemapMainRepo(boolean value);
+
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
@@ -142,6 +150,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
 
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
+
+    public abstract Builder incompatibleDisallowConflictingProviders(boolean value);
 
     public abstract Builder incompatibleDisallowDataTransition(boolean value);
 

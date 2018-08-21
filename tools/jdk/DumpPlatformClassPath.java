@@ -12,15 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
+import com.sun.tools.javac.api.JavacTool;
+import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.net.URI;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,56 +36,64 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileManager.Location;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
-import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
 
 /**
- * Output a jar file containing all classes on the JDK 8 platform classpath of the default java
- * compiler of the current JDK.
+ * Output a jar file containing all classes on the platform classpath of the current JDK.
  *
- * <p>usage: DumpPlatformClassPath <target release> output.jar
+ * <p>usage: DumpPlatformClassPath <output jar>
  */
 public class DumpPlatformClassPath {
 
-  public static void main(String[] args) throws IOException {
-    if (args.length != 2) {
-      System.err.println("usage: DumpPlatformClassPath <target release> <output jar>");
+  public static void main(String[] args) throws Exception {
+    if (args.length != 1) {
+      System.err.println("usage: DumpPlatformClassPath <output jar>");
       System.exit(1);
     }
-    String targetRelease = args[0];
+    Path output = Paths.get(args[0]);
+
     Map<String, byte[]> entries = new HashMap<>();
-    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, UTF_8);
-    if (isJdk9OrLater()) {
-      // this configures the filemanager to use a JDK 8 bootclasspath
-      compiler.getTask(
-          null, fileManager, null, Arrays.asList("--release", targetRelease), null, null);
-      for (Path path : getLocationAsPaths(fileManager)) {
-        Files.walkFileTree(
-            path,
-            new SimpleFileVisitor<Path>() {
-              @Override
-              public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                  throws IOException {
-                if (file.getFileName().toString().endsWith(".sig")) {
-                  String outputPath = path.relativize(file).toString();
-                  outputPath =
-                      outputPath.substring(0, outputPath.length() - ".sig".length()) + ".class";
-                  entries.put(outputPath, Files.readAllBytes(file));
-                }
-                return FileVisitResult.CONTINUE;
-              }
-            });
+
+    // JDK 8 bootclasspath handling
+    Path javaHome = Paths.get(System.getProperty("java.home"));
+    if (javaHome.endsWith("jre")) {
+      javaHome = javaHome.getParent();
+    }
+    for (String jar :
+        Arrays.asList("rt.jar", "resources.jar", "jsse.jar", "jce.jar", "charsets.jar")) {
+      Path path = javaHome.resolve("jre/lib").resolve(jar);
+      if (!Files.exists(path)) {
+        continue;
       }
-    } else {
+      try (JarFile jf = new JarFile(path.toFile())) {
+        jf.stream()
+            .forEachOrdered(
+                entry -> {
+                  try {
+                    entries.put(entry.getName(), toByteArray(jf.getInputStream(entry)));
+                  } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                  }
+                });
+      }
+    }
+
+    if (entries.isEmpty()) {
+      // JDK > 8 bootclasspath handling
+
+      // Set up a compilation with --release 8 to initialize a filemanager
+      Context context = new Context();
+      JavacTool.create()
+          .getTask(null, null, null, Arrays.asList("--release", "8"), null, null, context);
+      JavaFileManager fileManager = context.get(JavaFileManager.class);
+
       for (JavaFileObject fileObject :
           fileManager.list(
               StandardLocation.PLATFORM_CLASS_PATH,
@@ -94,27 +105,40 @@ public class DumpPlatformClassPath {
         entries.put(
             binaryName.replace('.', '/') + ".class", toByteArray(fileObject.openInputStream()));
       }
+
+      // Include the jdk.unsupported module for compatibility with JDK 8.
+      // (see: https://bugs.openjdk.java.net/browse/JDK-8206937)
+      // `--release 8` only provides access to supported APIs, which excludes e.g. sun.misc.Unsafe.
+      Path module =
+          FileSystems.getFileSystem(URI.create("jrt:/")).getPath("modules/jdk.unsupported");
+      Files.walkFileTree(
+          module,
+          new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                throws IOException {
+              String name = path.getFileName().toString();
+              if (name.endsWith(".class") && !name.equals("module-info.class")) {
+                entries.put(module.relativize(path).toString(), Files.readAllBytes(path));
+              }
+              return super.visitFile(path, attrs);
+            }
+          });
     }
-    try (OutputStream os = Files.newOutputStream(Paths.get(args[1]));
+
+    try (OutputStream os = Files.newOutputStream(output);
         BufferedOutputStream bos = new BufferedOutputStream(os, 65536);
         JarOutputStream jos = new JarOutputStream(bos)) {
-      entries
-          .entrySet()
-          .stream()
+      entries.entrySet().stream()
           .sorted(comparing(Map.Entry::getKey))
-          .forEachOrdered(e -> addEntry(jos, e.getKey(), e.getValue()));
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Iterable<Path> getLocationAsPaths(StandardJavaFileManager fileManager) {
-    try {
-      return (Iterable<Path>)
-          StandardJavaFileManager.class
-              .getMethod("getLocationAsPaths", Location.class)
-              .invoke(fileManager, StandardLocation.PLATFORM_CLASS_PATH);
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
+          .forEachOrdered(
+              entry -> {
+                try {
+                  addEntry(jos, entry.getKey(), entry.getValue());
+                } catch (IOException e) {
+                  throw new UncheckedIOException(e);
+                }
+              });
     }
   }
 
@@ -122,20 +146,16 @@ public class DumpPlatformClassPath {
   private static final long FIXED_TIMESTAMP =
       new GregorianCalendar(2010, 0, 1, 0, 0, 0).getTimeInMillis();
 
-  private static void addEntry(JarOutputStream jos, String name, byte[] bytes) {
-    try {
-      JarEntry je = new JarEntry(name);
-      je.setTime(FIXED_TIMESTAMP);
-      je.setMethod(ZipEntry.STORED);
-      je.setSize(bytes.length);
-      CRC32 crc = new CRC32();
-      crc.update(bytes);
-      je.setCrc(crc.getValue());
-      jos.putNextEntry(je);
-      jos.write(bytes);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+  private static void addEntry(JarOutputStream jos, String name, byte[] bytes) throws IOException {
+    JarEntry je = new JarEntry(name);
+    je.setTime(FIXED_TIMESTAMP);
+    je.setMethod(ZipEntry.STORED);
+    je.setSize(bytes.length);
+    CRC32 crc = new CRC32();
+    crc.update(bytes);
+    je.setCrc(crc.getValue());
+    jos.putNextEntry(je);
+    jos.write(bytes);
   }
 
   private static byte[] toByteArray(InputStream is) throws IOException {
@@ -149,9 +169,5 @@ public class DumpPlatformClassPath {
       boas.write(buffer, 0, r);
     }
     return boas.toByteArray();
-  }
-
-  private static boolean isJdk9OrLater() {
-    return Double.parseDouble(System.getProperty("java.class.version")) >= 53.0;
   }
 }

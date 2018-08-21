@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -401,13 +401,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testCreateSpawnActionCommandsListTooShort() throws Exception {
+  public void testRunShellArgumentsWithCommandSequence() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
-        "'command' list has to be of size at least 3",
-        "ruleContext.actions.run_shell(",
-        "  outputs = ruleContext.files.srcs,",
-        "  command = ['dummy_command', '--arg'])");
+        "'arguments' must be empty if 'command' is a sequence of strings",
+        "ruleContext.actions.run_shell(outputs = ruleContext.files.srcs,",
+        "  command = [\"echo\", \"'hello world'\", \"&&\", \"touch\"],",
+        "  arguments = [ruleContext.files.srcs[0].path])");
   }
 
   private void setupToolInInputsTest(String... ruleImpl) throws Exception {
@@ -1029,7 +1029,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     Object provider = configuredTarget.get("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(configuredTarget.get("dir"))
@@ -1107,7 +1107,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     Object provider = configuredTarget.get("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(configuredTarget.get("dir"))
@@ -1200,7 +1200,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     Object provider = configuredTarget.get("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(configuredTarget.get("dir"))
@@ -1263,7 +1263,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("default");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
   }
 
@@ -1335,8 +1335,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(Info.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(provider).isInstanceOf(StructImpl.class);
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
             new SkylarkKey(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
@@ -1377,8 +1377,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(Info.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(provider).isInstanceOf(StructImpl.class);
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
             new SkylarkKey(Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "FooInfo"));
   }
@@ -1495,12 +1495,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(Info.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(provider).isInstanceOf(StructImpl.class);
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
             new SkylarkKey(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
-    assertThat(((Info) provider).getValue("a")).isEqualTo(123);
+    assertThat(((StructImpl) provider).getValue("a")).isEqualTo(123);
   }
 
   @Test
@@ -1544,8 +1544,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.get("proxy");
-    assertThat(provider).isInstanceOf(Info.class);
-    assertThat(((Info) provider).getProvider().getKey())
+    assertThat(provider).isInstanceOf(StructImpl.class);
+    assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
             new SkylarkKey(
                 Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -73,7 +72,7 @@ class ParallelEvaluatorContext {
       final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
-      final Function<SkyKey, Runnable> runnableMaker,
+      RunnableMaker runnableMaker,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       final int threadCount) {
     this(
@@ -101,7 +100,7 @@ class ParallelEvaluatorContext {
       final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
-      final Function<SkyKey, Runnable> runnableMaker,
+      RunnableMaker runnableMaker,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       final ForkJoinPool forkJoinPool,
       EvaluationVersionBehavior evaluationVersionBehavior) {
@@ -119,6 +118,18 @@ class ParallelEvaluatorContext {
         () -> new NodeEntryVisitor(forkJoinPool, progressReceiver, runnableMaker),
         evaluationVersionBehavior);
   }
+
+  /**
+   * Returns a {@link Runnable} given a {@code key} to evaluate and an {@code evaluationPriority}
+   * indicating whether it should be scheduled for evaluation soon (higher is better). The returned
+   * {@link Runnable} is a {@link ComparableRunnable} so that it can be ordered by {@code
+   * evaluationPriority} in a priority queue if needed.
+   */
+  interface RunnableMaker {
+    ComparableRunnable make(SkyKey key, int evaluationPriority);
+  }
+
+  interface ComparableRunnable extends Runnable, Comparable<ComparableRunnable> {}
 
   private ParallelEvaluatorContext(
       QueryableGraph graph,
@@ -174,7 +185,7 @@ class ParallelEvaluatorContext {
         for (SkyKey key : keys) {
           NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
           if (entry.signalDep(version)) {
-            getVisitor().enqueueEvaluation(key);
+            getVisitor().enqueueEvaluation(key, Integer.MAX_VALUE);
           }
         }
         return;

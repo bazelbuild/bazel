@@ -258,7 +258,6 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     std::string* error) const {
   assert(cmd_line != nullptr);
   assert(result_rc_files != nullptr);
-  assert(!workspace.empty());
 
   std::vector<std::string> rc_files;
 
@@ -272,8 +271,11 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     rc_files.push_back(system_rc);
   }
 
-  // Get the workspace rc: %workspace%/.bazelrc (unless --noworkspace_rc)
-  if (SearchNullaryOption(cmd_line->startup_args, "workspace_rc", true)) {
+  // Get the workspace rc: %workspace%/.bazelrc (unless --noworkspace_rc), but
+  // only if we are in a workspace: invoking commands like "help" from outside
+  // a workspace should work.
+  if (!workspace.empty() &&
+      SearchNullaryOption(cmd_line->startup_args, "workspace_rc", true)) {
     const std::string workspaceRcFile =
         blaze_util::JoinPath(workspace, kRcBasename);
     rc_files.push_back(workspaceRcFile);
@@ -447,7 +449,7 @@ void OptionProcessor::PrintStartupOptionsProvenanceMessage() const {
   std::string command_line_source;
   std::string& most_recent_blazerc = command_line_source;
   std::vector<std::string> accumulated_options;
-  for (auto flag : parsed_startup_options->original_startup_options_) {
+  for (const auto& flag : parsed_startup_options->original_startup_options_) {
     if (flag.source == most_recent_blazerc) {
       accumulated_options.push_back(flag.value);
     } else {

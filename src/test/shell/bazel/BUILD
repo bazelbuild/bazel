@@ -40,6 +40,7 @@ filegroup(
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
+        "@bazel_skylib//:test_deps",
         "@local_jdk//:bootclasspath",
         "@local_jdk//:jdk",
     ] + select({
@@ -353,6 +354,14 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_rule_test",
+    size = "large",
+    srcs = ["skylark_rule_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "disk_cache_test",
     size = "small",
     srcs = ["disk_cache_test.sh"],
@@ -413,6 +422,14 @@ sh_test(
     srcs = ["workspace_test.sh"],
     data = [":test-deps"],
     shard_count = 5,
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "bazelignore_test",
+    size = "medium",
+    srcs = ["bazelignore_test.sh"],
+    data = [":test-deps"],
     tags = ["no_windows"],
 )
 

@@ -75,10 +75,6 @@ public enum LinkBuildVariables {
   FORCE_PIC("force_pic"),
   /** Presence of this variable indicates that the debug symbols should be stripped. */
   STRIP_DEBUG_SYMBOLS("strip_debug_symbols"),
-  @Deprecated
-  IS_CC_TEST_LINK_ACTION("is_cc_test_link_action"),
-  @Deprecated
-  IS_NOT_CC_TEST_LINK_ACTION("is_not_cc_test_link_action"),
   /** Truthy when current action is a cc_test linking action, falsey otherwise. */
   IS_CC_TEST("is_cc_test"),
   /**
@@ -149,10 +145,8 @@ public enum LinkBuildVariables {
 
     if (useTestOnlyFlags) {
       buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-      buildVariables.addStringVariable(IS_CC_TEST_LINK_ACTION.getVariableName(), "");
     } else {
       buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
-      buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION.getVariableName(), "");
     }
 
     if (runtimeLibrarySearchDirectories != null) {
