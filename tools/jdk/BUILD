@@ -191,9 +191,9 @@ rm -rf $$TMPDIR
 default_java_toolchain(
     name = "toolchain_hostjdk8",
     bootclasspath = [":platformclasspath"],
-    jvm_opts = [
-        "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
-    ],
+    forcibly_disable_header_compilation = True,
+    javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
     source_version = "8",
     target_version = "8",
 )
