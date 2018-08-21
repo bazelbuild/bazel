@@ -114,7 +114,9 @@ public class BuildRequest implements OptionsProvider {
     }
   }
 
-  private Map<String, Object> getSkylarkOptions() {
+
+  @Override
+  public Map<String, Object> getSkylarkOptions() {
     return skylarkOptions;
   }
 

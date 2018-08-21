@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -25,6 +27,11 @@ public interface OptionsProvider {
     public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
       return null;
     }
+
+    @Override
+    public Map<String, Object> getSkylarkOptions() {
+      return ImmutableMap.of();
+    }
   };
 
   /**
@@ -35,4 +42,15 @@ public interface OptionsProvider {
    * a provider is permitted to return the same options instance multiple times.
    */
   @Nullable <O extends OptionsBase> O getOptions(Class<O> optionsClass);
+
+  /**
+   * Returns the skylark options in a name:value map.
+   *
+   * <p>These follow the basics of the option syntax, --<name>=<value> but are parsed and stored
+   * differently than native options based on <name> starting with "//". This is a sufficient
+   * demarcation between skylark flags and native flags for now since all skylark flags are targets
+   * and are identified by their package path. But in the future when we implement short names for
+   * skylark options, this will need to change.
+   */
+  Map<String, Object> getSkylarkOptions();
 }

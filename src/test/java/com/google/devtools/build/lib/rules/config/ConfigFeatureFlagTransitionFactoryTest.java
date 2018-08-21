@@ -58,6 +58,11 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
       }
       return null;
     }
+
+    @Override
+    public Map<String, Object> getSkylarkOptions() {
+      return ImmutableMap.of();
+    }
   }
 
   private static BuildOptions getOptionsWithoutFlagFragment() {
