@@ -63,6 +63,7 @@ public class ActionGraphQueryEnvironment
   AqueryOptions aqueryOptions;
   private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
+  private final ConfiguredTargetValueAccessor accessor;
 
   public ActionGraphQueryEnvironment(
       boolean keepGoing,
@@ -83,8 +84,8 @@ public class ActionGraphQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
-        settings,
-        new ConfiguredTargetValueAccessor(walkableGraphSupplier.get()));
+        settings);
+    this.accessor = new ConfiguredTargetValueAccessor(walkableGraphSupplier.get());
     this.configuredTargetKeyExtractor =
         configuredTargetValue -> {
           try {
@@ -126,6 +127,11 @@ public class ActionGraphQueryEnvironment
 
   private static ImmutableList<QueryFunction> populateFunctions() {
     return ImmutableList.copyOf(QueryEnvironment.DEFAULT_QUERY_FUNCTIONS);
+  }
+
+  @Override
+  public ConfiguredTargetValueAccessor getAccessor() {
+    return accessor;
   }
 
   @Override

@@ -74,6 +74,8 @@ public class ConfiguredTargetQueryEnvironment
 
   private final KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> configuredTargetKeyExtractor;
 
+  private final ConfiguredTargetAccessor accessor;
+
   @Override
   protected KeyExtractor<ConfiguredTarget, ConfiguredTargetKey> getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
@@ -98,8 +100,8 @@ public class ConfiguredTargetQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
-        settings,
-        new ConfiguredTargetAccessor(walkableGraphSupplier.get()));
+        settings);
+    this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor =
         element -> {
           try {
@@ -174,6 +176,11 @@ public class ConfiguredTargetQueryEnvironment
 
   public String getOutputFormat() {
     return cqueryOptions.outputFormat;
+  }
+
+  @Override
+  public ConfiguredTargetAccessor getAccessor() {
+    return accessor;
   }
 
   @Override
