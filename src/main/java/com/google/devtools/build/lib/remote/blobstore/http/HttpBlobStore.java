@@ -487,7 +487,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
     } finally {
       in.close();
       if (ch != null) {
-        ch.close().sync();
         releaseUploadChannel(ch);
       }
     }
