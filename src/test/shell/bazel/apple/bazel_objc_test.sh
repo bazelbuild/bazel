@@ -117,4 +117,61 @@ EOF
       fail "Timestamp of contents of archive file should be zero"
 }
 
+function test_objc_library_include_prefix_external_repository() {
+  r="$TEST_TMPDIR/r"
+  mkdir -p "$TEST_TMPDIR/r/foo/v1"
+  touch "$TEST_TMPDIR/r/WORKSPACE"
+  echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
+  cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
+objc_library(
+  name = "foo",
+  hdrs = ["v1/foo.h"],
+  include_prefix = "foolib",
+  strip_include_prefix = "v1",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+  name = "foo",
+  path = "$TEST_TMPDIR/r",
+)
+EOF
+
+  cat > BUILD <<EOF
+objc_library(
+  name = "ok",
+  srcs = ["ok.m"],
+  deps = ["@foo//foo"],
+)
+
+objc_library(
+  name = "bad",
+  srcs = ["bad.m"],
+  deps = ["@foo//foo"],
+)
+EOF
+
+  cat > ok.m <<EOF
+#include <stdio.h>
+#include "foolib/foo.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+}
+EOF
+
+  cat > bad.m <<EOF
+#include <stdio.h>
+#include "foo/v1/foo.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+}
+EOF
+
+  bazel build --sandbox_debug --verbose_failures -s :bad && fail "Should not have found include at repository-relative path"
+  bazel build --sandbox_debug --verbose_failures -s :ok || fail "Should have found include at synthetic path"
+}
+
+
 run_suite "objc/ios test suite"

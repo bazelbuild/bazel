@@ -412,7 +412,7 @@ public final class CcCompilationHelper {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
-    
+
     this.privateHeaders.add(privateHeader);
     return this;
   }
@@ -741,6 +741,13 @@ public final class CcCompilationHelper {
     }
 
     ccCompilationContext = initializeCcCompilationContext();
+    System.out.println("OB DEBUG: Rule: "
+        + ruleContext.attributes().getName()
+        + " created ccCompilationContext = "
+        + ccCompilationContext.toString()
+        + " including "
+        + ccCompilationContext.getIncludeDirs().toString()
+    );
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
@@ -950,6 +957,12 @@ public final class CcCompilationHelper {
     PublicHeaders publicHeaders = computePublicHeaders();
     if (publicHeaders.getVirtualIncludePath() != null) {
       ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
+      System.out.println("OB DEBUG: rule "
+          + ruleContext.attributes().getName()
+          + " added "
+          + publicHeaders.getVirtualIncludePath().toString()
+          + " to CcCompilationContext.Builder"
+      );
     }
 
     if (useDeps) {

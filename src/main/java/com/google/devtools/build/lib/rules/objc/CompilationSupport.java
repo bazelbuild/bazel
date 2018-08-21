@@ -307,6 +307,8 @@ public class CompilationSupport {
       Collection<Artifact> privateHdrs,
       Collection<Artifact> publicHdrs,
       Artifact pchHdr,
+      String includePrefix,
+      String stripIncludePrefix,
       // TODO(b/70777494): Find out how deps get used and remove if not needed.
       Iterable<? extends TransitiveInfoCollection> deps,
       ObjcCppSemantics semantics,
@@ -341,6 +343,8 @@ public class CompilationSupport {
                             .getCoptsForCompilationMode())
                     .addAll(extraCompileArgs)
                     .build())
+            .setIncludePrefix(includePrefix)
+            .setStripIncludePrefix(stripIncludePrefix)
             .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcProvider.get(INCLUDE))
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
@@ -405,6 +409,8 @@ public class CompilationSupport {
             privateHdrs,
             publicHdrs,
             pchHdr,
+            attributes.getIncludePrefix(),
+            attributes.getStripIncludePrefix(),
             deps,
             semantics,
             purpose);
@@ -424,6 +430,8 @@ public class CompilationSupport {
             privateHdrs,
             publicHdrs,
             pchHdr,
+            attributes.getIncludePrefix(),
+            attributes.getStripIncludePrefix(),
             deps,
             semantics,
             purpose);

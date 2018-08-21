@@ -55,6 +55,8 @@ final class CompilationAttributes {
     private final NestedSetBuilder<SdkFramework> weakSdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> sdkDylibs = NestedSetBuilder.stableOrder();
     private Optional<PathFragment> packageFragment = Optional.absent();
+    private String includePrefix = null;
+    private String stripIncludePrefix = null;
     private boolean enableModules;
 
     /**
@@ -174,6 +176,22 @@ final class CompilationAttributes {
     }
 
     /**
+     * Sets the include_prefix attribute.
+     */
+    public Builder setIncludePrefix(String includePrefix) {
+      this.includePrefix = includePrefix;
+      return this;
+    }
+
+    /**
+     * Sets the strip_include_prefix attribute.
+     */
+    public Builder setStripIncludePrefix(String stripIncludePrefix) {
+      this.stripIncludePrefix = stripIncludePrefix;
+      return this;
+    }
+
+    /**
      * Builds a {@code CompilationAttributes} object.
      */
     public CompilationAttributes build() {
@@ -189,6 +207,8 @@ final class CompilationAttributes {
           this.copts.build(),
           this.linkopts.build(),
           this.moduleMapsForDirectDeps.build(),
+          this.includePrefix,
+          this.stripIncludePrefix,
           this.enableModules);
     }
 
@@ -223,6 +243,18 @@ final class CompilationAttributes {
                 ruleContext.attributes().get("sdk_includes", Type.STRING_LIST),
                 PathFragment::create));
         builder.addSdkIncludes(sdkIncludes.build());
+      }
+
+      if (ruleContext.getRule().isAttrDefined("include_prefix", Type.STRING)
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")) {
+        builder.setIncludePrefix(
+            ruleContext.attributes().get("include_prefix", Type.STRING));
+      }
+
+      if (ruleContext.getRule().isAttrDefined("strip_include_prefix", Type.STRING)
+          && ruleContext.attributes().isAttributeValueExplicitlySpecified("strip_include_prefix")) {
+        builder.setStripIncludePrefix(
+            ruleContext.attributes().get("strip_include_prefix", Type.STRING));
       }
     }
 
@@ -302,6 +334,8 @@ final class CompilationAttributes {
   private final ImmutableList<String> copts;
   private final ImmutableList<String> linkopts;
   private final NestedSet<CppModuleMap> moduleMapsForDirectDeps;
+  private final String includePrefix;
+  private final String stripIncludePrefix;
   private final boolean enableModules;
 
   private CompilationAttributes(
@@ -316,6 +350,8 @@ final class CompilationAttributes {
       ImmutableList<String> copts,
       ImmutableList<String> linkopts,
       NestedSet<CppModuleMap> moduleMapsForDirectDeps,
+      String includePrefix,
+      String stripIncludePrefix,
       boolean enableModules) {
     this.hdrs = hdrs;
     this.textualHdrs = textualHdrs;
@@ -328,6 +364,8 @@ final class CompilationAttributes {
     this.copts = copts;
     this.linkopts = linkopts;
     this.moduleMapsForDirectDeps = moduleMapsForDirectDeps;
+    this.includePrefix = includePrefix;
+    this.stripIncludePrefix = stripIncludePrefix;
     this.enableModules = enableModules;
   }
 
@@ -423,6 +461,16 @@ final class CompilationAttributes {
   public NestedSet<CppModuleMap> moduleMapsForDirectDeps() {
     return this.moduleMapsForDirectDeps;
   }
+
+  /**
+   * Returns the include_prefix attribute
+   */
+  public String getIncludePrefix() { return this.includePrefix; }
+
+  /**
+   * Returns the strip_include_prefix attribute
+   */
+  public String getStripIncludePrefix() { return this.stripIncludePrefix; }
 
   /**
    * Returns whether this target uses language features that require clang modules, such as
