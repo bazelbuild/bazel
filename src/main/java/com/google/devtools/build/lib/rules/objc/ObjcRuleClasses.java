@@ -709,15 +709,6 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("include_prefix", STRING))
 
-          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(flatten_virtual_headers) -->
-           When flatten virtual headers is set, we add all headers to the headermap.
-
-           This allows a user to include a Header, "path/to/header" as "header.h"
-
-           Together with include_prefix, this allows bazel to support Xcode style includes.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("flatten_virtual_headers", BOOLEAN))
-
           /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
           sources and provide a list of required headers via a .header_list file.
 
