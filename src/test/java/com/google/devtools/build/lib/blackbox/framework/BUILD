@@ -19,7 +19,9 @@ java_test(
     name = "framework_tests",
     testonly = 1,
     srcs = glob(["*.java"]),
+    tags = ["black_box_test"],
     test_class = "com.google.devtools.build.lib.AllTests",
+    visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__pkg__"],
     deps = [":deps"],
 )
 

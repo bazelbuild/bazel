@@ -38,6 +38,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework:srcs",
         "//src/test/java/com/google/devtools/build/lib/blackbox/bazel:srcs",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests:srcs",
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:srcs",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],

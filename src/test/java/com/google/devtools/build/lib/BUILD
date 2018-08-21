@@ -1631,6 +1631,7 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests:blackbox_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildtool:all_windows_tests",

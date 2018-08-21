@@ -53,7 +53,7 @@ public class PathUtils {
             throw e;
           }
           try {
-            Thread.sleep(500);
+            Thread.sleep(1000);
           } catch (InterruptedException e1) {
             // The user interrupted; propagate interruption status.
             Thread.currentThread().interrupt();
@@ -315,7 +315,7 @@ public class PathUtils {
           @Override
           public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
               throws IOException {
-            if (!dir.toFile().setWritable(true)) {
+            if (!dir.toFile().canWrite() && !dir.toFile().setWritable(true)) {
               throw new IOException(
                   String.format("Can not make %s writeable", dir.toAbsolutePath().toString()));
             }
