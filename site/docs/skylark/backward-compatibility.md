@@ -40,7 +40,6 @@ guarded behind flags in the current release:
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
-*   [Glob tracking](#glob-tracking)
 *   [Disable objc provider resources](#disable-objc-provider-resources)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
@@ -220,15 +219,6 @@ or `add_joined()` instead.
 
 *   Flag: `--incompatible_disallow_old_style_args_add`
 *   Default: `false`
-
-
-### Glob tracking
-
-When set, glob tracking is disabled. This is a legacy feature that we expect has
-no user-visible impact.
-
-*   Flag: `--incompatible_disable_glob_tracking`
-*   Default: `true`
 
 
 ### Python 3 range behavior.
