@@ -978,10 +978,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, env);
     // The best way to fix this probably is to convert CommandHelper to Skylark.
     CommandHelper helper =
-        new CommandHelper(
-            getRuleContext(),
-            tools.getContents(TransitiveInfoCollection.class, "tools"),
-            ImmutableMap.copyOf(labelDict));
+        CommandHelper.builder(getRuleContext())
+            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .addLabelMap(labelDict)
+            .build();
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
     if (expandLocations) {
       command =
