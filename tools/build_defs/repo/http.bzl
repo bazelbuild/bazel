@@ -234,7 +234,7 @@ Args:
     `"tar.xz"`, or `tar.bz2`.
   url: A URL to a file that will be made available to Bazel.
 
-    This must be an file, http or https URL. Redirections are followed.
+    This must be a file, http or https URL. Redirections are followed.
     Authentication is not supported.
 
     This parameter is to simplify the transition from the native http_archive
@@ -242,7 +242,7 @@ Args:
     to specify alternative URLs to fetch from.
   urls: A list of URLs to a file that will be made available to Bazel.
 
-    Each entry must be an file, http or https URL. Redirections are followed.
+    Each entry must be a file, http or https URL. Redirections are followed.
     Authentication is not supported.
   patches: A list of files that are to be applied as patches after extracting
     the archive.
@@ -291,7 +291,7 @@ Args:
     easier but should be set before shipping.
   urls: A list of URLs to a file that will be made available to Bazel.
 
-    Each entry must be an file, http or https URL. Redirections are followed.
+    Each entry must be a file, http or https URL. Redirections are followed.
     Authentication is not supported.
 """
 
