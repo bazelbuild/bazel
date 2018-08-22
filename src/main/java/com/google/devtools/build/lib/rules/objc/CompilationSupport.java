@@ -472,8 +472,11 @@ public class CompilationSupport {
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
 
+    // OB TODO: This mergedCcCompilationContext is what needs to be passed to ObjcLibrary.java
+    CcCompilationContext mergedCcCompilationContext = ccCompilationContextBuilder.build();
     LinkingInfo linkingInfo =
-        resultLink.link(compilationOutputsBuilder.build(), ccCompilationContextBuilder.build());
+        resultLink.link(compilationOutputsBuilder.build(), mergedCcCompilationContext);
+    ccCompilationContext = mergedCcCompilationContext;
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(
@@ -698,6 +701,7 @@ public class CompilationSupport {
   private final Map<String, NestedSet<Artifact>> outputGroupCollector;
   private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
+  private CcCompilationContext ccCompilationContext;
   private final boolean isTestRule;
   private final boolean usePch;
 
@@ -750,6 +754,8 @@ public class CompilationSupport {
       this.toolchain = null;
     }
   }
+
+  public CcCompilationContext getCcCompilationContext() { return this.ccCompilationContext; }
 
   /** Builder for {@link CompilationSupport} */
   public static class Builder {

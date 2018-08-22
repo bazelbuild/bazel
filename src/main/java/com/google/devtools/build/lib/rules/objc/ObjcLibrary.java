@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -91,19 +92,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
-    CcCompilationContext ccCompilationContext =
-        new CcCompilationContext.Builder(ruleContext)
-            .addDeclaredIncludeSrcs(
-                CompilationAttributes.Builder.fromRuleContext(ruleContext)
-                    .build()
-                    .hdrs()
-                    .toCollection())
-            .addTextualHdrs(common.getTextualHdrs())
-            .addDeclaredIncludeSrcs(common.getTextualHdrs())
-            .build();
-
+    CcCompilationContext mergedCcCompilationContext = compilationSupport.getCcCompilationContext();
     CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
+    ccCompilationInfoBuilder.setCcCompilationContext(mergedCcCompilationContext);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcLinkParamsStore(

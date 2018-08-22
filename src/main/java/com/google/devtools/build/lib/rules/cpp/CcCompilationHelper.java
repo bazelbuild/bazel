@@ -1054,6 +1054,7 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.setPurpose(purpose);
 
     semantics.setupCcCompilationContext(ruleContext, ccCompilationContextBuilder);
+    System.out.println("OB DEBUG: " + ccCompilationContextBuilder.toString() + " returning");
     return ccCompilationContextBuilder.build();
   }
 
