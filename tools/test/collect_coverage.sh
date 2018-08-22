@@ -91,6 +91,7 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 fi
 
+# TODO(iirina): cd should be avoided.
 cd "$TEST_SRCDIR/$TEST_WORKSPACE"
 # Execute the test.
 "$@"
@@ -107,6 +108,7 @@ if [[ $TEST_STATUS -ne 0 ]]; then
   exit $TEST_STATUS
 fi
 
+# TODO(iirina): cd should be avoided.
 cd $ROOT
 
 if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then

@@ -28,6 +28,7 @@
 #                           coverage collection (e.g. gcda files, profraw).
 # - COVERAGE_MANIFEST       Location of the instrumented file manifest.
 # - COVERAGE_OUTPUT_FILE    Location of the final coverage report.
+# - COVERAGE_GCOV_PATH      Location of gcov. This is set by the TestRunner.
 # - ROOT                    Location from where the code coverage collection
 #                           was invoked.
 #

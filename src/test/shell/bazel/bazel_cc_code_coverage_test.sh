@@ -22,34 +22,30 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Check if all the tools required by CC coverage are installed.
+[[ ! -x /usr/bin/lcov ]] && fail "lcov not installed. Skipping test."
+[[ -z $( which gcov ) ]] && fail "gcov not installed."
+[[ -z $( which g++ ) ]] && fail "g++ not installed."
+
+# These are the variables needed by tools/test/collect_cc_coverage.sh
+# They will be properly sub-shelled when invoking the script.
+readonly coverage_dir="${PWD}"
+readonly coverage_gcov_path="${PWD}/mygcov"
+readonly root="${PWD}"
+readonly coverage_manifest="${PWD}/coverage_manifest.txt"
+readonly coverage_output_file="${PWD}/coverage_report.dat"
+
+# Setup to be run for every test.
 function set_up() {
-  if [[ ! -x /usr/bin/lcov ]]; then
-    fail "lcov not installed. Skipping test."
-  fi
-
-  if [[ -z $( which gcov ) ]]; then
-    fail "gcov not installed."
-  fi
-
-  if [[ -z $( which g++ ) ]]; then
-    fail "g++ not installed."
-  fi
-
   # The script expects gcov to be at $COVERAGE_GCOV_PATH.
-  gcov_location=$( which gcov )
-  cp $gcov_location "${PWD}/mygcov"
+  local gcov_location=$( which gcov )
+  cp "$gcov_location" "${PWD}/mygcov"
 
   # The script expects the output file to already exist.
   touch "${PWD}/coverage_report.dat"
   echo "coverage_srcs/a.gcno" >> "${PWD}/coverage_manifest.txt"
 
-  setup_cc_sources
-  generate_gcno_files coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
-  generate_instrumented_binary coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
-  generate_gcda_file
-}
-
-function setup_cc_sources() {
+  # Create the CC sources.
   mkdir -p coverage_srcs/
   cat << EOF > coverage_srcs/a.h
 int a(bool what);
@@ -75,6 +71,11 @@ int main(void) {
   a(true);
 }
 EOF
+
+  generate_gcno_files coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
+  generate_instrumented_binary ./coverage_srcs/test coverage_srcs/a.h \
+      coverage_srcs/a.cc coverage_srcs/t.cc
+  generate_gcda_file ./coverage_srcs/test
 }
 
 # Reads the list of arguments provided by the caller (using $@) and uses them
@@ -91,10 +92,11 @@ function generate_gcno_files() {
 # Reads the list of arguments provided by the caller (using $@) and uses them
 # to produce an instrumented binary using g++.
 function generate_instrumented_binary() {
+  local path_to_binary="${1}"; shift
   # "-fprofile-arcs -ftest-coverage" tells the compiler to generate coverage
   # information needed by gcov and include additional code in the object files
   # for generating the profiling.
-  g++ -fprofile-arcs -ftest-coverage "$@" -o ./coverage_srcs/test && return 0
+  g++ -fprofile-arcs -ftest-coverage "$@" -o "$path_to_binary"  && return 0
   fail "Couldn't produce the instrumented binary for $@"
   return 1
 }
@@ -102,8 +104,9 @@ function generate_instrumented_binary() {
 # Execute the test coverage_srcs/test and generate the
 # coverage_srcs/test.gcda file.
 function generate_gcda_file() {
-  ./coverage_srcs/test && return 0
-  fail "Couldn't execute the instrumented binary for $@"
+  local path_to_binary="${1}"
+  "$path_to_binary" && return 0
+  fail "Couldn't execute the instrumented binary $path_to_binary"
   return 1
 }
 
@@ -111,16 +114,22 @@ function tear_down() {
   rm -rf coverage_srcs/
 }
 
+function run_coverage() {
+  (COVERAGE_DIR="$coverage_dir" COVERAGE_GCOV_PATH="$coverage_gcov_path" \
+   ROOT="$root" COVERAGE_MANIFEST="$coverage_manifest" \
+   COVERAGE_OUTPUT_FILE="$coverage_output_file" tools/test/collect_cc_coverage.sh)
+}
+
 function test_cc_test_coverage() {
-  (COVERAGE_DIR=${PWD} COVERAGE_GCOV_PATH=${PWD}/mygcov ROOT=${PWD} \
-   COVERAGE_MANIFEST=${PWD}/coverage_manifest.txt \
-   COVERAGE_OUTPUT_FILE=${PWD}/coverage_report.dat \
-   tools/test/collect_cc_coverage.sh) >> $TEST_log
+  run_coverage >> $TEST_log
 
   # After running the test in coverage_srcs/t.cc, the sources covered are the
   # test itself and the source file a.cc.
   # For more details about the lcov format see
   # http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php
+  # The expected result can be constructed manually by following the lcov
+  # documentation and manually checking what lines of code are covered when
+  # running the test.
   cat <<EOF > expected_result.dat
 TN:
 SF:coverage_srcs/a.cc
@@ -150,7 +159,7 @@ end_of_record
 EOF
 
   # tools/test/collect_cc_coverage.sh places the coverage result in $COVERAGE_OUTPUT_FILE
-  diff -u expected_result.dat ${PWD}/coverage_report.dat >> $TEST_log \
+  diff -u expected_result.dat "$coverage_output_file" >> $TEST_log \
     || fail "Coverage output file is different than the expected file"
 }
 

@@ -50,6 +50,7 @@ filegroup(
         "test-setup.sh",
         "generate-xml.sh",
         "collect_coverage.sh",
+        "collect_cc_coverage.sh",
     ] + glob(["LcovMerger/**"]),
     visibility = ["//tools:__pkg__"],
 )
