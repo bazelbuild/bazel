@@ -28,6 +28,7 @@
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
+using ::testing::ContainsRegex;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
@@ -152,6 +153,22 @@ class RcFileTest : public ::testing::Test {
       return true;
     }
     return false;
+  }
+
+  void ParseOptionsAndCheckOutput(
+      const std::vector<std::string>& args,
+      const blaze_exit_code::ExitCode expected_exit_code,
+      const std::string& expected_error_regex,
+      const std::string& expected_output_regex) {
+    std::string error;
+    testing::internal::CaptureStderr();
+    const blaze_exit_code::ExitCode exit_code =
+        option_processor_->ParseOptions(args, workspace_, cwd_, &error);
+    const std::string& output = testing::internal::GetCapturedStderr();
+
+    ASSERT_EQ(expected_exit_code, exit_code) << error;
+    ASSERT_THAT(error, ContainsRegex(expected_error_regex));
+    ASSERT_THAT(output, ContainsRegex(expected_output_regex));
   }
 
   const std::string workspace_;
@@ -530,10 +547,8 @@ TEST_F(ParseOptionsTest, PositiveOptionOverridesNegativeOption) {
 
   const std::vector<std::string> args = {"bazel", "--noworkspace_rc",
                                          "--workspace_rc", "build"};
-  std::string error;
-  ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-      << error;
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
 
   // Check that the startup options' provenance message contains the correct
@@ -554,10 +569,7 @@ TEST_F(ParseOptionsTest, MultipleStartupArgsInMasterBazelrcWorksCorrectly) {
       "startup --max_idle_secs=42\nstartup --io_nice_level=6", &workspace_rc));
 
   const std::vector<std::string> args = {binary_path_, "build"};
-  std::string error;
-  ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-      << error;
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 
   EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
   EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
@@ -590,10 +602,7 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
 
   const std::vector<std::string> args = {
       "bazel", "--bazelrc=" + cmdline_rc_path, "build"};
-  std::string error;
-  ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-      << error;
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
   EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
@@ -630,10 +639,7 @@ TEST_F(ParseOptionsTest, BazelRcImportsMaintainsFlagOrdering) {
                                    &workspace_rc));
 
   const std::vector<std::string> args = {"bazel", "build"};
-  std::string error;
-  ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
-      << error;
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
   EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
@@ -652,6 +658,138 @@ TEST_F(ParseOptionsTest, BazelRcImportsMaintainsFlagOrdering) {
                    "--max_idle_secs=123 --io_nice_level=4\n"
                    "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
                    "--io_nice_level=6\n"));
+}
+
+TEST_F(ParseOptionsTest, BazelRcImportFailsForMissingFile) {
+  const std::string missing_imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile("import " + missing_imported_rc_path,
+                                   &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::INTERNAL_ERROR,
+      "Unexpected error reading .blazerc file '.*myimportedbazelrc'", "");
+}
+
+TEST_F(ParseOptionsTest, DoubleImportsCauseAWarning) {
+  const std::string imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("", imported_rc_path, 0755));
+
+  // Import the custom location twice.
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "import " + imported_rc_path + "\n"
+        "import " + imported_rc_path + "\n",
+      &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::SUCCESS, "",
+      "WARNING: Duplicate rc file: .*myimportedbazelrc is imported multiple "
+      "times from .*workspace.*bazelrc\n");
+}
+
+TEST_F(ParseOptionsTest, DeepDoubleImportCausesAWarning) {
+  const std::string dual_imported_rc_path =
+      blaze_util::JoinPath(workspace_, "dual_imported.bazelrc");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(dual_imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("", dual_imported_rc_path, 0755));
+
+  const std::string intermediate_import_1 =
+      blaze_util::JoinPath(workspace_, "intermediate_import_1");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(intermediate_import_1), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("import " + dual_imported_rc_path,
+                                    intermediate_import_1, 0755));
+
+  const std::string intermediate_import_2 =
+      blaze_util::JoinPath(workspace_, "intermediate_import_2");
+  ASSERT_TRUE(blaze_util::MakeDirectories(
+      blaze_util::Dirname(intermediate_import_2), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("import " + dual_imported_rc_path,
+                                    intermediate_import_2, 0755));
+
+  // Import the custom location twice.
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile(
+      "import " + intermediate_import_1 + "\n"
+        "import " + intermediate_import_2 + "\n",
+      &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "",
+                             "WARNING: Duplicate rc file: "
+                             ".*dual_imported.bazelrc is imported multiple "
+                             "times from .*workspace.*bazelrc\n");
+}
+
+// TODO(b/112908763): C:/ and c:\\ paths don't compare well, making this fail on
+// Windows. Adding all the conversions necessary to get around this is probably
+// not the right approach either, so leaving this coverage out for Windows. We
+// should not be using string equality for path comparisons, but have a path
+// type which handles these differences for the correct platform. Fix this and
+// enable this test.
+#if !defined(_WIN32) && !defined(__CYGWIN__)
+TEST_F(ParseOptionsTest, ImportingAFileAndPassingItInCausesAWarning) {
+  const std::string imported_rc_path =
+      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
+  ASSERT_TRUE(
+      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
+  ASSERT_TRUE(blaze_util::WriteFile("", imported_rc_path, 0755));
+
+  // Import the custom location, and pass it in by flag.
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("import " + imported_rc_path, &workspace_rc));
+
+  const std::vector<std::string> args = {
+      "bazel", "--bazelrc=" + imported_rc_path, "build"};
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::SUCCESS, "",
+      "WARNING: Duplicate rc file: .*myimportedbazelrc is read multiple times, "
+      "it is a standard rc file location but must have been unnecessarilly "
+      "imported earlier.\n");
+}
+
+TEST_F(ParseOptionsTest, ImportingAPreviouslyLoadedStandardRcCausesAWarning) {
+  std::string system_rc;
+  ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
+
+  // Import the system_rc extraneously.
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile("import " + system_rc, &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  std::string output;
+
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::SUCCESS, "",
+      "WARNING: Duplicate rc file: .*bazel.bazelrc is read multiple "
+      "times, most recently imported from .*workspace.*bazelrc\n");
+}
+#endif  // !defined(_WIN32) && !defined(__CYGWIN__)
+
+TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+
+  // Import the workspace_rc extraneously.
+  std::string system_rc;
+  ASSERT_TRUE(SetUpSystemRcFile("import " + workspace_rc, &system_rc));
+
+  const std::vector<std::string> args = {"bazel", "build"};
+  std::string output;
+  ParseOptionsAndCheckOutput(
+      args, blaze_exit_code::SUCCESS, "",
+      "WARNING: Duplicate rc file: .*workspace.*bazelrc is read multiple "
+      "times, it is a standard rc file location but must have been "
+      "unnecessarilly imported earlier.\n");
 }
 
 }  // namespace blaze
