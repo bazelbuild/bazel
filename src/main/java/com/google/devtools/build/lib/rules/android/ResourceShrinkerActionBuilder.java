@@ -123,23 +123,24 @@ public class ResourceShrinkerActionBuilder {
     if (targetAaptVersion == AndroidAaptVersion.AAPT2) {
       builder = BusyBoxActionBuilder.create(dataContext, "SHRINK_AAPT2");
     } else {
-      builder = BusyBoxActionBuilder.create(dataContext, "SHRINK");
+      builder =
+          BusyBoxActionBuilder.create(dataContext, "SHRINK")
+              .maybeAddVectoredFlag("--uncompressedExtensions", uncompressedExtensions)
+              // Order, for some reason, is important.
+              .addVectoredFlag(
+                  "--resourcePackages", getResourcePackages(primaryResources, dependencyResources))
+              .addInput("--primaryManifest", primaryResources.getManifest())
+              .maybeAddInput("--dependencyManifest", getManifests(dependencyResources));
     }
 
     builder
         .addAapt(targetAaptVersion)
         .addAndroidJar()
-        .maybeAddVectoredFlag("--uncompressedExtensions", uncompressedExtensions)
         .maybeAddFlag("--debug", dataContext.useDebug())
-        .maybeAddFlag("--resourceConfigs", resourceFilterFactory.getConfigurationFilterString())
         .addInput("--resources", resourceFilesZip)
         .addInput("--shrunkJar", shrunkJar)
         .addInput("--proguardMapping", proguardMapping)
         .addInput("--rTxt", primaryResources.getRTxt())
-        .addInput("--primaryManifest", primaryResources.getManifest())
-        .maybeAddInput("--dependencyManifest", getManifests(dependencyResources))
-        .addVectoredFlag(
-            "--resourcePackages", getResourcePackages(primaryResources, dependencyResources))
         .addOutput("--shrunkResourceApk", resourceApkOut)
         .addOutput("--shrunkResources", shrunkResourcesOut)
         .addOutput("--log", logOut)
