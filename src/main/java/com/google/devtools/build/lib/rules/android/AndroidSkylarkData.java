@@ -160,7 +160,8 @@ public abstract class AndroidSkylarkData
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+      AndroidAaptVersion aaptVersion =
+          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
 
       ValidatedAndroidResources validated =
           AndroidResources.from(errorReporter, getFileProviders(resources), "resources")

@@ -38,18 +38,18 @@ public final class InstrumentationFilterSupport {
   public static final String INSTRUMENTATION_FILTER_FLAG = "instrumentation_filter";
 
   /**
-   * Method implements a heuristic used to set default value of the
-   * --instrumentation_filter option. Following algorithm is used:
+   * Method implements a heuristic used to set default value of the --instrumentation_filter option.
+   * The following algorithm is used:
    * 1) Identify all test targets on the command line.
-   * 2) Expand all test suites into the individual test targets
+   * 2) Expand all test suites into the individual test targets.
    * 3) Calculate list of package names containing all test targets above.
-   * 4) Replace all "javatests/" substrings in package names with "java/".
-   * 5) If two packages reside in the same directory, use filter based on
-   *    the parent directory name instead. Doing so significantly simplifies
-   *    instrumentation filter in majority of real-life scenarios (in
-   *    particular when dealing with my/package/... wildcards).
-   * 6) Set --instrumentation_filter default value to instrument everything
-   *    in those packages.
+   * 4) Replace all "javatests" directories in packages with "java". Similarly, replace "test/java/"
+   *    with "main/java". Also, strip trailing "/internal", "/public", and "/tests" from packages.
+   *    (See getInstrumentedPrefix.)
+   * 5) If two packages reside in the same directory, use filter based on the parent directory name
+        instead. Doing so significantly simplifies instrumentation filter in majority of real-life
+        scenarios (in particular when dealing with my/package/... wildcards).
+   * 6) Set --instrumentation_filter default value to instrument everything in those packages.
    */
   @VisibleForTesting
   public static String computeInstrumentationFilter(

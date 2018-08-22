@@ -15,16 +15,12 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -61,29 +57,10 @@ class NodeEntryVisitor {
   private final RunnableMaker runnableMaker;
 
   NodeEntryVisitor(
-      ForkJoinPool forkJoinPool,
+      QuiescingExecutor quiescingExecutor,
       DirtyTrackingProgressReceiver progressReceiver,
       RunnableMaker runnableMaker) {
-    this.quiescingExecutor = ForkJoinQuiescingExecutor.newBuilder()
-        .withOwnershipOf(forkJoinPool)
-        .setErrorClassifier(NODE_ENTRY_VISITOR_ERROR_CLASSIFIER)
-        .build();
-    this.progressReceiver = progressReceiver;
-    this.runnableMaker = runnableMaker;
-  }
-
-  NodeEntryVisitor(
-      int threadCount,
-      DirtyTrackingProgressReceiver progressReceiver,
-      RunnableMaker runnableMaker) {
-    quiescingExecutor =
-        AbstractQueueVisitor.createWithPriorityQueue(
-            threadCount,
-            /*keepAliveTime=*/ 1,
-            TimeUnit.SECONDS,
-            /*failFastOnException*/ true,
-            "skyframe-evaluator",
-            NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+    this.quiescingExecutor = quiescingExecutor;
     this.progressReceiver = progressReceiver;
     this.runnableMaker = runnableMaker;
   }

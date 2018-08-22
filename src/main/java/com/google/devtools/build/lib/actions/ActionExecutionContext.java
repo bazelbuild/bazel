@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
@@ -212,7 +212,7 @@ public class ActionExecutionContext implements Closeable {
   /**
    * Returns the command line options of the Blaze command being executed.
    */
-  public OptionsClassProvider getOptions() {
+  public OptionsProvider getOptions() {
     return executor.getOptions();
   }
 

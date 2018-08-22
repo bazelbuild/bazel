@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import org.junit.Rule;
 import org.junit.Test;
@@ -127,5 +128,15 @@ public class HttpUtilsTest {
     when(connection.getURL()).thenReturn(new URL("http://lol.example"));
     when(connection.getHeaderField("Location")).thenReturn("https://lol.example");
     assertThat(HttpUtils.getLocation(connection)).isEqualTo(new URL("https://lol.example"));
+  }
+
+  @Test
+  public void getLocation_preservesQuotingIfNotInheriting() throws Exception {
+    String redirect =
+        "http://redirected.example.org/foo?"
+            + "response-content-disposition=attachment%3Bfilename%3D%22bar.tar.gz%22";
+    when(connection.getURL()).thenReturn(new URL("http://original.example.org"));
+    when(connection.getHeaderField("Location")).thenReturn(redirect);
+    assertThat(HttpUtils.getLocation(connection)).isEqualTo(URI.create(redirect).toURL());
   }
 }

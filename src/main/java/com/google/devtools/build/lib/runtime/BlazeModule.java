@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -36,8 +35,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -264,7 +263,8 @@ public abstract class BlazeModule {
    * does not provide any helper, it should return null. Note that only one helper per Bazel/Blaze
    * runtime is allowed.
    */
-  public Package.Builder.Helper getPackageBuilderHelper(RuleClassProvider ruleClassProvider) {
+  public Package.Builder.Helper getPackageBuilderHelper(
+      ConfiguredRuleClassProvider ruleClassProvider) {
     return null;
   }
 
@@ -286,7 +286,7 @@ public abstract class BlazeModule {
    * @param commandOptions the options for the current command
    */
   @Nullable
-  public CoverageReportActionFactory getCoverageReportFactory(OptionsClassProvider commandOptions) {
+  public CoverageReportActionFactory getCoverageReportFactory(OptionsProvider commandOptions) {
     return null;
   }
 

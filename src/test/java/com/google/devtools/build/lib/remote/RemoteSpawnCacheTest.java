@@ -21,6 +21,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
@@ -57,9 +61,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Command;
-import com.google.devtools.remoteexecution.v1test.RequestMetadata;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -231,10 +232,13 @@ public class RemoteSpawnCacheTest {
             any(TreeNodeRepository.class),
             any(Path.class),
             any(TreeNode.class),
+            any(Action.class),
             any(Command.class));
     verify(remoteCache, never())
         .upload(
             any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
             any(Path.class),
             any(Collection.class),
             any(FileOutErr.class),
@@ -271,10 +275,24 @@ public class RemoteSpawnCacheTest {
               }
             })
         .when(remoteCache)
-        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
     entry.store(result);
     verify(remoteCache)
-        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -306,7 +324,14 @@ public class RemoteSpawnCacheTest {
     entry.store(result);
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     verify(remoteCache)
-        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(false));
     assertThat(progressUpdates).containsExactly();
   }
 
@@ -326,7 +351,14 @@ public class RemoteSpawnCacheTest {
     ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
     entry.store(result);
     verify(remoteCache)
-        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(false));
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(false));
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
   }
@@ -345,11 +377,25 @@ public class RemoteSpawnCacheTest {
 
     doThrow(new IOException("cache down"))
         .when(remoteCache)
-        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
 
     entry.store(result);
     verify(remoteCache)
-        .upload(any(ActionKey.class), any(Path.class), eq(outputFiles), eq(outErr), eq(true));
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.integration.blackbox.framework;
+package com.google.devtools.build.lib.blackbox.framework;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -38,8 +38,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
- * Helper class for running Bazel process as external process from JUnit tests Can be used to run
- * arbitrary external process and explore the results
+ * Helper class for running Bazel process as external process from JUnit tests. Can be used to run
+ * arbitrary external process and explore the results.
  */
 public final class ProcessRunner {
   private static final Logger logger = Logger.getLogger(ProcessRunner.class.getName());

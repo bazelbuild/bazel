@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 
 /**
@@ -84,36 +85,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      int threadCount,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver) {
-    super(
-        graph,
-        graphVersion,
-        skyFunctions,
-        reporter,
-        emittedEventState,
-        storedEventFilter,
-        errorInfoManager,
-        keepGoing,
-        threadCount,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        new SimpleCycleDetector());
-  }
-
-  AbstractExceptionalParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-      final ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      ForkJoinPool forkJoinPool,
+      Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       EvaluationVersionBehavior evaluationVersionBehavior) {
     super(
@@ -127,7 +101,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         keepGoing,
         progressReceiver,
         graphInconsistencyReceiver,
-        forkJoinPool,
+        executorService,
         cycleDetector,
         evaluationVersionBehavior);
   }

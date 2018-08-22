@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
@@ -130,13 +128,10 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
     }
 
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
-        env.makePackageKeyToTargetKeyMap(Iterables.concat(reverseDepMultimap.values()));
+        SkyQueryEnvironment.makePackageKeyToTargetKeyMap(
+            Iterables.concat(reverseDepMultimap.values()));
     Set<PackageIdentifier> pkgIdsNeededForTargetification =
-        packageKeyToTargetKeyMap
-            .keySet()
-            .stream()
-            .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
-            .collect(toImmutableSet());
+        SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
     packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
 
     try {

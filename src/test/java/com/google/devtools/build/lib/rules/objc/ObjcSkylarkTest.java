@@ -922,6 +922,54 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testRuleReturnsObjcProviderDirectly() throws Exception {
+    ConfiguredTarget skylarkTarget =
+        createObjcProviderSkylarkTarget(
+            "   dep = ctx.attr.deps[0]",
+            "   define = depset(['define_from_impl'])",
+            "   created_provider = apple_common.new_objc_provider\\",
+            "(providers=[dep.objc], define=define)",
+            "   return created_provider");
+
+    Iterable<String> foundStrings =
+        skylarkTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(ObjcProvider.DEFINE);
+
+    assertThat(foundStrings).containsExactly("define_from_dep", "define_from_impl");
+  }
+
+  @Test
+  public void testRuleReturnsObjcProviderUnderProvidersAttribute() throws Exception {
+    ConfiguredTarget skylarkTarget =
+        createObjcProviderSkylarkTarget(
+            "   dep = ctx.attr.deps[0]",
+            "   define = depset(['define_from_impl'])",
+            "   created_provider = apple_common.new_objc_provider\\",
+            "(providers=[dep.objc], define=define)",
+            "   return struct(providers=[created_provider])");
+
+    Iterable<String> foundStrings =
+        skylarkTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(ObjcProvider.DEFINE);
+
+    assertThat(foundStrings).containsExactly("define_from_dep", "define_from_impl");
+  }
+
+  @Test
+  public void testRuleReturnsObjcProviderInList() throws Exception {
+    ConfiguredTarget skylarkTarget =
+        createObjcProviderSkylarkTarget(
+            "   dep = ctx.attr.deps[0]",
+            "   define = depset(['define_from_impl'])",
+            "   created_provider = apple_common.new_objc_provider\\",
+            "(providers=[dep.objc], define=define)",
+            "   return [created_provider]");
+
+    Iterable<String> foundStrings =
+        skylarkTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR).get(ObjcProvider.DEFINE);
+
+    assertThat(foundStrings).containsExactly("define_from_dep", "define_from_impl");
+  }
+
+  @Test
   public void testSkylarkErrorOnBadObjcProviderInputKey() throws Exception {
     try {
       createObjcProviderSkylarkTarget(

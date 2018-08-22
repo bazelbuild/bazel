@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
@@ -94,7 +94,7 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static <T extends Info> Iterable<T> getProviders(
+  public static <T extends InfoInterface> Iterable<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
       final NativeProvider<T> skylarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
@@ -111,7 +111,7 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static <T extends Info> Iterable<T> getProviders(
+  public static <T extends InfoInterface> Iterable<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
       final BuiltinProvider<T> skylarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
@@ -133,8 +133,8 @@ public final class AnalysisUtils {
   }
 
   /** Returns the iterable of collections that have the specified provider. */
-  public static <S extends TransitiveInfoCollection, C extends Info> Iterable<S> filterByProvider(
-      Iterable<S> prerequisites, final NativeProvider<C> provider) {
+  public static <S extends TransitiveInfoCollection, C extends InfoInterface> Iterable<S>
+      filterByProvider(Iterable<S> prerequisites, final NativeProvider<C> provider) {
     return Iterables.filter(prerequisites, target -> target.get(provider) != null);
   }
 

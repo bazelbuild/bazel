@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -59,6 +60,7 @@ public class ResourcesZip {
   @Nullable private final Path apkWithAssets;
   @Nullable private final Path proto;
   @Nullable private final Path attributes;
+  @Nullable private final Path packages;
   @Nullable private final Path ids;
 
   private ResourcesZip(
@@ -67,13 +69,15 @@ public class ResourcesZip {
       @Nullable Path ids,
       @Nullable Path apkWithAssets,
       @Nullable Path proto,
-      @Nullable Path attributes) {
+      @Nullable Path attributes,
+      @Nullable Path packages) {
     this.resourcesRoot = resourcesRoot;
     this.assetsRoot = assetsRoot;
     this.ids = ids;
     this.apkWithAssets = apkWithAssets;
     this.proto = proto;
     this.attributes = attributes;
+    this.packages = packages;
   }
 
   /**
@@ -81,7 +85,7 @@ public class ResourcesZip {
    * @param assetsRoot The root of the raw assets.
    */
   public static ResourcesZip from(Path resourcesRoot, Path assetsRoot) {
-    return new ResourcesZip(resourcesRoot, assetsRoot, null, null, null, null);
+    return new ResourcesZip(resourcesRoot, assetsRoot, null, null, null, null, null);
   }
 
   /**
@@ -94,6 +98,7 @@ public class ResourcesZip {
         resourcesRoot,
         assetsRoot,
         resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
+        null,
         null,
         null,
         null);
@@ -111,6 +116,7 @@ public class ResourcesZip {
         resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
         apkWithAssets,
         null,
+        null,
         null);
   }
 
@@ -122,14 +128,20 @@ public class ResourcesZip {
    * @param resourceIds Optional path to a file containing the resource ids.
    */
   public static ResourcesZip fromApkWithProto(
-      Path proto, Path attributes, Path resourcesRoot, Path apkWithAssets, Path resourceIds) {
+      Path proto,
+      Path attributes,
+      Path resourcesRoot,
+      Path apkWithAssets,
+      Path resourceIds,
+      Path packages) {
     return new ResourcesZip(
         resourcesRoot,
         /* assetsRoot= */ null,
         resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
         apkWithAssets,
         proto,
-        attributes);
+        attributes,
+        packages);
   }
 
   /** Creates a ResourcesZip from an archive by expanding into the workingDirectory. */
@@ -153,13 +165,15 @@ public class ResourcesZip {
                 throw new RuntimeException(e);
               }
             });
+    final Path packages = workingDirectory.resolve("packages.txt");
     return new ResourcesZip(
         Files.createDirectories(workingDirectory.resolve("res")),
         Files.createDirectories(workingDirectory.resolve("assets")),
         workingDirectory.resolve("ids.txt"),
         null,
         workingDirectory.resolve("apk.pb"),
-        workingDirectory.resolve("tools.attributes.pb"));
+        workingDirectory.resolve("tools.attributes.pb"),
+        Files.exists(packages) ? packages : null);
   }
 
   /**
@@ -221,6 +235,10 @@ public class ResourcesZip {
           zip.addEntry("tools.attributes.pb", Files.readAllBytes(attributes), ZipEntry.STORED);
         }
 
+        if (packages != null && Files.exists(packages)) {
+          zip.addEntry("packages.txt", Files.readAllBytes(packages), ZipEntry.STORED);
+        }
+
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -242,7 +260,7 @@ public class ResourcesZip {
             packages, rTxt, classJar, manifest, proguardMapping, resourcesRoot, logFile)
         .shrink(workingDirectory);
     return ShrunkResources.of(
-        new ResourcesZip(workingDirectory, assetsRoot, ids, null, null, attributes),
+        new ResourcesZip(workingDirectory, assetsRoot, ids, null, null, attributes, null),
         new UnvalidatedAndroidData(
             ImmutableList.of(workingDirectory), ImmutableList.of(assetsRoot), manifest));
   }
@@ -295,6 +313,12 @@ public class ResourcesZip {
         .entrySet()
         .stream()
         .collect(toMap(Entry::getKey, e -> ImmutableSet.copyOf(e.getValue().getValuesList())));
+  }
+
+  public List<String> asPackages() throws IOException {
+    return packages != null
+        ? Files.readAllLines(packages, StandardCharsets.UTF_8)
+        : ImmutableList.of();
   }
 
   static class ShrunkProtoApk implements Closeable {

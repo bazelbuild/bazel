@@ -47,6 +47,11 @@ public class TargetPatternFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env) throws TargetPatternFunctionException,
       InterruptedException {
+    BlacklistedPackagePrefixesValue blacklisted =
+        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    if (env.valuesMissing()) {
+      return null;
+    }
     TargetPatternValue.TargetPatternKey patternKey =
         ((TargetPatternValue.TargetPatternKey) key.argument());
     ResolvedTargets<Target> resolvedTargets;
@@ -71,7 +76,7 @@ public class TargetPatternFunction implements SkyFunction {
           };
       parsedPattern.eval(
           resolver,
-          /*blacklistedSubdirectories=*/ ImmutableSet.of(),
+          blacklisted.getPatterns(),
           excludedSubdirectories,
           callback,
           // The exception type here has to match the one on the BatchCallback. Since the callback

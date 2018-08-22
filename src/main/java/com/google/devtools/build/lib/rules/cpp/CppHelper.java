@@ -702,18 +702,7 @@ public class CppHelper {
 
   public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,
       RuleContext ruleContext) {
-    boolean staticallyLinked = false;
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     if (ruleContext.getFeatures().contains("fully_static_link")) {
-      staticallyLinked = true;
-    } else if (cppConfiguration.hasStaticLinkOption()) {
-      staticallyLinked = true;
-    } else if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)
-        && ruleContext.attributes().get("linkopts", Type.STRING_LIST).contains("-static")) {
-      staticallyLinked = true;
-    }
-
-    if (staticallyLinked) {
       builder.add(StaticallyLinkedMarkerProvider.class, new StaticallyLinkedMarkerProvider(true));
     }
   }

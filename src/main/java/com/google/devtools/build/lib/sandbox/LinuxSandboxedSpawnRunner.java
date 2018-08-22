@@ -159,7 +159,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setTmpfsDirectories(getTmpfsPaths())
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
-            .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
+            .setCreateNetworkNamespace(
+                !(allowNetwork
+                    || Spawns.requiresNetwork(
+                        spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
             .setUseDebugMode(getSandboxOptions().sandboxDebug)
             .setKillDelay(timeoutKillDelay);
 

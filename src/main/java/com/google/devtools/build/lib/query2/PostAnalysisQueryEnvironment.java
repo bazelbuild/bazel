@@ -90,7 +90,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   private final String parserPrefix;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
-  private final TargetAccessor<T> accessor;
   protected WalkableGraph graph;
 
   private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
@@ -121,15 +120,13 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       String parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings,
-      TargetAccessor<T> targetAccessor) {
+      Set<Setting> settings) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
     this.defaultTargetConfiguration = defaultTargetConfiguration;
     this.hostConfiguration = hostConfiguration;
     this.parserPrefix = parserPrefix;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
-    this.accessor = targetAccessor;
   }
 
   public abstract ImmutableList<NamedThreadSafeOutputFormatterCallback<T>>
@@ -185,11 +182,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return hostConfiguration;
   }
 
-  @Override
-  public TargetAccessor<T> getAccessor() {
-    return accessor;
-  }
-
   // TODO(bazel-team): It's weird that this untemplated function exists. Fix? Or don't implement?
   @Override
   public Target getTarget(Label label) throws TargetNotFoundException, InterruptedException {
@@ -240,8 +232,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return targetPatternKey.getParsedPattern();
   }
 
-  @Override
-  public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets, QueryExpressionContext<T> context)
+  ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets)
       throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
@@ -262,6 +253,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       result.addAll(filterFwdDeps(targetsByKey.get(entry.getKey()), entry.getValue()));
     }
     return result;
+  }
+
+  @Override
+  public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets, QueryExpressionContext<T> context)
+      throws InterruptedException {
+    return getFwdDeps(targets);
   }
 
   private Collection<T> filterFwdDeps(T configTarget, Collection<T> rawFwdDeps) {

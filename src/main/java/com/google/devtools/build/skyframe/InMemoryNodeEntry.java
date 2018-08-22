@@ -518,7 +518,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Version getVersion() {
+  public Version getVersion() {
     return lastChangedVersion;
   }
 

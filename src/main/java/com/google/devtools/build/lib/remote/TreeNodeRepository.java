@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
@@ -39,8 +41,6 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.Directory;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;

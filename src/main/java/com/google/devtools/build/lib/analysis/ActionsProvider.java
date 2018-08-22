@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,17 +28,18 @@ import java.util.Map;
  * This provides a view over the actions that were created during the analysis of a rule
  * (not including actions for its transitive dependencies).
  */
-public final class ActionsProvider extends BuiltinProvider<Info> implements ActionsInfoProviderApi {
+public final class ActionsProvider extends BuiltinProvider<StructImpl>
+    implements ActionsInfoProviderApi {
 
   /** The ActionsProvider singleton instance. */
   public static final ActionsProvider INSTANCE = new ActionsProvider();
 
   public ActionsProvider() {
-    super("Actions", Info.class);
+    super("Actions", StructImpl.class);
   }
 
   /** Factory method for creating instances of the Actions provider. */
-  public static Info create(Iterable<ActionAnalysisMetadata> actions) {
+  public static StructImpl create(Iterable<ActionAnalysisMetadata> actions) {
     Map<Artifact, ActionAnalysisMetadata> map = new HashMap<>();
     for (ActionAnalysisMetadata action : actions) {
       for (Artifact artifact : action.getOutputs()) {

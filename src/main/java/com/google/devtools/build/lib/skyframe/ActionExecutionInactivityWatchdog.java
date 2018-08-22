@@ -45,7 +45,7 @@ public final class ActionExecutionInactivityWatchdog {
      *
      * @return the number of actions completed during the wait
      */
-    int waitForNextCompletion(int timeoutMilliseconds) throws InterruptedException;
+    int waitForNextCompletion(int timeoutSeconds) throws InterruptedException;
   }
 
   /** An object that the watchdog can report inactivity to. */
@@ -145,7 +145,7 @@ public final class ActionExecutionInactivityWatchdog {
         // Wait a while for any SkyFunction to finish. The returned number indicates how many
         // actions completed during the wait. It's possible that this is more than 1, since
         // this thread may not immediately regain control.
-        int completedActions = monitor.waitForNextCompletion(waitTime.next() * 1000);
+        int completedActions = monitor.waitForNextCompletion(waitTime.next());
         if (!isRunning.get()) {
           break;
         }

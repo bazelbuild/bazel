@@ -40,7 +40,6 @@ guarded behind flags in the current release:
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
-*   [Glob tracking](#glob-tracking)
 *   [Disable objc provider resources](#disable-objc-provider-resources)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
@@ -222,15 +221,6 @@ or `add_joined()` instead.
 *   Default: `false`
 
 
-### Glob tracking
-
-When set, glob tracking is disabled. This is a legacy feature that we expect has
-no user-visible impact.
-
-*   Flag: `--incompatible_disable_glob_tracking`
-*   Default: `true`
-
-
 ### Python 3 range behavior.
 When set, the result of `range(...)` function is a lazy `range` type instead of
 a `list`. Because of this repetitions using `*` operator are no longer
@@ -252,7 +242,7 @@ This flag disables certain deprecated resource fields on
 ### Remove native git repository
 
 When set, the native `git_repository` and `new_git_repository` rules are
-disabled. The Skylark versions
+disabled. The Starlark versions
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:git.bzl",
@@ -271,7 +261,7 @@ for example: `build_file = "@//third_party:repo.BUILD"`.
 ### Remove native http archive
 
 When set, the native `http_archive` and all related rules are disabled.
-The Skylark version
+The Starlark version
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -279,7 +269,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 should be used instead. This is a drop-in replacement, however with the
 additional requirement that all label arguments be provided as
-fully qualified labels (usually starting with `@//`). The Skylark `http_archive`
+fully qualified labels (usually starting with `@//`). The Starlark `http_archive`
 is also a drop-in replacement for the native `new_http_archive` (with
 the same proviso). `http.bzl` also
 provides `http_jar` and `http_file` (the latter only supports the `urls`

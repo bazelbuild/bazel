@@ -14,6 +14,19 @@
 
 package com.google.devtools.build.lib.remote;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionCacheGrpc;
+import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
+import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
+import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
@@ -23,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashingOutputStream;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -35,18 +49,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheBlockingStub;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Command;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.Directory;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
-import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
-import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import io.grpc.CallCredentials;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -141,14 +143,16 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
    */
   @Override
   public void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Command command)
+      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
       throws IOException, InterruptedException {
     repository.computeMerkleDigests(root);
+    Digest actionDigest = digestUtil.compute(action);
     Digest commandDigest = digestUtil.compute(command);
     // TODO(olaola): avoid querying all the digests, only ask for novel subtrees.
     ImmutableSet<Digest> missingDigests =
         getMissingDigests(
-            Iterables.concat(repository.getAllDigests(root), ImmutableList.of(commandDigest)));
+            Iterables.concat(
+                repository.getAllDigests(root), ImmutableList.of(actionDigest, commandDigest)));
 
     List<Chunker> toUpload = new ArrayList<>();
     // Only upload data that was missing from the cache.
@@ -156,8 +160,13 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     Map<Digest, Directory> missingTreeNodes = new HashMap<>();
     HashSet<Digest> missingTreeDigests = new HashSet<>(missingDigests);
     missingTreeDigests.remove(commandDigest);
+    missingTreeDigests.remove(actionDigest);
     repository.getDataFromDigests(missingTreeDigests, missingActionInputs, missingTreeNodes);
 
+    if (missingDigests.contains(actionDigest)) {
+      toUpload.add(
+          Chunker.builder(digestUtil).setInput(actionDigest, action.toByteArray()).build());
+    }
     if (missingDigests.contains(commandDigest)) {
       toUpload.add(
           Chunker.builder(digestUtil).setInput(commandDigest, command.toByteArray()).build());
@@ -181,6 +190,9 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
 
   @Override
   protected ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
+    if (digest.getSizeBytes() == 0) {
+      return Futures.immediateFuture(null);
+    }
     String resourceName = "";
     if (!options.remoteInstanceName.isEmpty()) {
       resourceName += options.remoteInstanceName + "/";
@@ -241,13 +253,15 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
   @Override
   public void upload(
       ActionKey actionKey,
+      Action action,
+      Command command,
       Path execRoot,
       Collection<Path> files,
       FileOutErr outErr,
       boolean uploadAction)
       throws ExecException, IOException, InterruptedException {
     ActionResult.Builder result = ActionResult.newBuilder();
-    upload(execRoot, files, outErr, result);
+    upload(execRoot, action, command, files, outErr, uploadAction, result);
     if (!uploadAction) {
       return;
     }
@@ -270,11 +284,21 @@ public class GrpcRemoteCache extends AbstractRemoteActionCache {
     }
   }
 
-  void upload(Path execRoot, Collection<Path> files, FileOutErr outErr, ActionResult.Builder result)
+  void upload(
+      Path execRoot,
+      Action action,
+      Command command,
+      Collection<Path> files,
+      FileOutErr outErr,
+      boolean uploadAction,
+      ActionResult.Builder result)
       throws ExecException, IOException, InterruptedException {
     UploadManifest manifest =
         new UploadManifest(digestUtil, result, execRoot, options.allowSymlinkUpload);
     manifest.addFiles(files);
+    if (uploadAction) {
+      manifest.addAction(action, command);
+    }
 
     List<Chunker> filesToUpload = new ArrayList<>();
 

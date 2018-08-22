@@ -247,4 +247,13 @@ public class DigestHashFunction {
   static Collection<DigestHashFunction> getPossibleHashFunctions() {
     return hashFunctionRegistry.values();
   }
+
+  /**
+   * For tests that are testing the FileSystems themselves, those test should be parametrized and
+   * run with all the standard hash functions that Bazel supports using {@link
+   * #getPossibleHashFunctions} above. For tests that just need a FileSystem to test some adjacent
+   * behavior, though, we use this default.
+   */
+  @VisibleForTesting
+  public static final DigestHashFunction DEFAULT_HASH_FOR_TESTS = DigestHashFunction.MD5;
 }

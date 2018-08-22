@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
@@ -81,6 +82,31 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Override
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
     return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
+  }
+
+  @Test
+  public void testConfigTransitionWithTopLevelAppleConfiguration() throws Exception {
+    scratch.file("bin/BUILD",
+        "objc_library(",
+        "    name = 'objc',",
+        "    srcs = ['objc.m'],",
+        ")",
+        "cc_binary(",
+        "    name = 'cc',",
+        "    srcs = ['cc.cc'],",
+        "    deps = [':objc'],",
+        ")");
+
+    useConfiguration(
+        "--apple_crosstool_in_output_directory_name",
+        "--cpu=ios_x86_64",
+        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+
+    ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
+    Artifact objcObject = ActionsTestUtil.getFirstArtifactEndingWith(
+        actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
+    assertThat(objcObject.getExecPathString()).startsWith(
+        TestConstants.PRODUCT_NAME + "-out/ios_x86_64-fastbuild/");
   }
 
   @Test

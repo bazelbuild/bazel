@@ -6,9 +6,6 @@ def exercise_the_api():
     var2 = platform_common.TemplateVariableInfo
     var3 = repository_rule(implementation = my_rule_impl)
     var4 = testing.ExecutionInfo({})
-    # TODO(juliexxia): This isn't actually where this module would be used.
-    # Move this to the rule definition when the relevant parameter is set up.
-    var5 = config.int(flag = True)
 
 exercise_the_api()
 

@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.remote.logging;
 
+import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
+import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.FindMissingBlobsDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 
 /**
  * LoggingHandler for {@link

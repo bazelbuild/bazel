@@ -246,9 +246,9 @@ public abstract class FileSystem {
   }
 
   /**
-   * Gets a fast digest for the given path and hash function type, or {@code null} if there isn't
-   * one available or the filesystem doesn't support them. This digest should be suitable for
-   * detecting changes to the file.
+   * Gets a fast digest for the given path, or {@code null} if there isn't one available or the
+   * filesystem doesn't support them. This digest should be suitable for detecting changes to the
+   * file.
    */
   protected byte[] getFastDigest(Path path) throws IOException {
     return null;

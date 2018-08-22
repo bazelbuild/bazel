@@ -40,6 +40,7 @@ filegroup(
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
+        "@bazel_skylib//:test_deps",
         "@local_jdk//:bootclasspath",
         "@local_jdk//:jdk",
     ] + select({

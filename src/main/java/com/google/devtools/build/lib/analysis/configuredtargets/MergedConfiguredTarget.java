@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Provider.Key;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -91,8 +91,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
-    Info provider = providers.getProvider(providerKey);
+  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
+    InfoInterface provider = providers.getProvider(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
     }
@@ -172,7 +172,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
           if (base.get(key) != null || aspectProviders.contains(key)) {
             throw new DuplicateException("Provider " + key + " provided twice");
           }
-          aspectProviders.put((Info) providers.getProviderInstanceAt(i));
+          aspectProviders.put((InfoInterface) providers.getProviderInstanceAt(i));
         }
       }
     }

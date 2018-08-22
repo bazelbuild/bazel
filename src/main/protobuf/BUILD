@@ -151,10 +151,9 @@ proto_library(
     deps = [
         "@com_google_protobuf//:timestamp_proto",
         "@googleapis//:google_bytestream_bytestream_proto",
-        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_proto",
         "@googleapis//:google_longrunning_operations_proto",
         "@googleapis//:google_rpc_status_proto",
-        "@googleapis//:google_watch_v1_proto",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
     ],
 )
 

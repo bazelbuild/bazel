@@ -89,7 +89,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 4,
+    shard_count = 9,
 )
 
 sh_test(
@@ -204,8 +204,10 @@ sh_test(
     name = "bazel_javabase_test",
     size = "medium",
     srcs = ["bazel_javabase_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -377,8 +379,10 @@ sh_test(
     name = "server_logging_test",
     size = "medium",
     srcs = ["server_logging_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
@@ -392,16 +396,20 @@ sh_test(
 sh_test(
     name = "test_test",
     srcs = ["test_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
     name = "outputs_test",
     size = "medium",
     srcs = ["outputs_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(

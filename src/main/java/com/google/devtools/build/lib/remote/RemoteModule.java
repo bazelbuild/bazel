@@ -233,14 +233,13 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier retrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
                 retryScheduler,
                 Retrier.ALLOW_ALL_CALLS);
         executor =
             new GrpcRemoteExecutor(
                 channel,
                 GoogleAuthUtils.newCallCredentials(authAndTlsOptions),
-                remoteOptions.remoteTimeout,
                 retrier);
       } else {
         executor = null;

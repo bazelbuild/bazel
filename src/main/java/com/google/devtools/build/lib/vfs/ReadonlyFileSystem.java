@@ -39,6 +39,10 @@ public abstract class ReadonlyFileSystem extends AbstractFileSystem {
   protected ReadonlyFileSystem() {
   }
 
+  public ReadonlyFileSystem(DigestHashFunction digestFunction) {
+    super(digestFunction);
+  }
+
   protected IOException modificationException() {
     String longname = this.getClass().getName();
     String shortname = longname.substring(longname.lastIndexOf('.') + 1);

@@ -47,7 +47,7 @@ public class ActionLookupData implements SkyKey {
     return INTERNER.intern(new ActionLookupData(actionLookupKey, actionIndex));
   }
 
-  public SkyKey getActionLookupKey() {
+  public ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
   }
 

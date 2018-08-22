@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -754,18 +755,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the list of transitive info collections that feed into this target through the
-   * specified attribute. Note that you need to specify the correct mode for the attribute,
-   * otherwise an assertion will be raised.
-   */
-  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
-      Mode mode) {
-    return Lists.transform(
-        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
-        ConfiguredTargetAndData::getConfiguredTarget);
-  }
-
-  /**
    * Returns the prerequisites keyed by the CPU of their configurations. If the split transition
    * is not active (e.g. split() returned an empty list), the key is an empty Optional.
    */
@@ -958,6 +947,18 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the list of transitive info collections that feed into this target through the
+   * specified attribute. Note that you need to specify the correct mode for the attribute,
+   * otherwise an assertion will be raised.
+   */
+  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
+      Mode mode) {
+    return Lists.transform(
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
+        ConfiguredTargetAndData::getConfiguredTarget);
+  }
+
+  /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file.
    */
@@ -971,7 +972,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends InfoInterface> Iterable<T> getPrerequisites(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -980,7 +981,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends InfoInterface> Iterable<T> getPrerequisites(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -991,7 +992,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends Info> T getPrerequisite(
+  public <T extends InfoInterface> T getPrerequisite(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -1003,7 +1004,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends Info> T getPrerequisite(
+  public <T extends InfoInterface> T getPrerequisite(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -1443,7 +1444,6 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Aspect> aspects;
     private ToolchainContext toolchainContext;
     private ConstraintSemantics constraintSemantics;
-    private ConfiguredTargetAndData associatedTarget;
 
     @VisibleForTesting
     public Builder(

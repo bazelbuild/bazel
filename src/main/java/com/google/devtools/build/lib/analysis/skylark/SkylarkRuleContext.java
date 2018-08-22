@@ -56,11 +56,11 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
@@ -137,7 +137,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   private SkylarkDict<String, String> makeVariables;
   private SkylarkAttributesCollection attributesCollection;
   private SkylarkAttributesCollection ruleAttributesCollection;
-  private Info splitAttributes;
+  private StructImpl splitAttributes;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private ImmutableMap<Artifact, Label> artifactsLabelMap;
@@ -413,7 +413,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     return ruleLabelCanonicalName;
   }
 
-  private static Info buildSplitAttributeInfo(
+  private static StructImpl buildSplitAttributeInfo(
       Collection<Attribute> attributes, RuleContext ruleContext) {
 
     ImmutableMap.Builder<String, Object> splitAttrInfos = ImmutableMap.builder();
@@ -502,13 +502,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Info getAttr() throws EvalException {
+  public StructImpl getAttr() throws EvalException {
     checkMutable("attr");
     return attributesCollection.getAttr();
   }
 
   @Override
-  public Info getSplitAttr() throws EvalException {
+  public StructImpl getSplitAttr() throws EvalException {
     checkMutable("split_attr");
     if (splitAttributes == null) {
       throw new EvalException(
@@ -519,21 +519,21 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   /** See {@link RuleContext#getExecutablePrerequisite(String, Mode)}. */
   @Override
-  public Info getExecutable() throws EvalException {
+  public StructImpl getExecutable() throws EvalException {
     checkMutable("executable");
     return attributesCollection.getExecutable();
   }
 
   /** See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}. */
   @Override
-  public Info getFile() throws EvalException {
+  public StructImpl getFile() throws EvalException {
     checkMutable("file");
     return attributesCollection.getFile();
   }
 
   /** See {@link RuleContext#getPrerequisiteArtifacts(String, Mode)}. */
   @Override
-  public Info getFiles() throws EvalException {
+  public StructImpl getFiles() throws EvalException {
     checkMutable("files");
     return attributesCollection.getFiles();
   }
@@ -978,10 +978,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, env);
     // The best way to fix this probably is to convert CommandHelper to Skylark.
     CommandHelper helper =
-        new CommandHelper(
-            getRuleContext(),
-            tools.getContents(TransitiveInfoCollection.class, "tools"),
-            ImmutableMap.copyOf(labelDict));
+        CommandHelper.builder(getRuleContext())
+            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .addLabelMap(labelDict)
+            .build();
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
     if (expandLocations) {
       command =

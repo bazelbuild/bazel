@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.integration.blackbox.framework;
+package com.google.devtools.build.lib.blackbox.framework;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -118,7 +118,7 @@ public class PathUtilsTest {
       Path resolved = PathUtils.resolve(directory, "a", "b", "c");
       assertThat(Files.exists(resolved)).isFalse();
 
-      Path created = PathUtils.createFile(directory, "a", "b", "c");
+      Path created = PathUtils.createFile(directory, "a/b/c");
       assertThat(Files.exists(created)).isTrue();
       assertThat(Files.isRegularFile(created)).isTrue();
       // can not use assertThat here, because Path implements Iterable and there is ambiguity

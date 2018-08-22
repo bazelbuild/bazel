@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
     category = SkylarkModuleCategory.PROVIDER,
     doc = "A provider for compilation and linking of objc."
 )
-public interface ObjcProviderApi<FileApiT extends FileApi> extends StructApi {
+public interface ObjcProviderApi<FileApiT extends FileApi> extends SkylarkValue {
 
   @SkylarkCallable(name = "asset_catalog",
       structField = true,

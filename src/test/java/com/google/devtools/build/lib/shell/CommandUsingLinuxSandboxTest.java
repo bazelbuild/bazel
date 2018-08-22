@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -42,7 +43,7 @@ public final class CommandUsingLinuxSandboxTest {
 
   @Before
   public final void createFileSystem() throws Exception {
-    testFS = new UnixFileSystem();
+    testFS = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     runfilesDir = testFS.getPath(BlazeTestUtils.runfilesDir());
   }
 

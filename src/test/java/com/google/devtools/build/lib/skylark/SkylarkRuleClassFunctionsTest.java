@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
 import com.google.devtools.build.lib.packages.SkylarkProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
@@ -1136,7 +1136,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("x = struct(a = 1, b = 2)",
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
-    Info z = (Info) lookup("z");
+    StructImpl z = (StructImpl) lookup("z");
     assertThat(z.getFieldNames()).isEqualTo(ImmutableSet.of("a", "b", "c", "d"));
   }
 
@@ -1146,7 +1146,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("x = struct(a = 1, b = 2)",
         "y = struct(c = 1, d = 2)",
         "z = x + y\n");
-    Info z = (Info) lookup("z");
+    StructImpl z = (StructImpl) lookup("z");
     assertThat(z.getValue("a")).isEqualTo(1);
     assertThat(z.getValue("b")).isEqualTo(2);
     assertThat(z.getValue("c")).isEqualTo(1);
@@ -1168,7 +1168,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "    x += struct(c = 1, d = 2)",
         "  return x",
         "x = func()");
-    Info x = (Info) lookup("x");
+    StructImpl x = (StructImpl) lookup("x");
     assertThat(x.getValue("a")).isEqualTo(1);
     assertThat(x.getValue("b")).isEqualTo(2);
     assertThat(x.getValue("c")).isEqualTo(1);
@@ -1242,7 +1242,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval(
         "s = struct(x = {'a' : 1})",
         "s.x['b'] = 2\n");
-    assertThat(((Info) lookup("s")).getValue("x")).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
+    assertThat(((StructImpl) lookup("s")).getValue("x")).isEqualTo(ImmutableMap.of("a", 1, "b", 2));
   }
 
   @Test
@@ -1250,7 +1250,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("def func():", "  return depset([struct(a='a')])", "s = func()");
     Collection<Object> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
-    assertThat(result.iterator().next()).isInstanceOf(Info.class);
+    assertThat(result.iterator().next()).isInstanceOf(StructImpl.class);
   }
 
   @Test
@@ -1259,11 +1259,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkEvalError("depsets cannot contain mutable items", "depset([struct(a=[])])");
   }
 
-  private static Info makeStruct(String field, Object value) {
+  private static StructImpl makeStruct(String field, Object value) {
     return StructProvider.STRUCT.create(ImmutableMap.of(field, value), "no field '%'");
   }
 
-  private static Info makeBigStruct(Environment env) {
+  private static StructImpl makeBigStruct(Environment env) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
     return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
@@ -1311,7 +1311,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(lookup("d_x")).isEqualTo(1);
     assertThat(lookup("d_y")).isEqualTo("abc");
     SkylarkProvider dataConstructor = (SkylarkProvider) lookup("data");
-    Info data = (Info) lookup("d");
+    StructImpl data = (StructImpl) lookup("d");
     assertThat(data.getProvider()).isEqualTo(dataConstructor);
     assertThat(dataConstructor.isExported()).isTrue();
     assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
@@ -1332,9 +1332,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(lookup("x")).isEqualTo(1);
     assertThat(lookup("y")).isEqualTo("abc");
     SkylarkProvider dataConstructor = (SkylarkProvider) lookup("data");
-    Info dx = (Info) lookup("dx");
+    StructImpl dx = (StructImpl) lookup("dx");
     assertThat(dx.getProvider()).isEqualTo(dataConstructor);
-    Info dy = (Info) lookup("dy");
+    StructImpl dy = (StructImpl) lookup("dy");
     assertThat(dy.getProvider()).isEqualTo(dataConstructor);
   }
 
@@ -1390,7 +1390,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "data = struct(x = 1)"
     );
-    Info data = (Info) lookup("data");
+    StructImpl data = (StructImpl) lookup("data");
     assertThat(StructProvider.STRUCT.isExported()).isTrue();
     assertThat(data.getProvider()).isEqualTo(StructProvider.STRUCT);
     assertThat(data.getProvider().getKey()).isEqualTo(StructProvider.STRUCT.getKey());

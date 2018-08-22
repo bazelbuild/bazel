@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -61,7 +60,6 @@ public final class ExecutionProgressReceiver
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
 
-  private final Object activityIndicator = new Object();
   /** Number of exclusive tests. To be accounted for in progress messages. */
   private final int exclusiveTestsCount;
 
@@ -140,9 +138,6 @@ public final class ExecutionProgressReceiver
   public void actionCompleted(ActionLookupData actionLookupData) {
     if (!ignoredActions.contains(actionLookupData)) {
       completedActions.add(actionLookupData);
-      synchronized (activityIndicator) {
-        activityIndicator.notifyAll();
-      }
     }
   }
 
@@ -175,28 +170,17 @@ public final class ExecutionProgressReceiver
       }
 
       @Override
-      public int waitForNextCompletion(int timeoutMilliseconds) throws InterruptedException {
-        long rest = timeoutMilliseconds;
-        synchronized (activityIndicator) {
-          int before = completedActions.size();
-          long startTime = BlazeClock.instance().currentTimeMillis();
-          while (true) {
-            activityIndicator.wait(rest);
-
-            int completed = completedActions.size() - before;
-            long now = 0;
-            if (completed > 0
-                || (startTime + rest)
-                    <= (now = BlazeClock.instance().currentTimeMillis())) {
-              // Some actions completed, or timeout fully elapsed.
-              return completed;
-            } else {
-              // Spurious Wakeup -- no actions completed and there's still time to wait.
-              rest -= now - startTime; // account for elapsed wait time
-              startTime = now;
-            }
+      public int waitForNextCompletion(int timeoutSeconds) throws InterruptedException {
+        int before = completedActions.size();
+        // Otherwise, wake up once per second to see whether something completed.
+        for (int i = 0; i < timeoutSeconds; i++) {
+          Thread.sleep(1000);
+          int count = completedActions.size() - before;
+          if (count > 0) {
+            return count;
           }
         }
+        return 0;
       }
     };
   }

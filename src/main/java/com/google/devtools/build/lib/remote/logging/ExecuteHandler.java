@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.remote.logging;
 
+import build.bazel.remote.execution.v2.ExecuteRequest;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ExecuteDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
-import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.longrunning.Operation;
 
 /** LoggingHandler for google.devtools.remoteexecution.v1test.Execution.Execute gRPC call. */
@@ -35,7 +35,7 @@ public class ExecuteHandler implements LoggingHandler<ExecuteRequest, Operation>
 
   @Override
   public void handleResp(Operation message) {
-    builder.setResponse(message);
+    builder.addResponses(message);
   }
 
   @Override

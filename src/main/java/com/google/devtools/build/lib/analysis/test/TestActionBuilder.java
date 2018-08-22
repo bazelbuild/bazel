@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
@@ -189,12 +190,27 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
 
+    // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
+    // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
+    // initialization.
+    final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
+
+    final boolean isUsingTestWrapperInsteadOfTestSetupScript =
+        isExecutedOnWindows
+            && ruleContext
+                .getConfiguration()
+                .getFragment(TestConfiguration.class)
+                .isUsingWindowsNativeTestWrapper();
+
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman()));
-    NestedSet<Artifact> testRuntime = PrerequisiteArtifacts.nestedSet(
-        ruleContext, "$test_runtime", Mode.HOST);
-    inputsBuilder.addTransitive(testRuntime);
+
+    if (!isUsingTestWrapperInsteadOfTestSetupScript) {
+      NestedSet<Artifact> testRuntime =
+          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime", Mode.HOST);
+      inputsBuilder.addTransitive(testRuntime);
+    }
     TestTargetProperties testProperties = new TestTargetProperties(
         ruleContext, executionRequirements);
 
@@ -202,8 +218,12 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
 
-    Artifact testSetupScript = ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
-    inputsBuilder.add(testSetupScript);
+    Artifact testActionExecutable =
+        isUsingTestWrapperInsteadOfTestSetupScript
+            ? ruleContext.getHostPrerequisiteArtifact("$test_wrapper")
+            : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
+
+    inputsBuilder.add(testActionExecutable);
     Artifact testXmlGeneratorScript =
         ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorScript);
@@ -309,7 +329,8 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
                 inputs,
-                testSetupScript,
+                testActionExecutable,
+                isUsingTestWrapperInsteadOfTestSetupScript,
                 testXmlGeneratorScript,
                 collectCoverageScript,
                 testLog,

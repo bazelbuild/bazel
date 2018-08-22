@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -293,10 +293,15 @@ class ExperimentalStateTracker {
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
     activeActions.remove(name);
-    Preconditions.checkState(
-        !notStartedActionStatus.containsKey(name),
-        "Should not complete an action before starting it: %s",
-        name);
+    boolean removed = notStartedActionStatus.containsKey(name);
+    if (removed && !action.discoversInputs()) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Should not complete an action before starting it, and action did not discover "
+                  + "inputs, so should not have published a status before execution: "
+                  + action),
+          ImmutableList.of());
+    }
 
     if (action.getOwner() != null) {
       Label owner = action.getOwner().getLabel();

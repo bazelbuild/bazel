@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,19 +33,16 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link InMemoryFileSystem}. Note that most tests are inherited from {@link
  * SymlinkAwareFileSystemTest} and ancestors. This specific file focuses only on concurrency tests.
  */
-@RunWith(JUnit4.class)
 public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
-  public FileSystem getFreshFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance());
+  public FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
+    return new InMemoryFileSystem(BlazeClock.instance(), digestHashFunction);
   }
 
   @Override

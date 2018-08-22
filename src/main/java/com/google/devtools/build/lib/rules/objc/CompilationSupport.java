@@ -1182,7 +1182,7 @@ public class CompilationSupport {
             .addActionInputs(extraLinkInputs)
             .addActionInput(inputFileList)
             .setLinkType(linkType)
-            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
@@ -1344,7 +1344,7 @@ public class CompilationSupport {
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
             .setCrosstoolInputs(ccToolchain.getLink())
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
             .build();

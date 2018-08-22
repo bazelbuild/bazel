@@ -226,8 +226,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    List<String> linkopts = common.getLinkopts();
-    LinkingMode linkingMode = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
+    LinkingMode linkingMode = getLinkStaticness(ruleContext, cppConfiguration);
     FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
@@ -295,7 +294,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             linkingMode != Link.LinkingMode.DYNAMIC,
             isLinkShared(ruleContext),
-            linkopts);
+            common.getLinkopts());
     CppLinkActionBuilder linkActionBuilder =
         determineLinkerArguments(
             ruleContext,
@@ -627,20 +626,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         && context.attributes().get("linkshared", Type.BOOLEAN);
   }
 
-  private static final boolean dashStaticInLinkopts(List<String> linkopts,
-      CppConfiguration cppConfiguration) {
-    if (cppConfiguration.dropFullyStaticLinkingMode()) {
-      return false;
-    }
-    return linkopts.contains("-static") || cppConfiguration.hasStaticLinkOption();
-  }
-
   private static final LinkingMode getLinkStaticness(
-      RuleContext context, List<String> linkopts, CppConfiguration cppConfiguration) {
+      RuleContext context, CppConfiguration cppConfiguration) {
     if (cppConfiguration.getDynamicModeFlag() == DynamicMode.FULLY) {
       return LinkingMode.DYNAMIC;
-    } else if (dashStaticInLinkopts(linkopts, cppConfiguration)) {
-      return Link.LinkingMode.LEGACY_FULLY_STATIC;
     } else if (cppConfiguration.getDynamicModeFlag() == DynamicMode.OFF
         || context.attributes().get("linkstatic", Type.BOOLEAN)) {
       return LinkingMode.STATIC;
@@ -887,14 +876,15 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     // TODO(b/111289526): Remove CcLinkingInfo provider from cc_binary as soon as the flag
-    // --noexperimental_enable_cc_dynlibs_for_runtime is flipped. An empty CcLinkParamsStore is not
+    // --experimental_enable_cc_dynlibs_for_runtime is flipped. An empty CcLinkParamsStore is not
     // needed, but here we set it to avoid a null pointer exception in places where we're expecting
     // it. In the future CcLinkParamsStore will be obligatory.
-    ccLinkingInfoBuilder
-        .setStaticModeParamsForDynamicLibrary(CcLinkParams.EMPTY)
-        .setStaticModeParamsForExecutable(CcLinkParams.EMPTY)
-        .setDynamicModeParamsForDynamicLibrary(CcLinkParams.EMPTY)
-        .setDynamicModeParamsForExecutable(CcLinkParams.EMPTY);
+    ccLinkingInfoBuilder.setCcLinkParamsStore(
+        new CcLinkParamsStore(
+            /* staticModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
+            /* staticModeParamsForExecutable= */ CcLinkParams.EMPTY,
+            /* dynamicModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
+            /* dynamicModeParamsForExecutable= */ CcLinkParams.EMPTY));
     if (cppConfiguration.enableCcDynamicLibrariesForRuntime()) {
       ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
           new CcDynamicLibrariesForRuntime(

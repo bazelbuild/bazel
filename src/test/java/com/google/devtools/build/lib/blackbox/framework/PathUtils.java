@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.integration.blackbox.framework;
+package com.google.devtools.build.lib.blackbox.framework;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,6 +33,38 @@ import java.util.List;
 
 /** Helper class for work with java.nio.file.Path. */
 public class PathUtils {
+  /**
+   * Recursively delete a directory in a supposition that it might be still used by external
+   * process. (i.e. shutting down Bazel) Does not follow the symbolic links.
+   */
+  public static void deleteTreeWithRetry(final Path directory) throws IOException {
+    if (OS.WINDOWS.equals(OS.getCurrent())) {
+      // We are doing multiple attempts for deleting the directory, because on Windows
+      // files, still opened by the external process, can not be deleted.
+      // This behavior is a copy of shell integration tests behavior as of 2018/08/17.
+      int attempt = 120;
+      while (true) {
+        try {
+          deleteTree(directory);
+          return;
+        } catch (IOException e) {
+          --attempt;
+          if (attempt <= 0) {
+            throw e;
+          }
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException e1) {
+            // The user interrupted; propagate interruption status.
+            Thread.currentThread().interrupt();
+          }
+        }
+      }
+    } else {
+      deleteTree(directory);
+    }
+  }
+
   /** Recursively delete a directory. Does not follow the symbolic links. */
   public static void deleteTree(final Path directory) throws IOException {
     if (Files.exists(directory)) {
@@ -40,7 +74,33 @@ public class PathUtils {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
                 throws IOException {
-              Files.delete(file);
+              try {
+                Files.delete(file);
+              } catch (AccessDeniedException e) {
+                if (!file.toFile().setWritable(true)) {
+                  throw new IOException(
+                      String.format("Can not make %s writeable", file.toAbsolutePath().toString()));
+                }
+                Files.delete(file);
+              }
+              return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+                throws IOException {
+              // The code here is necessary to address the problem of deleting
+              // junction (symlink) directories on Windows (which might point to non-existing
+              // directory already and by that reason can not be read as directory
+              // (Files.walkFileTree does not detect that it is a symlink on Windows)).
+              try {
+                if (Files.deleteIfExists(dir)) {
+                  // `dir` was an empty directory or a junction (= directory symlink).
+                  return FileVisitResult.SKIP_SUBTREE;
+                }
+              } catch (DirectoryNotEmptyException e) {
+                // `dir` was a non-empty directory. Proceed to visit its children.
+              }
               return FileVisitResult.CONTINUE;
             }
 
@@ -97,19 +157,16 @@ public class PathUtils {
   }
 
   /**
-   * Creates the file under the <code>directory/parts[0]/parts[1]/.../parts[n]</code>. Will also
-   * create all subdirectories, if they do not exist.
+   * Creates the file under the <code>directory/subPath</code>. Will also create all subdirectories,
+   * if they do not exist.
    *
    * @param directory directory under which to create the subdirectories tree with a file
-   * @param parts parts of the path relative to directory, must be not empty, last element denotes
-   *     the file name
+   * @param subPath subpath under <code>directory</code> under which file will be created
    * @return Path to created file
    * @throws IOException in case file or subdirectory can not be created
    */
-  public static Path createFile(Path directory, String... parts) throws IOException {
-    Preconditions.checkArgument(parts.length > 0);
-    Path path = resolve(directory, parts);
-    return createFile(path);
+  public static Path createFile(Path directory, String subPath) throws IOException {
+    return createFile(resolve(directory, subPath));
   }
 
   /**
@@ -140,14 +197,17 @@ public class PathUtils {
   public static Path resolve(Path directory, String... parts) {
     Path current = directory;
     for (String part : parts) {
+      if (OS.WINDOWS.equals(OS.getCurrent())) {
+        part = part.replace('/', '\\');
+      }
       current = current.resolve(part);
     }
     return current;
   }
 
   /**
-   * Reads the file under the <code>directory/parts[0]/parts[1]/.../parts[n]</code>
-   * using ISO_8859_1.
+   * Reads the file under the <code>directory/parts[0]/parts[1]/.../parts[n]</code> using
+   * ISO_8859_1.
    *
    * @param directory root directory for resolve
    * @param parts parts of the path relative to directory
@@ -170,6 +230,21 @@ public class PathUtils {
   }
 
   /**
+   * Writes the file in the <code>directory/subPath</code> location using ISO_8859_1. Overrides the
+   * file if it exists, creates the file if it does not exist.
+   *
+   * @param directory root directory, under which the subtree with the file is created
+   * @param subPath path under <code>directory</code>, under which the file is created
+   * @param lines lines to be written
+   * @return Path to created file
+   * @throws IOException in case file can not be written
+   */
+  public static Path writeFileInDir(Path directory, String subPath, String... lines)
+      throws IOException {
+    return writeFile(resolve(directory, subPath), lines);
+  }
+
+  /**
    * Writes the file in the <code>path</code> location using ISO_8859_1. Overrides the file if it
    * exists, creates the file if it does not exist.
    *
@@ -177,8 +252,9 @@ public class PathUtils {
    * @param lines lines to be written
    * @throws IOException in case file can not be written
    */
-  public static void writeFile(Path path, String... lines) throws IOException {
-    Files.write(path, Lists.newArrayList(lines), StandardCharsets.ISO_8859_1);
+  public static Path writeFile(Path path, String... lines) throws IOException {
+    Files.createDirectories(path.getParent());
+    return Files.write(path, Lists.newArrayList(lines), StandardCharsets.ISO_8859_1);
   }
 
   /**
@@ -216,5 +292,45 @@ public class PathUtils {
    */
   public static void append(Path path, String... lines) throws IOException {
     Files.write(path, Arrays.asList(lines), StandardOpenOption.APPEND);
+  }
+
+  /**
+   * Make a file or directory tree writable.
+   *
+   * <p>If the path is a directory, make all files under it (and all of its subdirectories)
+   * writable.
+   *
+   * @param path file or directory to make writable
+   */
+  public static void setTreeWritable(Path path) throws IOException {
+    if (!Files.exists(path)) {
+      throw new IOException(
+          String.format(
+              "Can not recursively modify files inside %s: directory does not exist",
+              path.toAbsolutePath().toString()));
+    }
+    Files.walkFileTree(
+        path,
+        new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+              throws IOException {
+            if (!dir.toFile().canWrite() && !dir.toFile().setWritable(true)) {
+              throw new IOException(
+                  String.format("Can not make %s writeable", dir.toAbsolutePath().toString()));
+            }
+            return FileVisitResult.CONTINUE;
+          }
+
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+              throws IOException {
+            if (!file.toFile().setWritable(true)) {
+              throw new IOException(
+                  String.format("Can not make %s writeable", file.toAbsolutePath().toString()));
+            }
+            return FileVisitResult.CONTINUE;
+          }
+        });
   }
 }

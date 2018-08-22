@@ -174,6 +174,12 @@ public class ExecutionRequirements {
   public static final String NO_REMOTE = "no-remote";
 
   /**
+   * Enables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
+   * supports it).
+   */
+  public static final String REQUIRES_NETWORK = "requires-network";
+
+  /**
    * Disables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
    * supports it).
    */

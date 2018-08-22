@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -81,7 +81,7 @@ public final class DiffAwarenessManager {
    * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
   public ProcessableModifiedFileSet getDiff(
-      EventHandler eventHandler, Root pathEntry, OptionsClassProvider options) {
+      EventHandler eventHandler, Root pathEntry, OptionsProvider options) {
     DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;

@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.remote.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashingOutputStream;
@@ -26,8 +28,6 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.remoteexecution.v1test.Action;
-import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

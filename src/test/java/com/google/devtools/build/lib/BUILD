@@ -63,7 +63,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
-        "//src/test/java/com/google/devtools/build/lib/integration/blackbox/framework/junit:srcs",
+        "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -1275,13 +1275,11 @@ java_test(
         "//third_party/protobuf:protobuf_java",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
         "@googleapis//:google_bytestream_bytestream_java_proto",
-        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_grpc",
-        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
         "@googleapis//:google_longrunning_operations_java_proto",
         "@googleapis//:google_rpc_code_java_proto",
         "@googleapis//:google_rpc_status_java_proto",
-        "@googleapis//:google_watch_v1_java_grpc",
-        "@googleapis//:google_watch_v1_java_proto",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 
@@ -1551,25 +1549,6 @@ java_test(
     ],
 )
 
-java_test(
-    name = "java-integration-tests",
-    srcs = glob(["integration/blackbox/**/*.java"]),
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":guava_junit_truth",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:io",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 java_library(
     name = "guava_junit_truth",
     testonly = 1,
@@ -1652,6 +1631,7 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/blackbox/tests:blackbox_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildtool:all_windows_tests",

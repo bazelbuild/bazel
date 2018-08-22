@@ -205,6 +205,58 @@ public final class SkydocTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testRulesAcrossRepository() throws Exception {
+    scratch.file(
+        "/external/dep_repo/lib/rule_impl.bzl",
+        "def rule_impl(ctx):",
+        "  return struct()");
+
+    scratch.file(
+        "/deps/foo/docstring.bzl",
+        "doc_string = 'Dep rule'");
+
+    scratch.file(
+        "/deps/foo/dep_rule.bzl",
+        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
+        "load(':docstring.bzl', 'doc_string')",
+        "",
+        "_hidden_rule = rule(",
+        "    doc = doc_string,",
+        "    implementation = rule_impl,",
+        ")",
+        "",
+        "dep_rule = rule(",
+        "    doc = doc_string,",
+        "    implementation = rule_impl,",
+        ")");
+
+    scratch.file(
+        "/test/main.bzl",
+        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
+        "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
+        "",
+        "main_rule = rule(",
+        "    doc = 'Main rule',",
+        "    implementation = rule_impl,",
+        ")");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
+
+    skydocMain.eval(
+        Label.parseAbsoluteUnchecked("//test:main.bzl"),
+        ruleInfoMapBuilder,
+        ImmutableList.builder());
+
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+
+    // dep_rule is available here, even though it was not defined in main.bzl, because it is
+    // imported in main.bzl. Thus, it's a top-level symbol in main.bzl.
+    assertThat(ruleInfoMap.keySet()).containsExactly("main_rule", "dep_rule");
+    assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
+    assertThat(ruleInfoMap.get("dep_rule").getDocString()).isEqualTo("Dep rule");
+  }
+
+  @Test
   public void testSkydocCrashesOnCycle() throws Exception {
     scratch.file(
         "/dep/dep.bzl",

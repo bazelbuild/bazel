@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -51,7 +51,7 @@ public final class BlazeExecutor implements Executor {
   private final Reporter reporter;
   private final EventBus eventBus;
   private final Clock clock;
-  private final OptionsClassProvider options;
+  private final OptionsProvider options;
   private AtomicBoolean inExecutionPhase;
 
   private final Map<Class<? extends ActionContext>, ActionContext> contextMap;
@@ -73,7 +73,7 @@ public final class BlazeExecutor implements Executor {
       Reporter reporter,
       EventBus eventBus,
       Clock clock,
-      OptionsClassProvider options,
+      OptionsProvider options,
       SpawnActionContextMaps spawnActionContextMaps,
       Iterable<ActionContextProvider> contextProviders)
       throws ExecutorInitException {
@@ -181,7 +181,7 @@ public final class BlazeExecutor implements Executor {
 
   /** Returns the options associated with the execution. */
   @Override
-  public OptionsClassProvider getOptions() {
+  public OptionsProvider getOptions() {
     return options;
   }
 }

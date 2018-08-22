@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;

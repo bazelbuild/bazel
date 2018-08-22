@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.packages.BazelPackageLoader;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
  * each loaded package, for the sake of getting pretty nice test coverage.
  */
 public class BazelPackageBuilderHelperForTesting implements Package.Builder.Helper {
-  private final RuleClassProvider ruleClassProvider;
+  private final ConfiguredRuleClassProvider ruleClassProvider;
   private final BlazeDirectories directories;
 
   public BazelPackageBuilderHelperForTesting(
-      RuleClassProvider ruleClassProvider, BlazeDirectories directories) {
+      ConfiguredRuleClassProvider ruleClassProvider, BlazeDirectories directories) {
     this.ruleClassProvider = ruleClassProvider;
     this.directories = directories;
   }
@@ -63,7 +63,7 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
 
   private void sanityCheckBazelPackageLoader(
       Package pkg,
-      RuleClassProvider ruleClassProvider,
+      ConfiguredRuleClassProvider ruleClassProvider,
       SkylarkSemantics skylarkSemantics) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     PackageLoader packageLoader =

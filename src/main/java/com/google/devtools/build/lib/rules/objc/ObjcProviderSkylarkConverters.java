@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -168,7 +168,7 @@ public class ObjcProviderSkylarkConverters {
     @SuppressWarnings("unchecked")
     @Override
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
-      NestedSetBuilder<Info> result = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<StructImpl> result = NestedSetBuilder.stableOrder();
       for (BundleableFile bundleableFile : (Iterable<BundleableFile>) javaValue) {
         result.add(
             StructProvider.STRUCT.create(
@@ -177,15 +177,15 @@ public class ObjcProviderSkylarkConverters {
                     BUNDLE_PATH_FIELD, bundleableFile.getBundlePath()),
                 "No such attribute '%s'"));
       }
-      return SkylarkNestedSet.of(Info.class, result.build());
+      return SkylarkNestedSet.of(StructImpl.class, result.build());
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
-      validateTypes(skylarkValue, Info.class, javaKey.getSkylarkKeyName());
+      validateTypes(skylarkValue, StructImpl.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<BundleableFile> result = NestedSetBuilder.stableOrder();
-      for (Info struct : ((SkylarkNestedSet) skylarkValue).toCollection(Info.class)) {
+      for (StructImpl struct : ((SkylarkNestedSet) skylarkValue).toCollection(StructImpl.class)) {
         Artifact artifact;
         String path;
         try {

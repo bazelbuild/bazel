@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +48,7 @@ import java.util.concurrent.ExecutionException;
  * configuration, a pair of output/error streams, and additional options such
  * as --keep_going, --jobs, etc.
  */
-public class BuildRequest implements OptionsClassProvider {
+public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> skylarkOptions;
@@ -114,7 +114,9 @@ public class BuildRequest implements OptionsClassProvider {
     }
   }
 
-  private Map<String, Object> getSkylarkOptions() {
+
+  @Override
+  public Map<String, Object> getSkylarkOptions() {
     return skylarkOptions;
   }
 

@@ -14,27 +14,27 @@
 
 package com.google.devtools.build.lib.remote.logging;
 
+import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
-import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WatchDetails;
-import com.google.watcher.v1.ChangeBatch;
-import com.google.watcher.v1.Request;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WaitExecutionDetails;
+import com.google.longrunning.Operation;
 
-/** LoggingHandler for {@link google.watcher.v1.Watch} gRPC call. */
-public class WatchHandler implements LoggingHandler<Request, ChangeBatch> {
-  private final WatchDetails.Builder builder = WatchDetails.newBuilder();
+/** LoggingHandler for {@link build.bazel.remote.execution.v2.WaitExecution} gRPC call. */
+public class WaitExecutionHandler implements LoggingHandler<WaitExecutionRequest, Operation> {
+  private final WaitExecutionDetails.Builder builder = WaitExecutionDetails.newBuilder();
 
   @Override
-  public void handleReq(Request message) {
+  public void handleReq(WaitExecutionRequest message) {
     builder.setRequest(message);
   }
 
   @Override
-  public void handleResp(ChangeBatch message) {
+  public void handleResp(Operation message) {
     builder.addResponses(message);
   }
 
   @Override
   public RpcCallDetails getDetails() {
-    return RpcCallDetails.newBuilder().setWatch(builder).build();
+    return RpcCallDetails.newBuilder().setWaitExecution(builder).build();
   }
 }

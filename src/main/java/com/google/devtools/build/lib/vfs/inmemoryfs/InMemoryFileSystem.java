@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.clock.Clock;
@@ -61,27 +62,11 @@ public class InMemoryFileSystem extends FileSystem {
   /**
    * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
    * within scope) and a default clock.
-   */
-  public InMemoryFileSystem() {
-    this(new JavaClock());
-  }
-
-  /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
-   * within scope) and a default clock.
    *
    * @param hashFunction the function to use for calculating digests.
    */
   public InMemoryFileSystem(DigestHashFunction hashFunction) {
     this(new JavaClock(), hashFunction);
-  }
-
-  /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all
-   * paths are considered to be within scope).
-   */
-  public InMemoryFileSystem(Clock clock) {
-    this(clock, (PathFragment) null);
   }
 
   /**
@@ -96,10 +81,30 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   /**
+   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
+   * within scope) and a default clock.
+   */
+  @VisibleForTesting
+  public InMemoryFileSystem() {
+    this(new JavaClock());
+  }
+
+  /**
+   * Creates a new InMemoryFileSystem with scope checking disabled (all
+   * paths are considered to be within scope).
+   */
+  @VisibleForTesting
+  public InMemoryFileSystem(Clock clock) {
+    this(clock, (PathFragment) null);
+  }
+
+  /**
    * Creates a new InMemoryFileSystem with scope checking bound to scopeRoot, i.e. any path that's
    * not below scopeRoot is considered to be out of scope.
    */
+  @VisibleForTesting
   public InMemoryFileSystem(Clock clock, PathFragment scopeRoot) {
+    super(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     this.scopeRoot = scopeRoot;
     this.clock = clock;
     this.rootInode = newRootInode(clock);

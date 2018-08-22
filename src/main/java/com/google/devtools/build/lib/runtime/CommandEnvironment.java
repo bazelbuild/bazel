@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -514,7 +514,7 @@ public final class CommandEnvironment {
    *
    * @see DefaultsPackage
    */
-  public void setupPackageCache(OptionsClassProvider options,
+  public void setupPackageCache(OptionsProvider options,
       String defaultsPackageContents) throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .sync(

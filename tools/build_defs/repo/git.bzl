@@ -186,7 +186,7 @@ Args:
   build_file: The file to use as the BUILD file for this repository.
     Either build_file or build_file_content must be specified.
 
-    This attribute is a label relative to the main workspace. The file
+    This attribute is an absolute label (use '@//' for the main repo). The file
     does not need to be named BUILD, but can be (something like
     BUILD.new-repo-name may work well for distinguishing it from the
     repository's actual BUILD files.

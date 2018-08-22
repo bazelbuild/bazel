@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkConfig;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
@@ -42,8 +41,7 @@ public final class ConfigRules implements RuleSet {
         new ConfigFeatureFlagConfiguration.Loader());
 
     builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
-    builder.addSkylarkBootstrap(
-        new ConfigBootstrap(new ConfigSkylarkCommon(), new SkylarkConfig()));
+    builder.addSkylarkBootstrap(new ConfigBootstrap(new ConfigSkylarkCommon()));
   }
 
   @Override

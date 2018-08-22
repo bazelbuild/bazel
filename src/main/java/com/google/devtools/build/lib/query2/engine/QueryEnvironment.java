@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.Collection;
@@ -73,7 +74,7 @@ public interface QueryEnvironment<T> {
     }
 
     public QueryExpression getExpression() {
-      return expression;
+      return Preconditions.checkNotNull(expression, "Expected expression argument: %s", expression);
     }
 
     public String getWord() {
@@ -128,6 +129,29 @@ public interface QueryEnvironment<T> {
         QueryExpression expression,
         List<Argument> args,
         Callback<T> callback);
+
+    /**
+     * A filtering function is one whose outputs are a subset of a single input argument. Returns
+     * the function as a filtering function if it is one and {@code null} otherwise.
+     */
+    @Nullable
+    default FilteringQueryFunction asFilteringFunction() {
+      return null;
+    }
+  }
+
+  /** A {@link QueryFunction} whose output is a subset of some input argument expression. */
+  abstract class FilteringQueryFunction implements QueryFunction {
+    @Override
+    public final FilteringQueryFunction asFilteringFunction() {
+      return this;
+    }
+
+    /** Returns a function representing the filter but inverted. */
+    public abstract FilteringQueryFunction invert();
+
+    /** Returns the argument index of the expression that is used as the input to be filtered. */
+    public abstract int getExpressionToFilterIndex();
   }
 
   /**
