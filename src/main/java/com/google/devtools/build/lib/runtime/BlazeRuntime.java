@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -965,7 +966,8 @@ public final class BlazeRuntime {
     }
   }
 
-  private static FileSystem defaultFileSystemImplementation() {
+  private static FileSystem defaultFileSystemImplementation()
+      throws DefaultHashFunctionNotSetException {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
       return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem();
@@ -1063,18 +1065,22 @@ public final class BlazeRuntime {
     }
 
     FileSystem fs = null;
-    for (BlazeModule module : blazeModules) {
-      FileSystem moduleFs = module.getFileSystem(options);
-      if (moduleFs != null) {
-        Preconditions.checkState(fs == null, "more than one module returns a file system");
-        fs = moduleFs;
+    try {
+      for (BlazeModule module : blazeModules) {
+        FileSystem moduleFs = module.getFileSystem(options);
+        if (moduleFs != null) {
+          Preconditions.checkState(fs == null, "more than one module returns a file system");
+          fs = moduleFs;
+        }
       }
-    }
 
-    if (fs == null) {
-      fs = defaultFileSystemImplementation();
+      if (fs == null) {
+        fs = defaultFileSystemImplementation();
+      }
+    } catch (DefaultHashFunctionNotSetException e) {
+      throw new AbruptExitException(
+          "No module set the default hash function.", ExitCode.BLAZE_INTERNAL_ERROR, e);
     }
-
     Path.setFileSystemForSerialization(fs);
     SubprocessBuilder.setSubprocessFactory(subprocessFactoryImplementation());
 

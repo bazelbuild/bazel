@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultNotSetException;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,19 +39,8 @@ public abstract class FileSystem {
 
   private final DigestHashFunction digestFunction;
 
-  public FileSystem() {
-    DigestHashFunction defaultHash;
-    try {
-      defaultHash = DigestHashFunction.getDefault();
-    } catch (DefaultNotSetException e) {
-      // For now, be tolerant for cases where the default has not been set, and fallback to MD5, the
-      // old default.
-      // TODO(b/109764197): Remove this, third_party uses of this library should set their own
-      // default, and tests should either set their own default or be able to be run with multiple
-      // digest functions.
-      defaultHash = DigestHashFunction.MD5;
-    }
-    digestFunction = defaultHash;
+  public FileSystem() throws DefaultHashFunctionNotSetException {
+    digestFunction = DigestHashFunction.getDefault();
   }
 
   public FileSystem(DigestHashFunction digestFunction) {

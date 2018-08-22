@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.hash.Hashing;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import java.lang.reflect.Field;
 import org.junit.Before;
@@ -88,8 +89,7 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void unsetDefaultThrows() {
-    assertThrows(
-        DigestHashFunction.DefaultNotSetException.class, () -> DigestHashFunction.getDefault());
+    assertThrows(DefaultHashFunctionNotSetException.class, () -> DigestHashFunction.getDefault());
   }
 
   @Test
