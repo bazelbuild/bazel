@@ -38,6 +38,31 @@ message ExecuteEvent {
   string output_directory = 6;
 }
 
+// Information on "Download" event in repository_ctx.
+message DownloadEvent {
+  // Url to download from. If multiple, treated as mirrors
+  repeated string url = 1;
+  // Output file
+  string output = 2;
+  // sha256, if speficied
+  string sha256 = 3;
+  // whether to make the resulting file executable
+  bool executable = 4;
+}
+
+message DownloadAndExtractEvent {
+  // Url(s) to download from
+  repeated string url = 1;
+  // Output file
+  string output = 2;
+  // sha256, if specified
+  string sha256 = 3;
+  // Archive type, if specified. Otherwise, inferred from URL.
+  string type = 4;
+  // A directory prefix to strip from extracted files.
+  string strip_prefix = 5;
+}
+
 message WorkspaceEvent {
   // Location in the code (.bzl file) where the event originates.
   string location = 1;
@@ -47,5 +72,7 @@ message WorkspaceEvent {
 
   oneof event {
     ExecuteEvent execute_event = 3;
+    DownloadEvent download_event = 4;
+    DownloadAndExtractEvent download_and_extract_event = 5;
   }
 }

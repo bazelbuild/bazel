@@ -251,120 +251,114 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public RepositoryPathApi<?> which(String program) throws EvalException;
 
   @SkylarkCallable(
-    name = "download",
-    doc = "Download a file to the output path for the provided url.",
-    parameters = {
-      @Param(
-        name = "url",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Iterable.class, generic1 = String.class),
-        },
-        named = true,
-        doc = "List of mirror URLs referencing the same file."
-      ),
-      @Param(
-        name = "output",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        defaultValue = "''",
-        named = true,
-        doc = "path to the output file, relative to the repository directory."
-      ),
-      @Param(
-        name = "sha256",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "the expected SHA-256 hash of the file downloaded."
-                + " This must match the SHA-256 hash of the file downloaded. It is a security risk"
-                + " to omit the SHA-256 as remote files can change. At best omitting this field"
-                + " will make your build non-hermetic. It is optional to make development easier"
-                + " but should be set before shipping."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        doc = "set the executable flag on the created file, false by default."
-      ),
-    }
-  )
-  public void download(Object url, Object output, String sha256, Boolean executable)
+      name = "download",
+      doc = "Download a file to the output path for the provided url.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "url",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Iterable.class, generic1 = String.class),
+            },
+            named = true,
+            doc = "List of mirror URLs referencing the same file."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc = "path to the output file, relative to the repository directory."),
+        @Param(
+            name = "sha256",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "the expected SHA-256 hash of the file downloaded."
+                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
+                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
+                    + " field will make your build non-hermetic. It is optional to make"
+                    + " development easier but should be set before shipping."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc = "set the executable flag on the created file, false by default."),
+      })
+  public void download(
+      Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "download_and_extract",
-    doc = "Download a file to the output path for the provided url, and extract it.",
-    parameters = {
-      @Param(
-        name = "url",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Iterable.class, generic1 = String.class),
-        },
-        named = true,
-        doc = "List of mirror URLs referencing the same file."
-      ),
-      @Param(
-        name = "output",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        defaultValue = "''",
-        named = true,
-        doc =
-            "path to the directory where the archive will be unpacked,"
-                + " relative to the repository directory."
-      ),
-      @Param(
-        name = "sha256",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "the expected SHA-256 hash of the file downloaded."
-                + " This must match the SHA-256 hash of the file downloaded. It is a security risk"
-                + " to omit the SHA-256 as remote files can change. At best omitting this field"
-                + " will make your build non-hermetic. It is optional to make development easier"
-                + " but should be set before shipping."
-                + " If provided, the repository cache will first be checked for a file with the"
-                + " given hash; a download will only be attempted, if the file was not found in the"
-                + " cache. After a successful download, the file will be added to the cache."
-      ),
-      @Param(
-        name = "type",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "the archive type of the downloaded file."
-                + " By default, the archive type is determined from the file extension of the URL."
-                + " If the file has no extension, you can explicitly specify either \"zip\","
-                + " \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\" here."
-      ),
-      @Param(
-        name = "stripPrefix",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "a directory prefix to strip from the extracted files."
-                + "\nMany archives contain a top-level directory that contains all files in the"
-                + " archive. Instead of needing to specify this prefix over and over in the"
-                + " <code>build_file</code>, this field can be used to strip it from extracted"
-                + " files."
-      ),
-    }
-  )
+      name = "download_and_extract",
+      doc = "Download a file to the output path for the provided url, and extract it.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "url",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Iterable.class, generic1 = String.class),
+            },
+            named = true,
+            doc = "List of mirror URLs referencing the same file."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc =
+                "path to the directory where the archive will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "sha256",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "the expected SHA-256 hash of the file downloaded."
+                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
+                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
+                    + " field will make your build non-hermetic. It is optional to make"
+                    + " development easier but should be set before shipping."
+                    + " If provided, the repository cache will first be checked for a file with the"
+                    + " given hash; a download will only be attempted, if the file was not found"
+                    + " in the cache. After a successful download, the file will be added to the"
+                    + " cache."),
+        @Param(
+            name = "type",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "the archive type of the downloaded file."
+                    + " By default, the archive type is determined from the file extension of the"
+                    + " URL. If the file has no extension, you can explicitly specify either"
+                    + " \"zip\", \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\""
+                    + " here."),
+        @Param(
+            name = "stripPrefix",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."),
+      })
   public void downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix)
+      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

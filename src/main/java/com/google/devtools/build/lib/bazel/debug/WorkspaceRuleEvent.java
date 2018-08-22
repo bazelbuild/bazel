@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.bazel.debug;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.events.Location;
+import java.net.URL;
+import java.util.List;
 import java.util.Map;
 
 /** An event to record events happening during workspace rule resolution */
@@ -32,8 +34,6 @@ public final class WorkspaceRuleEvent implements ProgressLike {
 
   /**
    * Creates a new WorkspaceRuleEvent for an execution event.
-   *
-   * <p>Note: we will add more granular information as needed.
    */
   public static WorkspaceRuleEvent newExecuteEvent(
       Iterable<Object> args,
@@ -64,6 +64,66 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setExecuteEvent(e.build());
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a download event. */
+  public static WorkspaceRuleEvent newDownloadEvent(
+      List<URL> urls,
+      String output,
+      String sha256,
+      Boolean executable,
+      String ruleLabel,
+      Location location) {
+    WorkspaceLogProtos.DownloadEvent.Builder e =
+        WorkspaceLogProtos.DownloadEvent.newBuilder()
+            .setOutput(output)
+            .setSha256(sha256)
+            .setExecutable(executable);
+    for (URL u : urls) {
+      e.addUrl(u.toString());
+    }
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setDownloadEvent(e.build());
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a download event. */
+  public static WorkspaceRuleEvent newDownloadAndExtractEvent(
+      List<URL> urls,
+      String output,
+      String sha256,
+      String type,
+      String stripPrefix,
+      String ruleLabel,
+      Location location) {
+    WorkspaceLogProtos.DownloadAndExtractEvent.Builder e =
+        WorkspaceLogProtos.DownloadAndExtractEvent.newBuilder()
+            .setOutput(output)
+            .setSha256(sha256)
+            .setType(type)
+            .setStripPrefix(stripPrefix);
+    for (URL u : urls) {
+      e.addUrl(u.toString());
+    }
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setDownloadAndExtractEvent(e.build());
     if (location != null) {
       result = result.setLocation(location.print());
     }

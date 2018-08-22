@@ -298,11 +298,16 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void download(Object url, Object output, String sha256, Boolean executable)
+  public void download(
+      Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDownloadEvent(
+            urls, output.toString(), sha256, executable, rule.getLabel().toString(), location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
@@ -326,10 +331,21 @@ public class SkylarkRepositoryContext
 
   @Override
   public void downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix)
+      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDownloadAndExtractEvent(
+            urls,
+            output.toString(),
+            sha256,
+            type,
+            stripPrefix,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
 
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
