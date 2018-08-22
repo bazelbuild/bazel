@@ -29,21 +29,23 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 # These are the variables needed by tools/test/collect_cc_coverage.sh
 # They will be properly sub-shelled when invoking the script.
-readonly coverage_dir="${PWD}"
-readonly coverage_gcov_path="${PWD}/mygcov"
-readonly root="${PWD}"
-readonly coverage_manifest="${PWD}/coverage_manifest.txt"
-readonly coverage_output_file="${PWD}/coverage_report.dat"
+readonly COVERAGE_DIR_VAR="${PWD}"
+readonly COVERAGE_GCOV_PATH_VAR="${PWD}/mygcov"
+readonly ROOT_VAR="${PWD}"
+readonly COVERAGE_MANIFEST_VAR="${PWD}/COVERAGE_MANIFEST_VAR.txt"
+readonly COVERAGE_OUTPUT_FILE_VAR="${PWD}/coverage_report.dat"
+
+# The script that is tested.
+readonly COLLECT_CC_COVERAGE_SCRIPT=tools/test/collect_cc_coverage.sh
 
 # Setup to be run for every test.
 function set_up() {
   # The script expects gcov to be at $COVERAGE_GCOV_PATH.
-  local gcov_location=$( which gcov )
-  cp "$gcov_location" "${PWD}/mygcov"
+  cp $( which gcov ) "$COVERAGE_GCOV_PATH_VAR"
 
   # The script expects the output file to already exist.
   touch "${PWD}/coverage_report.dat"
-  echo "coverage_srcs/a.gcno" >> "${PWD}/coverage_manifest.txt"
+  echo "coverage_srcs/a.gcno" >> "${PWD}/COVERAGE_MANIFEST_VAR.txt"
 
   # Create the CC sources.
   mkdir -p coverage_srcs/
@@ -91,18 +93,19 @@ function generate_gcno_files() {
 
 # Reads the list of arguments provided by the caller (using $@) and uses them
 # to produce an instrumented binary using g++.
+# - path_to_binary destination of the binary produced by g++
 function generate_instrumented_binary() {
   local path_to_binary="${1}"; shift
   # "-fprofile-arcs -ftest-coverage" tells the compiler to generate coverage
   # information needed by gcov and include additional code in the object files
   # for generating the profiling.
   g++ -fprofile-arcs -ftest-coverage "$@" -o "$path_to_binary"  && return 0
-  fail "Couldn't produce the instrumented binary for $@"
+  fail "Couldn't produce the instrumented binary for $@ with path_to_binary $path_to_binary"
   return 1
 }
 
-# Execute the test coverage_srcs/test and generate the
-# coverage_srcs/test.gcda file.
+# Execute an instrumented binary and generate the gcda file.
+# - path_to_binary path of instrumented binary
 function generate_gcda_file() {
   local path_to_binary="${1}"
   "$path_to_binary" && return 0
@@ -114,10 +117,18 @@ function tear_down() {
   rm -rf coverage_srcs/
 }
 
+# Runs the script that computes the code coverage report for CC code.
+# Sets up the sub-shell environment accordingly:
+# - COVERAGE_DIR            Directory containing gcda files.
+# - COVERAGE_MANIFEST       Location of the instrumented file manifest.
+# - COVERAGE_OUTPUT_FILE    Location of the final coverage report.
+# - COVERAGE_GCOV_PATH      Location of gcov.
+# - ROOT                    Location from where the code coverage collection
+#                           was invoked.
 function run_coverage() {
-  (COVERAGE_DIR="$coverage_dir" COVERAGE_GCOV_PATH="$coverage_gcov_path" \
-   ROOT="$root" COVERAGE_MANIFEST="$coverage_manifest" \
-   COVERAGE_OUTPUT_FILE="$coverage_output_file" tools/test/collect_cc_coverage.sh)
+  (COVERAGE_DIR="$COVERAGE_DIR_VAR" COVERAGE_GCOV_PATH="$COVERAGE_GCOV_PATH_VAR" \
+   ROOT="$ROOT_VAR" COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
+   COVERAGE_OUTPUT_FILE="$COVERAGE_OUTPUT_FILE_VAR" "$COLLECT_CC_COVERAGE_SCRIPT")
 }
 
 function test_cc_test_coverage() {
@@ -159,7 +170,7 @@ end_of_record
 EOF
 
   # tools/test/collect_cc_coverage.sh places the coverage result in $COVERAGE_OUTPUT_FILE
-  diff -u expected_result.dat "$coverage_output_file" >> $TEST_log \
+  diff -u expected_result.dat "$COVERAGE_OUTPUT_FILE_VAR" >> $TEST_log \
     || fail "Coverage output file is different than the expected file"
 }
 
