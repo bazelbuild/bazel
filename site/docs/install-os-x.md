@@ -87,6 +87,9 @@ https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
 ### Step 2: Install the Bazel Homebrew package
 
+_Please note that if your system has the Bazel package from homebrew core installed you first
+need to uninstall it by typing `brew uninstall bazel`_
+
 Install the Bazel package via Homebrew as follows:
 
 ```bash
@@ -106,3 +109,5 @@ Once installed, you can upgrade to a newer version of Bazel using the following 
 ```bash
 brew upgrade bazel
 ```
+
+
