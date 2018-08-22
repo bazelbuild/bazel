@@ -382,10 +382,8 @@ public class CppOptions extends FragmentOptions {
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
-        "Generate binaries with FDO instrumentation. Specify the relative "
-            + "directory name for the .gcda files at runtime with GCC compiler. "
-            + "With Clang/LLVM compiler, it also accepts the directory name under"
-            + "which the raw profile file(s) will be dumped at runtime."
+        "Generate binaries with FDO instrumentation. With Clang/LLVM compiler, it also accepts the "
+            + "directory name under which the raw profile file(s) will be dumped at runtime."
   )
   public String fdoInstrumentForBuild;
 

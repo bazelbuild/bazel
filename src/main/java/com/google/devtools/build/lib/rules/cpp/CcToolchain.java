@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -407,14 +406,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     FdoSupportValue fdoSupport;
     try {
       fdoSupport = (FdoSupportValue) skyframeEnv.getValueOrThrow(
-          fdoKey, FdoException.class, IOException.class);
-    } catch (FdoException | IOException e) {
-      ruleContext.ruleError("cannot initialize FDO: " + e.getMessage());
-      return null;
+          fdoKey, IOException.class);
+    } catch (IOException e) {
+     ruleContext.ruleError("cannot initialize FDO: " + e.getMessage());
+     return null;
     }
 
     if (skyframeEnv.valuesMissing()) {
-      return null;
+     return null;
     }
 
     final Label label = ruleContext.getLabel();
