@@ -14,12 +14,13 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 
 /**
@@ -53,9 +54,11 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         storedEventFilter,
         errorInfoManager,
         keepGoing,
-        threadCount,
         progressReceiver,
-        graphInconsistencyReceiver);
+        graphInconsistencyReceiver,
+        () -> AbstractQueueVisitor.createExecutorService(threadCount),
+        new SimpleCycleDetector(),
+        EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
   }
 
   public ParallelEvaluator(
@@ -69,7 +72,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      ForkJoinPool forkJoinPool,
+      ExecutorService executorService,
       CycleDetector cycleDetector,
       EvaluationVersionBehavior evaluationVersionBehavior) {
     super(
@@ -83,7 +86,7 @@ public class ParallelEvaluator extends AbstractExceptionalParallelEvaluator<Runt
         keepGoing,
         progressReceiver,
         graphInconsistencyReceiver,
-        forkJoinPool,
+        () -> executorService,
         cycleDetector,
         evaluationVersionBehavior);
   }

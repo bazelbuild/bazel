@@ -23,6 +23,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -140,26 +141,26 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
             .build());
   }
 
-  /**
-   * Creates an {@link AbstractQueueVisitor}, similar to {@link #AbstractQueueVisitor(int, long,
-   * TimeUnit, boolean, String, ErrorClassifier)}, but whose work is ordered by a {@link
-   * PriorityBlockingQueue}. The {@link Runnable} objects submitted to {@link #execute(Runnable)}
-   * must implement {@link Comparable}.
-   */
-  public static AbstractQueueVisitor createWithPriorityQueue(
-      int parallelism,
-      long keepAliveTime,
-      TimeUnit units,
+  public static ExecutorService createExecutorService(int parallelism) {
+    return createExecutorService(
+        parallelism,
+        /*keepAliveTime=*/ 1,
+        TimeUnit.SECONDS,
+        new PriorityBlockingQueue<>(),
+        "skyframe-evaluator");
+  }
+
+  public static AbstractQueueVisitor createWithExecutorService(
+      ExecutorService executorService,
       boolean failFastOnException,
-      String poolName,
       ErrorClassifier errorClassifier) {
-    return new AbstractQueueVisitor(
-        createExecutorService(
-            parallelism, keepAliveTime, units, new PriorityBlockingQueue<>(), poolName),
-        true,
-        failFastOnException,
-        errorClassifier,
-        /*usingPriorityQueue=*/ true);
+    if (executorService instanceof ForkJoinPool) {
+      return ForkJoinQuiescingExecutor.newBuilder()
+          .withOwnershipOf((ForkJoinPool) executorService)
+          .setErrorClassifier(errorClassifier)
+          .build();
+    }
+    return new AbstractQueueVisitor(executorService, true, failFastOnException, errorClassifier);
   }
 
   /**
