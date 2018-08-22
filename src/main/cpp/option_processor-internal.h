@@ -16,7 +16,6 @@
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
 
 #include <algorithm>
-#include <set>
 
 #include "src/main/cpp/rc_file.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -30,24 +29,6 @@ namespace internal {
 // omitted.
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths);
-
-// Given the set of already-ready files, warns if any of the newly loaded_rcs
-// are duplicates. All paths are expected to be canonical.
-void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
-                               const std::deque<std::string>& loaded_rcs);
-
-// Get the legacy list of rc files that would have been loaded - this is to
-// provide a useful warning if files are being ignored that were loaded in a
-// previous version of Bazel.
-// TODO(b/3616816): Remove this once the warning is no longer useful.
-std::set<std::string> GetOldRcPaths(
-    const WorkspaceLayout* workspace_layout, const std::string& workspace,
-    const std::string& cwd, const std::string& path_to_binary,
-    const std::vector<std::string>& startup_args);
-
-// Returns what the "user bazelrc" would have been in the legacy rc list.
-std::string FindLegacyUserBazelrc(const char* cmd_line_rc_file,
-                                  const std::string& workspace);
 
 std::string FindSystemWideRc();
 

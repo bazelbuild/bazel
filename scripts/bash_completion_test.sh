@@ -406,9 +406,9 @@ test_basic_subcommand_expansion() {
                      'shutdown '
 }
 
-test_common_startup_options() {
-    # 'Test common startup option completion'
-    assert_expansion '--hos' \
+test_common_options() {
+    # 'Test common option completion'
+    assert_expansion '--h' \
                      '--host_jvm_'
     assert_expansion '--host_jvm_a' \
                      '--host_jvm_args='

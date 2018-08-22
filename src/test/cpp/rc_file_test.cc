@@ -28,7 +28,6 @@
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
-using ::testing::ContainsRegex;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
 
@@ -44,7 +43,7 @@ class RcFileTest : public ::testing::Test {
  protected:
   RcFileTest()
       : workspace_(
-            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "workspace")),
+            blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "testdir")),
         cwd_(blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "cwd")),
         binary_dir_(
             blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "bazeldir")),
@@ -105,34 +104,20 @@ class RcFileTest : public ::testing::Test {
     system_bazelrc_path = old_system_bazelrc_path_.c_str();
   }
 
-  bool SetUpSystemRcFile(const std::string& contents,
+  bool SetUpGlobalRcFile(const std::string& contents,
                          std::string* rcfile_path) const {
-    const std::string system_rc_path =
+    const std::string global_rc_path =
         blaze_util::ConvertPath(blaze_util::JoinPath(cwd_, "bazel.bazelrc"));
 
-    if (blaze_util::WriteFile(contents, system_rc_path, 0755)) {
-      *rcfile_path = system_rc_path;
+    if (blaze_util::WriteFile(contents, global_rc_path, 0755)) {
+      *rcfile_path = global_rc_path;
       return true;
     }
     return false;
   }
 
-  bool SetUpWorkspaceRcFile(const std::string& contents,
-                            std::string* rcfile_path) const {
-    const std::string workspace_user_rc_path =
-        blaze_util::JoinPath(workspace_, ".bazelrc");
-    if (blaze_util::WriteFile(contents, workspace_user_rc_path, 0755)) {
-      *rcfile_path = workspace_user_rc_path;
-      return true;
-    }
-    return false;
-  }
-
-  // TODO(b/36168162): Make it possible to configure the home directory so we
-  // can test --home_rc as well.
-
-  bool SetUpLegacyMasterRcFileInWorkspace(const std::string& contents,
-                                          std::string* rcfile_path) const {
+  bool SetUpMasterRcFileInWorkspace(const std::string& contents,
+                                    std::string* rcfile_path) const {
     const std::string tools_dir = blaze_util::JoinPath(workspace_, "tools");
     const std::string workspace_rc_path =
         blaze_util::JoinPath(tools_dir, "bazel.rc");
@@ -144,8 +129,8 @@ class RcFileTest : public ::testing::Test {
     return false;
   }
 
-  bool SetUpLegacyMasterRcFileAlongsideBinary(const std::string& contents,
-                                              std::string* rcfile_path) const {
+  bool SetUpMasterRcFileAlongsideBinary(const std::string& contents,
+                                        std::string* rcfile_path) const {
     const std::string binary_rc_path =
         blaze_util::JoinPath(binary_dir_, "bazel.bazelrc");
     if (blaze_util::WriteFile(contents, binary_rc_path, 0755)) {
@@ -155,20 +140,16 @@ class RcFileTest : public ::testing::Test {
     return false;
   }
 
-  void ParseOptionsAndCheckOutput(
-      const std::vector<std::string>& args,
-      const blaze_exit_code::ExitCode expected_exit_code,
-      const std::string& expected_error_regex,
-      const std::string& expected_output_regex) {
-    std::string error;
-    testing::internal::CaptureStderr();
-    const blaze_exit_code::ExitCode exit_code =
-        option_processor_->ParseOptions(args, workspace_, cwd_, &error);
-    const std::string& output = testing::internal::GetCapturedStderr();
-
-    ASSERT_EQ(expected_exit_code, exit_code) << error;
-    ASSERT_THAT(error, ContainsRegex(expected_error_regex));
-    ASSERT_THAT(output, ContainsRegex(expected_output_regex));
+  // This file is looked for if no --bazelrc is explicitly provided.
+  bool SetUpUserRcFileInWorkspace(const std::string& contents,
+                                  std::string* rcfile_path) const {
+    const std::string workspace_user_rc_path =
+        blaze_util::JoinPath(workspace_, ".bazelrc");
+    if (blaze_util::WriteFile(contents, workspace_user_rc_path, 0755)) {
+      *rcfile_path = workspace_user_rc_path;
+      return true;
+    }
+    return false;
   }
 
   const std::string workspace_;
@@ -182,38 +163,16 @@ class RcFileTest : public ::testing::Test {
 
 using GetRcFileTest = RcFileTest;
 
-TEST_F(GetRcFileTest, GetRcFilesLoadsAllDefaultBazelrcs) {
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
+TEST_F(GetRcFileTest, GetRcFilesLoadsAllMasterBazelrcs) {
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
-
-  const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // There should be 2 rc files: the system one and the workspace one. --bazelrc
-  // is not passed and therefore is not relevant.
-  ASSERT_EQ(2, parsed_rcs.size());
-  const std::deque<std::string> expected_system_rc_que = {system_rc};
-  const std::deque<std::string> expected_workspace_rc_que = {workspace_rc};
-  EXPECT_EQ(expected_system_rc_que, parsed_rcs[0].get()->sources());
-  EXPECT_EQ(expected_workspace_rc_que, parsed_rcs[1].get()->sources());
-}
-
-TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("", &workspace_rc));
+  std::string binary_rc;
+  ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("", &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("", &global_rc));
 
   const CommandLine cmd_line =
-      CommandLine(binary_path_, {"--nosystem_rc"}, "build", {});
+      CommandLine(binary_path_, {"--bazelrc=/dev/null"}, "build", {});
   std::string error = "check that this string is not modified";
   std::vector<std::unique_ptr<RcFile>> parsed_rcs;
   const blaze_exit_code::ExitCode exit_code =
@@ -222,40 +181,29 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoSystemRc) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
 
-  ASSERT_EQ(1, parsed_rcs.size());
+  // There should be 4 rc files, since "/dev/null" does count along with the 3
+  // master rcs.
+  ASSERT_EQ(4, parsed_rcs.size());
   const std::deque<std::string> expected_workspace_rc_que = {workspace_rc};
+  const std::deque<std::string> expected_binary_rc_que = {binary_rc};
+  const std::deque<std::string> expected_global_rc_que = {global_rc};
+  const std::deque<std::string> expected_user_rc_que = {kNullDevice};
   EXPECT_EQ(expected_workspace_rc_que, parsed_rcs[0].get()->sources());
+  EXPECT_EQ(expected_binary_rc_que, parsed_rcs[1].get()->sources());
+  EXPECT_EQ(expected_global_rc_que, parsed_rcs[2].get()->sources());
+  EXPECT_EQ(expected_user_rc_que, parsed_rcs[3].get()->sources());
 }
 
-TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRc) {
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
+TEST_F(GetRcFileTest, GetRcFilesRespectsNoMasterBazelrc) {
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
-
-  const CommandLine cmd_line =
-      CommandLine(binary_path_, {"--noworkspace_rc"}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  ASSERT_EQ(1, parsed_rcs.size());
-  const std::deque<std::string> expected_system_rc_que = {system_rc};
-  EXPECT_EQ(expected_system_rc_que, parsed_rcs[0].get()->sources());
-}
-
-TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRcAndNoSystemCombined) {
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("", &workspace_rc));
+  std::string binary_rc;
+  ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("", &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("", &global_rc));
 
   const CommandLine cmd_line = CommandLine(
-      binary_path_, {"--noworkspace_rc", "--nosystem_rc"}, "build", {});
+      binary_path_, {"--nomaster_bazelrc", "--bazelrc=/dev/null"}, "build", {});
   std::string error = "check that this string is not modified";
   std::vector<std::unique_ptr<RcFile>> parsed_rcs;
   const blaze_exit_code::ExitCode exit_code =
@@ -264,68 +212,12 @@ TEST_F(GetRcFileTest, GetRcFilesRespectsNoWorkspaceRcAndNoSystemCombined) {
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
 
-  ASSERT_EQ(0, parsed_rcs.size());
+  // /dev/null is technically a file, but no master rcs should have been loaded.
+  const std::deque<std::string> expected_user_rc_que = {kNullDevice};
+  EXPECT_EQ(expected_user_rc_que, parsed_rcs[0].get()->sources());
 }
 
-TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-  std::string binary_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileAlongsideBinary("", &binary_rc));
-
-  const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string& output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // Expect that GetRcFiles outputs a warning about these files that are not
-  // read as expected.
-  EXPECT_THAT(output,
-              HasSubstr("The following rc files are no longer being read"));
-  EXPECT_THAT(output, HasSubstr(workspace_rc));
-  EXPECT_THAT(output, HasSubstr(binary_rc));
-}
-
-TEST_F(
-    GetRcFileTest,
-    GetRcFilesDoesNotWarnAboutIgnoredMasterRcFilesWhenNoMasterBazelrcIsPassed) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-  std::string binary_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileAlongsideBinary("", &binary_rc));
-
-  const CommandLine cmd_line =
-      CommandLine(binary_path_, {"--nomaster_bazelrc"}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string& output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // Expect that nothing is logged to stderr about ignored rc files when these
-  // files are disabled.
-  EXPECT_THAT(
-      output,
-      Not(HasSubstr("The following rc files are no longer being read")));
-  EXPECT_THAT(output, Not(HasSubstr(workspace_rc)));
-  EXPECT_THAT(output, Not(HasSubstr(binary_rc)));
-}
-
-TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
+TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineUserRc) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
   ASSERT_TRUE(
@@ -350,24 +242,25 @@ TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
   EXPECT_THAT(parsed_rcs[0].get()->sources().front(), HasSubstr("mybazelrc"));
 }
 
-TEST_F(GetRcFileTest, GetRcFilesAcceptsNullCommandLineRc) {
+TEST_F(GetRcFileTest, GetRcFilesReadsUserRcInWorkspace) {
+  // We expect the user rc to be read when from the workspace if no alternative
+  // --bazelrc is provided.
+  std::string user_workspace_rc;
+  ASSERT_TRUE(SetUpUserRcFileInWorkspace("", &user_workspace_rc));
+
   const CommandLine cmd_line =
-      CommandLine(binary_path_,
-                  {"--nosystem_rc", "--noworkspace_rc", "--nohome_rc",
-                   "--bazelrc=/dev/null"},
-                  "build", {});
+      CommandLine(binary_path_, {"--nomaster_bazelrc"}, "build", {});
   std::string error = "check that this string is not modified";
   std::vector<std::unique_ptr<RcFile>> parsed_rcs;
   const blaze_exit_code::ExitCode exit_code =
       option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
                                     &cmd_line, &parsed_rcs, &error);
-  // /dev/null is not an error
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
-  // but it does technically count as a file
+
+  const std::deque<std::string> expected_user_rc_que = {user_workspace_rc};
   ASSERT_EQ(1, parsed_rcs.size());
-  const std::deque<std::string> expected_rc_que = {kNullDevice};
-  EXPECT_EQ(expected_rc_que, parsed_rcs[0].get()->sources());
+  EXPECT_EQ(expected_user_rc_que, parsed_rcs[0].get()->sources());
 }
 
 using ParseOptionsTest = RcFileTest;
@@ -375,15 +268,17 @@ using ParseOptionsTest = RcFileTest;
 TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresAllMasterAndUserRcFiles) {
   // Put fake options in different expected rc files, to check that none of them
   // are read.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --workspacefoo", &workspace_rc));
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("startup --systemfoo", &system_rc));
-  const std::string cmdline_rc_path =
-      blaze_util::JoinPath(workspace_, "mybazelrc");
+  std::string user_workspace_rc;
   ASSERT_TRUE(
-      blaze_util::MakeDirectories(blaze_util::Dirname(cmdline_rc_path), 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("startup --myfoo", cmdline_rc_path, 0755));
+      SetUpUserRcFileInWorkspace("startup --userfoo", &user_workspace_rc));
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --workspacemasterfoo",
+                                           &workspace_rc));
+  std::string binary_rc;
+  ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("startup --binarymasterfoo",
+                                               &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("startup --globalmasterfoo", &global_rc));
 
   const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
                                          "build"};
@@ -402,9 +297,10 @@ TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresAllMasterAndUserRcFiles) {
   EXPECT_EQ(output, "");
 }
 
-TEST_F(ParseOptionsTest, LaterIgnoreAllRcFilesValueWins) {
+TEST_F(ParseOptionsTest, LaterIgnoreRcFileValueWins) {
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --workspacefoo", &workspace_rc));
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --workspacemasterfoo",
+                                           &workspace_rc));
 
   const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
                                          "--noignore_all_rc_files", "build"};
@@ -412,7 +308,7 @@ TEST_F(ParseOptionsTest, LaterIgnoreAllRcFilesValueWins) {
   EXPECT_EQ(blaze_exit_code::BAD_ARGV,
             option_processor_->ParseOptions(args, workspace_, cwd_, &error));
   ASSERT_EQ(
-      "Unknown startup option: '--workspacefoo'.\n  For more info, run "
+      "Unknown startup option: '--workspacemasterfoo'.\n  For more info, run "
       "'bazel help startup_options'.",
       error);
 
@@ -422,26 +318,28 @@ TEST_F(ParseOptionsTest, LaterIgnoreAllRcFilesValueWins) {
   option_processor_->PrintStartupOptionsProvenanceMessage();
   const std::string& output = testing::internal::GetCapturedStderr();
 
-  EXPECT_THAT(
-      output,
-      MatchesRegex("INFO: Reading 'startup' options from .*workspace.*bazelrc: "
-                   "--workspacefoo\n"));
+  EXPECT_THAT(output,
+              MatchesRegex("INFO: Reading 'startup' options from .*bazel.rc: "
+                           "--workspacemasterfoo\n"));
 }
 
 TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresCommandLineRcFileToo) {
   // Put fake options in different expected rc files, to check that none of them
   // are read.
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --workspacefoo", &workspace_rc));
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("startup --systemfoo", &system_rc));
-
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --workspacemasterfoo",
+                                           &workspace_rc));
+  std::string binary_rc;
+  ASSERT_TRUE(SetUpMasterRcFileAlongsideBinary("startup --binarymasterfoo",
+                                               &binary_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("startup --globalmasterfoo", &global_rc));
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
   ASSERT_TRUE(
       blaze_util::MakeDirectories(blaze_util::Dirname(cmdline_rc_path), 0755));
   ASSERT_TRUE(
-      blaze_util::WriteFile("startup --cmdlinefoo", cmdline_rc_path, 0755));
+      blaze_util::WriteFile("startup --userfoo", cmdline_rc_path, 0755));
 
   const std::vector<std::string> args = {binary_path_, "--ignore_all_rc_files",
                                          "--bazelrc=" + cmdline_rc_path,
@@ -492,9 +390,9 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasUnknownOption) {
                   "INFO: Reading 'startup' options from .*mybazelrc: --foo\n"));
 }
 
-TEST_F(ParseOptionsTest, BazelrcHasUnknownOption) {
+TEST_F(ParseOptionsTest, MasterBazelrcHasUnknownOption) {
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --foo", &workspace_rc));
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --foo", &workspace_rc));
 
   const std::vector<std::string> args = {binary_path_, "build"};
 
@@ -513,16 +411,20 @@ TEST_F(ParseOptionsTest, BazelrcHasUnknownOption) {
   option_processor_->PrintStartupOptionsProvenanceMessage();
   const std::string& output = testing::internal::GetCapturedStderr();
 
-  EXPECT_THAT(output, MatchesRegex("INFO: Reading 'startup' options from "
-                                   ".*workspace.*bazelrc: --foo\n"));
+  EXPECT_THAT(
+      output,
+      MatchesRegex(
+          "INFO: Reading 'startup' options from .*tools.bazel.rc: --foo\n"));
 }
 
 TEST_F(ParseOptionsTest,
-       IncorrectWorkspaceBazelrcIgnoredWhenNoWorkspaceRcIsPresent) {
+       IncorrectMasterBazelrcIgnoredWhenNoMasterBazelrcIsPresent) {
   std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --foo", &workspace_rc));
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --foo", &workspace_rc));
+  std::string global_rc;
+  ASSERT_TRUE(SetUpGlobalRcFile("startup --globalfoo", &global_rc));
 
-  const std::vector<std::string> args = {binary_path_, "--noworkspace_rc",
+  const std::vector<std::string> args = {binary_path_, "--nomaster_bazelrc",
                                          "build"};
 
   // Expect no error due to the incorrect --foo.
@@ -540,15 +442,47 @@ TEST_F(ParseOptionsTest,
   EXPECT_EQ(output, "");
 }
 
-TEST_F(ParseOptionsTest, PositiveOptionOverridesNegativeOption) {
-  std::string workspace_rc;
+TEST_F(ParseOptionsTest, UserBazelrcHasPriorityOverMasterBazelrc) {
+  std::string user_rc;
   ASSERT_TRUE(
-      SetUpWorkspaceRcFile("startup --max_idle_secs=123", &workspace_rc));
+      SetUpUserRcFileInWorkspace("startup --max_idle_secs=123", &user_rc));
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --max_idle_secs=42",
+                                           &workspace_rc));
 
-  const std::vector<std::string> args = {"bazel", "--noworkspace_rc",
-                                         "--workspace_rc", "build"};
-  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+  const std::vector<std::string> args = {binary_path_, "build"};
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
 
+  EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
+
+  // Check that the startup options' provenance message contains the correct
+  // information for the provided rc, and prints nothing for the master bazelrc.
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string& output = testing::internal::GetCapturedStderr();
+
+  const std::string expected_message = "INFO: Reading 'startup' options from " +
+                                       workspace_rc +
+                                       ": --max_idle_secs=42\n"
+                                       "INFO: Reading 'startup' options from " +
+                                       user_rc + ": --max_idle_secs=123\n";
+  EXPECT_EQ(output, expected_message);
+}
+
+TEST_F(ParseOptionsTest, MasterBazelrcOverridesNoMasterBazelrc) {
+  std::string workspace_rc;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace("startup --max_idle_secs=123",
+                                           &workspace_rc));
+
+  const std::vector<std::string> args = {"bazel", "--nomaster_bazelrc",
+                                         "--master_bazelrc", "build"};
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
 
   // Check that the startup options' provenance message contains the correct
@@ -557,19 +491,22 @@ TEST_F(ParseOptionsTest, PositiveOptionOverridesNegativeOption) {
   option_processor_->PrintStartupOptionsProvenanceMessage();
   const std::string& output = testing::internal::GetCapturedStderr();
 
-  EXPECT_THAT(output,
-              MatchesRegex("INFO: Reading 'startup' options from "
-                           ".*workspace.*bazelrc: --max_idle_secs=123\n"));
+  EXPECT_THAT(output, MatchesRegex("INFO: Reading 'startup' options from "
+                                   ".*tools.bazel.rc: --max_idle_secs=123\n"));
 }
 
 TEST_F(ParseOptionsTest, MultipleStartupArgsInMasterBazelrcWorksCorrectly) {
   // Add startup flags to the master bazelrc.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile(
-      "startup --max_idle_secs=42\nstartup --io_nice_level=6", &workspace_rc));
+  std::string master_rc_path;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace(
+      "startup --max_idle_secs=42\nstartup --io_nice_level=6",
+      &master_rc_path));
 
   const std::vector<std::string> args = {binary_path_, "build"};
-  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
 
   EXPECT_EQ(42, option_processor_->GetParsedStartupOptions()->max_idle_secs);
   EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
@@ -582,15 +519,16 @@ TEST_F(ParseOptionsTest, MultipleStartupArgsInMasterBazelrcWorksCorrectly) {
 
   EXPECT_THAT(
       output,
-      MatchesRegex("INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+      MatchesRegex("INFO: Reading 'startup' options from .*tools.bazel.rc: "
                    "--max_idle_secs=42 --io_nice_level=6\n"));
 }
 
-TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
-  // Add startup flags to the workspace bazelrc.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile(
-      "startup --max_idle_secs=42\nstartup --io_nice_level=6", &workspace_rc));
+TEST_F(ParseOptionsTest, CustomBazelrcOverridesMasterBazelrc) {
+  // Add startup flags to the master bazelrc.
+  std::string master_rc_path;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace(
+      "startup --max_idle_secs=42\nstartup --io_nice_level=6",
+      &master_rc_path));
 
   // Override one of the master bazelrc's flags in the commandline rc.
   const std::string cmdline_rc_path =
@@ -602,7 +540,10 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
 
   const std::vector<std::string> args = {
       "bazel", "--bazelrc=" + cmdline_rc_path, "build"};
-  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
 
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
   EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
@@ -615,7 +556,7 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
 
   EXPECT_THAT(
       output,
-      MatchesRegex("INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+      MatchesRegex("INFO: Reading 'startup' options from .*tools.*bazel.rc: "
                    "--max_idle_secs=42 --io_nice_level=6\n"
                    "INFO: Reading 'startup' options from .*mybazelrc: "
                    "--max_idle_secs=123\n"));
@@ -632,14 +573,17 @@ TEST_F(ParseOptionsTest, BazelRcImportsMaintainsFlagOrdering) {
       imported_rc_path, 0755));
 
   // Add startup flags the imported bazelrc.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("startup --max_idle_secs=42\nimport " +
-                                       imported_rc_path +
-                                       "\nstartup --io_nice_level=6",
-                                   &workspace_rc));
+  std::string master_rc_path;
+  ASSERT_TRUE(SetUpMasterRcFileInWorkspace(
+      "startup --max_idle_secs=42\nimport " + imported_rc_path +
+          "\nstartup --io_nice_level=6",
+      &master_rc_path));
 
   const std::vector<std::string> args = {"bazel", "build"};
-  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+  std::string error;
+  ASSERT_EQ(blaze_exit_code::SUCCESS,
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+      << error;
 
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
   EXPECT_EQ(6, option_processor_->GetParsedStartupOptions()->io_nice_level);
@@ -652,144 +596,12 @@ TEST_F(ParseOptionsTest, BazelRcImportsMaintainsFlagOrdering) {
 
   EXPECT_THAT(
       output,
-      MatchesRegex("INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+      MatchesRegex("INFO: Reading 'startup' options from .*tools.*bazel.rc: "
                    "--max_idle_secs=42\n"
                    "INFO: Reading 'startup' options from .*myimportedbazelrc: "
                    "--max_idle_secs=123 --io_nice_level=4\n"
-                   "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+                   "INFO: Reading 'startup' options from .*tools.*bazel.rc: "
                    "--io_nice_level=6\n"));
-}
-
-TEST_F(ParseOptionsTest, BazelRcImportFailsForMissingFile) {
-  const std::string missing_imported_rc_path =
-      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("import " + missing_imported_rc_path,
-                                   &workspace_rc));
-
-  const std::vector<std::string> args = {"bazel", "build"};
-  ParseOptionsAndCheckOutput(
-      args, blaze_exit_code::INTERNAL_ERROR,
-      "Unexpected error reading .blazerc file '.*myimportedbazelrc'", "");
-}
-
-TEST_F(ParseOptionsTest, DoubleImportsCauseAWarning) {
-  const std::string imported_rc_path =
-      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
-  ASSERT_TRUE(
-      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("", imported_rc_path, 0755));
-
-  // Import the custom location twice.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile(
-      "import " + imported_rc_path + "\n"
-        "import " + imported_rc_path + "\n",
-      &workspace_rc));
-
-  const std::vector<std::string> args = {"bazel", "build"};
-  ParseOptionsAndCheckOutput(
-      args, blaze_exit_code::SUCCESS, "",
-      "WARNING: Duplicate rc file: .*myimportedbazelrc is imported multiple "
-      "times from .*workspace.*bazelrc\n");
-}
-
-TEST_F(ParseOptionsTest, DeepDoubleImportCausesAWarning) {
-  const std::string dual_imported_rc_path =
-      blaze_util::JoinPath(workspace_, "dual_imported.bazelrc");
-  ASSERT_TRUE(blaze_util::MakeDirectories(
-      blaze_util::Dirname(dual_imported_rc_path), 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("", dual_imported_rc_path, 0755));
-
-  const std::string intermediate_import_1 =
-      blaze_util::JoinPath(workspace_, "intermediate_import_1");
-  ASSERT_TRUE(blaze_util::MakeDirectories(
-      blaze_util::Dirname(intermediate_import_1), 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("import " + dual_imported_rc_path,
-                                    intermediate_import_1, 0755));
-
-  const std::string intermediate_import_2 =
-      blaze_util::JoinPath(workspace_, "intermediate_import_2");
-  ASSERT_TRUE(blaze_util::MakeDirectories(
-      blaze_util::Dirname(intermediate_import_2), 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("import " + dual_imported_rc_path,
-                                    intermediate_import_2, 0755));
-
-  // Import the custom location twice.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile(
-      "import " + intermediate_import_1 + "\n"
-        "import " + intermediate_import_2 + "\n",
-      &workspace_rc));
-
-  const std::vector<std::string> args = {"bazel", "build"};
-  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "",
-                             "WARNING: Duplicate rc file: "
-                             ".*dual_imported.bazelrc is imported multiple "
-                             "times from .*workspace.*bazelrc\n");
-}
-
-// TODO(b/112908763): C:/ and c:\\ paths don't compare well, making this fail on
-// Windows. Adding all the conversions necessary to get around this is probably
-// not the right approach either, so leaving this coverage out for Windows. We
-// should not be using string equality for path comparisons, but have a path
-// type which handles these differences for the correct platform. Fix this and
-// enable this test.
-#if !defined(_WIN32) && !defined(__CYGWIN__)
-TEST_F(ParseOptionsTest, ImportingAFileAndPassingItInCausesAWarning) {
-  const std::string imported_rc_path =
-      blaze_util::JoinPath(workspace_, "myimportedbazelrc");
-  ASSERT_TRUE(
-      blaze_util::MakeDirectories(blaze_util::Dirname(imported_rc_path), 0755));
-  ASSERT_TRUE(blaze_util::WriteFile("", imported_rc_path, 0755));
-
-  // Import the custom location, and pass it in by flag.
-  std::string workspace_rc;
-  ASSERT_TRUE(
-      SetUpWorkspaceRcFile("import " + imported_rc_path, &workspace_rc));
-
-  const std::vector<std::string> args = {
-      "bazel", "--bazelrc=" + imported_rc_path, "build"};
-  ParseOptionsAndCheckOutput(
-      args, blaze_exit_code::SUCCESS, "",
-      "WARNING: Duplicate rc file: .*myimportedbazelrc is read multiple times, "
-      "it is a standard rc file location but must have been unnecessarilly "
-      "imported earlier.\n");
-}
-
-TEST_F(ParseOptionsTest, ImportingAPreviouslyLoadedStandardRcCausesAWarning) {
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("", &system_rc));
-
-  // Import the system_rc extraneously.
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("import " + system_rc, &workspace_rc));
-
-  const std::vector<std::string> args = {"bazel", "build"};
-  std::string output;
-
-  ParseOptionsAndCheckOutput(
-      args, blaze_exit_code::SUCCESS, "",
-      "WARNING: Duplicate rc file: .*bazel.bazelrc is read multiple "
-      "times, most recently imported from .*workspace.*bazelrc\n");
-}
-#endif  // !defined(_WIN32) && !defined(__CYGWIN__)
-
-TEST_F(ParseOptionsTest, ImportingStandardRcBeforeItIsLoadedCausesAWarning) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpWorkspaceRcFile("", &workspace_rc));
-
-  // Import the workspace_rc extraneously.
-  std::string system_rc;
-  ASSERT_TRUE(SetUpSystemRcFile("import " + workspace_rc, &system_rc));
-
-  const std::vector<std::string> args = {"bazel", "build"};
-  std::string output;
-  ParseOptionsAndCheckOutput(
-      args, blaze_exit_code::SUCCESS, "",
-      "WARNING: Duplicate rc file: .*workspace.*bazelrc is read multiple "
-      "times, it is a standard rc file location but must have been "
-      "unnecessarilly imported earlier.\n");
 }
 
 }  // namespace blaze

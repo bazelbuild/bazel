@@ -57,8 +57,7 @@ public abstract class DocumentationTestUtil {
   public static void validateUserManual(
       List<Class<? extends BlazeModule>> modules,
       ConfiguredRuleClassProvider ruleClassProvider,
-      String documentationSource,
-      Set<String> extraValidOptions)
+      String documentationSource)
       throws Exception {
     // if there is a class missing, one can find it using
     //   find . -name "*.java" -exec grep -Hn "@Option(name = " {} \; | grep "xxx"
@@ -72,7 +71,9 @@ public abstract class DocumentationTestUtil {
         BlazeCommandUtils.getStartupOptions(blazeModules)) {
       validOptions.addAll(Options.getDefaults(optionsClass).asMap().keySet());
     }
-    validOptions.addAll(extraValidOptions);
+    // --bazelrc and --master_bazelrc are aliases for blaze equivalents. Add these explicitly.
+    validOptions.add("bazelrc");
+    validOptions.add("master_bazelrc");
 
     // collect all command options
     ServerBuilder serverBuilder = new ServerBuilder();

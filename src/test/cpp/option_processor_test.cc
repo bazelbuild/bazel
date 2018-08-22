@@ -310,12 +310,6 @@ TEST_F(OptionProcessorTest, TestDedupePathsOmitsInvalidPath) {
   ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
 }
 
-TEST_F(OptionProcessorTest, TestDedupePathsOmitsEmptyPath) {
-  std::vector<std::string> input = {""};
-  std::vector<std::string> expected = {};
-  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
-}
-
 TEST_F(OptionProcessorTest, TestDedupePathsWithDifferentFiles) {
   std::string foo_path = blaze_util::JoinPath(workspace_, "foo");
   std::string bar_path = blaze_util::JoinPath(workspace_, "bar");

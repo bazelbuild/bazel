@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Provides Bazel startup flags. */
@@ -44,47 +43,17 @@ public class BazelStartupOptionsModule extends BlazeModule {
                 + "release builds.")
     public String blazerc;
 
-    // TODO(b/36168162): Remove this after the transition period is ower. This now only serves to
-    // provide accurate warnings about which old files are being missed.
     @Option(
         name = "master_bazelrc",
         defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
+        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
         help =
             "If this option is false, the master bazelrcs are not read. Otherwise, Bazel looks for "
                 + "master rcs in three locations, reading them all, in order: "
                 + "$workspace/tools/bazel.rc, a .bazelrc file near the bazel binary, and the "
                 + "global rc, /etc/bazel.bazelrc.")
     public boolean masterBlazerc;
-
-    // For the system_rc, it can be /etc/bazel.bazelrc, or a special Windows value, or can be
-    // custom-set by the Bazel distributor. We don't list a known path in the help output in order
-    // to avoid misdocumentation here.
-    @Option(
-        name = "system_rc",
-        defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        help = "Whether or not to look for the system-wide bazelrc.")
-    public boolean systemRc;
-
-    @Option(
-        name = "workspace_rc",
-        defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        help = "Whether or not to look for the workspace bazelrc file at $workspace/.bazelrc")
-    public boolean workspaceRc;
-
-    @Option(
-        name = "home_rc",
-        defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-        effectTags = {OptionEffectTag.CHANGES_INPUTS},
-        help = "Whether or not to look for the home bazelrc file at $HOME/.bazelrc")
-    public boolean homeRc;
   }
 
   @Override

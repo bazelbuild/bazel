@@ -85,13 +85,10 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsNullaryOption(options, "deep_execroot");
   ExpectIsNullaryOption(options, "experimental_oom_more_eagerly");
   ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
-  ExpectIsNullaryOption(options, "home_rc");
   ExpectIsNullaryOption(options, "host_jvm_debug");
   ExpectIsNullaryOption(options, "ignore_all_rc_files");
   ExpectIsNullaryOption(options, "master_bazelrc");
-  ExpectIsNullaryOption(options, "system_rc");
   ExpectIsNullaryOption(options, "watchfs");
-  ExpectIsNullaryOption(options, "workspace_rc");
   ExpectIsNullaryOption(options, "write_command_log");
   ExpectIsUnaryOption(options, "bazelrc");
   ExpectIsUnaryOption(options, "command_port");
@@ -131,28 +128,28 @@ TEST_F(BazelStartupOptionsTest, IgnoredBazelrcFlagWarnsWhenAfterIgnore) {
       "on.\n");
 }
 
-TEST_F(BazelStartupOptionsTest, IgnoredWorkspaceRcFlagWarns) {
+TEST_F(BazelStartupOptionsTest, IgnoredMasterBazelrcFlagWarns) {
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--workspace_rc", "--ignore_all_rc_files"},
-      "WARNING: Explicit value of --workspace_rc is ignored, "
+      startup_options_.get(), {"--master_bazelrc", "--ignore_all_rc_files"},
+      "WARNING: Explicit value of --master_bazelrc is ignored, "
       "since --ignore_all_rc_files is on.\n");
 }
 
-TEST_F(BazelStartupOptionsTest, IgnoredWorkspaceRcFlagWarnsAfterIgnore) {
+TEST_F(BazelStartupOptionsTest, IgnoredMasterBazelrcFlagWarnsAfterIgnore) {
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--ignore_all_rc_files", "--workspace_rc"},
-      "WARNING: Explicit value of --workspace_rc is ignored, "
+      startup_options_.get(), {"--ignore_all_rc_files", "--master_bazelrc"},
+      "WARNING: Explicit value of --master_bazelrc is ignored, "
       "since --ignore_all_rc_files is on.\n");
 }
 
 TEST_F(BazelStartupOptionsTest, MultipleIgnoredRcFlagsWarnOnceEach) {
   ParseStartupOptionsAndExpectWarning(
       startup_options_.get(),
-      {"--workspace_rc", "--bazelrc=somefile", "--ignore_all_rc_files",
-       "--bazelrc=thefinalfile", "--workspace_rc"},
+      {"--master_bazelrc", "--bazelrc=somefile", "--ignore_all_rc_files",
+       "--bazelrc=thefinalfile", "--master_bazelrc"},
       "WARNING: Value of --bazelrc is ignored, "
       "since --ignore_all_rc_files is on.\n"
-      "WARNING: Explicit value of --workspace_rc is ignored, "
+      "WARNING: Explicit value of --master_bazelrc is ignored, "
       "since --ignore_all_rc_files is on.\n");
 }
 
