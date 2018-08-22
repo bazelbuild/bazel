@@ -91,8 +91,13 @@ public abstract class OptionsBase {
    */
   public final String cacheKey() {
     StringBuilder result = new StringBuilder(getClass().getName()).append("{");
+    result.append(mapToCacheKey(asMap()));
+    return result.append("}").toString();
+  }
 
-    for (Map.Entry<String, Object> entry : asMap().entrySet()) {
+  public static String mapToCacheKey(Map<String, Object> optionsMap) {
+    StringBuilder result = new StringBuilder();
+    for (Map.Entry<String, Object> entry : optionsMap.entrySet()) {
       result.append(entry.getKey()).append("=");
 
       Object value = entry.getValue();
@@ -110,15 +115,12 @@ public abstract class OptionsBase {
       }
       result.append(", ");
     }
-
-    return result.append("}").toString();
+    return result.toString();
   }
 
   @Override
   public final boolean equals(Object that) {
-    return that != null &&
-        this.getClass() == that.getClass() &&
-        this.asMap().equals(((OptionsBase) that).asMap());
+    return that instanceof OptionsBase && this.asMap().equals(((OptionsBase) that).asMap());
   }
 
   @Override
