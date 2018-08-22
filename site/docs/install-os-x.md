@@ -76,11 +76,7 @@ To update to a newer release of Bazel, download and install the desired version.
 
 ## <a name="install-on-mac-os-x-homebrew"></a>Installing using Homebrew
 
-### Step 1: Install the JDK
-
-Download the JDK from [Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html). Look for "macOS" under "Java SE Development Kit" and download JDK version 8.
-
-### Step 2: Install Homebrew on macOS
+### Step 1: Install Homebrew on macOS
 
 Install Homebrew (a one-time step):
 
@@ -89,11 +85,13 @@ Install Homebrew (a one-time step):
 https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
-### Step 3: Install the Bazel Homebrew package
+### Step 2: Install the Bazel Homebrew package
 
 Install the Bazel package via Homebrew as follows:
 
 ```bash
+brew tap bazelbuild/tap
+brew tap-pin bazelbuild/tap
 brew install bazel
 ```
 
