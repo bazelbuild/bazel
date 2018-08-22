@@ -372,7 +372,7 @@ public final class IntermediateArtifacts {
    */
   public CppModuleMap moduleMap() {
     String moduleName;
-    if (ruleContext.attributes().has("module_name")) {
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("module_name")) {
       moduleName = ruleContext.attributes().get("module_name", Type.STRING);
     } else {
       moduleName =

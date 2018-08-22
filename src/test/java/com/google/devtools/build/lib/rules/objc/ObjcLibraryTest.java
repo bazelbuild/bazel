@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
+import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
@@ -585,6 +586,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
     List<String> args = compileAction("//lib:lib", "a.o").getArguments();
     assertThat(args).containsAllOf("-fobjc-arc", "-foo", "-bar").inOrder();
+  }
+
+  @Test
+  public void testBothModuleNameAndModuleMapGivesError() throws Exception {
+    checkError(
+        "x",
+        "x",
+        BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED,
+        "objc_library( name = 'x', module_name = 'x', module_map = 'x.modulemap' )");
   }
 
   @Test
