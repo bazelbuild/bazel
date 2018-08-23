@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
@@ -687,6 +688,22 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testModuleNameAttributeChangesName() throws Exception {
+    RULE_TYPE.scratchTarget(
+        scratch,
+        "module_name",
+        "'foo'");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:x");
+    Artifact moduleMap = getGenfilesArtifact("x.modulemaps/module.modulemap", configuredTarget);
+
+    CppModuleMapAction genMap = (CppModuleMapAction) getGeneratingAction(moduleMap);
+
+    CppModuleMap cppModuleMap = genMap.getCppModuleMap();
+    assertThat(cppModuleMap.getName()).isEqualTo("foo");
+  }
+
+  @Test
   public void testModuleMapActionFiltersHeaders() throws Exception {
     RULE_TYPE.scratchTarget(
         scratch,
@@ -702,6 +719,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     assertThat(Artifact.toRootRelativePaths(genMap.getPrivateHeaders())).isEmpty();
     assertThat(Artifact.toRootRelativePaths(genMap.getPublicHeaders())).containsExactly("x/a.h");
+
+    // now check the generated name
+    CppModuleMap cppModuleMap = genMap.getCppModuleMap();
+    assertThat(cppModuleMap.getName()).isEqualTo("x_x");
   }
 
   @Test
