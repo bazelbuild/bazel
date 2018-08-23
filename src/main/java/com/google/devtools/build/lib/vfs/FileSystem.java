@@ -244,13 +244,6 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns whether the given digest is a valid digest for the default digest function.
-   */
-  public boolean isValidDigest(byte[] digest) {
-    return digestFunction.isValidDigest(digest);
-  }
-
-  /**
    * Returns the digest of the file denoted by the path, following symbolic links.
    *
    * <p>Subclasses may (and do) optimize this computation for a particular digest functions.
