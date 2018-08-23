@@ -44,6 +44,7 @@ function strip_lines_from_bazel_cc() {
     -e '/server needs to be killed, because the startup options are different/d' \
     -e '/^WARNING: Waiting for server process to terminate (waited 5 seconds, waiting at most 60)$/d' \
     -e '/^WARNING: The startup option --host_javabase is deprecated; prefer --server_javabase.$/d' \
+    -e '/^WARNING: The home directory is not defined, no home_rc will be looked for.$/d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log
