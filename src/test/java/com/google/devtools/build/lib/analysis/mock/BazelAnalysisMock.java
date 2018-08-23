@@ -131,6 +131,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name = 'test_setup', srcs = ['test-setup.sh'])",
         "filegroup(name = 'test_xml_generator', srcs = ['test-xml-generator.sh'])",
         "filegroup(name = 'collect_coverage', srcs = ['collect_coverage.sh'])",
+        "filegroup(name = 'collect_cc_coverage', srcs = ['collect_cc_coverage.sh'])",
         "filegroup(name='coverage_support', srcs=['collect_coverage.sh'])",
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
 
