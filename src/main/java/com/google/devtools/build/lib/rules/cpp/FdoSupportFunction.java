@@ -18,11 +18,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -35,19 +32,9 @@ public class FdoSupportFunction implements SkyFunction {
     this.directories = Preconditions.checkNotNull(directories);
   }
 
-  /**
-   * Wrapper for FDO exceptions.
-   */
-  public static class FdoSkyException extends SkyFunctionException {
-    public FdoSkyException(Exception cause, Transience transience) {
-      super(cause, transience);
-    }
-  }
-
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws FdoSkyException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env.getValue(
         WorkspaceNameValue.key());
     if (env.valuesMissing()) {
@@ -58,22 +45,15 @@ public class FdoSupportFunction implements SkyFunction {
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
     Path fdoZip =
         key.getFdoZip() == null ? null : directories.getWorkspace().getRelative(key.getFdoZip());
-    FdoSupport fdoSupport;
-
-    try {
-      fdoSupport =
-          FdoSupport.create(
-              env,
-              key.getFdoInstrument(),
-              fdoZip,
-              execRoot,
-              directories.getProductName(),
-              key.getFdoMode());
-      if (env.valuesMissing()) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new FdoSkyException(e, Transience.TRANSIENT);
+    FdoSupport fdoSupport = FdoSupport.create(
+        env,
+        key.getFdoInstrument(),
+        fdoZip,
+        execRoot,
+        directories.getProductName(),
+        key.getFdoMode());
+    if (env.valuesMissing()) {
+      return null;
     }
 
     return new FdoSupportValue(fdoSupport);

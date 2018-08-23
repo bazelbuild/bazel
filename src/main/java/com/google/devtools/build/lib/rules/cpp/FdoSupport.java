@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
-import java.io.IOException;
 
 /**
  * Support class for FDO (feedback directed optimization).
@@ -99,11 +97,6 @@ public class FdoSupport {
   private final PathFragment fdoRootExecPath;
 
   /**
-   * Path of FDO files under the FDO root.
-   */
-  private final PathFragment fdoPath;
-
-  /**
    * FDO mode.
    */
   private final FdoMode fdoMode;
@@ -126,10 +119,6 @@ public class FdoSupport {
     this.fdoProfile = fdoProfile;
     this.fdoRoot = fdoRoot;
     this.fdoRootExecPath = fdoRootExecPath;
-    this.fdoPath = fdoProfile == null
-        ? null
-        : FileSystemUtils.removeExtension(PathFragment.create("_fdo").getChild(
-            fdoProfile.getBaseName()));
     this.fdoMode = fdoMode;
   }
 
@@ -144,7 +133,7 @@ public class FdoSupport {
       Path fdoProfile,
       Path execRoot,
       String productName,
-      FdoMode fdoMode) throws IOException, InterruptedException {
+      FdoMode fdoMode) throws InterruptedException {
 
     ArtifactRoot fdoRoot =
         (fdoProfile == null)
@@ -169,11 +158,6 @@ public class FdoSupport {
       return null;
     }
 
-    if (fdoProfile != null && execRoot != null
-        && (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO)) {
-      FileSystemUtils.ensureSymbolicLink(
-          execRoot.getRelative(getAutoProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
-    }
     return new FdoSupport(fdoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile);
   }
 
@@ -202,7 +186,7 @@ public class FdoSupport {
     }
 
     // FDO is disabled -> do nothing.
-    if ((fdoInstrument == null) && (fdoRoot == null)) {
+    if (fdoInstrument == null && fdoRoot == null) {
       return ImmutableMap.of();
     }
 
@@ -226,7 +210,7 @@ public class FdoSupport {
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
               CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-              getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
+              fdoSupportProvider.getProfileArtifact().getExecPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
           if (fdoMode == FdoMode.LLVM_FDO) {
@@ -262,14 +246,6 @@ public class FdoSupport {
     } else {
       return auxiliaryInputs.build();
     }
-  }
-
-  private static PathFragment getAutoProfilePath(Path fdoProfile, PathFragment fdoRootExecPath) {
-    return fdoRootExecPath.getRelative(getAutoProfileRootRelativePath(fdoProfile));
-  }
-
-  private static PathFragment getAutoProfileRootRelativePath(Path fdoProfile) {
-    return PathFragment.create(fdoProfile.getBaseName());
   }
 
   /**
@@ -319,32 +295,5 @@ public class FdoSupport {
     Artifact profile = fdoSupportProvider.getProfileArtifact();
     buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
     return new ProfileArtifacts(profile, prefetch);
-  }
-
-  public FdoSupportProvider createFdoSupportProvider(
-      RuleContext ruleContext, ProfileArtifacts profiles) {
-    if (fdoRoot == null) {
-      return new FdoSupportProvider(this, profiles);
-    }
-
-    if (fdoMode == FdoMode.LLVM_FDO) {
-      Preconditions.checkState(profiles != null && profiles.getProfileArtifact() != null);
-      return new FdoSupportProvider(this, profiles);
-    }
-
-    Preconditions.checkState(fdoPath != null);
-    PathFragment profileRootRelativePath = getAutoProfileRootRelativePath(fdoProfile);
-
-    Artifact profileArtifact =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getDerivedArtifact(fdoPath.getRelative(profileRootRelativePath), fdoRoot);
-    ruleContext.registerAction(new FdoStubAction(ruleContext.getActionOwner(), profileArtifact));
-    Preconditions.checkState(fdoPath != null);
-
-    return new FdoSupportProvider(
-        this,
-        new ProfileArtifacts(
-            profileArtifact, profiles == null ? null : profiles.getPrefetchHintsArtifact()));
   }
 }

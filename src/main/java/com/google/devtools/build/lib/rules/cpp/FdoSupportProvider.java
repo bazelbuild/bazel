@@ -37,9 +37,11 @@ public class FdoSupportProvider implements TransitiveInfoProvider {
   public FdoSupport getFdoSupport() {
     return fdoSupport;
   }
+
   public Artifact getProfileArtifact() {
     return profileArtifacts != null ? profileArtifacts.getProfileArtifact() : null;
   }
+
   public Artifact getPrefetchHintsArtifact() {
     return profileArtifacts != null ? profileArtifacts.getPrefetchHintsArtifact() : null;
   }

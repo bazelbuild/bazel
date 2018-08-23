@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -209,8 +210,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * the indexed format (.profdata) if necessary.
    */
   private Artifact convertLLVMRawProfileToIndexed(
-      PathFragment fdoProfile, CppToolchainInfo toolchainInfo, RuleContext ruleContext)
-      throws InterruptedException {
+      PathFragment fdoProfile, CppToolchainInfo toolchainInfo, RuleContext ruleContext) {
 
     Artifact profileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
@@ -553,7 +553,19 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       if (ruleContext.hasErrors()) {
         return null;
       }
+    } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
+      Path fdoProfile = fdoSupport.getFdoSupport().getFdoProfile();
+      profileArtifact = ruleContext.getUniqueDirectoryArtifact(
+              "fdo",
+              fdoProfile.getBaseName(),
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(new SymlinkAction(
+          ruleContext.getActionOwner(),
+          fdoProfile.asFragment(),
+          profileArtifact,
+          "Symlinking FDO profile " + fdoProfile.getPathString()));
     }
+
     Artifact hintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
     ProfileArtifacts profileArtifacts = new ProfileArtifacts(profileArtifact, hintsArtifact);
 
@@ -606,8 +618,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .addProvider(
-                fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifacts))
+            .addProvider(new FdoSupportProvider(fdoSupport.getFdoSupport(), profileArtifacts))
             .setFilesToBuild(crosstool)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
