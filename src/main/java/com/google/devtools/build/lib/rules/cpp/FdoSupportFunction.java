@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -24,6 +23,14 @@ import javax.annotation.Nullable;
 
 /**
  * Wrapper for {@link FdoSupport} that turns it into a {@link SkyFunction}.
+ *
+ * <p>This only exists because the value of {@code --fdo_optimize} can be a workspace-relative path
+ * and thus we need to depend on {@link BlazeDirectories} somehow, which neither the configuration
+ * nor the analysis phase can "officially" do.
+ *
+ * <p>The fix is probably to make it possible for
+ * {@link com.google.devtools.build.lib.analysis.actions.SymlinkAction} to create workspace-relative
+ * symlinks because action execution can hopefully depend on {@link BlazeDirectories}.
  */
 public class FdoSupportFunction implements SkyFunction {
   private final BlazeDirectories directories;
@@ -35,27 +42,10 @@ public class FdoSupportFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env.getValue(
-        WorkspaceNameValue.key());
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    Path execRoot = directories.getExecRoot(workspaceNameValue.getName());
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
     Path fdoZip =
         key.getFdoZip() == null ? null : directories.getWorkspace().getRelative(key.getFdoZip());
-    FdoSupport fdoSupport = FdoSupport.create(
-        env,
-        key.getFdoInstrument(),
-        fdoZip,
-        execRoot,
-        directories.getProductName(),
-        key.getFdoMode());
-    if (env.valuesMissing()) {
-      return null;
-    }
-
+    FdoSupport fdoSupport = new FdoSupport(key.getFdoMode(), key.getFdoInstrument(), fdoZip);
     return new FdoSupportValue(fdoSupport);
   }
 

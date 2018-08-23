@@ -14,31 +14,22 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 
 /**
  * Support class for FDO (feedback directed optimization).
  *
- * <p>{@link FdoSupport#create} is called from {@link FdoSupportFunction} (a {@link SkyFunction}),
+ * <p>{@link FdoSupport} is created from {@link FdoSupportFunction} (a {@link SkyFunction}),
  * which is requested from Skyframe by the {@code cc_toolchain} rule.
  *
  * <p>For each C++ compile action in the target configuration, {@link #configureCompilation} is
@@ -83,20 +74,6 @@ public class FdoSupport {
   private final Path fdoProfile;
 
   /**
-   * Temporary directory to which the coverage ZIP file is extracted to (relative to the exec root),
-   * or {@code null} if FDO optimization is disabled. This is used to create artifacts for the
-   * extracted files.
-   *
-   * <p>Note that this root is intentionally not registered with the artifact factory.
-   */
-  private final ArtifactRoot fdoRoot;
-
-  /**
-   * The relative path of the FDO root to the exec root.
-   */
-  private final PathFragment fdoRootExecPath;
-
-  /**
    * FDO mode.
    */
   private final FdoMode fdoMode;
@@ -109,60 +86,14 @@ public class FdoSupport {
    */
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  FdoSupport(
-      FdoMode fdoMode,
-      ArtifactRoot fdoRoot,
-      PathFragment fdoRootExecPath,
-      String fdoInstrument,
-      Path fdoProfile) {
+  FdoSupport(FdoMode fdoMode, String fdoInstrument, Path fdoProfile) {
     this.fdoInstrument = fdoInstrument;
     this.fdoProfile = fdoProfile;
-    this.fdoRoot = fdoRoot;
-    this.fdoRootExecPath = fdoRootExecPath;
     this.fdoMode = fdoMode;
   }
 
   public Path getFdoProfile() {
     return fdoProfile;
-  }
-
-  /** Creates an initialized {@link FdoSupport} instance. */
-  static FdoSupport create(
-      SkyFunction.Environment env,
-      String fdoInstrument,
-      Path fdoProfile,
-      Path execRoot,
-      String productName,
-      FdoMode fdoMode) throws InterruptedException {
-
-    ArtifactRoot fdoRoot =
-        (fdoProfile == null)
-            ? null
-            : ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative(productName + "-fdo"));
-
-    PathFragment fdoRootExecPath = fdoProfile == null
-        ? null
-        : fdoRoot.getExecPath().getRelative(FileSystemUtils.removeExtension(
-            PathFragment.create("_fdo").getChild(fdoProfile.getBaseName())));
-
-    if (fdoProfile != null) {
-        Path path = fdoMode == FdoMode.AUTO_FDO ? getAutoFdoImportsPath(fdoProfile) : fdoProfile;
-        env.getValue(
-            FileValue.key(
-                RootedPath.toRootedPathMaybeUnderRoot(
-                    path, ImmutableList.of(Root.fromPath(execRoot)))));
-
-    }
-
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    return new FdoSupport(fdoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile);
-  }
-
-  private static Path getAutoFdoImportsPath(Path fdoProfile) {
-     return fdoProfile.getParentDirectory().getRelative(fdoProfile.getBaseName() + ".imports");
   }
 
   /**
@@ -172,21 +103,19 @@ public class FdoSupport {
   @ThreadSafe
   public ImmutableMap<String, String> configureCompilation(
       CppCompileActionBuilder builder,
-      RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       FdoSupportProvider fdoSupportProvider) {
 
     ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
 
-    if ((fdoSupportProvider != null)
-        && (fdoSupportProvider.getPrefetchHintsArtifact() != null)) {
+    if (fdoSupportProvider != null && fdoSupportProvider.getPrefetchHintsArtifact() != null) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
           fdoSupportProvider.getPrefetchHintsArtifact().getExecPathString());
     }
 
     // FDO is disabled -> do nothing.
-    if (fdoInstrument == null && fdoRoot == null) {
+    if (fdoInstrument == null && fdoProfile == null) {
       return ImmutableMap.of();
     }
 
@@ -196,14 +125,8 @@ public class FdoSupport {
     }
 
     // Optimization phase
-    if (fdoRoot != null) {
-      AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
-      // Declare dependency on contents of zip file.
-      if (env.getSkyframeEnv().valuesMissing()) {
-        return ImmutableMap.of();
-      }
-      Iterable<Artifact> auxiliaryInputs =
-          getAuxiliaryInputs(fdoSupportProvider);
+    if (fdoProfile != null) {
+      Iterable<Artifact> auxiliaryInputs = getAuxiliaryInputs(fdoSupportProvider);
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
@@ -217,10 +140,6 @@ public class FdoSupport {
             variablesBuilder.put(
                 CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
                 fdoSupportProvider.getProfileArtifact().getExecPathString());
-          } else {
-            variablesBuilder.put(
-                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-                fdoRootExecPath.getPathString());
           }
         }
       }

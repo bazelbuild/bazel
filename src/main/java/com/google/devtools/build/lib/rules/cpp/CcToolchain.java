@@ -67,7 +67,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -403,15 +402,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             fdoMode);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    FdoSupportValue fdoSupport;
-    try {
-      fdoSupport = (FdoSupportValue) skyframeEnv.getValueOrThrow(
-          fdoKey, IOException.class);
-    } catch (IOException e) {
-     ruleContext.ruleError("cannot initialize FDO: " + e.getMessage());
-     return null;
-    }
-
+    FdoSupportValue fdoSupport = (FdoSupportValue) skyframeEnv.getValue(fdoKey);
     if (skyframeEnv.valuesMissing()) {
      return null;
     }
