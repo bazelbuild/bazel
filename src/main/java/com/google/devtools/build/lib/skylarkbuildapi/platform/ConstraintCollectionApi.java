@@ -34,7 +34,7 @@ public interface ConstraintCollectionApi<
     extends SkylarkIndexable, SkylarkValue {
 
   @SkylarkCallable(
-      name = "constraintSettings",
+      name = "constraint_settings",
       doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true)
   ImmutableSet<ConstraintSettingInfoT> constraintSettings();
