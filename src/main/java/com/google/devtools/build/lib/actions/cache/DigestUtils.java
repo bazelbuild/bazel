@@ -18,14 +18,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
-import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Longs;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -35,7 +33,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 
 /**
  * Utility class for getting md5 digests of files.
@@ -140,7 +137,7 @@ public class DigestUtils {
    * represent the paths as strings, not as {@link Path} instances. As a result, the loading
    * function cannot actually compute the digests of the files so we have to handle this externally.
    */
-  private static volatile Cache<CacheKey, byte[]> globalCache = null;
+  private static Cache<CacheKey, byte[]> globalCache = null;
 
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
@@ -226,30 +223,22 @@ public class DigestUtils {
   public static byte[] getDigestOrFail(Path path, long fileSize)
       throws IOException {
     byte[] digest = path.getFastDigest();
-
-    if (digest != null && !path.isValidDigest(digest)) {
-      // Fail-soft in cases where md5bin is non-null, but not a valid digest.
-      String msg = String.format("Malformed digest '%s' for file %s",
-                                 BaseEncoding.base16().lowerCase().encode(digest),
-                                 path);
-      LoggingUtil.logToRemote(Level.SEVERE, msg, new IllegalStateException(msg));
-      digest = null;
-    }
-
-    // At this point, either we could not get a fast digest or the fast digest we got is corrupt.
-    // Attempt a cache lookup if the cache is enabled and return the cached digest if found.
-    Cache<CacheKey, byte[]> cache = globalCache;
-    CacheKey key = null;
-    if (cache != null && digest == null) {
-      key = new CacheKey(path, path.stat());
-      digest = cache.getIfPresent(key);
-    }
     if (digest != null) {
       return digest;
     }
 
-    // All right, we have neither a fast nor a cached digest. Let's go through the costly process of
-    // computing it from the file contents.
+    // Attempt a cache lookup if the cache is enabled.
+    Cache<CacheKey, byte[]> cache = globalCache;
+    CacheKey key = null;
+    if (cache != null) {
+      key = new CacheKey(path, path.stat());
+      digest = cache.getIfPresent(key);
+      if (digest != null) {
+        return digest;
+      }
+    }
+
+    // Compute digest from the file contents.
     if (fileSize > MULTI_THREADED_DIGEST_MAX_FILE_SIZE && !MULTI_THREADED_DIGEST.get()) {
       // We'll have to read file content in order to calculate the digest.
       // We avoid overlapping this process for multiple large files, as
@@ -260,16 +249,8 @@ public class DigestUtils {
       digest = getDigestInternal(path);
     }
 
-    Preconditions.checkNotNull(
-        digest,
-        "We should have gotten a digest for %s at this point but we still don't have one",
-        path);
+    Preconditions.checkNotNull(digest);
     if (cache != null) {
-      Preconditions.checkNotNull(
-          key,
-          "We should have computed a cache key earlier for %s because the cache is enabled and we"
-              + " did not get a fast digest for this file, but we don't have a key here",
-          path);
       cache.put(key, digest);
     }
     return digest;

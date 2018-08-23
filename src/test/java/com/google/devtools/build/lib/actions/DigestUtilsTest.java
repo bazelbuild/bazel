@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheStats;
@@ -128,56 +127,6 @@ public class DigestUtilsTest {
       assertDigestCalculationConcurrency(true, false, small, large, hf);
       assertDigestCalculationConcurrency(false, false, large, large, hf);
     }
-  }
-
-  public void assertRecoverFromMalformedDigest(DigestHashFunction... hashFunctions)
-      throws Exception {
-    for (DigestHashFunction hf : hashFunctions) {
-      final byte[] malformed = {0, 0, 0};
-      FileSystem myFS =
-          new InMemoryFileSystem(BlazeClock.instance(), hf) {
-            @Override
-            protected byte[] getFastDigest(Path path) throws IOException {
-              // Digest functions have more than 3 bytes, usually at least 16.
-              return malformed;
-            }
-          };
-      Path path = myFS.getPath("/file");
-      FileSystemUtils.writeContentAsLatin1(path, "a");
-      byte[] result = DigestUtils.getDigestOrFail(path, 1);
-      assertThat(result).isEqualTo(path.getDigest());
-      assertThat(result).isNotSameAs(malformed);
-      assertThat(path.isValidDigest(result)).isTrue();
-    }
-  }
-
-  @Test
-  public void testRecoverFromMalformedDigestWithoutCache() throws Exception {
-    try {
-      DigestUtils.getCacheStats();
-      fail("Digests cache should remain disabled until configureCache is called");
-    } catch (NullPointerException expected) {
-    }
-    assertRecoverFromMalformedDigest(DigestHashFunction.MD5, DigestHashFunction.SHA1);
-    try {
-      DigestUtils.getCacheStats();
-      fail("Digests cache was unexpectedly enabled through the test");
-    } catch (NullPointerException expected) {
-    }
-  }
-
-  @Test
-  public void testRecoverFromMalformedDigestWithCache() throws Exception {
-    DigestUtils.configureCache(10);
-    assertThat(DigestUtils.getCacheStats()).isNotNull(); // Ensure the cache is enabled.
-
-    // When using the cache, we cannot run our test using different hash functions because the
-    // hash function is not part of the cache key. This is intentional: the hash function is
-    // essentially final and can only be changed for tests. Therefore, just test the same hash
-    // function twice to further exercise the cache code.
-    assertRecoverFromMalformedDigest(DigestHashFunction.MD5, DigestHashFunction.MD5);
-
-    assertThat(DigestUtils.getCacheStats()).isNotNull(); // Ensure the cache remains enabled.
   }
 
   /** Helper class to assert the cache statistics. */
