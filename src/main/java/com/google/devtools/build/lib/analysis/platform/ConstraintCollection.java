@@ -123,6 +123,10 @@ public class ConstraintCollection
     printer.append(">");
   }
 
+  /**
+   * Adds information to the {@link Fingerprint} to uniquely identify this collection of
+   * constraints.
+   */
   public void addToFingerprint(Fingerprint fp) {
     fp.addInt(constraints.size());
     constraints.values().forEach(constraintValue -> constraintValue.addTo(fp));
