@@ -14,6 +14,11 @@
 package com.google.devtools.build.lib.bazel.debug;
 
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.OsEvent;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.SymlinkEvent;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.TemplateEvent;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.events.Location;
 import java.net.URL;
@@ -102,7 +107,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     return new WorkspaceRuleEvent(result.build());
   }
 
-  /** Creates a new WorkspaceRuleEvent for a download event. */
+  /** Creates a new WorkspaceRuleEvent for a download and excract event. */
   public static WorkspaceRuleEvent newDownloadAndExtractEvent(
       List<URL> urls,
       String output,
@@ -124,6 +129,106 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setDownloadAndExtractEvent(e.build());
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a file event. */
+  public static WorkspaceRuleEvent newFileEvent(
+      String path, String content, boolean executable, String ruleLabel, Location location) {
+    FileEvent e =
+        WorkspaceLogProtos.FileEvent.newBuilder()
+            .setPath(path)
+            .setContent(content)
+            .setExecutable(executable)
+            .build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setFileEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for an os event. */
+  public static WorkspaceRuleEvent newOsEvent(String ruleLabel, Location location) {
+    OsEvent e = WorkspaceLogProtos.OsEvent.getDefaultInstance();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setOsEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a symlink event. */
+  public static WorkspaceRuleEvent newSymlinkEvent(
+      String from, String to, String ruleLabel, Location location) {
+    SymlinkEvent e = WorkspaceLogProtos.SymlinkEvent.newBuilder().setFrom(from).setTo(to).build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setSymlinkEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a template event. */
+  public static WorkspaceRuleEvent newTemplateEvent(
+      String path,
+      String template,
+      Map<String, String> substitutions,
+      boolean executable,
+      String ruleLabel,
+      Location location) {
+    TemplateEvent e =
+        WorkspaceLogProtos.TemplateEvent.newBuilder()
+            .setPath(path)
+            .setTemplate(template)
+            .putAllSubstitutions(substitutions)
+            .setExecutable(executable)
+            .build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setTemplateEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.print());
+    }
+    if (ruleLabel != null) {
+      result = result.setRule(ruleLabel);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a which event. */
+  public static WorkspaceRuleEvent newWhichEvent(
+      String program, String ruleLabel, Location location) {
+    WhichEvent e = WorkspaceLogProtos.WhichEvent.newBuilder().setProgram(program).build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setWhichEvent(e);
     if (location != null) {
       result = result.setLocation(location.print());
     }

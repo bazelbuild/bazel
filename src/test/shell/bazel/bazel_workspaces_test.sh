@@ -235,6 +235,64 @@ function test_download_and_extract() {
   expect_log "strip_prefix: \"server_dir/\""
 }
 
+function test_file() {
+  set_workspace_command 'repository_ctx.file("filefile.sh", "echo filefile", True)'
+
+  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
+  expect_log 'location: .*repos.bzl:2:3'
+  expect_log 'rule: "//external:repo"'
+  expect_log 'file_event'
+  expect_log 'path: ".*filefile.sh"'
+  expect_log 'content: "echo filefile"'
+  expect_log 'executable: true'
+}
+
+function test_os() {
+  set_workspace_command 'print(repository_ctx.os.name)'
+
+  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
+  expect_log 'location: .*repos.bzl:2:9'
+  expect_log 'rule: "//external:repo"'
+  expect_log 'os_event'
+}
+
+function test_symlink() {
+  set_workspace_command 'repository_ctx.file("symlink.txt", "something")
+  repository_ctx.symlink("symlink.txt", "symlink_out.txt")'
+
+  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
+  expect_log 'location: .*repos.bzl:3:3'
+  expect_log 'rule: "//external:repo"'
+  expect_log 'symlink_event'
+  expect_log 'from: ".*symlink.txt"'
+  expect_log 'to: ".*symlink_out.txt"'
+}
+
+function test_template() {
+  set_workspace_command 'repository_ctx.file("template_in.txt", "%{subKey}")
+  repository_ctx.template("template_out.txt", "template_in.txt", {"subKey": "subVal"}, True)'
+
+  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
+  expect_log 'location: .*repos.bzl:3:3'
+  expect_log 'rule: "//external:repo"'
+  expect_log 'template_event'
+  expect_log 'path: ".*template_out.txt"'
+  expect_log 'template: ".*template_in.txt"'
+  expect_log 'key: "subKey"'
+  expect_log 'value: "subVal"'
+  expect_log 'executable: true'
+}
+
+function test_which() {
+  set_workspace_command 'print(repository_ctx.which("which_prog"))'
+
+  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
+  expect_log 'location: .*repos.bzl:2:9'
+  expect_log 'rule: "//external:repo"'
+  expect_log 'which_event'
+  expect_log 'program: "which_prog"'
+}
+
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then

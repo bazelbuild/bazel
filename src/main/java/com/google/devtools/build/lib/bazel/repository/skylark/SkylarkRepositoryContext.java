@@ -135,10 +135,14 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void symlink(Object from, Object to)
+  public void symlink(Object from, Object to, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath fromPath = getPath("symlink()", from);
     SkylarkPath toPath = getPath("symlink()", to);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newSymlinkEvent(
+            fromPath.toString(), toPath.toString(), rule.getLabel().toString(), location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(toPath);
       makeDirectories(toPath.getPath());
@@ -163,9 +167,13 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void createFile(Object path, String content, Boolean executable)
+  public void createFile(Object path, String content, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("file()", path);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newFileEvent(
+            p.toString(), content, executable, rule.getLabel().toString(), location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
@@ -182,10 +190,23 @@ public class SkylarkRepositoryContext
 
   @Override
   public void createFileFromTemplate(
-      Object path, Object template, SkylarkDict<String, String> substitutions, Boolean executable)
+      Object path,
+      Object template,
+      SkylarkDict<String, String> substitutions,
+      Boolean executable,
+      Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newTemplateEvent(
+            p.toString(),
+            t.toString(),
+            substitutions,
+            executable,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
@@ -214,7 +235,9 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkOS getOS() {
+  public SkylarkOS getOS(Location location) {
+    WorkspaceRuleEvent w = WorkspaceRuleEvent.newOsEvent(rule.getLabel().toString(), location);
+    env.getListener().post(w);
     return osObject;
   }
 
@@ -259,7 +282,10 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkPath which(String program) throws EvalException {
+  public SkylarkPath which(String program, Location location) throws EvalException {
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newWhichEvent(program, rule.getLabel().toString(), location);
+    env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
       throw new EvalException(
           Location.BUILTIN,

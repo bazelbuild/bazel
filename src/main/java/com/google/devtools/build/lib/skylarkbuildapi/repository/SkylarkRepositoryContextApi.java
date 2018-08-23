@@ -78,117 +78,112 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public RepositoryPathApi<?> path(Object path) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "symlink",
-    doc = "Create a symlink on the filesystem.",
-    parameters = {
-      @Param(
-        name = "from",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path to which the created symlink should point to."
-      ),
-      @Param(
-        name = "to",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path of the symlink to create, relative to the repository directory."
-      ),
-    }
-  )
-  public void symlink(Object from, Object to)
+      name = "symlink",
+      doc = "Create a symlink on the filesystem.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "from",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path to which the created symlink should point to."),
+        @Param(
+            name = "to",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the symlink to create, relative to the repository directory."),
+      })
+  public void symlink(Object from, Object to, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "file",
-    doc = "Generate a file in the repository directory with the provided content.",
-    parameters = {
-      @Param(
-        name = "path",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path of the file to create, relative to the repository directory."
-      ),
-      @Param(
-        name = "content",
-        type = String.class,
-        named = true,
-        defaultValue = "''",
-        doc = "the content of the file to create, empty by default."
-      ),
-      @Param(
-        name = "executable",
-        named = true,
-        type = Boolean.class,
-        defaultValue = "True",
-        doc = "set the executable flag on the created file, true by default."
-      ),
-    }
-  )
-  public void createFile(Object path, String content, Boolean executable)
+      name = "file",
+      doc = "Generate a file in the repository directory with the provided content.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the file to create, relative to the repository directory."),
+        @Param(
+            name = "content",
+            type = String.class,
+            named = true,
+            defaultValue = "''",
+            doc = "the content of the file to create, empty by default."),
+        @Param(
+            name = "executable",
+            named = true,
+            type = Boolean.class,
+            defaultValue = "True",
+            doc = "set the executable flag on the created file, true by default."),
+      })
+  public void createFile(Object path, String content, Boolean executable, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "template",
-    doc =
-        "Generate a new file using a <code>template</code>. Every occurrence in "
-            + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
-            + "the corresponding value. The result is written in <code>path</code>. An optional"
-            + "<code>executable</code> argument (default to true) can be set to turn on or off"
-            + "the executable bit.",
-    parameters = {
-      @Param(
-        name = "path",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path of the file to create, relative to the repository directory."
-      ),
-      @Param(
-        name = "template",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path to the template file."
-      ),
-      @Param(
-        name = "substitutions",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "substitutions to make when expanding the template."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "True",
-        named = true,
-        doc = "set the executable flag on the created file, true by default."
-      ),
-    }
-  )
+      name = "template",
+      doc =
+          "Generate a new file using a <code>template</code>. Every occurrence in "
+              + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
+              + "the corresponding value. The result is written in <code>path</code>. An optional"
+              + "<code>executable</code> argument (default to true) can be set to turn on or off"
+              + "the executable bit.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the file to create, relative to the repository directory."),
+        @Param(
+            name = "template",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path to the template file."),
+        @Param(
+            name = "substitutions",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "substitutions to make when expanding the template."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "True",
+            named = true,
+            doc = "set the executable flag on the created file, true by default."),
+      })
   public void createFileFromTemplate(
-      Object path, Object template, SkylarkDict<String, String> substitutions, Boolean executable)
+      Object path,
+      Object template,
+      SkylarkDict<String, String> substitutions,
+      Boolean executable,
+      Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "os",
-    structField = true,
-    doc = "A struct to access information from the system."
-  )
-  public SkylarkOSApi getOS();
+      name = "os",
+      structField = true,
+      doc = "A struct to access information from the system.",
+      useLocation = true)
+  public SkylarkOSApi getOS(Location location);
 
   @SkylarkCallable(
       name = "execute",
@@ -239,16 +234,15 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
           "Returns the path of the corresponding program or None "
               + "if there is no such program in the path.",
       allowReturnNones = true,
+      useLocation = true,
       parameters = {
-          @Param(
-              name = "program",
-              type = String.class,
-              named = false,
-              doc = "Program to find in the path."
-          ),
-      }
-  )
-  public RepositoryPathApi<?> which(String program) throws EvalException;
+        @Param(
+            name = "program",
+            type = String.class,
+            named = false,
+            doc = "Program to find in the path."),
+      })
+  public RepositoryPathApi<?> which(String program, Location location) throws EvalException;
 
   @SkylarkCallable(
       name = "download",

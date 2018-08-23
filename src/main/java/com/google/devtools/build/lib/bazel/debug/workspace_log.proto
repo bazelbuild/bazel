@@ -63,6 +63,47 @@ message DownloadAndExtractEvent {
   string strip_prefix = 5;
 }
 
+// Information on "file" event in repository_ctx.
+message FileEvent {
+  // Path to the created file
+  string path = 1;
+  // Content of the created file
+  string content = 2;
+  // Whether the file is executable
+  bool executable = 3;
+}
+
+// Information on "os" event in repository_ctx.
+message OsEvent {
+  // Takes no inputs
+}
+
+// Information on "symlink" event in repository_ctx.
+message SymlinkEvent {
+  // path to which the symlink will point to
+  string from = 1;
+  // path of the symlink
+  string to = 2;
+}
+
+// Information on "template" event in repository_ctx.
+message TemplateEvent {
+  // path of the file to create
+  string path = 1;
+  // path to the template file
+  string template = 2;
+  // a map of substitutions to make
+  map<string, string> substitutions = 3;
+  // Whether to set executable flag
+  bool executable = 4;
+}
+
+// Information on "which" event in repository_ctx.
+message WhichEvent {
+  // Program to find in the path
+  string program = 1;
+}
+
 message WorkspaceEvent {
   // Location in the code (.bzl file) where the event originates.
   string location = 1;
@@ -74,5 +115,10 @@ message WorkspaceEvent {
     ExecuteEvent execute_event = 3;
     DownloadEvent download_event = 4;
     DownloadAndExtractEvent download_and_extract_event = 5;
+    FileEvent file_event = 6;
+    OsEvent os_event = 7;
+    SymlinkEvent symlink_event = 8;
+    TemplateEvent template_event = 9;
+    WhichEvent which_event = 10;
   }
 }
