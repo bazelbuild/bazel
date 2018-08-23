@@ -123,22 +123,16 @@ public class ResourcesZip {
   /**
    * @param proto apk in proto format.
    * @param attributes Tooling attributes.
-   * @param resourcesRoot The root of the raw resources.
-   * @param apkWithAssets The apk containing assets.
    * @param resourceIds Optional path to a file containing the resource ids.
+   * @param packages Optional path to a file containing the dependency packages.
    */
   public static ResourcesZip fromApkWithProto(
-      Path proto,
-      Path attributes,
-      Path resourcesRoot,
-      Path apkWithAssets,
-      Path resourceIds,
-      Path packages) {
+      Path proto, Path attributes, Path resourceIds, Path packages) {
     return new ResourcesZip(
-        resourcesRoot,
+        /* resourcesRoot= */ null,
         /* assetsRoot= */ null,
         resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
-        apkWithAssets,
+        /* apkWithAssets= */ null,
         proto,
         attributes,
         packages);
@@ -165,15 +159,19 @@ public class ResourcesZip {
                 throw new RuntimeException(e);
               }
             });
-    final Path packages = workingDirectory.resolve("packages.txt");
     return new ResourcesZip(
         Files.createDirectories(workingDirectory.resolve("res")),
         Files.createDirectories(workingDirectory.resolve("assets")),
-        workingDirectory.resolve("ids.txt"),
+        ifExists(workingDirectory.resolve("ids.txt")),
+        /** apkWithAssets */
         null,
-        workingDirectory.resolve("apk.pb"),
-        workingDirectory.resolve("tools.attributes.pb"),
-        Files.exists(packages) ? packages : null);
+        ifExists(workingDirectory.resolve("apk.pb")),
+        ifExists(workingDirectory.resolve("tools.attributes.pb")),
+        ifExists(workingDirectory.resolve("packages.txt")));
+  }
+
+  private static Path ifExists(Path path) {
+    return Files.exists(path) ? path : null;
   }
 
   /**
@@ -185,7 +183,7 @@ public class ResourcesZip {
    */
   public void writeTo(Path output, boolean compress) throws IOException {
     try (final ZipBuilder zip = ZipBuilder.createFor(output)) {
-      if (Files.exists(resourcesRoot)) {
+      if (resourcesRoot != null && Files.exists(resourcesRoot)) {
         ZipBuilderVisitorWithDirectories visitor =
             new ZipBuilderVisitorWithDirectories(zip, resourcesRoot, "res");
         visitor.setCompress(compress);
@@ -199,7 +197,7 @@ public class ResourcesZip {
         visitor.writeEntries();
       }
 
-      if (apkWithAssets != null) {
+      if (apkWithAssets != null && Files.exists(apkWithAssets)) {
         ZipFile apkZip = new ZipFile(apkWithAssets.toString());
         if (apkZip.getEntry("assets/") == null) {
           zip.addEntry("assets/", new byte[0], compress ? ZipEntry.DEFLATED : ZipEntry.STORED);
@@ -215,7 +213,7 @@ public class ResourcesZip {
                     throw new RuntimeException(e);
                   }
                 });
-      } else if (Files.exists(assetsRoot)) {
+      } else if (assetsRoot != null && Files.exists(assetsRoot)) {
         ZipBuilderVisitorWithDirectories visitor =
             new ZipBuilderVisitorWithDirectories(zip, assetsRoot, "assets");
         visitor.setCompress(compress);
@@ -319,6 +317,10 @@ public class ResourcesZip {
     return packages != null
         ? Files.readAllLines(packages, StandardCharsets.UTF_8)
         : ImmutableList.of();
+  }
+
+  Path asApk() {
+    return proto;
   }
 
   static class ShrunkProtoApk implements Closeable {

@@ -15,6 +15,7 @@ package com.google.devtools.build.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.aapt2.CompiledResources;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -80,6 +81,10 @@ public class SerializedAndroidData {
     this.assetDirs = assetDirs;
     this.label = label;
     this.symbols = symbols;
+  }
+
+  public static SerializedAndroidData from(CompiledResources primary) {
+    return new SerializedAndroidData(ImmutableList.of(), ImmutableList.of(), "", primary.getZip());
   }
 
   public void walk(final AndroidDataPathWalker pathWalker) throws IOException {

@@ -161,13 +161,8 @@ public class PackagedResources {
         packages);
   }
 
-  public ResourcesZip packageWith(Path resourceRoot) {
-    return ResourcesZip.fromApkWithProto(
-        proto, attributes, resourceRoot, apk, resourceIds, packages);
-  }
-
-  public Path getResourceIds() {
-    return resourceIds;
+  public ResourcesZip asArchive() {
+    return ResourcesZip.fromApkWithProto(proto, attributes, resourceIds, packages);
   }
 
   public Path getApk() {
