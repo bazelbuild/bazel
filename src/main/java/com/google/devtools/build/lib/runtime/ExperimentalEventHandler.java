@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -55,6 +56,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
@@ -90,6 +93,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private final boolean showProgress;
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
+  private final boolean deduplicate;
   private final OutErr outErr;
   private long minimalDelayMillis;
   private long minimalUpdateInterval;
@@ -103,6 +107,8 @@ public class ExperimentalEventHandler implements EventHandler {
   private final AtomicReference<Thread> updateThread;
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
+  private final Set<String> messagesSeen;
+  private long deduplicateCount;
 
   private final long outputLimit;
   private long reservedOutputCapacity;
@@ -234,6 +240,8 @@ public class ExperimentalEventHandler implements EventHandler {
     this.clock = clock;
     this.uiStartTimeMillis = clock.currentTimeMillis();
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
+    this.deduplicate = options.experimentalUiDeduplicate;
+    this.messagesSeen = new HashSet<>();
     // If we have cursor control, we try to fit in the terminal width to avoid having
     // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
     // characters to avoid depending on knowing whether the underlying terminal does the
@@ -358,6 +366,9 @@ public class ExperimentalEventHandler implements EventHandler {
             && (remainingCapacity() < CAPACITY_ERRORS_ONLY)
             && (event.getKind() != EventKind.ERROR)) {
           droppedEvents++;
+          return;
+        }
+        if (shouldDeduplicate(event)) {
           return;
         }
         maybeAddDate();
@@ -512,6 +523,46 @@ public class ExperimentalEventHandler implements EventHandler {
     }
   }
 
+  private boolean shouldDeduplicate(Event event) {
+    if (!deduplicate) {
+      // deduplication disabled
+      return false;
+    }
+    if (event.getKind() != EventKind.INFO) {
+      // only deduplicate INFO messages
+      return false;
+    }
+    if (event.getStdOut() == null && event.getStdErr() == null) {
+      // We deduplicate on the attached output (assuming the event itself only describes
+      // the source of the output). If no output is attached it is a differnt kind of event
+      // and should not be deduplicated.
+      return false;
+    }
+    boolean allMessagesSeen = true;
+    if (event.getStdOut() != null) {
+      for (String line : Splitter.on("\n").split(event.getStdOut())) {
+        if (!messagesSeen.contains(line)) {
+          allMessagesSeen = false;
+          messagesSeen.add(line);
+        }
+      }
+    }
+    if (event.getStdErr() != null) {
+      for (String line : Splitter.on("\n").split(event.getStdErr())) {
+        if (!messagesSeen.contains(line)) {
+          allMessagesSeen = false;
+          messagesSeen.add(line);
+        }
+      }
+    }
+    if (allMessagesSeen) {
+      synchronized (this) {
+        deduplicateCount++;
+      }
+    }
+    return allMessagesSeen;
+  }
+
   @Subscribe
   public void buildStarted(BuildStartingEvent event) {
     synchronized (this) {
@@ -597,6 +648,9 @@ public class ExperimentalEventHandler implements EventHandler {
         boolean incompleteLine = flushStdOutStdErrBuffers();
         if (incompleteLine) {
           crlf();
+        }
+        if (deduplicateCount > 0) {
+          handle(Event.info(null, "deduplicated " + deduplicateCount + " events"));
         }
         if (droppedEvents > 0) {
           handleLocked(
