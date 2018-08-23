@@ -25,6 +25,9 @@
 # Script expects that it will be started in the execution root directory and
 # not in the test's runfiles directory.
 
+# Exit on errors (ex: lcov is not installed).
+set -e
+
 if [[ -z "$LCOV_MERGER" ]]; then
   echo --
   echo "Coverage collection running in legacy mode."
