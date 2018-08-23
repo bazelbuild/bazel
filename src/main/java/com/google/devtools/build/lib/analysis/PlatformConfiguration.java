@@ -29,7 +29,7 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
     implements PlatformConfigurationApi {
   private final Label hostPlatform;
   private final ImmutableList<String> extraExecutionPlatforms;
-  private final ImmutableList<Label> targetPlatforms;
+  private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
   private final ImmutableList<Label> enabledToolchainTypes;
 
@@ -37,12 +37,12 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
   PlatformConfiguration(
       Label hostPlatform,
       ImmutableList<String> extraExecutionPlatforms,
-      ImmutableList<Label> targetPlatforms,
+      Label targetPlatform,
       ImmutableList<String> extraToolchains,
       ImmutableList<Label> enabledToolchainTypes) {
     this.hostPlatform = hostPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
-    this.targetPlatforms = targetPlatforms;
+    this.targetPlatform = targetPlatform;
     this.extraToolchains = extraToolchains;
     this.enabledToolchainTypes = enabledToolchainTypes;
   }
@@ -60,9 +60,19 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
     return extraExecutionPlatforms;
   }
 
+  /**
+   * Returns the single target platform used in this configuration. The flag is multi-valued for
+   * future handling of multiple target platforms but any given configuration should only be
+   * concerned with a single target platform.
+   */
+  @Override
+  public Label getTargetPlatform() {
+    return targetPlatform;
+  }
+
   @Override
   public ImmutableList<Label> getTargetPlatforms() {
-    return targetPlatforms;
+    return ImmutableList.of(targetPlatform);
   }
 
   /**
