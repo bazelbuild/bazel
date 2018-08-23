@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -631,15 +632,15 @@ public class CppHelper {
   /**
    * Returns the FDO build subtype.
    */
-  public static String getFdoBuildStamp(RuleContext ruleContext, FdoSupport fdoSupport) {
+  public static String getFdoBuildStamp(RuleContext ruleContext, FdoSupportProvider fdoSupport) {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (fdoSupport.isAutoFdoEnabled()) {
+    if (fdoSupport.getFdoMode() == FdoMode.AUTO_FDO) {
       return "AFDO";
     }
     if (cppConfiguration.isFdo()) {
       return "FDO";
     }
-    if (fdoSupport.isXBinaryFdoEnabled()) {
+    if (fdoSupport.getFdoMode() == FdoMode.XBINARY_FDO) {
       return "XFDO";
     }
     return null;

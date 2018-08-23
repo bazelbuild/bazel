@@ -45,7 +45,7 @@ public class FdoSupportFunction implements SkyFunction {
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
     Path fdoZip =
         key.getFdoZip() == null ? null : directories.getWorkspace().getRelative(key.getFdoZip());
-    FdoSupport fdoSupport = new FdoSupport(key.getFdoMode(), key.getFdoInstrument(), fdoZip);
+    FdoSupport fdoSupport = new FdoSupport(fdoZip);
     return new FdoSupportValue(fdoSupport);
   }
 

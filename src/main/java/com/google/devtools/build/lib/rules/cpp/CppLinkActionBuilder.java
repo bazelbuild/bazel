@@ -1097,7 +1097,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 configuration.isCodeCoverageEnabled(),
                 cppConfiguration,
-                CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
+                CppHelper.getFdoBuildStamp(ruleContext, fdoSupport),
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary() && toolchain.toolchainNeedsPic()),

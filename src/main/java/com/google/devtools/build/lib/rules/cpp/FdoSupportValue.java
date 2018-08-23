@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -45,45 +44,19 @@ public class FdoSupportValue implements SkyValue {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private final PathFragment fdoZip;
-    private final FdoInputFile fdoPrefetchHintsFile;
-    private final String fdoInstrument;
-    private final FdoMode fdoMode;
 
-    private Key(
-        PathFragment fdoZip,
-        FdoInputFile fdoPrefetchHintsFile,
-        String fdoInstrument,
-        FdoMode fdoMode) {
+    private Key(PathFragment fdoZip) {
       this.fdoZip = fdoZip;
-      this.fdoPrefetchHintsFile = fdoPrefetchHintsFile;
-      this.fdoInstrument = fdoInstrument;
-      this.fdoMode = fdoMode;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(
-        PathFragment fdoZip,
-        FdoInputFile fdoPrefetchHintsFile,
-        String fdoInstrument,
-        FdoMode fdoMode) {
-      return interner.intern(new Key(fdoZip, fdoPrefetchHintsFile, fdoInstrument, fdoMode));
+    static Key of(PathFragment fdoZip) {
+      return interner.intern(new Key(fdoZip));
     }
 
     public PathFragment getFdoZip() {
       return fdoZip;
-    }
-
-    public FdoInputFile getFdoPrefetchHintsFile() {
-      return fdoPrefetchHintsFile;
-    }
-
-    public String getFdoInstrument() {
-      return fdoInstrument;
-    }
-
-    public FdoMode getFdoMode() {
-      return fdoMode;
     }
 
     @Override
@@ -97,15 +70,12 @@ public class FdoSupportValue implements SkyValue {
       }
 
       Key that = (Key) o;
-      return Objects.equals(this.fdoZip, that.fdoZip)
-          && Objects.equals(this.fdoPrefetchHintsFile, that.fdoPrefetchHintsFile)
-          && Objects.equals(this.fdoMode, that.fdoMode)
-          && Objects.equals(this.fdoInstrument, that.fdoInstrument);
+      return Objects.equals(this.fdoZip, that.fdoZip);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(fdoZip, fdoPrefetchHintsFile, fdoInstrument);
+      return Objects.hash(fdoZip);
     }
 
     @Override
@@ -124,11 +94,7 @@ public class FdoSupportValue implements SkyValue {
     return fdoSupport;
   }
 
-  public static SkyKey key(
-      PathFragment fdoZip,
-      FdoInputFile fdoPrefetchHintsFile,
-      String fdoInstrument,
-      FdoMode fdoMode) {
-    return Key.of(fdoZip, fdoPrefetchHintsFile, fdoInstrument, fdoMode);
+  public static SkyKey key(PathFragment fdoZip) {
+    return Key.of(fdoZip);
   }
 }

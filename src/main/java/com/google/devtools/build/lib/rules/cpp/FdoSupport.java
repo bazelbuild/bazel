@@ -41,8 +41,7 @@ public class FdoSupport {
   /**
    * The FDO mode we are operating in.
    */
-  @VisibleForSerialization
-  enum FdoMode {
+  public enum FdoMode {
     /** FDO is turned off. */
     OFF,
 
@@ -60,12 +59,6 @@ public class FdoSupport {
   }
 
   /**
-   * Coverage information output directory passed to {@code --fdo_instrument},
-   * or {@code null} if FDO instrumentation is disabled.
-   */
-  private final String fdoInstrument;
-
-  /**
    * Path of the profile file passed to {@code --fdo_optimize}, or
    * {@code null} if FDO optimization is disabled.  The profile file
    * can be a coverage ZIP or an AutoFDO feedback file.
@@ -74,22 +67,14 @@ public class FdoSupport {
   private final Path fdoProfile;
 
   /**
-   * FDO mode.
-   */
-  private final FdoMode fdoMode;
-
-  /**
    * Creates an FDO support object.
    *
-   * @param fdoInstrument value of the --fdo_instrument option
    * @param fdoProfile path to the profile file passed to --fdo_optimize option
    */
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  FdoSupport(FdoMode fdoMode, String fdoInstrument, Path fdoProfile) {
-    this.fdoInstrument = fdoInstrument;
+  FdoSupport(Path fdoProfile) {
     this.fdoProfile = fdoProfile;
-    this.fdoMode = fdoMode;
   }
 
   public Path getFdoProfile() {
@@ -115,13 +100,14 @@ public class FdoSupport {
     }
 
     // FDO is disabled -> do nothing.
-    if (fdoInstrument == null && fdoProfile == null) {
+    if (fdoSupportProvider.getFdoInstrument() == null && fdoProfile == null) {
       return ImmutableMap.of();
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
-          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
+          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(),
+          fdoSupportProvider.getFdoInstrument());
     }
 
     // Optimization phase
@@ -136,7 +122,7 @@ public class FdoSupport {
               fdoSupportProvider.getProfileArtifact().getExecPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (fdoMode == FdoMode.LLVM_FDO) {
+          if (fdoSupportProvider.getFdoMode() == FdoMode.LLVM_FDO) {
             variablesBuilder.put(
                 CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
                 fdoSupportProvider.getProfileArtifact().getExecPathString());
@@ -157,9 +143,9 @@ public class FdoSupport {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return auxiliaryInputs.build();
-    } else if (fdoMode == FdoMode.LLVM_FDO
-        || fdoMode == FdoMode.AUTO_FDO
-        || fdoMode == FdoMode.XBINARY_FDO) {
+    } else if (fdoSupportProvider.getFdoMode() == FdoMode.LLVM_FDO
+        || fdoSupportProvider.getFdoMode() == FdoMode.AUTO_FDO
+        || fdoSupportProvider.getFdoMode() == FdoMode.XBINARY_FDO) {
       auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
       return auxiliaryInputs.build();
     } else {
@@ -168,28 +154,14 @@ public class FdoSupport {
   }
 
   /**
-   * Returns whether AutoFDO is enabled.
-   */
-  @ThreadSafe
-  public boolean isAutoFdoEnabled() {
-    return fdoMode == FdoMode.AUTO_FDO;
-  }
-
-  /** Returns whether crossbinary FDO is enabled. */
-  @ThreadSafe
-  public boolean isXBinaryFdoEnabled() {
-    return fdoMode == FdoMode.XBINARY_FDO;
-  }
-
-  /**
    * Adds the FDO profile output path to the variable builder. If FDO is disabled, no build variable
    * is added.
    */
   @ThreadSafe
-  public void getLinkOptions(
-      FeatureConfiguration featureConfiguration, CcToolchainVariables.Builder buildVariables) {
+  public void getLinkOptions(FeatureConfiguration featureConfiguration,
+      CcToolchainVariables.Builder buildVariables, FdoSupportProvider fdoSupport) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument);
+      buildVariables.addStringVariable("fdo_instrument_path", fdoSupport.getFdoInstrument());
     }
   }
 

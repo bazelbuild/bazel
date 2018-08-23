@@ -234,7 +234,8 @@ public enum LinkBuildVariables {
     }
 
     if (fdoSupport != null) {
-      fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
+      fdoSupport.getFdoSupport().getLinkOptions(
+          featureConfiguration, buildVariables, fdoSupport);
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;

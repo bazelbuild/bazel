@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /**
@@ -26,16 +27,29 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @AutoCodec
 public class FdoSupportProvider implements TransitiveInfoProvider {
   private final FdoSupport fdoSupport;
+  private final FdoMode fdoMode;
+  private final String fdoInstrument;
   private final ProfileArtifacts profileArtifacts;
 
   @AutoCodec.Instantiator
-  public FdoSupportProvider(FdoSupport fdoSupport, ProfileArtifacts profileArtifacts) {
+  public FdoSupportProvider(FdoSupport fdoSupport, FdoMode fdoMode, String fdoInstrument,
+      ProfileArtifacts profileArtifacts) {
     this.fdoSupport = fdoSupport;
+    this.fdoMode = fdoMode;
+    this.fdoInstrument = fdoInstrument;
     this.profileArtifacts = profileArtifacts;
   }
 
   public FdoSupport getFdoSupport() {
     return fdoSupport;
+  }
+
+  public String getFdoInstrument() {
+    return fdoInstrument;
+  }
+
+  public FdoMode getFdoMode() {
+    return fdoMode;
   }
 
   public Artifact getProfileArtifact() {
