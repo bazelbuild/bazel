@@ -65,6 +65,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -237,6 +238,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
               try {
                 Channel ch = channelAcquired.getNow();
                 ChannelPipeline p = ch.pipeline();
+
+                // Ensure the channel pipeline is empty.
+                clearChannelPipeline(p);
+
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
                 // an error message in the body and that should always be less than 10KiB.
@@ -267,11 +272,18 @@ public final class HttpBlobStore implements SimpleBlobStore {
     if (handler == null || !handler.keepAlive()) {
       ch.close();
     } else if (ch.isOpen()) {
-      ch.pipeline().remove(HttpResponseDecoder.class);
-      ch.pipeline().remove(HttpObjectAggregator.class);
-      ch.pipeline().remove(HttpRequestEncoder.class);
-      ch.pipeline().remove(ChunkedWriteHandler.class);
-      ch.pipeline().remove(HttpUploadHandler.class);
+      try {
+        ch.pipeline().remove(HttpResponseDecoder.class);
+        ch.pipeline().remove(HttpObjectAggregator.class);
+        ch.pipeline().remove(HttpRequestEncoder.class);
+        ch.pipeline().remove(ChunkedWriteHandler.class);
+        ch.pipeline().remove(HttpUploadHandler.class);
+      } catch (NoSuchElementException e) {
+        // If the channel is in the process of closing but not yet closed, some handlers could have
+        // been removed and would cause NoSuchElement exceptions to be thrown. Because handlers are
+        // removed in reverse-order, if we get a NoSuchElement exception, the following handlers
+        // should have been removed.
+      }
     }
     channelPool.release(ch);
   }
@@ -291,6 +303,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
               try {
                 Channel ch = channelAcquired.getNow();
                 ChannelPipeline p = ch.pipeline();
+
+                // Ensure the channel pipeline is empty.
+                clearChannelPipeline(p);
+
                 ch.pipeline()
                     .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
                 p.addLast(new HttpClientCodec());
@@ -312,11 +328,32 @@ public final class HttpBlobStore implements SimpleBlobStore {
     if (ch.isOpen()) {
       // The channel might have been closed due to an error, in which case its pipeline
       // has already been cleared. Closed channels can't be reused.
-      ch.pipeline().remove(ReadTimeoutHandler.class);
-      ch.pipeline().remove(HttpClientCodec.class);
-      ch.pipeline().remove(HttpDownloadHandler.class);
+      try {
+        ch.pipeline().remove(ReadTimeoutHandler.class);
+        ch.pipeline().remove(HttpClientCodec.class);
+        ch.pipeline().remove(HttpDownloadHandler.class);
+      } catch (NoSuchElementException e) {
+        // If the channel is in the process of closing but not yet closed, some handlers could have
+        // been removed and would cause NoSuchElement exceptions to be thrown. Because handlers are
+        // removed in reverse-order, if we get a NoSuchElement exception, the following handlers
+        // should have been removed.
+      }
     }
     channelPool.release(ch);
+  }
+
+  private void clearChannelPipeline(ChannelPipeline pipeline) {
+    // Check if the pipeline is already empty.
+    if (pipeline.first() == null)
+      return;
+
+    try {
+      // Remove all elements from the pipeline until NoSuchElementException is thrown (which occurs
+      // when the pipeline is empty. Sadly, there is no built-in netty method to do this.
+      while (true) {
+        pipeline.removeLast();
+      }
+    } catch (NoSuchElementException e) {  }
   }
 
   @Override
