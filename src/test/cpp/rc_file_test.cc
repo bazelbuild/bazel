@@ -264,7 +264,7 @@ TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
   const blaze_exit_code::ExitCode exit_code =
       option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
                                     &cmd_line, &parsed_rcs, &error);
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
@@ -294,7 +294,7 @@ TEST_F(
   const blaze_exit_code::ExitCode exit_code =
       option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
                                     &cmd_line, &parsed_rcs, &error);
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
   EXPECT_EQ("check that this string is not modified", error);
@@ -380,7 +380,7 @@ TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresAllMasterAndUserRcFiles) {
   // Check that the startup options' provenance message contains nothing
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_EQ(output, "");
 }
@@ -403,7 +403,7 @@ TEST_F(ParseOptionsTest, LaterIgnoreAllRcFilesValueWins) {
   // of the incorrect option.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(
       output,
@@ -439,7 +439,7 @@ TEST_F(ParseOptionsTest, IgnoreAllRcFilesIgnoresCommandLineRcFileToo) {
   // Check that the startup options' provenance message contains nothing
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_EQ(output, "");
 }
@@ -468,7 +468,7 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasUnknownOption) {
   // provided startup flags.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(output,
               MatchesRegex(
@@ -494,7 +494,7 @@ TEST_F(ParseOptionsTest, BazelrcHasUnknownOption) {
   // master bazelrc.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(output, MatchesRegex("INFO: Reading 'startup' options from "
                                    ".*workspace.*bazelrc: --foo\n"));
@@ -518,7 +518,7 @@ TEST_F(ParseOptionsTest,
   // master bazelrc.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_EQ(output, "");
 }
@@ -541,7 +541,7 @@ TEST_F(ParseOptionsTest, PositiveOptionOverridesNegativeOption) {
   // information for the master bazelrc.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(output,
               MatchesRegex("INFO: Reading 'startup' options from "
@@ -567,7 +567,7 @@ TEST_F(ParseOptionsTest, MultipleStartupArgsInMasterBazelrcWorksCorrectly) {
   // message.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(
       output,
@@ -603,7 +603,7 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
   // message.
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(
       output,
@@ -643,7 +643,7 @@ TEST_F(ParseOptionsTest, BazelRcImportsMaintainsFlagOrdering) {
   // message, the imported file between the two master flags
   testing::internal::CaptureStderr();
   option_processor_->PrintStartupOptionsProvenanceMessage();
-  const std::string& output = testing::internal::GetCapturedStderr();
+  const std::string output = testing::internal::GetCapturedStderr();
 
   EXPECT_THAT(
       output,
