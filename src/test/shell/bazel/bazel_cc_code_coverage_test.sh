@@ -29,14 +29,15 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # These are the variables needed by tools/test/collect_cc_coverage.sh
 # They will be properly sub-shelled when invoking the script.
 
-# Directory containing gcda files.
-readonly COVERAGE_DIR_VAR="${PWD}"
+# Directory containing gcno and gcda files. It has to be different
+# than $PWD and $ROOT for the test to be accurate.
+readonly COVERAGE_DIR_VAR="${PWD}/my_coverage_dir"
 # Location of gcov.
 readonly COVERAGE_GCOV_PATH_VAR="${PWD}/mygcov"
 # Location from where the code coverage collection was invoked.
 readonly ROOT_VAR="${PWD}"
 # Location of the instrumented file manifest.
-readonly COVERAGE_MANIFEST_VAR="${PWD}/COVERAGE_MANIFEST_VAR.txt"
+readonly COVERAGE_MANIFEST_VAR="${PWD}/coverage_manifest.txt"
 # Location of the final coverage report.
 readonly COVERAGE_OUTPUT_FILE_VAR="${PWD}/coverage_report.dat"
 
@@ -52,7 +53,11 @@ function set_up() {
   # TODO(iirina): In the future it would be better if the
   # script creates the output file.
   touch "$COVERAGE_OUTPUT_FILE_VAR"
+
+  # All generated .gcno files need to be in the manifest otherwise
+  # the coverage report will be incomplete.
   echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
 
   # Create the CC sources.
   mkdir -p coverage_srcs/
@@ -81,38 +86,44 @@ int main(void) {
 }
 EOF
 
-  generate_gcno_files coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
-  generate_instrumented_binary ./coverage_srcs/test coverage_srcs/a.h \
+  generate_instrumented_binary coverage_srcs/test coverage_srcs/a.h \
       coverage_srcs/a.cc coverage_srcs/t.cc
+
+  # g++ generates the notes files in the current directory. The documentation
+  # (https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files)
+  # says they are placed in the same directory as the object file, but they
+  # are not. Therefore we move them in the same directory.
+  mv *.gcno coverage_srcs/
+
   generate_gcda_file ./coverage_srcs/test
 }
 
 # Reads the list of arguments provided by the caller (using $@) and uses them
-# to produco .gcno files using g++.
-function generate_gcno_files() {
-  # "-fprofile-arcs -ftest-coverage" tells the compiler to generate coverage
-  # information needed by gcov and include additional code in the object files
-  # for generating the profiling.
-  g++ -fprofile-arcs -ftest-coverage "$@" && return 0
-  fail "Couldn't produce .gcno files for $@"
-  return 1
-}
-
-# Reads the list of arguments provided by the caller (using $@) and uses them
-# to produce an instrumented binary using g++.
+# to produce an instrumented binary using g++. At the same time it generates
+# the notes (.gcno) files.
 # - path_to_binary destination of the binary produced by g++
 function generate_instrumented_binary() {
   local path_to_binary="${1}"; shift
-  # "-fprofile-arcs -ftest-coverage" tells the compiler to generate coverage
-  # information needed by gcov and include additional code in the object files
-  # for generating the profiling.
-  g++ -fprofile-arcs -ftest-coverage "$@" -o "$path_to_binary"  && return 0
+  # -fprofile-arcs   Instruments $path_to_binary. During execution the binary
+  #                  records code coverage information.
+  # -ftest-coverage  Produces a notes (.gcno) file that coverage utilities
+  #                  (e.g. gcov, lcov) can use to show a coverage report.
+  # -fprofile-dir    Sets the directory where the profile data (gcda) appears.
+  #
+  # The profile data files need to be at a specific location where the C++
+  # coverage scripts expects them to be ($COVERAGE_DIR/path/to/sources/).
+  g++ -fprofile-arcs -ftest-coverage \
+      -fprofile-dir="$COVERAGE_DIR_VAR/coverage_srcs" \
+      "$@" -o "$path_to_binary"  && return 0
   fail "Couldn't produce the instrumented binary for $@ \
       with path_to_binary $path_to_binary"
   return 1
 }
 
-# Execute an instrumented binary and generate the gcda file.
+# Executes an instrumented binary and generates the profile data (.gcda) file.
+# The profile data file is placed in the directory specified by -fprofile-dir
+# that was used when compiling the sources, or in the current directory if the
+# flag was not specified.
 # - path_to_binary path of instrumented binary
 function generate_gcda_file() {
   local path_to_binary="${1}"
@@ -122,6 +133,10 @@ function generate_gcda_file() {
 }
 
 function tear_down() {
+  rm "$COVERAGE_MANIFEST_VAR"
+  rm "$COVERAGE_GCOV_PATH_VAR"
+  rm "$COVERAGE_OUTPUT_FILE_VAR"
+  rm -rf "$COVERAGE_DIR_VAR"
   rm -rf coverage_srcs/
 }
 
