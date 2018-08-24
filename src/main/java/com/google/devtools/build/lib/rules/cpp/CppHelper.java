@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -248,22 +248,22 @@ public class CppHelper {
   }
 
   /**
-   * Return {@link FdoSupportProvider} using default cc_toolchain attribute name.
+   * Return {@link FdoProvider} using default cc_toolchain attribute name.
    *
    * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
    * the default name.
    */
   @Nullable
-  public static FdoSupportProvider getFdoSupportUsingDefaultCcToolchainAttribute(
+  public static FdoProvider getFdoProviderUsingDefaultCcToolchainAttribute(
       RuleContext ruleContext) {
-    return getFdoSupport(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+    return getFdoProvider(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
   }
 
-  @Nullable public static FdoSupportProvider getFdoSupport(RuleContext ruleContext,
+  @Nullable public static FdoProvider getFdoProvider(RuleContext ruleContext,
       String ccToolchainAttribute) {
     return ruleContext
         .getPrerequisite(ccToolchainAttribute, Mode.TARGET)
-        .getProvider(FdoSupportProvider.class);
+        .getProvider(FdoProvider.class);
   }
 
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
@@ -632,15 +632,15 @@ public class CppHelper {
   /**
    * Returns the FDO build subtype.
    */
-  public static String getFdoBuildStamp(RuleContext ruleContext, FdoSupportProvider fdoSupport) {
+  public static String getFdoBuildStamp(RuleContext ruleContext, FdoProvider fdoProvider) {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (fdoSupport.getFdoMode() == FdoMode.AUTO_FDO) {
+    if (fdoProvider.getFdoMode() == FdoMode.AUTO_FDO) {
       return "AFDO";
     }
     if (cppConfiguration.isFdo()) {
       return "FDO";
     }
-    if (fdoSupport.getFdoMode() == FdoMode.XBINARY_FDO) {
+    if (fdoProvider.getFdoMode() == FdoMode.XBINARY_FDO) {
       return "XFDO";
     }
     return null;

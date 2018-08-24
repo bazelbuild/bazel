@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -529,12 +529,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (fdoMode == FdoMode.LLVM_FDO) {
       profileArtifact =
           convertLLVMRawProfileToIndexed(
-              fdoSupport.getFdoSupport().getFdoProfile().asFragment(), toolchainInfo, ruleContext);
+              fdoSupport.getFdoProfile().asFragment(), toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
         return null;
       }
     } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
-      Path fdoProfile = fdoSupport.getFdoSupport().getFdoProfile();
+      Path fdoProfile = fdoSupport.getFdoProfile();
       profileArtifact = ruleContext.getUniqueDirectoryArtifact(
               "fdo",
               fdoProfile.getBaseName(),
@@ -597,8 +597,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .addProvider(new FdoSupportProvider(
-                fdoSupport.getFdoSupport(), fdoMode, cppConfiguration.getFdoInstrument(),
+            .addProvider(new FdoProvider(
+                fdoSupport.getFdoProfile(), fdoMode, cppConfiguration.getFdoInstrument(),
                 profileArtifact, prefetchHintsArtifact))
             .setFilesToBuild(crosstool)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));

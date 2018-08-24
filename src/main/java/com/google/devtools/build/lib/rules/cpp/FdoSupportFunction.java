@@ -22,7 +22,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
 /**
- * Wrapper for {@link FdoSupport} that turns it into a {@link SkyFunction}.
+ * A {@link SkyFunction} that does things for FDO that a regular configured target is not allowed
+ * to.
  *
  * <p>This only exists because the value of {@code --fdo_optimize} can be a workspace-relative path
  * and thus we need to depend on {@link BlazeDirectories} somehow, which neither the configuration
@@ -47,10 +48,9 @@ public class FdoSupportFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
-    Path fdoZip =
-        key.getFdoZip() == null ? null : directories.getWorkspace().getRelative(key.getFdoZip());
-    FdoSupport fdoSupport = new FdoSupport(fdoZip);
-    return new FdoSupportValue(fdoSupport);
+    Path resolvedFdoProfile = key.getFdoProfileArgument() == null
+        ? null : directories.getWorkspace().getRelative(key.getFdoProfileArgument());
+    return new FdoSupportValue(resolvedFdoProfile);
   }
 
   @Nullable

@@ -16,34 +16,68 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.Path;
 
 /**
- * A {@link TransitiveInfoProvider} so that {@code cc_toolchain} can pass {@link FdoSupport} to the
- * C++ rules.
+ * A {@link TransitiveInfoProvider} that describes how C++ FDO compilation should be done.
+ *
+ * <p><b>The {@code fdoProfilePath} member was a mistake. DO NOT USE IT FOR ANYTHING!</b>
  */
 @Immutable
 @AutoCodec
-public class FdoSupportProvider implements TransitiveInfoProvider {
-  private final FdoSupport fdoSupport;
+public class FdoProvider implements TransitiveInfoProvider {
+  /**
+   * The FDO mode we are operating in.
+   */
+  public enum FdoMode {
+    /** FDO is turned off. */
+    OFF,
+
+    /** FDO based on automatically collected data. */
+    AUTO_FDO,
+
+    /** FDO based on cross binary collected data. */
+    XBINARY_FDO,
+
+    /** Instrumentation-based FDO implemented on LLVM. */
+    LLVM_FDO,
+  }
+
+  /** <b>DO NOT EVER USE PATHS IN THE ANALYSIS PHASE!
+   *
+   * <p>This is buggy and incorrect because Bazel cannot track file system accesses done through
+   * raw file system objects like {@link Path} (as opposed to going through Skyframe). This is
+   * bad code, it was a mistake to submit it in the first place and will go away at the first
+   * opportunity we get.
+   */
+  @Deprecated
+  private final Path fdoProfilePath;
   private final FdoMode fdoMode;
   private final String fdoInstrument;
   private final Artifact profileArtifact;
   private final Artifact prefetchHintsArtifact;
 
   @AutoCodec.Instantiator
-  public FdoSupportProvider(FdoSupport fdoSupport, FdoMode fdoMode, String fdoInstrument,
+  public FdoProvider(Path fdoProfilePath, FdoMode fdoMode, String fdoInstrument,
       Artifact profileArtifact, Artifact prefetchHintsArtifact) {
-    this.fdoSupport = fdoSupport;
+    this.fdoProfilePath = fdoProfilePath;
     this.fdoMode = fdoMode;
     this.fdoInstrument = fdoInstrument;
     this.profileArtifact = profileArtifact;
     this.prefetchHintsArtifact = prefetchHintsArtifact;
   }
 
-  public FdoSupport getFdoSupport() {
-    return fdoSupport;
+  /** <b>DO NOT EVER USE PATHS IN THE ANALYSIS PHASE!
+   *
+   * <p>This is buggy and incorrect because Bazel cannot track file system accesses done through
+   * raw file system objects like {@link Path} (as opposed to going through Skyframe). This is
+   * bad code, it was a mistake to submit it in the first place and will go away at the first
+   * opportunity we get.
+   */
+  @Deprecated
+  public Path getFdoProfilePath() {
+    return fdoProfilePath;
   }
 
   public String getFdoInstrument() {

@@ -69,14 +69,14 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
-    FdoSupportProvider fdoSupport =
-        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider =
+        CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
 
     // Add headers to compilation step.
     final CcCommon common = new CcCommon(ruleContext);
     CompilationInfo compilationInfo =
         new CcCompilationHelper(
-                ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoProvider)
             .addPublicHeaders(common.getHeaders())
             .setHeadersCheckingMode(HeadersCheckingMode.STRICT)
             .compile();
@@ -99,7 +99,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             semantics,
             featureConfiguration,
             ccToolchain,
-            fdoSupport,
+            fdoProvider,
             ruleContext.getConfiguration());
 
     if (staticLibrary != null) {

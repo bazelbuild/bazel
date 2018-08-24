@@ -95,7 +95,7 @@ public final class LtoBackendArtifacts {
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       boolean usePic,
       boolean generateDwo,
       List<String> commandLine) {
@@ -112,7 +112,7 @@ public final class LtoBackendArtifacts {
         ruleContext,
         featureConfiguration,
         ccToolchain,
-        fdoSupport,
+        fdoProvider,
         usePic,
         generateDwo,
         configuration,
@@ -130,7 +130,7 @@ public final class LtoBackendArtifacts {
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       boolean usePic,
       boolean generateDwo,
       List<String> commandLine) {
@@ -145,7 +145,7 @@ public final class LtoBackendArtifacts {
         ruleContext,
         featureConfiguration,
         ccToolchain,
-        fdoSupport,
+        fdoProvider,
         usePic,
         generateDwo,
         configuration,
@@ -181,7 +181,7 @@ public final class LtoBackendArtifacts {
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       boolean usePic,
       boolean generateDwo,
       BuildConfiguration configuration,
@@ -231,7 +231,7 @@ public final class LtoBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
-    addProfileForLtoBackend(builder, fdoSupport, featureConfiguration, buildVariablesBuilder);
+    addProfileForLtoBackend(builder, fdoProvider, featureConfiguration, buildVariablesBuilder);
 
     if (generateDwo) {
       dwoFile =
@@ -268,21 +268,21 @@ public final class LtoBackendArtifacts {
   @ThreadSafe
   private static void addProfileForLtoBackend(
       LtoBackendAction.Builder builder,
-      FdoSupportProvider fdoSupportProvider,
+      FdoProvider fdoProvider,
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables.Builder buildVariables) {
-    Artifact prefetch = fdoSupportProvider.getPrefetchHintsArtifact();
+    Artifact prefetch = fdoProvider.getPrefetchHintsArtifact();
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
-      builder.addInput(fdoSupportProvider.getPrefetchHintsArtifact());
+      builder.addInput(fdoProvider.getPrefetchHintsArtifact());
     }
     if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
         && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
       return;
     }
 
-    Artifact profile = fdoSupportProvider.getProfileArtifact();
+    Artifact profile = fdoProvider.getProfileArtifact();
     buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
-    builder.addInput(fdoSupportProvider.getProfileArtifact());
+    builder.addInput(fdoProvider.getProfileArtifact());
   }
 }
