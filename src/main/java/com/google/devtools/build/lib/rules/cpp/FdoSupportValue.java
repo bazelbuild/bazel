@@ -25,12 +25,6 @@ import java.util.Objects;
 
 /**
  * Wrapper for {@link FdoSupport}.
- *
- * <p>Things could probably be refactored such the attributes of {@link FdoSupport} are moved here
- * and the code in it to {@link FdoSupportFunction}. This would let us eliminate {@link FdoSupport}.
- *
- * <p>The eventual plan is to migrate FDO functionality to the execution phase once directory
- * artifacts work better, so this may not be worth it.
  */
 @AutoCodec
 @Immutable

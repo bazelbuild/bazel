@@ -14,30 +14,23 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 
 /**
- * Support class for FDO (feedback directed optimization).
+ * A container for the path to the FDO profile.
  *
  * <p>{@link FdoSupport} is created from {@link FdoSupportFunction} (a {@link SkyFunction}),
- * which is requested from Skyframe by the {@code cc_toolchain} rule.
- *
- * <p>For each C++ compile action in the target configuration, {@link #configureCompilation} is
- * called, which adds command line options and input files required for the build.
+ * which is requested from Skyframe by the {@code cc_toolchain} rule. It's done this way because
+ * the path depends on both a command line argument and the location of the workspace and the latter
+ * is not available either during configuration creation or during the analysis phase.
  */
 @Immutable
 @AutoCodec
-public class FdoSupport {
+public final class FdoSupport {
   /**
    * The FDO mode we are operating in.
    */
@@ -63,7 +56,9 @@ public class FdoSupport {
    * {@code null} if FDO optimization is disabled.  The profile file
    * can be a coverage ZIP or an AutoFDO feedback file.
    */
-  // TODO(lberki): this should be a PathFragment
+  // TODO(lberki): This should be a PathFragment.
+  // Except that CcProtoProfileProvider#getProfile() calls #exists() on it, which is ridiculously
+  // incorrect.
   private final Path fdoProfile;
 
   /**
@@ -79,112 +74,5 @@ public class FdoSupport {
 
   public Path getFdoProfile() {
     return fdoProfile;
-  }
-
-  /**
-   * Configures a compile action builder by setting up command line options and auxiliary inputs
-   * according to the FDO configuration. This method does nothing If FDO is disabled.
-   */
-  @ThreadSafe
-  public ImmutableMap<String, String> configureCompilation(
-      CppCompileActionBuilder builder,
-      FeatureConfiguration featureConfiguration,
-      FdoSupportProvider fdoSupportProvider) {
-
-    ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
-
-    if (fdoSupportProvider != null && fdoSupportProvider.getPrefetchHintsArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
-          fdoSupportProvider.getPrefetchHintsArtifact().getExecPathString());
-    }
-
-    // FDO is disabled -> do nothing.
-    if (fdoSupportProvider.getFdoInstrument() == null && fdoProfile == null) {
-      return ImmutableMap.of();
-    }
-
-    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      variablesBuilder.put(
-          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(),
-          fdoSupportProvider.getFdoInstrument());
-    }
-
-    // Optimization phase
-    if (fdoProfile != null) {
-      Iterable<Artifact> auxiliaryInputs = getAuxiliaryInputs(fdoSupportProvider);
-      builder.addMandatoryInputs(auxiliaryInputs);
-      if (!Iterables.isEmpty(auxiliaryInputs)) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
-            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
-          variablesBuilder.put(
-              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-              fdoSupportProvider.getProfileArtifact().getExecPathString());
-        }
-        if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (fdoSupportProvider.getFdoMode() == FdoMode.LLVM_FDO) {
-            variablesBuilder.put(
-                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-                fdoSupportProvider.getProfileArtifact().getExecPathString());
-          }
-        }
-      }
-    }
-    return variablesBuilder.build();
-  }
-
-  /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private Iterable<Artifact> getAuxiliaryInputs(FdoSupportProvider fdoSupportProvider) {
-    ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
-
-    if (fdoSupportProvider.getPrefetchHintsArtifact() != null) {
-      auxiliaryInputs.add(fdoSupportProvider.getPrefetchHintsArtifact());
-    }
-    // If --fdo_optimize was not specified, we don't have any additional inputs.
-    if (fdoProfile == null) {
-      return auxiliaryInputs.build();
-    } else if (fdoSupportProvider.getFdoMode() == FdoMode.LLVM_FDO
-        || fdoSupportProvider.getFdoMode() == FdoMode.AUTO_FDO
-        || fdoSupportProvider.getFdoMode() == FdoMode.XBINARY_FDO) {
-      auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
-      return auxiliaryInputs.build();
-    } else {
-      return auxiliaryInputs.build();
-    }
-  }
-
-  /**
-   * Adds the FDO profile output path to the variable builder. If FDO is disabled, no build variable
-   * is added.
-   */
-  @ThreadSafe
-  public void getLinkOptions(FeatureConfiguration featureConfiguration,
-      CcToolchainVariables.Builder buildVariables, FdoSupportProvider fdoSupport) {
-    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addStringVariable("fdo_instrument_path", fdoSupport.getFdoInstrument());
-    }
-  }
-
-  /**
-   * Adds the AutoFDO profile path to the variable builder and returns the profile artifact. If
-   * AutoFDO is disabled, no build variable is added and returns null.
-   */
-  @ThreadSafe
-  public ProfileArtifacts buildProfileForLtoBackend(
-      FdoSupportProvider fdoSupportProvider,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainVariables.Builder buildVariables) {
-    Artifact prefetch = fdoSupportProvider.getPrefetchHintsArtifact();
-    if (prefetch != null) {
-      buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
-    }
-    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
-        && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
-      return new ProfileArtifacts(null, prefetch);
-    }
-
-    Artifact profile = fdoSupportProvider.getProfileArtifact();
-    buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
-    return new ProfileArtifacts(profile, prefetch);
   }
 }

@@ -43,12 +43,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -83,6 +85,84 @@ public final class CcCompilationHelper {
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX
           + "hidden_header_tokens"
           + OutputGroupInfo.INTERNAL_SUFFIX;
+
+  /**
+   * Configures a compile action builder by setting up command line options and auxiliary inputs
+   * according to the FDO configuration. This method does nothing If FDO is disabled.
+   */
+  @ThreadSafe
+  public static void configureFdoBuildVariables(
+      ImmutableMap.Builder<String, String> variablesBuilder,
+      CppCompileActionBuilder builder,
+      FeatureConfiguration featureConfiguration,
+      FdoSupportProvider fdoSupportProvider) {
+
+    if (fdoSupportProvider != null && fdoSupportProvider.getPrefetchHintsArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
+          fdoSupportProvider.getPrefetchHintsArtifact().getExecPathString());
+    }
+
+    // FDO is disabled -> do nothing.
+    if (fdoSupportProvider.getFdoInstrument() == null
+        && fdoSupportProvider.getFdoMode() == FdoMode.OFF) {
+      return;
+    }
+
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(),
+          fdoSupportProvider.getFdoInstrument());
+    }
+
+    // Optimization phase
+    if (fdoSupportProvider.getFdoMode() != FdoMode.OFF) {
+      Iterable<Artifact> auxiliaryInputs = getAuxiliaryFdoInputs(fdoSupportProvider);
+      builder.addMandatoryInputs(auxiliaryInputs);
+      if (!Iterables.isEmpty(auxiliaryInputs)) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
+          variablesBuilder.put(
+              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+              fdoSupportProvider.getProfileArtifact().getExecPathString());
+        }
+        if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
+          if (fdoSupportProvider.getFdoMode() == FdoMode.LLVM_FDO) {
+            variablesBuilder.put(
+                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+                fdoSupportProvider.getProfileArtifact().getExecPathString());
+          }
+        }
+      }
+    }
+  }
+
+  /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
+  private static Iterable<Artifact> getAuxiliaryFdoInputs(FdoSupportProvider fdoSupportProvider) {
+    ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
+
+    if (fdoSupportProvider.getPrefetchHintsArtifact() != null) {
+      auxiliaryInputs.add(fdoSupportProvider.getPrefetchHintsArtifact());
+    }
+
+    // If --fdo_optimize was not specified, we don't have any additional inputs.
+    switch (fdoSupportProvider.getFdoMode()) {
+      case LLVM_FDO:
+      case AUTO_FDO:
+      case XBINARY_FDO:
+        auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
+        break;
+
+      case VANILLA:
+      case OFF:
+        break;
+
+      default:
+        throw new IllegalStateException();
+    }
+
+    return auxiliaryInputs.build();
+  }
 
   /**
    * A group of source file types and action names for builds controlled by CcCompilationHelper.
@@ -1466,10 +1546,8 @@ public final class CcCompilationHelper {
     ImmutableMap.Builder<String, String> allAdditionalBuildVariables = ImmutableMap.builder();
     allAdditionalBuildVariables.putAll(additionalBuildVariables);
     if (ccRelativeName != null) {
-      allAdditionalBuildVariables.putAll(
-          fdoSupport
-              .getFdoSupport()
-              .configureCompilation(builder, featureConfiguration, fdoSupport));
+      configureFdoBuildVariables(
+          allAdditionalBuildVariables, builder, featureConfiguration, fdoSupport);
     }
     return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleContext,

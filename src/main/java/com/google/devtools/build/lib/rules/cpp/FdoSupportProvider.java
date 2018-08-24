@@ -29,15 +29,17 @@ public class FdoSupportProvider implements TransitiveInfoProvider {
   private final FdoSupport fdoSupport;
   private final FdoMode fdoMode;
   private final String fdoInstrument;
-  private final ProfileArtifacts profileArtifacts;
+  private final Artifact profileArtifact;
+  private final Artifact prefetchHintsArtifact;
 
   @AutoCodec.Instantiator
   public FdoSupportProvider(FdoSupport fdoSupport, FdoMode fdoMode, String fdoInstrument,
-      ProfileArtifacts profileArtifacts) {
+      Artifact profileArtifact, Artifact prefetchHintsArtifact) {
     this.fdoSupport = fdoSupport;
     this.fdoMode = fdoMode;
     this.fdoInstrument = fdoInstrument;
-    this.profileArtifacts = profileArtifacts;
+    this.profileArtifact = profileArtifact;
+    this.prefetchHintsArtifact = prefetchHintsArtifact;
   }
 
   public FdoSupport getFdoSupport() {
@@ -53,10 +55,10 @@ public class FdoSupportProvider implements TransitiveInfoProvider {
   }
 
   public Artifact getProfileArtifact() {
-    return profileArtifacts != null ? profileArtifacts.getProfileArtifact() : null;
+    return profileArtifact;
   }
 
   public Artifact getPrefetchHintsArtifact() {
-    return profileArtifacts != null ? profileArtifacts.getPrefetchHintsArtifact() : null;
+    return prefetchHintsArtifact;
   }
 }

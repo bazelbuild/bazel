@@ -31,6 +31,10 @@ import javax.annotation.Nullable;
  * <p>The fix is probably to make it possible for
  * {@link com.google.devtools.build.lib.analysis.actions.SymlinkAction} to create workspace-relative
  * symlinks because action execution can hopefully depend on {@link BlazeDirectories}.
+ *
+ * <p>There is also the awful and incorrect {@link Path#exists()} call in
+ * {@link com.google.devtools.build.lib.view.proto.CcProtoProfileProvider#getProfile(
+ * com.google.devtools.build.lib.analysis.RuleContext)} which needs a {@link Path}.
  */
 public class FdoSupportFunction implements SkyFunction {
   private final BlazeDirectories directories;

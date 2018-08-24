@@ -233,9 +233,8 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(DEF_FILE_PATH.getVariableName(), defFile);
     }
 
-    if (fdoSupport != null) {
-      fdoSupport.getFdoSupport().getLinkOptions(
-          featureConfiguration, buildVariables, fdoSupport);
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      buildVariables.addStringVariable("fdo_instrument_path", fdoSupport.getFdoInstrument());
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
