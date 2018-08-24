@@ -46,18 +46,19 @@ import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
- * Output a jar file containing all classes on the platform classpath of the current JDK.
+ * Output a jar file containing all classes on the platform classpath of the given JDK release.
  *
- * <p>usage: DumpPlatformClassPath <output jar>
+ * <p>usage: DumpPlatformClassPath <release version> <output jar>
  */
 public class DumpPlatformClassPath {
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 1) {
-      System.err.println("usage: DumpPlatformClassPath <output jar>");
+    if (args.length != 2) {
+      System.err.println("usage: DumpPlatformClassPath <release version> <output jar>");
       System.exit(1);
     }
-    Path output = Paths.get(args[0]);
+    int release = Integer.parseInt(args[0]);
+    Path output = Paths.get(args[1]);
 
     Map<String, byte[]> entries = new HashMap<>();
 
@@ -85,13 +86,26 @@ public class DumpPlatformClassPath {
       }
     }
 
-    if (entries.isEmpty()) {
+    if (!entries.isEmpty()) {
+      if (release != 8) {
+        System.err.printf(
+            "warning: ignoring release %s on --host_javabase=%s\n",
+            release, System.getProperty("java.version"));
+      }
+    } else {
       // JDK > 8 bootclasspath handling
 
       // Set up a compilation with --release 8 to initialize a filemanager
       Context context = new Context();
       JavacTool.create()
-          .getTask(null, null, null, Arrays.asList("--release", "8"), null, null, context);
+          .getTask(
+              /* out = */ null,
+              /* fileManager = */ null,
+              /* diagnosticListener = */ null,
+              /* options = */ Arrays.asList("--release", String.valueOf(release)),
+              /* classes = */ null,
+              /* compilationUnits = */ null,
+              context);
       JavaFileManager fileManager = context.get(JavaFileManager.class);
 
       for (JavaFileObject fileObject :
