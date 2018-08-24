@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -64,15 +66,18 @@ public class SkylarkCustomCommandLine extends CommandLine {
     private static final int HAS_MAP_ALL = 1 << 1;
     private static final int HAS_MAP_EACH = 1 << 2;
     private static final int IS_NESTED_SET = 1 << 3;
-    private static final int UNIQUIFY = 1 << 4;
-    private static final int OMIT_IF_EMPTY = 1 << 5;
-    private static final int HAS_ARG_NAME = 1 << 6;
-    private static final int HAS_FORMAT_EACH = 1 << 7;
-    private static final int HAS_BEFORE_EACH = 1 << 8;
-    private static final int HAS_JOIN_WITH = 1 << 9;
-    private static final int HAS_FORMAT_JOINED = 1 << 10;
-    private static final int HAS_TERMINATE_WITH = 1 << 11;
+    private static final int EXPAND_DIRECTORIES = 1 << 4;
+    private static final int UNIQUIFY = 1 << 5;
+    private static final int OMIT_IF_EMPTY = 1 << 6;
+    private static final int HAS_ARG_NAME = 1 << 7;
+    private static final int HAS_FORMAT_EACH = 1 << 8;
+    private static final int HAS_BEFORE_EACH = 1 << 9;
+    private static final int HAS_JOIN_WITH = 1 << 10;
+    private static final int HAS_FORMAT_JOINED = 1 << 11;
+    private static final int HAS_TERMINATE_WITH = 1 << 12;
 
+    private static final UUID EXPAND_DIRECTORIES_UUID =
+        UUID.fromString("9d7520d2-a187-11e8-98d0-529269fb1459");
     private static final UUID UNIQUIFY_UUID =
         UUID.fromString("7f494c3e-faea-4498-a521-5d3bc6ee19eb");
     private static final UUID OMIT_IF_EMPTY_UUID =
@@ -107,6 +112,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       features |= arg.mapAll != null ? HAS_MAP_ALL : 0;
       features |= arg.mapEach != null ? HAS_MAP_EACH : 0;
       features |= arg.nestedSet != null ? IS_NESTED_SET : 0;
+      features |= arg.expandDirectories ? EXPAND_DIRECTORIES : 0;
       features |= arg.uniquify ? UNIQUIFY : 0;
       features |= arg.omitIfEmpty ? OMIT_IF_EMPTY : 0;
       features |= arg.argName != null ? HAS_ARG_NAME : 0;
@@ -168,6 +174,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         ImmutableList.Builder<String> builder,
+        @Nullable ArtifactExpander artifactExpander,
         SkylarkSemantics skylarkSemantics)
         throws CommandLineExpansionException {
       final Location location =
@@ -185,12 +192,18 @@ public class SkylarkCustomCommandLine extends CommandLine {
         originalValues = arguments.subList(argi, argi + count);
         argi += count;
       }
+      List<Object> expandedValues = originalValues;
+      if (artifactExpander != null && (features & EXPAND_DIRECTORIES) != 0) {
+        if (hasTreeArtifact(originalValues)) {
+          expandedValues = expandTreeArtifacts(artifactExpander, originalValues);
+        }
+      }
       List<String> stringValues;
       if (mapEach != null) {
-        stringValues = new ArrayList<>(originalValues.size());
-        applyMapEach(mapEach, originalValues, stringValues::add, location, skylarkSemantics);
+        stringValues = new ArrayList<>(expandedValues.size());
+        applyMapEach(mapEach, expandedValues, stringValues::add, location, skylarkSemantics);
       } else if (mapAll != null) {
-        Object result = applyMapFn(mapAll, originalValues, location, skylarkSemantics);
+        Object result = applyMapFn(mapAll, expandedValues, location, skylarkSemantics);
         if (!(result instanceof List)) {
           throw new CommandLineExpansionException(
               errorMessage(
@@ -199,13 +212,13 @@ public class SkylarkCustomCommandLine extends CommandLine {
                   null));
         }
         List resultAsList = (List) result;
-        if (resultAsList.size() != originalValues.size()) {
+        if (resultAsList.size() != expandedValues.size()) {
           throw new CommandLineExpansionException(
               errorMessage(
                   String.format(
                       "map_fn must return a list of the same length as the input. "
                           + "Found list of length %d, expected %d.",
-                      resultAsList.size(), originalValues.size()),
+                      resultAsList.size(), expandedValues.size()),
                   location,
                   null));
         }
@@ -217,10 +230,10 @@ public class SkylarkCustomCommandLine extends CommandLine {
           stringValues.add(CommandLineItem.expandToCommandLine(resultAsList.get(i)));
         }
       } else {
-        int count = originalValues.size();
-        stringValues = new ArrayList<>(originalValues.size());
+        int count = expandedValues.size();
+        stringValues = new ArrayList<>(expandedValues.size());
         for (int i = 0; i < count; ++i) {
-          stringValues.add(CommandLineItem.expandToCommandLine(originalValues.get(i)));
+          stringValues.add(CommandLineItem.expandToCommandLine(expandedValues.get(i)));
         }
       }
       // It's safe to uniquify at this stage, any transformations after this
@@ -291,6 +304,33 @@ public class SkylarkCustomCommandLine extends CommandLine {
       return argi;
     }
 
+    private static boolean hasTreeArtifact(List<Object> originalValues) {
+      int n = originalValues.size();
+      for (int i = 0; i < n; ++i) {
+        Object object = originalValues.get(i);
+        if ((object instanceof Artifact) && ((Artifact) object).isTreeArtifact()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private static List<Object> expandTreeArtifacts(
+        Artifact.ArtifactExpander artifactExpander, List<Object> originalValues) {
+      List<Object> expandedValues;
+      int n = originalValues.size();
+      expandedValues = new ArrayList<>(n);
+      for (int i = 0; i < n; ++i) {
+        Object object = originalValues.get(i);
+        if (object instanceof Artifact && ((Artifact) object).isTreeArtifact()) {
+          artifactExpander.expand((Artifact) object, expandedValues);
+        } else {
+          expandedValues.add(object);
+        }
+      }
+      return expandedValues;
+    }
+
     private int addToFingerprint(
         List<Object> arguments,
         int argi,
@@ -334,6 +374,9 @@ public class SkylarkCustomCommandLine extends CommandLine {
             fingerprint.addString(CommandLineItem.expandToCommandLine(originalValues.get(i)));
           }
         }
+      }
+      if ((features & EXPAND_DIRECTORIES) != 0) {
+        fingerprint.addUUID(EXPAND_DIRECTORIES_UUID);
       }
       if ((features & UNIQUIFY) != 0) {
         fingerprint.addUUID(UNIQUIFY_UUID);
@@ -380,7 +423,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
         SkylarkSemantics skylarkSemantics)
         throws CommandLineExpansionException {
       ImmutableList.Builder<String> builder = ImmutableList.builder();
-      argi = eval(arguments, argi, builder, skylarkSemantics);
+      argi = eval(arguments, argi, builder, null, skylarkSemantics);
       for (String s : builder.build()) {
         fingerprint.addString(s);
       }
@@ -392,6 +435,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       @Nullable private final NestedSet<?> nestedSet;
       private Location location;
       public String argName;
+      private boolean expandDirectories;
       private BaseFunction mapAll;
       private BaseFunction mapEach;
       private String formatEach;
@@ -419,6 +463,11 @@ public class SkylarkCustomCommandLine extends CommandLine {
 
       Builder setArgName(String argName) {
         this.argName = argName;
+        return this;
+      }
+
+      Builder setExpandDirectories(boolean expandDirectories) {
+        this.expandDirectories = expandDirectories;
         return this;
       }
 
@@ -666,11 +715,17 @@ public class SkylarkCustomCommandLine extends CommandLine {
 
   @Override
   public Iterable<String> arguments() throws CommandLineExpansionException {
+    return arguments(null);
+  }
+
+  @Override
+  public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     for (int argi = 0; argi < arguments.size(); ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).eval(arguments, argi, result, skylarkSemantics);
+        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, skylarkSemantics);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).eval(arguments, argi, result, skylarkSemantics);
       } else {

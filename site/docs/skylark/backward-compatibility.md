@@ -45,6 +45,7 @@ guarded behind flags in the current release:
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
+*   [Expand directories in Args](#expand-directories-in-args)
 
 
 ### Dictionary concatenation
@@ -387,4 +388,32 @@ have been migrated from `inputs`.
 *   Flag: `--incompatible_no_support_tools_in_action_inputs`
 *   Default: `false`
 
-<!-- Add new options here -->
+
+### Expand directories in Args
+
+Previously, directories created by
+[`ctx.actions.declare_directory`](lib/actions.html#declare_directory) expanded
+to the path of the directory when added to an [`Args`](lib/Args.html) object.
+
+With this flag enabled, directories are instead replaced by the full file
+contents of that directory when passed to `args.add_all()` or
+`args.add_joined()`. (Directories may not be passed to `args.add()`.)
+
+If you want the old behavior on a case-by-case basis (perhaps your tool can
+handle directories on the command line), you can pass `expand_directories=False`
+to the `args.add_all()` or `args.add_joined()` call.
+
+```
+d = ctx.action.declare_directory(“dir”)
+# ... Some action runs and produces [“dir/file1”, “dir/file2”] ...
+f = ctx.action.declare_file(“file”)
+args = ctx.action.args()
+args.add_all([d, f])
+  -> Used to expand to ["dir", "file"]
+     Now expands to [“dir/file1”, “dir/file2”, “file”]
+```
+
+*   Flag: `--incompatible_expand_directories`
+*   Default: `false`
+
+!-- Add new options here -->
