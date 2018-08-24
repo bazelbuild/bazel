@@ -23,6 +23,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 @SkylarkModule(
     name = "AndroidBinaryData",
     doc =
-        "Information about Android resource, asset, and manifest information specific to binaries",
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Information about Android resource, asset, and manifest information specific to "
+            + "binaries",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidBinaryDataInfoApi extends StructApi {}

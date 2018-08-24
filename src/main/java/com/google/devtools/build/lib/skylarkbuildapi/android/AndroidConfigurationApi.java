@@ -19,6 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /** Configuration fragment for Android rules. */
 @SkylarkModule(
     name = "android",
-    doc = "A configuration fragment for Android.",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "A configuration fragment for Android.",
+    documented = false,
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
 public interface AndroidConfigurationApi {}

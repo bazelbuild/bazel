@@ -25,23 +25,35 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /** A target that can provide local proguard specifications. */
-@SkylarkModule(name = "AndroidProguardInfo", doc = "", documented = false)
+@SkylarkModule(
+    name = "AndroidProguardInfo",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed.",
+    documented = false)
 public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi {
   String PROVIDER_NAME = "AndroidProguardInfo";
 
   @SkylarkCallable(
       name = "local_proguard_specs",
       structField = true,
-      doc = "Returns the local proguard specs defined by this target.")
+      doc = "Returns the local proguard specs defined by this target.",
+      documented = false)
   ImmutableList<FileT> getLocalProguardSpecs();
 
   /** The provider implementing this can construct the AndroidProguardInfo provider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface Provider<F extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = PROVIDER_NAME,
         doc = "The <code>AndroidProguardInfo</code> constructor.",
+        documented = false,
         parameters = {
           @Param(
               name = "local_proguard_specs",

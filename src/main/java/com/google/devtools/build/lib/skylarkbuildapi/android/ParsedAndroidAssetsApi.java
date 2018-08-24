@@ -19,6 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /** Parsed Android assets which can be merged together with assets from dependencies. */
 @SkylarkModule(
     name = "ParsedAndroidAssetsApi",
-    doc = "Information about the Android assets provided by a rule.",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Information about the Android assets provided by a rule.",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface ParsedAndroidAssetsApi {}

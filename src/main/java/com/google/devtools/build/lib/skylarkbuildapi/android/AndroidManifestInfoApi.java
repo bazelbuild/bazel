@@ -23,22 +23,31 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 @SkylarkModule(
     name = "AndroidManifestInfo",
     doc =
-        "Information about the Android manifest provided by a rule.",
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Information about the Android manifest provided by a rule.",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidManifestInfoApi extends StructApi {
 
   @SkylarkCallable(
       name = "manifest",
       doc = "This target's manifest, merged with manifests from dependencies",
+      documented = false,
       structField = true)
   FileApi getManifest();
 
-  @SkylarkCallable(name = "package", doc = "This target's package", structField = true)
+  @SkylarkCallable(
+      name = "package",
+      doc = "This target's package",
+      documented = false,
+      structField = true)
   String getPackage();
 
   @SkylarkCallable(
       name = "exports_manifest",
       doc = "If this manifest should be exported to targets that depend on it",
+      documented = false,
       structField = true)
   boolean exportsManifest();
 }
