@@ -77,8 +77,8 @@ function set_up() {
 
   # All generated .gcno files need to be in the manifest otherwise
   # the coverage report will be incomplete.
-  echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
   echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
 
   # Create the CC sources.
   mkdir -p coverage_srcs/
@@ -184,7 +184,6 @@ function test_cc_test_coverage() {
 
     # Assert that the C++ coverage output is correct.
     # The covered files are coverage_srcs/a.cc and coverage_srcs/t.cc.
-
     # The expected total number of lines of COVERAGE_OUTPUT_FILE
     # is 25. This number can be computed by counting the number
     # of lines in the variables declared below $expected_result_a_cc
