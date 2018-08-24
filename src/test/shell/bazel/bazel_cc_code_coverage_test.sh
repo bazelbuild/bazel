@@ -38,7 +38,7 @@ readonly ROOT_VAR="${PWD}"
 # Location of the instrumented file manifest.
 readonly COVERAGE_MANIFEST_VAR="${PWD}/coverage_manifest.txt"
 # Location of the final coverage report.
-readonly COVERAGE_OUTPUT_FILE_VAR="${PWD}/coverage_report.dat"
+readonly CC_COVERAGE_OUTPUT_FILE_VAR="${PWD}/coverage_report.dat"
 
 # Path to the canonical C++ coverage script.
 readonly COLLECT_CC_COVERAGE_SCRIPT=tools/test/collect_cc_coverage.sh
@@ -69,6 +69,7 @@ function set_up() {
 
   # The script expects gcov to be at $COVERAGE_GCOV_PATH.
   cp $( which gcov ) "$COVERAGE_GCOV_PATH_VAR"
+  mkdir -p "$COVERAGE_DIR_VAR/coverage_srcs"
 
   # The script expects the output file to already exist.
   # TODO(iirina): In the future it would be better if the
@@ -77,16 +78,16 @@ function set_up() {
 
   # All generated .gcno files need to be in the manifest otherwise
   # the coverage report will be incomplete.
-  echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
   echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
 
   # Create the CC sources.
-  mkdir -p coverage_srcs/
-  cat << EOF > coverage_srcs/a.h
+  mkdir -p "$ROOT_VAR/coverage_srcs/"
+  cat << EOF > "$ROOT_VAR/coverage_srcs/a.h"
 int a(bool what);
 EOF
 
-  cat << EOF > coverage_srcs/a.cc
+  cat << EOF > "$ROOT_VAR/coverage_srcs/a.cc"
 #include "a.h"
 
 int a(bool what) {
@@ -98,7 +99,7 @@ int a(bool what) {
 }
 EOF
 
-  cat << EOF > coverage_srcs/t.cc
+  cat << EOF > "$ROOT_VAR/coverage_srcs/t.cc"
 #include <stdio.h>
 #include "a.h"
 
@@ -155,7 +156,7 @@ function generate_and_execute_instrumented_binary() {
 function tear_down() {
   rm -f "$COVERAGE_MANIFEST_VAR"
   rm -f "$COVERAGE_GCOV_PATH_VAR"
-  rm -f "$COVERAGE_OUTPUT_FILE_VAR"
+  rm -f "$CC_COVERAGE_OUTPUT_FILE_VAR"
   rm -rf "$COVERAGE_DIR_VAR"
   rm -rf coverage_srcs/
 }
@@ -164,15 +165,18 @@ function tear_down() {
 # Sets up the sub-shell environment accordingly:
 # - COVERAGE_DIR            Directory containing gcda files.
 # - COVERAGE_MANIFEST       Location of the instrumented file manifest.
-# - COVERAGE_OUTPUT_FILE    Location of the final coverage report.
+# - CC_COVERAGE_OUTPUT_FILE    Location of the final coverage report.
 # - COVERAGE_GCOV_PATH      Location of gcov.
 # - ROOT                    Location from where the code coverage collection
 #                           was invoked.
+# - use_gcov is 1 if gcov coverage is used and 0 otherwise
 function run_coverage() {
+   local use_gcov="${1}"
   (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
    COVERAGE_GCOV_PATH="$COVERAGE_GCOV_PATH_VAR" \
    ROOT="$ROOT_VAR" COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
-   COVERAGE_OUTPUT_FILE="$COVERAGE_OUTPUT_FILE_VAR" \
+   CC_COVERAGE_OUTPUT_FILE="$CC_COVERAGE_OUTPUT_FILE_VAR" \
+   GCOV_COVERAGE="$use_gcov" \
    "$COLLECT_CC_COVERAGE_SCRIPT")
 }
 
@@ -244,18 +248,10 @@ end_of_record"
 }
 
 function test_cc_test_coverage_gcov() {
-  check_env
-
-  setup_script_environment
-  setup_cc_sources
-  setup_gcc_gcda_files
-  export GCOV_COVERAGE=1
-  export CC_COVERAGE_OUTPUT_FILE="$COVERAGE_DIR/_coverage.gcov"
-
-  eval tools/test/collect_cc_coverage.sh
+  run_coverage "1" > "$TEST_log"
 
   cat <<EOF > result.dat
-file:a.cc
+file:coverage_srcs/a.cc
 function:3,1,_Z1ab
 lcount:3,1
 lcount:4,1
@@ -263,10 +259,15 @@ branch:4,taken
 branch:4,nottaken
 lcount:5,1
 lcount:7,0
+file:coverage_srcs/t.cc
+function:4,1,main
+lcount:4,1
+lcount:5,1
+lcount:6,1
 EOF
 
-  diff result.dat "$CC_COVERAGE_OUTPUT_FILE" >> $TEST_log || fail "Diff failed"
-  cmp result.dat "$CC_COVERAGE_OUTPUT_FILE" || fail "Coverage output file is different than the expected file"
+  diff result.dat "$COVERAGE_DIR_VAR/_coverage.gcov" >> $TEST_log || fail "Diff failed"
+  cmp result.dat "$COVERAGE_DIR_VAR/_coverage.gcov" || fail "Coverage output file is different than the expected file"
 }
 
 run_suite "Testing tools/test/collect_cc_coverage.sh"
