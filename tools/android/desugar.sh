@@ -122,6 +122,7 @@ if [[ "$#" -gt 0 ]]; then
       done
 
       "${DESUGAR}" \
+          "--jvm_flag=-XX:+IgnoreUnrecognizedVMOptions" \
           "--jvm_flags=--add-opens=java.base/java.lang.invoke=ALL-UNNAMED" \
           "--jvm_flags=--add-opens=java.base/java.nio=ALL-UNNAMED" \
           "--jvm_flags=--add-opens=java.base/java.lang=ALL-UNNAMED" \
@@ -134,6 +135,7 @@ if [[ "$#" -gt 0 ]]; then
 fi
 
 "${DESUGAR}" \
+    "--jvm_flag=-XX:+IgnoreUnrecognizedVMOptions" \
     "--jvm_flags=--add-opens=java.base/java.lang.invoke=ALL-UNNAMED" \
     "--jvm_flags=--add-opens=java.base/java.nio=ALL-UNNAMED" \
     "--jvm_flags=--add-opens=java.base/java.lang=ALL-UNNAMED" \
