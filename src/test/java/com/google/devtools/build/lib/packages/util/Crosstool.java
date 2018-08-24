@@ -29,7 +29,7 @@ import java.util.Set;
  */
 final class Crosstool {
   private static final ImmutableList<String> CROSSTOOL_BINARIES =
-      ImmutableList.of("ar", "as", "compile", "dwp", "link", "objcopy");
+      ImmutableList.of("ar", "as", "compile", "dwp", "link", "objcopy", "llvm-profdata");
 
   private final MockToolsConfig config;
 

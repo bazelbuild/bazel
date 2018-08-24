@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -232,7 +231,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     Artifact rawProfileArtifact;
 
-    if (fdoProfile.getBaseName().endsWith(".zip")) {
+    if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoProfile)) {
       // Get the zipper binary for unzipping the profile.
       Artifact zipperBinaryArtifact = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
       if (zipperBinaryArtifact == null) {
@@ -371,29 +370,22 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       }
     }
 
-    FileTypeSet validExtensions =
-        FileTypeSet.of(
-            CppFileTypes.GCC_AUTO_PROFILE,
-            CppFileTypes.XBINARY_PROFILE,
-            CppFileTypes.LLVM_PROFILE,
-            CppFileTypes.LLVM_PROFILE_RAW,
-            FileType.of(".zip"));
-    if (fdoZip != null && !validExtensions.matches(fdoZip.getPathString())) {
-      ruleContext.ruleError("invalid extension for FDO profile file.");
-      return null;
-    }
-
     FdoMode fdoMode;
     if (fdoZip == null) {
       fdoMode = FdoMode.OFF;
-    } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip.getBaseName())) {
+    } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
       fdoMode = FdoMode.AUTO_FDO;
-    } else if (isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler(), fdoZip)) {
-      fdoMode = FdoMode.LLVM_FDO;
-    } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoZip.getBaseName())) {
+    } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoZip)) {
       fdoMode = FdoMode.XBINARY_FDO;
+    } else if (CppFileTypes.LLVM_PROFILE.matches(fdoZip)) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else if (CppFileTypes.LLVM_PROFILE_RAW.matches(fdoZip)) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoZip)) {
+      fdoMode = FdoMode.LLVM_FDO;
     } else {
-      fdoMode = FdoMode.VANILLA;
+      ruleContext.ruleError("invalid extension for FDO profile file.");
+      return null;
     }
 
     SkyKey fdoKey = FdoSupportValue.key(fdoZip);
@@ -629,14 +621,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     return builder.build();
-  }
-
-  /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
-  private boolean isLLVMOptimizedFdo(boolean isLLVMCompiler, PathFragment fdoProfilePath) {
-    return fdoProfilePath != null
-        && (CppFileTypes.LLVM_PROFILE.matches(fdoProfilePath)
-            || CppFileTypes.LLVM_PROFILE_RAW.matches(fdoProfilePath)
-            || (isLLVMCompiler && fdoProfilePath.toString().endsWith(".zip")));
   }
 
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */

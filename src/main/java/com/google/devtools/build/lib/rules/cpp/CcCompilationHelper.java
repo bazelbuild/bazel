@@ -146,19 +146,8 @@ public final class CcCompilationHelper {
     }
 
     // If --fdo_optimize was not specified, we don't have any additional inputs.
-    switch (fdoSupportProvider.getFdoMode()) {
-      case LLVM_FDO:
-      case AUTO_FDO:
-      case XBINARY_FDO:
-        auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
-        break;
-
-      case VANILLA:
-      case OFF:
-        break;
-
-      default:
-        throw new IllegalStateException();
+    if (fdoSupportProvider.getFdoMode() != FdoMode.OFF) {
+      auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
     }
 
     return auxiliaryInputs.build();

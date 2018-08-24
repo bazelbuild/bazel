@@ -184,6 +184,7 @@ public final class CppFileTypes {
   public static final FileType XBINARY_PROFILE = FileType.of(".xfdo");
   public static final FileType LLVM_PROFILE = FileType.of(".profdata");
   public static final FileType LLVM_PROFILE_RAW = FileType.of(".profraw");
+  public static final FileType LLVM_PROFILE_ZIP = FileType.of(".zip");
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
   public static final FileType CPP_MODULE = FileType.of(".pcm");

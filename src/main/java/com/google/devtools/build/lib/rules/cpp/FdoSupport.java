@@ -38,9 +38,6 @@ public final class FdoSupport {
     /** FDO is turned off. */
     OFF,
 
-    /** Profiling-based FDO using an explicitly recorded profile. */
-    VANILLA,
-
     /** FDO based on automatically collected data. */
     AUTO_FDO,
 
@@ -52,9 +49,7 @@ public final class FdoSupport {
   }
 
   /**
-   * Path of the profile file passed to {@code --fdo_optimize}, or
-   * {@code null} if FDO optimization is disabled.  The profile file
-   * can be a coverage ZIP or an AutoFDO feedback file.
+   * Path of the profile file passed to {@code --fdo_optimize}
    */
   // TODO(lberki): This should be a PathFragment.
   // Except that CcProtoProfileProvider#getProfile() calls #exists() on it, which is ridiculously
