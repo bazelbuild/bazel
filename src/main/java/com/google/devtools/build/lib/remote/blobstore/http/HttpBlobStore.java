@@ -240,7 +240,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 ChannelPipeline p = ch.pipeline();
 
                 // Ensure the channel pipeline is empty.
-                clearChannelPipeline(p);
+                if (!isChannelPipelineEmpty(p)) {
+                  channelReady.setFailure(new IllegalStateException("Channel pipeline is not empty."));
+                  return;
+                }
 
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
@@ -268,10 +271,7 @@ public final class HttpBlobStore implements SimpleBlobStore {
 
   @SuppressWarnings("FutureReturnValueIgnored")
   private void releaseUploadChannel(Channel ch) {
-    HttpUploadHandler handler = ch.pipeline().get(HttpUploadHandler.class);
-    if (handler == null || !handler.keepAlive()) {
-      ch.close();
-    } else if (ch.isOpen()) {
+    if (ch.isOpen()) {
       try {
         ch.pipeline().remove(HttpResponseDecoder.class);
         ch.pipeline().remove(HttpObjectAggregator.class);
@@ -305,7 +305,10 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 ChannelPipeline p = ch.pipeline();
 
                 // Ensure the channel pipeline is empty.
-                clearChannelPipeline(p);
+                if (!isChannelPipelineEmpty(p)) {
+                  channelReady.setFailure(new IllegalStateException("Channel pipeline is not empty."));
+                  return;
+                }
 
                 ch.pipeline()
                     .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
@@ -342,18 +345,8 @@ public final class HttpBlobStore implements SimpleBlobStore {
     channelPool.release(ch);
   }
 
-  private void clearChannelPipeline(ChannelPipeline pipeline) {
-    // Check if the pipeline is already empty.
-    if (pipeline.first() == null)
-      return;
-
-    try {
-      // Remove all elements from the pipeline until NoSuchElementException is thrown (which occurs
-      // when the pipeline is empty. Sadly, there is no built-in netty method to do this.
-      while (true) {
-        pipeline.removeLast();
-      }
-    } catch (NoSuchElementException e) {  }
+  private boolean isChannelPipelineEmpty(ChannelPipeline pipeline) {
+    return (pipeline.first() == null);
   }
 
   @Override

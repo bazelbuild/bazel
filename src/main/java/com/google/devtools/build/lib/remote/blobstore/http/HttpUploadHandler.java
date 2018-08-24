@@ -39,9 +39,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     super(credentials);
   }
 
-  private boolean keepAlive = false;
-  public boolean keepAlive() { return keepAlive; }
-
   @SuppressWarnings("FutureReturnValueIgnored")
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse response) {
@@ -67,8 +64,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
         succeedAndResetUserPromise();
       }
     } finally {
-      keepAlive = HttpUtil.isKeepAlive(response);
-      if (!keepAlive) {
+      if (!HttpUtil.isKeepAlive(response)) {
         ctx.close();
       }
     }
@@ -116,8 +112,6 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     request.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     request.headers().set(HttpHeaderNames.CONTENT_LENGTH, msg.contentLength());
     request.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-
-    keepAlive = false;
     return request;
   }
 
