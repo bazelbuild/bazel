@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 /** A collection of constraint values. */
 @Immutable
 @AutoCodec
-public class ConstraintCollection
+public final class ConstraintCollection
     implements ConstraintCollectionApi<ConstraintSettingInfo, ConstraintValueInfo> {
   private final ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints;
 
@@ -95,6 +95,10 @@ public class ConstraintCollection
 
   @Override
   public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+
     if (!(other instanceof ConstraintCollection)) {
       return false;
     }
