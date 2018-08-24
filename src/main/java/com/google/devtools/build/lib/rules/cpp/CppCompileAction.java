@@ -404,27 +404,25 @@ public class CppCompileAction extends AbstractAction
         cppConfiguration.isStrictSystemIncludes()
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
-    ArrayList<Artifact> found = new ArrayList<>();
+    Set<Artifact> missing = Sets.newHashSet();
     // Lazily initialize, so that compiles that properly declare all their files profit.
     Set<PathFragment> declaredIncludeDirs = null;
     for (Artifact header : undeclaredHeaders) {
       if (FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)) {
-        found.add(header);
         continue;
       }
       if (declaredIncludeDirs == null) {
         declaredIncludeDirs = ccCompilationContext.getDeclaredIncludeDirs().toSet();
       }
-      if (isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
-        found.add(header);
+      if (!isDeclaredIn(actionExecutionContext, header, declaredIncludeDirs)) {
+        missing.add(header);
       }
     }
-    undeclaredHeaders.removeAll(found);
-    if (undeclaredHeaders.isEmpty()) {
+    if (missing.isEmpty()) {
       return headers;
     }
 
-    return Iterables.filter(headers, header -> !undeclaredHeaders.contains(header));
+    return Iterables.filter(headers, header -> !missing.contains(header));
   }
 
   @Nullable
