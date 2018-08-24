@@ -1,6 +1,9 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:srcs"],
+    srcs = glob(["**"]) + [
+        "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:srcs",
+        "//src/tools/execlog/test/main/java/com/google/devtools/build/execlog:srcs",
+    ],
     visibility = ["//src:__pkg__"],
 )
 
