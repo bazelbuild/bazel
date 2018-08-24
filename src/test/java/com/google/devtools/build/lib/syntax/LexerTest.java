@@ -380,7 +380,7 @@ public class LexerTest {
   @Test
   public void testIndentationWithTab() throws Exception {
     tokens("def x():\n\tpass");
-    assertThat(lastError.toString()).contains("Tabulations are not allowed");
+    assertThat(lastError).contains("Tab characters are not allowed");
   }
 
   @Test
