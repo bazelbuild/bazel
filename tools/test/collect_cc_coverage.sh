@@ -44,11 +44,10 @@ function uses_llvm() {
   return 1
 }
 
+# Returns 0 if gcov must be used, 1 otherwise.
 function uses_gcov() {
-  if [[ "$GCOV_COVERAGE" ]]; then
-    return
-  fi
-  false
+  [[ "$GCOV_COVERAGE" -eq "1"  ]] && return 0
+  return 1
 }
 
 function init_gcov() {
@@ -70,10 +69,26 @@ function llvm_coverage() {
 # Computes code coverage data using gcda files found under $COVERAGE_DIR.
 # Writes the collected coverage into ${COVERAGE_OUTPUT_FILE} in lcov format.
 function lcov_coverage() {
+#  echo "ROOT has the following:"
+#  ls "$ROOT"
+#  echo "-----------DONE------------_"
+#  echo "ROOT/coverage_srcs has the following:"
+#  ls "$ROOT/coverage_srcs"
+#  echo "-----------DONE------------_"
+#  echo "COVERAGE_DIR has the following:"
+#  ls "$COVERAGE_DIR"
+#  echo "-----------DONE------------_"
+#  echo "COVERAGE_DIR/coverage_srcs has the following:"
+#  ls "$COVERAGE_DIR/coverage_srcs"
+#  echo "-----------DONE------------_"
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
     cp "${ROOT}/${gcno}" "${COVERAGE_DIR}/${gcno}"
   done
+
+#  echo "COVERAGE_DIR/coverage_srcs has the following after cp:"
+#  ls "$COVERAGE_DIR/coverage_srcs"
+#  echo "-----------DONE------------_"
 
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
   # -c                    - Collect coverage data
@@ -89,14 +104,17 @@ function lcov_coverage() {
   if [[ ! -x $LCOV ]]; then
     LCOV=/usr/bin/lcov
   fi
-  $LCOV -c --no-external --ignore-errors graph -q \
+  $LCOV -c --no-external --ignore-errors graph \
       --gcov-tool "${GCOV}" -b /proc/self/cwd \
       -d "${COVERAGE_DIR}" -o "${CC_COVERAGE_OUTPUT_FILE}"
+#  echo "CC_COVERAGE_OUTPUT_FILE contains the following:"
+#  cat "$CC_COVERAGE_OUTPUT_FILE"
+#  echo "----------_DONE!-----------_"
    # Fix up the paths to be relative by removing the prefix we specified above.
   sed -i -e "s*/proc/self/cwd/**g" "${CC_COVERAGE_OUTPUT_FILE}"
 }
 
-function gcc_gcov_coverage() {
+function gcov_coverage() {
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
     cp "$ROOT/${gcno}" "${COVERAGE_DIR}/${gcno}"
@@ -104,7 +122,8 @@ function gcc_gcov_coverage() {
     "${GCOV}" --branch-probabilities --branch-counts --function-summaries --intermediate-format "${gcda}"
   done
 
-  export CC_COVERAGE_OUTPUT_FILE="$COVERAGE_DIR/_coverage.gcov"
+  CC_COVERAGE_OUTPUT_FILE="$COVERAGE_DIR/_coverage.gcov"
+  touch "$CC_COVERAGE_OUTPUT_FILE"
   find . -name "*.gcov" | while read path; do
     echo "Processing $path"
     cat $path >> "${CC_COVERAGE_OUTPUT_FILE}"
@@ -116,7 +135,7 @@ function main() {
   if uses_llvm; then
     llvm_coverage
   elif uses_gcov; then
-    gcc_gcov_coverage
+    gcov_coverage
   else
     lcov_coverage
   fi
