@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 public interface AndroidResourcesInfoApi<
         FileT extends FileApi,
         ValidatedAndroidDataT extends ValidatedAndroidDataApi,
-        AndroidManifestT extends AndroidManifestApi>
+        AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
     extends StructApi {
 
   /**
@@ -55,7 +55,7 @@ public interface AndroidResourcesInfoApi<
   Label getLabel();
 
   @SkylarkCallable(name = "manifest", doc = "", documented = false, structField = true)
-  AndroidManifestT getManifest();
+  AndroidManifestInfoT getManifest();
 
   /** Returns the compiletime r.txt file for the target. */
   @SkylarkCallable(
@@ -127,7 +127,7 @@ public interface AndroidResourcesInfoApi<
   public interface AndroidResourcesInfoApiProvider<
           FileT extends FileApi,
           ValidatedAndroidDataT extends ValidatedAndroidDataApi,
-          AndroidManifestT extends AndroidManifestApi>
+          AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
       extends ProviderApi {
 
     @SkylarkCallable(
@@ -145,7 +145,7 @@ public interface AndroidResourcesInfoApi<
               name = "manifest",
               positional = true,
               named = false,
-              type = AndroidManifestApi.class),
+              type = AndroidManifestInfoApi.class),
           @Param(name = "r_txt", positional = true, named = false, type = FileApi.class),
           @Param(
               name = "transitive_android_resources",
@@ -217,9 +217,9 @@ public interface AndroidResourcesInfoApi<
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidResourcesInfoApi.class, receiverNameForDoc = NAME)
-    AndroidResourcesInfoApi<FileT, ValidatedAndroidDataT, AndroidManifestT> createInfo(
+    AndroidResourcesInfoApi<FileT, ValidatedAndroidDataT, AndroidManifestInfoT> createInfo(
         Label label,
-        AndroidManifestT manifest,
+        AndroidManifestInfoT manifest,
         FileT rTxt,
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,
