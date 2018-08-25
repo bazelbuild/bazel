@@ -201,6 +201,13 @@ rm -rf $$TMPDIR
 )
 
 default_java_toolchain(
+    name = "toolchain_vanilla",
+    forcibly_disable_header_compilation = True,
+    javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
+)
+
+default_java_toolchain(
     name = "toolchain_hostjdk8",
     bootclasspath = [":platformclasspath"],
     forcibly_disable_header_compilation = True,
