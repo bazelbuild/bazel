@@ -45,7 +45,8 @@ public interface AndroidDataProcessingApi<
     AndroidResourcesInfoT extends AndroidResourcesInfoApi,
     AndroidManifestInfoT extends AndroidManifestInfoApi,
     AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi,
-    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi> {
+    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi,
+    ValidatedAndroidDataT extends ValidatedAndroidDataApi> {
 
   @SkylarkCallable(
       name = "assets_from_deps",
@@ -1004,4 +1005,19 @@ public interface AndroidDataProcessingApi<
       Location location,
       Environment env)
       throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "resources_from_validated_res",
+      allowReturnNones = true,
+      doc = "Returns an Artifact containing a zip of merged resources.",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "validated_res",
+            doc = "The validated Android resources.",
+            positional = true,
+            named = false,
+            type = ValidatedAndroidDataApi.class)
+      })
+  FileT resourcesFromValidatedRes(ValidatedAndroidDataT resources);
 }
