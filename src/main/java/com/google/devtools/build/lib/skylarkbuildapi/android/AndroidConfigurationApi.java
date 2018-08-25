@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
@@ -25,4 +26,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "A configuration fragment for Android.",
     documented = false,
     category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public interface AndroidConfigurationApi {}
+public interface AndroidConfigurationApi {
+
+  @SkylarkCallable(
+      name = "android_cpu",
+      structField = true,
+      doc = "The Android target CPU.",
+      documented = false)
+  String getCpu();
+}
