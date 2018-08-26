@@ -121,7 +121,8 @@ public class HttpDownloader {
       }
       sha256 = Strings.nullToEmpty(mapper.get("sha256", Type.STRING));
       if (!sha256.isEmpty() && !RepositoryCache.KeyType.SHA256.isValid(sha256)) {
-        throw new EvalException(rule.getAttributeLocation("sha256"), "Invalid SHA256 checksum");
+        throw new EvalException(rule.getAttributeLocation("sha256"),
+                getChecksumErrorMessage(mapper.get("url", Type.STRING), sha256).toString());
       }
       type = Strings.nullToEmpty(mapper.get("type", Type.STRING));
     } catch (EvalException e) {
@@ -261,5 +262,16 @@ public class HttpDownloader {
       }
     }
     return output.getRelative(basename);
+  }
+
+  public static StringBuilder getChecksumErrorMessage(String url, String actualChecksum) {
+    StringBuilder message = new StringBuilder();
+    message.append("The SHA256 checksum specified in the WORKSPACE file does not match the SHA256\n"
+            + "checksum of the downloaded file. The checksum exists to ensure a secure build,\n"
+            + "since remote files can change. If the file is correct, update the SHA256 checksum.\n"
+            + "(\"sha256 = \") in your WORKSPACE file. Otherwise, this could be a security compromise.\n");
+    message.append("\nURL:\n" + url);
+    message.append("\nActual SHA26 (from WORKSPACE):\n" + actualChecksum + "\n is not valid\n");
+    return message;
   }
 }

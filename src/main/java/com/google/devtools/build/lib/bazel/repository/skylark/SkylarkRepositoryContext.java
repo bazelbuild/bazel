@@ -327,7 +327,7 @@ public class SkylarkRepositoryContext
   public void download(
       Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    validateSha256(sha256);
+    validateSha256(url.toString(), sha256);
     List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
     WorkspaceRuleEvent w =
@@ -359,7 +359,7 @@ public class SkylarkRepositoryContext
   public void downloadAndExtract(
       Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    validateSha256(sha256);
+    validateSha256(url.toString(), sha256);
     List<URL> urls = getUrls(url);
 
     WorkspaceRuleEvent w =
@@ -414,10 +414,10 @@ public class SkylarkRepositoryContext
     }
   }
 
-  private static void validateSha256(String sha256) throws RepositoryFunctionException {
+  private static void validateSha256(String url, String sha256) throws RepositoryFunctionException {
     if (!sha256.isEmpty() && !KeyType.SHA256.isValid(sha256)) {
       throw new RepositoryFunctionException(
-          new IOException("Invalid SHA256 checksum"), Transience.TRANSIENT);
+              new IOException(HttpDownloader.getChecksumErrorMessage(url, sha256).toString()), Transience.TRANSIENT);
     }
   }
 
