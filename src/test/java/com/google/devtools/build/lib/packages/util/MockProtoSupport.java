@@ -185,7 +185,8 @@ public final class MockProtoSupport {
         "third_party/golang/grpc/metadata/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
-        "exports_files(['metadata'])");
+        "go_library(name = 'metadata',",
+        "           srcs = [ 'metadata.go' ])");
   }
 
   /**
