@@ -1062,10 +1062,6 @@ public final class Environment implements Freezable, Debuggable {
     return this;
   }
 
-  public boolean hasVariable(String varname) {
-    return lookup(varname) != null;
-  }
-
   /**
    * Initializes a binding in this Environment. It is an error if the variable is already bound.
    * This is not for end-users, and will throw an AssertionError in case of conflict.
@@ -1074,7 +1070,7 @@ public final class Environment implements Freezable, Debuggable {
    * @return this Environment, in fluid style
    */
   public Environment setup(String varname, Object value) {
-    if (hasVariable(varname)) {
+    if (lookup(varname) != null) {
       throw new AssertionError(String.format("variable '%s' already bound", varname));
     }
     return setupOverride(varname, value);
