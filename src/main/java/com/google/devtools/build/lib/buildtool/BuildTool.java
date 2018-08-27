@@ -176,21 +176,12 @@ public class BuildTool {
         }
       }
       Profiler.instance().markPhase(ProfilePhase.FINISH);
-    } catch (RuntimeException e) {
-      // Print an error message for unchecked runtime exceptions. This does not concern Error
-      // subclasses such as OutOfMemoryError.
-      request.getOutErr().printErrLn(
-          "Unhandled exception thrown during build; message: " + e.getMessage());
-      catastrophe = true;
-      throw e;
-    } catch (Error e) {
-      catastrophe = true;
-      throw e;
-    } catch (InvalidConfigurationException e) {
-      // TODO(gregce): With "global configurations" we cannot tie a configuration creation failure
-      // to a single target and have to halt the entire build. Once configurations are genuinely
-      // created as part of the analysis phase they should report their error on the level of the
-      // target(s) that triggered them.
+    } catch (Error | RuntimeException e) {
+      request
+          .getOutErr()
+          .printErrLn(
+              "Internal error thrown during build. Printing stack trace: "
+                  + Throwables.getStackTraceAsString(e));
       catastrophe = true;
       throw e;
     } finally {
