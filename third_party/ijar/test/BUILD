@@ -31,6 +31,9 @@ sh_test(
         "WellCompressed2.java",
         ":libtypeannotations2.jar",
         ":libmethodparameters.jar",
+        # This is a precompiled .jar file because it needs to be compiled with JDK 11.
+        # TODO(cushon): build from source once we have a JDK 11
+        "nestmates/nestmates.jar",
         ":source_debug_extension.jar",
         ":largest_regular.jar",
         ":smallest_zip64.jar",
