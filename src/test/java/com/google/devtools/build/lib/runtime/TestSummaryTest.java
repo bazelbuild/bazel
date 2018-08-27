@@ -108,7 +108,7 @@ public class TestSummaryTest {
     TestSummary summary = createTestSummary(stubTarget, BlazeTestStatus.PASSED, NOT_CACHED);
     TestSummaryPrinter.print(summary, terminalPrinter, true, false);
 
-    terminalPrinter.print(find(expectedString));
+    verify(terminalPrinter).print(find(expectedString));
   }
 
   @Test
@@ -224,6 +224,7 @@ public class TestSummaryTest {
         .build();
     assertThat(failedCacheTemplate.numCached()).isEqualTo(50);
     assertThat(failedCacheTemplate.getStatus()).isEqualTo(BlazeTestStatus.FAILED);
+    assertThat(failedCacheTemplate.getTotalTestCases()).isEqualTo(fiftyCached.getTotalTestCases());
   }
 
   @Test
@@ -437,6 +438,7 @@ public class TestSummaryTest {
   public void testCollectingFailedDetails() throws Exception {
     TestCase rootCase = TestCase.newBuilder()
         .setName("tests")
+        .setClassName("testclass")
         .setRunDurationMillis(5000L)
         .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
         .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
@@ -453,6 +455,57 @@ public class TestSummaryTest {
     verify(printer).print(contains("//package:name"));
     verify(printer).print(find("FAILED.*apple"));
     verify(printer).print(find("ERROR.*cherry"));
+  }
+
+  @Test
+  public void countTotalTestCases() throws Exception {
+    TestCase rootCase =
+        TestCase.newBuilder()
+            .setName("tests")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .build();
+
+    TestSummary summary =
+        getTemplateBuilder()
+            .countTotalTestCases(rootCase)
+            .setStatus(BlazeTestStatus.FAILED)
+            .build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(3);
+  }
+
+  @Test
+  public void countTotalTestCasesInNestedTree() throws Exception {
+    TestCase aCase =
+        TestCase.newBuilder()
+            .setName("tests-1")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .build();
+    TestCase anotherCase =
+        TestCase.newBuilder()
+            .setName("tests-2")
+            .setRunDurationMillis(5000L)
+            .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
+            .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .build();
+
+    TestCase rootCase =
+        TestCase.newBuilder().setName("tests").addChild(aCase).addChild(anotherCase).build();
+
+    TestSummary summary =
+        getTemplateBuilder()
+            .countTotalTestCases(rootCase)
+            .setStatus(BlazeTestStatus.FAILED)
+            .build();
+
+    assertThat(summary.getTotalTestCases()).isEqualTo(6);
   }
 
   private ConfiguredTarget target(String path, String targetName) throws Exception {
