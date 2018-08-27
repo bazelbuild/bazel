@@ -85,6 +85,7 @@ public class ApiExporter {
         param.setName(par.getName());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());
+        param.setDefaultValue(par.getDefaultValue());
         callable.addParam(param);
       }
       callable.setReturnType(meth.getReturnType());
