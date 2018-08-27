@@ -741,13 +741,6 @@ public final class CcCompilationHelper {
     }
 
     ccCompilationContext = initializeCcCompilationContext();
-    System.out.println("OB DEBUG: Rule: "
-        + ruleContext.attributes().getName()
-        + " created ccCompilationContext = "
-        + ccCompilationContext.toString()
-        + " including "
-        + ccCompilationContext.getIncludeDirs().toString()
-    );
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(

@@ -402,10 +402,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       compilationPrerequisites.addAll(
           otherCcCompilationContext.getTransitiveCompilationPrerequisites());
       includeDirs.addAll(otherCcCompilationContext.getIncludeDirs());
-      System.out.println("OB DEBUG: \t"
-          + "adding "
-          + otherCcCompilationContext.getIncludeDirs().toString());
-      System.out.println("OB DEBUG: includeDirs is now:\n\t" + includeDirs.toString());
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
       declaredIncludeDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeDirs());
@@ -439,11 +435,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      */
     public Builder mergeDependentCcCompilationContexts(Iterable<CcCompilationContext> targets) {
       for (CcCompilationContext target : targets) {
-        System.out.println("OB DEBUG: merging "
-            + target.toString()
-            + " into "
-            + this.toString()
-        );
         mergeDependentCcCompilationContext(target);
       }
       return this;
