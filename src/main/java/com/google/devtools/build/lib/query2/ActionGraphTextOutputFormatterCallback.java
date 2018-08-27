@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -32,10 +33,12 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
@@ -146,6 +149,23 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
                   /* environment= */ null,
                   /* cwd= */ null))
           .append("\n");
+    }
+
+    if (action instanceof ExecutionInfoSpecifier) {
+      ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) action;
+      stringBuilder
+          .append("  ExecutionInfo: {")
+          .append(
+              executionInfoSpecifier.getExecutionInfo().entrySet().stream()
+                  .sorted(Map.Entry.comparingByKey())
+                  .map(
+                      e ->
+                          String.format(
+                              "%s: %s",
+                              ShellEscaper.escapeString(e.getKey()),
+                              ShellEscaper.escapeString(e.getValue())))
+                  .collect(Collectors.joining(", ")))
+          .append("}\n");
     }
 
     stringBuilder.append('\n');
