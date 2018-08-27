@@ -880,6 +880,14 @@ EOF
 }
 
 function test_sha256_weird() {
+  LOG='The SHA256 checksum specified in the WORKSPACE file does not match the SHA256
+checksum of the downloaded file. The checksum exists to ensure a secure build,
+since remote files can change. If the file is correct, update the SHA256 checksum.
+("sha256 = ") in your WORKSPACE file. Otherwise, this could be a security compromise.
+ URL:
+http://127.0.0.1:$fileserver_port/repo.zip
+ Actual SHA26 (from WORKSPACE):
+a random string is not valid'
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
@@ -897,7 +905,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
-  expect_log "Invalid SHA256 checksum"
+  expect_log $LOG
   shutdown_server
 }
 
