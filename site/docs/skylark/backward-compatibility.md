@@ -46,6 +46,7 @@ guarded behind flags in the current release:
 *   [New-style JavaInfo constructor](#new-style-java_info)
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 *   [Expand directories in Args](#expand-directories-in-args)
+*   [Static Name Resolution](#static-name-resolution)
 
 
 ### Dictionary concatenation
@@ -415,5 +416,19 @@ args.add_all([d, f])
 
 *   Flag: `--incompatible_expand_directories`
 *   Default: `false`
+
+
+### Static Name Resolution
+
+When the flag is set, use a saner way to resolve variables. The previous
+behavior was buggy in a number of subtle ways. See [the
+proposal](https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md)
+for background and examples.
+
+The proposal is not fully implemented yet.
+
+*   Flag: `--incompatible_static_name_resolution`
+*   Default: `false`
+
 
 !-- Add new options here -->

@@ -23,7 +23,21 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** A class for doing static checks on files, before evaluating them. */
+/**
+ * A class for doing static checks on files, before evaluating them.
+ *
+ * <p>The behavior is affected by semantics.incompatibleStaticNameResolution(). When it is set to
+ * true, we implement the semantics discussed in
+ * https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md
+ *
+ * <p>When a variable is defined, it is visible in the entire block. For example, a global variable
+ * is visible in the entire file; a variable in a function is visible in the entire function block
+ * (even on the lines before its first assignment).
+ *
+ * <p>The legacy behavior is kept during the transition and will be removed in the future. In the
+ * legacy behavior, there is no clear separation between the first pass (collect all definitions)
+ * and the second pass (ensure the symbols can be resolved).
+ */
 public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   private enum Scope {
@@ -74,15 +88,78 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   /** Create a ValidationEnvironment for a given global Environment (containing builtins). */
   ValidationEnvironment(Environment env) {
     Preconditions.checkArgument(env.isGlobal());
+    semantics = env.getSemantics();
     block = new Block(Scope.Universe, null);
     Set<String> builtinVariables = env.getVariableNames();
     block.variables.addAll(builtinVariables);
-    block.readOnlyVariables.addAll(builtinVariables);
-    semantics = env.getSemantics();
+    if (!semantics.incompatibleStaticNameResolution()) {
+      block.readOnlyVariables.addAll(builtinVariables);
+    }
+  }
+
+  /**
+   * Add all definitions to the current block. This is done because symbols are sometimes used
+   * before their definition point (e.g. a functions are not necessarily declared in order).
+   *
+   * <p>The old behavior (when incompatibleStaticNameResolution is false) doesn't have this first
+   * pass.
+   */
+  private void collectDefinitions(Iterable<Statement> stmts) {
+    for (Statement stmt : stmts) {
+      collectDefinitions(stmt);
+    }
+  }
+
+  private void collectDefinitions(Statement stmt) {
+    switch (stmt.kind()) {
+      case ASSIGNMENT:
+        collectDefinitions(((AssignmentStatement) stmt).getLValue());
+        break;
+      case AUGMENTED_ASSIGNMENT:
+        collectDefinitions(((AugmentedAssignmentStatement) stmt).getLValue());
+        break;
+      case IF:
+        IfStatement ifStmt = (IfStatement) stmt;
+        for (IfStatement.ConditionalStatements cond : ifStmt.getThenBlocks()) {
+          collectDefinitions(cond.getStatements());
+        }
+        collectDefinitions(ifStmt.getElseBlock());
+        break;
+      case FOR:
+        ForStatement forStmt = (ForStatement) stmt;
+        collectDefinitions(forStmt.getVariable());
+        collectDefinitions(forStmt.getBlock());
+        break;
+      case FUNCTION_DEF:
+        Identifier fctName = ((FunctionDefStatement) stmt).getIdentifier();
+        declare(fctName.getName(), fctName.getLocation());
+        break;
+      case LOAD:
+        for (Identifier id : ((LoadStatement) stmt).getSymbols()) {
+          declare(id.getName(), id.getLocation());
+        }
+        break;
+      case CONDITIONAL:
+      case EXPRESSION:
+      case FLOW:
+      case PASS:
+      case RETURN:
+        // nothing to declare
+    }
+  }
+
+  private void collectDefinitions(LValue left) {
+    for (Identifier id : left.boundIdentifiers()) {
+      declare(id.getName(), id.getLocation());
+    }
   }
 
   @Override
   public void visit(LoadStatement node) {
+    if (semantics.incompatibleStaticNameResolution()) {
+      return;
+    }
+
     for (Identifier symbol : node.getSymbols()) {
       declare(symbol.getName(), node.getLocation());
     }
@@ -97,7 +174,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   private void validateLValue(Location loc, Expression expr) {
     if (expr instanceof Identifier) {
-      declare(((Identifier) expr).getName(), loc);
+      if (!semantics.incompatibleStaticNameResolution()) {
+        declare(((Identifier) expr).getName(), loc);
+      }
     } else if (expr instanceof IndexExpression) {
       visit(expr);
     } else if (expr instanceof ListLiteral) {
@@ -149,6 +228,13 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   @Override
   public void visit(AbstractComprehension node) {
     openBlock(Scope.Local);
+    if (semantics.incompatibleStaticNameResolution()) {
+      for (AbstractComprehension.Clause clause : node.getClauses()) {
+        if (clause.getLValue() != null) {
+          collectDefinitions(clause.getLValue());
+        }
+      }
+    }
     super.visit(node);
     closeBlock();
   }
@@ -166,6 +252,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         declare(param.getName(), param.getLocation());
       }
     }
+    if (semantics.incompatibleStaticNameResolution()) {
+      collectDefinitions(node.getStatements());
+    }
     visitAll(node.getStatements());
     closeBlock();
   }
@@ -176,7 +265,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
       throw new ValidationException(
           node.getLocation(),
           "if statements are not allowed at the top level. You may move it inside a function "
-          + "or use an if expression (x if condition else y).");
+              + "or use an if expression (x if condition else y).");
     }
     super.visit(node);
   }
@@ -273,17 +362,23 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
     openBlock(Scope.Module);
 
-    // Add every function in the environment before validating. This is
-    // necessary because functions may call other functions defined
-    // later in the file.
-    for (Statement statement : statements) {
-      if (statement instanceof FunctionDefStatement) {
-        FunctionDefStatement fct = (FunctionDefStatement) statement;
-        declare(fct.getIdentifier().getName(), fct.getLocation());
+    if (semantics.incompatibleStaticNameResolution()) {
+      // Add each variable defined by statements, not including definitions that appear in
+      // sub-scopes of the given statements (function bodies and comprehensions).
+      collectDefinitions(statements);
+    } else {
+      // Legacy behavior, to be removed. Add only the functions in the environment before
+      // validating.
+      for (Statement statement : statements) {
+        if (statement instanceof FunctionDefStatement) {
+          FunctionDefStatement fct = (FunctionDefStatement) statement;
+          declare(fct.getIdentifier().getName(), fct.getLocation());
+        }
       }
     }
 
-    this.visitAll(statements);
+    // Second pass: ensure that all symbols have been defined.
+    visitAll(statements);
     closeBlock();
   }
 

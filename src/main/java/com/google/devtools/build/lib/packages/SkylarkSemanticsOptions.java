@@ -373,6 +373,21 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleRemoveNativeHttpArchive;
 
   @Option(
+      name = "incompatible_static_name_resolution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the interpreter follows the semantics related to name resolution, "
+              + "scoping, and shadowing, as defined in "
+              + "https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md")
+  public boolean incompatibleStaticNameResolution;
+
+  @Option(
       name = "incompatible_string_is_not_iterable",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -423,6 +438,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
+        .incompatibleStaticNameResolution(incompatibleStaticNameResolution)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
         .build();

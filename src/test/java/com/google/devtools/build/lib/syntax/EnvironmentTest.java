@@ -245,19 +245,17 @@ public class EnvironmentTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testReadOnly() throws Exception {
-    Environment env = newSkylarkEnvironment()
-        .setup("special_var", 42)
-        .update("global_var", 666);
+  public void testBuiltinsCanBeShadowed() throws Exception {
+    Environment env =
+        newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true")
+            .setup("special_var", 42);
+    BuildFileAST.eval(env, "special_var = 41");
+    assertThat(env.lookup("special_var")).isEqualTo(41);
+  }
 
-    // We don't even get a runtime exception trying to modify these,
-    // because we get compile-time exceptions even before we reach runtime!
-    try {
-      BuildFileAST.eval(env, "special_var = 41");
-      throw new AssertionError("failed to fail");
-    } catch (EvalException e) {
-      assertThat(e).hasMessageThat().contains("Variable special_var is read only");
-    }
+  @Test
+  public void testVariableIsReferencedBeforeAssignment() throws Exception {
+    Environment env = newSkylarkEnvironment().update("global_var", 666);
 
     try {
       BuildFileAST.eval(env, "def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
