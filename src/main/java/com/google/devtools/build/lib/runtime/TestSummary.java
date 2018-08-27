@@ -167,15 +167,6 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
           return this;
         }
 
-        String name = testCase.getName();
-        String className = testCase.getClassName();
-        if (name == null || className == null) {
-          // A test case detail is not really interesting if we cannot tell which
-          // one it is.
-          this.summary.failedTestCasesStatus = FailedTestCasesStatus.PARTIAL;
-          return this;
-        }
-
         this.summary.failedTestCases.add(testCase);
       }
       return this;
