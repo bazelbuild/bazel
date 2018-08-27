@@ -199,3 +199,12 @@ http_archive(
     sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
     strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c"
 )
+
+http_archive(
+    name = "skydoc",
+    urls = [
+        "https://github.com/bazelbuild/skydoc/archive/d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8.tar.gz",
+    ],
+    sha256 = "cfbfcc107f5c9853dc5b2b81f1fe90fc326bd1c61f76c9aac2b4201dff75b91d",
+    strip_prefix = "skydoc-d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8"
+)
