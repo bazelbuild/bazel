@@ -296,14 +296,13 @@ public class HttpBlobStoreTest {
   @Test
   public void expiredAuthTokensShouldBeRetried_get() throws Exception {
     expiredAuthTokensShouldBeRetried_get(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
     expiredAuthTokensShouldBeRetried_get(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
   }
 
   private void expiredAuthTokensShouldBeRetried_get(
-      com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType)
-      throws Exception {
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
@@ -328,13 +327,13 @@ public class HttpBlobStoreTest {
   @Test
   public void expiredAuthTokensShouldBeRetried_put() throws Exception {
     expiredAuthTokensShouldBeRetried_put(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
     expiredAuthTokensShouldBeRetried_put(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
   }
 
   private void expiredAuthTokensShouldBeRetried_put(
-      com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
@@ -357,13 +356,13 @@ public class HttpBlobStoreTest {
   @Test
   public void errorCodesThatShouldNotBeRetried_get() {
     errorCodeThatShouldNotBeRetried_get(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
     errorCodeThatShouldNotBeRetried_get(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
   }
 
   private void errorCodeThatShouldNotBeRetried_get(
-      com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
@@ -385,13 +384,13 @@ public class HttpBlobStoreTest {
   @Test
   public void errorCodesThatShouldNotBeRetried_put() {
     errorCodeThatShouldNotBeRetried_put(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
     errorCodeThatShouldNotBeRetried_put(
-        com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
   }
 
   private void errorCodeThatShouldNotBeRetried_put(
-      com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
