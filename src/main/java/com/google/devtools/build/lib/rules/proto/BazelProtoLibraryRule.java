@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -84,6 +86,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("strip_import_prefix", STRING))
         .advertiseProvider(ProtoSourcesProvider.class, ProtoSupportDataProvider.class)
+        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey()))
         .build();
   }
 

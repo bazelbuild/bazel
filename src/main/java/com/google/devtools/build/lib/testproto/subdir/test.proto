@@ -1,0 +1,5 @@
+package foo.bar.test;
+
+syntax = "proto3";
+
+message SomeMessage{}
