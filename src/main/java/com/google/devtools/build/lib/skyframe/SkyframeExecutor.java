@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -1881,7 +1882,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       keys.add(aspectKey);
     }
     EvaluationResult<ActionLookupValue> result =
-        buildDriver.evaluate(keys, keepGoing, numThreads, eventHandler);
+        buildDriver.evaluate(
+            keys,
+            keepGoing,
+            () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads),
+            eventHandler);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
     return result;

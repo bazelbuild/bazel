@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -141,9 +142,11 @@ public class EagerInvalidatorTest {
             InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             keepGoing,
-            200,
             new DirtyTrackingProgressReceiver(null),
-            GraphInconsistencyReceiver.THROWING);
+            GraphInconsistencyReceiver.THROWING,
+            () -> AbstractQueueVisitor.createExecutorService(200),
+            new SimpleCycleDetector(),
+            EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
