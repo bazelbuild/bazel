@@ -205,7 +205,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     buildCommandLine(builder, argumentsList);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
-      builder.addInput(executable);
       FilesToRunProvider provider = context.getExecutableRunfiles(executable);
       if (provider == null) {
         builder.setExecutable(executable);
