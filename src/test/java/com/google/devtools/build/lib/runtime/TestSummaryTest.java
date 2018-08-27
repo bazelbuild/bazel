@@ -438,7 +438,6 @@ public class TestSummaryTest {
   public void testCollectingFailedDetails() throws Exception {
     TestCase rootCase = TestCase.newBuilder()
         .setName("tests")
-        .setClassName("testclass")
         .setRunDurationMillis(5000L)
         .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
         .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
