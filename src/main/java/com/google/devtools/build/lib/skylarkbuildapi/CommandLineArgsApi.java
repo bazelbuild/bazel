@@ -489,7 +489,11 @@ public interface CommandLineArgsApi extends SkylarkValue {
       name = "use_param_file",
       doc =
           "Spills the args to a params file, replacing them with a pointer to the param file. "
-              + "Use when your args may be too large for the system's command length limits ",
+              + "Use when your args may be too large for the system's command length limits."
+              + "<p>Bazel may choose to elide writing the params file to the output tree during "
+              + "execution for efficiency."
+              + "If you are debugging actions and want to inspect the param file, "
+              + "pass <code>--materialize_param_files</code> to your build.",
       parameters = {
         @Param(
             name = "param_file_arg",
