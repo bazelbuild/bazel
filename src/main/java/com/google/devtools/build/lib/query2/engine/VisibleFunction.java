@@ -80,15 +80,6 @@ public class VisibleFunction extends FilteringQueryFunction {
       QueryExpression expression,
       final List<Argument> args,
       final Callback<T> callback) {
-    return evalInternal(env, context, args, callback, /*invert=*/ false);
-  }
-
-  private <T> QueryTaskFuture<Void> evalInternal(
-      QueryEnvironment<T> env,
-      QueryExpressionContext<T> context,
-      List<Argument> args,
-      Callback<T> callback,
-      boolean invert) {
     final QueryTaskFuture<ThreadSafeMutableSet<T>> toSetFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> computeVisibleNodesAsyncFunction =

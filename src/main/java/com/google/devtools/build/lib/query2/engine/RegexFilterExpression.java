@@ -41,16 +41,6 @@ public abstract class RegexFilterExpression extends FilteringQueryFunction {
       QueryExpression expression,
       final List<Argument> args,
       Callback<T> callback) {
-    return evalInternal(env, context, expression, args, callback, /*invert=*/ false);
-  }
-
-  private <T> QueryTaskFuture<Void> evalInternal(
-      final QueryEnvironment<T> env,
-      QueryExpressionContext<T> context,
-      QueryExpression expression,
-      final List<Argument> args,
-      Callback<T> callback,
-      boolean invert) {
     String rawPattern = getPattern(args);
     final Pattern compiledPattern;
     try {
