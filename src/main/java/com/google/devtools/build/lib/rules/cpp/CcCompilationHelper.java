@@ -950,12 +950,6 @@ public final class CcCompilationHelper {
     PublicHeaders publicHeaders = computePublicHeaders();
     if (publicHeaders.getVirtualIncludePath() != null) {
       ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
-      System.out.println("OB DEBUG: rule "
-          + ruleContext.attributes().getName()
-          + " added "
-          + publicHeaders.getVirtualIncludePath().toString()
-          + " to CcCompilationContext.Builder"
-      );
     }
 
     if (useDeps) {
@@ -1047,7 +1041,6 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.setPurpose(purpose);
 
     semantics.setupCcCompilationContext(ruleContext, ccCompilationContextBuilder);
-    System.out.println("OB DEBUG: " + ccCompilationContextBuilder.toString() + " returning");
     return ccCompilationContextBuilder.build();
   }
 

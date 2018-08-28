@@ -472,7 +472,6 @@ public class CompilationSupport {
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
 
-    // OB TODO: This mergedCcCompilationContext is what needs to be passed to ObjcLibrary.java
     CcCompilationContext mergedCcCompilationContext = ccCompilationContextBuilder.build();
     LinkingInfo linkingInfo =
         resultLink.link(compilationOutputsBuilder.build(), mergedCcCompilationContext);
