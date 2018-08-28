@@ -10,5 +10,6 @@ my_rule = rule(
         "second": attr.string_dict(mandatory = True),
         "third": attr.output(mandatory = True),
         "fourth": attr.bool(default = False, doc = "fourth doc string", mandatory = False),
+        "_hidden": attr.string(),
     },
 )

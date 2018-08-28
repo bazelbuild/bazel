@@ -15,6 +15,7 @@ other_rule = rule(
     doc = "This is another rule.",
     attrs = {
         "third": attr.label(mandatory = True, allow_files = True, single_file = True),
+        "_hidden": attr.string(),
         "fourth": attr.string_dict(mandatory = True),
     },
 )
@@ -23,6 +24,7 @@ yet_another_rule = rule(
     implementation = my_rule_impl,
     doc = "This is yet another rule",
     attrs = {
+        "_hidden": attr.string(),
         "fifth": attr.label(mandatory = True, allow_files = True, single_file = True),
     },
 )
