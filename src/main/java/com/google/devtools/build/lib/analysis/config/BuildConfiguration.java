@@ -895,6 +895,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = { OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS },
+      deprecationWarning = "This flag is no longer supported and will go away soon.",
       help =
           "Build a Windows exe launcher for sh_binary rule, "
               + "it has no effect on other platforms than Windows"
