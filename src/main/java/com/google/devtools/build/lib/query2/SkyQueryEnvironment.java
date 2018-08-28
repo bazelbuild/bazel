@@ -347,17 +347,44 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             Level.INFO,
             "About to shutdown query threadpool because of throwable",
             throwableToThrow);
-        // Force termination of remaining tasks if evaluation failed abruptly (e.g. was
-        // interrupted). We don't want to leave any dangling threads running tasks.
-        executor.shutdownNow();
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+        ListeningExecutorService obsoleteExecutor = executor;
         // Signal that executor must be recreated on the next invocation.
         executor = null;
+
+        // If evaluation failed abruptly (e.g. was interrupted), attempt to terminate all remaining
+        // tasks and then wait for them all to finish. We don't want to leave any dangling threads
+        // running tasks.
+        obsoleteExecutor.shutdownNow();
+        boolean interrupted = false;
+        boolean executorTerminated = false;
+        try {
+          while (!executorTerminated) {
+            try {
+              executorTerminated =
+                  obsoleteExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+              interrupted = true;
+              handleInterruptedShutdown();
+            }
+          }
+        } finally {
+          if (interrupted) {
+            Thread.currentThread().interrupt();
+          }
+        }
+
         Throwables.propagateIfPossible(
             throwableToThrow, QueryException.class, InterruptedException.class);
       }
     }
   }
+
+  /**
+   * Subclasses may implement special handling when the query threadpool shutdown process is
+   * interrupted. This isn't likely to happen unless there's a bug in the lifecycle management of
+   * query tasks.
+   */
+  protected void handleInterruptedShutdown() {}
 
   @Override
   public QueryEvalResult evaluateQuery(
