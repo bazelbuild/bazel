@@ -532,7 +532,6 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result,
       }
       reparse_buffer_->PathBuffer[reparse_buffer_->Size - 1] = UNICODE_NULL;
       // Check if the junction target exists.
-
       return Resolve(reparse_buffer_->PathBuffer, result,
                      max_junction_depth - 1);
     }
@@ -571,7 +570,6 @@ class SymlinkResolver {
   // https://msdn.microsoft.com/en-us/library/cc232006.aspx
   typedef struct _ReparseSymbolicLinkData {
     static const int kSize = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
-
     ULONG ReparseTag;
     USHORT ReparseDataLength;
     USHORT Reserved;
@@ -599,7 +597,6 @@ bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
     return false;
   } else {
     if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
-
       AutoHandle handle(CreateFileW(path,
                                     FILE_READ_EA,
                                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -608,7 +605,7 @@ bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
                                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
                                     NULL));
       if (!handle.IsValid()) {
-        // Opening the junction failed for whatever reason. For all intents and
+        // Opening the symlink failed for whatever reason. For all intents and
         // purposes we can treat this file as if it didn't exist.
         return false;
       }
@@ -618,7 +615,7 @@ bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
           handle, FSCTL_GET_REPARSE_POINT, NULL, 0, reparse_buffer_,
           MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned, NULL);
       if (!ok) {
-        // Reading the junction data failed. For all intents and purposes we can
+        // Reading the symlink data failed. For all intents and purposes we can
         // treat this file as if it didn't exist.
         return false;
       }
