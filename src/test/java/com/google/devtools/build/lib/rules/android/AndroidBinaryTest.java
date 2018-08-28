@@ -4320,7 +4320,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
 
     List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getValidatedResources(a).getApk());
+        getGeneratingSpawnActionArgs(getValidatedResources(a).getRTxt());
 
     assertThat(resourceProcessingArgs).contains("AAPT2_PACKAGE");
     String directData =
@@ -4334,50 +4334,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getGeneratingSpawnActionArgs(getValidatedResources(b).getJavaClassJar());
 
     assertThat(resourceMergingArgs).contains("MERGE_COMPILED");
-  }
-
-  @Test
-  public void alwaysSkipParsingActionWithAapt2() throws Exception {
-    mockAndroidSdkWithAapt2();
-    scratch.file(
-        "java/b/BUILD",
-        "android_library(",
-        "    name = 'b',",
-        "    srcs = ['B.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        ")");
-
-    scratch.file(
-        "java/a/BUILD",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    deps = [ '//java/b:b' ],",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        "    aapt_version = 'aapt2'",
-        ")");
-
-    useConfiguration("--android_sdk=//sdk:sdk");
-    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
-    ConfiguredTarget b = getDirectPrerequisite(a, "//java/b:b");
-
-    List<String> resourceProcessingArgs =
-        getGeneratingSpawnActionArgs(getValidatedResources(a).getApk());
-
-    assertThat(resourceProcessingArgs).contains("AAPT2_PACKAGE");
-    String directData =
-        resourceProcessingArgs.get(resourceProcessingArgs.indexOf("--directData") + 1);
-    assertThat(directData).contains("symbols.zip");
-    assertThat(directData).doesNotContain("merged.bin");
-    assertThat(resourceProcessingArgs).contains("--useCompiledResourcesForMerge");
-
-    // Libraries will still need to merge the xml until skip parsing is on by default.
-    List<String> resourceMergingArgs =
-        getGeneratingSpawnActionArgs(getValidatedResources(b).getJavaClassJar());
-
-    assertThat(resourceMergingArgs).contains("MERGE");
   }
 
   @Test
