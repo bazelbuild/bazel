@@ -112,7 +112,7 @@ public enum LinkBuildVariables {
       String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
       String defFile,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       Iterable<String> librarySearchDirectories,
@@ -233,8 +233,8 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(DEF_FILE_PATH.getVariableName(), defFile);
     }
 
-    if (fdoSupport != null) {
-      fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      buildVariables.addStringVariable("fdo_instrument_path", fdoProvider.getFdoInstrument());
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;

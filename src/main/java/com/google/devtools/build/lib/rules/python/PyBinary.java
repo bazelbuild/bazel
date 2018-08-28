@@ -54,8 +54,9 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  static RuleConfiguredTargetBuilder init(RuleContext ruleContext, PythonSemantics semantics,
-      PyCommon common) throws InterruptedException {
+  static RuleConfiguredTargetBuilder init(
+      RuleContext ruleContext, PythonSemantics semantics, PyCommon common)
+      throws InterruptedException, RuleErrorException {
     ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
 
     List<Artifact> srcs = common.validateSrcs();

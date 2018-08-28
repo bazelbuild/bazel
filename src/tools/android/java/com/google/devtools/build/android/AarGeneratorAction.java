@@ -180,7 +180,7 @@ public class AarGeneratorAction {
       // There aren't any dependencies, but we merge to combine primary resources from different
       // res/assets directories into a single res and single assets directory.
       MergedAndroidData mergedData =
-          AndroidResourceMerger.mergeData(
+          AndroidResourceMerger.mergeDataAndWrite(
               options.mainData,
               ImmutableList.<DependencyAndroidData>of(),
               ImmutableList.<DependencyAndroidData>of(),

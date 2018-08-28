@@ -269,6 +269,19 @@ public class ProtoCommon {
     return getGeneratedOutputs(ruleContext, protoSources, extension, false);
   }
 
+  public static ImmutableList<Artifact> getGeneratedTreeArtifactOutputs(
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources, PathFragment directory) {
+    ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
+    if (!protoSources.isEmpty()) {
+      ArtifactRoot genfiles =
+          ruleContext
+              .getConfiguration()
+              .getGenfilesDirectory(ruleContext.getRule().getRepository());
+      outputsBuilder.add(ruleContext.getTreeArtifact(directory, genfiles));
+    }
+    return outputsBuilder.build();
+  }
+
   /**
    * Returns the .proto files that are the direct srcs of the direct-dependencies of this rule. If
    * the current rule is an alias proto_library (=no srcs), we use the direct srcs of the

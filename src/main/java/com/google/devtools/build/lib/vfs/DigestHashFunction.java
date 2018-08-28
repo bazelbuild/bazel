@@ -133,19 +133,20 @@ public class DigestHashFunction {
    * {@link #setDefault(DigestHashFunction)}. Once this value is set, it's a constant, so to prevent
    * blocking calls, users should cache this value if needed.
    *
-   * @throws DefaultNotSetException if the default has not yet been set by a previous call to {@link
-   *     #setDefault}.
+   * @throws DefaultHashFunctionNotSetException if the default has not yet been set by a previous
+   *     call to {@link #setDefault}.
    */
-  public static synchronized DigestHashFunction getDefault() throws DefaultNotSetException {
+  public static synchronized DigestHashFunction getDefault()
+      throws DefaultHashFunctionNotSetException {
     if (!defaultHasBeenSet) {
-      throw new DefaultNotSetException("DigestHashFunction default has not been set");
+      throw new DefaultHashFunctionNotSetException("DigestHashFunction default has not been set");
     }
     return defaultHash;
   }
 
   /** Indicates that the default has not been initialized. */
-  public static final class DefaultNotSetException extends Exception {
-    DefaultNotSetException(String message) {
+  public static final class DefaultHashFunctionNotSetException extends Exception {
+    DefaultHashFunctionNotSetException(String message) {
       super(message);
     }
   }
@@ -212,11 +213,6 @@ public class DigestHashFunction {
 
   public DigestLength getDigestLength() {
     return digestLength;
-  }
-
-  public boolean isValidDigest(byte[] digest) {
-    // TODO(b/109764197): Remove this check to accept variable-length hashes.
-    return digest != null && digest.length * 8 == hashFunction.bits();
   }
 
   @Override

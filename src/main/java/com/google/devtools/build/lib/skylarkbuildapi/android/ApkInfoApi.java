@@ -27,7 +27,11 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 /** A provider for targets that produce an apk file. */
 @SkylarkModule(
     name = "ApkInfo",
-    doc = "APKs provided by a rule",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "APKs provided by a rule",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
 
@@ -40,11 +44,17 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
   @SkylarkCallable(
       name = "signed_apk",
       doc = "Returns a signed APK built from the target.",
+      documented = false,
       structField = true)
   FileT getApk();
 
   /** Provider for {@link ApkInfoApi}. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "ApkInfoApiProvider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface ApkInfoApiProvider extends ProviderApi {
 
     @SkylarkCallable(

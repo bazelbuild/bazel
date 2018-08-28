@@ -29,6 +29,11 @@ filegroup(
 )
 
 filegroup(
+    name = "collect_cc_coverage",
+    srcs = ["collect_cc_coverage.sh"],
+)
+
+filegroup(
     name = "coverage_report_generator",
     srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
 )
@@ -54,6 +59,7 @@ filegroup(
         "test-setup.sh",
         "generate-xml.sh",
         "collect_coverage.sh",
+        "collect_cc_coverage.sh",
     ] + glob(["LcovMerger/**"]) + select({
         "@bazel_tools//src/conditions:windows": ["test_wrapper_bin"],
         "//conditions:default": [],

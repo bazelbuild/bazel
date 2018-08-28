@@ -93,6 +93,18 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testDefinitionByItself() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true");
+    // Variables are assumed to be statically visible in the block (even if they might not be
+    // initialized).
+    parse("a = a");
+    parse("a += a");
+    parse("[[] for a in a]");
+    parse("def f():", "  for a in a: pass");
+  }
+
+  @Test
+  public void testDefinitionByItselfLegacy() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=false");
     checkError("name 'a' is not defined", "a = a");
     checkError("name 'a' is not defined", "a += a");
     checkError("name 'a' is not defined", "[[] for a in a]");
@@ -105,8 +117,15 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testBuiltinSymbolsAreReadOnly() throws Exception {
+  public void testBuiltinSymbolsAreReadOnlyLegacy() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=false");
     checkError("Variable repr is read only", "repr = 1");
+  }
+
+  @Test
+  public void testBuiltinsCanBeShadowed() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true");
+    parse("repr = 1");
   }
 
   @Test
@@ -127,6 +146,23 @@ public class ValidationTest extends EvaluationTestCase {
   @Test
   public void testFunctionDefinedBelow() {
     parse("def bar(): a = foo() + 'a'", "def foo(): return 1\n");
+  }
+
+  @Test
+  public void testGlobalDefinedBelow() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true");
+    parse("def bar(): return x", "x = 5\n");
+  }
+
+  @Test
+  public void testLocalVariableDefinedBelow() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true");
+    parse(
+        "def bar():",
+        "    for i in range(5):",
+        "        if i > 2: return x",
+        "        x = i" // x is visible in the entire function block
+        );
   }
 
   @Test

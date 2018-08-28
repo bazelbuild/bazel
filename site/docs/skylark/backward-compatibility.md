@@ -45,6 +45,8 @@ guarded behind flags in the current release:
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
+*   [Expand directories in Args](#expand-directories-in-args)
+*   [Static Name Resolution](#static-name-resolution)
 
 
 ### Dictionary concatenation
@@ -69,11 +71,16 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 ### Depset is no longer iterable
 
-When the flag is set to true, `depset` objects are not treated as iterable. If
-you need an iterable, call the `.to_list()` method. This affects `for` loops and
-many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, and `any`.
+When the flag is set to true, `depset` objects are not treated as iterable. This
+prohibits directly iterating over depsets in `for` loops, taking its size via
+`len()`, and passing it to many functions such as `list`, `tuple`, `min`, `max`,
+`sorted`, `all`, and `any`. It does not prohibit checking for emptiness by
+converting the depset to a boolean.
+
 The goal of this change is to avoid accidental iteration on `depset`, which can
-be expensive.
+be [expensive](performance.md#avoid-calling-depsetto-list). If you really need
+to iterate over a depset, you can call the `.to_list()` method to obtain a
+flattened list of its contents.
 
 ``` python
 deps = depset()
@@ -387,4 +394,46 @@ have been migrated from `inputs`.
 *   Flag: `--incompatible_no_support_tools_in_action_inputs`
 *   Default: `false`
 
-<!-- Add new options here -->
+
+### Expand directories in Args
+
+Previously, directories created by
+[`ctx.actions.declare_directory`](lib/actions.html#declare_directory) expanded
+to the path of the directory when added to an [`Args`](lib/Args.html) object.
+
+With this flag enabled, directories are instead replaced by the full file
+contents of that directory when passed to `args.add_all()` or
+`args.add_joined()`. (Directories may not be passed to `args.add()`.)
+
+If you want the old behavior on a case-by-case basis (perhaps your tool can
+handle directories on the command line), you can pass `expand_directories=False`
+to the `args.add_all()` or `args.add_joined()` call.
+
+```
+d = ctx.action.declare_directory(“dir”)
+# ... Some action runs and produces [“dir/file1”, “dir/file2”] ...
+f = ctx.action.declare_file(“file”)
+args = ctx.action.args()
+args.add_all([d, f])
+  -> Used to expand to ["dir", "file"]
+     Now expands to [“dir/file1”, “dir/file2”, “file”]
+```
+
+*   Flag: `--incompatible_expand_directories`
+*   Default: `false`
+
+
+### Static Name Resolution
+
+When the flag is set, use a saner way to resolve variables. The previous
+behavior was buggy in a number of subtle ways. See [the
+proposal](https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md)
+for background and examples.
+
+The proposal is not fully implemented yet.
+
+*   Flag: `--incompatible_static_name_resolution`
+*   Default: `false`
+
+
+!-- Add new options here -->

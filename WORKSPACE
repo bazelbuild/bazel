@@ -153,24 +153,24 @@ http_file(
 )
 
 # The source-code for this OpenJDK can be found at:
-# https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
+# https://openjdk.linaro.org/releases/jdk10-src-1804.tar.xz
 http_file(
     name = "openjdk_linux_aarch64",
-    sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
+    sha256 = "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
     urls = [
         # When you update this, also update the link to the source-code above.
-        "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
+       "http://openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz",
     ],
 )
 
 http_archive(
-  name = "bazel_toolchains",
-  urls = [
-    "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
-    "https://github.com/bazelbuild/bazel-toolchains/archive/5124557861ebf4c0b67f98180bff1f8551e0b421.tar.gz",
-  ],
-  strip_prefix = "bazel-toolchains-5124557861ebf4c0b67f98180bff1f8551e0b421",
-  sha256 = "c3b08805602cd1d2b67ebe96407c1e8c6ed3d4ce55236ae2efe2f1948f38168d",
+    name = "bazel_toolchains",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/cdea5b8675914d0a354d89f108de5d28e54e0edc.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/cdea5b8675914d0a354d89f108de5d28e54e0edc.tar.gz",
+    ],
+    strip_prefix = "bazel-toolchains-cdea5b8675914d0a354d89f108de5d28e54e0edc",
+    sha256 = "cefb6ccf86ca592baaa029bcef04148593c0efe8f734542f10293ea58f170715",
 )
 
 # We're pinning to a commit because this project does not have a recent release.
@@ -198,4 +198,13 @@ http_archive(
     ],
     sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
     strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c"
+)
+
+http_archive(
+    name = "skydoc",
+    urls = [
+        "https://github.com/bazelbuild/skydoc/archive/d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8.tar.gz",
+    ],
+    sha256 = "cfbfcc107f5c9853dc5b2b81f1fe90fc326bd1c61f76c9aac2b4201dff75b91d",
+    strip_prefix = "skydoc-d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8"
 )

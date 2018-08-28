@@ -59,7 +59,8 @@ public abstract class AndroidSkylarkData
         AndroidResourcesInfo,
         AndroidManifestInfo,
         AndroidLibraryAarInfo,
-        AndroidBinaryDataInfo> {
+        AndroidBinaryDataInfo,
+        ValidatedAndroidResources> {
 
   public abstract AndroidSemantics getAndroidSemantics();
 
@@ -160,7 +161,8 @@ public abstract class AndroidSkylarkData
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+      AndroidAaptVersion aaptVersion =
+          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
 
       ValidatedAndroidResources validated =
           AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
@@ -339,7 +341,7 @@ public abstract class AndroidSkylarkData
     // Expose the updated manifest that was changed by resource processing
     // TODO(b/30817309): Use the base manifest once manifests are no longer changed in resource
     // processing
-    AndroidManifestInfo manifestInfo = resourcesInfo.getManifest().toProvider();
+    AndroidManifestInfo manifestInfo = resourcesInfo.getManifest();
 
     return SkylarkDict.copyOf(
         /* env = */ null,
@@ -462,6 +464,11 @@ public abstract class AndroidSkylarkData
             shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
         ResourceFilterFactory.from(aaptVersion, resourceConfigurationFilters, densities),
         noCompressExtensions.getImmutableList());
+  }
+
+  @Override
+  public Artifact resourcesFromValidatedRes(ValidatedAndroidResources resources) {
+    return resources.getMergedResources();
   }
 
   /**

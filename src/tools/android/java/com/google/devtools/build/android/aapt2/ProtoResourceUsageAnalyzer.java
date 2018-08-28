@@ -321,7 +321,7 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
     @Override
     public void accept(String name) {
-      parse(model, name).addReference(declaredResource);
+      declaredResource.addReference(parse(model, name));
     }
 
     @Override

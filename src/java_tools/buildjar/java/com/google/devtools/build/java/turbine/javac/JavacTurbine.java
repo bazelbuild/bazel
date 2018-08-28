@@ -263,7 +263,7 @@ public class JavacTurbine implements AutoCloseable {
     DependencyModule.Builder dependencyModuleBuilder =
         new DependencyModule.Builder()
             .setReduceClasspath()
-            .setTargetLabel(turbineOptions.targetLabel().orNull())
+            .setTargetLabel(getTargetLabel(turbineOptions.targetLabel()))
             .addDepsArtifacts(asPaths(turbineOptions.depsArtifacts()))
             .setPlatformJars(platformJars);
     ImmutableSet.Builder<Path> directJars = ImmutableSet.builder();
@@ -276,6 +276,18 @@ public class JavacTurbine implements AutoCloseable {
     }
 
     return dependencyModuleBuilder.build();
+  }
+
+  // TODO(cushon): remove this after the next turbine release
+  @SuppressWarnings("unchecked")
+  private static String getTargetLabel(Object targetLabel) {
+    if (targetLabel instanceof java.util.Optional) {
+      return ((java.util.Optional<String>) targetLabel).orElse(null);
+    }
+    if (targetLabel instanceof com.google.common.base.Optional) {
+      return ((com.google.common.base.Optional<String>) targetLabel).orNull();
+    }
+    throw new AssertionError(targetLabel);
   }
 
   /** Write the class output from a successful compilation to the output jar. */

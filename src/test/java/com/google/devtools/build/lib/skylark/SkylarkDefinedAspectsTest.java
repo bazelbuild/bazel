@@ -89,6 +89,30 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectWithSingleDeclaredProvider() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "foo = provider()",
+        "def _impl(target, ctx):",
+        "   return foo()",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    assertThat(getAspectDescriptions(analysisResult))
+        .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
+    ConfiguredAspect configuredAspect = Iterables.getOnlyElement(analysisResult.getAspects())
+        .getConfiguredAspect();
+
+    SkylarkKey fooKey =
+        new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+
+    assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
+  }
+
+  @Test
   public void aspectWithDeclaredProviders() throws Exception {
     scratch.file(
         "test/aspect.bzl",
@@ -868,7 +892,8 @@ public class SkylarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("Aspect implementation should return a struct or a list, but got int");
+    assertContainsEvent("Aspect implementation should return a struct, a list, or a provider "
+        + "instance, but got int");
   }
 
   @Test

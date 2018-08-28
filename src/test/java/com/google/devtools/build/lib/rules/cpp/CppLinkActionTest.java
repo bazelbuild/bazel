@@ -316,7 +316,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         ? dynamicOutputFile
                         : staticOutputFile,
                     CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-                    CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
+                    CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
@@ -372,7 +372,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         ? staticOutputFile
                         : dynamicOutputFile,
                     CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-                    CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
+                    CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             builder.setLinkType(
@@ -402,7 +402,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             ruleContext,
             output,
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-            CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
+            CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
             FeatureConfiguration.EMPTY,
             MockCppSemantics.INSTANCE);
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
@@ -496,7 +496,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
                 CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-                CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
+                CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
                 featureConfiguration,
                 MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)

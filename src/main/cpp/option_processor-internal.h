@@ -31,6 +31,11 @@ namespace internal {
 std::vector<std::string> DedupeBlazercPaths(
     const std::vector<std::string>& paths);
 
+// Given the set of already-ready files, warns if any of the newly loaded_rcs
+// are duplicates. All paths are expected to be canonical.
+void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
+                               const std::deque<std::string>& loaded_rcs);
+
 // Get the legacy list of rc files that would have been loaded - this is to
 // provide a useful warning if files are being ignored that were loaded in a
 // previous version of Bazel.

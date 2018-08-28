@@ -895,6 +895,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = { OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS },
+      deprecationWarning = "This flag is no longer supported and will go away soon.",
       help =
           "Build a Windows exe launcher for sh_binary rule, "
               + "it has no effect on other platforms than Windows"
@@ -1096,7 +1097,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
         // "bazel-out/android-arm-linux-fastbuild/bin". That's pretty awkward to check here.
         //      && outputRoots.equals(other.outputRoots)
                 && fragments.values().containsAll(other.fragments.values())
-                && buildOptions.getOptions().containsAll(other.buildOptions.getOptions()));
+                && buildOptions.getNativeOptions().containsAll(other.buildOptions.getNativeOptions()));
   }
 
   /**
@@ -1117,7 +1118,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   private int computeHashCode() {
-    return Objects.hash(fragments, buildOptions.getOptions());
+    return Objects.hash(fragments, buildOptions.getNativeOptions());
   }
 
   public void describe(StringBuilder sb) {
@@ -1366,7 +1367,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     }
 
     return TransitiveOptionDetails.forOptionsWithDefaults(
-        buildOptions.getOptions(), lateBoundDefaults);
+        buildOptions.getNativeOptions(), lateBoundDefaults);
   }
 
   private String buildMnemonic() {

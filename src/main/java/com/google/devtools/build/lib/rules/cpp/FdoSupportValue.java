@@ -16,22 +16,22 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * Wrapper for {@link FdoSupport}.
+ * A container for the path to the FDO profile.
  *
- * <p>Things could probably be refactored such the attributes of {@link FdoSupport} are moved here
- * and the code in it to {@link FdoSupportFunction}. This would let us eliminate {@link FdoSupport}.
- *
- * <p>The eventual plan is to migrate FDO functionality to the execution phase once directory
- * artifacts work better, so this may not be worth it.
+ * <p>{@link FdoSupportValue} is created from {@link FdoSupportFunction} (a {@link SkyFunction}),
+ * which is requested from Skyframe by the {@code cc_toolchain} rule. It's done this way because
+ * the path depends on both a command line argument and the location of the workspace and the latter
+ * is not available either during configuration creation or during the analysis phase.
  */
 @AutoCodec
 @Immutable
@@ -44,46 +44,20 @@ public class FdoSupportValue implements SkyValue {
   public static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private final PathFragment fdoZip;
-    private final FdoInputFile fdoPrefetchHintsFile;
-    private final String fdoInstrument;
-    private final FdoMode fdoMode;
+    private final PathFragment fdoProfileArgument;
 
-    private Key(
-        PathFragment fdoZip,
-        FdoInputFile fdoPrefetchHintsFile,
-        String fdoInstrument,
-        FdoMode fdoMode) {
-      this.fdoZip = fdoZip;
-      this.fdoPrefetchHintsFile = fdoPrefetchHintsFile;
-      this.fdoInstrument = fdoInstrument;
-      this.fdoMode = fdoMode;
+    private Key(PathFragment fdoProfileArgument) {
+      this.fdoProfileArgument = fdoProfileArgument;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(
-        PathFragment fdoZip,
-        FdoInputFile fdoPrefetchHintsFile,
-        String fdoInstrument,
-        FdoMode fdoMode) {
-      return interner.intern(new Key(fdoZip, fdoPrefetchHintsFile, fdoInstrument, fdoMode));
+    static Key of(PathFragment fdoProfileArgument) {
+      return interner.intern(new Key(fdoProfileArgument));
     }
 
-    public PathFragment getFdoZip() {
-      return fdoZip;
-    }
-
-    public FdoInputFile getFdoPrefetchHintsFile() {
-      return fdoPrefetchHintsFile;
-    }
-
-    public String getFdoInstrument() {
-      return fdoInstrument;
-    }
-
-    public FdoMode getFdoMode() {
-      return fdoMode;
+    public PathFragment getFdoProfileArgument() {
+      return fdoProfileArgument;
     }
 
     @Override
@@ -97,15 +71,12 @@ public class FdoSupportValue implements SkyValue {
       }
 
       Key that = (Key) o;
-      return Objects.equals(this.fdoZip, that.fdoZip)
-          && Objects.equals(this.fdoPrefetchHintsFile, that.fdoPrefetchHintsFile)
-          && Objects.equals(this.fdoMode, that.fdoMode)
-          && Objects.equals(this.fdoInstrument, that.fdoInstrument);
+      return Objects.equals(this.fdoProfileArgument, that.fdoProfileArgument);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(fdoZip, fdoPrefetchHintsFile, fdoInstrument);
+      return Objects.hash(fdoProfileArgument);
     }
 
     @Override
@@ -114,21 +85,23 @@ public class FdoSupportValue implements SkyValue {
     }
   }
 
-  private final FdoSupport fdoSupport;
+  /**
+   * Path of the profile file passed to {@code --fdo_optimize}
+   */
+  // TODO(lberki): This should be a PathFragment.
+  // Except that CcProtoProfileProvider#getProfile() calls #exists() on it, which is ridiculously
+  // incorrect.
+  private final Path fdoProfile;
 
-  FdoSupportValue(FdoSupport fdoSupport) {
-    this.fdoSupport = fdoSupport;
+  FdoSupportValue(Path fdoProfile) {
+    this.fdoProfile = fdoProfile;
   }
 
-  public FdoSupport getFdoSupport() {
-    return fdoSupport;
+  public Path getFdoProfile() {
+    return fdoProfile;
   }
 
-  public static SkyKey key(
-      PathFragment fdoZip,
-      FdoInputFile fdoPrefetchHintsFile,
-      String fdoInstrument,
-      FdoMode fdoMode) {
-    return Key.of(fdoZip, fdoPrefetchHintsFile, fdoInstrument, fdoMode);
+  public static SkyKey key(PathFragment fdoProfileArgument) {
+    return Key.of(fdoProfileArgument);
   }
 }

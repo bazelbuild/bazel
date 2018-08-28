@@ -93,8 +93,20 @@ filegroup(
 filegroup(
     name = "singlejar",
     srcs = select({
-        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
+        "//src/conditions:remote": [":singlejar_remote"],
         "//conditions:default": glob(["singlejar/*"]),
+    }),
+)
+
+# This is a separate filegroup from :singlejar above since Bazel doesn't
+# support nested selects (we need a logical "remote AND windows" condition).
+filegroup(
+    name = "singlejar_remote",
+    srcs = select({
+        # TODO(jsharpe): Switch to //src/tools/singlejar:singlejar once
+        # native singlejar works on Windows.
+        "//src/conditions:windows": glob(["singlejar/*"]),
+        "//conditions:default": ["//src/tools/singlejar:singlejar"],
     }),
 )
 
@@ -191,9 +203,9 @@ rm -rf $$TMPDIR
 default_java_toolchain(
     name = "toolchain_hostjdk8",
     bootclasspath = [":platformclasspath"],
-    jvm_opts = [
-        "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
-    ],
+    forcibly_disable_header_compilation = True,
+    javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
     source_version = "8",
     target_version = "8",
 )

@@ -56,11 +56,7 @@ static jstring NewStringLatin1(JNIEnv *env, const char *str) {
     jchar *str1;
 
     if (len > 512) {
-      str1 = reinterpret_cast<jchar *>(malloc(len * sizeof(jchar)));
-      if (str1 == 0) {
-        ::PostException(env, ENOMEM, "Out of memory in NewStringLatin1");
-        return NULL;
-      }
+      str1 = new jchar[len];
     } else {
       str1 = buf;
     }
@@ -70,9 +66,28 @@ static jstring NewStringLatin1(JNIEnv *env, const char *str) {
     }
     jstring result = env->NewString(str1, len);
     if (str1 != buf) {
-      free(str1);
+      delete[] str1;
     }
     return result;
+}
+
+static jfieldID String_coder_field;
+static jfieldID String_value_field;
+
+static bool CompactStringsEnabled(JNIEnv *env) {
+  if (jclass klass = env->FindClass("java/lang/String")) {
+    if (jfieldID csf = env->GetStaticFieldID(klass, "COMPACT_STRINGS", "Z")) {
+      if (env->GetStaticBooleanField(klass, csf)) {
+        if ((String_coder_field = env->GetFieldID(klass, "coder", "B"))) {
+          if ((String_value_field = env->GetFieldID(klass, "value", "[B"))) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  env->ExceptionClear();
+  return false;
 }
 
 /**
@@ -83,18 +98,25 @@ static jstring NewStringLatin1(JNIEnv *env, const char *str) {
  */
 static char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
   jint len = env->GetStringLength(jstr);
+
+  // Fast path for latin1 strings.
+  static bool cs_enabled = CompactStringsEnabled(env);
+  const int LATIN1 = 0;
+  if (cs_enabled && env->GetByteField(jstr, String_coder_field) == LATIN1) {
+    char *result = new char[len + 1];
+    if (jobject jvalue = env->GetObjectField(jstr, String_value_field)) {
+      env->GetByteArrayRegion((jbyteArray)jvalue, 0, len, (jbyte *)result);
+    }
+    result[len] = 0;
+    return result;
+  }
+
   const jchar *str = env->GetStringCritical(jstr, NULL);
   if (str == NULL) {
     return NULL;
   }
 
-  char *result = reinterpret_cast<char *>(malloc(len + 1));
-  if (result == NULL) {
-    env->ReleaseStringCritical(jstr, str);
-    ::PostException(env, ENOMEM, "Out of memory in GetStringLatin1Chars");
-    return NULL;
-  }
-
+  char *result = new char[len + 1];
   for (int i = 0; i < len; i++) {
     jchar unicode = str[i];  // (unsigned)
     result[i] = unicode <= 0x00ff ? unicode : '?';
@@ -110,9 +132,7 @@ static char *GetStringLatin1Chars(JNIEnv *env, jstring jstr) {
  * GetStringLatin1Chars.
  */
 static void ReleaseStringLatin1Chars(const char *s) {
-  if (s != NULL) {
-    free(const_cast<char *>(s));
-  }
+  delete[] s;
 }
 
 ////////////////////////////////////////////////////////////////////////

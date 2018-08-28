@@ -57,9 +57,12 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
         "Unexpected error reading .blazerc file '%s'", filename.c_str());
     return ParseError::UNREADABLE_FILE;
   }
+  const std::string canonical_filename =
+      blaze_util::MakeCanonical(filename.c_str());
 
-  rcfile_paths_.push_back(filename);
-  // Keep a pointer to the filename string in rcfile_paths_ for the RcOptions.
+  rcfile_paths_.push_back(canonical_filename);
+  // Keep a pointer to the canonical_filename string in rcfile_paths_ for the
+  // RcOptions.
   string* filename_ptr = &rcfile_paths_.back();
 
   // A '\' at the end of a line continues the line.
@@ -101,7 +104,7 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
             error_text,
             "Invalid import declaration in .blazerc file '%s': '%s'"
             " (are you in your source checkout/WORKSPACE?)",
-            filename.c_str(), line.c_str());
+            canonical_filename.c_str(), line.c_str());
         return ParseError::INVALID_FORMAT;
       }
       if (std::find(import_stack->begin(), import_stack->end(), words[1]) !=

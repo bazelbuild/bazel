@@ -71,6 +71,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowSlashOperator();
 
+  public abstract boolean incompatibleExpandDirectories();
+
   public abstract boolean incompatibleGenerateJavaCommonSourceJar();
 
   public abstract boolean incompatibleNewActionsApi();
@@ -84,6 +86,8 @@ public abstract class SkylarkSemantics {
   public abstract boolean incompatibleRemoveNativeGitRepository();
 
   public abstract boolean incompatibleRemoveNativeHttpArchive();
+
+  public abstract boolean incompatibleStaticNameResolution();
 
   public abstract boolean incompatibleStringIsNotIterable();
 
@@ -119,6 +123,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowSlashOperator(false)
+          .incompatibleExpandDirectories(false)
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
@@ -126,6 +131,7 @@ public abstract class SkylarkSemantics {
           .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
+          .incompatibleStaticNameResolution(false)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)
           .build();
@@ -165,6 +171,8 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleDisallowSlashOperator(boolean value);
 
+    public abstract Builder incompatibleExpandDirectories(boolean value);
+
     public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
@@ -178,6 +186,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
 
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
+
+    public abstract Builder incompatibleStaticNameResolution(boolean value);
 
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
 

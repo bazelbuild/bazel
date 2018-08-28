@@ -78,117 +78,112 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
   public RepositoryPathApi<?> path(Object path) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "symlink",
-    doc = "Create a symlink on the filesystem.",
-    parameters = {
-      @Param(
-        name = "from",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path to which the created symlink should point to."
-      ),
-      @Param(
-        name = "to",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path of the symlink to create, relative to the repository directory."
-      ),
-    }
-  )
-  public void symlink(Object from, Object to)
+      name = "symlink",
+      doc = "Create a symlink on the filesystem.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "from",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path to which the created symlink should point to."),
+        @Param(
+            name = "to",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the symlink to create, relative to the repository directory."),
+      })
+  public void symlink(Object from, Object to, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "file",
-    doc = "Generate a file in the repository directory with the provided content.",
-    parameters = {
-      @Param(
-        name = "path",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path of the file to create, relative to the repository directory."
-      ),
-      @Param(
-        name = "content",
-        type = String.class,
-        named = true,
-        defaultValue = "''",
-        doc = "the content of the file to create, empty by default."
-      ),
-      @Param(
-        name = "executable",
-        named = true,
-        type = Boolean.class,
-        defaultValue = "True",
-        doc = "set the executable flag on the created file, true by default."
-      ),
-    }
-  )
-  public void createFile(Object path, String content, Boolean executable)
+      name = "file",
+      doc = "Generate a file in the repository directory with the provided content.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the file to create, relative to the repository directory."),
+        @Param(
+            name = "content",
+            type = String.class,
+            named = true,
+            defaultValue = "''",
+            doc = "the content of the file to create, empty by default."),
+        @Param(
+            name = "executable",
+            named = true,
+            type = Boolean.class,
+            defaultValue = "True",
+            doc = "set the executable flag on the created file, true by default."),
+      })
+  public void createFile(Object path, String content, Boolean executable, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "template",
-    doc =
-        "Generate a new file using a <code>template</code>. Every occurrence in "
-            + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
-            + "the corresponding value. The result is written in <code>path</code>. An optional"
-            + "<code>executable</code> argument (default to true) can be set to turn on or off"
-            + "the executable bit.",
-    parameters = {
-      @Param(
-        name = "path",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path of the file to create, relative to the repository directory."
-      ),
-      @Param(
-        name = "template",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        doc = "path to the template file."
-      ),
-      @Param(
-        name = "substitutions",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "substitutions to make when expanding the template."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "True",
-        named = true,
-        doc = "set the executable flag on the created file, true by default."
-      ),
-    }
-  )
+      name = "template",
+      doc =
+          "Generate a new file using a <code>template</code>. Every occurrence in "
+              + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
+              + "the corresponding value. The result is written in <code>path</code>. An optional"
+              + "<code>executable</code> argument (default to true) can be set to turn on or off"
+              + "the executable bit.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "path",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path of the file to create, relative to the repository directory."),
+        @Param(
+            name = "template",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            doc = "path to the template file."),
+        @Param(
+            name = "substitutions",
+            type = SkylarkDict.class,
+            defaultValue = "{}",
+            named = true,
+            doc = "substitutions to make when expanding the template."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "True",
+            named = true,
+            doc = "set the executable flag on the created file, true by default."),
+      })
   public void createFileFromTemplate(
-      Object path, Object template, SkylarkDict<String, String> substitutions, Boolean executable)
+      Object path,
+      Object template,
+      SkylarkDict<String, String> substitutions,
+      Boolean executable,
+      Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "os",
-    structField = true,
-    doc = "A struct to access information from the system."
-  )
-  public SkylarkOSApi getOS();
+      name = "os",
+      structField = true,
+      doc = "A struct to access information from the system.",
+      useLocation = true)
+  public SkylarkOSApi getOS(Location location);
 
   @SkylarkCallable(
       name = "execute",
@@ -239,132 +234,125 @@ public interface SkylarkRepositoryContextApi<RepositoryFunctionExceptionT extend
           "Returns the path of the corresponding program or None "
               + "if there is no such program in the path.",
       allowReturnNones = true,
+      useLocation = true,
       parameters = {
-          @Param(
-              name = "program",
-              type = String.class,
-              named = false,
-              doc = "Program to find in the path."
-          ),
-      }
-  )
-  public RepositoryPathApi<?> which(String program) throws EvalException;
+        @Param(
+            name = "program",
+            type = String.class,
+            named = false,
+            doc = "Program to find in the path."),
+      })
+  public RepositoryPathApi<?> which(String program, Location location) throws EvalException;
 
   @SkylarkCallable(
-    name = "download",
-    doc = "Download a file to the output path for the provided url.",
-    parameters = {
-      @Param(
-        name = "url",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Iterable.class, generic1 = String.class),
-        },
-        named = true,
-        doc = "List of mirror URLs referencing the same file."
-      ),
-      @Param(
-        name = "output",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        defaultValue = "''",
-        named = true,
-        doc = "path to the output file, relative to the repository directory."
-      ),
-      @Param(
-        name = "sha256",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "the expected SHA-256 hash of the file downloaded."
-                + " This must match the SHA-256 hash of the file downloaded. It is a security risk"
-                + " to omit the SHA-256 as remote files can change. At best omitting this field"
-                + " will make your build non-hermetic. It is optional to make development easier"
-                + " but should be set before shipping."
-      ),
-      @Param(
-        name = "executable",
-        type = Boolean.class,
-        defaultValue = "False",
-        named = true,
-        doc = "set the executable flag on the created file, false by default."
-      ),
-    }
-  )
-  public void download(Object url, Object output, String sha256, Boolean executable)
+      name = "download",
+      doc = "Download a file to the output path for the provided url.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "url",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Iterable.class, generic1 = String.class),
+            },
+            named = true,
+            doc = "List of mirror URLs referencing the same file."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc = "path to the output file, relative to the repository directory."),
+        @Param(
+            name = "sha256",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "the expected SHA-256 hash of the file downloaded."
+                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
+                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
+                    + " field will make your build non-hermetic. It is optional to make"
+                    + " development easier but should be set before shipping."),
+        @Param(
+            name = "executable",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc = "set the executable flag on the created file, false by default."),
+      })
+  public void download(
+      Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
   @SkylarkCallable(
-    name = "download_and_extract",
-    doc = "Download a file to the output path for the provided url, and extract it.",
-    parameters = {
-      @Param(
-        name = "url",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Iterable.class, generic1 = String.class),
-        },
-        named = true,
-        doc = "List of mirror URLs referencing the same file."
-      ),
-      @Param(
-        name = "output",
-        allowedTypes = {
-          @ParamType(type = String.class),
-          @ParamType(type = Label.class),
-          @ParamType(type = RepositoryPathApi.class)
-        },
-        defaultValue = "''",
-        named = true,
-        doc =
-            "path to the directory where the archive will be unpacked,"
-                + " relative to the repository directory."
-      ),
-      @Param(
-        name = "sha256",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "the expected SHA-256 hash of the file downloaded."
-                + " This must match the SHA-256 hash of the file downloaded. It is a security risk"
-                + " to omit the SHA-256 as remote files can change. At best omitting this field"
-                + " will make your build non-hermetic. It is optional to make development easier"
-                + " but should be set before shipping."
-                + " If provided, the repository cache will first be checked for a file with the"
-                + " given hash; a download will only be attempted, if the file was not found in the"
-                + " cache. After a successful download, the file will be added to the cache."
-      ),
-      @Param(
-        name = "type",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "the archive type of the downloaded file."
-                + " By default, the archive type is determined from the file extension of the URL."
-                + " If the file has no extension, you can explicitly specify either \"zip\","
-                + " \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\" here."
-      ),
-      @Param(
-        name = "stripPrefix",
-        type = String.class,
-        defaultValue = "''",
-        named = true,
-        doc =
-            "a directory prefix to strip from the extracted files."
-                + "\nMany archives contain a top-level directory that contains all files in the"
-                + " archive. Instead of needing to specify this prefix over and over in the"
-                + " <code>build_file</code>, this field can be used to strip it from extracted"
-                + " files."
-      ),
-    }
-  )
+      name = "download_and_extract",
+      doc = "Download a file to the output path for the provided url, and extract it.",
+      useLocation = true,
+      parameters = {
+        @Param(
+            name = "url",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Iterable.class, generic1 = String.class),
+            },
+            named = true,
+            doc = "List of mirror URLs referencing the same file."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = RepositoryPathApi.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc =
+                "path to the directory where the archive will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "sha256",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "the expected SHA-256 hash of the file downloaded."
+                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
+                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
+                    + " field will make your build non-hermetic. It is optional to make"
+                    + " development easier but should be set before shipping."
+                    + " If provided, the repository cache will first be checked for a file with the"
+                    + " given hash; a download will only be attempted, if the file was not found"
+                    + " in the cache. After a successful download, the file will be added to the"
+                    + " cache."),
+        @Param(
+            name = "type",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "the archive type of the downloaded file."
+                    + " By default, the archive type is determined from the file extension of the"
+                    + " URL. If the file has no extension, you can explicitly specify either"
+                    + " \"zip\", \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\""
+                    + " here."),
+        @Param(
+            name = "stripPrefix",
+            type = String.class,
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."),
+      })
   public void downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix)
+      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 }

@@ -41,6 +41,20 @@ java_test(
 )
 
 java_test(
+    name = "AndroidManifestTest",
+    size = "small",
+    srcs = ["AndroidManifestTest.java"],
+    deps = [
+        ":test_utils",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "RClassGeneratorActionTest",
     size = "small",
     srcs = ["RClassGeneratorActionTest.java"],

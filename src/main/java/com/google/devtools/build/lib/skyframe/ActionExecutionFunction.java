@@ -524,7 +524,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (env.valuesMissing()) {
         return null;
       }
-      if (!Iterables.isEmpty(newInputs)) {
+      if (!metadataFoundDuringActionExecution.isEmpty()) {
         // We are in the interesting case of an action that discovered its inputs during
         // execution, and found some new ones, but the new ones were already present in the graph.
         // We must therefore cache the metadata for those new ones.

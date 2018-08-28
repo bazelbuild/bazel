@@ -438,7 +438,7 @@ def _coverage_feature(repository_ctx, darwin):
     }
   """
 
-def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False):
+def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
     """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
     if name in overriden_tools:
@@ -460,7 +460,8 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False)
         msg = ("Cannot find %s or %s%s; either correct your path or set the %s" +
                " environment variable") % (name, env_name, env_value_with_paren, env_name)
         if warn:
-            auto_configure_warning(msg)
+            if not silent:
+                auto_configure_warning(msg)
         else:
             auto_configure_fail(msg)
     return result
@@ -488,6 +489,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "gcov",
         "GCOV",
         overriden_tools,
+        warn = True,
+        silent = True,
     )
     if darwin:
         overriden_tools["gcc"] = "cc_wrapper.sh"

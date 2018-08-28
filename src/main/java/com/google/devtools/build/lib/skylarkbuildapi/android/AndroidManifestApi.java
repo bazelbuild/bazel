@@ -19,6 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /** Wraps an Android Manifest and provides utilities for working with it */
 @SkylarkModule(
     name = "AndroidManifestApi",
-    doc = "Wraps an Android Manifest and provides utilities to work with it.",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Wraps an Android Manifest and provides utilities to work with it.",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidManifestApi {}

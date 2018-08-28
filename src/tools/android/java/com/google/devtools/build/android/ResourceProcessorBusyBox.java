@@ -17,16 +17,20 @@ package com.google.devtools.build.android;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -182,23 +186,66 @@ public class ResourceProcessorBusyBox {
     public Tool tool;
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
+    // It's cheaper and cleaner to detect for a single flag to start worker mode without having to
+    // initialize Options/OptionsParser here. This keeps the processRequest interface minimal and
+    // minimizes moving option state between these methods.
+    if (args.length == 1 && args[0].equals("--persistent_worker")) {
+      System.exit(runPersistentWorker());
+    } else {
+      System.exit(processRequest(Arrays.asList(args)));
+    }
+  }
+
+  private static int runPersistentWorker() {
+    while (true) {
+      try {
+        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+
+        if (request == null) {
+          break;
+        }
+
+        int exitCode = processRequest(request.getArgumentsList());
+        WorkResponse.newBuilder()
+            .setExitCode(exitCode)
+            .build()
+            .writeDelimitedTo(System.out);
+        System.out.flush();
+      } catch (IOException e) {
+        logger.severe(e.getMessage());
+        e.printStackTrace();
+        return 1;
+      }
+    }
+    return 0;
+  }
+
+  private static int processRequest(List<String> args) {
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.setAllowResidue(true);
     optionsParser.enableParamsFileSupport(
         new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()));
-    optionsParser.parse(args);
-    Options options = optionsParser.getOptions(Options.class);
+    Options options;
     try {
+      optionsParser.parse(args);
+      options = optionsParser.getOptions(Options.class);
       options.tool.call(optionsParser.getResidue().toArray(new String[0]));
-    } catch (MergingException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
-      logger.severe(e.getMessage());
-      logSuppressedAndExit(e);
+    } catch (
+        OptionsParsingException
+        | MergingException
+        | IOException
+        | Aapt2Exception
+        | InvalidJavaIdentifier e) {
+      logSuppressed(e);
+      return 1;
+    } catch (Exception e) {
+      return 1;
     }
+    return 0;
   }
 
-  private static void logSuppressedAndExit(Throwable e) {
+  private static void logSuppressed(Throwable e) {
     Arrays.stream(e.getSuppressed()).map(Throwable::getMessage).forEach(logger::severe);
-    System.exit(1);
   }
 }

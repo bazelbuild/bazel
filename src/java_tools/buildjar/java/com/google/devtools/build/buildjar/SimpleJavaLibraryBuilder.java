@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
@@ -63,34 +65,16 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     if (directory == null) {
       return;
     }
-    if (!Files.exists(directory)) {
-      Files.createDirectories(directory);
-      return;
-    }
-    try {
-      // TODO(b/27069912): handle symlinks
-      Files.walkFileTree(
-          directory,
-          new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                throws IOException {
-              Files.delete(file);
-              return FileVisitResult.CONTINUE;
-            }
 
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc)
-                throws IOException {
-              if (!dir.equals(directory)) {
-                Files.delete(dir);
-              }
-              return FileVisitResult.CONTINUE;
-            }
-          });
-    } catch (IOException e) {
-      throw new IOException("Cannot clean '" + directory + "'", e);
+    if (Files.exists(directory)) {
+      try {
+        MoreFiles.deleteRecursively(directory, RecursiveDeleteOption.ALLOW_INSECURE);
+      } catch (IOException e) {
+        throw new IOException("Cannot clean '" + directory + "'", e);
+      }
     }
+
+    Files.createDirectories(directory);
   }
 
   public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {

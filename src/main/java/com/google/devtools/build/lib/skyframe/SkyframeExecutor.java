@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
@@ -86,6 +85,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -115,6 +115,7 @@ import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.PathResolverFactory;
@@ -549,6 +550,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TOOLCHAIN_RESOLUTION, new ToolchainResolutionFunction());
     map.put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction());
     map.put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction());
+    map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
     map.putAll(extraSkyFunctions);
     return map.build();
   }
@@ -1012,17 +1014,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
-  public ToolchainContext getToolchainContextForTesting(
-      Set<Label> requiredToolchains, BuildConfiguration config, ExtendedEventHandler eventHandler)
-      throws ToolchainException, InterruptedException {
-    SkyFunctionEnvironmentForTesting env =
-        new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler, this);
-    return ToolchainUtil.createToolchainContext(
-        env,
-        "",
-        requiredToolchains,
-        /* execConstraintLabels= */ ImmutableSet.of(),
-        config == null ? null : BuildConfigurationValue.key(config));
+  public SkyFunctionEnvironmentForTesting getSkyFunctionEnvironmentForTesting(
+      ExtendedEventHandler eventHandler) {
+    return new SkyFunctionEnvironmentForTesting(buildDriver, eventHandler, this);
   }
 
   /**
@@ -1888,7 +1882,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       keys.add(aspectKey);
     }
     EvaluationResult<ActionLookupValue> result =
-        buildDriver.evaluate(keys, keepGoing, numThreads, eventHandler);
+        buildDriver.evaluate(
+            keys,
+            keepGoing,
+            () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads),
+            eventHandler);
     // Get rid of any memory retained by the cache -- all loading is done.
     perBuildSyscallCache.clear();
     return result;

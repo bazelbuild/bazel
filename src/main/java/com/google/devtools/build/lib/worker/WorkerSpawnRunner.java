@@ -232,6 +232,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * files. The @ itself can be escaped with @@. This deliberately does not expand --flagfile= style
    * arguments, because we want to get rid of the expansion entirely at some point in time.
    *
+   * Also check that the argument is not an external repository label, because they start with `@`
+   * and are not flagfile locations.
+   *
    * @param execRoot the current execroot of the build (relative paths will be assumed to be
    *     relative to this directory).
    * @param arg the argument to expand.
@@ -240,7 +243,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
       throws IOException {
-    if (arg.startsWith("@") && !arg.startsWith("@@")) {
+    if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
       for (String line :
           Files.readAllLines(
               Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
@@ -249,6 +252,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
     } else {
       requestBuilder.addArguments(arg);
     }
+  }
+
+  private static boolean isExternalRepositoryLabel(String arg) {
+    return arg.matches("^@.*//.*");
   }
 
   private WorkResponse execInWorker(

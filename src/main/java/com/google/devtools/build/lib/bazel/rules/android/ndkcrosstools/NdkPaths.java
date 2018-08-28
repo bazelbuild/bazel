@@ -235,9 +235,7 @@ public class NdkPaths {
         "external/%repositoryName%/ndk/sources/".replace("%repositoryName%", repositoryName);
 
     ImmutableList.Builder<String> includePaths = ImmutableList.builder();
-
-    includePaths.add(prefix + "android/support/include");
-
+    
     if (majorRevision <= 12) {
       includePaths.add(prefix + "cxx-stl/llvm-libc++/libcxx/include");
       includePaths.add(prefix + "cxx-stl/llvm-libc++abi/libcxxabi/include");
@@ -247,6 +245,8 @@ public class NdkPaths {
       includePaths.add(prefix + "cxx-stl/llvm-libc++/include");
       includePaths.add(prefix + "cxx-stl/llvm-libc++abi/include");
     }
+
+    includePaths.add(prefix + "android/support/include");
 
     return includePaths.build();
   }

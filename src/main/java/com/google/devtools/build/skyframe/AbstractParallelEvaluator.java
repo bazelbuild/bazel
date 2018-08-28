@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -42,8 +43,10 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -54,15 +57,6 @@ import javax.annotation.Nullable;
  * <p>This does not implement other parts of Skyframe evaluation setup and post-processing, such as
  * translating a set of requested top-level nodes into actions, or constructing an evaluation
  * result. Derived classes should do this.
- *
- * <p>Work is prioritized in a depth-first fashion when using the {@link
- * #AbstractParallelEvaluator(ProcessableGraph, Version, ImmutableMap, ExtendedEventHandler,
- * EmittedEventState, EventFilter, ErrorInfoManager, boolean, int, DirtyTrackingProgressReceiver,
- * GraphInconsistencyReceiver, CycleDetector)} constructor, but not when using the {@link
- * #AbstractParallelEvaluator(ProcessableGraph, Version, ImmutableMap, ExtendedEventHandler,
- * EmittedEventState, EventFilter, ErrorInfoManager, boolean, DirtyTrackingProgressReceiver,
- * GraphInconsistencyReceiver, ForkJoinPool, CycleDetector, EvaluationVersionBehavior)} (the
- * constructor with a {@link ForkJoinPool}).
  */
 public abstract class AbstractParallelEvaluator {
   private static final Logger logger = Logger.getLogger(AbstractParallelEvaluator.class.getName());
@@ -81,41 +75,9 @@ public abstract class AbstractParallelEvaluator {
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      int threadCount,
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      CycleDetector cycleDetector) {
-    this.graph = graph;
-    this.cycleDetector = cycleDetector;
-    evaluatorContext =
-        new ParallelEvaluatorContext(
-            graph,
-            graphVersion,
-            skyFunctions,
-            reporter,
-            emittedEventState,
-            keepGoing,
-            progressReceiver,
-            storedEventFilter,
-            errorInfoManager,
-            (skyKey, evaluationPriority) -> new Evaluate(evaluationPriority, skyKey),
-            graphInconsistencyReceiver,
-            threadCount);
-    this.globalEnqueuedIndex = new AtomicInteger(0);
-  }
-
-  AbstractParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-      final ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver,
-      ForkJoinPool forkJoinPool,
+      Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       EvaluationVersionBehavior evaluationVersionBehavior) {
     this.graph = graph;
@@ -131,9 +93,15 @@ public abstract class AbstractParallelEvaluator {
             progressReceiver,
             storedEventFilter,
             errorInfoManager,
-            (skyKey, evaluationPriority) -> new Evaluate(0, skyKey),
             graphInconsistencyReceiver,
-            Preconditions.checkNotNull(forkJoinPool),
+            () ->
+                new NodeEntryVisitor(
+                    AbstractQueueVisitor.createWithExecutorService(
+                        executorService.get(),
+                        /*failFastOnException=*/ true,
+                        NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER),
+                    progressReceiver,
+                    (skyKey, evaluationPriority) -> new Evaluate(evaluationPriority, skyKey)),
             evaluationVersionBehavior);
     this.globalEnqueuedIndex = null;
   }
@@ -735,8 +703,8 @@ public abstract class AbstractParallelEvaluator {
     Restart restart = (Restart) returnedValue;
 
     Map<SkyKey, ? extends NodeEntry> additionalNodesToRestart =
-        this.evaluatorContext
-            .getBatchValues(key, Reason.INVALIDATION, restart.getAdditionalKeysToRestart());
+        this.evaluatorContext.getBatchValues(
+            key, Reason.INVALIDATION, restart.getAdditionalKeysToRestart());
     for (Entry<SkyKey, ? extends NodeEntry> restartEntry : additionalNodesToRestart.entrySet()) {
       evaluatorContext
           .getGraphInconsistencyReceiver()

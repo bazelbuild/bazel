@@ -746,11 +746,6 @@ public class Path
     return fileSystem.getFastDigest(this);
   }
 
-  /** Returns whether the given digest is a valid digest for the default system digest function. */
-  public boolean isValidDigest(byte[] digest) {
-    return fileSystem.isValidDigest(digest);
-  }
-
   /**
    * Returns the digest of the file denoted by the current path, following symbolic links.
    *

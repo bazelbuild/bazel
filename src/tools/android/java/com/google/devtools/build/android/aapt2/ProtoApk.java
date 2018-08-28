@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -305,8 +306,7 @@ public class ProtoApk implements Closeable {
           "Unable to find prefix for "
               + uri
               + " in [ "
-              + namespaceStack
-                  .stream()
+              + namespaceStack.stream()
                   .map(Map::keySet)
                   .flatMap(Set::stream)
                   .map(ByteString::toString)
@@ -461,10 +461,7 @@ public class ProtoApk implements Closeable {
   }
 
   private void visitPlural(ResourceValueVisitor entryVisitor, CompoundValue value) {
-    value
-        .getPlural()
-        .getEntryList()
-        .stream()
+    value.getPlural().getEntryList().stream()
         .filter(Plural.Entry::hasItem)
         .map(Plural.Entry::getItem)
         .forEach(
@@ -482,10 +479,7 @@ public class ProtoApk implements Closeable {
   }
 
   private void visitArray(ResourceValueVisitor entryVisitor, CompoundValue value) {
-    value
-        .getArray()
-        .getElementList()
-        .stream()
+    value.getArray().getElementList().stream()
         .filter(Array.Element::hasItem)
         .map(Array.Element::getItem)
         .forEach(
@@ -503,10 +497,7 @@ public class ProtoApk implements Closeable {
   }
 
   private void visitAttr(ResourceValueVisitor entryVisitor, CompoundValue value) {
-    value
-        .getAttr()
-        .getSymbolList()
-        .stream()
+    value.getAttr().getSymbolList().stream()
         .filter(Symbol::hasName)
         .map(Symbol::getName)
         .forEach(name -> visitReference(entryVisitor, name));
@@ -564,18 +555,45 @@ public class ProtoApk implements Closeable {
     }
   }
 
-  private void visit(XmlNode node, ReferenceVisitor sink) {
+  private void visit(XmlNode node, ReferenceVisitor visitor) {
     if (node.hasElement()) {
       final XmlElement element = node.getElement();
-      for (XmlAttribute attribute : element.getAttributeList()) {
-        if (attribute.hasCompiledItem() && attribute.getCompiledItem().hasRef()) {
-          visitReference(sink, attribute.getCompiledItem().getRef());
-        }
-        if (attribute.getResourceId() != 0) {
-          sink.accept(attribute.getResourceId());
-        }
+      Consumer<XmlNode> visit =
+          "wearableApp".equals(element.getName())
+              ? n -> visitWearableApp(n, visitor)
+              : n -> visit(n, visitor);
+
+      visitAttributes(visitor, element);
+
+      element.getChildList().forEach(visit);
+    }
+  }
+
+  private void visitAttributes(ReferenceVisitor visitor, XmlElement element) {
+    for (XmlAttribute attribute : element.getAttributeList()) {
+      if (attribute.getCompiledItem().hasRef()) {
+        visitReference(visitor, attribute.getCompiledItem().getRef());
       }
-      element.getChildList().forEach(child -> visit(child, sink));
+      if (attribute.getResourceId() != 0) {
+        visitor.accept(attribute.getResourceId());
+      }
+    }
+  }
+
+  // TODO(b/113166518): Remove when wearable apps have real references.
+  // this doesn't belong in the protoapk, but has to be included for the time being.
+  private void visitWearableApp(XmlNode node, ReferenceVisitor visitor) {
+    if (node.hasElement()) {
+      final XmlElement element = node.getElement();
+      if ("rawPathResId".equals(element.getName())) {
+        visitor.accept(
+            ResourceType.RAW.getName()
+                + "/"
+                + element.getChildList().stream().map(XmlNode::getText).collect(joining()));
+      } else {
+        visitAttributes(visitor, element);
+      }
+      element.getChildList().forEach(c -> visitWearableApp(c, visitor));
     }
   }
 

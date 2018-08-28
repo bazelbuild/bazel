@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.SkylarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -86,10 +87,11 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         if (ruleContext.hasErrors()) {
           return null;
         } else if (!(aspectSkylarkObject instanceof StructImpl)
-            && !(aspectSkylarkObject instanceof Iterable)) {
+            && !(aspectSkylarkObject instanceof Iterable)
+            && !(aspectSkylarkObject instanceof InfoInterface)) {
           ruleContext.ruleError(
-              String.format(
-                  "Aspect implementation should return a struct or a list, but got %s",
+              String.format("Aspect implementation should return a struct, a list, or a provider "
+                      + "instance, but got %s",
                   SkylarkType.typeOf(aspectSkylarkObject)));
           return null;
         }
@@ -115,25 +117,32 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     if (aspectSkylarkObject instanceof Iterable) {
       addDeclaredProviders(builder, (Iterable) aspectSkylarkObject);
     } else {
-      StructImpl struct = (StructImpl) aspectSkylarkObject;
-      Location loc = struct.getCreationLoc();
-      for (String field : struct.getFieldNames()) {
-        if (field.equals("output_groups")) {
-          addOutputGroups(struct.getValue(field), loc, builder);
-        } else if (field.equals("providers")) {
-          Object value = struct.getValue(field);
-          Iterable providers =
-              SkylarkType.cast(
-                  value,
-                  Iterable.class,
-                  loc,
-                  "The value for \"providers\" should be a list of declared providers, "
-                      + "got %s instead",
-                  EvalUtils.getDataTypeName(value, false));
-          addDeclaredProviders(builder, providers);
-        } else {
-          builder.addSkylarkTransitiveInfo(field, struct.getValue(field), loc);
+      // Either an old-style struct or a single declared provider (not in a list)
+      InfoInterface info = (InfoInterface) aspectSkylarkObject;
+      Location loc = info.getCreationLoc();
+      if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
+        // Old-style struct, that may contain declared providers.
+        StructImpl struct = (StructImpl) aspectSkylarkObject;
+        for (String field : struct.getFieldNames()) {
+          if (field.equals("output_groups")) {
+            addOutputGroups(struct.getValue(field), loc, builder);
+          } else if (field.equals("providers")) {
+            Object value = struct.getValue(field);
+            Iterable providers =
+                SkylarkType.cast(
+                    value,
+                    Iterable.class,
+                    loc,
+                    "The value for \"providers\" should be a list of declared providers, "
+                        + "got %s instead",
+                    EvalUtils.getDataTypeName(value, false));
+            addDeclaredProviders(builder, providers);
+          } else {
+            builder.addSkylarkTransitiveInfo(field, struct.getValue(field), loc);
+          }
         }
+      } else {
+        builder.addSkylarkDeclaredProvider(info);
       }
     }
 

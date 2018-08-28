@@ -119,7 +119,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object attrs, SkylarkList<?> requiredAspectProvidersArg, SkylarkList<?> providesArg,
       SkylarkList<?> fragments, SkylarkList<?> hostFragments, SkylarkList<?> toolchains, String doc,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
-    return null;
+    return new FakeSkylarkAspect();
   }
 
   /**

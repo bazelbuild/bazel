@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
+
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -46,6 +49,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     int noStatusCount;
     int numberOfExecutedTargets;
     boolean wasUnreportedWrongSize;
+
+    int totalTestCases;
+    int totalFailedTestCases;
   }
 
   /**
@@ -175,6 +181,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       if (summary.wasUnreportedWrongSize()) {
         stats.wasUnreportedWrongSize = true;
       }
+
+      stats.totalFailedTestCases += summary.getFailedTestCases().size();
+      stats.totalTestCases += summary.getTotalTestCases();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
@@ -193,6 +202,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         printShortSummary(summaries, /* showPassingTests= */ false);
         break;
 
+      case TESTCASE:
       case NONE:
         break;
     }
@@ -213,6 +223,21 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private void printStats(TestResultStats stats) {
+    TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
+    if ((testSummaryFormat == DETAILED) || (testSummaryFormat == TESTCASE)) {
+      Integer passCount = stats.totalTestCases - stats.totalFailedTestCases;
+      printer.printLn(
+          String.format(
+              "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
+              passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
+              passCount,
+              AnsiTerminalPrinter.Mode.DEFAULT,
+              stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
+              stats.totalFailedTestCases,
+              AnsiTerminalPrinter.Mode.DEFAULT,
+              stats.totalTestCases));
+    }
+
     if (!optionCheckTestsUpToDate()) {
       List<String> results = new ArrayList<>();
       if (stats.passCount == 1) {

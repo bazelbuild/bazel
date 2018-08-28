@@ -109,7 +109,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
     }
 
-    FdoSupportProvider fdoSupport = common.getFdoSupport();
+    FdoProvider fdoProvider = common.getFdoProvider();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
@@ -121,7 +121,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
-                ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoProvider)
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
@@ -135,7 +135,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 semantics,
                 featureConfiguration,
                 ccToolchain,
-                fdoSupport,
+                fdoProvider,
                 ruleContext.getConfiguration())
             .fromCommon(common)
             .addLinkopts(common.getLinkopts())

@@ -17,6 +17,7 @@ import com.android.annotations.Nullable;
 import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidDataMerger.ContentComparingChecker;
 import com.google.devtools.build.android.AndroidDataMerger.PathComparingChecker;
@@ -30,6 +31,36 @@ import java.util.logging.Logger;
 /** Collects all the functionality for an action to merge resources. */
 // TODO(bazel-team): Turn into an instance object, in order to use an external ExecutorService.
 public class AndroidResourceMerger {
+
+  /** Performs a merge of compiled android data. */
+  static Path mergeDataToSymbols(
+      ParsedAndroidData primary,
+      Path manifest,
+      ImmutableList<SerializedAndroidData> direct,
+      ImmutableList<SerializedAndroidData> transitive,
+      VariantType packageType,
+      Path symbolsOut,
+      AndroidDataDeserializer deserializer,
+      boolean throwOnResourceConflict,
+      ExecutorServiceCloser executorService)
+      throws IOException {
+    AndroidDataMerger merger =
+        AndroidDataMerger.createWithPathDeduplictor(
+            executorService, deserializer, new PathComparingChecker());
+    final UnwrittenMergedAndroidData merged =
+        merger.loadAndMerge(
+            transitive,
+            direct,
+            primary,
+            manifest,
+            packageType.equals(VariantType.DEFAULT),
+            throwOnResourceConflict);
+    AndroidDataSerializer serializer = AndroidDataSerializer.create();
+    merged.serializeTo(serializer);
+    serializer.flushTo(symbolsOut);
+    return symbolsOut;
+  }
+
   /** Thrown when there is a unexpected condition during merging. */
   public static class MergingException extends UserException {
 
@@ -53,7 +84,7 @@ public class AndroidResourceMerger {
   static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
 
   /** Merges all secondary resources with the primary resources. */
-  public static MergedAndroidData mergeData(
+  public static MergedAndroidData mergeDataAndWrite(
       final ParsedAndroidData primary,
       final Path primaryManifest,
       final List<? extends SerializedAndroidData> direct,
@@ -139,7 +170,7 @@ public class AndroidResourceMerger {
    * Merges all secondary resources with the primary resources, given that the primary resources
    * have not yet been parsed and serialized.
    */
-  public static MergedAndroidData mergeData(
+  public static MergedAndroidData mergeDataAndWrite(
       final UnvalidatedAndroidData primary,
       final List<? extends SerializedAndroidData> direct,
       final List<? extends SerializedAndroidData> transitive,
@@ -152,7 +183,7 @@ public class AndroidResourceMerger {
       boolean throwOnResourceConflict) {
     try (ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       final ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primary);
-      return mergeData(
+      return mergeDataAndWrite(
           parsedPrimary,
           primary.getManifest(),
           direct,
@@ -175,7 +206,7 @@ public class AndroidResourceMerger {
    * Merges all secondary resources with the primary resources, given that the primary resources
    * have been separately parsed and serialized.
    */
-  public static MergedAndroidData mergeData(
+  public static MergedAndroidData mergeDataAndWrite(
       final SerializedAndroidData primary,
       final Path primaryManifest,
       final List<? extends SerializedAndroidData> direct,
@@ -192,7 +223,7 @@ public class AndroidResourceMerger {
     final AndroidDataDeserializer deserializer = AndroidParsedDataDeserializer.create();
     primary.deserialize(deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
-    return mergeData(
+    return mergeDataAndWrite(
         primaryData,
         primaryManifest,
         direct,

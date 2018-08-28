@@ -71,6 +71,10 @@ public final class SkylarkParamDoc extends SkylarkDoc {
     return param.name();
   }
 
+  public String getDefaultValue() {
+    return param.defaultValue();
+  }
+
   @Override
   public String getDocumentation() {
     return SkylarkDocUtils.substituteVariables(param.doc());

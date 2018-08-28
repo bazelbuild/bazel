@@ -62,6 +62,7 @@ java_library(
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/junctions",
         "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_java_pb",

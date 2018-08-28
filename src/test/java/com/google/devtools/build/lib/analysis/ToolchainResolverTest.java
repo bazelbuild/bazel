@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
@@ -21,15 +21,16 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainResolver.NoMatchingPlatformException;
+import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainResolver.UnresolvedToolchainsException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.NoMatchingPlatformException;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.UnresolvedToolchainsException;
+import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -43,17 +44,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link ToolchainUtil}. */
+/** Tests for {@link ToolchainResolver}. */
 @RunWith(JUnit4.class)
-public class ToolchainUtilTest extends ToolchainTestCase {
-
+public class ToolchainResolverTest extends ToolchainTestCase {
   /**
-   * An {@link AnalysisMock} that injects {@link CreateToolchainContextFunction} into the Skyframe
+   * An {@link AnalysisMock} that injects {@link ResolveToolchainsFunction} into the Skyframe
    * executor.
    */
-  private static final class AnalysisMockWithCreateToolchainContextFunction
-      extends AnalysisMock.Delegate {
-    AnalysisMockWithCreateToolchainContextFunction() {
+  private static final class LocalAnalysisMock extends AnalysisMock.Delegate {
+    LocalAnalysisMock() {
       super(AnalysisMock.get());
     }
 
@@ -62,18 +61,18 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         BlazeDirectories directories) {
       return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
           .putAll(super.getSkyFunctions(directories))
-          .put(CREATE_TOOLCHAIN_CONTEXT_FUNCTION, new CreateToolchainContextFunction())
+          .put(RESOLVE_TOOLCHAINS_FUNCTION, new ResolveToolchainsFunction())
           .build();
     }
   }
 
   @Override
   protected AnalysisMock getAnalysisMock() {
-    return new AnalysisMockWithCreateToolchainContextFunction();
+    return new LocalAnalysisMock();
   }
 
   @Test
-  public void createToolchainContext() throws Exception {
+  public void resolve() throws Exception {
     // This should select platform mac, toolchain extra_toolchain_mac, because platform
     // mac is listed first.
     addToolchain(
@@ -93,58 +92,58 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--platforms=//platforms:linux");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
-            "test", ImmutableSet.of(testToolchainType), targetConfigKey);
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasNoError();
-    ToolchainContext toolchainContext = result.get(key).toolchainContext();
-    assertThat(toolchainContext).isNotNull();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(toolchainContext.requiredToolchainTypes()).containsExactly(testToolchainType);
-    assertThat(toolchainContext.resolvedToolchainLabels())
+    assertThat(unloadedToolchainContext.requiredToolchainTypes())
+        .containsExactly(testToolchainType);
+    assertThat(unloadedToolchainContext.resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_mac_impl"));
 
-    assertThat(toolchainContext.executionPlatform()).isNotNull();
-    assertThat(toolchainContext.executionPlatform().label())
+    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
 
-    assertThat(toolchainContext.targetPlatform()).isNotNull();
-    assertThat(toolchainContext.targetPlatform().label())
+    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
   @Test
-  public void createToolchainContext_noToolchainType() throws Exception {
+  public void resolve_noToolchainType() throws Exception {
     scratch.file("host/BUILD", "platform(name = 'host')");
     rewriteWorkspace("register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--host_platform=//host:host", "--platforms=//platforms:linux");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create("test", ImmutableSet.of(), targetConfigKey);
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(), targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasNoError();
-    ToolchainContext toolchainContext = result.get(key).toolchainContext();
-    assertThat(toolchainContext).isNotNull();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(toolchainContext.requiredToolchainTypes()).isEmpty();
+    assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
 
     // With no toolchains requested, should fall back to the host platform.
-    assertThat(toolchainContext.executionPlatform()).isNotNull();
-    assertThat(toolchainContext.executionPlatform().label())
+    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//host:host"));
 
-    assertThat(toolchainContext.targetPlatform()).isNotNull();
-    assertThat(toolchainContext.targetPlatform().label())
+    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
   @Test
-  public void createToolchainContext_noToolchainType_hostNotAvailable() throws Exception {
+  public void resolve_noToolchainType_hostNotAvailable() throws Exception {
     scratch.file("host/BUILD", "platform(name = 'host')");
     scratch.file(
         "sample/BUILD",
@@ -162,44 +161,41 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         "    '//sample:sample_a', '//sample:sample_b')");
 
     useConfiguration("--host_platform=//host:host", "--platforms=//platforms:linux");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(),
             ImmutableSet.of(Label.parseAbsoluteUnchecked("//sample:demo_b")),
             targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasNoError();
-    ToolchainContext toolchainContext = result.get(key).toolchainContext();
-    assertThat(toolchainContext).isNotNull();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(toolchainContext.requiredToolchainTypes()).isEmpty();
+    assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
 
-    // With no toolchains requested, should fall back to the host platform.
-    assertThat(toolchainContext.executionPlatform()).isNotNull();
-    assertThat(toolchainContext.executionPlatform().label())
+    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//sample:sample_b"));
 
-    assertThat(toolchainContext.targetPlatform()).isNotNull();
-    assertThat(toolchainContext.targetPlatform().label())
+    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
   @Test
-  public void createToolchainContext_unavailableToolchainType_single() throws Exception {
-    useConfiguration(
-        "--host_platform=//platforms:linux",
-        "--platforms=//platforms:mac");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
+  public void resolve_unavailableToolchainType_single() throws Exception {
+    useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(
                 testToolchainType, Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")),
             targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -213,12 +209,10 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_unavailableToolchainType_multiple() throws Exception {
-    useConfiguration(
-        "--host_platform=//platforms:linux",
-        "--platforms=//platforms:mac");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
+  public void resolve_unavailableToolchainType_multiple() throws Exception {
+    useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(
                 testToolchainType,
@@ -226,7 +220,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
                 Label.parseAbsoluteUnchecked("//fake/toolchain:type_2")),
             targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -236,14 +230,13 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_invalidTargetPlatform_badTarget() throws Exception {
+  public void resolve_invalidTargetPlatform_badTarget() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--platforms=//invalid:not_a_platform");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
-            "test", ImmutableSet.of(testToolchainType), targetConfigKey);
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -260,14 +253,13 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_invalidTargetPlatform_badPackage() throws Exception {
+  public void resolve_invalidTargetPlatform_badPackage() throws Exception {
     scratch.resolve("invalid").delete();
     useConfiguration("--platforms=//invalid:not_a_platform");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
-            "test", ImmutableSet.of(testToolchainType), targetConfigKey);
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -282,14 +274,13 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_invalidHostPlatform() throws Exception {
+  public void resolve_invalidHostPlatform() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--host_platform=//invalid:not_a_platform");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
-            "test", ImmutableSet.of(testToolchainType), targetConfigKey);
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -304,14 +295,13 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_invalidExecutionPlatform() throws Exception {
+  public void resolve_invalidExecutionPlatform() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--extra_execution_platforms=//invalid:not_a_platform");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
-            "test", ImmutableSet.of(testToolchainType), targetConfigKey);
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -326,7 +316,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_execConstraints() throws Exception {
+  public void resolve_execConstraints() throws Exception {
     // This should select platform linux, toolchain extra_toolchain_linux, due to extra constraints,
     // even though platform mac is registered first.
     addToolchain(
@@ -346,42 +336,43 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--platforms=//platforms:linux");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(testToolchainType),
             ImmutableSet.of(Label.parseAbsoluteUnchecked("//constraints:linux")),
             targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasNoError();
-    ToolchainContext toolchainContext = result.get(key).toolchainContext();
-    assertThat(toolchainContext).isNotNull();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(toolchainContext.requiredToolchainTypes()).containsExactly(testToolchainType);
-    assertThat(toolchainContext.resolvedToolchainLabels())
+    assertThat(unloadedToolchainContext.requiredToolchainTypes())
+        .containsExactly(testToolchainType);
+    assertThat(unloadedToolchainContext.resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"));
 
-    assertThat(toolchainContext.executionPlatform()).isNotNull();
-    assertThat(toolchainContext.executionPlatform().label())
+    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.executionPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
 
-    assertThat(toolchainContext.targetPlatform()).isNotNull();
-    assertThat(toolchainContext.targetPlatform().label())
+    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
+    assertThat(unloadedToolchainContext.targetPlatform().label())
         .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
   }
 
   @Test
-  public void createToolchainContext_execConstraints_invalid() throws Exception {
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
+  public void resolve_execConstraints_invalid() throws Exception {
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(testToolchainType),
             ImmutableSet.of(Label.parseAbsoluteUnchecked("//platforms:linux")),
             targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
 
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
@@ -396,7 +387,7 @@ public class ToolchainUtilTest extends ToolchainTestCase {
   }
 
   @Test
-  public void createToolchainContext_noMatchingPlatform() throws Exception {
+  public void resolve_noMatchingPlatform() throws Exception {
     // Write toolchain A, and a toolchain implementing it.
     scratch.appendFile(
         "a/BUILD",
@@ -426,15 +417,15 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--platforms=//platforms:linux");
-    CreateToolchainContextKey key =
-        CreateToolchainContextKey.create(
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
             "test",
             ImmutableSet.of(
                 Label.parseAbsoluteUnchecked("//a:toolchain_type_A"),
                 Label.parseAbsoluteUnchecked("//b:toolchain_type_B")),
             targetConfigKey);
 
-    EvaluationResult<CreateToolchainContextValue> result = createToolchainContext(key);
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
     assertThatEvaluationResult(result).hasError();
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
@@ -442,26 +433,25 @@ public class ToolchainUtilTest extends ToolchainTestCase {
         .isInstanceOf(NoMatchingPlatformException.class);
   }
 
-  // Calls ToolchainUtil.createToolchainContext.
-  private static final SkyFunctionName CREATE_TOOLCHAIN_CONTEXT_FUNCTION =
-      SkyFunctionName.createHermetic("CREATE_TOOLCHAIN_CONTEXT_FUNCTION");
+  private static final SkyFunctionName RESOLVE_TOOLCHAINS_FUNCTION =
+      SkyFunctionName.createHermetic("RESOLVE_TOOLCHAINS_FUNCTION");
 
   @AutoValue
-  abstract static class CreateToolchainContextKey implements SkyKey {
+  abstract static class ResolveToolchainsKey implements SkyKey {
     @Override
     public SkyFunctionName functionName() {
-      return CREATE_TOOLCHAIN_CONTEXT_FUNCTION;
+      return RESOLVE_TOOLCHAINS_FUNCTION;
     }
 
     abstract String targetDescription();
 
-    abstract ImmutableSet<Label> requiredToolchains();
+    abstract ImmutableSet<Label> requiredToolchainTypes();
 
     abstract ImmutableSet<Label> execConstraintLabels();
 
     abstract BuildConfigurationValue.Key configurationKey();
 
-    public static CreateToolchainContextKey create(
+    public static ResolveToolchainsKey create(
         String targetDescription,
         Set<Label> requiredToolchains,
         BuildConfigurationValue.Key configurationKey) {
@@ -472,12 +462,12 @@ public class ToolchainUtilTest extends ToolchainTestCase {
           configurationKey);
     }
 
-    public static CreateToolchainContextKey create(
+    public static ResolveToolchainsKey create(
         String targetDescription,
         Set<Label> requiredToolchains,
         Set<Label> execConstraintLabels,
         BuildConfigurationValue.Key configurationKey) {
-      return new AutoValue_ToolchainUtilTest_CreateToolchainContextKey(
+      return new AutoValue_ToolchainResolverTest_ResolveToolchainsKey(
           targetDescription,
           ImmutableSet.copyOf(requiredToolchains),
           ImmutableSet.copyOf(execConstraintLabels),
@@ -485,8 +475,8 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     }
   }
 
-  EvaluationResult<CreateToolchainContextValue> createToolchainContext(
-      CreateToolchainContextKey key) throws InterruptedException {
+  private EvaluationResult<ResolveToolchainsValue> createToolchainContextBuilder(
+      ResolveToolchainsKey key) throws InterruptedException {
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
       skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
@@ -497,46 +487,36 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     }
   }
 
-  // TODO(blaze-team): implement equals and hashcode for ToolchainContext and convert this to
-  // autovalue.
-  static class CreateToolchainContextValue implements SkyValue {
-    private final ToolchainContext toolchainContext;
+  @AutoValue
+  abstract static class ResolveToolchainsValue implements SkyValue {
+    abstract UnloadedToolchainContext unloadedToolchainContext();
 
-    private CreateToolchainContextValue(ToolchainContext toolchainContext) {
-      this.toolchainContext = toolchainContext;
-    }
-
-    static CreateToolchainContextValue create(ToolchainContext toolchainContext) {
-      return new CreateToolchainContextValue(toolchainContext);
-    }
-
-    ToolchainContext toolchainContext() {
-      return toolchainContext;
+    static ResolveToolchainsValue create(UnloadedToolchainContext unloadedToolchainContext) {
+      return new AutoValue_ToolchainResolverTest_ResolveToolchainsValue(unloadedToolchainContext);
     }
   }
 
-  private static final class CreateToolchainContextFunction implements SkyFunction {
+  private static final class ResolveToolchainsFunction implements SkyFunction {
 
     @Nullable
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      CreateToolchainContextKey key = (CreateToolchainContextKey) skyKey;
-      ToolchainContext toolchainContext = null;
+      ResolveToolchainsKey key = (ResolveToolchainsKey) skyKey;
+      ToolchainResolver toolchainResolver =
+          new ToolchainResolver(env, key.configurationKey())
+              .setTargetDescription(key.targetDescription())
+              .setRequiredToolchainTypes(key.requiredToolchainTypes())
+              .setExecConstraintLabels(key.execConstraintLabels());
+
       try {
-        toolchainContext =
-            ToolchainUtil.createToolchainContext(
-                env,
-                key.targetDescription(),
-                key.requiredToolchains(),
-                key.execConstraintLabels(),
-                key.configurationKey());
-        if (toolchainContext == null) {
+        UnloadedToolchainContext unloadedToolchainContext = toolchainResolver.resolve();
+        if (unloadedToolchainContext == null) {
           return null;
         }
-        return CreateToolchainContextValue.create(toolchainContext);
+        return ResolveToolchainsValue.create(unloadedToolchainContext);
       } catch (ToolchainException e) {
-        throw new CreateToolchainContextFunctionException(e);
+        throw new ResolveToolchainsFunctionException(e);
       }
     }
 
@@ -547,8 +527,8 @@ public class ToolchainUtilTest extends ToolchainTestCase {
     }
   }
 
-  private static class CreateToolchainContextFunctionException extends SkyFunctionException {
-    public CreateToolchainContextFunctionException(ToolchainException e) {
+  private static class ResolveToolchainsFunctionException extends SkyFunctionException {
+    ResolveToolchainsFunctionException(ToolchainException e) {
       super(e, Transience.PERSISTENT);
     }
   }

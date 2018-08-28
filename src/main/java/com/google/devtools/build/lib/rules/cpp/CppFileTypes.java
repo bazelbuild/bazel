@@ -180,18 +180,14 @@ public final class CppFileTypes {
       };
 
   public static final FileType COVERAGE_NOTES = FileType.of(".gcno");
-  public static final FileType COVERAGE_DATA = FileType.of(".gcda");
-  public static final FileType COVERAGE_DATA_IMPORTS = FileType.of(".gcda.imports");
   public static final FileType GCC_AUTO_PROFILE = FileType.of(".afdo");
   public static final FileType XBINARY_PROFILE = FileType.of(".xfdo");
   public static final FileType LLVM_PROFILE = FileType.of(".profdata");
   public static final FileType LLVM_PROFILE_RAW = FileType.of(".profraw");
+  public static final FileType LLVM_PROFILE_ZIP = FileType.of(".zip");
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
   public static final FileType CPP_MODULE = FileType.of(".pcm");
-
-  // Output of the dwp tool
-  public static final FileType DEBUG_INFO_PACKAGE = FileType.of(".dwp");
 
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
   public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");

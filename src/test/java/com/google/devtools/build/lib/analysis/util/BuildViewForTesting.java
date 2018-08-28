@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainResolver;
+import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -78,6 +80,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -504,18 +507,22 @@ public class BuildViewForTesting {
           Event.error("Failed to get target when trying to get rule context for testing"));
       throw new IllegalStateException(e);
     }
-    Set<Label> requiredToolchains =
+    ImmutableSet<Label> requiredToolchains =
         target.getAssociatedRule().getRuleClassObject().getRequiredToolchains();
-    ToolchainContext toolchainContext =
-        skyframeExecutor.getToolchainContextForTesting(
-            requiredToolchains, targetConfig, eventHandler);
+    SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
+        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+    UnloadedToolchainContext unloadedToolchainContext =
+        new ToolchainResolver(skyfunctionEnvironment, BuildConfigurationValue.key(targetConfig))
+            .setRequiredToolchainTypes(requiredToolchains)
+            .resolve();
+
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
             eventHandler,
             configuredTarget,
             configurations,
-            toolchainContext.resolvedToolchainLabels());
-    toolchainContext.resolveToolchains(prerequisiteMap);
+            unloadedToolchainContext.resolvedToolchainLabels());
+    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
 
     return new RuleContext.Builder(
             env,
@@ -534,7 +541,7 @@ public class BuildViewForTesting {
                 eventHandler,
                 configuredTarget,
                 configurations,
-                toolchainContext.resolvedToolchainLabels()))
+                unloadedToolchainContext.resolvedToolchainLabels()))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContext(toolchainContext)

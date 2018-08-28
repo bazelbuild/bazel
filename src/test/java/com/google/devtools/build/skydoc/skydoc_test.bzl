@@ -20,6 +20,9 @@
 #    the golden file if changes are made to skydoc.
 """Convenience macro for skydoc tests."""
 
+load("@bazel_skylib//:skylark_library.bzl", "skylark_library")
+load("@skydoc//skylark:stardoc.bzl", "stardoc")
+
 def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_symbols = []):
     """Creates a test target and golden-file regeneration target for skydoc testing.
 
@@ -38,7 +41,7 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_sy
           to generate documentation for. If empty, documentation for all top-level symbols
           will be generated.
     """
-    output_golden_file = "%s_output.txt" % name
+    actual_generated_doc = "%s_output.txt" % name
 
     # Skydoc requires an absolute input file label to both load the target file and
     # track what its target is for the purpose of resolving relative labels.
@@ -46,28 +49,28 @@ def skydoc_test(name, input_file, golden_file, skydoc, deps = [], whitelisted_sy
 
     native.sh_test(
         name = "%s_e2e_test" % name,
-        srcs = ["skydoc_e2e_test_runner.sh"],
+        srcs = ["diff_test_runner.sh"],
         args = [
-            "$(location %s)" % skydoc,
-            abs_input_file_label,
+            "$(location %s)" % actual_generated_doc,
             "$(location %s)" % golden_file,
-        ] + whitelisted_symbols,
+        ],
         data = [
-            input_file,
+            actual_generated_doc,
             golden_file,
-            skydoc,
-        ] + deps,
+        ],
     )
 
-    native.genrule(
+    skylark_library(
+        name = "%s_lib" % name,
+        srcs = [input_file],
+        deps = deps,
+    )
+
+    stardoc(
         name = "regenerate_%s_golden" % name,
-        srcs = [
-            input_file,
-        ] + deps,
-        outs = [output_golden_file],
-        heuristic_label_expansion = 0,
-        cmd = "$(location %s) " % skydoc +
-              "%s $(location %s) " % (abs_input_file_label, output_golden_file) +
-              " ".join(whitelisted_symbols),
-        tools = [skydoc],
+        out = actual_generated_doc,
+        input = input_file,
+        symbol_names = whitelisted_symbols,
+        deps = ["%s_lib" % name],
+        stardoc = skydoc,
     )

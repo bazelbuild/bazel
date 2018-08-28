@@ -73,53 +73,17 @@ public class Aapt2ResourcePackagingAction {
             new ScopedTemporaryDirectory("android_resources_tmp");
         ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       final Path tmp = scopedTmp.getPath();
-      final Path mergedAssets = tmp.resolve("merged_assets");
-      final Path mergedResources = tmp.resolve("merged_resources");
-      final Path filteredResources = tmp.resolve("filtered_resources");
-
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
-
       final Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
+      final Path symbols = tmp.resolve("symbols/symbols.bin");
       final Path databindingResourcesRoot =
           Files.createDirectories(tmp.resolve("android_data_binding_resources"));
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
-
-      profiler.recordEndOf("setup").startTask("merging");
-
-      AndroidDataDeserializer dataDeserializer =
+      final AndroidDataDeserializer dataDeserializer =
           aaptConfigOptions.useCompiledResourcesForMerge
               ? AndroidCompiledDataDeserializer.withFilteredResources(options.prefilteredResources)
               : AndroidParsedDataDeserializer.withFilteredResources(options.prefilteredResources);
-
-      // Checks for merge conflicts.
-      MergedAndroidData mergedAndroidData =
-          AndroidResourceMerger.mergeData(
-                  ParsedAndroidData.from(options.primaryData),
-                  options.primaryData.getManifest(),
-                  ImmutableList.<SerializedAndroidData>builder()
-                      .addAll(options.directData)
-                      .addAll(options.directAssets)
-                      .build(),
-                  ImmutableList.<SerializedAndroidData>builder()
-                      .addAll(options.transitiveData)
-                      .addAll(options.transitiveAssets)
-                      .build(),
-                  mergedResources,
-                  mergedAssets,
-                  null /* cruncher. Aapt2 automatically chooses to crunch or not. */,
-                  options.packageType,
-                  options.symbolsOut,
-                  /* rclassWriter= */ null,
-                  dataDeserializer,
-                  options.throwOnResourceConflict,
-                  executorService)
-              .filter(
-                  new DensitySpecificResourceFilter(
-                      options.densities, filteredResources, mergedResources),
-                  new DensitySpecificManifestProcessor(options.densities, densityManifest));
-
-      profiler.recordEndOf("merging").startTask("compile");
       final ResourceCompiler compiler =
           ResourceCompiler.create(
               executorService,
@@ -128,6 +92,7 @@ public class Aapt2ResourcePackagingAction {
               aaptConfigOptions.buildToolsVersion,
               aaptConfigOptions.generatePseudoLocale);
 
+      profiler.recordEndOf("setup").startTask("compile");
       CompiledResources compiled =
           options
               .primaryData
@@ -147,7 +112,40 @@ public class Aapt2ResourcePackagingAction {
                   manifest ->
                       new DensitySpecificManifestProcessor(options.densities, densityManifest)
                           .process(manifest));
-      profiler.recordEndOf("compile").startTask("link");
+
+      profiler.recordEndOf("compile").startTask("merge");
+
+      // Checks for merge conflicts, and write the merged data out.
+      final Path symbolsBin =
+          AndroidResourceMerger.mergeDataToSymbols(
+              ParsedAndroidData.loadedFrom(
+                  ImmutableList.of(SerializedAndroidData.from(compiled)),
+                  executorService,
+                  // TODO(b/112848607): Remove when compiled merging is the default for aapt2.
+                  aaptConfigOptions.useCompiledResourcesForMerge
+                      ? dataDeserializer
+                      : AndroidCompiledDataDeserializer.withFilteredResources(
+                          options.prefilteredResources)),
+              new DensitySpecificManifestProcessor(options.densities, densityManifest)
+                  .process(options.primaryData.getManifest()),
+              ImmutableList.<SerializedAndroidData>builder()
+                  .addAll(options.directData)
+                  .addAll(options.directAssets)
+                  .build(),
+              ImmutableList.<SerializedAndroidData>builder()
+                  .addAll(options.transitiveData)
+                  .addAll(options.transitiveAssets)
+                  .build(),
+              options.packageType,
+              symbols,
+              dataDeserializer,
+              options.throwOnResourceConflict,
+              executorService);
+      if (options.symbolsOut != null) {
+        Files.copy(symbolsBin, options.symbolsOut);
+      }
+
+      profiler.recordEndOf("merge").startTask("link");
       // Write manifestOutput now before the dummy manifest is created.
       if (options.manifestOutput != null) {
         AndroidResourceOutputs.copyManifestToOutput(compiled, options.manifestOutput);
@@ -192,9 +190,7 @@ public class Aapt2ResourcePackagingAction {
               .copyRTxtTo(options.rOutput);
       profiler.recordEndOf("link");
       if (options.resourcesOutput != null) {
-        packagedResources
-            .packageWith(mergedAndroidData.getResourceDir())
-            .writeTo(options.resourcesOutput, /* compress= */ false);
+        packagedResources.asArchive().writeTo(options.resourcesOutput, /* compress= */ false);
       }
     }
   }

@@ -18,5 +18,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 /** Wraps common settings for working with android binary assets, resources, and manifests. */
 @SkylarkModule(
     name = "AndroidBinaryDataSettings",
-    doc = "Wraps common settings for working with android binary assets, resources, and manifest")
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Wraps common settings for working with android binary assets, resources, and "
+            + "manifest",
+    documented = false)
 public interface AndroidBinaryDataSettingsApi {}

@@ -667,7 +667,7 @@ public class AarGeneratorActionTest {
     Path assetsOut = working.resolve("assets");
 
     MergedAndroidData mergedData =
-        AndroidResourceMerger.mergeData(
+        AndroidResourceMerger.mergeDataAndWrite(
             primary,
             ImmutableList.of(d1, d2),
             ImmutableList.<DependencyAndroidData>of(),

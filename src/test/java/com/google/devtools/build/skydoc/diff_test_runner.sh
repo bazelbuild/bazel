@@ -14,30 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Test skydoc output matches the expected golden file output.
+# A shell test that the contents of an input file match a golden file.
+#
+# Usage: diff_test_runner.sh ACTUAL_FILE GOLDEN_FILE
 
 set -u
 
-skydoc_bin=$1
-shift 1
-input_file=$1
+actual_file=$1
 shift 1
 golden_file=$1
 shift 1
-
-actual_file="${TEST_TMPDIR}/actual"
-
-set -e
-${skydoc_bin} ${input_file} ${actual_file} $@
-set +e
 
 DIFF="$(diff ${actual_file} ${golden_file})"
 
 if [ "$DIFF" != "" ]
 then
-    echo "Actual did not match golden."
+    echo "FAIL: Actual did not match golden."
     echo "${DIFF}"
     exit 1
 else
-    echo "Result matches golden file"
+    echo "SUCCESS: Result matches golden file"
 fi

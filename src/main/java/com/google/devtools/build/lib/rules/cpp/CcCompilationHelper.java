@@ -43,12 +43,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -83,6 +85,73 @@ public final class CcCompilationHelper {
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX
           + "hidden_header_tokens"
           + OutputGroupInfo.INTERNAL_SUFFIX;
+
+  /**
+   * Configures a compile action builder by setting up command line options and auxiliary inputs
+   * according to the FDO configuration. This method does nothing If FDO is disabled.
+   */
+  @ThreadSafe
+  public static void configureFdoBuildVariables(
+      ImmutableMap.Builder<String, String> variablesBuilder,
+      CppCompileActionBuilder builder,
+      FeatureConfiguration featureConfiguration,
+      FdoProvider fdoProvider) {
+
+    if (fdoProvider != null && fdoProvider.getPrefetchHintsArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
+          fdoProvider.getPrefetchHintsArtifact().getExecPathString());
+    }
+
+    // FDO is disabled -> do nothing.
+    if (fdoProvider.getFdoInstrument() == null
+        && fdoProvider.getFdoMode() == FdoMode.OFF) {
+      return;
+    }
+
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(),
+          fdoProvider.getFdoInstrument());
+    }
+
+    // Optimization phase
+    if (fdoProvider.getFdoMode() != FdoMode.OFF) {
+      Iterable<Artifact> auxiliaryInputs = getAuxiliaryFdoInputs(fdoProvider);
+      builder.addMandatoryInputs(auxiliaryInputs);
+      if (!Iterables.isEmpty(auxiliaryInputs)) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
+          variablesBuilder.put(
+              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+              fdoProvider.getProfileArtifact().getExecPathString());
+        }
+        if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
+          if (fdoProvider.getFdoMode() == FdoMode.LLVM_FDO) {
+            variablesBuilder.put(
+                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+                fdoProvider.getProfileArtifact().getExecPathString());
+          }
+        }
+      }
+    }
+  }
+
+  /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
+  private static Iterable<Artifact> getAuxiliaryFdoInputs(FdoProvider fdoProvider) {
+    ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
+
+    if (fdoProvider.getPrefetchHintsArtifact() != null) {
+      auxiliaryInputs.add(fdoProvider.getPrefetchHintsArtifact());
+    }
+
+    // If --fdo_optimize was not specified, we don't have any additional inputs.
+    if (fdoProvider.getFdoMode() != FdoMode.OFF) {
+      auxiliaryInputs.add(fdoProvider.getProfileArtifact());
+    }
+
+    return auxiliaryInputs.build();
+  }
 
   /**
    * A group of source file types and action names for builds controlled by CcCompilationHelper.
@@ -224,7 +293,7 @@ public final class CcCompilationHelper {
 
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainProvider ccToolchain;
-  private final FdoSupportProvider fdoSupport;
+  private final FdoProvider fdoProvider;
   private boolean useDeps = true;
   private boolean generateModuleMap = true;
   private String purpose = null;
@@ -245,7 +314,7 @@ public final class CcCompilationHelper {
    * @param featureConfiguration activated features and action configs for the build
    * @param sourceCatagory the candidate source types for the build
    * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoSupport the C++ FDO optimization support provider for the build
+   * @param fdoProvider the C++ FDO optimization support provider for the build
    */
   public CcCompilationHelper(
       RuleContext ruleContext,
@@ -253,14 +322,14 @@ public final class CcCompilationHelper {
       FeatureConfiguration featureConfiguration,
       SourceCategory sourceCatagory,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport) {
+      FdoProvider fdoProvider) {
     this(
         ruleContext,
         semantics,
         featureConfiguration,
         sourceCatagory,
         ccToolchain,
-        fdoSupport,
+        fdoProvider,
         ruleContext.getConfiguration());
   }
 
@@ -272,7 +341,7 @@ public final class CcCompilationHelper {
    * @param featureConfiguration activated features and action configs for the build
    * @param sourceCatagory the candidate source types for the build
    * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoSupport the C++ FDO optimization support provider for the build
+   * @param fdoProvider the C++ FDO optimization support provider for the build
    * @param configuration the configuration that gives the directory of output artifacts
    */
   public CcCompilationHelper(
@@ -281,14 +350,14 @@ public final class CcCompilationHelper {
       FeatureConfiguration featureConfiguration,
       SourceCategory sourceCatagory,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       BuildConfiguration configuration) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCatagory);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
-    this.fdoSupport = Preconditions.checkNotNull(fdoSupport);
+    this.fdoProvider = Preconditions.checkNotNull(fdoProvider);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration =
         Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
@@ -307,15 +376,15 @@ public final class CcCompilationHelper {
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
    * @param ccToolchain the C++ toolchain provider for the build
-   * @param fdoSupport the C++ FDO optimization support provider for the build
+   * @param fdoProvider the C++ FDO optimization support provider for the build
    */
   public CcCompilationHelper(
       RuleContext ruleContext,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport) {
-    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain, fdoSupport);
+      FdoProvider fdoProvider) {
+    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain, fdoProvider);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -1396,7 +1465,6 @@ public final class CcCompilationHelper {
         setupCompileBuildVariables(
             builder,
             /* sourceLabel= */ null,
-            /* outputName= */ null,
             usePic,
             /* ccRelativeName= */ null,
             ccCompilationContext.getCppModuleMap(),
@@ -1446,7 +1514,6 @@ public final class CcCompilationHelper {
   private CcToolchainVariables setupCompileBuildVariables(
       CppCompileActionBuilder builder,
       Label sourceLabel,
-      String outputName,
       boolean usePic,
       PathFragment ccRelativeName,
       CppModuleMap cppModuleMap,
@@ -1468,16 +1535,8 @@ public final class CcCompilationHelper {
     ImmutableMap.Builder<String, String> allAdditionalBuildVariables = ImmutableMap.builder();
     allAdditionalBuildVariables.putAll(additionalBuildVariables);
     if (ccRelativeName != null) {
-      allAdditionalBuildVariables.putAll(
-          fdoSupport
-              .getFdoSupport()
-              .configureCompilation(
-                  builder,
-                  ruleContext,
-                  PathFragment.create(outputName),
-                  usePic,
-                  featureConfiguration,
-                  fdoSupport));
+      configureFdoBuildVariables(
+          allAdditionalBuildVariables, builder, featureConfiguration, fdoProvider);
     }
     return CompileBuildVariables.setupVariablesOrReportRuleError(
         ruleContext,
@@ -1493,7 +1552,7 @@ public final class CcCompilationHelper {
         cppModuleMap,
         usePic,
         builder.getTempOutputFile(),
-        CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
+        CppHelper.getFdoBuildStamp(ruleContext, fdoProvider),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
         allAdditionalBuildVariables.build(),
@@ -1563,7 +1622,6 @@ public final class CcCompilationHelper {
         setupCompileBuildVariables(
             builder,
             sourceLabel,
-            outputName,
             /* usePic= */ pic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
@@ -1613,7 +1671,6 @@ public final class CcCompilationHelper {
         setupCompileBuildVariables(
             builder,
             sourceLabel,
-            /* outputName= */ null,
             generatePicAction,
             /* ccRelativeName= */ null,
             ccCompilationContext.getCppModuleMap(),
@@ -1711,7 +1768,6 @@ public final class CcCompilationHelper {
             setupCompileBuildVariables(
                 picBuilder,
                 sourceLabel,
-                outputName,
                 /* usePic= */ true,
                 ccRelativeName,
                 ccCompilationContext.getCppModuleMap(),
@@ -1777,7 +1833,6 @@ public final class CcCompilationHelper {
             setupCompileBuildVariables(
                 builder,
                 sourceLabel,
-                outputName,
                 /* usePic= */ false,
                 ccRelativeName,
                 cppModuleMap,
@@ -1877,7 +1932,6 @@ public final class CcCompilationHelper {
         setupCompileBuildVariables(
             builder,
             sourceLabel,
-            outputName,
             usePic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
@@ -1989,7 +2043,6 @@ public final class CcCompilationHelper {
         setupCompileBuildVariables(
             dBuilder,
             sourceLabel,
-            outputName,
             usePic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),
@@ -2010,7 +2063,6 @@ public final class CcCompilationHelper {
         setupCompileBuildVariables(
             sdBuilder,
             sourceLabel,
-            outputName,
             usePic,
             ccRelativeName,
             ccCompilationContext.getCppModuleMap(),

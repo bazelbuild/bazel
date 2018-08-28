@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -92,6 +93,7 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -950,13 +952,14 @@ public final class BlazeRuntime {
       dispatcher.shutdown();
       return ExitCode.SUCCESS.getNumericExitCode();
     } catch (OptionsParsingException e) {
-      outErr.printErr(e.getMessage());
+      outErr.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
     } catch (IOException e) {
-      outErr.printErr("I/O Error: " + e.getMessage());
+      outErr.printErrLn("I/O Error: " + e.getMessage());
       return ExitCode.BUILD_FAILURE.getNumericExitCode();
     } catch (AbruptExitException e) {
-      outErr.printErr(e.getMessage());
+      outErr.printErrLn(e.getMessage());
+      e.printStackTrace(new PrintStream(outErr.getErrorStream(), true));
       return e.getExitCode().getNumericExitCode();
     } finally {
       if (sigintHandler != null) {
@@ -965,7 +968,8 @@ public final class BlazeRuntime {
     }
   }
 
-  private static FileSystem defaultFileSystemImplementation() {
+  private static FileSystem defaultFileSystemImplementation()
+      throws DefaultHashFunctionNotSetException {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
       return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem();
@@ -1063,18 +1067,22 @@ public final class BlazeRuntime {
     }
 
     FileSystem fs = null;
-    for (BlazeModule module : blazeModules) {
-      FileSystem moduleFs = module.getFileSystem(options);
-      if (moduleFs != null) {
-        Preconditions.checkState(fs == null, "more than one module returns a file system");
-        fs = moduleFs;
+    try {
+      for (BlazeModule module : blazeModules) {
+        FileSystem moduleFs = module.getFileSystem(options);
+        if (moduleFs != null) {
+          Preconditions.checkState(fs == null, "more than one module returns a file system");
+          fs = moduleFs;
+        }
       }
-    }
 
-    if (fs == null) {
-      fs = defaultFileSystemImplementation();
+      if (fs == null) {
+        fs = defaultFileSystemImplementation();
+      }
+    } catch (DefaultHashFunctionNotSetException e) {
+      throw new AbruptExitException(
+          "No module set the default hash function.", ExitCode.BLAZE_INTERNAL_ERROR, e);
     }
-
     Path.setFileSystemForSerialization(fs);
     SubprocessBuilder.setSubprocessFactory(subprocessFactoryImplementation());
 

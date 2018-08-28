@@ -41,6 +41,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final ActionConstructionContext actionConstructionContext;
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
+  private final boolean persistentBusyboxToolsEnabled;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
     return makeContext(ruleContext);
@@ -51,6 +52,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
         ruleContext.getLabel(),
         ruleContext,
         ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
+        ruleContext
+            .getConfiguration()
+            .getFragment(AndroidConfiguration.class)
+            .persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext));
   }
 
@@ -58,8 +63,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
       Label label,
       ActionConstructionContext actionConstructionContext,
       FilesToRunProvider busybox,
+      boolean persistentBusyboxToolsEnabled,
       AndroidSdkProvider sdk) {
     this.label = label;
+    this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
     this.actionConstructionContext = actionConstructionContext;
     this.busybox = busybox;
     this.sdk = sdk;
@@ -112,5 +119,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
   public boolean useDebug() {
     return getActionConstructionContext().getConfiguration().getCompilationMode()
         != CompilationMode.OPT;
+  }
+
+  public boolean isPersistentBusyboxToolsEnabled() {
+    return persistentBusyboxToolsEnabled;
   }
 }

@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategor
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -159,16 +159,16 @@ public final class CcCommon {
 
   private final CcToolchainProvider ccToolchain;
 
-  private final FdoSupportProvider fdoSupport;
+  private final FdoProvider fdoProvider;
 
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
-    this.fdoSupport =
+    this.fdoProvider =
         Preconditions.checkNotNull(
-            CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
+            CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext));
   }
 
   /**
@@ -410,8 +410,8 @@ public final class CcCommon {
   /**
    * Returns the C++ FDO optimization support provider.
    */
-  public FdoSupportProvider getFdoSupport() {
-    return fdoSupport;
+  public FdoProvider getFdoProvider() {
+    return fdoProvider;
   }
 
   /**

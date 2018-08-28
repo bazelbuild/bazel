@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainResolver;
+import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -402,26 +404,29 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Determine what toolchains are needed by this target.
-      ToolchainContext toolchainContext;
-      try {
-        ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
-        toolchainContext =
-            ToolchainUtil.createToolchainContext(
-                env,
-                String.format(
-                    "aspect %s applied to %s",
-                    aspect.getDescriptor().getDescription(),
-                    associatedConfiguredTargetAndData.getTarget().toString()),
-                requiredToolchains,
-                /* execConstraintLabels= */ ImmutableSet.of(),
-                key.getAspectConfigurationKey());
-      } catch (ToolchainException e) {
-        // TODO(katre): better error handling
-        throw new AspectCreationException(
-            e.getMessage(), new LabelCause(key.getLabel(), e.getMessage()));
-      }
-      if (env.valuesMissing()) {
-        return null;
+      UnloadedToolchainContext unloadedToolchainContext = null;
+      if (configuration != null) {
+        // Configuration can be null in the case of aspects applied to input files. In this case,
+        // there are no chances of toolchains being used, so skip it.
+        try {
+          ImmutableSet<Label> requiredToolchains = aspect.getDefinition().getRequiredToolchains();
+          unloadedToolchainContext =
+              new ToolchainResolver(env, BuildConfigurationValue.key(configuration))
+                  .setTargetDescription(
+                      String.format(
+                          "aspect %s applied to %s",
+                          aspect.getDescriptor().getDescription(),
+                          associatedConfiguredTargetAndData.getTarget()))
+                  .setRequiredToolchainTypes(requiredToolchains)
+                  .resolve();
+        } catch (ToolchainException e) {
+          // TODO(katre): better error handling
+          throw new AspectCreationException(
+              e.getMessage(), new LabelCause(key.getLabel(), e.getMessage()));
+        }
+        if (env.valuesMissing()) {
+          return null;
+        }
       }
 
       OrderedSetMultimap<Attribute, ConfiguredTargetAndData> depValueMap;
@@ -433,9 +438,9 @@ public final class AspectFunction implements SkyFunction {
                 originalTargetAndAspectConfiguration,
                 aspectPath,
                 configConditions,
-                toolchainContext == null
+                unloadedToolchainContext == null
                     ? ImmutableSet.of()
-                    : toolchainContext.resolvedToolchainLabels(),
+                    : unloadedToolchainContext.resolvedToolchainLabels(),
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
@@ -453,8 +458,9 @@ public final class AspectFunction implements SkyFunction {
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
-      if (toolchainContext != null) {
-        toolchainContext.resolveToolchains(depValueMap);
+      ToolchainContext toolchainContext = null;
+      if (unloadedToolchainContext != null) {
+        toolchainContext = unloadedToolchainContext.load(depValueMap);
       }
 
       return createAspect(

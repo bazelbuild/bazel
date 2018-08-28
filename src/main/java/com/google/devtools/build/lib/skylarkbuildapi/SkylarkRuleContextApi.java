@@ -123,10 +123,10 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
           + "labels given for that attribute in the target, or an empty list if the attribute was "
           + "not specified in the target."
           + "<li><b>(Deprecated)</b> If the rule is marked <a href='globals.html#rule.executable'>"
-          + "<code>executable</code></a> or <a href='globals.html#rule.test'><code>test</code></a>,"
-          + "there is a field named <code>\"executable\"</code>, which is the default executable. "
-          + "It is recommended that instead of using this, you pass another file (either "
-          + "predeclared or not) to the <code>executable</code> arg of "
+          + "<code>executable</code></a> or <a href='globals.html#rule.test'><code>test</code>"
+          + "</a>, there is a field named <code>\"executable\"</code>, which is the default "
+          + "executable. It is recommended that instead of using this, you pass another file "
+          + "(either predeclared or not) to the <code>executable</code> arg of "
           + "<a href='globals.html#DefaultInfo'><code>DefaultInfo</code></a>."
           + "</ul>";
 
@@ -219,8 +219,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
     doc = "Returns whether code coverage instrumentation should be generated when performing "
         + "compilation actions for this rule or, if <code>target</code> is provided, the rule "
         + "specified by that Target. (If a non-rule or a Skylark rule Target is provided, this "
-        + "returns False.) Checks if the sources of the current rule (if no Target is provided) or"
-        + "the sources of Target should be instrumented based on the --instrumentation_filter and"
+        + "returns False.) Checks if the sources of the current rule (if no Target is provided) or "
+        + "the sources of Target should be instrumented based on the --instrumentation_filter and "
         + "--instrument_test_targets config settings. "
         + "This differs from <code>coverage_enabled</code> in the <a href=\"configuration.html\">"
         + "configuration</a>, which notes whether coverage data collection is enabled for the "
@@ -489,7 +489,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "instead.<br>Returns a string after expanding all references to \"Make "
               + "variables\". The "
               + "variables must have the following format: <code>$(VAR_NAME)</code>. Also, "
-              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>."
+              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. "
               + "Examples:"
               + "<pre class=language-python>\n"
               + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  "
@@ -931,7 +931,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
     doc =
         "<i>(Experimental)</i> "
             + "Returns a tuple <code>(inputs, command, input_manifests)</code> of the list of "
-            + "resolved inputs, the argv list for the resolved command, and the runfiles metadata"
+            + "resolved inputs, the argv list for the resolved command, and the runfiles metadata "
             + "required to run the command, all of them suitable for passing as the same-named "
             + "arguments of the <code>ctx.action</code> method.",
     parameters = {

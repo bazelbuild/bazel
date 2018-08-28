@@ -31,7 +31,11 @@ import javax.annotation.Nullable;
 /** Provides information about transitive Android assets. */
 @SkylarkModule(
     name = "AndroidAssetsInfo",
-    doc = "Information about the Android assets provided by a rule.",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Information about the Android assets provided by a rule.",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
     extends StructApi {
@@ -51,7 +55,8 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
               + " artifact to your target's outputs. The validation action is somewhat expensive -"
               + " in native code, this artifact is added to the top-level output group (so"
               + " validation is only done if the target is requested on the command line). The"
-              + " contents of this artifact are subject to change and should not be relied upon.")
+              + " contents of this artifact are subject to change and should not be relied upon.",
+      documented = false)
   @Nullable
   FileApi getValidationResult();
 
@@ -62,6 +67,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   @SkylarkCallable(
       name = "local_assets",
       doc = "Returns the local assets for the target.",
+      documented = false,
       allowReturnNones = true,
       structField = true)
   ImmutableList<FileT> getLocalAssets();
@@ -70,6 +76,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   @SkylarkCallable(
       name = "local_asset_dir",
       doc = "Returns the local asset directory for the target.",
+      documented = false,
       allowReturnNones = true,
       structField = true)
   String getLocalAssetDir();
@@ -91,13 +98,19 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   NestedSet<FileT> getCompiledSymbols();
 
   /** The provider implementing this can construct the AndroidAssetsInfo provider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface Provider<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
       extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
         doc = "The <code>AndroidAssetsInfo</code> constructor.",
+        documented = false,
         parameters = {
           @Param(
               name = "label",

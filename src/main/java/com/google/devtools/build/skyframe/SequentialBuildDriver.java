@@ -14,8 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -32,11 +35,24 @@ public class SequentialBuildDriver implements BuildDriver {
 
   @Override
   public <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, boolean keepGoing, int numThreads,
+      Iterable<? extends SkyKey> roots,
+      boolean keepGoing,
+      int numThreads,
       ExtendedEventHandler reporter)
-          throws InterruptedException {
+      throws InterruptedException {
+    return evaluate(
+        roots, keepGoing, () -> AbstractQueueVisitor.createExecutorService(numThreads), reporter);
+  }
+
+  @Override
+  public <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<? extends SkyKey> roots,
+      boolean keepGoing,
+      Supplier<ExecutorService> executorService,
+      ExtendedEventHandler reporter)
+      throws InterruptedException {
     try {
-      return memoizingEvaluator.evaluate(roots, curVersion, keepGoing, numThreads, reporter);
+      return memoizingEvaluator.evaluate(roots, curVersion, keepGoing, executorService, reporter);
     } finally {
       curVersion = curVersion.next();
     }

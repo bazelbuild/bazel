@@ -30,6 +30,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -106,9 +107,11 @@ public class ParallelEvaluatorTest {
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
         keepGoing,
-        150,
         revalidationReceiver,
-        GraphInconsistencyReceiver.THROWING);
+        GraphInconsistencyReceiver.THROWING,
+        () -> AbstractQueueVisitor.createExecutorService(200),
+        new SimpleCycleDetector(),
+        EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
   }
 
   private ParallelEvaluator makeEvaluator(ProcessableGraph graph,

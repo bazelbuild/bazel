@@ -382,10 +382,8 @@ public class CppOptions extends FragmentOptions {
     documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
-        "Generate binaries with FDO instrumentation. Specify the relative "
-            + "directory name for the .gcda files at runtime with GCC compiler. "
-            + "With Clang/LLVM compiler, it also accepts the directory name under"
-            + "which the raw profile file(s) will be dumped at runtime."
+        "Generate binaries with FDO instrumentation. With Clang/LLVM compiler, it also accepts the "
+            + "directory name under which the raw profile file(s) will be dumped at runtime."
   )
   public String fdoInstrumentForBuild;
 
@@ -824,12 +822,23 @@ public class CppOptions extends FragmentOptions {
       name = "experimental_linkopts_in_user_link_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
               + "crosstool variable.")
   public boolean enableLinkoptsInUserLinkFlags;
+
+  @Option(
+      name = "experimental_dont_emit_static_libgcc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, bazel will not add --static-libgcc to the linking command line, it will be "
+              + "the responsibility of the C++ toolchain to append this flag.")
+  public boolean disableEmittingStaticLibgcc;
 
   @Option(
       name = "experimental_enable_cc_toolchain_label_from_crosstool_proto",
@@ -839,6 +848,15 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If false, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
   public boolean enableCcToolchainFromCrosstool;
+
+  @Option(
+      name = "experimental_enable_cc_toolchain_config_info",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, Bazel will allow creating a CcToolchainConfigInfo.")
+  public boolean enableCcToolchainConfigInfoFromSkylark;
 
   @Option(
       name = "experimental_includes_attribute_subpackage_traversal",

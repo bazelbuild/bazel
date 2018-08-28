@@ -56,7 +56,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -291,7 +290,7 @@ public class Artifact
     // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
     // have the same execPath and different owners, so a collision is fine there. If this is
     // changed, OwnerlessArtifactWrapper must also be changed.
-    this.hashCode = execPath.hashCode() + this.getClass().hashCode() * 13;
+    this.hashCode = execPath.hashCode();
     this.root = root;
     this.execPath = execPath;
     this.rootRelativePath = rootRelativePath;
@@ -711,6 +710,9 @@ public class Artifact
   @SuppressWarnings("EqualsGetClass") // Distinct classes of Artifact are never equal.
   @Override
   public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
     if (!(other instanceof Artifact)) {
       return false;
     }
@@ -718,11 +720,11 @@ public class Artifact
       return false;
     }
     Artifact that = (Artifact) other;
-    return equalsWithoutOwner(that) && owner.equals(that.getArtifactOwner());
+    return equalsWithoutOwner(that) && owner.equals(that.owner);
   }
 
   public boolean equalsWithoutOwner(Artifact other) {
-    return Objects.equals(this.execPath, other.execPath) && Objects.equals(this.root, other.root);
+    return hashCode == other.hashCode && execPath.equals(other.execPath) && root.equals(other.root);
   }
 
   @Override

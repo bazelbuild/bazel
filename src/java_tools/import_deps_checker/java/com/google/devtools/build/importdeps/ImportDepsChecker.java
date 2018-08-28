@@ -163,7 +163,7 @@ public final class ImportDepsChecker implements Closeable {
           builder.append(jar).append('\n');
         }
       } else {
-        builder.append("*** Missing strict dependencies. Run the following command to fix ***\n\n");
+        builder.append("*** Command to add missing strict dependencies: ***\n\n");
         builder.append("    add_dep ");
         for (String indirectLabel : labels) {
           builder.append(indirectLabel).append(" ");

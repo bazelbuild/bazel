@@ -12,33 +12,32 @@ filegroup(
 
 TESTUTIL_SRCS = ["ToolchainTestCase.java"]
 
-java_test(
-    name = "PlatformRulesTests",
+java_library(
+    name = "PlatformRulesTests_lib",
     srcs = glob(
         ["*.java"],
         exclude = TESTUTIL_SRCS,
     ),
-    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
-        "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PlatformRulesTests",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":PlatformRulesTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
 

@@ -108,7 +108,7 @@ public class AndroidLibraryAarInfo extends NativeInfo implements AndroidLibraryA
           dataContext,
           resourceApk.getPrimaryResources(),
           resourceApk.getPrimaryAssets(),
-          resourceApk.getProcessedManifest(),
+          resourceApk.getProcessedManifest().toProvider(),
           resourceApk.getRTxt(),
           libraryClassJar,
           localProguardSpecs);
@@ -118,7 +118,7 @@ public class AndroidLibraryAarInfo extends NativeInfo implements AndroidLibraryA
         AndroidDataContext dataContext,
         AndroidResources primaryResources,
         AndroidAssets primaryAssets,
-        ProcessedAndroidManifest manifest,
+        AndroidManifestInfo manifest,
         Artifact rTxt,
         Artifact libraryClassJar,
         ImmutableList<Artifact> localProguardSpecs)

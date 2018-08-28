@@ -247,7 +247,7 @@ public final class ResourceDependencies {
     }
     return new AndroidResourcesInfo(
         newDirectResource.getLabel(),
-        newDirectResource.getProcessedManifest(),
+        newDirectResource.getProcessedManifest().toProvider(),
         newDirectResource.getRTxt(),
         NestedSetBuilder.<ValidatedAndroidResources>naiveLinkOrder()
             .addTransitive(transitiveResourceContainers)
@@ -285,7 +285,7 @@ public final class ResourceDependencies {
     }
     return new AndroidResourcesInfo(
         label,
-        manifest,
+        manifest.toProvider(),
         rTxt,
         transitiveResourceContainers,
         directResourceContainers,
