@@ -126,10 +126,10 @@ function rlocation() {
 
 export -f rlocation
 export -f is_absolute
-export RUNFILES_MANIFEST_FILE
-# If the runfiles manifest exist, then test programs should use it to find
+# If the runfiles manifest exists, then test programs should use it to find
 # runfiles.
 if [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+  export RUNFILES_MANIFEST_FILE
   export RUNFILES_MANIFEST_ONLY=1
 fi
 
