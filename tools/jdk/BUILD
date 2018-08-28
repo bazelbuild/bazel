@@ -181,11 +181,14 @@ alias(
     actual = "@embedded_jdk//:jdk",
 )
 
-genrule(
-    name = "platformclasspath",
-    srcs = ["DumpPlatformClassPath.java"],
-    outs = ["platformclasspath.jar"],
-    cmd = """
+RELEASES = (8, 9, 10)
+
+[
+    genrule(
+        name = "platformclasspath%d" % release,
+        srcs = ["DumpPlatformClassPath.java"],
+        outs = ["platformclasspath%d.jar" % release],
+        cmd = """
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac -source 8 -target 8 \
@@ -193,16 +196,18 @@ $(JAVABASE)/bin/javac -source 8 -target 8 \
     -d $$TMPDIR $<
 $(JAVA) -XX:+IgnoreUnrecognizedVMOptions \
     --add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED \
-    -cp $$TMPDIR DumpPlatformClassPath $@
+    -cp $$TMPDIR DumpPlatformClassPath %d $@
 rm -rf $$TMPDIR
-""",
-    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-)
+""" % release,
+        toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+        tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    )
+    for release in RELEASES
+]
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    bootclasspath = [":platformclasspath"],
+    bootclasspath = [":platformclasspath8"],
     forcibly_disable_header_compilation = True,
     javabuilder = [":vanillajavabuilder"],
     jvm_opts = [],
@@ -210,28 +215,20 @@ default_java_toolchain(
     target_version = "8",
 )
 
-default_java_toolchain(
+alias(
     name = "toolchain",
-    bootclasspath = [":platformclasspath"],
-    source_version = "8",
-    target_version = "8",
+    actual = "toolchain_java8",
 )
 
-default_java_toolchain(
-    name = "toolchain_java9",
-    misc = DEFAULT_JAVACOPTS + [
-        "--release",
-        "9",
-    ],
-)
-
-default_java_toolchain(
-    name = "toolchain_java10",
-    misc = DEFAULT_JAVACOPTS + [
-        "--release",
-        "10",
-    ],
-)
+[
+    default_java_toolchain(
+        name = "toolchain_java%d" % release,
+        bootclasspath = [":platformclasspath%d" % release],
+        source_version = "%s" % release,
+        target_version = "%s" % release,
+    )
+    for release in RELEASES
+]
 
 filegroup(
     name = "srcs",
