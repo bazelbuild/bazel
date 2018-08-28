@@ -93,8 +93,22 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
           J2ObjcEntryClassProvider.class)).build();
     CcCompilationContext mergedCcCompilationContext = compilationSupport.getCcCompilationContext();
-    CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
-    ccCompilationInfoBuilder.setCcCompilationContext(mergedCcCompilationContext);
+
+    CcCompilationContext ccCompilationContext =
+        new CcCompilationContext.Builder(ruleContext)
+            .addDeclaredIncludeSrcs(
+                CompilationAttributes.Builder.fromRuleContext(ruleContext)
+                    .build()
+                    .hdrs()
+                    .toCollection())
+            .addTextualHdrs(common.getTextualHdrs())
+            .addDeclaredIncludeSrcs(common.getTextualHdrs())
+            .mergeDependentCcCompilationContext(mergedCcCompilationContext,
+                /* mergeDeclaredIncludeSrcs= */ false)
+            .build();
+
+        CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
+    ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
     CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
     ccLinkingInfoBuilder.setCcLinkParamsStore(

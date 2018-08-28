@@ -397,7 +397,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      * of all of its attributes.
      */
     public Builder mergeDependentCcCompilationContext(
-        CcCompilationContext otherCcCompilationContext) {
+        CcCompilationContext otherCcCompilationContext, boolean mergeDelcaredIncludeSrcs) {
       Preconditions.checkNotNull(otherCcCompilationContext);
       compilationPrerequisites.addAll(
           otherCcCompilationContext.getTransitiveCompilationPrerequisites());
@@ -405,7 +405,9 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       quoteIncludeDirs.addAll(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherCcCompilationContext.getSystemIncludeDirs());
       declaredIncludeDirs.addTransitive(otherCcCompilationContext.getDeclaredIncludeDirs());
-      declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
+      if (mergeDelcaredIncludeSrcs) {
+        declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
+      }
       transitiveHeaderInfo.addTransitive(otherCcCompilationContext.transitiveHeaderInfos);
       transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
       if (otherCcCompilationContext.headerInfo.headerModule != null) {
@@ -435,7 +437,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
      */
     public Builder mergeDependentCcCompilationContexts(Iterable<CcCompilationContext> targets) {
       for (CcCompilationContext target : targets) {
-        mergeDependentCcCompilationContext(target);
+        mergeDependentCcCompilationContext(target, /* mergeDeclaredIncludeSrcs= */ true);
       }
       return this;
     }

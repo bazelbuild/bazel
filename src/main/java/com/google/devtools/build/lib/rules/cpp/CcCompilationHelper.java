@@ -2046,12 +2046,13 @@ public final class CcCompilationHelper {
               "Unable to merge the STL '" + stl.getLabel() + "' and toolchain contexts");
           return;
         }
-        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext);
+        ccCompilationContextBuilder.mergeDependentCcCompilationContext(ccCompilationContext,
+            /* mergeDeclaredIncludeSrcs= */ true);
       }
     }
     if (toolchain != null) {
       ccCompilationContextBuilder.mergeDependentCcCompilationContext(
-          toolchain.getCcCompilationContext());
+          toolchain.getCcCompilationContext(), /* mergeDeclaredIncludeSrcs= */ true);
     }
   }
 }
