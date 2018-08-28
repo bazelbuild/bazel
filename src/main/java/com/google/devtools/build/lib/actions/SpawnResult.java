@@ -331,6 +331,7 @@ public interface SpawnResult {
       if (status() == Status.TIMEOUT) {
         if (getWallTime().isPresent()) {
           explanation += String.format(
+              Locale.US,
               " (failed due to timeout after %.2f seconds.)",
               getWallTime().get().toMillis() / 1000.0);
         } else {
