@@ -81,15 +81,17 @@ import javax.annotation.Nullable;
  */
 public final class Environment implements Freezable, Debuggable {
 
-  /**
-   * A phase for enabling or disabling certain builtin functions
-   */
-  public enum Phase { WORKSPACE, LOADING, ANALYSIS }
+  /** A phase for enabling or disabling certain builtin functions */
+  public enum Phase {
+    WORKSPACE,
+    LOADING,
+    ANALYSIS
+  }
 
   /**
-   * A mapping of bindings, either mutable or immutable according to an associated
-   * {@link Mutability}. The order of the bindings within a single {@link Frame} is deterministic
-   * but unspecified.
+   * A mapping of bindings, either mutable or immutable according to an associated {@link
+   * Mutability}. The order of the bindings within a single {@link Frame} is deterministic but
+   * unspecified.
    *
    * <p>Any non-frozen {@link Frame} must have the same {@link Mutability} as the current {@link
    * Environment}, to avoid interference from other evaluation contexts. For example, a {@link
@@ -127,14 +129,14 @@ public final class Environment implements Freezable, Debuggable {
     void put(Environment env, String varname, Object value) throws MutabilityException;
 
     /**
-     * TODO(laurentlb): Remove this method when possible. It should probably not
-     * be part of the public interface.
+     * TODO(laurentlb): Remove this method when possible. It should probably not be part of the
+     * public interface.
      */
     void remove(Environment env, String varname) throws MutabilityException;
 
     /**
-     * Returns a map containing all bindings of this {@link Frame} and of its transitive
-     * parents, taking into account shadowing precedence.
+     * Returns a map containing all bindings of this {@link Frame} and of its transitive parents,
+     * taking into account shadowing precedence.
      *
      * <p>The bindings are returned in a deterministic order (for a given sequence of initial values
      * and updates).
@@ -149,7 +151,7 @@ public final class Environment implements Freezable, Debuggable {
           : new MutableLexicalFrame(mutability);
     }
 
-    static LexicalFrame createForUserDefinedFunctionCall(Mutability mutability, int numArgs) {
+    static LexicalFrame create(Mutability mutability, int numArgs) {
       Preconditions.checkState(!mutability.isFrozen());
       return new MutableLexicalFrame(mutability, /*initialCapacity=*/ numArgs);
     }
@@ -248,22 +250,19 @@ public final class Environment implements Freezable, Debuggable {
    * {@link GlobalFrame}s can represent different builtin scopes with a linear precedence ordering.
    *
    * <p>A {@link GlobalFrame} can also be constructed in a two-phase process. To do this, call the
-   * nullary constructor to create an uninitialized {@link GlobalFrame}, then call
-   * {@link #initialize}. It is illegal to use any other method in-between these two calls, or to
-   * call {@link #initialize} on an already initialized {@link GlobalFrame}.
+   * nullary constructor to create an uninitialized {@link GlobalFrame}, then call {@link
+   * #initialize}. It is illegal to use any other method in-between these two calls, or to call
+   * {@link #initialize} on an already initialized {@link GlobalFrame}.
    */
-
   public static final class GlobalFrame implements Frame {
     /**
      * Final, except that it may be initialized after instantiation. Null mutability indicates that
      * this Frame is uninitialized.
      */
-    @Nullable
-    private Mutability mutability;
+    @Nullable private Mutability mutability;
 
     /** Final, except that it may be initialized after instantiation. */
-    @Nullable
-    private GlobalFrame parent;
+    @Nullable private GlobalFrame parent;
 
     /**
      * If this frame is a global frame, the label for the corresponding target, e.g. {@code
@@ -271,8 +270,7 @@ public final class Environment implements Freezable, Debuggable {
      *
      * <p>Final, except that it may be initialized after instantiation.
      */
-    @Nullable
-    private Label label;
+    @Nullable private Label label;
 
     /** Bindings are maintained in order of creation. */
     private final LinkedHashMap<String, Object> bindings;
@@ -322,10 +320,12 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     public void initialize(
-        Mutability mutability, @Nullable GlobalFrame parent,
-        @Nullable Label label, Map<String, Object> bindings) {
-      Preconditions.checkState(this.mutability == null,
-          "Attempted to initialize an already initialized Frame");
+        Mutability mutability,
+        @Nullable GlobalFrame parent,
+        @Nullable Label label,
+        Map<String, Object> bindings) {
+      Preconditions.checkState(
+          this.mutability == null, "Attempted to initialize an already initialized Frame");
       this.mutability = Preconditions.checkNotNull(mutability);
       this.parent = parent;
       this.label = label;
@@ -432,8 +432,7 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     @Override
-    public void put(Environment env, String varname, Object value)
-        throws MutabilityException {
+    public void put(Environment env, String varname, Object value) throws MutabilityException {
       checkInitialized();
       Mutability.checkMutable(this, env.mutability());
       bindings.put(varname, value);
@@ -565,9 +564,10 @@ public final class Environment implements Freezable, Debuggable {
         return;
       }
       if (!(obj instanceof Extension)) {
-        throw new IllegalStateException(String.format(
-            "Expected an equal Extension, but got a %s instead of an Extension",
-            obj == null ? "null" : obj.getClass().getName()));
+        throw new IllegalStateException(
+            String.format(
+                "Expected an equal Extension, but got a %s instead of an Extension",
+                obj == null ? "null" : obj.getClass().getName()));
       }
       Extension other = (Extension) obj;
       ImmutableMap<String, Object> otherBindings = other.getBindings();
@@ -575,11 +575,12 @@ public final class Environment implements Freezable, Debuggable {
       Set<String> names = bindings.keySet();
       Set<String> otherNames = otherBindings.keySet();
       if (!names.equals(otherNames)) {
-        throw new IllegalStateException(String.format(
-            "Expected Extensions to be equal, but they don't define the same bindings: "
-                + "in this one but not given one: [%s]; in given one but not this one: [%s]",
-            Joiner.on(", ").join(Sets.difference(names, otherNames)),
-            Joiner.on(", ").join(Sets.difference(otherNames, names))));
+        throw new IllegalStateException(
+            String.format(
+                "Expected Extensions to be equal, but they don't define the same bindings: "
+                    + "in this one but not given one: [%s]; in given one but not this one: [%s]",
+                Joiner.on(", ").join(Sets.difference(names, otherNames)),
+                Joiner.on(", ").join(Sets.difference(otherNames, names))));
       }
 
       ArrayList<String> badEntries = new ArrayList<>();
@@ -638,10 +639,11 @@ public final class Environment implements Freezable, Debuggable {
       }
 
       if (!transitiveContentHashCode.equals(other.getTransitiveContentHashCode())) {
-        throw new IllegalStateException(String.format(
-            "Expected Extensions to be equal, but transitive content hashes don't match: %s != %s",
-            transitiveContentHashCode,
-            other.getTransitiveContentHashCode()));
+        throw new IllegalStateException(
+            String.format(
+                "Expected Extensions to be equal, but transitive content hashes don't match:"
+                    + " %s != %s",
+                transitiveContentHashCode, other.getTransitiveContentHashCode()));
       }
     }
 
@@ -652,8 +654,8 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Static Frame for lexical variables that are always looked up in the current Environment
-   * or for the definition Environment of the function currently being evaluated.
+   * Static Frame for lexical variables that are always looked up in the current Environment or for
+   * the definition Environment of the function currently being evaluated.
    */
   private Frame lexicalFrame;
 
@@ -666,20 +668,18 @@ public final class Environment implements Freezable, Debuggable {
   private GlobalFrame globalFrame;
 
   /**
-   * Dynamic Frame for variables that are always looked up in the runtime Environment,
-   * and never in the lexical or "global" Environment as it was at the time of function definition.
-   * For instance, PACKAGE_NAME.
+   * Dynamic Frame for variables that are always looked up in the runtime Environment, and never in
+   * the lexical or "global" Environment as it was at the time of function definition. For instance,
+   * PACKAGE_NAME.
    */
   private final Frame dynamicFrame;
 
-  /**
-   * The semantics options that affect how Skylark code is evaluated.
-   */
+  /** The semantics options that affect how Skylark code is evaluated. */
   private final SkylarkSemantics semantics;
 
   /**
-   * An EventHandler for errors and warnings. This is not used in the BUILD language,
-   * however it might be used in Skylark code called from the BUILD language, so shouldn't be null.
+   * An EventHandler for errors and warnings. This is not used in the BUILD language, however it
+   * might be used in Skylark code called from the BUILD language, so shouldn't be null.
    */
   private final EventHandler eventHandler;
 
@@ -690,30 +690,28 @@ public final class Environment implements Freezable, Debuggable {
 
   /**
    * Is this Environment being executed during the loading phase? Many builtin functions are only
-   * enabled during the loading phase, and check this flag.
-   * TODO(laurentlb): Remove from Environment
+   * enabled during the loading phase, and check this flag. TODO(laurentlb): Remove from Environment
    */
   private final Phase phase;
 
   /**
-   * When in a lexical (Skylark) Frame, this set contains the variable names that are global,
-   * as determined not by global declarations (not currently supported),
-   * but by previous lookups that ended being global or dynamic.
-   * This is necessary because if in a function definition something
+   * When in a lexical (Skylark) Frame, this set contains the variable names that are global, as
+   * determined not by global declarations (not currently supported), but by previous lookups that
+   * ended being global or dynamic. This is necessary because if in a function definition something
    * reads a global variable after which a local variable with the same name is assigned an
    * Exception needs to be thrown.
    */
   @Nullable private LinkedHashSet<String> knownGlobalVariables;
 
   /**
-   * When in a lexical (Skylark) frame, this lists the names of the functions in the call stack.
-   * We currently use it to artificially disable recursion.
+   * When in a lexical (Skylark) frame, this lists the names of the functions in the call stack. We
+   * currently use it to artificially disable recursion.
    */
   @Nullable private Continuation continuation;
 
   /**
-   * Gets the label of the BUILD file that is using this environment. For example, if a target
-   * //foo has a dependency on //bar which is a Skylark rule defined in //rules:my_rule.bzl being
+   * Gets the label of the BUILD file that is using this environment. For example, if a target //foo
+   * has a dependency on //bar which is a Skylark rule defined in //rules:my_rule.bzl being
    * evaluated in this environment, then this would return //foo.
    */
   @Nullable private final Label callerLabel;
@@ -739,9 +737,7 @@ public final class Environment implements Freezable, Debuggable {
     knownGlobalVariables = new LinkedHashSet<>();
   }
 
-  /**
-   * Exits a scope by restoring state from the current continuation
-   */
+  /** Exits a scope by restoring state from the current continuation */
   void exitScope() {
     Preconditions.checkNotNull(continuation);
     lexicalFrame = continuation.lexicalFrame;
@@ -753,8 +749,8 @@ public final class Environment implements Freezable, Debuggable {
   private final String transitiveHashCode;
 
   /**
-   * Checks that the current Environment is in the loading or the workspace phase.
-   * TODO(laurentlb): Move to SkylarkUtils
+   * Checks that the current Environment is in the loading or the workspace phase. TODO(laurentlb):
+   * Move to SkylarkUtils
    *
    * @param symbol name of the function being only authorized thus.
    */
@@ -765,8 +761,8 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Checks that the current Environment is in the loading phase.
-   * TODO(laurentlb): Move to SkylarkUtils
+   * Checks that the current Environment is in the loading phase. TODO(laurentlb): Move to
+   * SkylarkUtils
    *
    * @param symbol name of the function being only authorized thus.
    */
@@ -778,8 +774,9 @@ public final class Environment implements Freezable, Debuggable {
 
   /**
    * Is this a global Environment?
-   * @return true if the current code is being executed at the top-level,
-   * as opposed to inside the body of a function.
+   *
+   * @return true if the current code is being executed at the top-level, as opposed to inside the
+   *     body of a function.
    */
   boolean isGlobal() {
     return lexicalFrame instanceof GlobalFrame;
@@ -797,8 +794,9 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Returns an EventHandler for errors and warnings.
-   * The BUILD language doesn't use it directly, but can call Skylark code that does use it.
+   * Returns an EventHandler for errors and warnings. The BUILD language doesn't use it directly,
+   * but can call Skylark code that does use it.
+   *
    * @return an EventHandler
    */
   public EventHandler getEventHandler() {
@@ -824,9 +822,7 @@ public final class Environment implements Freezable, Debuggable {
     return continuation != null ? continuation.function : null;
   }
 
-  /**
-   * Returns the FuncallExpression and the BaseFunction for the top-level call being evaluated.
-   */
+  /** Returns the FuncallExpression and the BaseFunction for the top-level call being evaluated. */
   public Pair<FuncallExpression, BaseFunction> getTopCall() {
     Continuation continuation = this.continuation;
     if (continuation == null) {
@@ -924,7 +920,7 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     /** Declares imported extensions for load() statements. */
-    public Builder setImportedExtensions (Map<String, Extension> importMap) {
+    public Builder setImportedExtensions(Map<String, Extension> importMap) {
       Preconditions.checkState(this.importedExtensions == null);
       this.importedExtensions = importMap;
       return this;
@@ -971,16 +967,15 @@ public final class Environment implements Freezable, Debuggable {
     return new Builder(mutability);
   }
 
-  /**
-   * Returns the caller's label.
-   */
+  /** Returns the caller's label. */
   public Label getCallerLabel() {
     return callerLabel;
   }
 
   /**
-   * Sets a binding for a special dynamic variable in this Environment.
-   * This is not for end-users, and will throw an AssertionError in case of conflict.
+   * Sets a binding for a special dynamic variable in this Environment. This is not for end-users,
+   * and will throw an AssertionError in case of conflict.
+   *
    * @param varname the name of the dynamic variable to be bound
    * @param value a value to bind to the variable
    * @return this Environment, in fluid style
@@ -988,8 +983,7 @@ public final class Environment implements Freezable, Debuggable {
   public Environment setupDynamic(String varname, Object value) {
     if (lookup(varname) != null) {
       throw new AssertionError(
-          String.format("Trying to bind dynamic variable '%s' but it is already bound",
-              varname));
+          String.format("Trying to bind dynamic variable '%s' but it is already bound", varname));
     }
     try {
       dynamicFrame.put(this, varname, value);
@@ -1014,10 +1008,11 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Modifies a binding in the current Frame of this Environment, as would an
-   * {@link AssignmentStatement}. Does not try to modify an inherited binding.
-   * This will shadow any inherited binding, which may be an error
-   * that you want to guard against before calling this function.
+   * Modifies a binding in the current Frame of this Environment, as would an {@link
+   * AssignmentStatement}. Does not try to modify an inherited binding. This will shadow any
+   * inherited binding, which may be an error that you want to guard against before calling this
+   * function.
+   *
    * @param varname the name of the variable to be bound
    * @param value the value to bind to the variable
    * @return this Environment, in fluid style
@@ -1042,8 +1037,7 @@ public final class Environment implements Freezable, Debuggable {
       // imported from a parent Environment by updating the current Environment, which will not
       // trigger a MutabilityException.
       throw new AssertionError(
-          Printer.format("Can't update %s to %r in frozen environment", varname, value),
-          e);
+          Printer.format("Can't update %s to %r in frozen environment", varname, value), e);
     }
     return this;
   }
@@ -1051,6 +1045,7 @@ public final class Environment implements Freezable, Debuggable {
   /**
    * Initializes a binding in this Environment. It is an error if the variable is already bound.
    * This is not for end-users, and will throw an AssertionError in case of conflict.
+   *
    * @param varname the name of the variable to be bound
    * @param value the value to bind to the variable
    * @return this Environment, in fluid style
@@ -1063,8 +1058,9 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Initializes a binding in this environment. Overrides any previous binding.
-   * This is not for end-users, and will throw an AssertionError in case of conflict.
+   * Initializes a binding in this environment. Overrides any previous binding. This is not for
+   * end-users, and will throw an AssertionError in case of conflict.
+   *
    * @param varname the name of the variable to be bound
    * @param value the value to bind to the variable
    * @return this Environment, in fluid style
@@ -1075,6 +1071,15 @@ public final class Environment implements Freezable, Debuggable {
     } catch (EvalException ee) {
       throw new AssertionError(ee);
     }
+  }
+
+  /**
+   * Returns the value of a variable defined in the current lexical frame. Do not search in any
+   * parent scope. This function should be used once the AST has been analysed and we know which
+   * variables are local.
+   */
+  public Object localLookup(String varname) {
+    return lexicalFrame.get(varname);
   }
 
   /**
@@ -1247,14 +1252,16 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * An Exception thrown when an attempt is made to import a symbol from a file
-   * that was not properly loaded.
+   * An Exception thrown when an attempt is made to import a symbol from a file that was not
+   * properly loaded.
    */
   static class LoadFailedException extends Exception {
     LoadFailedException(String importString) {
-      super(String.format("file '%s' was not correctly loaded. "
-              + "Make sure the 'load' statement appears in the global scope in your file",
-          importString));
+      super(
+          String.format(
+              "file '%s' was not correctly loaded. "
+                  + "Make sure the 'load' statement appears in the global scope in your file",
+              importString));
     }
 
     LoadFailedException(String importString, String symbolString, Iterable<String> allKeys) {
@@ -1308,8 +1315,8 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Returns a hash code calculated from the hash code of this Environment and the
-   * transitive closure of other Environments it loads.
+   * Returns a hash code calculated from the hash code of this Environment and the transitive
+   * closure of other Environments it loads.
    */
   public String getTransitiveContentHashCode() {
     return transitiveHashCode;
@@ -1351,16 +1358,17 @@ public final class Environment implements Freezable, Debuggable {
    * A handler that immediately throws {@link FailFastException} whenever an error or warning
    * occurs.
    *
-   * We do not reuse an existing unchecked exception type, because callers (e.g., test assertions)
-   * need to be able to distinguish between organically occurring exceptions and exceptions thrown
-   * by this handler.
+   * <p>We do not reuse an existing unchecked exception type, because callers (e.g., test
+   * assertions) need to be able to distinguish between organically occurring exceptions and
+   * exceptions thrown by this handler.
    */
-  public static final EventHandler FAIL_FAST_HANDLER = new EventHandler() {
-    @Override
-    public void handle(Event event) {
-      if (EventKind.ERRORS_AND_WARNINGS.contains(event.getKind())) {
-        throw new FailFastException(event.toString());
-      }
-    }
-  };
+  public static final EventHandler FAIL_FAST_HANDLER =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {
+          if (EventKind.ERRORS_AND_WARNINGS.contains(event.getKind())) {
+            throw new FailFastException(event.toString());
+          }
+        }
+      };
 }

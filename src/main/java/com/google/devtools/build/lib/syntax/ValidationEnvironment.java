@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
  */
 public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
-  private enum Scope {
+  enum Scope {
     /** Symbols defined inside a function or a comprehension. */
     Local,
     /** Symbols defined at a module top-level, e.g. functions, loaded symbols. */
@@ -98,8 +98,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   /**
-   * Add all definitions to the current block. This is done because symbols are sometimes used
-   * before their definition point (e.g. a functions are not necessarily declared in order).
+   * First pass: add all definitions to the current block. This is done because symbols are
+   * sometimes used before their definition point (e.g. a functions are not necessarily declared in
+   * order).
    *
    * <p>The old behavior (when incompatibleStaticNameResolution is false) doesn't have this first
    * pass.
@@ -167,9 +168,11 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   @Override
   public void visit(Identifier node) {
-    if (!hasSymbolInEnvironment(node.getName())) {
+    @Nullable Block b = blockThatDefines(node.getName());
+    if (b == null) {
       throw new ValidationException(node.createInvalidIdentifierException(getAllSymbols()));
     }
+    node.setScope(b.scope);
   }
 
   private void validateLValue(Location loc, Expression expr) {
@@ -304,14 +307,14 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     block.variables.add(varname);
   }
 
-  /** Returns true if the symbol exists in the validation environment (or a parent). */
-  private boolean hasSymbolInEnvironment(String varname) {
+  /** Returns the nearest Block that defines a symbol. */
+  private Block blockThatDefines(String varname) {
     for (Block b = block; b != null; b = b.parent) {
       if (b.variables.contains(varname)) {
-        return true;
+        return b;
       }
     }
-    return false;
+    return null;
   }
 
   /** Returns the set of all accessible symbols (both local and global) */
