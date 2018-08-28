@@ -71,11 +71,16 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 ### Depset is no longer iterable
 
-When the flag is set to true, `depset` objects are not treated as iterable. If
-you need an iterable, call the `.to_list()` method. This affects `for` loops and
-many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, and `any`.
+When the flag is set to true, `depset` objects are not treated as iterable. This
+prohibits directly iterating over depsets in `for` loops, taking its size via
+`len()`, and passing it to many functions such as `list`, `tuple`, `min`, `max`,
+`sorted`, `all`, and `any`. It does not prohibit checking for emptiness by
+converting the depset to a boolean.
+
 The goal of this change is to avoid accidental iteration on `depset`, which can
-be expensive.
+be [expensive](performance.md#avoid-calling-depsetto-list). If you really need
+to iterate over a depset, you can call the `.to_list()` method to obtain a
+flattened list of its contents.
 
 ``` python
 deps = depset()

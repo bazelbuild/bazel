@@ -75,22 +75,25 @@ def _impl(ctx):
 
 See the [depset overview](depsets.md) page for more information.
 
-### Never call `depset#to_list`
+### Avoid calling `depset.to_list()`
 
-You can coerce a depset to a flat list using [to_list](lib/depset.html#to_list).
-This should be considered debugging functionality. Any flattening of a depset in
-a rule implementation is almost always O(N^2).
+You can coerce a depset to a flat list using
+[`to_list()`](lib/depset.html#to_list), but doing so usually results in O(N^2)
+cost. If at all possible, avoid any flattening of depsets except for debugging
+purposes.
 
-A common misconception is that you can freely flatten at the very top level,
-eg. at the `xx_binary` level. This is *still* O(N^2) when you build a set
-of overlapping targets. This happens when building your tests
-`//foo/tests/...`, or when importing an IDE project.
+A common misconception is that you can freely flatten depsets if you only do it
+at top-level targets, such as an `<xx>_binary` rule, since then the cost is not
+accumulated over each level of the build graph. But this is *still* O(N^2) when
+you build a set of targets with overlapping dependencies. This happens when
+building your tests `//foo/tests/...`, or when importing an IDE project.
 
-**Note**: Today it is possible to flatten depsets implicitly. Anywhere you
-iterate a depset (explicitly or implicitly), or take its size, you are
-effectively calling `to_list`. This functionality will soon be removed.
+**Note**: Today it is possible to flatten depsets implicitly by iterating over
+the depset the way you would a list, tuple, or dictionary, or by taking the
+depset's size via `len()`. This functionality is [deprecated](https://docs.bazel.build/versions/master/skylark/backward-compatibility.html#depset-is-no-longer-iterable).
+and will be removed.
 
-### Never call `len(depset)`
+### Avoid calling `len(depset)`
 
 It is O(N) to get the number of items in a depset. It is however
 O(1) to check if a depset is empty. This includes checking the truthiness
@@ -111,6 +114,8 @@ def _impl(ctx):
     args.add("--files")
     args.add_all(files)
 ```
+
+As mentioned above, support for `len(<depset>)` is deprecated.
 
 ## Use `ctx.actions.args()` for command lines
 
