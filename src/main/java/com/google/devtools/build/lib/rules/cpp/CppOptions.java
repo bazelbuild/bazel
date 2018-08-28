@@ -822,12 +822,23 @@ public class CppOptions extends FragmentOptions {
       name = "experimental_linkopts_in_user_link_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
               + "crosstool variable.")
   public boolean enableLinkoptsInUserLinkFlags;
+
+  @Option(
+      name = "experimental_dont_emit_static_libgcc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, bazel will not add --static-libgcc to the linking command line, it will be "
+              + "the responsibility of the C++ toolchain to append this flag.")
+  public boolean disableEmittingStaticLibgcc;
 
   @Option(
       name = "experimental_enable_cc_toolchain_label_from_crosstool_proto",

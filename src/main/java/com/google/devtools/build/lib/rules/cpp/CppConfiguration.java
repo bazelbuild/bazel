@@ -108,6 +108,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.enableLinkoptsInUserLinkFlags;
   }
 
+  public boolean disableEmittingStaticLibgcc() {
+    return cppOptions.disableEmittingStaticLibgcc;
+  }
+
   /**
    * An enumeration of all the tools that comprise a toolchain.
    */
