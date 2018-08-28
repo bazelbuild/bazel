@@ -387,7 +387,7 @@ class ExperimentalStateTracker {
     // anyway, then show at least one sample.
     int remainingWidth = desiredWidth - message.length() - postfix.length();
     if (remainingWidth < 0) {
-      remainingWidth = 5;
+      remainingWidth = "[1s], ".length() + 1;
     }
 
     String sep = "";
@@ -400,7 +400,8 @@ class ExperimentalStateTracker {
       }
       long nanoRuntime = nanoTime - actionState.nanoStartTime;
       long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
-      String text = sep + runtimeSeconds + "s";
+      String text =
+          actionState.executing ? sep + runtimeSeconds + "s" : sep + "[" + runtimeSeconds + "s]";
       if (remainingWidth < text.length()) {
         allReported = false;
         break;
