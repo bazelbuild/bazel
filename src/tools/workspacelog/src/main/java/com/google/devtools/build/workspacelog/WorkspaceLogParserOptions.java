@@ -12,22 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.debug;
+package com.google.devtools.build.workspacelog;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 
-/** Options for debugging and verbosity tools. */
-public final class DebuggingOptions extends OptionsBase {
+/** Options for workspace log parser. */
+public class WorkspaceLogParserOptions extends OptionsBase {
   @Option(
-      name = "experimental_workspace_rules_log_file",
+      name = "log_path",
       defaultValue = "null",
-      category = "verbosity",
+      category = "logging",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Log certain Workspace Rules events into this file as delimited WorkspaceEvent protos.")
-  public String workspaceRulesLogFile;
+      help = "Location of the workspace rules log file to parse.")
+  public String logPath;
+
+  @Option(
+      name = "output_path",
+      defaultValue = "null",
+      category = "logging",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Location where to put the output. If left empty, the log will be output to stdout.")
+  public String outputPath;
+
+  @Option(
+      name = "exclude_rule",
+      defaultValue = "null",
+      category = "logging",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help = "Rule(s) to filter out while parsing.")
+  public List<String> excludeRule;
 }

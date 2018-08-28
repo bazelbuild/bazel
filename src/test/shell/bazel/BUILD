@@ -679,6 +679,9 @@ test_suite(
 sh_test(
     name = "bazel_workspaces_test",
     srcs = ["bazel_workspaces_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/tools/workspacelog:parser",
+    ],
     tags = ["no_windows"],
 )
