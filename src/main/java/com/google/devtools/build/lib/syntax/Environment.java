@@ -1074,16 +1074,38 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Returns the value of a variable defined in the current lexical frame. Do not search in any
-   * parent scope. This function should be used once the AST has been analysed and we know which
-   * variables are local.
+   * Returns the value of a variable defined in Local scope. Do not search in any parent scope. This
+   * function should be used once the AST has been analysed and we know which variables are local.
    */
   public Object localLookup(String varname) {
     return lexicalFrame.get(varname);
   }
 
   /**
+   * Returns the value of a variable defined in the Module scope (e.g. global variables,
+   * functions).
+   */
+  public Object moduleLookup(String varname) {
+    return globalFrame.get(varname);
+  }
+
+  /** Returns the value of a variable defined in the Universe scope (builtins). */
+  public Object universeLookup(String varname) {
+    // TODO(laurentlb): We should distinguish between Module and Universe. Values in Module can
+    // shadow those in Universe.
+    return globalFrame.get(varname);
+  }
+
+  /** Returns the value of a variable defined with setupDynamic. */
+  public Object dynamicLookup(String varname) {
+    return dynamicFrame.get(varname);
+  }
+
+  /**
    * Returns the value from the environment whose name is "varname" if it exists, otherwise null.
+   *
+   * <p>TODO(laurentlb): Remove this method. Callers should know where the value is defined and use
+   * the corresponding method (e.g. localLookup or moduleLookup).
    */
   public Object lookup(String varname) {
     // Lexical frame takes precedence, then globals, then dynamics.

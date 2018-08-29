@@ -1813,7 +1813,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testShadowisNotInitialized() throws Exception {
     new SkylarkTest("--incompatible_static_name_resolution=true")
         .testIfErrorContains(
-            /* error message */ "name 'gl' is not defined",
+            /* error message */ "local variable 'gl' is referenced before assignment",
             "gl = 5",
             "def foo():", // returns the value before the first even number
             "    if False: gl = 2",

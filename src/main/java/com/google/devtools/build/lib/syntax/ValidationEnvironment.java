@@ -42,11 +42,21 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   enum Scope {
     /** Symbols defined inside a function or a comprehension. */
-    Local,
+    Local("local"),
     /** Symbols defined at a module top-level, e.g. functions, loaded symbols. */
-    Module,
+    Module("global"),
     /** Predefined symbols (builtins) */
-    Universe,
+    Universe("builtin");
+
+    private final String qualifier;
+
+    private Scope(String qualifier) {
+      this.qualifier = qualifier;
+    }
+
+    public String getQualifier() {
+      return qualifier;
+    }
   }
 
   private static class Block {
@@ -172,7 +182,10 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     if (b == null) {
       throw new ValidationException(node.createInvalidIdentifierException(getAllSymbols()));
     }
-    node.setScope(b.scope);
+    if (semantics.incompatibleStaticNameResolution()) {
+      // The scoping information is reliable only with the new behavior.
+      node.setScope(b.scope);
+    }
   }
 
   private void validateLValue(Location loc, Expression expr) {

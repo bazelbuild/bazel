@@ -80,12 +80,39 @@ public final class Identifier extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException {
-    Object value =
-        scope == ValidationEnvironment.Scope.Local ? env.localLookup(name) : env.lookup(name);
-    if (value == null) {
-      throw createInvalidIdentifierException(env.getVariableNames());
+    Object result;
+    if (scope == null) {
+      // Legacy behavior, in case the AST was not analyzed.
+      result = env.lookup(name);
+      if (result == null) {
+        throw createInvalidIdentifierException(env.getVariableNames());
+      }
+      return result;
     }
-    return value;
+
+    switch (scope) {
+      case Local:
+        result = env.localLookup(name);
+        break;
+      case Module:
+        result = env.moduleLookup(name);
+        break;
+      case Universe:
+        result = env.universeLookup(name);
+        break;
+      default:
+        throw new IllegalStateException(scope.toString());
+    }
+
+    if (result == null) {
+      // Since Scope was set, we know that the variable is defined in the scope.
+      // However, the assignment was not yet executed.
+      throw new EvalException(
+          getLocation(),
+          scope.getQualifier() + " variable '" + name + "' is referenced before assignment.");
+    }
+
+    return result;
   }
 
   @Override
