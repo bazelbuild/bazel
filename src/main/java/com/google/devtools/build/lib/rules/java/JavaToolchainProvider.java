@@ -77,6 +77,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
       @Nullable FilesToRunProvider headerCompiler,
+      @Nullable FilesToRunProvider headerCompilerDirect,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -96,6 +97,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
         tools,
         javaBuilder,
         headerCompiler,
+        headerCompilerDirect,
         forciblyDisableHeaderCompilation,
         singleJar,
         oneVersion,
@@ -121,6 +123,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
   private final NestedSet<Artifact> tools;
   private final FilesToRunProvider javaBuilder;
   @Nullable private final FilesToRunProvider headerCompiler;
+  @Nullable private final FilesToRunProvider headerCompilerDirect;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
@@ -145,6 +148,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
       NestedSet<Artifact> tools,
       FilesToRunProvider javaBuilder,
       @Nullable FilesToRunProvider headerCompiler,
+      @Nullable FilesToRunProvider headerCompilerDirect,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
@@ -168,6 +172,7 @@ public class JavaToolchainProvider extends ToolchainInfo {
     this.tools = tools;
     this.javaBuilder = javaBuilder;
     this.headerCompiler = headerCompiler;
+    this.headerCompilerDirect = headerCompilerDirect;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
@@ -218,6 +223,15 @@ public class JavaToolchainProvider extends ToolchainInfo {
   @Nullable
   public FilesToRunProvider getHeaderCompiler() {
     return headerCompiler;
+  }
+
+  /**
+   * Returns the {@link FilesToRunProvider} of the Header Compiler deploy jar for direct-classpath,
+   * non-annotation processing actions.
+   */
+  @Nullable
+  public FilesToRunProvider getHeaderCompilerDirect() {
+    return headerCompilerDirect;
   }
 
   /**
