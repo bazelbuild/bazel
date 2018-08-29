@@ -85,6 +85,10 @@ pkg_deb(
     package = "bazel",
     version_file = ":version.txt",
     visibility = ["//scripts/packages:__pkg__"],
+    conffiles = [
+        "etc/bash_completion.d/bazel",
+        "etc/bazel.bazelrc",
+    ],
 )
 
 filegroup(
