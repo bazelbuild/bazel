@@ -22,17 +22,30 @@ import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkParamDoc;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.Map;
 
 /** The main class for the Skylark documentation generator. */
 public class ApiExporter {
+  private static ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)
+      throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
+          IllegalAccessException {
+    Class<?> providerClass = Class.forName(classProvider);
+    Method createMethod = providerClass.getMethod("create");
+    return (ConfiguredRuleClassProvider) createMethod.invoke(null);
+  }
 
-  private static void appendBuiltins(String builtinsFile) {
-    try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(builtinsFile))) {
+  private static void appendBuiltins(
+      ProtoFileBuildEncyclopediaProcessor processor, String filename) {
+    try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(filename))) {
       Builtins.Builder builtins = Builtins.newBuilder();
 
       Map<String, SkylarkModuleDoc> allTypes = SkylarkDocumentationCollector.collectModules();
@@ -56,6 +69,12 @@ public class ApiExporter {
             builtins.addGlobal(collectFieldInfo(meth));
           } else {
             type.addField(collectFieldInfo(meth));
+          }
+        }
+        // Add native rules to the native type.
+        if (mod.getName().equals("native")) {
+          for (Value.Builder rule : processor.getNativeRules()) {
+            type.addField(rule);
           }
         }
         builtins.addType(type);
@@ -96,15 +115,46 @@ public class ApiExporter {
     return field;
   }
 
+  private static void printUsage(OptionsParser parser) {
+    System.err.println(
+        "Usage: api_exporter_bin -n product_name -p rule_class_provider (-i input_dir)+\n"
+            + "   -f outputFile [-b blacklist] [-h]\n\n"
+            + "Exports all Starlark builtins to a file including the embedded native rules.\n"
+            + "The product name (-n), rule class provider (-p), output file (-f) and at least \n"
+            + " one input_dir (-i) must be specified.\n");
+    System.err.println(
+        parser.describeOptionsWithDeprecatedCategories(
+            Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
+  }
+
   public static void main(String[] args) {
-    if (args.length != 1) {
-      throw new IllegalArgumentException(
-          "Expected one argument. Usage:\n" + "{api_exporter_bin} {builtin_output_file}");
+    OptionsParser parser = OptionsParser.newOptionsParser(BuildEncyclopediaOptions.class);
+    parser.parseAndExitUponError(args);
+    BuildEncyclopediaOptions options = parser.getOptions(BuildEncyclopediaOptions.class);
+
+    if (options.help) {
+      printUsage(parser);
+      Runtime.getRuntime().exit(0);
     }
 
-    String builtinsProtoFile = args[0];
+    if (options.productName.isEmpty()
+        || options.inputDirs.isEmpty()
+        || options.provider.isEmpty()
+        || options.outputFile.isEmpty()) {
+      printUsage(parser);
+      Runtime.getRuntime().exit(1);
+    }
 
-    appendBuiltins(builtinsProtoFile);
+    try {
+      ProtoFileBuildEncyclopediaProcessor processor =
+          new ProtoFileBuildEncyclopediaProcessor(
+              options.productName, createRuleClassProvider(options.provider));
+      processor.generateDocumentation(options.inputDirs, options.outputFile, options.blacklist);
+
+      appendBuiltins(processor, options.outputFile);
+    } catch (Throwable e) {
+      System.err.println("ERROR: " + e.getMessage());
+    }
   }
 }
 
