@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -137,6 +139,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
    */
   private final AtomicInteger acksReceivedSinceLastRetry = new AtomicInteger();
 
+  private final EventBus internalEventBus;
+
   public BuildEventServiceTransport(
       BuildEventServiceClient besClient,
       Duration uploadTimeout,
@@ -152,7 +156,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       Set<String> keywords,
       @Nullable String besResultsUrl,
       BuildEventArtifactUploader artifactUploader,
-      boolean errorsShouldFailTheBuild) {
+      boolean errorsShouldFailTheBuild,
+      EventBus internalEventBus) {
     this(
         besClient,
         uploadTimeout,
@@ -169,7 +174,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
         besResultsUrl,
         artifactUploader,
         new JavaSleeper(),
-        errorsShouldFailTheBuild);
+        errorsShouldFailTheBuild,
+        internalEventBus);
   }
 
   @VisibleForTesting
@@ -189,7 +195,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       @Nullable String besResultsUrl,
       BuildEventArtifactUploader artifactUploader,
       Sleeper sleeper,
-      boolean errorsShouldFailTheBuild) {
+      boolean errorsShouldFailTheBuild,
+      EventBus internalEventBus) {
     this.besClient = besClient;
     this.besProtoUtil =
         new BuildEventServiceProtoUtil(
@@ -225,6 +232,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     this.besResultsUrl = besResultsUrl;
     this.errorsShouldFailTheBuild = errorsShouldFailTheBuild;
     this.clock = clock;
+    this.internalEventBus = internalEventBus;
   }
 
   public boolean isStreaming() {
@@ -745,6 +753,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
                   return protocolOptions;
                 }
               });
+      if (eventProto.getSerializedSize()
+          > LargeBuildEventSerializedEvent.SIZE_OF_LARGE_BUILD_EVENTS_IN_BYTES) {
+        internalEventBus.post(new LargeBuildEventSerializedEvent(
+            event.getEventId().toString(), eventProto.getSerializedSize()));
+      }
       return besProtoUtil.bazelEvent(getSequenceNumber(), getTimestamp(), Any.pack(eventProto));
     }
   }

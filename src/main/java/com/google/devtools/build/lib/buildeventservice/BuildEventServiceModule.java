@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -105,7 +106,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
             commandEnvironment.getReporter(),
             commandEnvironment.getBuildRequestId().toString(),
             commandEnvironment.getCommandId().toString(),
-            commandEnvironment.getCommandName());
+            commandEnvironment.getCommandName(),
+            commandEnvironment.getEventBus());
     if (streamer != null) {
       commandEnvironment.getReporter().addHandler(streamer);
       commandEnvironment.getEventBus().register(streamer);
@@ -156,7 +158,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       Reporter reporter,
       String buildRequestId,
       String invocationId,
-      String commandName) {
+      String commandName,
+      EventBus internalEventBus) {
     Preconditions.checkNotNull(buildEventArtifactUploaderFactoryMap);
 
     try {
@@ -172,7 +175,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                 buildEventArtifactUploaderFactoryMap,
                 commandLineReporter,
                 startupOptionsProvider,
-                optionsProvider);
+                optionsProvider,
+                internalEventBus);
       } catch (Exception e) {
         reportError(
             commandLineReporter,
@@ -217,7 +221,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       EventHandler commandLineReporter,
       OptionsParsingResult startupOptionsProvider,
-      OptionsParsingResult optionsProvider)
+      OptionsParsingResult optionsProvider,
+      EventBus internalEventBus)
       throws IOException, OptionsParsingException {
     T besOptions =
         checkNotNull(
@@ -279,7 +284,8 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               keywords(besOptions, startupOptionsProvider),
               besResultsUrl,
               artifactUploader,
-              errorsShouldFailTheBuild());
+              errorsShouldFailTheBuild(),
+              internalEventBus);
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }
