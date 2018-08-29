@@ -100,7 +100,6 @@ import javax.net.ssl.SSLEngine;
  * <p>The implementation currently does not support transfer encoding chunked.
  */
 public final class HttpBlobStore implements SimpleBlobStore {
-
   private static final Pattern INVALID_TOKEN_ERROR =
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
@@ -239,12 +238,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 Channel ch = channelAcquired.getNow();
                 ChannelPipeline p = ch.pipeline();
 
-                // Ensure the channel pipeline is empty.
-                if (!isChannelPipelineEmpty(p)) {
-                  channelReady.setFailure(new IllegalStateException("Channel pipeline is not empty."));
-                  return;
-                }
-
                 p.addLast(new HttpResponseDecoder());
                 // The 10KiB limit was chosen at random. We only expect HTTP servers to respond with
                 // an error message in the body and that should always be less than 10KiB.
@@ -304,12 +297,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
                 Channel ch = channelAcquired.getNow();
                 ChannelPipeline p = ch.pipeline();
 
-                // Ensure the channel pipeline is empty.
-                if (!isChannelPipelineEmpty(p)) {
-                  channelReady.setFailure(new IllegalStateException("Channel pipeline is not empty."));
-                  return;
-                }
-
                 ch.pipeline()
                     .addFirst("read-timeout-handler", new ReadTimeoutHandler(timeoutMillis));
                 p.addLast(new HttpClientCodec());
@@ -343,10 +330,6 @@ public final class HttpBlobStore implements SimpleBlobStore {
       }
     }
     channelPool.release(ch);
-  }
-
-  private boolean isChannelPipelineEmpty(ChannelPipeline pipeline) {
-    return (pipeline.first() == null);
   }
 
   @Override
