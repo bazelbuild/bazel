@@ -26,7 +26,14 @@
 
 #ifndef _WIN32
 #include <unistd.h>
-#endif
+#else
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif  // WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#endif  // _WIN32
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
@@ -911,6 +918,20 @@ ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   }
   ssize_t total_written = 0;
 
+#ifdef _WIN32
+  HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(in_fd));
+  while (static_cast<size_t>(total_written) < count) {
+    ssize_t len = std::min(kBufferSize, count - total_written);
+    DWORD n_read;
+    if (!::ReadFile(hFile, buffer.get(), len, &n_read, NULL))
+      return -1;
+    if (n_read == 0)
+      break;
+    if (!WriteBytes(buffer.get(), n_read))
+      return -1;
+    total_written += n_read;
+  }
+#else
   while (static_cast<size_t>(total_written) < count) {
     size_t len = std::min(kBufferSize, count - total_written);
     ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
@@ -925,6 +946,7 @@ ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
       return -1;
     }
   }
+#endif // _WIN32
 
   return total_written;
 }
