@@ -46,7 +46,7 @@ using std::wstring;
 // Returns true if `path` refers to a directory or (non-dangling) junction.
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
 // necessary.
-static bool IsDirectoryW(const wstring& path);
+bool IsDirectoryW(const wstring& path);
 
 // Returns true the file or junction at `path` is successfully deleted.
 // Returns false otherwise, or if `path` doesn't exist or is a directory.
@@ -549,6 +549,99 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
   return Resolve(path, result, kMaximumJunctionDepth);
 }
 
+class SymlinkResolver {
+ public:
+  SymlinkResolver();
+
+  // Resolves symlink to its actual path.
+  //
+  // Returns true if `path` is not a symlink and it exists.
+  // Returns true if `path` is a symlink and can be successfully resolved.
+  // Returns false otherwise.
+  //
+  // If `result` is not nullptr and the method returned true, then this will be
+  // reset to point to a new WCHAR buffer containing the resolved path.
+  // If `path` is a symlink, this will be the resolved path, otherwise
+  // it will be a copy of `path`.
+  bool Resolve(const WCHAR* path, std::unique_ptr<WCHAR[]>* result);
+
+ private:
+  // Symbolic Link Reparse Data Buffer is described at:
+  // https://msdn.microsoft.com/en-us/library/cc232006.aspx
+  typedef struct _ReparseSymbolicLinkData {
+    static const int kSize = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
+    ULONG ReparseTag;
+    USHORT ReparseDataLength;
+    USHORT Reserved;
+    USHORT SubstituteNameOffset;
+    USHORT SubstituteNameLength;
+    USHORT PrintNameOffset;
+    USHORT PrintNameLength;
+    ULONG Flags;
+    WCHAR PathBuffer[1];
+  } ReparseSymbolicLinkData;
+
+  uint8_t reparse_buffer_bytes_[ReparseSymbolicLinkData::kSize];
+  ReparseSymbolicLinkData* reparse_buffer_;
+};
+
+SymlinkResolver::SymlinkResolver()
+    : reparse_buffer_(
+          reinterpret_cast<ReparseSymbolicLinkData*>(reparse_buffer_bytes_)) {}
+
+bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
+  DWORD attributes = ::GetFileAttributesW(path);
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    // `path` does not exist.
+    return false;
+  } else {
+    if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+      bool is_dir = attributes & FILE_ATTRIBUTE_DIRECTORY;
+      AutoHandle handle(
+          CreateFileW(path, FILE_READ_EA,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                      NULL, OPEN_EXISTING,
+                      (is_dir ? FILE_FLAG_BACKUP_SEMANTICS : 0) |
+                          FILE_FLAG_OPEN_REPARSE_POINT,
+                      NULL));
+      if (!handle.IsValid()) {
+        // Opening the symlink failed for whatever reason. For all intents and
+        // purposes we can treat this file as if it didn't exist.
+        return false;
+      }
+      // Read out the reparse point data.
+      DWORD bytes_returned;
+      BOOL ok = ::DeviceIoControl(
+          handle, FSCTL_GET_REPARSE_POINT, NULL, 0, reparse_buffer_,
+          MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned, NULL);
+      if (!ok) {
+        // Reading the symlink data failed. For all intents and purposes we can
+        // treat this file as if it didn't exist.
+        return false;
+      }
+      if (reparse_buffer_->ReparseTag == IO_REPARSE_TAG_SYMLINK) {
+        if (result) {
+          size_t len = reparse_buffer_->SubstituteNameLength / sizeof(WCHAR);
+          result->reset(new WCHAR[len + 1]);
+          const WCHAR* substituteName =
+              reparse_buffer_->PathBuffer +
+              (reparse_buffer_->SubstituteNameOffset / sizeof(WCHAR));
+          wcsncpy_s(result->get(), len + 1, substituteName, len);
+          result->get()[len] = UNICODE_NULL;
+        }
+        return true;
+      }
+    }
+  }
+  // `path` is a normal file or directory.
+  if (result) {
+    size_t len = wcslen(path) + 1;
+    result->reset(new WCHAR[len]);
+    memcpy(result->get(), path, len * sizeof(WCHAR));
+  }
+  return true;
+}
+
 bool ReadDirectorySymlink(const string& name, string* result) {
   wstring wname;
   string error;
@@ -563,6 +656,23 @@ bool ReadDirectorySymlink(const string& name, string* result) {
     return false;
   }
   *result = WstringToCstring(RemoveUncPrefixMaybe(result_ptr.get())).get();
+  return true;
+}
+
+bool ReadSymlinkW(const wstring& name, wstring* result) {
+  wstring wname;
+  string error;
+  if (!AsAbsoluteWindowsPath(name, &wname, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ReadSymlinkW(" << name
+        << "): AsAbsoluteWindowsPath failed: " << error;
+    return false;
+  }
+  unique_ptr<WCHAR[]> result_ptr;
+  if (!SymlinkResolver().Resolve(wname.c_str(), &result_ptr)) {
+    return false;
+  }
+  *result = RemoveUncPrefixMaybe(result_ptr.get());
   return true;
 }
 
@@ -776,7 +886,7 @@ bool CanAccessDirectory(const std::string& path) {
   return true;
 }
 
-static bool IsDirectoryW(const wstring& path) {
+bool IsDirectoryW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
   return (attrs != INVALID_FILE_ATTRIBUTES) &&
          (attrs & FILE_ATTRIBUTE_DIRECTORY) &&
