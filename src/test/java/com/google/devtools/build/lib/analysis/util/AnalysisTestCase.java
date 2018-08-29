@@ -201,7 +201,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     useConfiguration();
     skyframeExecutor =
         createSkyframeExecutor(pkgFactory, ruleClassProvider.getBuildInfoFactories());
+    reinitializeSkyframeExecutor();
+    packageManager = skyframeExecutor.getPackageManager();
+    buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
+  }
 
+  private void reinitializeSkyframeExecutor() {
     TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.showLoadingProgress = true;
@@ -210,7 +215,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         pkgLocator,
         packageCacheOptions,
         Options.getDefaults(SkylarkSemanticsOptions.class),
-        ruleClassProvider.getDefaultsPackageContent(
+        this.ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -224,10 +229,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+  }
 
-    packageManager = skyframeExecutor.getPackageManager();
-    buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
-
+  /** Resets the SkyframeExecutor, as if a clean had been executed. */
+  protected void cleanSkyframe() {
+    skyframeExecutor.resetEvaluator();
+    reinitializeSkyframeExecutor();
   }
 
   protected AnalysisMock getAnalysisMock() {
@@ -319,6 +326,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     AnalysisOptions viewOptions = optionsParser.getOptions(AnalysisOptions.class);
     // update --keep_going option if test requested it.
     boolean keepGoing = flags.contains(Flag.KEEP_GOING);
+    boolean discardAnalysisCache = viewOptions.discardAnalysisCache;
     viewOptions.skyframePrepareAnalysis = flags.contains(Flag.SKYFRAME_PREPARE_ANALYSIS);
 
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
@@ -375,6 +383,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
             eventBus);
+    if (discardAnalysisCache) {
+      buildView.clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
+    }
     masterConfig = analysisResult.getConfigurationCollection();
     return analysisResult;
   }

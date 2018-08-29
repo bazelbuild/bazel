@@ -912,4 +912,150 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
             .put("//test:shared", 0)
             .build());
   }
+
+  @Test
+  public void noCacheClearMessageAfterCleanWithSameOptions() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration();
+    update("//test:top");
+    cleanSkyframe();
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterCleanWithDifferentOptions() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=before");
+    update("//test:top");
+    cleanSkyframe();
+    useConfiguration("--definitely_relevant=after");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterDiscardAnalysisCacheThenCleanWithSameOptions()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--discard_analysis_cache");
+    update("//test:top");
+    cleanSkyframe();
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterDiscardAnalysisCacheThenCleanWithChangedOptions()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=before", "--discard_analysis_cache");
+    update("//test:top");
+    cleanSkyframe();
+    useConfiguration("--definitely_relevant=after", "--discard_analysis_cache");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void cacheClearMessageAfterDiscardAnalysisCacheBuild() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--probably_irrelevant=yeah", "--discard_analysis_cache");
+    update("//test:top");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent("--discard_analysis_cache");
+    assertDoesNotContainEvent("Build options have changed");
+    assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void noCacheClearMessageAfterNonDiscardAnalysisCacheBuild() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--discard_analysis_cache");
+    update("//test:top");
+    useConfiguration();
+    update("//test:top");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterIrrelevantOptionChanges() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--probably_irrelevant=old");
+    update("//test:top");
+    useConfiguration("--probably_irrelevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void cacheClearMessageAfterRelevantOptionChanges() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--definitely_relevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertDoesNotContainEvent("--discard_analysis_cache");
+    assertContainsEvent("Build options have changed");
+    assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void cacheClearMessageAfterDiscardAnalysisCacheBuildWithRelevantOptionChanges()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--discard_analysis_cache", "--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--discard_analysis_cache", "--definitely_relevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent("--discard_analysis_cache");
+    assertDoesNotContainEvent("Build options have changed");
+    assertContainsEvent("discarding analysis cache");
+  }
 }

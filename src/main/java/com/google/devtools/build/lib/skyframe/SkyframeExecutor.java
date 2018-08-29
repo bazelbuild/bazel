@@ -728,7 +728,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void resetEvaluator() {
     init();
     emittedEventState.clear();
-    skyframeBuildView.clearLegacyData();
+    skyframeBuildView.reset();
   }
 
   /**

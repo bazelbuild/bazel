@@ -211,10 +211,15 @@ public final class SkyframeBuildView {
   @VisibleForTesting
   public void setConfigurations(
       EventHandler eventHandler, BuildConfigurationCollection configurations) {
-    // Clear all cached ConfiguredTargets on configuration change of if --discard_analysis_cache
-    // was set on the previous build. In the former case, it's not required for correctness, but
-    // prevents unbounded memory usage.
-    if (this.areConfigurationsDifferent(configurations) || skyframeAnalysisWasDiscarded) {
+    if (skyframeAnalysisWasDiscarded) {
+      eventHandler.handle(
+          Event.info(
+              "--discard_analysis_cache was used in the previous build, "
+              + "discarding analysis cache."));
+      skyframeExecutor.handleConfiguredTargetChange();
+    } else if (this.areConfigurationsDifferent(configurations)) {
+      // Clearing cached ConfiguredTargets when the configuration changes is not required for
+      // correctness, but prevents unbounded memory usage.
       eventHandler.handle(Event.info("Build options have changed, discarding analysis cache."));
       skyframeExecutor.handleConfiguredTargetChange();
     }
@@ -700,6 +705,16 @@ public final class SkyframeBuildView {
    */
   void clearLegacyData() {
     artifactFactory.clear();
+  }
+
+  /**
+   * Clears any data cached in this BuildView. To be called when the attached SkyframeExecutor is
+   * reset.
+   */
+  void reset() {
+    configurations = null;
+    skyframeAnalysisWasDiscarded = false;
+    clearLegacyData();
   }
 
   /**
