@@ -726,7 +726,11 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             + "<code>$(location ...)</code> will cause an error if the referenced target has "
             + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
             + "produces a space-separated list of output paths. It can be safely used for a "
-            + "single output file, too.",
+            + "single output file, too."
+            + "<br/><br/>"
+            + "This function is useful to let the user specify a command in a BUILD file (like "
+            + "for <code>genrule</code>). In other cases, it is often better to manipulate labels "
+            + "directly.",
     parameters = {
       @Param(name = "input", type = String.class, doc = "String to be expanded."),
       @Param(
