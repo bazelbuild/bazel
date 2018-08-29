@@ -69,6 +69,7 @@ import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -249,6 +250,11 @@ public class LocalSpawnRunnerTest {
     @Override
     public void report(ProgressStatus state, String name) {
       reportedStatus.add(state);
+    }
+
+    @Override
+    public boolean areOutputsValid(Set<String> outputFiles) {
+      return true;
     }
   }
 

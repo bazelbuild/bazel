@@ -28,6 +28,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -69,6 +71,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -180,17 +183,25 @@ class RemoteSpawnRunner implements SpawnRunner {
                     + " served a failed action. Hash of the action: "
                     + actionKey.getDigest());
           }
-          try {
-            return downloadRemoteResults(cachedResult, context.getFileOutErr())
-                .setCacheHit(true)
-                .setRunnerName("remote cache hit")
-                .build();
-          } catch (RetryException e) {
-            if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
-              throw e;
+          Set<String> outputFiles =
+              Sets.newHashSet(Iterables.transform(cachedResult.getOutputFilesList(), (file) -> file.getPath()));
+          if (context.areOutputsValid(outputFiles)) {
+            try {
+              return downloadRemoteResults(cachedResult, context.getFileOutErr())
+                  .setCacheHit(true)
+                  .setRunnerName("remote cache hit")
+                  .build();
+            } catch (RetryException e) {
+              if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
+                throw e;
+              }
+              // No cache hit, so we fall through to local or remote execution.
+              // We set acceptCachedResult to false in order to force the action re-execution.
+              acceptCachedResult = false;
             }
-            // No cache hit, so we fall through to local or remote execution.
-            // We set acceptCachedResult to false in order to force the action re-execution.
+          } else {
+            report(Event.warn(String.format(
+                "A cachedResult entry contained invalid outputs: %s => %s", actionKey, cachedResult)));
             acceptCachedResult = false;
           }
         }

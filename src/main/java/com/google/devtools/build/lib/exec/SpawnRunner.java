@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Set;
 import java.util.SortedMap;
 
 /**
@@ -197,6 +198,10 @@ public interface SpawnRunner {
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus state, String name);
+
+    /** Evaluates whether a set of outputs sufficiently represents a completed execution */
+    // FIXME this needs to be done for output directories
+    boolean areOutputsValid(Set<String> outputFiles);
   }
 
   /**

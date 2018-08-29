@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -137,4 +138,9 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    */
   @Nullable
   PlatformInfo getExecutionPlatform();
+
+  /**
+   * Returns true iff a set of outputs is valid for this action
+   */
+  boolean areOutputsValid(Set<String> outputFiles);
 }

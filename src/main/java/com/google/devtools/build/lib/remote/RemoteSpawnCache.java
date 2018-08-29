@@ -18,6 +18,8 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -125,18 +127,25 @@ final class RemoteSpawnCache implements SpawnCache {
       try {
         ActionResult result = remoteCache.getCachedActionResult(actionKey);
         if (result != null) {
-          // We don't cache failed actions, so we know the outputs exist.
-          // For now, download all outputs locally; in the future, we can reuse the digests to
-          // just update the TreeNodeRepository and continue the build.
-          remoteCache.download(result, execRoot, context.getFileOutErr());
-          SpawnResult spawnResult =
-              new SpawnResult.Builder()
-                  .setStatus(Status.SUCCESS)
-                  .setExitCode(result.getExitCode())
-                  .setCacheHit(true)
-                  .setRunnerName("remote cache hit")
-                  .build();
-          return SpawnCache.success(spawnResult);
+          Set<String> outputFiles =
+              Sets.newHashSet(Iterables.transform(result.getOutputFilesList(), (file) -> file.getPath()));
+          if (context.areOutputsValid(outputFiles)) {
+            // We don't cache failed actions, so we know the outputs exist.
+            // For now, download all outputs locally; in the future, we can reuse the digests to
+            // just update the TreeNodeRepository and continue the build.
+            remoteCache.download(result, execRoot, context.getFileOutErr());
+            SpawnResult spawnResult =
+                new SpawnResult.Builder()
+                    .setStatus(Status.SUCCESS)
+                    .setExitCode(result.getExitCode())
+                    .setCacheHit(true)
+                    .setRunnerName("remote cache hit")
+                    .build();
+            return SpawnCache.success(spawnResult);
+          } else {
+            report(Event.warn(String.format(
+                "A cachedResult entry contained invalid outputs: %s => %s", actionKey, result)));
+          }
         }
       } catch (RetryException e) {
         if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {

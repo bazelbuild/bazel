@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -576,5 +578,19 @@ public abstract class AbstractAction implements Action, ActionApi {
   @Nullable
   public PlatformInfo getExecutionPlatform() {
     return getOwner().getExecutionPlatform();
+  }
+
+  protected Set<String> getRequiredOutputs() {
+    return getOutputs()
+        .stream()
+        .map((inp) -> inp.getExecPath().getPathString())
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
+  @Override
+  public boolean areOutputsValid(Set<String> outputFiles) {
+    return Sets.difference(
+        getRequiredOutputs(),
+        outputFiles).isEmpty();
   }
 }

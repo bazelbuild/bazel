@@ -55,6 +55,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -772,6 +773,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public boolean isEnableRunfiles() {
     return configuration.runfilesEnabled();
+  }
+
+  @Override
+  protected Set<String> getRequiredOutputs() {
+    return ImmutableSet.of();
   }
 
   /** The same set of paths as the parent test action, resolved against a given exec root. */

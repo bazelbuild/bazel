@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -263,6 +264,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
         default:
           break;
       }
+    }
+
+    @Override
+    public boolean areOutputsValid(Set<String> outputFiles) {
+      ActionExecutionMetadata action = spawn.getResourceOwner();
+      return action.areOutputsValid(outputFiles);
     }
   }
 }

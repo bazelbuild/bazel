@@ -190,6 +190,11 @@ public class GrpcRemoteExecutionClientTest {
         public void report(ProgressStatus state, String name) {
           // TODO(ulfjack): Test that the right calls are made.
         }
+
+        @Override
+        public boolean areOutputsValid(Set<String> outputFiles) {
+          return true;
+        }
       };
 
   @BeforeClass
