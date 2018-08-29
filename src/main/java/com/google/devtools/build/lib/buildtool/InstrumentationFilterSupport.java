@@ -58,7 +58,17 @@ public final class InstrumentationFilterSupport {
     collectInstrumentedPackages(testTargets, packageFilters);
     optimizeFilterSet(packageFilters);
 
-    String instrumentationFilter = "//" + Joiner.on(",//").join(packageFilters);
+    String instrumentationFilter =
+        Joiner.on("[/:],//")
+            .appendTo(new StringBuilder("//"), packageFilters)
+            .append("[/:]")
+            .toString();
+    // Fix up if one of the test targets is a top-level target. "//foo[/:]" matches everything
+    // under //foo and subpackages, but "//[/:]" only matches targets directly under the top-level
+    // package.
+    if (instrumentationFilter.equals("//[/:]")) {
+      instrumentationFilter = "//";
+    }
     if (!packageFilters.isEmpty()) {
       eventHandler.handle(
           Event.info("Using default value for --instrumentation_filter: \""
@@ -73,10 +83,7 @@ public final class InstrumentationFilterSupport {
       Collection<Target> targets, Set<String> packageFilters) {
     for (Target target : targets) {
       // Add package-based filters for every test target.
-      String prefix = getInstrumentedPrefix(target.getLabel().getPackageName());
-      if (!prefix.isEmpty()) {
-        packageFilters.add(prefix);
-      }
+      packageFilters.add(getInstrumentedPrefix(target.getLabel().getPackageName()));
       if (TargetUtils.isTestSuiteRule(target)) {
         AttributeMap attributes = NonconfigurableAttributeMapper.of((Rule) target);
         // We don't need to handle $implicit_tests attribute since we already added
@@ -122,14 +129,15 @@ public final class InstrumentationFilterSupport {
       Set<String> parentFilters = Sets.newTreeSet();
       String filterString = iterator.next();
       PathFragment parent = PathFragment.create(filterString).getParentDirectory();
+      String parentPath = (parent == null) ? "" : parent.getPathString();
       while (iterator.hasNext()) {
         String current = iterator.next();
-        if (parent != null && parent.getPathString().length() > 0
-            && !current.startsWith(filterString) && current.startsWith(parent.getPathString())) {
-          parentFilters.add(parent.getPathString());
+        if (!current.startsWith(filterString) && current.startsWith(parentPath)) {
+          parentFilters.add(parentPath);
         } else {
           filterString = current;
           parent = PathFragment.create(filterString).getParentDirectory();
+          parentPath = (parent == null) ? "" : parent.getPathString();
         }
       }
       packageFilters.addAll(parentFilters);
