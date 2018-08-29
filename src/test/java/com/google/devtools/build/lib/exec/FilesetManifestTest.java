@@ -273,15 +273,10 @@ public class FilesetManifestTest {
     ArtifactRoot outputRoot =
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
-    try {
-      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat()
-          .isEqualTo(
-              "runfiles target 'foo' is a relative symlink, and could not be resolved within the "
-              +  "same Fileset");
-    }
+    FilesetManifest filesetManifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(filesetManifest.getEntries()).isEmpty();
+    assertThat(filesetManifest.getArtifactValues()).isEmpty();
   }
 
   @Test
@@ -297,14 +292,10 @@ public class FilesetManifestTest {
     ArtifactRoot outputRoot =
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
-    try {
-      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat()
-          .isEqualTo(
-              "runfiles target 'foo' is a relative symlink, and points to another symlink");
-    }
+    FilesetManifest manifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(manifest.getEntries()).isEmpty();
+    assertThat(manifest.getArtifactValues()).isEmpty();
   }
 
   /** Current behavior is first one wins. */

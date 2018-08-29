@@ -15,25 +15,31 @@ package com.google.devtools.build.lib.exec;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Representation of a Fileset manifest.
  */
 public final class FilesetManifest {
+  private static final Logger logger = Logger.getLogger(FilesetManifest.class.getName());
+
   /**
    * Mode that determines how to handle relative target paths.
    */
@@ -44,13 +50,7 @@ public final class FilesetManifest {
     /** Give an error if a relative target path is encountered. */
     ERROR,
 
-    /**
-     * Attempt to locally resolve the relative target path. Consider a manifest with two entries,
-     * foo points to bar, and bar points to the absolute path /foobar. In that case, we can
-     * determine that foo actually points at /foobar. Throw an exception if the local resolution
-     * fails, e.g., if the target is not in the current manifest, or if it points at another
-     * symlink (we could theoretically resolve recursively, but that's more complexity).
-     */
+    /** Resolve all relative target paths. */
     RESOLVE;
   }
 
@@ -65,7 +65,7 @@ public final class FilesetManifest {
       return FileSystemUtils.asByteSource(file).asCharSource(UTF_8)
           .readLines(
               new ManifestLineProcessor(workspaceName, manifest, relSymlinkBehavior));
-    } catch (IllegalStateException e) {
+    } catch (IORuntimeException e) {
       // We can't throw IOException from getResult below, so we instead use an unchecked exception,
       // and convert it to an IOException here.
       throw new IOException(e.getMessage(), e);
@@ -89,7 +89,11 @@ public final class FilesetManifest {
         artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
       }
     }
-    return constructFilesetManifest(entries, relativeLinks, artifactValues);
+    try {
+      return constructFilesetManifest(entries, relativeLinks, artifactValues);
+    } catch (IORuntimeException e) {
+      throw new IOException(e.getMessage(), e);
+    }
   }
 
   private static final class ManifestLineProcessor implements LineProcessor<FilesetManifest> {
@@ -178,30 +182,61 @@ public final class FilesetManifest {
     }
   }
 
+  private static final int MAX_SYMLINK_TRAVERSALS = 256;
+
   private static FilesetManifest constructFilesetManifest(
-      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks,
-      Map<String, FileArtifactValue> artifactValues) {
-    // Resolve relative symlinks if possible. Note that relativeLinks only contains entries in
-    // RESOLVE mode.
+      Map<PathFragment, String> entries,
+      Map<PathFragment, String> relativeLinks,
+      Map<String, FileArtifactValue> artifactValues)
+      throws IORuntimeException {
+    // Resolve relative symlinks. Note that relativeLinks only contains entries in RESOLVE mode.
+    // We must find targets for these symlinks that are not inside the Fileset itself.
     for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
       PathFragment location = e.getKey();
       String value = e.getValue();
-      PathFragment actualLocation = location.getParentDirectory().getRelative(value);
-      String actual = entries.get(actualLocation);
+      String actual = Preconditions.checkNotNull(value, e);
+      Preconditions.checkState(!actual.startsWith("/"), e);
+      PathFragment actualLocation = location;
+      // Recursively resolve relative symlinks.
+      LinkedHashSet<String> seen = new LinkedHashSet<>();
+      int i = 0;
+      do {
+        actualLocation = actualLocation.getParentDirectory().getRelative(actual);
+        actual = entries.get(actualLocation);
+      } while (actual != null
+          && !actual.startsWith("/")
+          && seen.add(actual)
+          && ++i < MAX_SYMLINK_TRAVERSALS);
       if (actual == null) {
-        throw new IllegalStateException(
-            String.format(
-                "runfiles target '%s' is a relative symlink, and could not be resolved within the "
-                    + "same Fileset",
-                value));
+        // We've found a relative symlink that points out of the fileset. We should really always
+        // throw here, but current behavior is that we tolerate such symlinks when they occur in
+        // runfiles, which is the only time this code is hit.
+        // TODO(b/113128395): throw here.
+        logger.warning(
+            "Symlink "
+                + location
+                + " (transitively) points to "
+                + actualLocation
+                + " that is not in this fileset (or was pruned because of a cycle)");
+        entries.remove(location);
+      } else if (i >= MAX_SYMLINK_TRAVERSALS) {
+        logger.warning(
+            "Symlink "
+                + location
+                + " is part of a chain of length at least "
+                + i
+                + " which exceeds Blaze's maximum allowable symlink chain length");
+        entries.remove(location);
+      } else if (!actual.startsWith("/")) {
+        // TODO(b/113128395): throw here.
+        logger.warning("Symlink " + location + " forms a symlink cycle: " + seen);
+        // Removing the entry here will lead to slightly vague log lines for the other entries in
+        // the cycle, since they will fail when they don't find this entry, as opposed to
+        // discovering their own cycles. But this log line should be informative enough.
+        entries.remove(location);
+      } else {
+        entries.put(location, actual);
       }
-      if (!actual.startsWith("/")) {
-        throw new IllegalStateException(
-            String.format(
-                "runfiles target '%s' is a relative symlink, and points to another symlink",
-                value));
-      }
-      entries.put(location, actual);
     }
     return new FilesetManifest(entries, artifactValues);
   }
@@ -222,5 +257,4 @@ public final class FilesetManifest {
   public Map<String, FileArtifactValue> getArtifactValues() {
     return artifactValues;
   }
-
 }
