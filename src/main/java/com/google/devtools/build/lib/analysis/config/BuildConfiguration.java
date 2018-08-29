@@ -855,6 +855,23 @@ public class BuildConfiguration implements BuildConfigurationApi {
                 + "removal of late bound option defaults.")
     public boolean useLateBoundOptionDefaults;
 
+    @Option(
+        name = "incompatible_enable_late_bound_option_defaults",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "When false, Bazel will not allow late bound values read from the CROSSTOOL file "
+                + "to be used in config_settings. The CROSSTOOL field used in this manner is "
+                + "'compiler'. Instead of config_setting(values = {'compiler': 'x'}), "
+                + "config_setting(flag_values = {'@bazel_tools/tools/cpp:compiler': 'x'}) should "
+                + "be used.")
+    public boolean incompatibleEnableLateBoundOptionDefaults;
+
     /**
      * Converter for --experimental_dynamic_configs.
      */
@@ -1254,7 +1271,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
 
     this.transitiveOptionDetails =
-        computeOptionsMap(buildOptions, fragments.values(), options.useLateBoundOptionDefaults);
+        computeOptionsMap(
+            buildOptions,
+            fragments.values(),
+            (options.useLateBoundOptionDefaults
+                && options.incompatibleEnableLateBoundOptionDefaults));
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
