@@ -47,6 +47,7 @@ guarded behind flags in the current release:
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Static Name Resolution](#static-name-resolution)
+*   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
 
 
 ### Dictionary concatenation
@@ -435,5 +436,48 @@ The proposal is not fully implemented yet.
 *   Flag: `--incompatible_static_name_resolution`
 *   Default: `false`
 
+### Disable InMemory Tools Defaults Package
+
+If false, Bazel constructs an in-memory //tools/defaults package based on the
+command line options. If true, //tools/defaults:* is resolved from file system
+as a regular package.
+
+*   Flag: `--incompatible_disable_tools_defaults_package`
+*   Default: `false`
+
+#### Motivation:
+
+`//tools/default` was initially created as virtual in-memory package. It
+generates content dynamically based on current configuration. There is no need
+of having `//tools/defaults` any more as LateBoundAlias can do dynamic
+configuration-based label resolving.  Also, having `//tools/default` makes
+negative impact on performance, and introduces unnecessary code complexity.
+
+All references to `//tools/defaults:*` targets should be removed or replaced
+to corresponding target in `@bazel_tools//tools/jdk:` and
+`@bazel_tools//tools/cpp:` packages.
+
+#### Scope of changes and impact:
+
+Targets in `//tools/default` will not exist any more. If you have any references
+inside your BUILD or *.bzl files to any of its, then bazel will fail to resolve.
+
+#### Migration plan:
+
+Please replace all occurrences:
+
+*   `//tools/defaults:jdk`
+    *   by `@bazel_tools//tools/jdk:current_java_runtime`
+    *   or/and `@bazel_tools//tools/jdk:current_host_java_runtime`
+*   `//tools/defaults:java_toolchain`
+    *   by `@bazel_tools//tools/jdk:current_java_toolchain`
+*   `//tools/defaults:crosstool`
+    *   by `@bazel_tools//tools/cpp:current_cc_toolchain`
+    *   or/and `@bazel_tools//tools/cpp:current_cc_host_toolchain`
+    *   if you need reference to libc_top, then `@bazel_tools//tools/cpp:current_libc_top`
+
+These targets will not be supported any more:
+*   `//tools/defaults:coverage_report_generator`
+*   `//tools/defaults:coverage_support`
 
 <!-- Add new options here -->
