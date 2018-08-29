@@ -33,12 +33,13 @@
 //
 //       int main(int argc, char** argv) {
 //         std::string error;
-//         std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0],
-//         &error)); if (runfiles == nullptr) {
+//         std::unique_ptr<Runfiles> runfiles(
+//             Runfiles::Create(argv[0], &error));
+//         if (runfiles == nullptr) {
 //           ...  // error handling
 //         }
 //         std::string path =
-//            runfiles->Rlocation("my_workspace/path/to/my/data.txt");
+//             runfiles->Rlocation("my_workspace/path/to/my/data.txt");
 //         ...
 //
 //      The code above creates a Runfiles object and retrieves a runfile path.
