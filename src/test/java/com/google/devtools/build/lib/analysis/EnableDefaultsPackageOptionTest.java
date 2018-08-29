@@ -31,7 +31,7 @@ public class EnableDefaultsPackageOptionTest extends BuildViewTestCase {
   @Test
   public void testEnableDefaultsPackageOptionWorks() throws Exception {
 
-    setPackageCacheOptions("--experimental_enable_tools_defaults_package=true");
+    setPackageCacheOptions("--incompatible_disable_tools_defaults_package=false");
 
     ConfiguredTarget target = getConfiguredTarget("//tools/defaults:jdk");
 
@@ -49,7 +49,7 @@ public class EnableDefaultsPackageOptionTest extends BuildViewTestCase {
         ")");
 
     reporter.removeHandler(failFastHandler);
-    setPackageCacheOptions("--experimental_enable_tools_defaults_package=false");
+    setPackageCacheOptions("--incompatible_disable_tools_defaults_package=true");
     ConfiguredTarget target = getConfiguredTarget("//a:my_filegroup");
 
     assertThat(target).isNull();
@@ -61,16 +61,16 @@ public class EnableDefaultsPackageOptionTest extends BuildViewTestCase {
   @Test
   public void testFlipFlagOnFly() throws Exception {
 
-    setPackageCacheOptions("--experimental_enable_tools_defaults_package=false");
+    setPackageCacheOptions("--incompatible_disable_tools_defaults_package=true");
     ConfiguredTarget defaultsJDKtarget = getConfiguredTarget("//tools/defaults:jdk");
     assertThat(defaultsJDKtarget).isNull();
 
-    setPackageCacheOptions("--experimental_enable_tools_defaults_package=true");
+    setPackageCacheOptions("--incompatible_disable_tools_defaults_package=false");
     defaultsJDKtarget = getConfiguredTarget("//tools/defaults:jdk");
     assertThat(defaultsJDKtarget).isNotNull();
     assertThat(defaultsJDKtarget.getLabel().toString()).isEqualTo("//tools/defaults:jdk");
 
-    setPackageCacheOptions("--experimental_enable_tools_defaults_package=false");
+    setPackageCacheOptions("--incompatible_disable_tools_defaults_package=true");
     defaultsJDKtarget = getConfiguredTarget("//tools/defaults:jdk");
     assertThat(defaultsJDKtarget).isNull();
   }
