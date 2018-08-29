@@ -396,8 +396,7 @@ public final class JavaCompilationHelper {
                 runtimeJar.getRoot());
 
     JavaTargetAttributes attributes = getAttributes();
-    JavaHeaderCompileAction.Builder builder =
-        new JavaHeaderCompileAction.Builder(getRuleContext());
+    JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());

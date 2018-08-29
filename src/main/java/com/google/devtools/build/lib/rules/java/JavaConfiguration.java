@@ -150,7 +150,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final Label javaLauncherLabel;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
-  private final boolean headerCompilationDisableJavacFallback;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final boolean protoGeneratedStrictDeps;
@@ -188,7 +187,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
-    this.headerCompilationDisableJavacFallback = javaOptions.headerCompilationDisableJavacFallback;
     this.generateJavaDeps =
         javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
     this.javaClasspath = javaOptions.javaClasspath;
@@ -244,7 +242,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       Label javaLauncherLabel,
       boolean useIjars,
       boolean useHeaderCompilation,
-      boolean headerCompilationDisableJavacFallback,
       boolean generateJavaDeps,
       boolean strictDepsJavaProtos,
       boolean protoGeneratedStrictDeps,
@@ -275,7 +272,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaLauncherLabel = javaLauncherLabel;
     this.useIjars = useIjars;
     this.useHeaderCompilation = useHeaderCompilation;
-    this.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
     this.generateJavaDeps = generateJavaDeps;
     this.strictDepsJavaProtos = strictDepsJavaProtos;
     this.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
@@ -334,14 +330,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   /** Returns true iff Java header compilation is enabled. */
   public boolean useHeaderCompilation() {
     return useHeaderCompilation;
-  }
-
-  /**
-   * If --java_header_compilation is set, report diagnostics from turbine instead of falling back to
-   * javac. Diagnostics will be produced more quickly, but may be less helpful.
-   */
-  public boolean headerCompilationDisableJavacFallback() {
-    return headerCompilationDisableJavacFallback;
   }
 
   /**

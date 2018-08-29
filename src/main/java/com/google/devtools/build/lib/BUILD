@@ -1044,7 +1044,7 @@ java_library(
         "rules/java/JavaConfiguration.java",
         "rules/java/JavaExportsProvider.java",
         "rules/java/JavaGenJarsProvider.java",
-        "rules/java/JavaHeaderCompileAction.java",
+        "rules/java/JavaHeaderCompileActionBuilder.java",
         "rules/java/JavaHelper.java",
         "rules/java/JavaInfo.java",
         "rules/java/JavaInfoBuildHelper.java",

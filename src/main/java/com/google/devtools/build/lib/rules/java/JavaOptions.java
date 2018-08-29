@@ -578,7 +578,6 @@ public class JavaOptions extends FragmentOptions {
     // incremental build performance is important.
     host.useIjars = useIjars;
     host.headerCompilation = headerCompilation;
-    host.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
