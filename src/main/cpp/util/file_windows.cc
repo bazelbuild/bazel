@@ -597,12 +597,14 @@ bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
     return false;
   } else {
     if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+      bool is_dir = attributes & FILE_ATTRIBUTE_DIRECTORY;
       AutoHandle handle(CreateFileW(path,
                                     FILE_READ_EA,
                                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                     NULL,
                                     OPEN_EXISTING,
-                                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                                    (is_dir ? FILE_FLAG_BACKUP_SEMANTICS : 0)
+                                    | FILE_FLAG_OPEN_REPARSE_POINT,
                                     NULL));
       if (!handle.IsValid()) {
         // Opening the symlink failed for whatever reason. For all intents and
@@ -620,12 +622,14 @@ bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
         return false;
       }
       if (reparse_buffer_->ReparseTag == IO_REPARSE_TAG_SYMLINK) {
-        size_t len = reparse_buffer_->SubstituteNameLength / sizeof(WCHAR);
-        result->reset(new WCHAR[len + 1]);
-        const WCHAR * substituteName = reparse_buffer_->PathBuffer
-                                       + (reparse_buffer_->SubstituteNameOffset / sizeof(WCHAR));
-        wcsncpy_s(result->get(), len + 1, substituteName, len);
-        result->get()[len] = UNICODE_NULL;
+        if (result) {
+          size_t len = reparse_buffer_->SubstituteNameLength / sizeof(WCHAR);
+          result->reset(new WCHAR[len + 1]);
+          const WCHAR * substituteName = reparse_buffer_->PathBuffer
+                                         + (reparse_buffer_->SubstituteNameOffset / sizeof(WCHAR));
+          wcsncpy_s(result->get(), len + 1, substituteName, len);
+          result->get()[len] = UNICODE_NULL;
+        }
         return true;
       }
     }
