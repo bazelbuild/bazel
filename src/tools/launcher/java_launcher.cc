@@ -247,8 +247,10 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   }
 
   wstring rand_id = L"-" + GetRandomStr(10);
+  // Enable long path support for jar_manifest_file_path.
   wstring jar_manifest_file_path =
       binary_base_path + rand_id + L".jar_manifest";
+  blaze_util::AddUncPrefixMaybe(&jar_manifest_file_path);
   wofstream jar_manifest_file(jar_manifest_file_path);
   jar_manifest_file << L"Manifest-Version: 1.0\n";
   // No line in the MANIFEST.MF file may be longer than 72 bytes.
@@ -262,6 +264,10 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
     jar_manifest_file << manifest_classpath_str.substr(i, 71) << "\n";
   }
   jar_manifest_file.close();
+  if (jar_manifest_file.fail()) {
+    die(L"Couldn't write jar manifest file: %s",
+        jar_manifest_file_path.c_str());
+  }
 
   // Create the command for generating classpath jar.
   wstring manifest_jar_path = binary_base_path + rand_id + L"-classpath.jar";
