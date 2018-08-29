@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -1160,5 +1161,30 @@ public final class Runfiles implements RunfilesApi {
     builder.merge(this);
     builder.merge((Runfiles) other);
     return builder.build();
+  }
+
+  /**
+   * Fingerprint this {@link Runfiles} tree.
+   */
+  public void fingerprint(Fingerprint fp) {
+    fp.addBoolean(getLegacyExternalRunfiles());
+    fp.addPath(getSuffix());
+    Map<PathFragment, Artifact> symlinks = getSymlinksAsMap(null);
+    fp.addInt(symlinks.size());
+    for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
+      fp.addPath(symlink.getKey());
+      fp.addPath(symlink.getValue().getExecPath());
+    }
+    Map<PathFragment, Artifact> rootSymlinks = getRootSymlinksAsMap(null);
+    fp.addInt(rootSymlinks.size());
+    for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
+      fp.addPath(rootSymlink.getKey());
+      fp.addPath(rootSymlink.getValue().getExecPath());
+    }
+
+    for (Artifact artifact : getArtifacts()) {
+      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getExecPath());
+    }
   }
 }

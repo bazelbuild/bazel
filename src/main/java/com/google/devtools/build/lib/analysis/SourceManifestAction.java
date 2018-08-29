@@ -133,12 +133,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       throws IOException {
     final Map<PathFragment, Artifact> runfilesInputs =
         runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation());
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        writeFile(out, runfilesInputs);
-      }
-    };
+    return out -> writeFile(out, runfilesInputs);
   }
 
   @Override
@@ -203,25 +198,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
-    fp.addBoolean(runfiles.getLegacyExternalRunfiles());
-    fp.addPath(runfiles.getSuffix());
-    Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap(null);
-    fp.addInt(symlinks.size());
-    for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
-      fp.addPath(symlink.getKey());
-      fp.addPath(symlink.getValue().getExecPath());
-    }
-    Map<PathFragment, Artifact> rootSymlinks = runfiles.getRootSymlinksAsMap(null);
-    fp.addInt(rootSymlinks.size());
-    for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
-      fp.addPath(rootSymlink.getKey());
-      fp.addPath(rootSymlink.getValue().getExecPath());
-    }
-
-    for (Artifact artifact : runfiles.getArtifacts()) {
-      fp.addPath(artifact.getRootRelativePath());
-      fp.addPath(artifact.getExecPath());
-    }
+    runfiles.fingerprint(fp);
   }
 
   /**
