@@ -299,19 +299,19 @@ public class StandaloneTestStrategy extends TestStrategy {
       throws IOException, ExecException, InterruptedException {
     prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
 
-    try (FileOutErr fileOutErr =
-        new FileOutErr(
-            actionExecutionContext.getInputPath(action.getTestLog()),
-            action.resolve(execRoot).getTestStderr())) {
-      StandaloneTestResult standaloneTestResult =
+    Path out = actionExecutionContext.getInputPath(action.getTestLog());
+    Path err = action.resolve(execRoot).getTestStderr();
+    StandaloneTestResult standaloneTestResult = null;
+    try (FileOutErr fileOutErr = new FileOutErr(out, err)) {
+      standaloneTestResult =
           executeTest(action, spawn, actionExecutionContext.withFileOutErr(fileOutErr));
-      appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
       if (!fileOutErr.hasRecordedOutput()) {
         // Touch the output file so that test.log can get created.
         FileSystemUtils.touchFile(fileOutErr.getOutputPath());
       }
-      return standaloneTestResult;
     }
+    appendStderr(out, err);
+    return standaloneTestResult;
   }
 
   private Map<String, String> setupEnvironment(
