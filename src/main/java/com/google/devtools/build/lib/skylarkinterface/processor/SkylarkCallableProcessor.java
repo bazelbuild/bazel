@@ -41,7 +41,7 @@ import javax.tools.Diagnostic;
  * <li>The method must be public.</li>
  * <li>If structField=true, there must be zero user-supplied parameters.</li>
  * <li>Method parameters must be supplied in the following order:
- *   <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Envrionment))</pre>
+ *   <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Environment))</pre>
  *   where Location, FuncallExpression, and Environment are supplied by the interpreter if and
  *   only if useLocation, useAst, and useEnvironment are specified, respectively.
  *  </li>
