@@ -60,6 +60,7 @@ cc_library(
         "//src/tools/singlejar:__pkg__",
         "//third_party/def_parser:__pkg__",
         "//tools/cpp/runfiles:__pkg__",
+        "//tools/test:__pkg__",
     ],
     deps = [
         ":blaze_exit_code",
