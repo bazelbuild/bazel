@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import java.util.stream.Collectors;
@@ -35,7 +36,7 @@ public final class ImportDepsCheckActionBuilder {
 
   private Artifact outputArtifact;
   private Artifact jdepsArtifact;
-  private String ruleLabel;
+  private Label ruleLabel;
   private NestedSet<Artifact> jarsToCheck;
   private NestedSet<Artifact> bootclasspath;
   private NestedSet<Artifact> declaredDeps;
@@ -56,7 +57,7 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  public ImportDepsCheckActionBuilder ruleLabel(String ruleLabel) {
+  public ImportDepsCheckActionBuilder ruleLabel(Label ruleLabel) {
     checkState(this.ruleLabel == null);
     this.ruleLabel = checkNotNull(ruleLabel);
     return this;
@@ -134,7 +135,7 @@ public final class ImportDepsCheckActionBuilder {
         .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
         .addDynamicString(convertErrorFlag(importDepsCheckingLevel))
         .addExecPath("--jdeps_output", jdepsArtifact)
-        .add("--rule_label", ruleLabel)
+        .add("--rule_label", ruleLabel.toString())
         .build();
   }
 

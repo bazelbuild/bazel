@@ -171,7 +171,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .outputArtifiact(depsCheckerResult)
         .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
         .jdepsOutputArtifact(jdepsArtifact)
-        .ruleLabel(ruleContext.getLabel().getName())
+        .ruleLabel(ruleContext.getLabel())
         .buildAndRegister(ruleContext);
 
     // We pass depsCheckerResult to create the action of extracting ANDROID_MANIFEST. Note that
