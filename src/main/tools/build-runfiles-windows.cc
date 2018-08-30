@@ -30,8 +30,6 @@ using std::string;
 using std::wstring;
 using std::stringstream;
 
-#define ManifestFileMap unordered_map<std::wstring, std::wstring>
-
 #ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
 #define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
 #endif
@@ -39,6 +37,8 @@ using std::stringstream;
 #ifndef SYMBOLIC_LINK_FLAG_DIRECTORY
 #define SYMBOLIC_LINK_FLAG_DIRECTORY 0x1
 #endif
+
+namespace {
 
 const wchar_t *manifest_filename;
 const wchar_t *runfiles_base_dir;
@@ -99,16 +99,18 @@ wstring GetParentDirFromPath(const wstring& path) {
   return path.substr(0, path.find_last_of(L"\\/"));
 }
 
-inline wstring Trim(const wstring& str){
-  wstring result = str;
-  result.erase(0, result.find_first_not_of(' '));
-  result.erase(result.find_last_not_of(' ') + 1);
-  return result;
+inline void Trim(wstring& str){
+  str.erase(0, str.find_first_not_of(' '));
+  str.erase(str.find_last_not_of(' ') + 1);
 }
 
+} // namespace
+
 class RunfilesCreator {
+  typedef std::unordered_map<std::wstring, std::wstring> ManifestFileMap;
+
  public:
-  explicit RunfilesCreator(const wstring &manifest_path,
+  RunfilesCreator(const wstring &manifest_path,
                            const wstring &runfiles_output_base)
       : manifest_path_(manifest_path),
         runfiles_output_base_(runfiles_output_base) {
@@ -149,8 +151,8 @@ class RunfilesCreator {
       }
 
       // Removing leading and trailing spaces
-      link = Trim(link);
-      target = Trim(target);
+      Trim(link);
+      Trim(target);
 
       if (!allow_relative && !target.empty()
           && !blaze_util::IsAbsolute(target)) {
@@ -161,7 +163,6 @@ class RunfilesCreator {
 
       manifest_file_map.insert(make_pair(link, target));
     }
-    manifest_file.close();
   }
 
   void CreateRunfiles() {
@@ -304,40 +305,38 @@ class RunfilesCreator {
                            ? 0
                            : SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
 
-    for (ManifestFileMap::const_iterator it = manifest_file_map.begin();
-         it != manifest_file_map.end(); ++it) {
-
+    for (const auto &it : manifest_file_map) {
       // Ensure the parent directory exists
-      wstring parent_dir = GetParentDirFromPath(it->first);
+      wstring parent_dir = GetParentDirFromPath(it.first);
       if (!DoesDirectoryPathExist(parent_dir.c_str())) {
         MakeDirectoriesOrDie(parent_dir);
       }
 
-      if (it->second.empty()) {
+      if (it.second.empty()) {
         // Create an empty file
-        HANDLE h = CreateFileW(it->first.c_str(),     // name of the file
+        HANDLE h = CreateFileW(it.first.c_str(),     // name of the file
                                GENERIC_WRITE, // open for writing
                                0,            // sharing mode, none in this case
                                0,            // use default security descriptor
                                CREATE_ALWAYS, // overwrite if exists
                                FILE_ATTRIBUTE_NORMAL,
                                0);
-        if (h) {
+        if (h != INVALID_HANDLE_VALUE) {
           CloseHandle(h);
         } else {
           die(L"CreateFileW failed (%s): %hs",
-              it->first.c_str(), GetLastErrorString().c_str());
+              it.first.c_str(), GetLastErrorString().c_str());
         }
       } else {
         DWORD create_dir = 0;
-        if (blaze_util::IsDirectoryW(it->second.c_str())) {
+        if (blaze_util::IsDirectoryW(it.second.c_str())) {
           create_dir = SYMBOLIC_LINK_FLAG_DIRECTORY;
         }
-        if (!CreateSymbolicLinkW(it->first.c_str(),
-                                 it->second.c_str(),
+        if (!CreateSymbolicLinkW(it.first.c_str(),
+                                 it.second.c_str(),
                                  privilege_flag | create_dir)) {
           die(L"CreateSymbolicLinkW failed (%s -> %s): %hs",
-              it->first.c_str(), it->second.c_str(),
+              it.first.c_str(), it.second.c_str(),
               GetLastErrorString().c_str());
         }
       }
@@ -348,7 +347,7 @@ class RunfilesCreator {
     wstring new_manifest_file = runfiles_output_base_ + L"\\MANIFEST";
     if (!CopyFileW(manifest_path_.c_str(),
                    new_manifest_file.c_str(),
-                   /*bFailIfExists=*/ false
+                   /*bFailIfExists=*/ FALSE
                   )) {
       die(L"CopyFileW failed (%s -> %s): %hs",
           manifest_path_.c_str(), new_manifest_file.c_str(),
@@ -381,7 +380,7 @@ int wmain(int argc, wchar_t** argv) {
 
   if (argc != 2) {
     fprintf(stderr, "usage: [--allow_relative] [--use_metadata] "
-            "INPUT RUNFILES\n");
+            "manifest_file runfiles_base_dir\n");
     return 1;
   }
 

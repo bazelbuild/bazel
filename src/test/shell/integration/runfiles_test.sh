@@ -54,21 +54,16 @@ esac
 if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
+  export EXT=".exe"
+  export EXTRA_BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
+else
+  export EXT=""
+  export EXTRA_BUILD_FLAGS=""
 fi
 
 #### SETUP #############################################################
 
 set -e
-
-function set_up() {
-  if "$is_windows"; then
-    export EXT=".exe"
-    export EXTRA_BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
-  else
-    export EXT=""
-    export EXTRA_BUILD_FLAGS=""
-  fi
-}
 
 function create_pkg() {
   local -r pkg=$1
@@ -199,14 +194,15 @@ EOF
   fi
 
   for i in $(find ${WORKSPACE_NAME} \! -type d); do
-    if readlink "$i" > /dev/null; then
-      if "$is_windows"; then
-        echo "$i $(cygpath -m $(readlink "$i"))" >> ${TEST_TMPDIR}/MANIFEST2
-      else
-        echo "$i $(readlink "$i")" >> ${TEST_TMPDIR}/MANIFEST2
-      fi
-    else
+    target="$(readlink "$i" || true)"
+    if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
+    else
+      if "$is_windows"; then
+        echo "$i $(cygpath -m $target)" >> ${TEST_TMPDIR}/MANIFEST2
+      else
+        echo "$i $target" >> ${TEST_TMPDIR}/MANIFEST2
+      fi
     fi
   done
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
@@ -274,14 +270,15 @@ EOF
   rm -f ${TEST_TMPDIR}/MANIFEST
   rm -f ${TEST_TMPDIR}/MANIFEST2
   for i in $(find ${WORKSPACE_NAME} \! -type d); do
-    if readlink "$i" > /dev/null; then
-      if "$is_windows"; then
-        echo "$i $(cygpath -m $(readlink "$i"))" >> ${TEST_TMPDIR}/MANIFEST2
-      else
-        echo "$i $(readlink "$i")" >> ${TEST_TMPDIR}/MANIFEST2
-      fi
-    else
+    target="$(readlink "$i" || true)"
+    if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
+    else
+      if "$is_windows"; then
+        echo "$i $(cygpath -m $target)" >> ${TEST_TMPDIR}/MANIFEST2
+      else
+        echo "$i $target" >> ${TEST_TMPDIR}/MANIFEST2
+      fi
     fi
   done
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
