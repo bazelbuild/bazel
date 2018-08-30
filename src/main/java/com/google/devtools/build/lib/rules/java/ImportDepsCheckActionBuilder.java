@@ -51,7 +51,7 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  public ImportDepsCheckActionBuilder outputArtifiact(Artifact outputArtifact) {
+  public ImportDepsCheckActionBuilder outputArtifact(Artifact outputArtifact) {
     checkState(this.outputArtifact == null);
     this.outputArtifact = checkNotNull(outputArtifact);
     return this;
@@ -70,7 +70,7 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  public ImportDepsCheckActionBuilder bootcalsspath(NestedSet<Artifact> bootclasspath) {
+  public ImportDepsCheckActionBuilder bootclasspath(NestedSet<Artifact> bootclasspath) {
     checkState(this.bootclasspath == null);
     this.bootclasspath = checkNotNull(bootclasspath);
     return this;
