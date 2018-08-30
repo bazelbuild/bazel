@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -98,6 +100,9 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -128,11 +133,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected TimestampGranularityMonitor tsgm;
   protected RecordingDifferencer differencer = new SequencedRecordingDifferencer();
   private Set<ActionAnalysisMetadata> actions;
+  protected OptionsParser options;
 
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void initialize() throws Exception  {
+    options = OptionsParser.newOptionsParser(KeepGoingOption.class, BuildRequestOptions.class);
+    options.parse();
     inMemoryCache = new InMemoryActionCache();
     tsgm = new TimestampGranularityMonitor(clock);
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpuIo(100, 1, 1));
@@ -267,7 +275,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Executor executor,
           Set<ConfiguredTargetKey> builtTargets,
           Set<AspectKey> builtAspects,
-          boolean explain,
+          OptionsProvider options,
           Range<Long> lastExecutionTimeRange,
           TopLevelArtifactContext topLevelArtifactContext)
           throws BuildFailedException, AbruptExitException, InterruptedException,
@@ -275,8 +283,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         skyframeActionExecutor.prepareForExecution(
             reporter,
             executor,
-            keepGoing,
-            /*explain=*/ false,
+            options,
             new ActionCacheChecker(
                 actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
             null);
@@ -402,12 +409,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected static Set<Artifact> emptySet = Collections.emptySet();
 
   protected void buildArtifacts(Builder builder, Artifact... artifacts)
-      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
+      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException,
+          OptionsParsingException {
     buildArtifacts(builder, new DummyExecutor(fileSystem, rootDirectory), artifacts);
   }
 
   protected void buildArtifacts(Builder builder, Executor executor, Artifact... artifacts)
-      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
+      throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException,
+          OptionsParsingException {
 
     tsgm.setCommandStartTime();
     Set<Artifact> artifactsToBuild = Sets.newHashSet(artifacts);
@@ -425,7 +434,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           executor,
           builtTargets,
           builtAspects,
-          false /*explain*/,
+          options,
           null,
           null);
     } finally {

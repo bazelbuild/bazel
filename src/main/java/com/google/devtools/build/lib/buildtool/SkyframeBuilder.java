@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -53,6 +54,7 @@ import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -71,35 +73,23 @@ import javax.annotation.Nullable;
 public class SkyframeBuilder implements Builder {
 
   private final SkyframeExecutor skyframeExecutor;
-  private final boolean keepGoing;
-  private final int numJobs;
-  private final boolean finalizeActionsToOutputService;
   private final ModifiedFileSet modifiedOutputFiles;
   private final MetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
-  private final int progressReportInterval;
 
   @VisibleForTesting
   public SkyframeBuilder(
       SkyframeExecutor skyframeExecutor,
       ActionCacheChecker actionCacheChecker,
-      boolean keepGoing,
-      int numJobs,
       ModifiedFileSet modifiedOutputFiles,
-      boolean finalizeActionsToOutputService,
       MetadataProvider fileCache,
-      ActionInputPrefetcher actionInputPrefetcher,
-      int progressReportInterval) {
+      ActionInputPrefetcher actionInputPrefetcher) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
-    this.keepGoing = keepGoing;
-    this.numJobs = numJobs;
-    this.finalizeActionsToOutputService = finalizeActionsToOutputService;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
-    this.progressReportInterval = progressReportInterval;
   }
 
   @Override
@@ -114,7 +104,7 @@ public class SkyframeBuilder implements Builder {
       Executor executor,
       Set<ConfiguredTargetKey> builtTargets,
       Set<AspectKey> builtAspects,
-      boolean explain,
+      OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
@@ -142,10 +132,12 @@ public class SkyframeBuilder implements Builder {
         reporter, executor, skyframeExecutor.getEventBus());
 
     AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
-    ActionExecutionInactivityWatchdog watchdog = new ActionExecutionInactivityWatchdog(
-        executionProgressReceiver.createInactivityMonitor(statusReporter),
-        executionProgressReceiver.createInactivityReporter(statusReporter,
-            isBuildingExclusiveArtifacts), progressReportInterval);
+    ActionExecutionInactivityWatchdog watchdog =
+        new ActionExecutionInactivityWatchdog(
+            executionProgressReceiver.createInactivityMonitor(statusReporter),
+            executionProgressReceiver.createInactivityReporter(
+                statusReporter, isBuildingExclusiveArtifacts),
+            options.getOptions(BuildRequestOptions.class).progressReportInterval);
 
     skyframeExecutor.setActionExecutionProgressReportingObjects(executionProgressReceiver,
         executionProgressReceiver, statusReporter);
@@ -165,15 +157,17 @@ public class SkyframeBuilder implements Builder {
               aspects,
               parallelTests,
               /*exclusiveTesting=*/ false,
-              keepGoing,
-              explain,
-              finalizeActionsToOutputService,
-              numJobs,
+              options,
               actionCacheChecker,
               executionProgressReceiver,
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
-      Optional<ExitCode> exitCode = processResult(reporter, result, keepGoing, skyframeExecutor);
+      Optional<ExitCode> exitCode =
+          processResult(
+              reporter,
+              result,
+              options.getOptions(KeepGoingOption.class).keepGoing,
+              skyframeExecutor);
 
       Preconditions.checkState(
           exitCode != null
@@ -203,16 +197,18 @@ public class SkyframeBuilder implements Builder {
                 ImmutableSet.<Artifact>of(),
                 targetsToBuild,
                 aspects,
-                ImmutableSet.of(exclusiveTest), /*exclusiveTesting=*/
-                true,
-                keepGoing,
-                explain,
-                finalizeActionsToOutputService,
-                numJobs,
+                ImmutableSet.of(exclusiveTest),
+                /*exclusiveTesting=*/ true,
+                options,
                 actionCacheChecker,
                 null,
                 topLevelArtifactContext);
-        exitCode = processResult(reporter, result, keepGoing, skyframeExecutor);
+        exitCode =
+            processResult(
+                reporter,
+                result,
+                options.getOptions(KeepGoingOption.class).keepGoing,
+                skyframeExecutor);
         Preconditions.checkState(
             exitCode != null || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
@@ -230,7 +226,7 @@ public class SkyframeBuilder implements Builder {
     }
 
     if (!exitCodes.isEmpty()) {
-      if (keepGoing) {
+      if (options.getOptions(KeepGoingOption.class).keepGoing) {
         // Use the exit code with the highest priority.
         throw new BuildFailedException(
             null, Collections.max(exitCodes, ExitCodeComparator.INSTANCE));

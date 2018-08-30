@@ -349,7 +349,7 @@ public class ExecutionTool {
           executor,
           builtTargets,
           builtAspects,
-          request.getBuildOptions().explanationPath != null,
+          request,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
           topLevelArtifactContext);
       buildCompleted = true;
@@ -589,7 +589,6 @@ public class ExecutionTool {
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
-    boolean keepGoing = request.getKeepGoing();
 
     Path actionOutputRoot = env.getActionConsoleOutputDirectory();
     Predicate<Action> executionFilter = CheckUpToDateFilter.fromOptions(
@@ -597,7 +596,6 @@ public class ExecutionTool {
 
     // jobs should have been verified in BuildRequest#validateOptions().
     Preconditions.checkState(options.jobs >= -1);
-    int actualJobs = options.jobs == 0 ? 1 : options.jobs;  // Treat 0 jobs as a single task.
 
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
@@ -612,15 +610,11 @@ public class ExecutionTool {
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
                 .build()),
-        keepGoing,
-        actualJobs,
         request.getPackageCacheOptions().checkOutputFiles
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
-        options.finalizeActions,
         fileCache,
-        prefetcher,
-        request.getBuildOptions().progressReportInterval);
+        prefetcher);
   }
 
   private void configureResourceManager(BuildRequest request) {

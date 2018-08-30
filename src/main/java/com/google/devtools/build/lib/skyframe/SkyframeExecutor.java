@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -117,6 +118,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.PathResolverFactory;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
@@ -1287,8 +1289,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Asks the Skyframe evaluator to build the given artifacts and targets, and to test the
-   * given test targets.
+   * Asks the Skyframe evaluator to build the given artifacts and targets, and to test the given
+   * test targets.
    */
   public EvaluationResult<?> buildArtifacts(
       Reporter reporter,
@@ -1298,10 +1300,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Collection<AspectValue> aspects,
       Set<ConfiguredTarget> targetsToTest,
       boolean exclusiveTesting,
-      boolean keepGoing,
-      boolean explain,
-      boolean finalizeActionsToOutputService,
-      int numJobs,
+      OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
       TopLevelArtifactContext topLevelArtifactContext)
@@ -1312,8 +1311,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
       skyframeActionExecutor.prepareForExecution(
-          reporter, executor, keepGoing, explain, actionCacheChecker,
-          finalizeActionsToOutputService ? outputService : null);
+          reporter,
+          executor,
+          options,
+          actionCacheChecker,
+          options.getOptions(BuildRequestOptions.class).finalizeActions ? outputService : null);
     }
 
     resourceManager.resetResourceUsage();
@@ -1326,8 +1328,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           TestCompletionValue.keys(targetsToTest, topLevelArtifactContext, exclusiveTesting);
       return buildDriver.evaluate(
           Iterables.concat(artifactsToBuild, targetKeys, aspectKeys, testKeys),
-          keepGoing,
-          numJobs,
+          options.getOptions(KeepGoingOption.class).keepGoing,
+          options.getOptions(BuildRequestOptions.class).getJobs(),
           reporter);
     } finally {
       progressReceiver.executionProgressReceiver = null;
@@ -1339,10 +1341,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @VisibleForTesting
-  public void prepareBuildingForTestingOnly(Reporter reporter, Executor executor, boolean keepGoing,
-      boolean explain, ActionCacheChecker checker) {
-    skyframeActionExecutor.prepareForExecution(reporter, executor, keepGoing, explain, checker,
-        outputService);
+  public void prepareBuildingForTestingOnly(
+      Reporter reporter, Executor executor, OptionsProvider options, ActionCacheChecker checker) {
+    skyframeActionExecutor.prepareForExecution(reporter, executor, options, checker, outputService);
   }
 
   EvaluationResult<TargetPatternValue> targetPatterns(
