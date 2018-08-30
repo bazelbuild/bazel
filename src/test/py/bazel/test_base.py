@@ -61,7 +61,7 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      f.write('build --announce --jobs=8\n')
+      f.write('build --jobs=8\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):
