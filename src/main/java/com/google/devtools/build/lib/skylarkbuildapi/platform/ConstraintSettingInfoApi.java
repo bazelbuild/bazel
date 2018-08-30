@@ -20,20 +20,18 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Info object representing a specific constraint setting that may be used to define a platform.
- */
+/** Info object representing a specific constraint setting that may be used to define a platform. */
 @SkylarkModule(
     name = "ConstraintSettingInfo",
-    doc = "A specific constraint setting that may be used to define a platform.",
-    category = SkylarkModuleCategory.PROVIDER
-)
+    doc =
+        "A specific constraint setting that may be used to define a platform. "
+            + "Note: This API is experimental and may change at any time.",
+    category = SkylarkModuleCategory.PROVIDER)
 public interface ConstraintSettingInfoApi extends StructApi {
 
   @SkylarkCallable(
-    name = "label",
-    doc = "The label of the target that created this constraint.",
-    structField = true
-  )
-  public Label label();
+      name = "label",
+      doc = "The label of the target that created this constraint.",
+      structField = true)
+  Label label();
 }

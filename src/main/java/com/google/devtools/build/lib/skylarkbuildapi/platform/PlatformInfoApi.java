@@ -20,37 +20,33 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/**
- * Info object representing data about a specific platform.
- */
+/** Info object representing data about a specific platform. */
 @SkylarkModule(
     name = "PlatformInfo",
-    doc = "Provides access to data about a specific platform.",
-    category = SkylarkModuleCategory.PROVIDER
-)
+    doc =
+        "Provides access to data about a specific platform. "
+            + "Note: This API is experimental and may change at any time.",
+    category = SkylarkModuleCategory.PROVIDER)
 public interface PlatformInfoApi<ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StructApi {
 
   @SkylarkCallable(
-    name = "label",
-    doc = "The label of the target that created this platform.",
-    structField = true
-  )
-  public Label label();
+      name = "label",
+      doc = "The label of the target that created this platform.",
+      structField = true)
+  Label label();
 
   @SkylarkCallable(
-    name = "constraints",
-    doc =
-        "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
-            + "this platform.",
-    structField = true
-  )
-  public Iterable<ConstraintValueInfoT> constraints();
+      name = "constraints",
+      doc =
+          "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
+              + "this platform.",
+      structField = true)
+  Iterable<ConstraintValueInfoT> constraints();
 
   @SkylarkCallable(
-    name = "remoteExecutionProperties",
-    doc = "Properties that are available for the use of remote execution.",
-    structField = true
-  )
-  public String remoteExecutionProperties();
+      name = "remoteExecutionProperties",
+      doc = "Properties that are available for the use of remote execution.",
+      structField = true)
+  String remoteExecutionProperties();
 }
