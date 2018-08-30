@@ -217,11 +217,11 @@ function assert_coverage_result() {
     "end_of_record")
 
     # Assert that the coverage output file contains the coverage data for the
-    # two cc files.
-    # The results must be asserted separately because the coverage tools (e.g.
-    # lcov, gcov) do not guarantee any particular order. Different versions
-    # can also output the coverage for each source file in a different order.
-    # The order is not important.
+    # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
+    # The result for each source file must be asserted separately because the
+    # coverage tools (e.g. lcov, gcov) do not guarantee any particular order.
+    # The order can differ for example based on OS or version. The source files
+    # order in the coverage report is not relevant.
     assert_consecutive_lines_in_file "$COVERAGE_OUTPUT_FILE_VAR" "${expected_result_a_cc[@]}"
     assert_consecutive_lines_in_file "$COVERAGE_OUTPUT_FILE_VAR" "${expected_result_t_cc[@]}"
     # Assert that the coverage output file contains the line "TN:" twice
