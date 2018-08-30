@@ -121,7 +121,7 @@ class RunfilesCreator {
     }
   }
 
-  void ReadManifest(bool allow_relative, bool use_metadata) {
+  void ReadManifest(bool allow_relative, bool ignore_metadata) {
     ifstream manifest_file(
       AsAbsoluteWindowsPath(manifest_path_.c_str()).c_str());
 
@@ -135,7 +135,7 @@ class RunfilesCreator {
       lineno++;
       // Skip metadata lines. They are used solely for
       // dependency checking.
-      if (use_metadata && lineno % 2 == 0) {
+      if (ignore_metadata && lineno % 2 == 0) {
         continue;
       }
 
@@ -154,6 +154,11 @@ class RunfilesCreator {
       Trim(link);
       Trim(target);
 
+
+      // We sometimes need to create empty files under the runfiles tree.
+      // For example, for python binary, __init__.py is needed under every directory.
+      // Storing an entry with an empty target indicates we need to create such a
+      // file when creating the runfiles tree.
       if (!allow_relative && !target.empty()
           && !blaze_util::IsAbsolute(target)) {
         die(L"Target cannot be relative path: %hs", line.c_str());
@@ -270,6 +275,7 @@ class RunfilesCreator {
 
           if (expected_target == manifest_file_map.end()
               || expected_target->second.empty()
+              // Both paths are normalized paths in lower case, we can compare them directly.
               || target != AsAbsoluteWindowsPath(expected_target->second.c_str())
               || blaze_util::IsDirectoryW(target) != is_dir) {
             if (is_dir) {
@@ -286,6 +292,9 @@ class RunfilesCreator {
             // If the directory is empty, then we remove the directory.
             // Otherwise RemoveDirectory will fail with ERROR_DIR_NOT_EMPTY,
             // which we can just ignore.
+            // Because if the directory is not empty, it means it contains some symlinks
+            // already pointing to the correct targets (we just called ScanTreeAndPrune).
+            // Then this directory shouldn't be removed in the first place.
             if (!RemoveDirectoryW(subpath.c_str())
                 && GetLastError() != ERROR_DIR_NOT_EMPTY) {
               die(L"RemoveDirectoryW failed (%s): %hs",
@@ -364,14 +373,16 @@ class RunfilesCreator {
 int wmain(int argc, wchar_t** argv) {
   argc--; argv++;
   bool allow_relative = false;
-  bool use_metadata = false;
+  bool ignore_metadata = false;
 
   while (argc >= 1) {
     if (wcscmp(argv[0], L"--allow_relative") == 0) {
       allow_relative = true;
       argc--; argv++;
     } else if (wcscmp(argv[0], L"--use_metadata") == 0) {
-      use_metadata = true;
+      // If --use_metadata is passed, it means manifest file contains metadata lines,
+      // which we should ignore when reading manifest file.
+      ignore_metadata = true;
       argc--; argv++;
     } else {
       break;
@@ -380,7 +391,7 @@ int wmain(int argc, wchar_t** argv) {
 
   if (argc != 2) {
     fprintf(stderr, "usage: [--allow_relative] [--use_metadata] "
-            "manifest_file runfiles_base_dir\n");
+            "<manifest_file> <runfiles_base_dir>\n");
     return 1;
   }
 
@@ -392,7 +403,7 @@ int wmain(int argc, wchar_t** argv) {
 
   RunfilesCreator runfiles_creator(manifest_absolute_path,
                                    output_base_absolute_path);
-  runfiles_creator.ReadManifest(allow_relative, use_metadata);
+  runfiles_creator.ReadManifest(allow_relative, ignore_metadata);
   runfiles_creator.CreateRunfiles();
 
   return 0;
