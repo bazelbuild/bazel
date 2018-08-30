@@ -40,10 +40,19 @@ import javax.annotation.Nullable;
 @SkylarkModule(
     name = "ctx",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "The context of the rule containing helper functions and "
-        + "information about attributes, depending targets and outputs. "
-        + "You get a ctx object as an argument to the <code>implementation</code> function when "
-        + "you create a rule.")
+    doc = "A context object that is passed to the implementation function for a rule or aspect. "
+        + "It provides access to the information and methods needed to analyze the current target."
+        + ""
+        + "<p>In particular, it lets the implementation function access the current target's "
+        + "label, attributes, configuration, and the providers of its dependencies. It has methods "
+        + "for declaring output files and the actions that produce them."
+        + ""
+        + "<p>Context objects essentially live for the duration of the call to the implementation "
+        + "function. It is not useful to access these objects outside of their associated "
+        + "function."
+        + ""
+        + "See the <a href='../rules.$DOC_EXT#implementation-function'>Rules page</a> for more "
+        + "information.")
 public interface SkylarkRuleContextApi extends SkylarkValue {
 
   public static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
@@ -140,7 +149,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   @SkylarkCallable(
     name = "actions",
     structField = true,
-    doc = "Functions to declare files and create actions."
+    doc = "Contains methods for declaring output files and the actions that produce them."
   )
   public SkylarkActionFactoryApi actions();
 
@@ -179,7 +188,11 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   )
   public String getWorkspaceName() throws EvalException;
 
-  @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule.")
+  @SkylarkCallable(
+    name = "label",
+    structField = true,
+    doc = "The label of the target currently being analyzed."
+  )
   public Label getLabel() throws EvalException;
 
   @SkylarkCallable(
