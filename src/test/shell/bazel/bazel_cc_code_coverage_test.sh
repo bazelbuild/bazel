@@ -77,8 +77,8 @@ function set_up() {
 
   # All generated .gcno files need to be in the manifest otherwise
   # the coverage report will be incomplete.
-  echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
   echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
 
   # Create the CC sources.
   mkdir -p coverage_srcs/
