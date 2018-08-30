@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -64,7 +63,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -548,20 +546,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
               + "Used only by the 'bazel test' command."
     )
     public List<Map.Entry<String, String>> testEnvironment;
-
-    @Option(
-        name = "test_timeout",
-        defaultValue = "-1",
-        converter = TestTimeout.TestTimeoutConverter.class,
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Override the default test timeout values for test timeouts (in secs). If a single "
-                + "positive integer value is specified it will override all categories.  If 4 "
-                + "comma-separated integers are specified, they will override the timeouts for "
-                + "short, moderate, long and eternal (in that order). In either form, a value of "
-                + "-1 tells blaze to use its default timeouts for that category.")
-    public Map<TestTimeout, Duration> testTimeout;
 
     // TODO(bazel-team): The set of available variables from the client environment for actions
     // is computed independently in CommandEnvironment to inject a more restricted client
@@ -1079,7 +1063,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private final ActionEnvironment actionEnv;
   private final ActionEnvironment testEnv;
-  private final ImmutableMap<TestTimeout, Duration> testTimeout;
 
   private final BuildOptions buildOptions;
   private final BuildOptions.OptionsDiffForReconstruction buildOptionsDiff;
@@ -1263,8 +1246,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     this.actionEnv = actionEnvironment;
 
     this.testEnv = setupTestEnvironment();
-
-    this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
 
     this.transitiveOptionDetails =
         computeOptionsMap(
@@ -1701,11 +1682,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   @Override
   public ImmutableMap<String, String> getTestEnv() {
     return testEnv.getFixedEnv();
-  }
-
-  /** Returns test timeout mapping as set by --test_timeout options. */
-  public ImmutableMap<TestTimeout, Duration> getTestTimeout() {
-    return testTimeout;
   }
 
   /**
