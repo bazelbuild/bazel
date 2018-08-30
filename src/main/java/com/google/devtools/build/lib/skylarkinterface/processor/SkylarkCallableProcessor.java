@@ -46,7 +46,7 @@ import javax.tools.Diagnostic;
  *   only if useLocation, useAst, and useEnvironment are specified, respectively.
  *  </li>
  * <li>
- *   The number of method parameters much match the number of annotation-declared parameters
+ *   The number of method parameters must match the number of annotation-declared parameters
  *   plus the number of interpreter-supplied parameters.
  * </li>
  * <li>
