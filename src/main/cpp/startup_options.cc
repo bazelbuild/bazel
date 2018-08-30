@@ -94,7 +94,8 @@ StartupOptions::StartupOptions(const string &product_name,
       expand_configs_in_place(true),
       digest_function(),
       idle_server_tasks(true),
-      original_startup_options_(std::vector<RcStartupFlag>()) {
+      original_startup_options_(std::vector<RcStartupFlag>()),
+      unlimit_coredumps(false) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = blaze_util::MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -136,6 +137,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("host_jvm_debug");
   RegisterNullaryStartupFlag("idle_server_tasks");
   RegisterNullaryStartupFlag("ignore_all_rc_files");
+  RegisterNullaryStartupFlag("unlimit_coredumps");
   RegisterNullaryStartupFlag("watchfs");
   RegisterNullaryStartupFlag("write_command_log");
   RegisterUnaryStartupFlag("command_port");
@@ -378,6 +380,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           "multiple times.";
       return blaze_exit_code::BAD_ARGV;
     }
+  } else if (GetNullaryOption(arg, "--unlimit_coredumps")) {
+    unlimit_coredumps = true;
+    option_sources["unlimit_coredumps"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nounlimit_coredumps")) {
+    unlimit_coredumps = false;
+    option_sources["unlimit_coredumps"] = rcfile;
   } else {
     bool extra_argument_processed;
     blaze_exit_code::ExitCode process_extra_arg_exit_code = ProcessArgExtra(

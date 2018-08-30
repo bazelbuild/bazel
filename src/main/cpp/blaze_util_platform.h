@@ -256,6 +256,12 @@ int32_t GetExplicitSystemLimit(const int resource);
 // raised; false otherwise.
 bool UnlimitResources();
 
+// Raises the soft coredump limit to the hard limit in an attempt to let
+// coredumps work. This is a best-effort operation and may or may not be
+// implemented for a given platform. Returns true if all limits were properly
+// raised; false otherwise.
+bool UnlimitCoredumps();
+
 void DetectBashOrDie();
 
 // This function has no effect on Unix platforms.

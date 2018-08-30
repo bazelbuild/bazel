@@ -307,6 +307,9 @@ class StartupOptions {
   // their origin. This is populated by ProcessArgs.
   std::vector<RcStartupFlag> original_startup_options_;
 
+  // Whether to raise the soft coredump limit to the hard one or not.
+  bool unlimit_coredumps;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

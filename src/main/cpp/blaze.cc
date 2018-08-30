@@ -1551,6 +1551,10 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   // OptionProcessor::ParseOptions where the order of operations is more clear.
   globals->options->MaybeLogStartupOptionWarnings();
 
+  if (globals->options->unlimit_coredumps) {
+    UnlimitCoredumps();
+  }
+
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();
