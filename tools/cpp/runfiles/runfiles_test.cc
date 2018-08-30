@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tools/cpp/runfiles/runfiles.h"
+#include "tools/cpp/runfiles/runfiles_src.h"
 
 #ifdef _WIN32
 #include <windows.h>
