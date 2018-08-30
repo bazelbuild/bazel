@@ -16,18 +16,59 @@
 #
 # An end-to-end test that Bazel produces runfiles trees as expected.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+  export EXT=".exe"
+  export EXTRA_BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
+else
+  export EXT=""
+  export EXTRA_BUILD_FLAGS=""
+fi
 
 #### SETUP #############################################################
 
 set -e
 
-function set_up() {
-  mkdir -p pkg
-  cd pkg
+function create_pkg() {
+  local -r pkg=$1
+  mkdir -p $pkg
+  cd $pkg
 
   mkdir -p a/b c/d e/f/g x/y
   touch py.py a/b/no_module.py c/d/one_module.py c/__init__.py e/f/g/ignored.py x/y/z.sh
@@ -40,7 +81,9 @@ function set_up() {
 #### TESTS #############################################################
 
 function test_hidden() {
-  cat > pkg/BUILD << EOF
+  local -r pkg=$FUNCNAME
+  create_pkg $pkg
+  cat > $pkg/BUILD << EOF
 py_binary(name = "py",
           srcs = [ "py.py" ],
           data = [ "e/f",
@@ -49,19 +92,21 @@ genrule(name = "hidden",
         outs = [ "e/f/g/hidden.py" ],
         cmd = "touch \$@")
 EOF
-  bazel build pkg:py >&$TEST_log 2>&1 || fail "build failed"
+  bazel build $pkg:py $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
 
   # we get a warning that hidden.py is inaccessible
-  expect_log_once "pkg/e/f/g/hidden.py obscured by pkg/e/f "
+  expect_log_once "${pkg}/e/f/g/hidden.py obscured by ${pkg}/e/f "
 }
 
 function test_foo_runfiles() {
+  local -r pkg=$FUNCNAME
+  create_pkg $pkg
 cat > BUILD << EOF
 py_library(name = "root",
            srcs = ["__init__.py"],
            visibility = ["//visibility:public"])
 EOF
-cat > pkg/BUILD << EOF
+cat > $pkg/BUILD << EOF
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ ":py",
@@ -74,9 +119,10 @@ py_binary(name = "py",
                    "e/f/g/ignored.py" ],
           deps = ["//:root"])
 EOF
-  bazel build pkg:foo >&$TEST_log || fail "build failed"
+  bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  workspace_root=$PWD
 
-  cd ${PRODUCT_NAME}-bin/pkg/foo.runfiles
+  cd ${PRODUCT_NAME}-bin/$pkg/foo${EXT}.runfiles
 
   # workaround until we use assert/fail macros in the tests below
   touch $TEST_TMPDIR/__fail
@@ -88,10 +134,10 @@ EOF
   cd ${WORKSPACE_NAME}
 
   # these are real directories
-  test \! -L pkg
-  test    -d pkg
+  test \! -L $pkg
+  test    -d $pkg
 
-  cd pkg
+  cd $pkg
   test \! -L a
   test    -d a
   test \! -L a/b
@@ -133,17 +179,110 @@ EOF
 
   # that accounts for everything
   cd ../..
-  assert_equals  9 $(find ${WORKSPACE_NAME} -type l | wc -l)
-  assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
-  assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
-  assert_equals 22 $(find ${WORKSPACE_NAME} | wc -l)
-  assert_equals 13 $(wc -l < MANIFEST)
+  # For shell binary, we build both `bin` and `bin.exe`, but on Linux we only build `bin`
+  # That's why we have one more symlink on Windows.
+  if "$is_windows"; then
+    assert_equals 10 $(find ${WORKSPACE_NAME} -type l | wc -l)
+    assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
+    assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
+    assert_equals 23 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals 14 $(wc -l < MANIFEST)
+  else
+    assert_equals  9 $(find ${WORKSPACE_NAME} -type l | wc -l)
+    assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
+    assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
+    assert_equals 22 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals 13 $(wc -l < MANIFEST)
+  fi
 
   for i in $(find ${WORKSPACE_NAME} \! -type d); do
-    if readlink "$i" > /dev/null; then
-      echo "$i $(readlink "$i")" >> ${TEST_TMPDIR}/MANIFEST2
-    else
+    target="$(readlink "$i" || true)"
+    if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
+    else
+      if "$is_windows"; then
+        echo "$i $(cygpath -m $target)" >> ${TEST_TMPDIR}/MANIFEST2
+      else
+        echo "$i $target" >> ${TEST_TMPDIR}/MANIFEST2
+      fi
+    fi
+  done
+  sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
+  sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
+  diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
+
+  # Rebuild the same target with a new dependency.
+  cd "$workspace_root"
+cat > $pkg/BUILD << EOF
+sh_binary(name = "foo",
+          srcs = [ "x/y/z.sh" ],
+          data = [ "e/f" ])
+EOF
+  bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+
+  cd ${PRODUCT_NAME}-bin/$pkg/foo${EXT}.runfiles
+
+  # workaround until we use assert/fail macros in the tests below
+  touch $TEST_TMPDIR/__fail
+
+  # output manifest exists and is non-empty
+  test    -f MANIFEST
+  test    -s MANIFEST
+
+  cd ${WORKSPACE_NAME}
+
+  # these are real directories
+  test \! -L $pkg
+  test    -d $pkg
+
+  # these directory should not exist anymore
+  test \! -e a
+  test \! -e c
+
+  cd $pkg
+  test \! -L e
+  test    -d e
+  test \! -L x
+  test    -d x
+  test \! -L x/y
+  test    -d x/y
+
+  # these are symlinks to the source tree
+  test    -L foo
+  test    -L x/y/z.sh
+  test    -L e/f
+  test    -d e/f
+
+  # that accounts for everything
+  cd ../..
+  # For shell binary, we build both `bin` and `bin.exe`, but on Linux we only build `bin`
+  # That's why we have one more symlink on Windows.
+  if "$is_windows"; then
+    assert_equals  4 $(find ${WORKSPACE_NAME} -type l | wc -l)
+    assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
+    assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
+    assert_equals  9 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals  4 $(wc -l < MANIFEST)
+  else
+    assert_equals  3 $(find ${WORKSPACE_NAME} -type l | wc -l)
+    assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
+    assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
+    assert_equals  8 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals  3 $(wc -l < MANIFEST)
+  fi
+
+  rm -f ${TEST_TMPDIR}/MANIFEST
+  rm -f ${TEST_TMPDIR}/MANIFEST2
+  for i in $(find ${WORKSPACE_NAME} \! -type d); do
+    target="$(readlink "$i" || true)"
+    if [[ -z "$target" ]]; then
+      echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
+    else
+      if "$is_windows"; then
+        echo "$i $(cygpath -m $target)" >> ${TEST_TMPDIR}/MANIFEST2
+      else
+        echo "$i $target" >> ${TEST_TMPDIR}/MANIFEST2
+      fi
     fi
   done
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
@@ -166,15 +305,15 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build //:thing &> $TEST_log || fail "Build failed"
-  [[ -d ${PRODUCT_NAME}-bin/thing.runfiles/foo ]] || fail "foo not found"
+  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] || fail "foo not found"
 
   cat > WORKSPACE <<EOF
 workspace(name = "bar")
 EOF
-  bazel build //:thing &> $TEST_log || fail "Build failed"
-  [[ -d ${PRODUCT_NAME}-bin/thing.runfiles/bar ]] || fail "bar not found"
-  [[ ! -d ${PRODUCT_NAME}-bin/thing.runfiles/foo ]] \
+  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
+  [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \
     || fail "Old foo still found"
 }
 

@@ -1167,10 +1167,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       fragment.reportInvalidOptions(reporter, this.buildOptions);
     }
 
-    if (OS.getCurrent() == OS.WINDOWS && runfilesEnabled()) {
-      reporter.handle(Event.error("building runfiles is not supported on Windows"));
-    }
-
     if (options.outputDirectoryName != null) {
       reporter.handle(Event.error(
           "The internal '--output directory name' option cannot be used on the command line"));
