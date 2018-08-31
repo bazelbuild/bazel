@@ -164,6 +164,9 @@ class RunfilesCreator {
       }
 
       link = AsAbsoluteWindowsPath(link.c_str());
+      if (!target.empty()) {
+        target = AsAbsoluteWindowsPath(target.c_str());
+      }
 
       manifest_file_map.insert(make_pair(link, target));
     }
@@ -257,6 +260,7 @@ class RunfilesCreator {
     do {
       if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
         wstring subpath = path + L"\\" + metadata.cFileName;
+        subpath = AsAbsoluteWindowsPath(subpath.c_str());
         bool is_dir =
             (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
         bool is_symlink =
@@ -268,7 +272,6 @@ class RunfilesCreator {
                 GetLastErrorString().c_str());
           }
 
-          subpath = AsAbsoluteWindowsPath(subpath.c_str());
           target = AsAbsoluteWindowsPath(target.c_str());
           ManifestFileMap::iterator expected_target =
               manifest_file_map.find(subpath);
@@ -277,8 +280,7 @@ class RunfilesCreator {
               expected_target->second.empty()
               // Both paths are normalized paths in lower case, we can compare
               // them directly.
-              || target !=
-                     AsAbsoluteWindowsPath(expected_target->second.c_str()) ||
+              || target != expected_target->second.c_str() ||
               blaze_util::IsDirectoryW(target) != is_dir) {
             if (is_dir) {
               RemoveDirectoryOrDie(subpath);
