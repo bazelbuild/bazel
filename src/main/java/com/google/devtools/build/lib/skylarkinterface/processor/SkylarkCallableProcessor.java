@@ -37,33 +37,28 @@ import javax.tools.Diagnostic;
  * Annotation processor for {@link SkylarkCallable}.
  *
  * <p>Checks the following invariants about {@link SkylarkCallable}-annotated methods:
+ *
  * <ul>
- * <li>The method must be public.</li>
- * <li>If structField=true, there must be zero user-supplied parameters.</li>
- * <li>Method parameters must be supplied in the following order:
- *   <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Envrionment))</pre>
- *   where Location, FuncallExpression, and Environment are supplied by the interpreter if and
- *   only if useLocation, useAst, and useEnvironment are specified, respectively.
- *  </li>
- * <li>
- *   The number of method parameters much match the number of annotation-declared parameters
- *   plus the number of interpreter-supplied parameters.
- * </li>
- * <li>
- *   Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes',
- *   not both.
- * </li>
- * <li>Each parameter must be positional or named (or both).</li>
- * <li>Positional-only parameters must be specified before any named parameters.</li>
- * <li>Positional parameters must be specified before any non-positional parameters.</li>
- * <li>
- *   Positional parameters without default values must be specified before any
- *   positional parameters with default values.
- * </li>
- * <li>Either the doc string is non-empty, or documented is false.</li>
- * <li>Each class may only have one annotated method with selfCall=true.</li>
- * <li>A method annotated with selfCall=true must have a non-empty name.</li>
- * <li>A method annotated with selfCall=true must have structField=false.</li>
+ *   <li>The method must be public.
+ *   <li>If structField=true, there must be zero user-supplied parameters.
+ *   <li>Method parameters must be supplied in the following order:
+ *       <pre>method([positionals]*[other user-args](Location)(FuncallExpression)(Environment))
+ *       </pre>
+ *       where Location, FuncallExpression, and Environment are supplied by the interpreter if and
+ *       only if useLocation, useAst, and useEnvironment are specified, respectively.
+ *   <li>The number of method parameters must match the number of annotation-declared parameters
+ *       plus the number of interpreter-supplied parameters.
+ *   <li>Each parameter, if explicitly typed, may only use either 'type' or 'allowedTypes', not
+ *       both.
+ *   <li>Each parameter must be positional or named (or both).
+ *   <li>Positional-only parameters must be specified before any named parameters.
+ *   <li>Positional parameters must be specified before any non-positional parameters.
+ *   <li>Positional parameters without default values must be specified before any positional
+ *       parameters with default values.
+ *   <li>Either the doc string is non-empty, or documented is false.
+ *   <li>Each class may only have one annotated method with selfCall=true.
+ *   <li>A method annotated with selfCall=true must have a non-empty name.
+ *   <li>A method annotated with selfCall=true must have structField=false.
  * </ul>
  *
  * <p>These properties can be relied upon at runtime without additional checks.
