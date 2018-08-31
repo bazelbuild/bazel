@@ -667,7 +667,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               ? configuration.getActionEnvironment()
               : ActionEnvironment.create(environment, inheritedEnvironment);
       Action spawnAction =
-          buildSpawnAction(owner, commandLines, configuration.getCommandLineLimits(), env);
+          buildSpawnAction(
+              owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
       actions[0] = spawnAction;
       return actions;
     }
@@ -684,6 +685,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           owner,
           result.build(),
           CommandLineLimits.UNLIMITED,
+          null,
           ActionEnvironment.create(environment, inheritedEnvironment));
     }
 
@@ -772,6 +774,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ActionOwner owner,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
+        @Nullable BuildConfiguration configuration,
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
@@ -800,7 +803,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           commandLineLimits,
           isShellCommand,
           env,
-          ImmutableMap.copyOf(executionInfo),
+          configuration == null
+              ? executionInfo
+              : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
           progressMessage,
           new CompositeRunfilesSupplier(
               Iterables.concat(this.inputRunfilesSuppliers, this.toolRunfilesSuppliers)),

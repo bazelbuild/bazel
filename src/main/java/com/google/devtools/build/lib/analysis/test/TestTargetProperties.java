@@ -96,6 +96,7 @@ public class TestTargetProperties {
       // This will overwrite whatever TargetUtils put there, which might be confusing.
       executionInfo.putAll(executionRequirements.getExecutionInfo());
     }
+    ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
 
     isLocal = executionInfo.containsKey(ExecutionRequirements.LOCAL);

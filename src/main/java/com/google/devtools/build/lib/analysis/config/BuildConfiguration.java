@@ -903,6 +903,32 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public boolean windowsExeLauncher;
 
+    @Option(
+        name = "modify_execution_info",
+        converter = ExecutionInfoModifier.Converter.class,
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        defaultValue = "null",
+        help =
+            "Add or remove keys from an action's execution info based on action mnemonic.  "
+                + "Applies only to actions which support execution info. Many common actions "
+                + "support execution info, e.g. Genrule, CppCompile, Javac, SkylarkAction, "
+                + "TestRunner. When specifying multiple values, order matters because "
+                + "many regexes may apply to the same mnemonic.\n\n"
+                + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"
+                + "Examples:\n"
+                + "  '.*=+x,.*=-y,.*=+z' adds 'x' and 'z' to, and removes 'y' from, "
+                + "the execution info for all actions.\n"
+                + "  'Genrule=+requires-x' adds 'requires-x' to the execution info for "
+                + "all Genrule actions.\n"
+                + "  '(?!Genrule).*=-requires-x' removes 'requires-x' from the execution info for "
+                + "all non-Genrule actions.\n")
+    public ExecutionInfoModifier executionInfoModifier;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) getDefault();
@@ -913,6 +939,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.configsMode = configsMode;
       host.enableRunfiles = enableRunfiles;
       host.windowsExeLauncher = windowsExeLauncher;
+      host.executionInfoModifier = executionInfoModifier;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
@@ -1816,8 +1843,27 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * @return the list of default features used for all packages.
+   * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
+   * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.
    */
+  public ImmutableMap<String, String> modifiedExecutionInfo(
+      ImmutableMap<String, String> executionInfo, String mnemonic) {
+    if (options.executionInfoModifier == null || !options.executionInfoModifier.matches(mnemonic)) {
+      return executionInfo;
+    }
+    HashMap<String, String> mutableCopy = new HashMap<>(executionInfo);
+    modifyExecutionInfo(mutableCopy, mnemonic);
+    return ImmutableMap.copyOf(mutableCopy);
+  }
+
+  /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
+  public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
+    if (options.executionInfoModifier != null) {
+      options.executionInfoModifier.apply(mnemonic, executionInfo);
+    }
+  }
+
+  /** @return the list of default features used for all packages. */
   public List<String> getDefaultFeatures() {
     return options.defaultFeatures;
   }

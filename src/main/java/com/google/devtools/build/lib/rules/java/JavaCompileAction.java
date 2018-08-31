@@ -75,6 +75,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class JavaCompileAction extends SpawnAction {
+
   private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
 
   private static final ResourceSet LOCAL_RESOURCES =
@@ -87,6 +88,7 @@ public final class JavaCompileAction extends SpawnAction {
   // TODO(#3320): This is missing the configuration's action environment!
   static final ActionEnvironment UTF8_ACTION_ENVIRONMENT =
       ActionEnvironment.create(UTF8_ENVIRONMENT);
+  public static final String MNEMONIC = "Javac";
 
   private final CommandLine javaCompileCommandLine;
 
@@ -215,7 +217,7 @@ public final class JavaCompileAction extends SpawnAction {
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         runfilesSupplier,
-        "Javac",
+        MNEMONIC,
         /* executeUnconditionally= */ false,
         /* extraActionInfoSupplier= */ null);
     this.javaCompileCommandLine = javaCompileCommandLine;

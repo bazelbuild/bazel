@@ -243,10 +243,12 @@ public final class JavaCompilationHelper {
   }
 
   private ImmutableMap<String, String> getExecutionInfo() {
-    if (javaToolchain.getJavacSupportsWorkers()) {
-      return ExecutionRequirements.WORKER_MODE_ENABLED;
-    }
-    return ImmutableMap.of();
+    return getConfiguration()
+        .modifiedExecutionInfo(
+            javaToolchain.getJavacSupportsWorkers()
+                ? ExecutionRequirements.WORKER_MODE_ENABLED
+                : ImmutableMap.of(),
+            JavaCompileAction.MNEMONIC);
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */

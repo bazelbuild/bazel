@@ -148,7 +148,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
             createDummyOutput,
             CommandLine.of(argv),
             owningRule.getConfiguration().getActionEnvironment(),
-            executionInfo,
+            owningRule.getConfiguration().modifiedExecutionInfo(executionInfo, label.getName()),
             commandMessage,
             label.getName()));
 

@@ -191,6 +191,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     }
 
     executionInfo.putAll(getExtraExecutionInfo(ruleContext, baseCommand));
+    ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, GenRuleAction.MNEMONIC);
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     inputs.addTransitive(resolvedSrcs);

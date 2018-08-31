@@ -289,6 +289,9 @@ public class CppCompileActionBuilder {
             .addAll(additionalPrunableHeaders)
             .build();
 
+    configuration.modifyExecutionInfo(
+        executionInfo, CppCompileAction.actionNameToMnemonic(getActionName()));
+
     // Copying the collections is needed to make the builder reusable.
     CppCompileAction action;
     boolean fake = tempOutputFile != null;

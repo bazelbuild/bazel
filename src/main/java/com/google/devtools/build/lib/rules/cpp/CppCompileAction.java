@@ -1218,8 +1218,7 @@ public class CppCompileAction extends AbstractAction
         ImmutableSet.<Artifact>copyOf(getInputs()));
   }
 
-  @Override
-  public String getMnemonic() {
+  static String actionNameToMnemonic(String actionName) {
     switch (actionName) {
       case CppActionNames.OBJC_COMPILE:
       case CppActionNames.OBJCPP_COMPILE:
@@ -1238,6 +1237,11 @@ public class CppCompileAction extends AbstractAction
       default:
         return "CppCompile";
     }
+  }
+
+  @Override
+  public String getMnemonic() {
+    return actionNameToMnemonic(actionName);
   }
 
   @Override
