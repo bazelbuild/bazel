@@ -70,6 +70,10 @@ pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
     built_using = "bazel (HEAD)",
+    conffiles = [
+        "etc/bash_completion.d/bazel",
+        "etc/bazel.bazelrc",
+    ],
     data = ":debian-data",
     depends = [
         # Keep in sync with Depends section in ./control
