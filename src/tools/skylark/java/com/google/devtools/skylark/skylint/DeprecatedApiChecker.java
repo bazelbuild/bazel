@@ -114,6 +114,10 @@ public class DeprecatedApiChecker extends AstVisitorWithNameResolution {
               "ctx.outputs.executable",
               "See https://docs.bazel.build/versions/master/skylark/"
                   + "rules.html#executable-rules-and-test-rules")
+          .put(
+              "native.package",
+              "Call package() in the BUILD file instead. "
+                  + "See https://github.com/bazelbuild/bazel/issues/5939.")
           .build();
 
   private void checkDeprecated(Expression node) {
