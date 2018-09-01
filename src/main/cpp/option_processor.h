@@ -56,6 +56,10 @@ class OptionProcessor {
   OptionProcessor(const WorkspaceLayout* workspace_layout,
                   std::unique_ptr<StartupOptions> default_startup_options);
 
+  OptionProcessor(const WorkspaceLayout* workspace_layout,
+                  std::unique_ptr<StartupOptions> default_startup_options,
+                  const std::string& system_bazelrc_path);
+
   virtual ~OptionProcessor() {}
 
   // Splits the arguments of a command line invocation.
@@ -144,6 +148,8 @@ class OptionProcessor {
   // The startup options parsed from args, this field is initialized by
   // ParseOptions.
   std::unique_ptr<StartupOptions> parsed_startup_options_;
+
+  const std::string system_bazelrc_path_;
 };
 
 // Parses and returns the contents of the rc file.
