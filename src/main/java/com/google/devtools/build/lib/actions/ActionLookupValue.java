@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -109,6 +110,11 @@ public abstract class ActionLookupValue implements SkyValue {
     return getActions().size();
   }
 
+  /** Returns a source artifact if the underlying configured target is an input file. */
+  @Nullable
+  public SourceArtifact getSourceArtifact() {
+    return null;
+  }
 
   /**
    * All subclasses of ActionLookupValue "own" artifacts with {@link ArtifactOwner}s that are
