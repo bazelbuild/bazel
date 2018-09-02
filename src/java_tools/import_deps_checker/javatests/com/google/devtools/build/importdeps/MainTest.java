@@ -48,6 +48,6 @@ public final class MainTest {
                       "--input",
                       in.toString()
                     }));
-    assertThat(thrown).hasMessageThat().contains("--output");
+    assertThat(thrown).hasMessageThat().contains("--jdeps_output");
   }
 }

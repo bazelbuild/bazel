@@ -14,5 +14,5 @@ dependency {
   path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryInterface.jar"
   kind: EXPLICIT
 }
-rule_label: ":complete_classpath_golden_test"
+rule_label: ":warn_on_bootclasspath_missing_golden_test"
 success: true
