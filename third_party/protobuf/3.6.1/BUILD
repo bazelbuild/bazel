@@ -31,8 +31,8 @@ filegroup(
             "src/google/protobuf/**/*.proto",
         ],
     ) + [
-        "//third_party/protobuf/3.6.0/examples:srcs",
-        "//third_party/protobuf/3.6.0/util/python:srcs",
+        "//third_party/protobuf/3.6.1/examples:srcs",
+        "//third_party/protobuf/3.6.1/util/python:srcs",
     ],
     visibility = ["//visibility:public"],
 )
