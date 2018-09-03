@@ -313,6 +313,25 @@ public class SimpleBlobStoreActionCacheTest {
   }
 
   @Test
+  public void testUploadBlobAtMostOnce() throws Exception {
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+
+    final ConcurrentMap<String, byte[]> map = new ConcurrentHashMap<>();
+    final SimpleBlobStoreActionCache client = newClient(map);
+
+    byte[] bytes = "abcdefg".getBytes(UTF_8);
+    assertThat(client.uploadBlob(bytes)).isEqualTo(digest);
+    assertThat(map.keySet()).containsExactly(digest.getHash());
+    assertThat(map.entrySet()).hasSize(1);
+    assertThat(map.get(digest.getHash())).isEqualTo(bytes);
+
+    // Blob store does not get upload more than once during a single build.
+    map.remove(digest.getHash());
+    assertThat(client.uploadBlob(bytes)).isEqualTo(digest);
+    assertThat(map.entrySet()).hasSize(0);
+  }
+
+  @Test
   public void testUploadDirectory() throws Exception {
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
