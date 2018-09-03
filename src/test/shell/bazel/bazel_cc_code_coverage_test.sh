@@ -50,7 +50,8 @@ function set_up() {
   # COVERAGE_DIR has to be different than ROOT and PWD for the test to be
   # accurate.
   # Checking if the files have the same deviceID and inode is enough to
-  # determine if they are the same.
+  # determine if they are the same. For more details about inodes see
+  # http://www.grymoire.com/Unix/Inodes.html.
   [[ "$(stat -c "%d:%i" ${COVERAGE_DIR_VAR})" == "$(stat -c "%d:%i" ${ROOT_VAR})" ]] \
       && fail "COVERAGE_DIR_VAR must be different than ROOT_VAR"
   [[ "$(stat -c "%d:%i" ${COVERAGE_DIR_VAR})" == "$(stat -c "%d:%i" ${PWD})" ]] \
@@ -99,16 +100,23 @@ EOF
   generate_and_execute_instrumented_binary coverage_srcs/test \
       "$COVERAGE_DIR_VAR/coverage_srcs" \
       coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
+
+   # g++ generates the notes files in the current directory. The documentation
+   # (https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files)
+   # says they are placed in the same directory as the object file, but they
+   # are not. Therefore we move them in the same directory.
+   mv a.gcno coverage_srcs/a.gcno
+   mv t.gcno coverage_srcs/t.gcno
 }
 
 # Generates and executes an instrumented binary:
 #
-# Step 1: Reads the list of arguments provided by the caller (using $@) and uses them
+# Reads the list of arguments provided by the caller (using $@) and uses them
 # to produce an instrumented binary using g++. This step also generates
 # the notes (.gcno) files.
 #
-# Step 2: Executes the instrumented binary. This step also generates the
-# profile data files.
+# Executes the instrumented binary. This step also generates the
+# profile data (.gcda) files.
 # - path_to_binary destination of the binary produced by g++
 function generate_and_execute_instrumented_binary() {
   local path_to_binary="${1}"; shift
@@ -126,13 +134,6 @@ function generate_and_execute_instrumented_binary() {
       "$@" -o "$path_to_binary"  \
        || fail "Couldn't produce the instrumented binary for $@ \
             with path_to_binary $path_to_binary"
-
-   # g++ generates the notes files in the current directory. The documentation
-   # (https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files)
-   # says they are placed in the same directory as the object file, but they
-   # are not. Therefore we move them in the same directory.
-   mv a.gcno coverage_srcs/a.gcno
-   mv t.gcno coverage_srcs/t.gcno
 
    # Execute the instrumented binary and generates the profile data (.gcda) file.
    # The profile data file is placed in $gcda_directory.
@@ -224,9 +225,11 @@ function assert_coverage_result() {
     # order in the coverage report is not relevant.
     assert_consecutive_lines_in_file "$COVERAGE_OUTPUT_FILE_VAR" "${expected_result_a_cc[@]}"
     assert_consecutive_lines_in_file "$COVERAGE_OUTPUT_FILE_VAR" "${expected_result_t_cc[@]}"
+
     # Assert that the coverage output file contains the line "TN:" twice
     # (once for every source).
-    assert_contains_n "TN:" "$COVERAGE_OUTPUT_FILE_VAR" 2
+    cat $COVERAGE_OUTPUT_FILE_VAR > "$TEST_log"
+    expect_log_n "TN:" 2
 }
 
 run_suite "Testing tools/test/collect_cc_coverage.sh"
