@@ -17,7 +17,7 @@ licenses(["notice"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//:__pkg__"],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
