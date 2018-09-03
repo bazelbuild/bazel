@@ -190,7 +190,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sandboxPath,
               commandLineBuilder.build(),
               environment,
-              SandboxHelpers.processInputFiles(spawn, context, execRoot),
+              SandboxHelpers.processInputFiles(
+                  spawn,
+                  context,
+                  execRoot,
+                  getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
               outputs,
               ImmutableSet.of());
     } else {
@@ -200,7 +204,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               sandboxExecRoot,
               commandLineBuilder.build(),
               environment,
-              SandboxHelpers.processInputFiles(spawn, context, execRoot),
+              SandboxHelpers.processInputFiles(
+                  spawn,
+                  context,
+                  execRoot,
+                  getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
               outputs,
               writableDirs);
     }
