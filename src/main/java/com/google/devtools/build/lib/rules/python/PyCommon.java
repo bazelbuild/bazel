@@ -138,6 +138,10 @@ public final class PyCommon {
 
     if (ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       filesToBuildBuilder.add(getPythonZipArtifact(executable));
+    } else if (OS.getCurrent() == OS.WINDOWS) {
+      // TODO(bazel-team): Here we should check target platform instead of using OS.getCurrent().
+      // On Windows, add the python stub launcher in the set of files to build.
+      filesToBuildBuilder.add(getPythonLauncherArtifact(executable));
     }
 
     filesToBuild = filesToBuildBuilder.build();
@@ -152,6 +156,11 @@ public final class PyCommon {
   /** @return An artifact next to the executable file with ".zip" suffix */
   public Artifact getPythonZipArtifact(Artifact executable) {
     return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), ".zip");
+  }
+
+  /** @return An artifact next to the executable file with no suffix, only used on Windows */
+  public Artifact getPythonLauncherArtifact(Artifact executable) {
+    return ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "");
   }
 
   public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
