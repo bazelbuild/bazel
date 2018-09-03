@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-java_filetype = FileType([".java"])
-jar_filetype = FileType([".jar"])
-srcjar_filetype = FileType([".jar", ".srcjar"])
+"""Java rules for bootstraping Bazel.
 
-# This is a quick and dirty rule to make Bazel compile itself. It's not
-# production ready.
+
+This is a quick and dirty rule to make Bazel compile itself. It's not production
+ready.
+"""
 
 def java_library_impl(ctx):
     javac_options = ctx.fragments.java.default_javac_flags
@@ -28,8 +28,8 @@ def java_library_impl(ctx):
         compile_time_jars += dep.compile_time_jars
         runtime_jars += dep.runtime_jars
 
-    jars = jar_filetype.filter(ctx.files.jars)
-    neverlink_jars = jar_filetype.filter(ctx.files.neverlink_jars)
+    jars = ctx.files.jars
+    neverlink_jars = ctx.files.neverlink_jars
     compile_time_jars += jars + neverlink_jars
     runtime_jars += jars
     compile_time_jars_list = list(compile_time_jars)  # TODO: This is weird.
@@ -175,8 +175,8 @@ def java_binary_impl(ctx):
 def java_import_impl(ctx):
     # TODO(bazel-team): Why do we need to filter here? The attribute
     # already says only jars are allowed.
-    jars = depset(jar_filetype.filter(ctx.files.jars))
-    neverlink_jars = depset(jar_filetype.filter(ctx.files.neverlink_jars))
+    jars = depset(ctx.files.jars)
+    neverlink_jars = depset(ctx.files.neverlink_jars)
     runfiles = ctx.runfiles(collect_data = True)
     return struct(
         files = jars,
@@ -192,10 +192,10 @@ java_library_attrs = {
     ),
     "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),
-    "srcs": attr.label_list(allow_files = java_filetype),
-    "jars": attr.label_list(allow_files = jar_filetype),
-    "neverlink_jars": attr.label_list(allow_files = jar_filetype),
-    "srcjars": attr.label_list(allow_files = srcjar_filetype),
+    "srcs": attr.label_list(allow_files = [".java"]),
+    "jars": attr.label_list(allow_files = [".jar"]),
+    "neverlink_jars": attr.label_list(allow_files = [".jar"]),
+    "srcjars": attr.label_list(allow_files = [".jar", ".srcjar"]),
     "deps": attr.label_list(
         allow_files = False,
         providers = ["compile_time_jars", "runtime_jars"],
@@ -270,8 +270,8 @@ java_test = rule(
 java_import = rule(
     java_import_impl,
     attrs = {
-        "jars": attr.label_list(allow_files = jar_filetype),
-        "srcjar": attr.label(allow_files = srcjar_filetype),
-        "neverlink_jars": attr.label_list(allow_files = jar_filetype, default = []),
+        "jars": attr.label_list(allow_files = [".jar"]),
+        "srcjar": attr.label(allow_files = [".jar", ".srcjar"]),
+        "neverlink_jars": attr.label_list(allow_files = [".jar"], default = []),
     },
 )
