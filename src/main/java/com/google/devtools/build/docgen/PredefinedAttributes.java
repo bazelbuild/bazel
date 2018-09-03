@@ -53,6 +53,7 @@ public class PredefinedAttributes {
           "templates/attributes/common/restricted_to.html",
           "templates/attributes/common/tags.html",
           "templates/attributes/common/testonly.html",
+          "templates/attributes/common/toolchains.html",
           "templates/attributes/common/visibility.html");
 
   /**

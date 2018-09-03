@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
@@ -37,7 +38,16 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
+    return ImmutableList.of();
+  }
+
+  @Override
+  public Collection<LocalFile> referencedLocalFiles() {
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    for (Pair<String, Path> logFile : logFiles) {
+      localFiles.add(new LocalFile(logFile.getSecond(), LocalFileType.LOG));
+    }
+    return localFiles.build();
   }
 
   @Override
@@ -52,11 +62,14 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
               .build());
     }
     for (Pair<String, Path> logFile : logFiles) {
-      toolLogs.addLog(
-          BuildEventStreamProtos.File.newBuilder()
-              .setName(logFile.getFirst())
-              .setUri(converters.pathConverter().apply(logFile.getSecond()))
-              .build());
+      String uri = converters.pathConverter().apply(logFile.getSecond());
+      if (uri != null) {
+        toolLogs.addLog(
+            BuildEventStreamProtos.File.newBuilder()
+                .setName(logFile.getFirst())
+                .setUri(uri)
+                .build());
+      }
     }
     return GenericBuildEvent.protoChaining(this).setBuildToolLogs(toolLogs.build()).build();
   }

@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
@@ -71,7 +72,8 @@ import java.util.Set;
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
-  private final TargetPatternEvaluator targetPatternEvaluator;
+  private final TargetPatternPreloader targetPatternPreloader;
+  private final PathFragment relativeWorkingDirectory;
   private final TransitivePackageLoader transitivePackageLoader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
@@ -98,7 +100,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       TransitivePackageLoader transitivePackageLoader,
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
-      TargetPatternEvaluator targetPatternEvaluator,
+      TargetPatternPreloader targetPatternPreloader,
+      PathFragment relativeWorkingDirectory,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
@@ -107,7 +110,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
-    this.targetPatternEvaluator = targetPatternEvaluator;
+    this.targetPatternPreloader = targetPatternPreloader;
+    this.relativeWorkingDirectory = relativeWorkingDirectory;
     this.transitivePackageLoader = transitivePackageLoader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
@@ -240,7 +244,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Collection<Target> getFwdDeps(Iterable<Target> targets) {
+  public Collection<Target> getFwdDeps(
+      Iterable<Target> targets, QueryExpressionContext<Target> context) {
     ThreadSafeMutableSet<Target> result = createThreadSafeMutableSet();
     for (Target target : targets) {
       result.addAll(getTargetsFromNodes(getNode(target).getSuccessors()));
@@ -249,7 +254,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Collection<Target> getReverseDeps(Iterable<Target> targets) {
+  public Collection<Target> getReverseDeps(
+      Iterable<Target> targets, QueryExpressionContext<Target> context) {
     ThreadSafeMutableSet<Target> result = createThreadSafeMutableSet();
     for (Target target : targets) {
       result.addAll(getTargetsFromNodes(getNode(target).getPredecessors()));
@@ -259,7 +265,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public ThreadSafeMutableSet<Target> getTransitiveClosure(
-      ThreadSafeMutableSet<Target> targetNodes) {
+      ThreadSafeMutableSet<Target> targetNodes, QueryExpressionContext<Target> context) {
     for (Target node : targetNodes) {
       checkBuilt(node);
     }
@@ -298,7 +304,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Iterable<Target> getNodesOnPath(Target from, Target to) {
+  public Iterable<Target> getNodesOnPath(
+      Target from, Target to, QueryExpressionContext<Target> context) {
     ImmutableList.Builder<Target> builder = ImmutableList.builder();
     for (Node<Target> node : graph.getShortestPath(getNode(from), getNode(to))) {
       builder.add(node.getLabel());
@@ -386,7 +393,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       final QueryExpression caller,
       ThreadSafeMutableSet<Target> nodes,
       boolean buildFiles,
-      boolean loads)
+      boolean loads,
+      QueryExpressionContext<Target> context)
       throws QueryException {
     ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
     Set<PackageIdentifier> seenPackages = new HashSet<>();
@@ -441,7 +449,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // being called from within a SkyFunction.
       resolvedTargetPatterns.putAll(
           Maps.transformValues(
-              targetPatternEvaluator.preloadTargetPatterns(eventHandler, patterns, keepGoing),
+              targetPatternPreloader.preloadTargetPatterns(
+                  eventHandler, relativeWorkingDirectory, patterns, keepGoing),
               ResolvedTargets::getTargets));
     }
   }

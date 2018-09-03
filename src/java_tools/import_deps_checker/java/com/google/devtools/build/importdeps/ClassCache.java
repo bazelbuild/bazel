@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -145,43 +146,29 @@ public final class ClassCache implements Closeable {
               classEntry.zipFile.getEntry(entryName), "The zip entry %s is null.", entryName);
       try (InputStream inputStream = classEntry.zipFile.getInputStream(zipEntry)) {
         ClassReader classReader = new ClassReader(inputStream);
-        ImmutableList<String> resolutionFailurePath = null;
+        ImmutableList.Builder<ResolutionFailureChain> resolutionFailureChainsBuilder =
+            ImmutableList.builder();
         for (String superName :
             combineWithoutNull(classReader.getSuperName(), classReader.getInterfaces())) {
-          LazyClassEntry superClassEntry = lazyClasspath.getLazyEntry(superName);
-
-          if (superClassEntry == null) {
-            resolutionFailurePath = ImmutableList.of(superName);
-            break;
-          } else {
-            resolveClassEntry(superClassEntry, lazyClasspath);
-            AbstractClassEntryState superState = superClassEntry.state;
-            if (superState instanceof ExistingState) {
-              // Do nothing. Good to proceed.
-              continue;
-            } else if (superState instanceof IncompleteState) {
-              resolutionFailurePath =
-                  ImmutableList.<String>builder()
-                      .add(superName)
-                      .addAll(((IncompleteState) superState).getResolutionFailurePath())
-                      .build();
-              break;
-            } else {
-              throw new RuntimeException("Cannot reach here. superState is " + superState);
-            }
-          }
+          Optional<ResolutionFailureChain> failurePath =
+              resolveSuperClassEntry(superName, lazyClasspath);
+          failurePath.map(resolutionFailureChainsBuilder::add);
         }
         ClassInfoBuilder classInfoBuilder =
             new ClassInfoBuilder().setJarPath(classEntry.jarPath).setDirect(classEntry.direct);
         classReader.accept(classInfoBuilder, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-        if (resolutionFailurePath == null) {
+
+        ImmutableList<ResolutionFailureChain> resolutionFailureChains =
+            resolutionFailureChainsBuilder.build();
+        if (resolutionFailureChains.isEmpty()) {
           classEntry.state =
               ExistingState.create(classInfoBuilder.build(lazyClasspath, /*incomplete=*/ false));
         } else {
+          ClassInfo classInfo = classInfoBuilder.build(lazyClasspath, /*incomplete=*/ true);
           classEntry.state =
               IncompleteState.create(
-                  classInfoBuilder.build(lazyClasspath, /*incomplete=*/ true),
-                  resolutionFailurePath);
+                  classInfo,
+                  ResolutionFailureChain.createWithParent(classInfo, resolutionFailureChains));
         }
       } catch (IOException e) {
         throw new RuntimeException("Error when resolving class entry " + entryName);
@@ -191,6 +178,26 @@ public final class ClassCache implements Closeable {
                 + e.getMessage());
         lazyClasspath.printClasspath(System.err);
         throw e;
+      }
+    }
+
+    private static Optional<ResolutionFailureChain> resolveSuperClassEntry(
+        String superName, LazyClasspath lazyClasspath) {
+      LazyClassEntry superClassEntry = lazyClasspath.getLazyEntry(superName);
+
+      if (superClassEntry == null) {
+        return Optional.of(ResolutionFailureChain.createMissingClass(superName));
+      } else {
+        resolveClassEntry(superClassEntry, lazyClasspath);
+        AbstractClassEntryState superState = superClassEntry.state;
+        if (superState instanceof ExistingState) {
+          // Do nothing. Good to proceed.
+          return Optional.empty();
+        } else if (superState instanceof IncompleteState) {
+          return Optional.of(superState.asIncompleteState().resolutionFailureChain());
+        } else {
+          throw new RuntimeException("Cannot reach here. superState is " + superState);
+        }
       }
     }
   }

@@ -14,164 +14,187 @@
 # limitations under the License.
 """Base library for configuring the C++ toolchain."""
 
+def resolve_labels(repository_ctx, labels):
+    """Resolves a collection of labels to their paths.
+
+    Label resolution can cause the evaluation of Skylark functions to restart.
+    For functions with side-effects (like the auto-configuration functions, which
+    inspect the system and touch the file system), such restarts are costly.
+    We cannot avoid the restarts, but we can minimize their penalty by resolving
+    all labels upfront.
+
+    Among other things, doing less work on restarts can cut analysis times by
+    several seconds and may also prevent tickling kernel conditions that cause
+    build failures.  See https://github.com/bazelbuild/bazel/issues/5196 for
+    more details.
+
+    Args:
+      repository_ctx: The context with which to resolve the labels.
+      labels: Labels to be resolved expressed as a list of strings.
+
+    Returns:
+      A dictionary with the labels as keys and their paths as values.
+    """
+    return dict([(label, repository_ctx.path(Label(label))) for label in labels])
 
 def escape_string(arg):
-  """Escape percent sign (%) in the string so it can appear in the Crosstool."""
-  if arg != None:
-    return str(arg).replace("%", "%%")
-  else:
-    return None
+    """Escape percent sign (%) in the string so it can appear in the Crosstool."""
+    if arg != None:
+        return str(arg).replace("%", "%%")
+    else:
+        return None
 
 def split_escaped(string, delimiter):
-  """Split string on the delimiter unless %-escaped.
+    """Split string on the delimiter unless %-escaped.
 
-  Examples:
-    Basic usage:
-      split_escaped("a:b:c", ":") -> [ "a", "b", "c" ]
+    Examples:
+      Basic usage:
+        split_escaped("a:b:c", ":") -> [ "a", "b", "c" ]
 
-    Delimeter that is not supposed to be splitten on has to be %-escaped:
-      split_escaped("a%:b", ":") -> [ "a:b" ]
+      Delimeter that is not supposed to be splitten on has to be %-escaped:
+        split_escaped("a%:b", ":") -> [ "a:b" ]
 
-    Literal % can be represented by escaping it as %%:
-      split_escaped("a%%b", ":") -> [ "a%b" ]
+      Literal % can be represented by escaping it as %%:
+        split_escaped("a%%b", ":") -> [ "a%b" ]
 
-    Consecutive delimiters produce empty strings:
-      split_escaped("a::b", ":") -> [ "a", "", "", "b" ]
+      Consecutive delimiters produce empty strings:
+        split_escaped("a::b", ":") -> [ "a", "", "", "b" ]
 
-  Args:
-    string: a string to be splitted
-    delimiter: non-empty string not containing %-sign to be used as a delimiter
+    Args:
+      string: The string to be split.
+      delimiter: Non-empty string not containing %-sign to be used as a
+          delimiter.
 
-  Returns:
-    a list of substrings
-  """
-  if delimiter == "": fail("Delimiter cannot be empty")
-  if delimiter.find("%") != -1: fail("Delimiter cannot contain %-sign")
+    Returns:
+      A list of substrings.
+    """
+    if delimiter == "":
+        fail("Delimiter cannot be empty")
+    if delimiter.find("%") != -1:
+        fail("Delimiter cannot contain %-sign")
 
-  i = 0
-  result = []
-  accumulator = []
-  length = len(string)
-  delimiter_length = len(delimiter)
-   # Iterate over the length of string since Skylark doesn't have while loops
-  for _ in range(length):
-      if i >= length:
-          break
-      if i + 2 <= length and string[i : i + 2] == "%%":
-          accumulator.append("%")
-          i += 2
-      elif (i + 1 + delimiter_length <= length and
-              string[i : i + 1 + delimiter_length] == "%" + delimiter):
-          accumulator.append(delimiter)
-          i += 1 + delimiter_length
-      elif i + delimiter_length <= length and string[i : i + delimiter_length] == delimiter:
-          result.append(''.join(accumulator))
-          accumulator = []
-          i += delimiter_length
-      else:
-          accumulator.append(string[i])
-          i += 1
+    i = 0
+    result = []
+    accumulator = []
+    length = len(string)
+    delimiter_length = len(delimiter)
 
-  # Append the last group still in accumulator
-  result.append(''.join(accumulator))
-  return result
+    # Iterate over the length of string since Skylark doesn't have while loops
+    for _ in range(length):
+        if i >= length:
+            break
+        if i + 2 <= length and string[i:i + 2] == "%%":
+            accumulator.append("%")
+            i += 2
+        elif (i + 1 + delimiter_length <= length and
+              string[i:i + 1 + delimiter_length] == "%" + delimiter):
+            accumulator.append(delimiter)
+            i += 1 + delimiter_length
+        elif i + delimiter_length <= length and string[i:i + delimiter_length] == delimiter:
+            result.append("".join(accumulator))
+            accumulator = []
+            i += delimiter_length
+        else:
+            accumulator.append(string[i])
+            i += 1
 
+    # Append the last group still in accumulator
+    result.append("".join(accumulator))
+    return result
 
 def auto_configure_fail(msg):
-  """Output failure message when auto configuration fails."""
-  red = "\033[0;31m"
-  no_color = "\033[0m"
-  fail("\n%sAuto-Configuration Error:%s %s\n" % (red, no_color, msg))
-
+    """Output failure message when auto configuration fails."""
+    red = "\033[0;31m"
+    no_color = "\033[0m"
+    fail("\n%sAuto-Configuration Error:%s %s\n" % (red, no_color, msg))
 
 def auto_configure_warning(msg):
-  """Output warning message during auto configuration."""
-  yellow = "\033[1;33m"
-  no_color = "\033[0m"
-  print("\n%sAuto-Configuration Warning:%s %s\n" % (yellow, no_color, msg))
-
+    """Output warning message during auto configuration."""
+    yellow = "\033[1;33m"
+    no_color = "\033[0m"
+    print("\n%sAuto-Configuration Warning:%s %s\n" % (yellow, no_color, msg))
 
 def get_env_var(repository_ctx, name, default = None, enable_warning = True):
-  """Find an environment variable in system path. Doesn't %-escape the value!"""
-  if name in repository_ctx.os.environ:
-    return repository_ctx.os.environ[name]
-  if default != None:
-    if enable_warning:
-      auto_configure_warning("'%s' environment variable is not set, using '%s' as default" % (name, default))
-    return default
-  auto_configure_fail("'%s' environment variable is not set" % name)
-
+    """Find an environment variable in system path. Doesn't %-escape the value!"""
+    if name in repository_ctx.os.environ:
+        return repository_ctx.os.environ[name]
+    if default != None:
+        if enable_warning:
+            auto_configure_warning("'%s' environment variable is not set, using '%s' as default" % (name, default))
+        return default
+    auto_configure_fail("'%s' environment variable is not set" % name)
 
 def which(repository_ctx, cmd, default = None):
-  """A wrapper around repository_ctx.which() to provide a fallback value. Doesn't %-escape the value!"""
-  result = repository_ctx.which(cmd)
-  return default if result == None else str(result)
-
+    """A wrapper around repository_ctx.which() to provide a fallback value. Doesn't %-escape the value!"""
+    result = repository_ctx.which(cmd)
+    return default if result == None else str(result)
 
 def which_cmd(repository_ctx, cmd, default = None):
-  """Find cmd in PATH using repository_ctx.which() and fail if cannot find it. Doesn't %-escape the cmd!"""
-  result = repository_ctx.which(cmd)
-  if result != None:
+    """Find cmd in PATH using repository_ctx.which() and fail if cannot find it. Doesn't %-escape the cmd!"""
+    result = repository_ctx.which(cmd)
+    if result != None:
+        return str(result)
+    path = get_env_var(repository_ctx, "PATH")
+    if default != None:
+        auto_configure_warning("Cannot find %s in PATH, using '%s' as default.\nPATH=%s" % (cmd, default, path))
+        return default
+    auto_configure_fail("Cannot find %s in PATH, please make sure %s is installed and add its directory in PATH.\nPATH=%s" % (cmd, cmd, path))
     return str(result)
-  path = get_env_var(repository_ctx, "PATH")
-  if default != None:
-    auto_configure_warning("Cannot find %s in PATH, using '%s' as default.\nPATH=%s" % (cmd, default, path))
-    return default
-  auto_configure_fail("Cannot find %s in PATH, please make sure %s is installed and add its directory in PATH.\nPATH=%s" % (cmd, cmd, path))
-  return str(result)
 
-
-def execute(repository_ctx, command, environment = None,
-            expect_failure = False):
-  """Execute a command, return stdout if succeed and throw an error if it fails. Doesn't %-escape the result!"""
-  if environment:
-    result = repository_ctx.execute(command, environment = environment)
-  else:
-    result = repository_ctx.execute(command)
-  if expect_failure != (result.return_code != 0):
-    if expect_failure:
-      auto_configure_fail(
-          "expected failure, command %s, stderr: (%s)" % (
-              command, result.stderr))
+def execute(
+        repository_ctx,
+        command,
+        environment = None,
+        expect_failure = False):
+    """Execute a command, return stdout if succeed and throw an error if it fails. Doesn't %-escape the result!"""
+    if environment:
+        result = repository_ctx.execute(command, environment = environment)
     else:
-      auto_configure_fail(
-          "non-zero exit code: %d, command %s, stderr: (%s)" % (
-              result.return_code, command, result.stderr))
-  stripped_stdout = result.stdout.strip()
-  if not stripped_stdout:
-    auto_configure_fail(
-        "empty output from command %s, stderr: (%s)" % (command, result.stderr))
-  return stripped_stdout
-
+        result = repository_ctx.execute(command)
+    if expect_failure != (result.return_code != 0):
+        if expect_failure:
+            auto_configure_fail(
+                "expected failure, command %s, stderr: (%s)" % (
+                    command,
+                    result.stderr,
+                ),
+            )
+        else:
+            auto_configure_fail(
+                "non-zero exit code: %d, command %s, stderr: (%s)" % (
+                    result.return_code,
+                    command,
+                    result.stderr,
+                ),
+            )
+    stripped_stdout = result.stdout.strip()
+    if not stripped_stdout:
+        auto_configure_fail(
+            "empty output from command %s, stderr: (%s)" % (command, result.stderr),
+        )
+    return stripped_stdout
 
 def get_cpu_value(repository_ctx):
-  """Compute the cpu_value based on the OS name. Doesn't %-escape the result!"""
-  os_name = repository_ctx.os.name.lower()
-  if os_name.startswith("mac os"):
-    return "darwin"
-  if os_name.find("freebsd") != -1:
-    return "freebsd"
-  if os_name.find("windows") != -1:
-    return "x64_windows"
-  # Use uname to figure out whether we are on x86_32 or x86_64
-  result = repository_ctx.execute(["uname", "-m"])
-  if result.stdout.strip() in ["power", "ppc64le", "ppc", "ppc64"]:
-    return "ppc"
-  if result.stdout.strip() in ["arm", "armv7l", "aarch64"]:
-    return "arm"
-  return "k8" if result.stdout.strip() in ["amd64", "x86_64", "x64"] else "piii"
+    """Compute the cpu_value based on the OS name. Doesn't %-escape the result!"""
+    os_name = repository_ctx.os.name.lower()
+    if os_name.startswith("mac os"):
+        return "darwin"
+    if os_name.find("freebsd") != -1:
+        return "freebsd"
+    if os_name.find("windows") != -1:
+        return "x64_windows"
 
-
-def tpl(repository_ctx, template, substitutions={}, out=None):
-  if not out:
-    out = template
-  repository_ctx.template(
-      out,
-      Label("@bazel_tools//tools/cpp:%s.tpl" % template),
-      substitutions)
-
+    # Use uname to figure out whether we are on x86_32 or x86_64
+    result = repository_ctx.execute(["uname", "-m"])
+    if result.stdout.strip() in ["power", "ppc64le", "ppc", "ppc64"]:
+        return "ppc"
+    if result.stdout.strip() in ["arm", "armv7l"]:
+        return "arm"
+    if result.stdout.strip() in ["aarch64"]:
+        return "aarch64"
+    return "k8" if result.stdout.strip() in ["amd64", "x86_64", "x64"] else "piii"
 
 def is_cc_configure_debug(repository_ctx):
-  """Returns True if CC_CONFIGURE_DEBUG is set to 1."""
-  env = repository_ctx.os.environ
-  return "CC_CONFIGURE_DEBUG" in env and env["CC_CONFIGURE_DEBUG"] == "1"
+    """Returns True if CC_CONFIGURE_DEBUG is set to 1."""
+    env = repository_ctx.os.environ
+    return "CC_CONFIGURE_DEBUG" in env and env["CC_CONFIGURE_DEBUG"] == "1"

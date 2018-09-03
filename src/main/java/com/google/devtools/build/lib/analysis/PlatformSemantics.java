@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.packages.RuleClass;
 /** Helper class to manage rules' use of platforms. */
 public class PlatformSemantics {
 
-  public static final String TOOLCHAINS_ATTR = "$toolchains";
+  public static final String RESOLVED_TOOLCHAINS_ATTR = "$resolved_toolchains_internal";
+  public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
 
   public static RuleClass.Builder platformAttributes(RuleClass.Builder builder) {
-    return builder
-        .add(
-            attr(TOOLCHAINS_ATTR, LABEL_LIST)
-                .nonconfigurable("Used in toolchain resolution")
-                .value(ImmutableList.of()));
+    return builder.add(
+        attr(RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST)
+            .nonconfigurable("Used in toolchain resolution")
+            .value(ImmutableList.of()));
   }
 }

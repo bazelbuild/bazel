@@ -20,6 +20,7 @@ title: User Manual
 
   Available commands:
     <a href='#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
+    <a href='#aquery'>aquery</a>             Executes a query on the <a href='#analysis-phase'>post-analysis</a> action graph.
     <a href='#build'>build</a>               Builds the specified targets.
 
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
@@ -83,7 +84,7 @@ title: User Manual
   workspace because their output bases will differ (different userids).
   If the client cannot find a running server instance, it starts a new
   one. The server process will stop after a period of inactivity (3 hours,
-  by default).
+  by default, which can be modified using the startup option <code>--max_idle_secs</code>).
 </p>
 <p>
   For the most part, the fact that there is a server running is
@@ -112,12 +113,6 @@ title: User Manual
   <code>java</code>.)  Bazel servers can be stopped using
   the <a href='#shutdown'>shutdown</a> command.
 </p>
-<p>
-  You can also run Bazel in batch mode using the <code>--batch</code>
-  startup flag. This will immediately shut down the process after the
-  command (build, test, etc.) has finished and not keep a server process
-  around.
-</p>
 
 <p>
   When running <code>bazel</code>, the client first checks that the
@@ -134,47 +129,49 @@ title: User Manual
 
 <p>
   Bazel accepts many options.  Typically, some of these are varied
-  frequently (e.g. <code class='flag'>--subcommands</code>) while others stay the
+  frequently (for example, <code class='flag'>--subcommands</code>) while others stay the
   same across several builds (e.g. <code class='flag'>--package_path</code>).
   To avoid having to specify these unchanged options for every build (and other commands)
   Bazel allows you to specify options in a configuration file.
 </p>
 
-<h4>Where are <code>.bazelrc</code> files?</h4>
+
+<h4>Where are the <code>.bazelrc</code> files?</h4>
 <p>
   Bazel looks for an optional configuration file in the following locations,
-  in order. It will stop searching once it has successfully found a file.
+  in the order shown below. The options are interpreted in this order, so
+  options in later files can override a value from an earlier file if a
+  conflict arises. All options to control which of these files are loaded are
+  startup options, which means they much occur after <code>bazel</code> and
+  before the command (<code>build</code>, etc).
 </p>
 <ol>
   <li>
-    The path specified by the <code class='flag'>--bazelrc=<var>file</var></code>
-    startup option. If specified, this option must appear <em>before</em> the
-    command name (e.g. <code>build</code>)
+    Unless the <code class='flag'>--nosystem_rc</code> is present, Bazel looks for
+    the system .bazelrc file: on Unix, it lives at <code>/etc/bazel.bazelrc</code>,
+    and on Windows at <code>%%ProgramData%%/bazel.bazelrc</code>.
+
+    If another system-specified location is required, this value can be
+    changed by setting <code>BAZEL_SYSTEM_BAZELRC_PATH</code> in
+    <code>src/main/cpp:option_processor</code> and using this custom Bazel binary.
   </li>
   <li>
-    A file named <code>.bazelrc</code> in your base workspace directory
+    Unless the <code class='flag'>--noworkspace_rc</code> is present, Bazel looks
+    for the <code>.bazelrc</code> file in your workspace directory.
   </li>
   <li>
-    A file named <code>.bazelrc</code> in your home directory
+    Unless the <code class='flag'>--nohome_rc</code> is present, Bazel looks for
+    the home, or user, bazelrc: the file <code>.bazelrc</code> in your home
+    directory.
+  </li>
+  <li>
+    An additional .rc file can be specified by the
+    <code class='flag'>--bazelrc=<var>file</var></code> startup option. If this
+    option is not present, no additional file is loaded. Unlike in the three
+    default locations specified above, an incorrect path or non-existent file
+    will fail if passed explicitly.
   </li>
 </ol>
-<p>
-  The option <code class='flag'>--bazelrc=/dev/null</code> effectively disables the
-  use of a configuration file.  We strongly recommend that you use
-  this option when performing release builds, or automated tests that
-  invoke Bazel.
-</p>
-
-<p>
-  Aside from the optional configuration file described above, Bazel also looks
-  for a master rc file named <code>bazel.bazelrc</code> next to the binary, in
-  the workspace at <code>tools/bazel.rc</code> or system-wide at
-  <code>/etc/bazel.bazelrc</code>. These files are here to support
-  installation-wide options or options shared between users. These files do not
-  override one another; if all of these files exist, all of them will be loaded.
-  Reading of these files can be disabled using the
-  <code class='flag'>--nomaster_bazelrc</code> option.
-</p>
 <h4><code>.bazelrc</code> syntax and semantics</h4>
 <p>
   Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text file with
@@ -268,16 +265,9 @@ title: User Manual
   with an underscore ('_') to avoid unintentional name sharing.
 </p>
 <p>
-  The expansion behavior for these <code>--config=foo</code> options has
-  changed. The legacy behavior, still the default, is to expand these in a
-  fixed point expansion after all default rc options are loaded. This is
-  unintuitive and has caused debugging difficulties in the past. The new
-  behavior is to expand <code>--config=foo</code> to the options it expands to
+  <code>--config=foo</code> expands to the options defined in the rc files
   "in-place" so that the options specified for the config have the same
-  precedence that the <code>--config=foo</code> option had. This is more
-  intuitive, and can be enabled using the startup flag
-  <code>--expand_configs_in_place</code>, which can be included in a bazelrc
-  file on a <code>startup</code> line.
+  precedence that the <code>--config=foo</code> option had.
 </p>
 
 <h5>Example</h5>
@@ -287,7 +277,7 @@ title: User Manual
 <pre>
   # Bob's Bazel option defaults
 
-  startup --batch --host_jvm_args=-XX:-UseParallelGC
+  startup --host_jvm_args=-XX:-UseParallelGC
   import /home/bobs_project/bazelrc
   build --show_timestamps --keep_going --jobs 600
   build --color=yes
@@ -1085,11 +1075,6 @@ $ bazel fetch //...
 
 <h3>Options that affect how packages are located</h3>
 
-<p>
-  See also the <a href='#flag--show_package_location'><code class='flag'>--show_package_location</code></a>
-  option.
-</p>
-
 <h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
 <p>
   This option specifies the set of directories that are searched to
@@ -1175,10 +1160,10 @@ $ bazel fetch //...
   These options control which options Bazel will pass to other tools.
 </p>
 
-<h4 id='flag--copt'><code class='flag'>--copt <var>gcc-option</var></code></h4>
+<h4 id='flag--copt'><code class='flag'>--copt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc.
-  The argument will be passed to gcc whenever gcc is invoked
+  This option takes an argument which is to be passed to the compiler.
+  The argument will be passed to the compiler whenever it is invoked
   for preprocessing, compiling, and/or assembling C, C++, or
   assembler code.  It will not be passed when linking.
 </p>
@@ -1196,7 +1181,7 @@ $ bazel fetch //...
 <p>
   Note that changing <code class='flag'>--copt</code> settings will force a recompilation
   of all affected object files. Also note that copts values listed in specific
-  cc_library or cc_binary build rules will be placed on the gcc command line
+  cc_library or cc_binary build rules will be placed on the compiler command line
   <em>after</em> these options.
 </p>
 <p>
@@ -1204,30 +1189,30 @@ $ bazel fetch //...
   should be specified in <code class='flag'>--cxxopt</code>, not in
   <code class='flag'>--copt</code>.  Likewise, C-specific options (such as -Wstrict-prototypes)
   should be specified in <code class='flag'>--conlyopt</code>, not in <code>copt</code>.
-  Similarly, gcc options that only have an
+  Similarly, compiler options that only have an
   effect at link time (such as <code>-l</code>) should be specified in
   <code class='flag'>--linkopt</code>, not in <code class='flag'>--copt</code>.
 </p>
 
-<h4 id='flag--host_copt'><code class='flag'>--host_copt <var>gcc-option</var></code></h4>
+<h4 id='flag--host_copt'><code class='flag'>--host_copt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc for source files
+  This option takes an argument which is to be passed to the compiler for source files
   that are compiled in the host configuration. This is analogous to
   the <a href='#flag--copt'><code class='flag'>--copt</code></a> option, but applies only to the
   host configuration.
 </p>
 
-<h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt <var>gcc-option</var></code></h4>
+<h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc for source files
+  This option takes an argument which is to be passed to the compiler for C++ source files
   that are compiled in the host configuration. This is analogous to
   the <a href='#flag--cxxopt'><code class='flag'>--cxxopt</code></a> option, but applies only to the
   host configuration.
 </p>
 
-<h4 id='flag--conlyopt'><code class='flag'>--conlyopt <var>gcc-option</var></code></h4>
+<h4 id='flag--conlyopt'><code class='flag'>--conlyopt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc when compiling C source files.
+  This option takes an argument which is to be passed to the compiler when compiling C source files.
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to C compilation,
@@ -1236,12 +1221,13 @@ $ bazel fetch //...
 </p>
 <p>
   Note that copts parameters listed in specific cc_library or cc_binary build rules
-  will be placed on the gcc command line <em>after</em> these options.
+  will be placed on the compiler command line <em>after</em> these options.
 </p>
 
-<h4 id='flag--cxxopt'><code class='flag'>--cxxopt <var>gcc-option</var></code></h4>
+<h4 id='flag--cxxopt'><code class='flag'>--cxxopt <var>cc-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc when compiling C++ source files.
+  This option takes an argument which is to be passed to the compiler when compiling C++ source
+  files.
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to C++ compilation,
@@ -1254,16 +1240,16 @@ $ bazel fetch //...
 </pre>
 <p>
   Note that copts parameters listed in specific cc_library or cc_binary build rules
-  will be placed on the gcc command line <em>after</em> these options.
+  will be placed on the compiler command line <em>after</em> these options.
 </p>
 
 <h4 id='flag--linkopt'><code class='flag'>--linkopt <var>linker-option</var></code></h4>
 <p>
-  This option takes an argument which is to be passed to gcc when linking.
+  This option takes an argument which is to be passed to the compiler when linking.
 </p>
 <p>
   This is similar to <code class='flag'>--copt</code>, but only applies to linking,
-  not to compilation.  So you can pass gcc options that only make sense
+  not to compilation.  So you can pass compiler options that only make sense
   at link time (such as <code>-lssp</code> or <code>-Wl,--wrap,abort</code>)
   using <code class='flag'>--linkopt</code>.  For example:
 </p>
@@ -1369,38 +1355,6 @@ $ bazel fetch //...
   --fdo_optimize</code> cannot be used at the same time.
 </p>
 
-<h4 id='flag--lipo'><code class='flag'>--lipo (off|binary)</code></h4>
-<p>
-  The <code class='flag'>--lipo=binary</code> option enables
-
-  LIPO
-  (Lightweight Inter-Procedural Optimization). LIPO is an extended C/C++ optimization technique
-  that optimizes code across different object files. It involves compiling each C/C++ source
-  file differently for every binary. This is in contrast to normal compilation where compilation
-  outputs are reused. This means that LIPO is more expensive than normal compilation.
-</p>
-<p>
-  This option only has an effect when FDO is also enabled (see the
-  <a href="#flag--fdo_instrument">--fdo_instrument</a> and
-  <a href="#flag--fdo_optimize">--fdo_optimize</a>).
-  Currently LIPO is only supported when building a single <code>cc_binary</code> rule.
-</p>
-<p>Setting <code>--lipo=binary</code> implicitly sets
-  <code><a href="#flag--dynamic_mode">--dynamic_mode</a>=off</code>.
-</p>
-
-<h4 id='flag--lipo_context'><code class='flag'>--lipo_context
-  <var>context-binary</var></code></h4>
-<p>
-  Specifies the label of a <code>cc_binary</code> rule that was used to generate
-  the profile information for LIPO that was given to
-  the <a href='#flag--fdo_optimize'><code class='flag'>--fdo_optimize</code></a> option.
-</p>
-<p>
-  Specifying the context is mandatory when <code>--lipo=binary</code> is set.
-  Using this option implicitly also sets
-  <code><a href="#flag--linkopt">--linkopt</a>=-Wl,--warn-unresolved-symbols</code>.
-</p>
 
 <h4 id='flag--output_symbol_counts'><code class='flag'>--[no]output_symbol_counts</code></h4>
 <p>
@@ -1581,8 +1535,8 @@ the compilation of binaries during the build.
 <h3 id='strategy-options'>Build strategy options</h3>
 <p>
   Note that a particular combination of crosstool version, compiler version,
-  libc version, and target CPU is allowed only if it has been specified
-  in the currently used CROSSTOOL file.
+  and target CPU is allowed only if it has been specified in the currently
+  used CROSSTOOL file.
 </p>
 
 <h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
@@ -1790,23 +1744,7 @@ The default is <code>armeabi-v7a</code>.
 </p>
 <p>
   Note that only certain combinations of crosstool version, compiler version,
-  libc version, and target CPU are allowed.
-</p>
-
-<h4 id='flag--glibc'><code class='flag'>--glibc <var>version</var></code></h4>
-<p>
-  This option specifies the version of glibc that the target should be linked
-  against. If you want to build with a custom crosstool, you should use a
-  CROSSTOOL file instead of specifying this flag. In that case, Bazel will use
-  the CROSSTOOL file and the following options where appropriate:
-  <ul>
-    <li><a href="#flag--cpu"><code class='flag'>--cpu</code></a></li>
-
-  </ul>
-</p>
-<p>
-  Note that only certain combinations of crosstool version, compiler version,
-  glibc version, and target CPU are allowed.
+  and target CPU are allowed.
 </p>
 
 <h4 id='flag--android_sdk'><code class='flag'>--android_sdk <var>label</var></code></h4>
@@ -1834,31 +1772,22 @@ The default is <code>armeabi-v7a</code>.
 
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>label</var>)</code></h4>
 <p>
-  This option sets the <i>label</i> of the base Java installation to
-  use for running JavaBuilder, SingleJar, for <i>bazel run</i> and <i>bazel
-  test</i>, and for Java binaries built by <code>java_binary</code> and <code>java_test</code>
-  rules.
-  The various  <a href='be/make-variables.html'>"Make" variables</a> for
-  Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
-  <code>JAR</code>) are derived from this option.
+  This option sets the <i>label</i> of the base Java installation to use for <i>bazel run</i>,
+  <i>bazel test</i>, and for Java binaries built by <code>java_binary</code> and
+  <code>java_test</code> rules. The <code>JAVABASE</code> and <code>JAVA</code>
+  <a href='be/make-variables.html'>"Make" variables</a> are derived from this option.
 </p>
 
 <h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
 <p>
-  If not specified, bazel uses the value of <code class='flag'>--javabase</code>
-  in the host configuration, i.e., for Java-based tools that run during the build.
-  The main purpose of this flag is to enable cross-compilation.
+  This option sets the <i>label</i> of the base Java installation to use in the host configuration,
+  for example for host build tools including JavaBuilder and Singlejar.
 </p>
-
 <p>
   This does not select the Java compiler that is used to compile Java
   source files. The compiler can be selected by settings the
   <a href="#flag--java_toolchain"><code class='flag'>--java_toolchain</code></a>
   option.
-</p>
-<p>
-  This option should not be confused with the startup option
-  <a href='#startup_flag--host_javabase'>--host_javabase</a>.
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>
@@ -2125,13 +2054,13 @@ cores directly from system configuration and will assume 1.0 I/O resource.
 
 <h4 id='flag--save_temps'><code class='flag'>--save_temps</code></h4>
 <p>
-  The <code class='flag'>--save_temps</code> option causes temporary outputs from gcc to be saved.
-  These include .s files (assembler code), .i (preprocessed C) and .ii
+  The <code class='flag'>--save_temps</code> option causes temporary outputs from the compiler to be
+  saved. These include .s files (assembler code), .i (preprocessed C) and .ii
   (preprocessed C++) files.  These outputs are often useful for debugging. Temps will only be
   generated for the set of targets specified on the command line.
 </p>
 <p>
-  Note that our implementation of <code class='flag'>--save_temps</code> does not use gcc's
+  Note that our implementation of <code class='flag'>--save_temps</code> does not use the compiler's
   <code>-save-temps</code> flag.  Instead, we do two passes, one with <code>-S</code>
   and one with <code>-E</code>.  A consequence of this is that if your build fails,
   Bazel may not yet have produced the ".i" or ".ii" and ".s" files.
@@ -2403,6 +2332,12 @@ either to the terminal, or to additional log files.
 </p>
 
 <p>
+  <code class='flag'>--subcommands=pretty_print</code> may be passed to print
+  the arguments of the command as a list rather than as a single line. This may
+  help make long command lines more readable.
+</p>
+
+<p>
   See also <a href="#flag--verbose_failures">--verbose_failures</a>, below.
 </p>
 
@@ -2539,6 +2474,61 @@ echo "STABLE_USER_NAME $USER"
   built for the host configuration, regardless of the stamp attribute.
 </p>
 
+<h3 id='platform_build_options'>Platform options</h3>
+
+<p>
+  Use these options to control the host and target platforms that configure how builds work, and to
+  control what execution platforms and toolchains are available to Bazel rules.
+</p>
+
+<p>
+  Please see background information on
+  <a href="platforms.html">Platforms</a> and <a href="toolchains.html">Toolchains</a>.
+</p>
+
+<h4 id="flag--platforms"><code class='flag'>--platforms <var>labels</var></code></h4>
+<p>
+  The labels of the platform rules describing the target platforms for the
+  current command.
+</p>
+
+<h4 id="flag--host_platform"><code class='flag'>--host_platform <var>label</var></code></h4>
+<p>
+  The label of a platform rule that describes the host system.
+</p>
+
+<h4 id="flag--extra_execution_platforms"><code class='flag'>--extra_execution_platforms <var>labels</var></code></h4>
+<p>
+  The platforms that are available as execution platforms to run actions.
+  Platforms can be specified by exact target, or as a target pattern. These
+  platforms will be considered before those declared in the WORKSPACE file by
+  <a href="https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_execution_platforms">
+  register_execution_platforms()</a>.
+</p>
+
+<h4 id="flag--extra_toolchains"><code class='flag'>--extra_toolchains <var>labels</var></code></h4>
+<p>
+  The toolchain rules to be considered during toolchain resolution. Toolchains
+  can be specified by exact target, or as a target pattern. These toolchains will
+  be considered before those declared in the WORKSPACE file by
+  <a href="https://docs.bazel.build/versions/master/skylark/lib/globals.html#register_toolchains">
+  register_toolchains()</a>.
+</p>
+
+<h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=false</code></h4>
+<p>
+  Print debug information while finding toolchains for a rule. This might help
+  developers of Bazel or Skylark rules with debugging failures due to missing
+  toolchains.
+</p>
+
+<h4 id="flag--enabled_toolchain_types"><code class='flag'>--enabled_toolchain_types <var>labels</var></code></h4>
+<p>
+  Enable toolchain resolution for the given toolchain type, if the rules used support that.
+  This does not directly change the core Bazel machinery, but is a signal to participating rule
+  implementations that toolchain resolution should be used.
+</p>
+
 <h3 id='misc_build_options'>Miscellaneous options</h3>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
@@ -2621,7 +2611,7 @@ echo "STABLE_USER_NAME $USER"
 </p>
 <ul>
   <li><a href='#bazelrc'><code class='flag'>--bazelrc=/dev/null</code></a></li>
-  <li><a href='#flag--batch'><code class='flag'>--batch</code></a></li>
+  <li><a href='#flag--keep_state_after_build'><code class='flag'>--nokeep_state_after_build</code></a></li>
 </ul>
 
 <p>
@@ -3075,6 +3065,30 @@ Examples:
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
 </pre>
 
+<h2 id='aquery'>Querying the action graph with Bazel</h2>
+
+<b>Caution</b>: The aquery command is still experimental and its API will change.
+
+<p>
+  The <code>aquery</code> command allows you to query for actions in your build graph.
+  It operates on the post-analysis configured target graph and exposes
+  information about actions, artifacts and their relationships.
+</p>
+
+<p>
+  The tool accepts several command-line options.
+  <code class='flag'>--output</code> selects the output format
+  (<code>proto</code> is the default, use <code>text</code> for human readable
+  output).
+  Notably, the aquery command runs on top of a regular Bazel build and inherits
+  the set of options available during a build.
+</p>
+
+<p>
+  It supports the same set of functions that is also available to traditional
+  <code>query</code> but <code>siblings</code>, <code>buildfiles</code> and
+  <code>tests</code>.
+</p>
 
 <h2 id='misc'>Miscellaneous Bazel commands and options</h2>
 
@@ -3184,7 +3198,7 @@ Examples:
   </li>
 
   <li><code>used-heap-size</code>,
-      <code>committed-size</code>,
+      <code>committed-heap-size</code>,
       <code>max-heap-size</code>: reports various JVM heap size
     parameters.  Respectively: memory currently used, memory currently
     guaranteed to be available to the JVM from the system, maximum
@@ -3590,20 +3604,27 @@ adb -s deadbeef install ...
   base) if there is a better location in your filesystem layout.
 </p>
 
-<h4 id='startup_flag--host_javabase'><code class='flag'>--host_javabase=<var>dir</var></code></h4>
+<a name="startup_flag--host_javabase"></a>
+<h4 id='startup_flag--server_javabase'><code class='flag'>--server_javabase=<var>dir</var></code></h4>
 <p>
   Specifies the Java virtual machine in which <i>Bazel itself</i> runs. The value must be a path to
   the directory containing a JDK or JRE. It should not be a label.
   This option should appear before any bazel command, and not be confused with the build option
-  <a href='#flag--host_javabase'>--host_javabase</a>, for example:
+  <a href='#flag--server_javabase'>--server_javabase</a>, for example:
 </p>
 <pre>
-  % bazel --host_javabase=/usr/local/buildtools/java/jdk9 build //foo
+  % bazel --server_javabase=/usr/local/buildtools/java/jdk9 build //foo
 </pre>
 <p>
   This flag does <i>not</i> affect the JVMs used by Bazel subprocesses such as applications, tests,
   tools, and so on. Use build options <a href='#flag--javabase'>--javabase</a> or
   <a href='#flag--host_javabase'>--host_javabase</a> instead.
+</p>
+<p>
+  This flag was previously named <code>--host_javabase</code> (sometimes referred to as the
+  'left-hand side' <code>--host_javabase</code>), but was renamed to avoid confusion with the
+  build flag <a href='#flag--host_javabase'>--host_javabase</a> (sometimes referred to as the
+  'right-hand side' <code>--host_javabase</code>).
 </p>
 
 <h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>
@@ -3623,7 +3644,7 @@ adb -s deadbeef install ...
 </p>
 <p>
   That this does <i>not</i> affect any JVMs used by
-  subprocesses of Bazel: applications, tests, tools, etc.  To pass
+  subprocesses of Bazel: applications, tests, tools, and so on.  To pass
   JVM options to executable Java programs, whether run by <code>bazel
   run</code> or on the command-line, you should use
   the <code>--jvm_flags</code> argument which
@@ -3645,24 +3666,32 @@ adb -s deadbeef install ...
 </p>
 
 <h4 id='flag--batch'><code class='flag'>--batch</code></h4>
+
 <p>
-  This switch will cause bazel to be run in batch mode, instead of the
-  standard client/server mode described <a href='#client/server'>above</a>.
-  Doing so provides more predictable semantics with respect to signal handling,
-  job control, and environment variable inheritance, and is necessary for running
-  bazel in a chroot jail.
+  WARNING: <code class='flag'>--batch</code> is deprecated. For build isolation, we recommend
+  using the command option  <code class='flag'>--nokeep_state_after_build</code>, which guarantees
+  that no incremental in-memory state is kept between builds. In order to restart the
+  Bazel server and JVM after a build, please explicitly do so using the “shutdown” command.
+</p>
+
+<p>
+  Batch mode causes Bazel to not use the standard client/server mode described
+  <a href='#client/server'>above</a>, instead running a bazel java process for a
+  single command, which has been used for more predictable semantics with respect
+  to signal handling, job control, and environment variable inheritance, and is
+  necessary for running bazel in a chroot jail.
 </p>
 
 <p>
   Batch mode retains proper queueing semantics within the same output_base.
   That is, simultaneous invocations will be processed in order, without overlap.
-  If a batch mode bazel is run on a client with a running server, it first
+  If a batch mode Bazel is run on a client with a running server, it first
   kills the server before processing the command.
 </p>
 
 <p>
-  Bazel will run slower in batch mode, compared to client/server mode.
-  Among other things, the build file cache is memory-resident, so it is not
+  Bazel will run slower in batch mode, or with the alternatives described above.
+  This is because, among other things, the build file cache is memory-resident, so it is not
   preserved between sequential batch invocations.
   Therefore, using batch mode often makes more sense in cases where performance
   is less critical, such as continuous builds.
@@ -3804,25 +3833,14 @@ adb -s deadbeef install ...
   have to wait for those commands to complete before it can continue.
 </p>
 
-<h3>Server or no server?</h3>
+<h3>Notes about Server Mode</h3>
 
 <p>
   By default, Bazel uses a long-running <a
-  href='#client/server'>server process</a> as an optimization; this
-  behavior can be disabled using the <a
-  href='#flag--batch'><code class='flag'>--batch</code></a> option.  There's no hard and
-  fast rule about whether or not your script should use a server, but
-  in general, the trade-off is between performance and reliability.
-  The server mode makes a sequence of builds, especially incremental
-  builds, faster, but its behavior is more complex and more likely to
-  fail.  We recommend in most cases that you use batch mode unless
-  the performance advantage is critical.
-</p>
-<p>
-  If you do use the server, don't forget to call <code>shutdown</code>
-  when you're finished with it, or, specify
-  <code class='flag'>--max_idle_secs=5</code> so that idle servers shut themselves
-  down promptly.
+  href='#client/server'>server process</a> as an optimization. When running Bazel
+  in a script, don't forget to call <code>shutdown</code> when you're finished
+  with the server, or, specify <code class='flag'>--max_idle_secs=5</code> so
+  that idle servers shut themselves down promptly.
 </p>
 
 <h3>What exit code will I get?</h3>
@@ -3865,9 +3883,8 @@ Bazel execution can result in following exit codes:
 <b>For <code>bazel run</code>:</b>
 <ul>
   <li><code>1</code> - Build failed.</li>
-  <li><code>6</code> - Run command failure. The executed subprocess returned a
-                       non-zero exit code. The actual subprocess exit code is
-                       given in stderr.</li>
+  <li>If the build succeeds but the executed subprocess returns a non-zero exit code it will be the
+    exit code of the command as well.</li>
 </ul>
 
 

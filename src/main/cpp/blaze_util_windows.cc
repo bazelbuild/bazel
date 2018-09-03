@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/blaze_util_platform.h"
+
 #include <fcntl.h>
 #include <stdarg.h>  // va_start, va_end, va_list
 
@@ -25,15 +27,17 @@
 #include <shlobj.h>        // SHGetKnownFolderPath
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>  // NOLINT
+#include <set>
 #include <sstream>
-#include <thread>  // NOLINT (to slience Google-internal linter)
+#include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -43,6 +47,8 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/util.h"
@@ -61,6 +67,7 @@ static const size_t kWindowsPathBufferSize = 0x8010;
 using bazel::windows::AutoAttributeList;
 using bazel::windows::AutoHandle;
 using bazel::windows::CreateJunction;
+using bazel::windows::CreateJunctionResult;
 
 // TODO(bazel-team): stop using BAZEL_DIE, handle errors on the caller side.
 // BAZEL_DIE calls exit(exitcode), which makes it difficult to follow the
@@ -71,6 +78,199 @@ using blaze_util::GetLastErrorString;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
+
+namespace embedded_binaries {
+
+class WindowsDumper : public Dumper {
+ public:
+  static WindowsDumper* Create(string* error);
+  ~WindowsDumper() { Finish(nullptr); }
+  void Dump(const void* data, const size_t size, const string& path) override;
+  bool Finish(string* error) override;
+
+ private:
+  WindowsDumper()
+      : threadpool_(NULL), cleanup_group_(NULL), was_error_(false) {}
+
+  PTP_POOL threadpool_;
+  PTP_CLEANUP_GROUP cleanup_group_;
+  TP_CALLBACK_ENVIRON threadpool_env_;
+  std::mutex dir_cache_lock_;
+  std::set<string> dir_cache_;
+  std::atomic_bool was_error_;
+  string error_msg_;
+};
+
+namespace {
+
+class DumpContext {
+ public:
+  DumpContext(unique_ptr<uint8_t[]> data, const size_t size, const string path,
+              std::mutex* dir_cache_lock, std::set<string>* dir_cache,
+              std::atomic_bool* was_error, string* error_msg);
+  void Run();
+
+ private:
+  void MaybeSignalError(const string& msg);
+
+  unique_ptr<uint8_t[]> data_;
+  const size_t size_;
+  const string path_;
+  std::mutex* dir_cache_lock_;
+  std::set<string>* dir_cache_;
+  std::atomic_bool* was_error_;
+  string* error_msg_;
+};
+
+VOID CALLBACK WorkCallback(_Inout_ PTP_CALLBACK_INSTANCE Instance,
+                           _Inout_opt_ PVOID Context, _Inout_ PTP_WORK Work);
+
+}  // namespace
+
+Dumper* Create(string* error) { return WindowsDumper::Create(error); }
+
+WindowsDumper* WindowsDumper::Create(string* error) {
+  unique_ptr<WindowsDumper> result(new WindowsDumper());
+
+  result->threadpool_ = CreateThreadpool(NULL);
+  if (result->threadpool_ == NULL) {
+    if (error) {
+      string msg = GetLastErrorString();
+      *error = "CreateThreadpool failed: " + msg;
+    }
+    return nullptr;
+  }
+
+  result->cleanup_group_ = CreateThreadpoolCleanupGroup();
+  if (result->cleanup_group_ == NULL) {
+    string msg = GetLastErrorString();
+    CloseThreadpool(result->threadpool_);
+    if (error) {
+      string msg = GetLastErrorString();
+      *error = "CreateThreadpoolCleanupGroup failed: " + msg;
+    }
+    return nullptr;
+  }
+
+  // I (@laszlocsomor) experimented with different thread counts and found that
+  // 8 threads provide a significant advantage over 1 thread, but adding more
+  // threads provides only marginal speedup.
+  SetThreadpoolThreadMaximum(result->threadpool_, 16);
+  SetThreadpoolThreadMinimum(result->threadpool_, 8);
+
+  InitializeThreadpoolEnvironment(&result->threadpool_env_);
+  SetThreadpoolCallbackPool(&result->threadpool_env_, result->threadpool_);
+  SetThreadpoolCallbackCleanupGroup(&result->threadpool_env_,
+                                    result->cleanup_group_, NULL);
+
+  return result.release();  // release pointer ownership
+}
+
+void WindowsDumper::Dump(const void* data, const size_t size,
+                         const string& path) {
+  if (was_error_) {
+    return;
+  }
+
+  unique_ptr<uint8_t[]> data_copy(new uint8_t[size]);
+  memcpy(data_copy.get(), data, size);
+  unique_ptr<DumpContext> ctx(new DumpContext(std::move(data_copy), size, path,
+                                              &dir_cache_lock_, &dir_cache_,
+                                              &was_error_, &error_msg_));
+  PTP_WORK w = CreateThreadpoolWork(WorkCallback, ctx.get(), &threadpool_env_);
+  if (w == NULL) {
+    string err = GetLastErrorString();
+    if (!was_error_.exchange(true)) {
+      // Benign race condition: though we use no locks to access `error_msg_`,
+      // only one thread may ever flip `was_error_` from false to true and enter
+      // the body of this if-clause. Since `was_error_` is the same object as
+      // used by all other threads trying to write to `error_msg_` (see
+      // DumpContext::MaybeSignalError), using it provides adequate mutual
+      // exclusion to write `error_msg_`.
+      error_msg_ = string("WindowsDumper::Dump() couldn't submit work: ") + err;
+    }
+  } else {
+    ctx.release();  // release pointer ownership
+    SubmitThreadpoolWork(w);
+  }
+}
+
+bool WindowsDumper::Finish(string* error) {
+  if (threadpool_ == NULL) {
+    return true;
+  }
+  CloseThreadpoolCleanupGroupMembers(cleanup_group_, FALSE, NULL);
+  CloseThreadpoolCleanupGroup(cleanup_group_);
+  CloseThreadpool(threadpool_);
+  threadpool_ = NULL;
+  cleanup_group_ = NULL;
+  if (was_error_ && error) {
+    // No race condition reading `error_msg_`: all worker threads terminated
+    // by now.
+    *error = error_msg_;
+  }
+  return !was_error_;
+}
+
+namespace {
+
+DumpContext::DumpContext(unique_ptr<uint8_t[]> data, const size_t size,
+                         const string path, std::mutex* dir_cache_lock,
+                         std::set<string>* dir_cache,
+                         std::atomic_bool* was_error, string* error_msg)
+    : data_(std::move(data)),
+      size_(size),
+      path_(path),
+      dir_cache_lock_(dir_cache_lock),
+      dir_cache_(dir_cache),
+      was_error_(was_error),
+      error_msg_(error_msg) {}
+
+void DumpContext::Run() {
+  string dirname = blaze_util::Dirname(path_);
+
+  bool success = true;
+  // Performance optimization: memoize the paths we already created a
+  // directory for, to spare a stat in attempting to recreate an already
+  // existing directory. This optimization alone shaves off seconds from the
+  // extraction time on Windows.
+  {
+    std::lock_guard<std::mutex> guard(*dir_cache_lock_);
+    if (dir_cache_->insert(dirname).second) {
+      success = blaze_util::MakeDirectories(dirname, 0777);
+    }
+  }
+
+  if (!success) {
+    MaybeSignalError(string("Couldn't create directory '") + dirname + "'");
+    return;
+  }
+
+  if (!blaze_util::WriteFile(data_.get(), size_, path_, 0755)) {
+    MaybeSignalError(string("Failed to write zipped file '") + path_ + "'");
+  }
+}
+
+void DumpContext::MaybeSignalError(const string& msg) {
+  if (!was_error_->exchange(true)) {
+    // Benign race condition: though we use no locks to access `error_msg_`,
+    // only one thread may ever flip `was_error_` from false to true and enter
+    // the body of this if-clause. Since `was_error_` is the same object as used
+    // by all other threads and by WindowsDumper::Dump(), using it provides
+    // adequate mutual exclusion to write `error_msg_`.
+    *error_msg_ = msg;
+  }
+}
+
+VOID CALLBACK WorkCallback(_Inout_ PTP_CALLBACK_INSTANCE Instance,
+                           _Inout_opt_ PVOID Context, _Inout_ PTP_WORK Work) {
+  unique_ptr<DumpContext> ctx(reinterpret_cast<DumpContext*>(Context));
+  ctx->Run();
+}
+
+}  // namespace
+
+}  // namespace embedded_binaries
 
 SignalHandler SignalHandler::INSTANCE;
 
@@ -652,36 +852,6 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 
 const char kListSeparator = ';';
 
-string PathAsJvmFlag(const string& path) {
-  string spath;
-  string error;
-  if (!blaze_util::AsShortWindowsPath(path, &spath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "PathAsJvmFlag(" << path
-        << "): AsShortWindowsPath failed: " << error;
-  }
-  // Convert backslashes to forward slashes, in order to avoid the JVM parsing
-  // Windows paths as if they contained escaped characters.
-  // See https://github.com/bazelbuild/bazel/issues/2576
-  std::replace(spath.begin(), spath.end(), '\\', '/');
-  return spath;
-}
-
-string ConvertPath(const string& path) {
-  // The path may not be Windows-style and may not be normalized, so convert it.
-  wstring wpath;
-  string error;
-  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "ConvertPath(" << path
-        << "): AsAbsoluteWindowsPath failed: " << error;
-  }
-  std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);
-  return string(blaze_util::WstringToCstring(
-                    blaze_util::RemoveUncPrefixMaybe(wpath.c_str()))
-                    .get());
-}
-
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   wstring name;
   wstring target;
@@ -698,8 +868,8 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
         << "): AsAbsoluteWindowsPath(" << posix_name << ") failed: " << error;
     return false;
   }
-  wstring werror(CreateJunction(name, target));
-  if (!werror.empty()) {
+  wstring werror;
+  if (CreateJunction(name, target, &werror) != CreateJunctionResult::kSuccess) {
     string error(blaze_util::WstringToCstring(werror.c_str()).get());
     BAZEL_LOG(ERROR) << "SymlinkDirectories(" << posix_target << ", "
                      << posix_name << "): CreateJunction: " << error;
@@ -708,9 +878,6 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   return true;
 }
 
-bool CompareAbsolutePaths(const string& a, const string& b) {
-  return ConvertPath(a) == ConvertPath(b);
-}
 
 #ifndef STILL_ACTIVE
 #define STILL_ACTIVE (259)  // From MSDN about GetExitCodeProcess.
@@ -988,14 +1155,15 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
     if (GetLastError() == ERROR_SHARING_VIOLATION) {
       // Someone else has the lock.
+      BAZEL_LOG(USER) << "Another command holds the client lock";
       if (!block) {
-        BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-            << "Another command is running. Exiting immediately.";
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the lock is held and --noblock_for_lock was "
+               "given.";
       }
       if (first_lock_attempt) {
         first_lock_attempt = false;
-        BAZEL_LOG(USER)
-            << "Another command is running. Waiting for it to complete...";
+        BAZEL_LOG(USER) << "Waiting for it to complete...";
         fflush(stderr);
       }
       Sleep(/* dwMilliseconds */ 200);
@@ -1112,6 +1280,10 @@ bool UnlimitResources() {
   return true;  // Nothing to do so assume success.
 }
 
+bool UnlimitCoredumps() {
+  return true;  // Nothing to do so assume success.
+}
+
 static const int MAX_KEY_LENGTH = 255;
 // We do not care about registry values longer than MAX_PATH
 static const int REG_VALUE_BUFFER_SIZE = MAX_PATH;
@@ -1123,7 +1295,7 @@ static string GetMsysBash() {
   // MSYS2 installer writes its registry into HKCU, although documentation
   // (https://msdn.microsoft.com/en-us/library/ms954376.aspx)
   // clearly states that it should go to HKLM.
-  static const char* const key =
+  static constexpr const char key[] =
       "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
   if (RegOpenKeyExA(HKEY_CURRENT_USER,  // _In_     HKEY    hKey,
                     key,                // _In_opt_ LPCTSTR lpSubKey,
@@ -1141,7 +1313,7 @@ static string GetMsysBash() {
   // we enumerate all keys under
   // HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall and find the first
   // with MSYS2 64bit display name.
-  static const char* const msys_display_name = "MSYS2 64bit";
+  static constexpr const char msys_display_name[] = "MSYS2 64bit";
   DWORD n_subkeys;
 
   if (RegQueryInfoKey(h_uninstall,  // _In_        HKEY      hKey,
@@ -1245,58 +1417,6 @@ static string GetMsysBash() {
   return string();
 }
 
-// Implements heuristics to discover Git-on-Win installation.
-static string GetBashFromGitOnWin() {
-  HKEY h_GitOnWin_uninstall;
-
-  // Well-known registry key for Git-on-Windows.
-  static const char* const key =
-      "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Git_is1";
-  if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,    // _In_     HKEY    hKey,
-                    key,                   // _In_opt_ LPCTSTR lpSubKey,
-                    0,                     // _In_     DWORD   ulOptions,
-                    KEY_QUERY_VALUE,       // _In_     REGSAM  samDesired,
-                    &h_GitOnWin_uninstall  // _Out_    PHKEY   phkResult
-                    )) {
-    BAZEL_LOG(INFO) << "Cannot open HKCU\\" << key;
-    return string();
-  }
-  AutoHandle auto_h_GitOnWin_uninstall(h_GitOnWin_uninstall);
-
-  BAZEL_LOG(INFO) << "Getting install location of HKLM\\" << key;
-  BYTE path[REG_VALUE_BUFFER_SIZE];
-  DWORD path_length = sizeof(path);
-  DWORD path_type;
-  if (RegQueryValueEx(h_GitOnWin_uninstall,  // _In_        HKEY    hKey,
-                      "InstallLocation",     // _In_opt_    LPCTSTR lpValueName,
-                      0,                     // _Reserved_  LPDWORD lpReserved,
-                      &path_type,            // _Out_opt_   LPDWORD lpType,
-                      path,                  // _Out_opt_   LPBYTE  lpData,
-                      &path_length           // _Inout_opt_ LPDWORD lpcbData
-                      )) {
-    BAZEL_LOG(ERROR) << "Failed to query InstallLocation of HKLM\\" << key;
-    return string();
-  }
-
-  if (path_length == 0 || path_type != REG_SZ) {
-    BAZEL_LOG(ERROR) << "Zero-length (" << path_length
-                     << ") install location or wrong type (" << path_type
-                     << ")";
-    return string();
-  }
-
-  BAZEL_LOG(INFO) << "Install location of HKLM\\" << key << " is " << path;
-  string path_as_string(path, path + path_length - 1);
-  string bash_exe = path_as_string + "\\usr\\bin\\bash.exe";
-  if (!blaze_util::PathExists(bash_exe)) {
-    BAZEL_LOG(ERROR) << "%s does not exist", bash_exe.c_str();
-    return string();
-  }
-
-  BAZEL_LOG(INFO) << "Detected git-on-Windows bash at " << bash_exe.c_str();
-  return bash_exe;
-}
-
 static string GetBinaryFromPath(const string& binary_name) {
   char found[MAX_PATH];
   string path_list = blaze::GetEnv("PATH");
@@ -1340,11 +1460,6 @@ static string LocateBash() {
     return msys_bash;
   }
 
-  string git_on_win_bash = GetBashFromGitOnWin();
-  if (!git_on_win_bash.empty()) {
-    return git_on_win_bash;
-  }
-
   return GetBinaryFromPath("bash.exe");
 }
 
@@ -1365,17 +1480,13 @@ void DetectBashOrDie() {
     // TODO(bazel-team) should this be printed to stderr? If so, it should use
     // BAZEL_LOG(ERROR)
     printf(
-        "Bazel on Windows requires bash.exe and other Unix tools, but we could "
-        "not find them.\n"
-        "If you do not have them installed, the easiest is to install MSYS2 "
-        "from\n"
+        "Bazel on Windows requires MSYS2 Bash, but we could not find it.\n"
+        "If you do not have it installed, you can install MSYS2 from\n"
         "       http://repo.msys2.org/distrib/msys2-x86_64-latest.exe\n"
-        "or git-on-Windows from\n"
-        "       https://git-scm.com/download/win\n"
         "\n"
-        "If you already have bash.exe installed but Bazel cannot find it,\n"
+        "If you already have it installed but Bazel cannot find it,\n"
         "set BAZEL_SH environment variable to its location:\n"
-        "       set BAZEL_SH=c:\\path\\to\\bash.exe\n");
+        "       set BAZEL_SH=c:\\path\\to\\msys2\\usr\\bin\\bash.exe\n");
     exit(1);
   }
 }

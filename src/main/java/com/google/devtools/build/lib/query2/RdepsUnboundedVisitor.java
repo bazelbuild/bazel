@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
@@ -26,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdep;
 import com.google.devtools.build.lib.query2.engine.Callback;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -59,19 +58,19 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
    */
   private final Uniquifier<SkyKey> validRdepUniquifier;
 
-  private final Predicate<SkyKey> universe;
+  private final Predicate<SkyKey> unfilteredUniverse;
 
   RdepsUnboundedVisitor(
       SkyQueryEnvironment env,
       Uniquifier<DepAndRdep> depAndRdepUniquifier,
       Uniquifier<SkyKey> validRdepUniquifier,
-      Predicate<SkyKey> universe,
+      Predicate<SkyKey> unfilteredUniverse,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     super(env, callback, packageSemaphore);
     this.depAndRdepUniquifier = depAndRdepUniquifier;
     this.validRdepUniquifier = validRdepUniquifier;
-    this.universe = universe;
+    this.unfilteredUniverse = unfilteredUniverse;
   }
 
   /**
@@ -84,17 +83,17 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
     private final SkyQueryEnvironment env;
     private final Uniquifier<DepAndRdep> depAndRdepUniquifier;
     private final Uniquifier<SkyKey> validRdepUniquifier;
-    private final Predicate<SkyKey> universe;
+    private final Predicate<SkyKey> unfilteredUniverse;
     private final Callback<Target> callback;
     private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
     Factory(
         SkyQueryEnvironment env,
-        Predicate<SkyKey> universe,
+        Predicate<SkyKey> unfilteredUniverse,
         Callback<Target> callback,
         MultisetSemaphore<PackageIdentifier> packageSemaphore) {
       this.env = env;
-      this.universe = universe;
+      this.unfilteredUniverse = unfilteredUniverse;
       this.depAndRdepUniquifier = new UniquifierImpl<>(depAndRdep -> depAndRdep);
       this.validRdepUniquifier = env.createSkyKeyUniquifier();
       this.callback = callback;
@@ -104,12 +103,18 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
     @Override
     public ParallelVisitor<DepAndRdep, Target> create() {
       return new RdepsUnboundedVisitor(
-          env, depAndRdepUniquifier, validRdepUniquifier, universe, callback, packageSemaphore);
+          env,
+          depAndRdepUniquifier,
+          validRdepUniquifier,
+          unfilteredUniverse,
+          callback,
+          packageSemaphore);
     }
   }
 
   @Override
-  protected Visit getVisitResult(Iterable<DepAndRdep> depAndRdeps) throws InterruptedException {
+  protected Visit getVisitResult(Iterable<DepAndRdep> depAndRdeps)
+      throws QueryException, InterruptedException {
     Collection<SkyKey> validRdeps = new ArrayList<>();
 
     // Multimap of dep to all the reverse deps in this visitation. Used to filter out the
@@ -125,13 +130,10 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
     }
 
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
-        env.makePackageKeyToTargetKeyMap(Iterables.concat(reverseDepMultimap.values()));
+        SkyQueryEnvironment.makePackageKeyToTargetKeyMap(
+            Iterables.concat(reverseDepMultimap.values()));
     Set<PackageIdentifier> pkgIdsNeededForTargetification =
-        packageKeyToTargetKeyMap
-            .keySet()
-            .stream()
-            .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
-            .collect(toImmutableSet());
+        SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
     packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
 
     try {
@@ -150,14 +152,18 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
       packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
     }
 
-    ImmutableList<SkyKey> uniqueValidRdeps =
-        validRdeps
-            .stream()
-            .filter(validRdepUniquifier::unique)
-            .collect(ImmutableList.toImmutableList());
+    ImmutableList.Builder<SkyKey> uniqueValidRdepsbuilder = ImmutableList.builder();
+    for (SkyKey rdep : validRdeps) {
+      if (validRdepUniquifier.unique(rdep)) {
+        uniqueValidRdepsbuilder.add(rdep);
+      }
+    }
+    ImmutableList<SkyKey> uniqueValidRdeps = uniqueValidRdepsbuilder.build();
 
     // Retrieve the reverse deps as SkyKeys and defer the targetification and filtering to next
-    // recursive visitation.
+    // recursive visitation. Because the universe given to us is unfiltered, we definitely still
+    // need to filter out disallowed edges, but cannot do so before targetification occurs. This
+    // means we may be wastefully visiting nodes via disallowed edges.
     ImmutableList.Builder<DepAndRdep> depAndRdepsToVisitBuilder = ImmutableList.builder();
     env.graph
         .getReverseDeps(uniqueValidRdeps)
@@ -168,7 +174,7 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
                     Iterables.transform(
                         Iterables.filter(
                             reverseDepsEntry.getValue(),
-                            Predicates.and(SkyQueryEnvironment.IS_TTV, universe)),
+                            Predicates.and(SkyQueryEnvironment.IS_TTV, unfilteredUniverse)),
                         rdep -> new DepAndRdep(reverseDepsEntry.getKey(), rdep))));
 
     return new Visit(
@@ -179,7 +185,7 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
   @Override
   protected Iterable<DepAndRdep> preprocessInitialVisit(Iterable<SkyKey> keys) {
     return Iterables.transform(
-        Iterables.filter(keys, k -> universe.apply(k)), key -> new DepAndRdep(null, key));
+        Iterables.filter(keys, k -> unfilteredUniverse.apply(k)), key -> new DepAndRdep(null, key));
   }
 
   @Override
@@ -188,7 +194,8 @@ class RdepsUnboundedVisitor extends AbstractEdgeVisitor<DepAndRdep> {
   }
 
   @Override
-  protected ImmutableList<DepAndRdep> getUniqueValues(Iterable<DepAndRdep> depAndRdeps) {
+  protected ImmutableList<DepAndRdep> getUniqueValues(Iterable<DepAndRdep> depAndRdeps)
+      throws QueryException {
     // See the javadoc for 'validRdepUniquifier'.
     //
     // N.B. - Except for the visitation roots, 'depAndRdepUniquifier' is actually completely

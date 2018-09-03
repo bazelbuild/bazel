@@ -33,6 +33,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.LastHttpContent;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -105,6 +106,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
     response.headers().set(HttpHeaders.CONTENT_LENGTH, 0);
     response.headers().set(HttpHeaders.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
     ch.writeInbound(response);
+    ch.writeInbound(LastHttpContent.EMPTY_LAST_CONTENT);
     assertThat(writePromise.isDone()).isTrue();
     assertThat(writePromise.cause()).isInstanceOf(HttpException.class);
     assertThat(((HttpException) writePromise.cause()).response().status())
@@ -142,6 +144,7 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
     assertThat(writePromise.isDone()).isFalse();
 
     ch.writeInbound(new DefaultHttpContent(errorMessage));
+    ch.writeInbound(LastHttpContent.EMPTY_LAST_CONTENT);
     assertThat(writePromise.isDone()).isTrue();
     assertThat(writePromise.cause()).isInstanceOf(HttpException.class);
     assertThat(((HttpException) writePromise.cause()).response().status())

@@ -18,15 +18,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * A visible(x, y) query expression, which computes the subset of nodes in y
- * that are visible from all nodes in x.
+ * A visible(x, y) query expression, which computes the subset of nodes in y that are visible from
+ * all nodes in x.
  *
  * <pre>expr ::= VISIBILE '(' expr ',' expr ')'</pre>
  *
@@ -36,16 +36,36 @@ import java.util.Set;
  * visible(//foo, //bar/baz:*)
  * </pre>
  */
-public class VisibleFunction implements QueryFunction {
+public class VisibleFunction extends FilteringQueryFunction {
+
+  private final boolean invert;
+
+  VisibleFunction() {
+    this(/*invert=*/ false);
+  }
+
+  private VisibleFunction(boolean invert) {
+    this.invert = invert;
+  }
+
+  @Override
+  public FilteringQueryFunction invert() {
+    return new VisibleFunction(!invert);
+  }
 
   @Override
   public String getName() {
-    return "visible";
+    return (invert ? "no" : "") + "visible";
   }
 
   @Override
   public int getMandatoryArguments() {
     return 2;
+  }
+
+  @Override
+  public int getExpressionToFilterIndex() {
+    return 1;
   }
 
   @Override
@@ -56,7 +76,7 @@ public class VisibleFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      final VariableContext<T> context,
+      final QueryExpressionContext<T> context,
       QueryExpression expression,
       final List<Argument> args,
       final Callback<T> callback) {
@@ -69,7 +89,7 @@ public class VisibleFunction implements QueryFunction {
                 context,
                 partialResult -> {
                   for (T t : partialResult) {
-                    if (visibleToAll(env, toSet, t)) {
+                    if (invert ^ visibleToAll(env, toSet, t)) {
                       callback.process(ImmutableList.of(t));
                     }
                   }

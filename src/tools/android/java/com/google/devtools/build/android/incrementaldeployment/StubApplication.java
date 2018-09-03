@@ -434,8 +434,7 @@ public class StubApplication extends Application {
 
   private static Map<String, String> parseManifest(File file) throws IOException {
     Map<String, String> result = new HashMap<>();
-    BufferedReader reader = new BufferedReader(new FileReader(file));
-    try {
+    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
       while (true) {
         String line = reader.readLine();
         if (line == null) {
@@ -445,8 +444,6 @@ public class StubApplication extends Application {
         String[] items = line.split(" ");
         result.put(items[0], items[1]);
       }
-    } finally {
-      reader.close();
     }
 
     return result;

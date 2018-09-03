@@ -19,12 +19,20 @@ import static java.util.logging.Level.FINE;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
+import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteOptions;
+import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
@@ -39,26 +47,26 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.SingleLineFormatter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
-import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
-import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
-import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
 import io.grpc.Server;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.netty.NettyServerBuilder;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,6 +74,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -74,6 +83,7 @@ import java.util.logging.Logger;
  * based on gRPC.
  */
 public final class RemoteWorker {
+
   // We need to keep references to the root and netty loggers to prevent them from being garbage
   // collected, which would cause us to loose their configuration.
   private static final Logger rootLogger = Logger.getLogger("");
@@ -84,15 +94,14 @@ public final class RemoteWorker {
   private final ActionCacheImplBase actionCacheServer;
   private final ByteStreamImplBase bsServer;
   private final ContentAddressableStorageImplBase casServer;
-  private final WatcherImplBase watchServer;
   private final ExecutionImplBase execServer;
 
   static FileSystem getFileSystem() {
-    final HashFunction hashFunction;
+    final DigestHashFunction hashFunction;
     String value = null;
     try {
       value = System.getProperty("bazel.DigestFunction", "SHA256");
-      hashFunction = new HashFunction.Converter().convert(value);
+      hashFunction = new DigestFunctionConverter().convert(value);
     } catch (OptionsParsingException e) {
       throw new Error("The specified hash function '" + value + "' is not supported.");
     }
@@ -131,12 +140,10 @@ public final class RemoteWorker {
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
           new ConcurrentHashMap<>();
       FileSystemUtils.createDirectoryAndParents(workPath);
-      watchServer = new WatcherServer(operationsCache);
       execServer =
           new ExecutionServer(
               workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
     } else {
-      watchServer = null;
       execServer = null;
     }
   }
@@ -151,7 +158,6 @@ public final class RemoteWorker {
 
     if (execServer != null) {
       b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));
-      b.addService(ServerInterceptors.intercept(watchServer, headersInterceptor));
     } else {
       logger.info("Execution disabled, only serving cache requests.");
     }
@@ -189,23 +195,7 @@ public final class RemoteWorker {
             });
   }
 
-  /**
-   * Construct a {@link SimpleBlobStore} using Hazelcast's version of {@link ConcurrentMap}. This
-   * will start a standalone Hazelcast server in the same JVM. There will also be a REST server
-   * started for accessing the maps.
-   */
-  private static SimpleBlobStore createHazelcast(RemoteWorkerOptions options) {
-    Config config = new Config();
-    config
-        .getNetworkConfig()
-        .setPort(options.hazelcastStandaloneListenPort)
-        .getJoin()
-        .getMulticastConfig()
-        .setEnabled(false);
-    HazelcastInstance instance = Hazelcast.newHazelcastInstance(config);
-    return new ConcurrentMapBlobStore(instance.getMap("cache"));
-  }
-
+  @SuppressWarnings("FutureReturnValueIgnored")
   public static void main(String[] args) throws Exception {
     OptionsParser parser =
         OptionsParser.newOptionsParser(RemoteOptions.class, RemoteWorkerOptions.class);
@@ -253,32 +243,69 @@ public final class RemoteWorker {
 
     // The instance of SimpleBlobStore used is based on these criteria in order:
     // 1. If remote cache or local disk cache is specified then use it first.
-    // 2. Otherwise start a standalone Hazelcast instance and use it as the blob store. This also
-    //    creates a REST server for testing.
-    // 3. Finally use a ConcurrentMap to back the blob store.
+    // 2. Finally use a ConcurrentMap to back the blob store.
     final SimpleBlobStore blobStore;
     if (usingRemoteCache) {
       blobStore = SimpleBlobStoreFactory.create(remoteOptions, null, null);
     } else if (remoteWorkerOptions.casPath != null) {
       blobStore = new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath));
-    } else if (remoteWorkerOptions.hazelcastStandaloneListenPort != 0) {
-      blobStore = createHazelcast(remoteWorkerOptions);
     } else {
-      blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
+      blobStore = new ConcurrentMapBlobStore(new ConcurrentHashMap<>());
     }
 
+    ListeningScheduledExecutorService retryService =
+        MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    RemoteRetrier retrier =
+        new RemoteRetrier(
+            remoteOptions,
+            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            retryService,
+            Retrier.ALLOW_ALL_CALLS);
     DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
     RemoteWorker worker =
         new RemoteWorker(
             fs,
             remoteWorkerOptions,
-            new SimpleBlobStoreActionCache(remoteOptions, blobStore, digestUtil),
+            new SimpleBlobStoreActionCache(remoteOptions, blobStore, retrier, digestUtil),
             sandboxPath,
             digestUtil);
 
     final Server server = worker.startServer();
+
+    EventLoopGroup bossGroup = null, workerGroup = null;
+    Channel ch = null;
+    if (remoteWorkerOptions.httpListenPort != 0) {
+      // Configure the server.
+      bossGroup = new NioEventLoopGroup(1);
+      workerGroup = new NioEventLoopGroup();
+      ServerBootstrap b = new ServerBootstrap();
+      b.group(bossGroup, workerGroup)
+          .channel(NioServerSocketChannel.class)
+          .handler(new LoggingHandler(LogLevel.INFO))
+          .childHandler(new HttpCacheServerInitializer());
+      ch = b.bind(remoteWorkerOptions.httpListenPort).sync().channel();
+      logger.log(
+          INFO,
+          "Started HTTP cache server on port " + remoteWorkerOptions.httpListenPort);
+    } else {
+      logger.log(INFO, "Not starting HTTP cache server");
+    }
+
     worker.createPidFile();
+
     server.awaitTermination();
+    if (ch != null) {
+      ch.closeFuture().sync().get();
+    }
+
+    retryService.shutdownNow();
+    if (bossGroup != null) {
+      bossGroup.shutdownGracefully();
+    }
+    if (workerGroup != null) {
+      workerGroup.shutdownGracefully();
+    }
   }
 
   private static Path prepareSandboxRunner(FileSystem fs, RemoteWorkerOptions remoteWorkerOptions) {

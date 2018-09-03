@@ -56,7 +56,7 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
                   })),
           typeFilter("the dependency checking", ProfilerTask.ACTION_CHECK),
           typeFilter("the execution setup", ProfilerTask.ACTION_EXECUTE),
-          typeFilter("local execution", ProfilerTask.SPAWN, ProfilerTask.LOCAL_EXECUTION),
+          typeFilter("local execution", ProfilerTask.LOCAL_EXECUTION),
           typeFilter("the include scanner", ProfilerTask.SCANNER),
           typeFilter(
               "Remote execution (cumulative)",
@@ -89,7 +89,6 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
    */
   private final CriticalPathEntry optimalPath;
 
-  private final long workerWaitTime;
   private final long mainThreadWaitTime;
 
   public CriticalPathStatistics(ProfileInfo info) {
@@ -100,19 +99,15 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
     info.analyzeCriticalPath(DEFAULT_FILTER, optimalPath);
 
     if (totalPath == null || totalPath.isComponent()) {
-      this.workerWaitTime = 0;
       this.mainThreadWaitTime = 0;
       criticalPathDurations = Collections.emptyList();
       return;
     }
     // Worker thread pool scheduling delays for the actual critical path.
-    long workerWaitTime = 0;
     long mainThreadWaitTime = 0;
     for (CriticalPathEntry entry = totalPath; entry != null; entry = entry.next) {
-      workerWaitTime += info.getActionWaitTime(entry.task);
       mainThreadWaitTime += info.getActionQueueTime(entry.task);
     }
-    this.workerWaitTime = workerWaitTime;
     this.mainThreadWaitTime = mainThreadWaitTime;
 
     criticalPathDurations = getCriticalPathDurations(info);
@@ -131,14 +126,6 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
    */
   public CriticalPathEntry getOptimalPath() {
     return optimalPath;
-  }
-
-  /**
-   * @see ProfileInfo#getActionWaitTime(Task)
-   * @return the sum of all action wait times on the total critical path
-   */
-  public long getWorkerWaitTime() {
-    return workerWaitTime;
   }
 
   /**

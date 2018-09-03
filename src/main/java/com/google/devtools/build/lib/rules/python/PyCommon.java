@@ -42,10 +42,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -178,9 +179,9 @@ public final class PyCommon {
    *
    * <p>addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
    */
-  public static Info createSourceProvider(
+  public static StructImpl createSourceProvider(
       NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary) {
-    return NativeProvider.STRUCT.create(
+    return StructProvider.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
@@ -298,9 +299,12 @@ public final class PyCommon {
         NestedSetBuilder.wrap(Order.STABLE_ORDER, Iterables.concat(sources, dependencies)),
         ImmutableList.of(output),
         "Python",
-        PythonInfo.pythonInfo,
+        PYTHON_INFO,
         info);
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final GeneratedExtension<ExtraActionInfo, PythonInfo> PYTHON_INFO = PythonInfo.pythonInfo;
 
   private void addSourceFiles(NestedSetBuilder<Artifact> builder, Iterable<Artifact> artifacts) {
     Preconditions.checkState(convertedFiles == null);
@@ -316,12 +320,12 @@ public final class PyCommon {
 
   private NestedSet<Artifact> getTransitivePythonSourcesFromSkylarkProvider(
       TransitiveInfoCollection dep) {
-    Info pythonSkylarkProvider = null;
+    StructImpl pythonSkylarkProvider = null;
     try {
       pythonSkylarkProvider =
           SkylarkType.cast(
               dep.get(PYTHON_SKYLARK_PROVIDER_NAME),
-              Info.class,
+              StructImpl.class,
               null,
               "%s should be a struct",
               PYTHON_SKYLARK_PROVIDER_NAME);
@@ -480,7 +484,7 @@ public final class PyCommon {
     try {
       return checkForSharedLibraries(Iterables.concat(
               ruleContext.getPrerequisites("deps", Mode.TARGET),
-              ruleContext.getPrerequisites("data", Mode.DATA)));
+              ruleContext.getPrerequisites("data", Mode.DONT_CHECK)));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return false;
@@ -496,8 +500,8 @@ public final class PyCommon {
     for (TransitiveInfoCollection dep : deps) {
       Object providerObject = dep.get(PYTHON_SKYLARK_PROVIDER_NAME);
       if (providerObject != null) {
-        SkylarkType.checkType(providerObject, Info.class, null);
-        Info provider = (Info) providerObject;
+        SkylarkType.checkType(providerObject, StructImpl.class, null);
+        StructImpl provider = (StructImpl) providerObject;
         Boolean isUsingSharedLibrary = provider.getValue(IS_USING_SHARED_LIBRARY, Boolean.class);
         if (Boolean.TRUE.equals(isUsingSharedLibrary)) {
           return true;

@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 
 /**
  * An object that provides execution strategies to {@link BlazeExecutor}.
  *
- * <p>For more information, see {@link ActionContextConsumer}.
+ * <p>For more information, see {@link ExecutorBuilder}.
  */
 public abstract class ActionContextProvider {
   /**
@@ -35,13 +36,12 @@ public abstract class ActionContextProvider {
 
   /**
    * Two-phase initialization. The input file cache usually comes from a different module than the
-   * {@link ActionContextProvider} instances that require it, so this method is called after
-   * {@link com.google.devtools.build.lib.runtime.BlazeModule#executorInit}.
+   * {@link ActionContextProvider} instances that require it, so this method is called after {@link
+   * com.google.devtools.build.lib.runtime.BlazeModule#executorInit}.
    *
    * @param actionInputFileCache the input file cache
    */
-  public void init(ActionInputFileCache actionInputFileCache) {
-  }
+  public void init(MetadataProvider actionInputFileCache) {}
 
   /**
    * Called when the executor is constructed. The parameter contains all the contexts that were
@@ -51,8 +51,7 @@ public abstract class ActionContextProvider {
 
   /** Called when the execution phase is started. */
   public void executionPhaseStarting(
-      ActionGraph actionGraph,
-      Iterable<Artifact> topLevelArtifacts)
+      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
       throws ExecutorInitException, InterruptedException {}
 
   /**

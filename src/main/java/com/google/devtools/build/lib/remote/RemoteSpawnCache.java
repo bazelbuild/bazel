@@ -15,14 +15,17 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -30,16 +33,13 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.remoteexecution.v1test.Action;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Command;
 import io.grpc.Context;
 import java.io.IOException;
 import java.util.Collection;
@@ -96,17 +96,20 @@ final class RemoteSpawnCache implements SpawnCache {
 
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
-        new TreeNodeRepository(execRoot, context.getActionInputFileCache(), digestUtil);
+        new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
-    Command command = RemoteSpawnRunner.buildCommand(spawn.getArguments(), spawn.getEnvironment());
+    Command command =
+        RemoteSpawnRunner.buildCommand(
+            spawn.getOutputFiles(),
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            spawn.getExecutionPlatform());
     Action action =
         RemoteSpawnRunner.buildAction(
-            spawn.getOutputFiles(),
             digestUtil.compute(command),
             repository.getMerkleDigest(inputRoot),
-            spawn.getExecutionPlatform(),
             context.getTimeout(),
             Spawns.mayBeCached(spawn));
     // Look up action cache, and reuse the action output if it is found.
@@ -135,7 +138,10 @@ final class RemoteSpawnCache implements SpawnCache {
                   .build();
           return SpawnCache.success(spawnResult);
         }
-      } catch (CacheNotFoundException e) {
+      } catch (RetryException e) {
+        if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
+          throw e;
+        }
         // There's a cache miss. Fall back to local execution.
       } catch (IOException e) {
         String errorMsg = e.getMessage();
@@ -184,7 +190,8 @@ final class RemoteSpawnCache implements SpawnCache {
           Collection<Path> files =
               RemoteSpawnRunner.resolveActionInputs(execRoot, spawn.getOutputFiles());
           try {
-            remoteCache.upload(actionKey, execRoot, files, context.getFileOutErr(), uploadAction);
+            remoteCache.upload(
+                actionKey, action, command, execRoot, files, context.getFileOutErr(), uploadAction);
           } catch (IOException e) {
             String errorMsg = e.getMessage();
             if (isNullOrEmpty(errorMsg)) {
@@ -205,13 +212,10 @@ final class RemoteSpawnCache implements SpawnCache {
             if (input instanceof VirtualActionInput) {
               continue;
             }
-            Metadata metadata = context.getActionInputFileCache().getMetadata(input);
-            if (metadata instanceof FileArtifactValue) {
-              FileArtifactValue artifactValue = (FileArtifactValue) metadata;
-              Path path = execRoot.getRelative(input.getExecPath());
-              if (artifactValue.wasModifiedSinceDigest(path)) {
-                throw new IOException(path + " was modified during execution");
-              }
+            FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+            Path path = execRoot.getRelative(input.getExecPath());
+            if (metadata.wasModifiedSinceDigest(path)) {
+              throw new IOException(path + " was modified during execution");
             }
           }
         }

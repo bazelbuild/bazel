@@ -40,7 +40,7 @@ public class JavaRuleClasses {
               attr(":java_toolchain", LABEL)
                   .useOutputLicenses()
                   .mandatoryProviders(ToolchainInfo.PROVIDER.id())
-                  .value(JavaSemantics.JAVA_TOOLCHAIN))
+                  .value(JavaSemantics.javaToolchainAttribute(env)))
           .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
           .build();
     }

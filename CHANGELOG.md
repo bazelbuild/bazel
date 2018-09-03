@@ -1,3 +1,398 @@
+## Release 0.16.1 (2018-08-13)
+
+```
+Baseline: 4f64b77a3dd8e4ccdc8077051927985f9578a3a5
+
+Cherry picks:
+   + 4c9a0c82d308d5df5c524e2a26644022ff525f3e:
+     reduce the size of bazel's embedded jdk
+   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
+     remote: limit number of open tcp connections by default. Fixes
+     #5491
+   + 8ff87c164f48dbabe3b20becd00dde90c50d46f5:
+     Fix autodetection of linker flags
+   + c4622ac9205d2f1b42dac8c598e83113d39e7f11:
+     Fix autodetection of -z linker flags
+   + 10219659f58622d99034288cf9f491865f818218:
+     blaze_util_posix.cc: fix order of #define
+   + ab1f269017171223932e0da9bb539e8a17dd99ed:
+     blaze_util_freebsd.cc: include path.h explicitly
+   + 68e92b45a37f2142c768a56eb7ecfa484b8b22df:
+     openjdk: update macOS openjdk image. Fixes #5532
+   + f45c22407e6b00fcba706eb62141cb9036bd38d7:
+     Set the start time of binary and JSON profiles to zero correctly.
+   + bca1912853086b8e9a28a85a1b144ec0dc9717cc:
+     remote: fix race on download error. Fixes #5047
+   + 3842bd39e10612c7eef36c6048407e81bcd0a8fb:
+     jdk: use parallel old gc and disable compact strings
+   + 6bd0bdf5140525cb33dc2db068b210261d9df271:
+     Add objc-fully-link to the list of actions that require the
+     apple_env feature. This fixes apple_static_library functionality.
+   + f330439fb970cfa17c70fc59c1458bb1c31c9522:
+     Add the action_names_test_files target to the OSS version of
+     tools/buils_defs/cc/BUILD.
+   + d215b64362c4ede61c8ba87b5f3f57bce4785d15:
+     Fix StackOverflowError on Windows. Fixes #5730
+   + 366da4cf27b7f957ef39f89206db77fa2ac289df:
+     In java_rules_skylark depend on the javabase through
+     //tools/jdk:current_java_runtime
+   + 30c601dc13d9e1b40a57434c022c888c7578cc56:
+     Don't use @local_jdk for jni headers
+   + c56699db5f9173739ba3ac55aa9fa69b6457a99b:
+     'DumpPlatformClasspath' now dumps the current JDK's default
+     platform classpath
+```
+
+This release is a patch release that contains fixes for several serious
+regressions that were found after the release of Bazel 0.16.0.
+
+In particular this release resolves the following issues:
+
+ - Bazel crashes with a StackOverflowError on Windows (See #5730)
+ - Bazel requires a locally installed JDK and does not fall back
+   to the embedded JDK (See #5744)
+ - Bazel fails to build for Homebrew on macOS El Capitan (See #5777)
+ - A regression in apple_static_library (See #5683)
+
+Please watch our blog for a more detailed release announcement.
+
+## Release 0.16.0 (2018-07-31)
+
+```
+Baseline: 4f64b77a3dd8e4ccdc8077051927985f9578a3a5
+
+Cherry picks:
+   + 4c9a0c82d308d5df5c524e2a26644022ff525f3e:
+     reduce the size of bazel's embedded jdk
+   + d3228b61f633cdc5b3f740b641a0836f1bd79abd:
+     remote: limit number of open tcp connections by default. Fixes
+     #5491
+   + 8ff87c164f48dbabe3b20becd00dde90c50d46f5:
+     Fix autodetection of linker flags
+   + c4622ac9205d2f1b42dac8c598e83113d39e7f11:
+     Fix autodetection of -z linker flags
+   + 10219659f58622d99034288cf9f491865f818218:
+     blaze_util_posix.cc: fix order of #define
+   + ab1f269017171223932e0da9bb539e8a17dd99ed:
+     blaze_util_freebsd.cc: include path.h explicitly
+   + 68e92b45a37f2142c768a56eb7ecfa484b8b22df:
+     openjdk: update macOS openjdk image. Fixes #5532
+   + f45c22407e6b00fcba706eb62141cb9036bd38d7:
+     Set the start time of binary and JSON profiles to zero correctly.
+   + bca1912853086b8e9a28a85a1b144ec0dc9717cc:
+     remote: fix race on download error. Fixes #5047
+   + 3842bd39e10612c7eef36c6048407e81bcd0a8fb:
+     jdk: use parallel old gc and disable compact strings
+```
+
+Incompatible changes:
+
+  - The $(ANDROID_CPU) Make variable is not available anymore. Use
+    $(TARGET_CPU) after an Android configuration transition instead.
+  - The $(JAVA_TRANSLATIONS) Make variable is not supported anymore.
+  - Skylark structs (using struct()) may no longer have to_json and
+    to_proto overridden.
+  - The mobile-install --skylark_incremental_res flag is no longer
+    available, use the --skylark flag instead.
+
+New features:
+
+  - android_local_test now takes advantage of Robolectric's binary
+    resource processing which allows for faster tests.
+  - Allow @ in package names.
+
+Important changes:
+
+  - Option --glibc is removed, toolchain selection relies solely on
+    --cpu and --compiler options.
+  - Build support for enabling cross binary FDO optimization.
+  - The --distdir option is no longer experimental. This
+      option allows to specify additional directories to look for
+      files before trying to fetch them from the network. Files from
+      any of the distdirs are only used if a checksum for the file
+      is specified and both, the filename and the checksum, match.
+  - Java coverage works now with multiple jobs.
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - New rules for importing Android dependencies:
+    `aar_import_external` and `aar_maven_import_external`.
+    `aar_import_external` enables specifying external AAR
+    dependencies using a list of HTTP URLs for the artifact.
+    `aar_maven_import_external` enables specifying external AAR
+    dependencies using the artifact coordinate and a list of server
+    URLs.
+  - The BAZEL_JAVAC_OPTS environment variable allows arguments, e.g.,
+    "-J-Xmx2g", may be passed to the javac compiler during bootstrap
+    build. This is helpful if your system chooses too small of a max
+    heap size for the Java compiler during the bootstrap build.
+  - --noexpand_configs_in_place is deprecated.
+  - A tool to parse the Bazel execution log.
+  - Support for LIPO has been fully removed.
+  - Remove support for --discard_actions_after_execution.
+  - Add --materialize_param_files flag to write parameter files even
+    when actions are executed remotely.
+  - Windows default system bazelrc is read from the user's
+    ProgramData if present.
+  - --[no]allow_undefined_configs no longer exists, passing undefined
+    configs is an error.
+  - In remote caching we limit the number of open
+    TCP connections to 100 by default. The number can be adjusted
+    by specifying the --remote_max_connections flag.
+
+## Release 0.15.0 (2018-06-26)
+
+```
+Baseline: b93ae42e8e693ccbcc387841a17f58259966fa38
+
+Cherry picks:
+   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
+     Add option to enable Docker sandboxing.
+   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
+     Allow disabling the simple blob caches via CLI flag overrides.
+   + 4ec0a7524913ab2c4641368e3f8c09b347351a08:
+     Use BUILD.bazel instead of BUILD for external projects
+```
+
+Incompatible changes:
+
+  - Bazel now always runs binaries in with "bazel run" in
+    interactive mode. The "--nodirect_run" command line option is now
+    a no-op.
+  - "bazel run --noas_test" is not supported anymore.
+  - Indentation on the first line of a file was previously ignored.
+    This is now fixed.
+
+New features:
+
+  - C++,runfiles: to access data-dependencies (runfiles) in C++
+    programs, use the runfiles library built into Bazel. For usage
+    info, see
+    https://github.com/bazelbuild/bazel/blob/master/tools/cpp/runfiles
+    /runfiles.h
+
+Important changes:
+
+  - Bazel now allows almost all 7-bit ASCII characters in labels.
+  - Remove vestigial java_plugin.data attribute
+  - Bazel supports including select Java 8 APIs into Android apps
+    targeting pre-Nougat Android devices with
+    --experimental_desugar_java8_libs
+  - Flag `--incompatible_disable_glob_tracking` is removed.
+  - SkyQuery's rbuildfiles now returns targets corresponding to
+    broken packages.
+  - Introduce build support for providing cache prefetch hints.
+  - Update the skylark DefaultInfo documentation to spell out
+    runfiles, data_runfiles and default_runfiles
+  - An internal action for symlinking runfiles will use Command
+    instead of a Spawns. This should have no functional chages; the
+    only user visible consequence should be that the internal action
+    is no longer be included in statistics when calculating processes
+    count.
+  - --batch is deprecated
+  - execution strategies line no longer handles differently the case
+    where all processes have the same strategy.
+  - The --experimental_remote_spawn_cache flag is now enabled by
+    default, and remote caching no longer needs --*_strategy=remote
+    flags (it will fail if they are specified).
+  - android_binary.aapt_version='aapt2' now supports en_XA and ar_XB
+  - Added --apple_enable_auto_dsym_dbg flag.
+  - non_propagated_deps has been removed from objc_library and
+    apple_binary.
+  - For Android projects, Bazel now supports building fonts as
+    resources. See
+    https://developer.android.com/guide/topics/ui/look-and-feel/fonts-in-xml
+    for more information on the feature.
+  - With --incompatible_no_support_tools_in_action_inputs enabled, Skylark
+    action inputs are no longer scanned for tools. Move any such
+    inputs to the newly introduced 'tools' attribute.
+
+## Release 0.14.1 (2018-06-08)
+
+```
+Baseline: 5c3f5c9be7fa40d4fb3c35756891fab8483ca406
+
+Cherry picks:
+   + f96f037f8f77335dc444844abcc31a372a3e1849:
+     Windows, Java launcher: Support jar files under different drives
+   + ff8162d01409db34893de98bd840a51c5f13e257:
+     sh_configure.bzl: FreeBSD is also a known platform
+   + 7092ed324137f03fcd34856bdb0595a1bdec3069:
+     Remove unneeded exec_compatible_with from local_sh_toolchain
+   + 57bc201346e61c62a921c1cbf32ad24f185c10c9:
+     Do not autodetect C++ toolchain when
+     BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 is present
+   + 35a78c09cf2fbfc3de9c124d2142e3d72aac4348:
+     remote: recursively delete incomplete downloaded output
+     directory.
+   + 3c9cd82b847f3ece8ec04b2029bd5e8ad0eb7502:
+     distfile: pack the archives needed later in the build
+   + 27487c77387e457df18be3b6833697096d074eab:
+     Slightly refactor SpawnAction to improve env handling
+   + 1b333a2c37add9d04fe5bc5258ee4f73c93115e2:
+     Fix Cpp{Compile,Link}Action environment and cache key computation
+   + 3da8929963e9c70dff5d8859d6e988e6e7f4f9d7:
+     Make SymlinkTreeAction properly use the configuration's
+     environment
+   + eca7b81cf8cc51e1fe56e5ed7d4ad5cd1668a17a:
+     Add a missing dependency from checker framework dataflow to
+     javacutils
+   + 10a4de954c2061258d8222961fc3bd39516db49d:
+     Release 0.14.0 (2018-06-01)
+   + 4b80f2455e7e49a95f3a4c9102a67a57dad52207:
+     Add option to enable Docker sandboxing.
+   + 6b1635279e8b33dc1ac505ac81825e38f8797a14:
+     Allow disabling the simple blob caches via CLI flag overrides.
+```
+
+Bug fix for [#5336](https://github.com/bazelbuild/bazel/issues/5336)
+Bug fix fot [#5308](https://github.com/bazelbuild/bazel/issues/5308)
+
+## Release 0.14.0 (2018-06-01)
+
+```
+Baseline: 5c3f5c9be7fa40d4fb3c35756891fab8483ca406
+
+Cherry picks:
+   + f96f037f8f77335dc444844abcc31a372a3e1849:
+     Windows, Java launcher: Support jar files under different drives
+   + ff8162d01409db34893de98bd840a51c5f13e257:
+     sh_configure.bzl: FreeBSD is also a known platform
+   + 7092ed324137f03fcd34856bdb0595a1bdec3069:
+     Remove unneeded exec_compatible_with from local_sh_toolchain
+   + 57bc201346e61c62a921c1cbf32ad24f185c10c9:
+     Do not autodetect C++ toolchain when
+     BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 is present
+   + 35a78c09cf2fbfc3de9c124d2142e3d72aac4348:
+     remote: recursively delete incomplete downloaded output
+     directory.
+   + 3c9cd82b847f3ece8ec04b2029bd5e8ad0eb7502:
+     distfile: pack the archives needed later in the build
+   + 27487c77387e457df18be3b6833697096d074eab:
+     Slightly refactor SpawnAction to improve env handling
+   + 1b333a2c37add9d04fe5bc5258ee4f73c93115e2:
+     Fix Cpp{Compile,Link}Action environment and cache key computation
+   + 3da8929963e9c70dff5d8859d6e988e6e7f4f9d7:
+     Make SymlinkTreeAction properly use the configuration's
+     environment
+   + eca7b81cf8cc51e1fe56e5ed7d4ad5cd1668a17a:
+     Add a missing dependency from checker framework dataflow to
+     javacutils
+```
+
+Incompatible changes:
+
+  - Add --incompatible_disallow_legacy_javainfo flag.
+  - Added flag --incompatible_disallow_old_style_args_add to help
+    migrate from args.add() to args.add_all() / args.add_joined()
+    where appropriate.
+
+New features:
+
+  - Bash,runfiles: use the new platform-independent library in
+    `@bazel_tools//tools/bash/runfiles` to access runfiles
+    (data-dependencies). See
+    https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfile
+    s/runfiles.bash for usage information.
+  - TemplateVariableInfo can now be constructed from Skylark.
+  - The java_host_runtime_alias rule is now implemented in Java.
+
+Important changes:
+
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - Introduce fdo_profile rule that allows architecture-sensitive
+    specification of fdo profiles.
+  - canonicalize-flags no longer reorders the flags
+  - CppRules: optional_compiler_flag was removed from CROSSTOOL, use
+    features instead.
+  - Labels of the form ////foo are disallowed.
+  - The `/` operator is deprecated in favor of `//` (floor integer
+    division).
+      Try the `--incompatible_disallow_slash_operator` flag to ensure
+    your code
+      is forward-compatible.
+  - Flip default value of --experimental_shortened_obj_file_path to
+    true, Bazel now generates short object file path by default.
+  - Exposed "mnemonic" and "env" fields on skylark "Action" objects.
+  - Removed flag `--incompatible_disallow_toplevel_if_statement`.
+  - Remove vestigial 'deps' and 'data' attributes from
+    proto_lang_toolchain
+  - Args objects (ctx.actions.args()) have new methods add_all() and
+    add_joined() for building command lines using depsets.
+  - `FileType` is deprecated and will be removed soon.
+      Try the `--incompatible_disallow_filetype` flag to ensure your
+    code
+      is forward-compatible.
+  - Introduce absolute_path_profile attribute that allows fdo_profile
+    to accept absolute paths.
+  - Support two-arg overloads for ctx.actions.args (eg.
+    args.add("--foo", val))
+  - Introduce 'tools' attribute to ctx.actions.run.
+  - Fixed error message for proguard_apply_dictionary.
+  - "bazel run" now lets one run interactive binaries. The
+    BUILD_WORKSPACE_DIRECTORY and BUILD_WORKING_DIRECTORY environment
+    variables indicate the working directory and the workspace root
+    of the Bazel invocation. Tests are provided with an approximation
+    of the official test environment.
+  - repository rules are no longer restricted to return None.
+  - Add --high_priority_workers flag.
+  - CppRules: Feature configuration can be created from Skylark
+  - Adds new-style JavaInfo provider constructor.
+  - Make java_common.compile now uses java_toolchain javacopts by
+    default; explicitly retrieving them using
+    java_common.default_javac_opts is unnecessary.
+  - CppRules: C++ command lines and env variables for C++ actions can
+    be retrieved from feature configuration.
+  - Skylark rule definitions may advertise providers that targets of
+    the rule must propagate.
+  - Bazel now supports running actions inside Docker containers.
+    To use this feature, run "bazel build --spawn_strategy=docker
+    --experimental_docker_image=myimage:latest".
+  - Remote execution works for Windows binaries with launchers.
+  - Fixing start/end lib expansion for linking. There were many cases
+    where archive files were still being used with toolchains that
+    support start/end lib. This change consolidates the places that
+    make that decision so they can be more consistent.
+  - Add support for reporting an error if
+    android_test.binary_under_test contains incompatible versions of
+    deps
+  - We replaced the --experimental_local_disk_cache and
+    --experimental_local_disk_cache_path flags into a single
+    --disk_cache flag. Additionally, Bazel now tries to create the disk cache
+    directory if it doesn't exist.
+  - Save Blaze memory by not storing LinkerInput objects in
+    LinkCommandLine
+  - In the JavaInfo created by java_common.create_provider now
+    includes both direct and transitive arguments in
+    transitive_compile_time_jars and transitive_runtime_jars
+  - Allow --worker_max_instances to take MnemonicName=value to
+    specify max for each worker.
+  - Allow java_toolchain.header_compiler to be an arbitrary executable
+
+## Release 0.13.1 (2018-05-23)
+
+```
+Baseline: fdee70e6e39b74bfd9144b1e350d2d8806386e05
+
+Cherry picks:
+   + f083e7623cd03e20ed216117c5ea8c8b4ec61948:
+     windows: GetOutputRoot() returns GetHomeDir()
+   + fa36d2f48965b127e8fd397348d16e991135bfb6:
+     Automated rollback of commit
+     4465dae23de989f1452e93d0a88ac2a289103dd9.
+   + 4abd2babcc50900afd0271bf30dc64055f34e100:
+     Add error message on empty public resources
+   + 2c957575ff24c183d48ade4345a79ffa5bec3724:
+     test-setup: remove leading "./" from test name
+   + e6eaf251acb3b7054c8c5ced58a49c054b5f23b1:
+     Sort entries by segment when building a parent node to prevent
+     unordered directory structures.
+```
+
+Important changes:
+
+  - Remote Execution: Fixes a regression that produces directories with unsorted file/directory lists
+
 ## Release 0.13.0 (2018-04-30)
 
 ```
@@ -2727,6 +3122,12 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
+
+
+
+
 
 
 

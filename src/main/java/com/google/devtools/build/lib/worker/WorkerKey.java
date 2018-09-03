@@ -123,6 +123,6 @@ final class WorkerKey {
 
   @Override
   public String toString() {
-    return Spawns.asShellCommand(args, execRoot, env);
+    return Spawns.asShellCommand(args, execRoot, env, /* prettyPrintArgs= */ false);
   }
 }

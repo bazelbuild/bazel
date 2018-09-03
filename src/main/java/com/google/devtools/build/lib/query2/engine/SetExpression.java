@@ -48,7 +48,7 @@ public class SetExpression extends QueryExpression {
 
   @Override
   public <T> QueryTaskFuture<Void> eval(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
     ArrayList<QueryTaskFuture<Void>> queryTasks = new ArrayList<>(words.size());
     for (TargetLiteral expr : words) {
       queryTasks.add(env.eval(expr, context, callback));

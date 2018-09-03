@@ -84,6 +84,11 @@ message Action {
 
   // True iff the action does input discovery during execution.
   bool discovers_inputs = 10;
+
+  // Execution info for the action.  Remote execution services may use this
+  // information to modify the execution environment, but actions will
+  // generally not be aware of it.
+  repeated KeyValuePair execution_info = 11;
 }
 
 // Represents a single target (without configuration information) that is

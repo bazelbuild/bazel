@@ -13,35 +13,49 @@
 # limitations under the License.
 """Runfiles lookup library for Bazel-built Python binaries and tests.
 
-Usage:
+USAGE:
 
-from bazel_tools.tools.python.runfiles import runfiles
+1.  Depend on this runfiles library from your build rule:
 
-r = runfiles.Create()
-with open(r.Rlocation("io_bazel/foo/bar.txt"), "r") as f:
-  contents = f.readlines()
+      py_binary(
+          name = "my_binary",
+          ...
+          deps = ["@bazel_tools//tools/python/runfiles"],
+      )
 
-The code above creates a manifest- or directory-based implementations based on
-the environment variables in os.environ. See `Create()` for more info.
+2.  Import the runfiles library.
 
-If you want to explicitly create a manifest- or directory-based
-implementations, you can do so as follows:
+      from bazel_tools.tools.python.runfiles import runfiles
 
-  r1 = runfiles.CreateManifestBased("path/to/foo.runfiles_manifest")
+3.  Create a Runfiles object and use rlocation to look up runfile paths:
 
-  r2 = runfiles.CreateDirectoryBased("path/to/foo.runfiles/")
+      r = runfiles.Create()
+      ...
+      with open(r.Rlocation("my_workspace/path/to/my/data.txt"), "r") as f:
+        contents = f.readlines()
+        ...
 
-If you want to start subprocesses that also need runfiles, you need to set the
-right environment variables for them:
+    The code above creates a manifest- or directory-based implementations based
+    on the environment variables in os.environ. See `Create()` for more info.
 
-  import subprocess
-  from bazel_tools.tools.python.runfiles import runfiles
+    If you want to explicitly create a manifest- or directory-based
+    implementations, you can do so as follows:
 
-  r = runfiles.Create()
-  env = {}
-  ...
-  env.update(r.EnvVars())
-  p = subprocess.Popen([r.Rlocation("path/to/binary")], env, ...)
+      r1 = runfiles.CreateManifestBased("path/to/foo.runfiles_manifest")
+
+      r2 = runfiles.CreateDirectoryBased("path/to/foo.runfiles/")
+
+    If you want to start subprocesses that also need runfiles, you need to set
+    the right environment variables for them:
+
+      import subprocess
+      from bazel_tools.tools.python.runfiles import runfiles
+
+      r = runfiles.Create()
+      env = {}
+      ...
+      env.update(r.EnvVars())
+      p = subprocess.Popen([r.Rlocation("path/to/binary")], env, ...)
 """
 
 import os
@@ -219,3 +233,54 @@ class _DirectoryBased(object):
         # pick up RUNFILES_DIR.
         "JAVA_RUNFILES": self._runfiles_root,
     }
+
+
+def _PathsFrom(argv0, runfiles_mf, runfiles_dir, is_runfiles_manifest,
+               is_runfiles_directory):
+  """Discover runfiles manifest and runfiles directory paths.
+
+  Args:
+    argv0: string; the value of sys.argv[0]
+    runfiles_mf: string; the value of the RUNFILES_MANIFEST_FILE environment
+      variable
+    runfiles_dir: string; the value of the RUNFILES_DIR environment variable
+    is_runfiles_manifest: lambda(string):bool; returns true if the argument is
+      the path of a runfiles manifest file
+    is_runfiles_directory: lambda(string):bool; returns true if the argument is
+      the path of a runfiles directory
+
+  Returns:
+    (string, string) pair, first element is the path to the runfiles manifest,
+    second element is the path to the runfiles directory. If the first element
+    is non-empty, then is_runfiles_manifest returns true for it. Same goes for
+    the second element and is_runfiles_directory respectively. If both elements
+    are empty, then this function could not find a manifest or directory for
+    which is_runfiles_manifest or is_runfiles_directory returns true.
+  """
+  mf_alid = is_runfiles_manifest(runfiles_mf)
+  dir_valid = is_runfiles_directory(runfiles_dir)
+
+  if not mf_alid and not dir_valid:
+    runfiles_mf = argv0 + ".runfiles/MANIFEST"
+    runfiles_dir = argv0 + ".runfiles"
+    mf_alid = is_runfiles_manifest(runfiles_mf)
+    dir_valid = is_runfiles_directory(runfiles_dir)
+    if not mf_alid:
+      runfiles_mf = argv0 + ".runfiles_manifest"
+      mf_alid = is_runfiles_manifest(runfiles_mf)
+
+  if not mf_alid and not dir_valid:
+    return ("", "")
+
+  if not mf_alid:
+    runfiles_mf = runfiles_dir + "/MANIFEST"
+    mf_alid = is_runfiles_manifest(runfiles_mf)
+    if not mf_alid:
+      runfiles_mf = runfiles_dir + "_manifest"
+      mf_alid = is_runfiles_manifest(runfiles_mf)
+
+  if not dir_valid:
+    runfiles_dir = runfiles_mf[:-9]  # "_manifest" or "/MANIFEST"
+    dir_valid = is_runfiles_directory(runfiles_dir)
+
+  return (runfiles_mf if mf_alid else "", runfiles_dir if dir_valid else "")

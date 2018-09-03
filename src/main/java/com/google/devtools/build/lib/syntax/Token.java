@@ -13,26 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import javax.annotation.Nullable;
+
 /**
  * A Token represents an actual lexeme; that is, a lexical unit, its location in
  * the input text, its lexical kind (TokenKind) and any associated value.
  */
-public class Token {
+class Token {
 
-  public final TokenKind kind;
-  public final int left;
-  public final int right;
-  public final Object value;
+  TokenKind kind;
+  int left;
+  int right;
+  /**
+   * value is an Integer if the kind is INT.
+   * It is a String if the kind is STRING, IDENTIFIER, or COMMENT.
+   * It is null otherwise.
+   */
+  @Nullable Object value;
 
-  public Token(TokenKind kind, int left, int right) {
+  Token(TokenKind kind, int left, int right) {
     this(kind, left, right, null);
   }
 
-  public Token(TokenKind kind, int left, int right, Object value) {
+  Token(TokenKind kind, int left, int right, Object value) {
     this.kind = kind;
     this.left = left;
     this.right = right;
     this.value = value;
+  }
+
+  Token copy() {
+    return new Token(kind, left, right, value);
   }
 
   /**

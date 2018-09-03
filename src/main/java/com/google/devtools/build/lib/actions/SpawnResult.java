@@ -182,6 +182,10 @@ public interface SpawnResult {
    */
   Optional<Long> getNumInvoluntaryContextSwitches();
 
+  default SpawnMetrics getMetrics() {
+    return SpawnMetrics.forLocalExecution(getWallTime().orElse(Duration.ZERO));
+  }
+
   /** Whether the spawn result was a cache hit. */
   boolean isCacheHit();
 
@@ -192,7 +196,8 @@ public interface SpawnResult {
 
   /**
    * SpawnResults can optionally support returning outputs in-memory. Such outputs can be obtained
-   * from this method if so.
+   * from this method if so. This behavior is optional, and can be triggered with
+   * {@link ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
    *
    * @param output
    */
@@ -325,9 +330,11 @@ public interface SpawnResult {
       }
       if (status() == Status.TIMEOUT) {
         if (getWallTime().isPresent()) {
-          explanation += String.format(
-              " (failed due to timeout after %.2f seconds.)",
-              getWallTime().get().toMillis() / 1000.0);
+          explanation +=
+              String.format(
+                  Locale.US,
+                  " (failed due to timeout after %.2f seconds.)",
+                  getWallTime().get().toMillis() / 1000.0);
         } else {
           explanation += " (failed due to timeout.)";
         }

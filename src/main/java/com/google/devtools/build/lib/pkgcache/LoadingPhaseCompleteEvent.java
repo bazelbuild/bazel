@@ -15,66 +15,46 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.Target;
 
 /**
  * This event is fired after the loading phase is complete.
  */
 public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Postable {
-  private final ImmutableSet<Target> targets;
-  private final ImmutableSet<Target> filteredTargets;
-  private final PackageManager.PackageManagerStatistics pkgManagerStats;
-  private final long timeInMs;
+  private final ImmutableSet<Label> labels;
+  private final ImmutableSet<Label> filteredLabels;
 
   /**
    * Construct the event.
    *
-   * @param targets the set of active targets that remain
-   * @param pkgManagerStats statistics about the package cache
+   * @param labels the set of active targets that remain
+   * @param filteredLabels the set of filtered targets
    */
-  public LoadingPhaseCompleteEvent(ImmutableSet<Target> targets,
-      ImmutableSet<Target> filteredTargets, PackageManager.PackageManagerStatistics pkgManagerStats,
-      long timeInMs) {
-    this.targets = Preconditions.checkNotNull(targets);
-    this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
-    this.pkgManagerStats = Preconditions.checkNotNull(pkgManagerStats);
-    this.timeInMs = timeInMs;
-  }
-
-  /**
-   * @return The set of active targets remaining, which is a subset of the
-   *         targets we attempted to load.
-   */
-  public ImmutableSet<Target> getTargets() {
-    return targets;
-  }
-
-  /**
-   * @return The set of filtered targets.
-   */
-  public ImmutableSet<Target> getFilteredTargets() {
-    return filteredTargets;
+  public LoadingPhaseCompleteEvent(
+      ImmutableSet<Label> labels,
+      ImmutableSet<Label> filteredLabels) {
+    this.labels = Preconditions.checkNotNull(labels);
+    this.filteredLabels = Preconditions.checkNotNull(filteredLabels);
   }
 
   /**
    * @return The set of active target labels remaining, which is a subset of the
    *         targets we attempted to load.
    */
-  public Iterable<Label> getLabels() {
-    return Iterables.transform(targets, Target::getLabel);
-  }
-  
-  public long getTimeInMs() {
-    return timeInMs;
+  public ImmutableSet<Label> getLabels() {
+    return labels;
   }
 
   /**
-   * Returns package manager statistics.
+   * @return The set of filtered targets.
    */
-  public PackageManager.PackageManagerStatistics getPkgManagerStats() {
-    return pkgManagerStats;
+  public ImmutableSet<Label> getFilteredLabels() {
+    return filteredLabels;
+  }
+
+  // TODO(ulfjack): Remove this method.
+  public long getTimeInMs() {
+    return 0;
   }
 }

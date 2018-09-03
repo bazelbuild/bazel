@@ -38,8 +38,15 @@ public final class Spawns {
         && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
   }
 
-  public static boolean requiresNetwork(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK);
+  public static boolean requiresNetwork(Spawn spawn, boolean defaultSandboxDisallowNetwork) {
+    if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.BLOCK_NETWORK)) {
+      return false;
+    }
+    if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_NETWORK)) {
+      return true;
+    }
+
+    return defaultSandboxDisallowNetwork;
   }
 
   public static boolean mayBeExecutedRemotely(Spawn spawn) {
@@ -63,6 +70,22 @@ public final class Spawns {
   }
 
   /**
+   * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return
+   * defaultTimeout, or 0 if that is null.
+   */
+  public static Duration getTimeout(Spawn spawn, Duration defaultTimeout) throws ExecException {
+    String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
+    if (timeoutStr == null) {
+      return defaultTimeout == null ? Duration.ZERO : defaultTimeout;
+    }
+    try {
+      return Duration.ofSeconds(Integer.parseInt(timeoutStr));
+    } catch (NumberFormatException e) {
+      throw new UserExecException("could not parse timeout: ", e);
+    }
+  }
+
+  /**
    * Returns whether a local {@link Spawn} runner implementation should prefetch the inputs before
    * execution, based on the spawns execution info.
    */
@@ -73,17 +96,29 @@ public final class Spawns {
   }
 
   /** Convert a spawn into a Bourne shell command. */
-  public static String asShellCommand(Spawn spawn, Path workingDirectory) {
-    return asShellCommand(spawn.getArguments(), workingDirectory, spawn.getEnvironment());
+  public static String asShellCommand(Spawn spawn, Path workingDirectory, boolean prettyPrintArgs) {
+    return asShellCommand(
+        spawn.getArguments(),
+        workingDirectory,
+        spawn.getEnvironment(),
+        prettyPrintArgs);
   }
 
   /** Convert a working dir + environment map + arg list into a Bourne shell command. */
   public static String asShellCommand(
-      Collection<String> arguments, Path workingDirectory, Map<String, String> environment) {
+      Collection<String> arguments,
+      Path workingDirectory,
+      Map<String, String> environment,
+      boolean prettyPrintArgs) {
+
     // We print this command out in such a way that it can safely be
     // copied+pasted as a Bourne shell command.  This is extremely valuable for
     // debugging.
     return CommandFailureUtils.describeCommand(
-        CommandDescriptionForm.COMPLETE, arguments, environment, workingDirectory.getPathString());
+        CommandDescriptionForm.COMPLETE,
+        prettyPrintArgs,
+        arguments,
+        environment,
+        workingDirectory.getPathString());
   }
 }

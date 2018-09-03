@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.protobuf.ByteString;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -101,27 +101,29 @@ public class BuildSummaryStatsModule extends BlazeModule {
           String.format("%f", event.getResult().getElapsedSeconds()))));
 
       if (criticalPathComputer != null) {
-        Profiler.instance().startTask(ProfilerTask.CRITICAL_PATH, "Critical path");
-        AggregatedCriticalPath<SimpleCriticalPathComponent> criticalPath =
-            criticalPathComputer.aggregate();
-        items.add(criticalPath.toStringSummary());
-        statistics.add(Pair.of("critical path", ByteString.copyFromUtf8(criticalPath.toString())));
-        logger.info(criticalPath.toString());
-        logger.info(
-            "Slowest actions:\n  "
-                + Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
-        // We reverse the critical path because the profiler expect events ordered by the time
-        // when the actions were executed while critical path computation is stored in the reverse
-        // way.
-        for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
-          Profiler.instance()
-              .logSimpleTaskDuration(
-                  stat.getStartNanos(),
-                  Duration.ofNanos(stat.getElapsedTimeNanos()),
-                  ProfilerTask.CRITICAL_PATH_COMPONENT,
-                  stat.prettyPrintAction());
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
+          AggregatedCriticalPath<SimpleCriticalPathComponent> criticalPath =
+              criticalPathComputer.aggregate();
+          items.add(criticalPath.toStringSummary());
+          statistics.add(
+              Pair.of("critical path", ByteString.copyFromUtf8(criticalPath.toString())));
+          logger.info(criticalPath.toString());
+          logger.info(
+              "Slowest actions:\n  "
+                  + Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
+          // We reverse the critical path because the profiler expect events ordered by the time
+          // when the actions were executed while critical path computation is stored in the reverse
+          // way.
+          for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
+            Profiler.instance()
+                .logSimpleTaskDuration(
+                    stat.getStartTimeNanos(),
+                    stat.getElapsedTime(),
+                    ProfilerTask.CRITICAL_PATH_COMPONENT,
+                    stat.prettyPrintAction());
+          }
         }
-        Profiler.instance().completeTask(ProfilerTask.CRITICAL_PATH);
       }
 
       reporter.handle(Event.info(Joiner.on(", ").join(items)));

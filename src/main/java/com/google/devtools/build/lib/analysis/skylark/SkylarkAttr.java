@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -149,8 +147,15 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       builder.setPropertyFlag("MANDATORY");
     }
 
-    // TODO(laurentlb): Deprecated, remove in August 2016 (use allow_empty instead).
-    if (containsNonNoneKey(arguments, NON_EMPTY_ARG) && (Boolean) arguments.get(NON_EMPTY_ARG)) {
+    if (containsNonNoneKey(arguments, NON_EMPTY_ARG)
+        && (Boolean) arguments.get(NON_EMPTY_ARG)) {
+      if (env.getSemantics().incompatibleDisableDeprecatedAttrParams()) {
+        throw new EvalException(ast.getLocation(),
+            "'non_empty' is no longer supported. use allow_empty instead. You can use "
+                + "--incompatible_disable_deprecated_attr_params to temporarily disable this "
+                + "check.");
+      }
+
       builder.setPropertyFlag("NON_EMPTY");
     }
 
@@ -170,14 +175,21 @@ public final class SkylarkAttr implements SkylarkAttrApi {
       }
     }
 
-    // TODO(laurentlb): Deprecated, remove in August 2016 (use allow_single_file).
     if (containsNonNoneKey(arguments, SINGLE_FILE_ARG)
         && (Boolean) arguments.get(SINGLE_FILE_ARG)) {
+      if (env.getSemantics().incompatibleDisableDeprecatedAttrParams()) {
+        throw new EvalException(
+            ast.getLocation(),
+            "'single_file' is no longer supported. use allow_single_file instead. You can use "
+                + "--incompatible_disable_deprecated_attr_params to temporarily disable this "
+                + "check.");
+      }
       if (containsNonNoneKey(arguments, ALLOW_SINGLE_FILE_ARG)) {
         throw new EvalException(
             ast.getLocation(),
             "Cannot specify both single_file (deprecated) and allow_single_file");
       }
+
       builder.setPropertyFlag("SINGLE_ARTIFACT");
     }
 
@@ -226,7 +238,15 @@ public final class SkylarkAttr implements SkylarkAttrApi {
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
       if (trans.equals("data")) {
-        builder.cfg((PatchTransition) SkylarkUtils.getLipoDataTransition(env));
+        // This used to apply the "disable LIPO" (a.k.a. "data") transition. But now that LIPO is
+        // turned down this is a noop. Still, there are cfg = "data"' references in the depot. So
+        // we have to remove them via b/28688645 before we can remove this path.
+        if (env.getSemantics().incompatibleDisallowDataTransition()) {
+          throw new EvalException(ast.getLocation(),
+              "Using cfg = \"data\" on an attribute is a noop and no longer supported. Please "
+                  + "remove it. You can use --incompatible_disallow_data_transition=false to "
+                  + "temporarily disable this check.");
+        }
       } else if (trans.equals("host")) {
         builder.cfg(HostTransition.INSTANCE);
       } else if (trans instanceof SplitTransition) {

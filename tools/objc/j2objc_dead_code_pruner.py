@@ -29,6 +29,7 @@ import argparse
 from collections import OrderedDict
 import multiprocessing
 import os
+import pipes  # swap to shlex once on Python 3
 import Queue
 import re
 import shutil
@@ -199,11 +200,10 @@ def _PruneFile(file_queue, reachable_files, objc_file_path, file_open=open,
     if file_name in reachable_files:
       file_shutil.copy(input_file, output_file)
     else:
-      f = file_open(output_file, 'w')
-      # Use a static variable scoped to the source file to supress
-      # the "has no symbols" linker warning for empty object files.
-      f.write(PRUNED_SRC_CONTENT)
-      f.close()
+      with file_open(output_file, 'w') as f:
+        # Use a static variable scoped to the source file to supress
+        # the "has no symbols" linker warning for empty object files.
+        f.write(PRUNED_SRC_CONTENT)
     file_queue.task_done()
 
 
@@ -312,8 +312,8 @@ def MatchObjectNamesInArchive(xcrunwrapper, archive, object_names):
   Returns:
     A list of basenames of matching members of the given archive
   """
-  ar_contents_cmd = '%s ar -t %s' % (xcrunwrapper, archive)
-  real_object_names = subprocess.check_output(ar_contents_cmd, shell=True)
+  ar_contents_cmd = [xcrunwrapper, 'ar', '-t', archive]
+  real_object_names = subprocess.check_output(ar_contents_cmd)
   expected_object_name_regex = r'^(?:%s)(?:_[0-9a-f]{32}(?:-[0-9]+)?)?\.o$' % (
       '|'.join([re.escape(name) for name in object_names]))
   return re.findall(expected_object_name_regex, real_object_names,
@@ -351,7 +351,9 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
                                               header_map,
                                               archive_source_file_mapping)
 
-  cmd_env = {}
+  # Copy the current processes' environment, as xcrunwrapper depends on these
+  # variables.
+  cmd_env = dict(os.environ)
   j2objc_cmd = ''
   if input_archive in archive_source_file_mapping:
     source_files = archive_source_file_mapping[input_archive]
@@ -367,35 +369,35 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
       # If all objects in the archive are unreachable, just copy over a dummy
       # archive that contains no object
       if len(unreachable_object_names) == len(source_files):
-        j2objc_cmd = 'cp %s %s' % (dummy_archive, output_archive)
+        j2objc_cmd = 'cp %s %s' % (pipes.quote(dummy_archive),
+                                   pipes.quote(output_archive))
       # Else we need to prune the archive of unreachable objects
       else:
         cmd_env['ZERO_AR_DATE'] = '1'
         # Copy the input archive to the output location
-        j2objc_cmd += 'cp %s %s && ' % (input_archive, output_archive)
+        j2objc_cmd += 'cp %s %s && ' % (pipes.quote(input_archive),
+                                        pipes.quote(output_archive))
         # Make the output archive editable
-        j2objc_cmd += 'chmod +w %s && ' % (output_archive)
+        j2objc_cmd += 'chmod +w %s && ' % (pipes.quote(output_archive))
         # Remove the unreachable objects from the archive
         unreachable_object_names = MatchObjectNamesInArchive(
             xcrunwrapper, input_archive, unreachable_object_names)
-        # We need to quote the object names because they may contains special
-        # shell characters.
-        quoted_unreachable_object_names = [
-            "'" + unreachable_object_name + "'"
-            for unreachable_object_name in unreachable_object_names]
         j2objc_cmd += '%s ar -d -s %s %s && ' % (
-            xcrunwrapper,
-            output_archive,
-            ' '.join(quoted_unreachable_object_names))
+            pipes.quote(xcrunwrapper),
+            pipes.quote(output_archive),
+            ' '.join(pipes.quote(uon) for uon in unreachable_object_names))
         # Update the table of content of the archive file
-        j2objc_cmd += '%s ranlib %s' % (xcrunwrapper, output_archive)
+        j2objc_cmd += '%s ranlib %s' % (pipes.quote(xcrunwrapper),
+                                        pipes.quote(output_archive))
     # There are no unreachable objects, we just copy over the original archive
     else:
-      j2objc_cmd = 'cp %s %s' % (input_archive, output_archive)
+      j2objc_cmd = 'cp %s %s' % (pipes.quote(input_archive),
+                                 pipes.quote(output_archive))
   # The archive cannot be pruned by J2ObjC dead code removal, just copy over
   # the original archive
   else:
-    j2objc_cmd = 'cp %s %s' % (input_archive, output_archive)
+    j2objc_cmd = 'cp %s %s' % (pipes.quote(input_archive),
+                               pipes.quote(output_archive))
 
   subprocess.check_output(
       j2objc_cmd, stderr=subprocess.STDOUT, shell=True, env=cmd_env)

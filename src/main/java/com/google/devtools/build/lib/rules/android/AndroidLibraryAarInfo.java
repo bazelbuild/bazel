@@ -24,8 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -33,12 +32,8 @@ import javax.annotation.Nullable;
  * A target that can provide the aar artifact of Android libraries and all the manifests that are
  * merged into the main aar manifest.
  */
-@SkylarkModule(
-    name = "AndroidLibraryAarInfo",
-    doc = "Android AARs provided by a library rule and its dependencies",
-    category = SkylarkModuleCategory.PROVIDER)
 @Immutable
-public class AndroidLibraryAarInfo extends NativeInfo {
+public class AndroidLibraryAarInfo extends NativeInfo implements AndroidLibraryAarInfoApi {
   private static final String SKYLARK_NAME = "AndroidLibraryAarInfo";
   public static final NativeProvider<AndroidLibraryAarInfo> PROVIDER =
       new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, SKYLARK_NAME) {};
@@ -104,34 +99,34 @@ public class AndroidLibraryAarInfo extends NativeInfo {
     }
 
     static Aar makeAar(
-        RuleContext ruleContext,
+        AndroidDataContext dataContext,
         ResourceApk resourceApk,
         ImmutableList<Artifact> localProguardSpecs,
         Artifact libraryClassJar)
         throws InterruptedException {
       return makeAar(
-          ruleContext,
+          dataContext,
           resourceApk.getPrimaryResources(),
           resourceApk.getPrimaryAssets(),
-          resourceApk.getProcessedManifest(),
+          resourceApk.getProcessedManifest().toProvider(),
           resourceApk.getRTxt(),
           libraryClassJar,
           localProguardSpecs);
     }
 
     static Aar makeAar(
-        RuleContext ruleContext,
+        AndroidDataContext dataContext,
         AndroidResources primaryResources,
         AndroidAssets primaryAssets,
-        ProcessedAndroidManifest manifest,
+        AndroidManifestInfo manifest,
         Artifact rTxt,
         Artifact libraryClassJar,
         ImmutableList<Artifact> localProguardSpecs)
         throws InterruptedException {
       Artifact aarOut =
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
-      new AarGeneratorBuilder(ruleContext)
+      new AarGeneratorBuilder()
           .withPrimaryResources(primaryResources)
           .withPrimaryAssets(primaryAssets)
           .withManifest(manifest.getManifest())
@@ -139,9 +134,8 @@ public class AndroidLibraryAarInfo extends NativeInfo {
           .withClasses(libraryClassJar)
           .setAAROut(aarOut)
           .setProguardSpecs(localProguardSpecs)
-          .setThrowOnResourceConflict(
-              AndroidCommon.getAndroidConfig(ruleContext).throwOnResourceConflict())
-          .build(ruleContext);
+          .setThrowOnResourceConflict(dataContext.getAndroidConfig().throwOnResourceConflict())
+          .build(dataContext);
 
       return Aar.create(aarOut, manifest.getManifest());
     }

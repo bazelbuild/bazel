@@ -1,0 +1,54 @@
+<a name="#android_related_rule"></a>
+## android_related_rule
+
+<pre>
+android_related_rule(name, first, fourth, second, third)
+</pre>
+
+This rule does android-related things.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#android_related_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="#android_related_rule_first">
+      <td><code>first</code></td>
+      <td>
+        Label; required
+      </td>
+    </tr>
+    <tr id="#android_related_rule_fourth">
+      <td><code>fourth</code></td>
+      <td>
+        Boolean; optional
+      </td>
+    </tr>
+    <tr id="#android_related_rule_second">
+      <td><code>second</code></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
+    </tr>
+    <tr id="#android_related_rule_third">
+      <td><code>third</code></td>
+      <td>
+        Label; required
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

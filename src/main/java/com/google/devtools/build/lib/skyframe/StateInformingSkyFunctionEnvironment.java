@@ -142,7 +142,8 @@ class StateInformingSkyFunctionEnvironment implements SkyFunction.Environment {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getValues(Iterable<SkyKey> depKeys) throws InterruptedException {
+  public Map<SkyKey, SkyValue> getValues(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
     preFetch.inform();
     try {
     return delegate.getValues(depKeys);

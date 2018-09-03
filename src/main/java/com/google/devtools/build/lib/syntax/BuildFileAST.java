@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -68,6 +70,7 @@ public class BuildFileAST extends ASTNode {
       List<Statement> preludeStatements,
       ParseResult result,
       String contentHashCode,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       EventHandler eventHandler) {
     ImmutableList<Statement> statements =
         ImmutableList.<Statement>builder()
@@ -77,7 +80,7 @@ public class BuildFileAST extends ASTNode {
 
     boolean containsErrors = result.containsErrors;
     Pair<Boolean, ImmutableList<SkylarkImport>> skylarkImports =
-        fetchLoads(statements, eventHandler);
+        fetchLoads(statements, repositoryMapping, eventHandler);
     containsErrors |= skylarkImports.first;
     return new BuildFileAST(
         statements,
@@ -99,7 +102,7 @@ public class BuildFileAST extends ASTNode {
       if (stmt instanceof LoadStatement) {
         String str = ((LoadStatement) stmt).getImport().getValue();
         try {
-          imports.add(SkylarkImports.create(str));
+          imports.add(SkylarkImports.create(str, /* repositoryMapping= */ ImmutableMap.of()));
         } catch (SkylarkImportSyntaxException e) {
           throw new IllegalStateException(
               "Cannot create SkylarImport for '" + str + "'. This is an internal error.");
@@ -120,14 +123,16 @@ public class BuildFileAST extends ASTNode {
    * imports that could be resolved.
    */
   private static Pair<Boolean, ImmutableList<SkylarkImport>> fetchLoads(
-      List<Statement> statements, EventHandler eventHandler) {
+      List<Statement> statements,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      EventHandler eventHandler) {
     ImmutableList.Builder<SkylarkImport> imports = ImmutableList.builder();
     boolean error = false;
     for (Statement stmt : statements) {
       if (stmt instanceof LoadStatement) {
         String importString = ((LoadStatement) stmt).getImport().getValue();
         try {
-          imports.add(SkylarkImports.create(importString));
+          imports.add(SkylarkImports.create(importString, repositoryMapping));
         } catch (SkylarkImportSyntaxException e) {
           eventHandler.handle(Event.error(stmt.getLocation(), e.getMessage()));
           error = true;
@@ -222,7 +227,7 @@ public class BuildFileAST extends ASTNode {
   public boolean execTopLevelStatement(Statement stmt, Environment env,
       EventHandler eventHandler) throws InterruptedException {
     try {
-      new Eval(env).exec(stmt);
+      Eval.fromEnvironment(env).exec(stmt);
       return true;
     } catch (EvalException e) {
       // Do not report errors caused by a previous parsing error, as it has already been
@@ -260,20 +265,28 @@ public class BuildFileAST extends ASTNode {
   }
 
   /**
-   * Parse the specified build file, returning its AST. All errors during
-   * scanning or parsing will be reported to the reporter.
+   * Parse the specified build file, returning its AST. All errors during scanning or parsing will
+   * be reported to the reporter.
    */
-  public static BuildFileAST parseBuildFile(ParserInputSource input,
-                                            List<Statement> preludeStatements,
-                                            EventHandler eventHandler) {
+  public static BuildFileAST parseBuildFile(
+      ParserInputSource input,
+      List<Statement> preludeStatements,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return create(preludeStatements, result, /*contentHashCode=*/ null, eventHandler)
+    return create(
+            preludeStatements, result, /* contentHashCode= */ null, repositoryMapping, eventHandler)
         .validateBuildFile(eventHandler);
   }
 
   public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return create(ImmutableList.<Statement>of(), result, /*contentHashCode=*/ null, eventHandler)
+    return create(
+            /* preludeStatements= */ ImmutableList.<Statement>of(),
+            result,
+            /* contentHashCode= */ null,
+            /* repositoryMapping= */ ImmutableMap.of(),
+            eventHandler)
         .validateBuildFile(eventHandler);
   }
 
@@ -283,13 +296,21 @@ public class BuildFileAST extends ASTNode {
     ParserInputSource input = ParserInputSource.create(bytes, path);
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(
-        ImmutableList.of(), result,
-        HashCode.fromBytes(digest).toString(), eventHandler);
+        /* preludeStatements= */ ImmutableList.of(),
+        result,
+        HashCode.fromBytes(digest).toString(),
+        /* repositoryMapping= */ ImmutableMap.of(),
+        eventHandler);
   }
 
   public static BuildFileAST parseSkylarkFile(ParserInputSource input, EventHandler eventHandler) {
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return create(ImmutableList.<Statement>of(), result, /*contentHashCode=*/ null, eventHandler);
+    return create(
+        /* preludeStatements= */ ImmutableList.<Statement>of(),
+        result,
+        /* contentHashCode= */ null,
+        /* repositoryMapping= */ ImmutableMap.of(),
+        eventHandler);
   }
 
   /**
@@ -308,10 +329,10 @@ public class BuildFileAST extends ASTNode {
             .addAll(result.statements)
             .build(),
         result.containsErrors,
-        /*contentHashCode=*/null,
+        /* contentHashCode= */null,
         result.location,
         ImmutableList.copyOf(result.comments),
-        /*imports=*/null);
+        /* imports= */null);
   }
 
   /**
@@ -344,7 +365,12 @@ public class BuildFileAST extends ASTNode {
     String str = Joiner.on("\n").join(content);
     ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
-    return create(ImmutableList.of(), result, null, eventHandler);
+    return create(
+        /* preludeStatements= */ ImmutableList.of(),
+        result,
+        /* contentHashCode= */ null,
+        /* repositoryMapping= */ ImmutableMap.of(),
+        eventHandler);
   }
 
   public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
@@ -367,7 +393,7 @@ public class BuildFileAST extends ASTNode {
    */
   @Nullable public Object eval(Environment env) throws EvalException, InterruptedException {
     Object last = null;
-    Eval evaluator = new Eval(env);
+    Eval evaluator = Eval.fromEnvironment(env);
     for (Statement statement : statements) {
       if (statement instanceof ExpressionStatement) {
         last = ((ExpressionStatement) statement).getExpression().eval(env);

@@ -59,6 +59,9 @@ class TestBase(unittest.TestCase):
         os.path.join(test_tmpdir, 'tests_root'))
     self._temp = TestBase._CreateDirs(os.path.join(test_tmpdir, 'tmp'))
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
+    self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
+    with open(self._test_bazelrc, 'wt') as f:
+      f.write('build --jobs=8\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -104,7 +107,7 @@ class TestBase(unittest.TestCase):
     """
     value = os.getenv(name, '__undefined_envvar__')
     if value == '__undefined_envvar__':
-      if default:
+      if default is not None:
         return default
       raise EnvVarUndefinedError(name)
     return value
@@ -215,8 +218,8 @@ class TestBase(unittest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (dst_path, abspath))
     self.ScratchDir(os.path.dirname(dst_path))
-    with open(src_path, 'r') as s:
-      with open(abspath, 'w') as d:
+    with open(src_path, 'rb') as s:
+      with open(abspath, 'wb') as d:
         d.write(s.read())
     if executable:
       os.chmod(abspath, stat.S_IRWXU)
@@ -235,8 +238,8 @@ class TestBase(unittest.TestCase):
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
     return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel_with_jdk'),
-        '--bazelrc=/dev/null',
+        self.Rlocation('io_bazel/src/bazel'),
+        '--bazelrc=' + self._test_bazelrc,
         '--nomaster_bazelrc',
     ] + args, env_remove, env_add)
 
@@ -357,11 +360,10 @@ class TestBase(unittest.TestCase):
           'BAZEL_SH':
               TestBase.GetEnv('BAZEL_SH',
                               'c:\\tools\\msys64\\usr\\bin\\bash.exe'),
-          # TODO(pcloudy): Remove this after no longer need to debug
-          # https://github.com/bazelbuild/bazel/issues/3273
-          'CC_CONFIGURE_DEBUG':
-              '1'
       }
+      java_home = TestBase.GetEnv('JAVA_HOME', '')
+      if java_home:
+        env['JAVA_HOME'] = java_home
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
 

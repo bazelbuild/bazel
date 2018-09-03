@@ -17,24 +17,27 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * An abstract class that provides generic regex filter expression. Actual
- * expression are implemented by the subclasses.
+ * An abstract class that provides generic regex filter expression. Actual expression are
+ * implemented by the subclasses.
  */
-public abstract class RegexFilterExpression implements QueryFunction {
-  protected RegexFilterExpression() {
+public abstract class RegexFilterExpression extends FilteringQueryFunction {
+  protected final boolean invert;
+
+  protected RegexFilterExpression(boolean invert) {
+    this.invert = invert;
   }
 
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression expression,
       final List<Argument> args,
       Callback<T> callback) {
@@ -58,16 +61,21 @@ public abstract class RegexFilterExpression implements QueryFunction {
         target -> {
           for (String str : getFilterStrings(env, args, target)) {
             if ((str != null) && compiledPattern.matcher(str).find()) {
-              return true;
+              return !invert;
             }
           }
-          return false;
+          return invert;
         };
 
     return env.eval(
-        Iterables.getLast(args).getExpression(),
+        args.get(getExpressionToFilterIndex()).getExpression(),
         context,
         new FilteredCallback<>(callback, matchFilter));
+  }
+
+  @Override
+  public final int getExpressionToFilterIndex() {
+    return getMandatoryArguments() - 1;
   }
 
   /**

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
@@ -29,6 +31,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.ProviderNotFoundException;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
@@ -62,34 +65,16 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     if (directory == null) {
       return;
     }
-    if (!Files.exists(directory)) {
-      Files.createDirectories(directory);
-      return;
-    }
-    try {
-      // TODO(b/27069912): handle symlinks
-      Files.walkFileTree(
-          directory,
-          new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                throws IOException {
-              Files.delete(file);
-              return FileVisitResult.CONTINUE;
-            }
 
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc)
-                throws IOException {
-              if (!dir.equals(directory)) {
-                Files.delete(dir);
-              }
-              return FileVisitResult.CONTINUE;
-            }
-          });
-    } catch (IOException e) {
-      throw new IOException("Cannot clean '" + directory + "'", e);
+    if (Files.exists(directory)) {
+      try {
+        MoreFiles.deleteRecursively(directory, RecursiveDeleteOption.ALLOW_INSECURE);
+      } catch (IOException e) {
+        throw new IOException("Cannot clean '" + directory + "'", e);
+      }
     }
+
+    Files.createDirectories(directory);
   }
 
   public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {
@@ -148,17 +133,21 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
   public void buildJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getOutputJar());
+    JacocoInstrumentationProcessor processor = null;
     try {
       jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getClassDir());
       jar.setJarOwner(build.getTargetLabel(), build.getInjectingRuleKind());
-      JacocoInstrumentationProcessor processor = build.getJacocoInstrumentationProcessor();
+      processor = build.getJacocoInstrumentationProcessor();
       if (processor != null) {
         processor.processRequest(build, processor.isNewCoverageImplementation() ? jar : null);
       }
     } finally {
       jar.execute();
+      if (processor != null) {
+        processor.cleanup();
+      }
     }
   }
 
@@ -223,7 +212,12 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
     FileSystem fs = filesystems.get(sourceJar);
     if (fs == null) {
-      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, null));
+      try {
+        fs = FileSystems.newFileSystem(sourceJar, null);
+      } catch (ProviderNotFoundException e) {
+        throw new IOException(String.format("unable to open %s as a jar file", sourceJar), e);
+      }
+      filesystems.put(sourceJar, fs);
     }
     return fs;
   }

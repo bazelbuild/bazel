@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -30,6 +30,8 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -744,11 +746,6 @@ public class Path
     return fileSystem.getFastDigest(this);
   }
 
-  /** Returns whether the given digest is a valid digest for the default system digest function. */
-  public boolean isValidDigest(byte[] digest) {
-    return fileSystem.isValidDigest(digest);
-  }
-
   /**
    * Returns the digest of the file denoted by the current path, following symbolic links.
    *
@@ -760,14 +757,66 @@ public class Path
   }
 
   /**
-   * Returns the digest of the file denoted by the current path and digest function, following
-   * symbolic links.
+   * Return a string representation, as hexadecimal digits, of some hash of the directory.
    *
-   * @return a new byte array containing the file's digest
+   * <p>The hash itself is computed according to the design document
+   * https://github.com/bazelbuild/proposals/blob/master/designs/2018-07-13-repository-hashing.md
+   * and takes enough information into account, to detect the typical non-reproducibility
+   * of source-like repository rules, while leaving out what will change from invocation to
+   * invocation of a repository rule (in particular file owners) and can reasonably be ignored
+   * when considering if a repository is "the same source tree".
+   *
+   * @return a string representation of the bash of the directory
    * @throws IOException if the digest could not be computed for any reason
    */
-  public byte[] getDigest(HashFunction hashFunction) throws IOException {
-    return fileSystem.getDigest(this, hashFunction);
+  public String getDirectoryDigest() throws IOException {
+    List<String> entries = new ArrayList<String>(fileSystem.getDirectoryEntries(this));
+    Collections.sort(entries);
+    Hasher hasher = fileSystem.getDigestFunction().getHashFunction().newHasher();
+    for (String entry : entries) {
+      Path path = this.getChild(entry);
+      FileStatus stat = path.stat(Symlinks.NOFOLLOW);
+      hasher.putUnencodedChars(entry);
+      if (stat.isFile()) {
+        if (path.isExecutable()) {
+          hasher.putChar('x');
+        } else {
+          hasher.putChar('-');
+        }
+        hasher.putBytes(path.getDigest());
+      } else if (stat.isDirectory()) {
+        hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest());
+      } else if (stat.isSymbolicLink()) {
+        PathFragment link = path.readSymbolicLink();
+        if (link.isAbsolute()) {
+          try {
+            Path resolved = path.resolveSymbolicLinks();
+            if (resolved.isFile()) {
+              if (resolved.isExecutable()) {
+                hasher.putChar('x');
+              } else {
+                hasher.putChar('-');
+              }
+              hasher.putBytes(resolved.getDigest());
+            } else {
+              // link to a non-file: include the link itself in the hash
+              hasher.putChar('l').putUnencodedChars(link.toString());
+            }
+          } catch (IOException e) {
+            // dangling link: include the link itself in the hash
+            hasher.putChar('l').putUnencodedChars(link.toString());
+          }
+        } else {
+          // relative link: include the link itself in the hash
+          hasher.putChar('l').putUnencodedChars(link.toString());
+        }
+      } else {
+        // Neither file, nor directory, nor symlink. So do not include further information
+        // in the hash, asuming it will not be used during the BUILD anyway.
+        hasher.putChar('s');
+      }
+    }
+    return hasher.hash().toString();
   }
 
   /**

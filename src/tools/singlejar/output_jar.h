@@ -18,10 +18,15 @@
 #include <stdio.h>
 
 #include <cinttypes>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+// Must be included before <io.h> (on Windows) and <fcntl.h>.
+#include "src/tools/singlejar/port.h"
+// Need newline so clang-format won't alpha-sort with other headers.
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/options.h"
@@ -70,7 +75,7 @@ class OutputJar {
   // Add the contents of the given input jar.
   bool AddJar(int jar_path_index);
   // Returns the current output position.
-  off_t Position();
+  off64_t Position();
   // Write Jar entry.
   void WriteEntry(void *local_header_and_payload);
   // Write META_INF/ entry (the first entry on output).
@@ -80,7 +85,7 @@ class OutputJar {
                      const uint16_t n_extra_fields);
   // Create output Central Directory Header for the given input entry and
   // append it to CEN (Central Directory) buffer.
-  void AppendToDirectoryBuffer(const CDH *cdh, off_t local_header_offset,
+  void AppendToDirectoryBuffer(const CDH *cdh, off64_t lh_pos,
                                uint16_t normalized_time, bool fix_timestamp);
   // Reserve space in CEN buffer.
   uint8_t *ReserveCdr(size_t chunk_size);
@@ -92,7 +97,7 @@ class OutputJar {
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
   // Copy 'count' bytes starting at 'offset' from the given file.
-  ssize_t AppendFile(int in_fd, off_t offset, size_t count);
+  ssize_t AppendFile(int in_fd, off64_t offset, size_t count);
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void *buffer, size_t count);
 
@@ -107,7 +112,7 @@ class OutputJar {
 
   std::unordered_map<std::string, struct EntryInfo> known_members_;
   FILE *file_;
-  off_t outpos_;
+  off64_t outpos_;
   std::unique_ptr<char[]> buffer_;
   int entries_;
   int duplicate_entries_;

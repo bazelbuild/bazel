@@ -21,10 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 
 /**
  * A lazy, automatically populated registry.
@@ -44,12 +41,23 @@ public class AutoRegistry {
   /** Class name prefixes to blacklist for {@link DynamicCodec}. */
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
+          "com.google.devtools.build.lib.google",
           "com.google.devtools.build.lib.vfs",
-          "com.google.devtools.build.lib.actions.ArtifactFactory");
+          "com.google.devtools.build.lib.actions.ArtifactFactory",
+          "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
+          "com.google.devtools.build.skyframe.SkyFunctionEnvironment");
 
   /** Classes outside {@link AutoRegistry#PACKAGE_PREFIX} that need to be serialized. */
   private static final ImmutableList<String> EXTERNAL_CLASS_NAMES_TO_REGISTER =
-      ImmutableList.of("java.io.FileNotFoundException", "java.io.IOException");
+      ImmutableList.of(
+          "java.io.FileNotFoundException",
+          "java.io.IOException",
+          "java.lang.invoke.SerializedLambda",
+          "com.google.common.base.Predicates$InPredicate",
+          // Sadly, these builders are serialized as part of SkylarkCustomCommandLine$Builder, which
+          // apparently can be preserved through analysis. We may investigate if this actually has
+          // performance/correctness implications.
+          "com.google.common.collect.ImmutableList$Builder");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(
@@ -61,14 +69,6 @@ public class AutoRegistry {
           ImmutableSet.of(),
           Comparator.naturalOrder(),
           Ordering.natural());
-
-  private static final ImmutableList<Object> VALUE_CONSTANTS_TO_REGISTER =
-      ImmutableList.of(
-          "",
-          Boolean.FALSE,
-          Boolean.TRUE,
-          Collections.unmodifiableMap(new HashMap<>()),
-          Collections.unmodifiableList(new ArrayList<>()));
 
   public static ObjectCodecRegistry get() {
     return SUPPLIER.get();
@@ -82,9 +82,6 @@ public class AutoRegistry {
       }
       for (Object constant : REFERENCE_CONSTANTS_TO_REGISTER) {
         registry.addReferenceConstant(constant);
-      }
-      for (Object constant : VALUE_CONSTANTS_TO_REGISTER) {
-        registry.addValueConstant(constant);
       }
       for (String classNamePrefix : CLASS_NAME_PREFIX_BLACKLIST) {
         registry.blacklistClassNamePrefix(classNamePrefix);

@@ -16,7 +16,7 @@ IDEs integrate with Bazel in a variety of ways, from features that allow Bazel e
 [Plug-ins](http://ij.bazel.build) for Android Studio, CLion, and IntelliJ enable you to:
 
 *  Import BUILD files into the IDE
-*  Make your IDE aware of Bazel's build and Skylark languages
+*  Make your IDE aware of Starlark, the language used for Bazel's BUILD and bzl files
 *  Build, test, and execute binaries directly from the IDE
 
 Installation:

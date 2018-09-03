@@ -37,12 +37,12 @@ import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeSuiteRule;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
@@ -77,7 +77,6 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(JavaToolchainRule.create(BazelJavaToolchain.class));
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());
-    builder.addRuleDefinition(new JavaRuntimeSuiteRule());
     builder.addRuleDefinition(new JavaRuntimeAliasRule());
     builder.addRuleDefinition(new JavaHostRuntimeAliasRule());
     builder.addRuleDefinition(new JavaToolchainAliasRule());
@@ -85,10 +84,10 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addSkylarkAccessibleTopLevels("java_common",
-        new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE));
-    builder.addSkylarkAccessibleTopLevels("JavaInfo", JavaInfo.PROVIDER);
-    builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
+    builder.addSkylarkBootstrap(new JavaBootstrap(
+        new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
+        JavaInfo.PROVIDER,
+        new JavaProtoSkylarkCommon()));
 
     try {
       builder.addWorkspaceFilePrefix(

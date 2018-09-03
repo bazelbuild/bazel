@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.causes;
 
+import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
@@ -23,7 +24,7 @@ import javax.annotation.Nullable;
 
 /**
  * Class describing a {@link Cause} that is associated with an action. It is uniquely determined by
- * the path to the primary output. For reference, a Label is attached as well.
+ * the path to the primary output. For reference, a Label is attached as well if available.
  */
 public class ActionFailed implements Cause {
   private final PathFragment execPath;
@@ -38,7 +39,11 @@ public class ActionFailed implements Cause {
 
   @Override
   public String toString() {
-    return execPath.toString();
+    return MoreObjects.toStringHelper(this)
+        .add("execPath", execPath)
+        .add("label", label)
+        .add("configurationChecksum", configurationChecksum)
+        .toString();
   }
 
   @Override

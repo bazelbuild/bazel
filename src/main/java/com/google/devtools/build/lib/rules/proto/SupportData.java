@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import javax.annotation.Nullable;
 
 /** A helper class for the *Support classes containing some data from ProtoLibrary. */
 @AutoCodec
@@ -35,14 +36,22 @@ public abstract class SupportData {
       NestedSet<Artifact> protosInDirectDeps,
       NestedSet<Artifact> transitiveImports,
       NestedSet<String> transitiveProtoPathFlags,
-      boolean hasProtoSources) {
+      String protoSourceRoot,
+      NestedSet<String> directProtoSourceRoots,
+      boolean hasProtoSources,
+      @Nullable NestedSet<Artifact> protosInExports,
+      @Nullable NestedSet<String> exportedProtoSourceRoots) {
     return new AutoValue_SupportData(
         nonWeakDepsPredicate,
         directProtoSources,
         transitiveImports,
         protosInDirectDeps,
         transitiveProtoPathFlags,
-        hasProtoSources);
+        protoSourceRoot,
+        directProtoSourceRoots,
+        hasProtoSources,
+        protosInExports,
+        exportedProtoSourceRoots);
   }
 
   public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
@@ -62,7 +71,24 @@ public abstract class SupportData {
    */
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
 
+  /** The {@code proto_source_root} of the current library. */
+  public abstract String getProtoSourceRoot();
+
+  /**
+   * The {@code proto_source_root}'s collected from the current library and the direct dependencies.
+   */
+  public abstract NestedSet<String> getDirectProtoSourceRoots();
+
   public abstract boolean hasProtoSources();
+
+  /** .proto files in the exported dependencies of this proto_library. */
+  public abstract @Nullable NestedSet<Artifact> getProtosInExports();
+
+  /**
+   * The {@code proto_source_root}'s collected from the current library and the exported
+   * dependencies.
+   */
+  public abstract @Nullable NestedSet<String> getExportedProtoSourceRoots();
 
   SupportData() {}
 }

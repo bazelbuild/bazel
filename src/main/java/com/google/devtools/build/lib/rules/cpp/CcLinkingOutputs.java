@@ -21,6 +21,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkingOutputsApi;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,10 +31,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A structured representation of the link outputs of a C++ rule.
- */
-public class CcLinkingOutputs {
+/** A structured representation of the link outputs of a C++ rule. */
+public class CcLinkingOutputs implements CcLinkingOutputsApi {
 
   public static final CcLinkingOutputs EMPTY = new Builder().build();
 
@@ -39,34 +40,62 @@ public class CcLinkingOutputs {
 
   private final ImmutableList<LibraryToLink> picStaticLibraries;
 
-  private final ImmutableList<LibraryToLink> dynamicLibraries;
+  /**
+   * Holds interface dynamic libraries if the toolchain supports them, full dynamic libraries
+   * otherwise.
+   *
+   * <p>These are what dependants want to link against. We put these as inputs to the C++ link
+   * action.
+   */
+  private final ImmutableList<LibraryToLink> dynamicLibrariesForLinking;
 
-  private final ImmutableList<LibraryToLink> executionDynamicLibraries;
+  /**
+   * Holds dynamic libraries even when the toolchain supports interface libraries.
+   *
+   * <p>These are what binaries load at runtime. We put these into runfiles.
+   */
+  private final ImmutableList<LibraryToLink> dynamicLibrariesForRuntime;
 
-  private CcLinkingOutputs(ImmutableList<LibraryToLink> staticLibraries,
+  private CcLinkingOutputs(
+      ImmutableList<LibraryToLink> staticLibraries,
       ImmutableList<LibraryToLink> picStaticLibraries,
-      ImmutableList<LibraryToLink> dynamicLibraries,
-      ImmutableList<LibraryToLink> executionDynamicLibraries) {
+      ImmutableList<LibraryToLink> dynamicLibrariesForLinking,
+      ImmutableList<LibraryToLink> dynamicLibrariesForRuntime) {
     this.staticLibraries = staticLibraries;
     this.picStaticLibraries = picStaticLibraries;
-    this.dynamicLibraries = dynamicLibraries;
-    this.executionDynamicLibraries = executionDynamicLibraries;
+    this.dynamicLibrariesForLinking = dynamicLibrariesForLinking;
+    this.dynamicLibrariesForRuntime = dynamicLibrariesForRuntime;
+  }
+
+  @Override
+  public SkylarkList<LibraryToLinkApi> getSkylarkStaticLibraries() {
+    return SkylarkList.createImmutable(staticLibraries);
   }
 
   public ImmutableList<LibraryToLink> getStaticLibraries() {
     return staticLibraries;
   }
 
+  @Override
+  public SkylarkList<LibraryToLinkApi> getSkylarkPicStaticLibraries() {
+    return SkylarkList.createImmutable(picStaticLibraries);
+  }
+
   public ImmutableList<LibraryToLink> getPicStaticLibraries() {
     return picStaticLibraries;
   }
 
-  public ImmutableList<LibraryToLink> getDynamicLibraries() {
-    return dynamicLibraries;
+  @Override
+  public SkylarkList<LibraryToLinkApi> getSkylarkDynamicLibrariesForLinking() {
+    return SkylarkList.createImmutable(dynamicLibrariesForLinking);
   }
 
-  public ImmutableList<LibraryToLink> getExecutionDynamicLibraries() {
-    return executionDynamicLibraries;
+  public ImmutableList<LibraryToLink> getDynamicLibrariesForLinking() {
+    return dynamicLibrariesForLinking;
+  }
+
+  public ImmutableList<LibraryToLink> getDynamicLibrariesForRuntime() {
+    return dynamicLibrariesForRuntime;
   }
 
   /**
@@ -76,7 +105,10 @@ public class CcLinkingOutputs {
   public ImmutableSetMultimap<String, LibraryToLink> getLibrariesByIdentifier() {
     return getLibrariesByIdentifier(
         Iterables.concat(
-            staticLibraries, picStaticLibraries, dynamicLibraries, executionDynamicLibraries));
+            staticLibraries,
+            picStaticLibraries,
+            dynamicLibrariesForLinking,
+            dynamicLibrariesForRuntime));
   }
 
   /**
@@ -149,10 +181,10 @@ public class CcLinkingOutputs {
         candidates.addAll(staticLibraries);
         candidates.addAll(picStaticLibraries);
       }
-      candidates.addAll(forRunfiles ? executionDynamicLibraries : dynamicLibraries);
+      candidates.addAll(forRunfiles ? dynamicLibrariesForRuntime : dynamicLibrariesForLinking);
     } else {
-      // First choice is the dynamicLibraries.
-      candidates.addAll(forRunfiles ? executionDynamicLibraries : dynamicLibraries);
+      // First choice is the dynamic libraries.
+      candidates.addAll(forRunfiles ? dynamicLibrariesForRuntime : dynamicLibrariesForLinking);
       if (preferPic) {
         // Second choice is the staticPicLibraries (at least they're PIC, so we won't get a
         // link error).
@@ -209,20 +241,22 @@ public class CcLinkingOutputs {
   public static final class Builder {
     private final Set<LibraryToLink> staticLibraries = new LinkedHashSet<>();
     private final Set<LibraryToLink> picStaticLibraries = new LinkedHashSet<>();
-    private final Set<LibraryToLink> dynamicLibraries = new LinkedHashSet<>();
-    private final Set<LibraryToLink> executionDynamicLibraries = new LinkedHashSet<>();
+    private final Set<LibraryToLink> dynamicLibrariesForLinking = new LinkedHashSet<>();
+    private final Set<LibraryToLink> dynamicLibrariesForRuntime = new LinkedHashSet<>();
 
     public CcLinkingOutputs build() {
-      return new CcLinkingOutputs(ImmutableList.copyOf(staticLibraries),
-          ImmutableList.copyOf(picStaticLibraries), ImmutableList.copyOf(dynamicLibraries),
-          ImmutableList.copyOf(executionDynamicLibraries));
+      return new CcLinkingOutputs(
+          ImmutableList.copyOf(staticLibraries),
+          ImmutableList.copyOf(picStaticLibraries),
+          ImmutableList.copyOf(dynamicLibrariesForLinking),
+          ImmutableList.copyOf(dynamicLibrariesForRuntime));
     }
 
     public Builder merge(CcLinkingOutputs outputs) {
       staticLibraries.addAll(outputs.getStaticLibraries());
       picStaticLibraries.addAll(outputs.getPicStaticLibraries());
-      dynamicLibraries.addAll(outputs.getDynamicLibraries());
-      executionDynamicLibraries.addAll(outputs.getExecutionDynamicLibraries());
+      dynamicLibrariesForLinking.addAll(outputs.getDynamicLibrariesForLinking());
+      dynamicLibrariesForRuntime.addAll(outputs.getDynamicLibrariesForRuntime());
       return this;
     }
 
@@ -246,23 +280,23 @@ public class CcLinkingOutputs {
       return this;
     }
 
-    public Builder addDynamicLibrary(LibraryToLink library) {
-      dynamicLibraries.add(library);
+    public Builder addDynamicLibraryForLinking(LibraryToLink library) {
+      dynamicLibrariesForLinking.add(library);
       return this;
     }
 
     public Builder addDynamicLibraries(Iterable<LibraryToLink> libraries) {
-      Iterables.addAll(dynamicLibraries, libraries);
+      Iterables.addAll(dynamicLibrariesForLinking, libraries);
       return this;
     }
 
-    public Builder addExecutionDynamicLibrary(LibraryToLink library) {
-      executionDynamicLibraries.add(library);
+    public Builder addDynamicLibraryForRuntime(LibraryToLink library) {
+      dynamicLibrariesForRuntime.add(library);
       return this;
     }
 
-    public Builder addExecutionDynamicLibraries(Iterable<LibraryToLink> libraries) {
-      Iterables.addAll(executionDynamicLibraries, libraries);
+    public Builder addDynamicLibrariesForRuntime(Iterable<LibraryToLink> libraries) {
+      Iterables.addAll(dynamicLibrariesForRuntime, libraries);
       return this;
     }
   }

@@ -49,7 +49,7 @@ public class ActionExecutionInactivityWatchdogTest {
     InactivityMonitor monitor =
         new InactivityMonitor() {
           @Override
-          public int waitForNextCompletion(int timeoutMilliseconds) throws InterruptedException {
+          public int waitForNextCompletion(int timeoutSeconds) throws InterruptedException {
             // Simulate the following sequence of events (see actionCompletions):
             // 1. return in 5s (within timeout), 1 action completed; caller will sleep
             // 2. return in 10s (after timeout), 0 action completed; caller will wait

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -45,7 +46,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
         ImmutableList.copyOf(runUnderList.subList(1, runUnderList.size()));
     if (runUnderCommand.startsWith("//")) {
       try {
-        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand);
+        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand, ImmutableMap.of());
         return new RunUnderLabel(input, runUnderLabel, runUnderSuffix);
       } catch (LabelSyntaxException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());

@@ -400,7 +400,10 @@ public class FileSystemUtils {
       throw new IOException("error copying file: "
           + "couldn't delete destination: " + e.getMessage());
     }
-    asByteSource(from).copyTo(asByteSink(to));
+    try (InputStream in = from.getInputStream();
+        OutputStream out = to.getOutputStream()) {
+      ByteStreams.copy(in, out);
+    }
     to.setLastModifiedTime(from.getLastModifiedTime()); // Preserve mtime.
     if (!from.isWritable()) {
       to.setWritable(false); // Make file read-only if original was read-only.
@@ -427,7 +430,10 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
-        asByteSource(from).copyTo(asByteSink(to));
+        try (InputStream in = from.getInputStream();
+            OutputStream out = to.getOutputStream()) {
+          ByteStreams.copy(in, out);
+        }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {
           to.setWritable(false); // Make file read-only if original was read-only.
@@ -852,6 +858,24 @@ public class FileSystemUtils {
   }
 
   /**
+   * The type of {@link IOException} thrown by {@link #readWithKnownFileSize} when fewer bytes than
+   * expected are read.
+   */
+  public static class ShortReadIOException extends IOException {
+    public final Path path;
+    public final int fileSize;
+    public final int numBytesRead;
+
+    private ShortReadIOException(Path path, int fileSize, int numBytesRead) {
+      super("Unexpected short read from file '" + path + "' (expected " + fileSize + ", got "
+          + numBytesRead + " bytes)");
+      this.path = path;
+      this.fileSize = fileSize;
+      this.numBytesRead = numBytesRead;
+    }
+  }
+
+  /**
    * Reads the given file {@code path}, assumed to have size {@code fileSize}, and does a sanity
    * check on the number of bytes read.
    *
@@ -867,8 +891,7 @@ public class FileSystemUtils {
     int fileSizeInt = (int) fileSize;
     byte[] bytes = readContentWithLimit(path, fileSizeInt);
     if (fileSizeInt > bytes.length) {
-      throw new IOException("Unexpected short read from file '" + path
-          + "' (expected " + fileSizeInt + ", got " + bytes.length + " bytes)");
+      throw new ShortReadIOException(path, fileSizeInt, bytes.length);
     }
     return bytes;
   }

@@ -59,9 +59,9 @@ public class BlazeVersionInfo {
 
   private static void logVersionInfo(BlazeVersionInfo info) {
     if (info.getSummary() == null) {
-      logger.warning("Blaze release version information not available");
+      logger.warning("Bazel release version information not available");
     } else {
-      logger.info("Blaze version info: " + info.getSummary());
+      logger.info("Bazel version info: " + info.getSummary());
     }
   }
 

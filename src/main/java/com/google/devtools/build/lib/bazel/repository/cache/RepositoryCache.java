@@ -76,11 +76,16 @@ public class RepositoryCache {
 
   @Nullable private Path repositoryCachePath;
   @Nullable private Path contentAddressablePath;
+  private boolean useHardlinks;
 
   public void setRepositoryCachePath(@Nullable Path repositoryCachePath) {
     this.repositoryCachePath = repositoryCachePath;
     this.contentAddressablePath = (repositoryCachePath != null)
         ? repositoryCachePath.getRelative(CAS_DIR) : null;
+  }
+
+  public void setHardlink(boolean useHardlinks) {
+    this.useHardlinks = useHardlinks;
   }
 
   /**
@@ -103,11 +108,11 @@ public class RepositoryCache {
   }
 
   /**
-   * Copies a cached value to a specified directory, if it exists.
+   * Copy or hardlink cached value to a specified directory, if it exists.
    *
-   * We're using copying instead of symlinking because symlinking require weird checks to verify
-   * that the symlink still points to an existing artifact. e.g. cleaning up the central cache but
-   * not the workspace cache.
+   * <p>We're using hardlinking instead of symlinking because symlinking require weird checks to
+   * verify that the symlink still points to an existing artifact. e.g. cleaning up the central
+   * cache but not the workspace cache.
    *
    * @param cacheKey The string key to cache the value by.
    * @param targetPath The path where the cache value should be copied to.
@@ -118,7 +123,7 @@ public class RepositoryCache {
    */
   @Nullable
   public synchronized Path get(String cacheKey, Path targetPath, KeyType keyType)
-    throws IOException {
+      throws IOException {
     Preconditions.checkState(isEnabled());
 
     assertKeyIsValid(cacheKey, keyType);
@@ -138,7 +143,11 @@ public class RepositoryCache {
     }
 
     FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
-    FileSystemUtils.copyFile(cacheValue, targetPath);
+    if (useHardlinks) {
+      FileSystemUtils.createHardLink(targetPath, cacheValue);
+    } else {
+      FileSystemUtils.copyFile(cacheValue, targetPath);
+    }
     FileSystemUtils.touchFile(cacheValue);
 
     return targetPath;

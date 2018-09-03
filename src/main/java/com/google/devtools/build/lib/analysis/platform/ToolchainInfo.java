@@ -21,8 +21,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
@@ -34,14 +33,9 @@ import java.util.Map;
  * A provider that supplied information about a specific language toolchain, including what platform
  * constraints are required for execution and for the target platform.
  */
-@SkylarkModule(
-  name = "ToolchainInfo",
-  doc = "Provides access to data about a specific toolchain.",
-  category = SkylarkModuleCategory.PROVIDER
-)
 @AutoCodec
 @Immutable
-public class ToolchainInfo extends NativeInfo {
+public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ToolchainInfo";

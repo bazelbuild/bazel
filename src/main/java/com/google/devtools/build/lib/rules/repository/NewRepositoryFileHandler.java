@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -183,7 +184,7 @@ public class NewRepositoryFileHandler {
       Label label;
       try {
         // Parse a label
-        label = Label.parseAbsolute(getFileAttributeValue(rule));
+        label = Label.parseAbsolute(getFileAttributeValue(rule), ImmutableMap.of());
       } catch (LabelSyntaxException ex) {
         throw new RepositoryFunctionException(
             new EvalException(

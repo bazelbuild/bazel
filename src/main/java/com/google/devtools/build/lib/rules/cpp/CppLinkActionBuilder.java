@@ -18,11 +18,9 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -41,6 +39,7 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -51,7 +50,9 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory
 import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -98,7 +99,7 @@ public class CppLinkActionBuilder {
 
   // can be null for CppLinkAction.createTestBuilder()
   @Nullable private final CcToolchainProvider toolchain;
-  private final FdoSupportProvider fdoSupport;
+  private final FdoProvider fdoProvider;
   private Artifact interfaceOutput;
   private Artifact symbolCounts;
   /** Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...) */
@@ -122,7 +123,7 @@ public class CppLinkActionBuilder {
   private ImmutableList<String> additionalLinkstampDefines = ImmutableList.of();
   private final List<String> linkopts = new ArrayList<>();
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
-  private Link.LinkingMode linkingMode = Link.LinkingMode.LEGACY_FULLY_STATIC;
+  private Link.LinkingMode linkingMode = LinkingMode.STATIC;
   private String libraryIdentifier = null;
   private ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
   private Artifact defFile;
@@ -148,14 +149,14 @@ public class CppLinkActionBuilder {
    * @param ruleContext the rule that owns the action
    * @param output the output artifact
    * @param toolchain the C++ toolchain provider
-   * @param fdoSupport the C++ FDO optimization support
+   * @param fdoProvider the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
       Artifact output,
       CcToolchainProvider toolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this(
@@ -164,7 +165,7 @@ public class CppLinkActionBuilder {
         ruleContext.getConfiguration(),
         ruleContext.getAnalysisEnvironment(),
         toolchain,
-        fdoSupport,
+        fdoProvider,
         featureConfiguration,
         cppSemantics);
   }
@@ -176,7 +177,7 @@ public class CppLinkActionBuilder {
    * @param output the output artifact
    * @param configuration build configuration
    * @param toolchain C++ toolchain provider
-   * @param fdoSupport the C++ FDO optimization support
+   * @param fdoProvider the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
@@ -184,7 +185,7 @@ public class CppLinkActionBuilder {
       Artifact output,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this(
@@ -193,7 +194,7 @@ public class CppLinkActionBuilder {
         configuration,
         ruleContext.getAnalysisEnvironment(),
         toolchain,
-        fdoSupport,
+        fdoProvider,
         featureConfiguration,
         cppSemantics);
   }
@@ -206,7 +207,7 @@ public class CppLinkActionBuilder {
    * @param configuration the configuration used to determine the tool chain and the default link
    *     options
    * @param toolchain the C++ toolchain provider
-   * @param fdoSupport the C++ FDO optimization support
+   * @param fdoProvider the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   private CppLinkActionBuilder(
@@ -215,7 +216,7 @@ public class CppLinkActionBuilder {
       BuildConfiguration configuration,
       AnalysisEnvironment analysisEnvironment,
       CcToolchainProvider toolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     this.ruleContext = ruleContext;
@@ -224,7 +225,7 @@ public class CppLinkActionBuilder {
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.toolchain = toolchain;
-    this.fdoSupport = fdoSupport;
+    this.fdoProvider = fdoProvider;
     if (featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)) {
       toolchainLibrariesSolibDir = toolchain.getDynamicRuntimeSolibDir();
     }
@@ -241,7 +242,7 @@ public class CppLinkActionBuilder {
    * @param linkContext an immutable CppLinkAction.Context from the original builder
    * @param configuration build configuration
    * @param toolchain the C++ toolchain provider
-   * @param fdoSupport the C++ FDO optimization support
+   * @param fdoProvider the C++ FDO optimization support
    * @param cppSemantics to be used for linkstamp compiles
    */
   public CppLinkActionBuilder(
@@ -250,7 +251,7 @@ public class CppLinkActionBuilder {
       Context linkContext,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       FeatureConfiguration featureConfiguration,
       CppSemantics cppSemantics) {
     // These Builder-only fields get set in the constructor:
@@ -261,7 +262,7 @@ public class CppLinkActionBuilder {
         configuration,
         ruleContext.getAnalysisEnvironment(),
         toolchain,
-        fdoSupport,
+        fdoProvider,
         featureConfiguration,
         cppSemantics);
     Preconditions.checkNotNull(linkContext);
@@ -486,7 +487,7 @@ public class CppLinkActionBuilder {
                 SHAREABLE_LINK_ARTIFACT_FACTORY,
                 featureConfiguration,
                 toolchain,
-                fdoSupport,
+            fdoProvider,
                 usePicForLtoBackendActions,
                 toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
                 argv)
@@ -499,7 +500,7 @@ public class CppLinkActionBuilder {
                 linkArtifactFactory,
                 featureConfiguration,
                 toolchain,
-                fdoSupport,
+                fdoProvider,
                 usePicForLtoBackendActions,
                 toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration),
                 argv);
@@ -671,74 +672,6 @@ public class CppLinkActionBuilder {
       default:
         return false;
     }
-  }
-
-  private ImmutableList<String> getToolchainFlags(List<String> linkopts) {
-    if (LinkerOrArchiver.ARCHIVER.equals(linkType.linkerOrArchiver())) {
-      return ImmutableList.of();
-    }
-    boolean fullyStatic = (linkingMode == Link.LinkingMode.LEGACY_FULLY_STATIC);
-    boolean mostlyStatic = (linkingMode == Link.LinkingMode.STATIC);
-    boolean sharedLinkopts =
-        linkType == LinkTargetType.DYNAMIC_LIBRARY
-            || linkopts.contains("-shared")
-            || cppConfiguration.hasSharedLinkOption();
-
-    List<String> result = new ArrayList<>();
-
-    /*
-     * For backwards compatibility, linkopts come _after_ inputFiles.
-     * This is needed to allow linkopts to contain libraries and
-     * positional library-related options such as
-     *    -Wl,--begin-group -lfoo -lbar -Wl,--end-group
-     * or
-     *    -Wl,--as-needed -lfoo -Wl,--no-as-needed
-     *
-     * As for the relative order of the three different flavours of linkopts
-     * (global defaults, per-target linkopts, and command-line linkopts),
-     * we have no idea what the right order should be, or if anyone cares.
-     */
-    result.addAll(linkopts);
-    // Extra toolchain link options based on the output's link staticness.
-    if (fullyStatic) {
-      result.addAll(
-          CppHelper.getFullyStaticLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
-    } else if (mostlyStatic) {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINKING_MODE)) {
-        result.addAll(
-            CppHelper.getMostlyStaticLinkOptions(
-                cppConfiguration,
-                toolchain,
-                sharedLinkopts,
-                featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
-      } else {
-        result.addAll(toolchain.getLegacyLinkOptions());
-      }
-    } else {
-      if (!featureConfiguration.isEnabled(CppRuleClasses.DYNAMIC_LINKING_MODE)) {
-        result.addAll(CppHelper.getDynamicLinkOptions(cppConfiguration, toolchain, sharedLinkopts));
-      } else {
-        result.addAll(toolchain.getLegacyLinkOptions());
-      }
-    }
-
-    // Extra test-specific link options.
-    if (useTestOnlyFlags) {
-      result.addAll(toolchain.getTestOnlyLinkOptions());
-    }
-
-    result.addAll(toolchain.getLinkOptions());
-
-    // -pie is not compatible with shared and should be
-    // removed when the latter is part of the link command. Should we need to further
-    // distinguish between shared libraries and executables, we could add additional
-    // command line / CROSSTOOL flags that distinguish them. But as long as this is
-    // the only relevant use case we're just special-casing it here.
-    if (linkType == LinkTargetType.DYNAMIC_LIBRARY) {
-      Iterables.removeIf(result, Predicates.equalTo("-pie"));
-    }
-
-    return ImmutableList.copyOf(result);
   }
 
   /** Builds the Action as configured and returns it. */
@@ -992,29 +925,49 @@ public class CppLinkActionBuilder {
     ImmutableSet<Artifact> expandedLinkerArtifactsNoLinkstamps =
         Sets.difference(expandedLinkerArtifacts, linkstampObjectArtifacts).immutableCopy();
 
-    CcToolchainVariables variables =
-        LinkBuildVariables.setupVariables(
-            getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
-            configuration,
-            output,
-            paramFile,
-            thinltoParamFile,
-            thinltoMergedObjectFile,
-            mustKeepDebug,
-            symbolCounts,
-            toolchain,
-            featureConfiguration,
-            useTestOnlyFlags,
-            isLtoIndexing,
-            toolchain.getInterfaceSoBuilder(),
-            interfaceOutput,
-            ltoOutputRootPrefix,
-            defFile,
-            fdoSupport,
-            collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
-            collectedLibrariesToLink.getLibrariesToLink(),
-            collectedLibrariesToLink.getLibrarySearchDirectories());
-
+    CcToolchainVariables variables;
+    try {
+      ImmutableList<String> userLinkFlags;
+      if (cppConfiguration.enableLinkoptsInUserLinkFlags()) {
+        userLinkFlags =
+            ImmutableList.<String>builder()
+                .addAll(linkopts)
+                .addAll(toolchain.getLinkOptions())
+                .build();
+      } else {
+        userLinkFlags = ImmutableList.copyOf(linkopts);
+      }
+      variables =
+          LinkBuildVariables.setupVariables(
+              getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
+              configuration.getBinDirectory().getExecPath(),
+              output.getExecPathString(),
+              linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
+              paramFile != null ? paramFile.getExecPathString() : null,
+              thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
+              thinltoMergedObjectFile != null ? thinltoMergedObjectFile.getExecPathString() : null,
+              mustKeepDebug,
+              symbolCounts,
+              toolchain,
+              featureConfiguration,
+              useTestOnlyFlags,
+              isLtoIndexing,
+              userLinkFlags,
+              toolchain.getInterfaceSoBuilder().getExecPathString(),
+              interfaceOutput != null ? interfaceOutput.getExecPathString() : null,
+              ltoOutputRootPrefix,
+              defFile != null ? defFile.getExecPathString() : null,
+              fdoProvider,
+              collectedLibrariesToLink.getRuntimeLibrarySearchDirectories(),
+              collectedLibrariesToLink.getLibrariesToLink(),
+              collectedLibrariesToLink.getLibrarySearchDirectories(),
+              linkingMode.equals(LinkingMode.LEGACY_FULLY_STATIC),
+              linkingMode.equals(LinkingMode.STATIC),
+              /* addIfsoRelatedVariables= */ true);
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+      variables = CcToolchainVariables.EMPTY;
+    }
     buildVariablesBuilder.addAllNonTransitive(variables);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {
       extraVariablesExtension.addVariables(buildVariablesBuilder);
@@ -1035,8 +988,7 @@ public class CppLinkActionBuilder {
       toolchainLibrariesSolibDir = null;
 
       Preconditions.checkArgument(
-          linkingMode == Link.LinkingMode.LEGACY_FULLY_STATIC,
-          "static library link must be static");
+          linkingMode == Link.LinkingMode.STATIC, "static library link must be static");
       Preconditions.checkArgument(
           symbolCounts == null, "the symbol counts output must be null for static links");
       Preconditions.checkArgument(
@@ -1065,35 +1017,11 @@ public class CppLinkActionBuilder {
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
     }
 
-    ImmutableList<String> linkoptsForVariables;
     if (!isLtoIndexing) {
-      linkoptsForVariables = ImmutableList.copyOf(linkopts);
       linkCommandLineBuilder.setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts);
-
-    } else {
-      List<String> opts = new ArrayList<>(linkopts);
-      opts.addAll(
-          featureConfiguration.getCommandLine(
-              "lto-indexing", buildVariables, /* expander= */ null));
-      opts.addAll(cppConfiguration.getLtoIndexOptions());
-      linkoptsForVariables = ImmutableList.copyOf(opts);
     }
 
-    // For now, silently ignore linkopts if this is a static library
-    linkoptsForVariables =
-        linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
-            ? ImmutableList.of()
-            : linkoptsForVariables;
-    linkCommandLineBuilder.setLinkopts(linkoptsForVariables);
-
-    CcToolchainVariables patchedVariables =
-        new CcToolchainVariables.Builder(buildVariables)
-            .addStringSequenceVariable(
-                LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName(),
-                getToolchainFlags(linkoptsForVariables))
-            .build();
-
-    linkCommandLineBuilder.setBuildVariables(patchedVariables);
+    linkCommandLineBuilder.setBuildVariables(buildVariables);
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
     // Compute the set of inputs - we only need stable order here.
@@ -1149,11 +1077,15 @@ public class CppLinkActionBuilder {
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-    ImmutableSet.Builder<String> executionRequirements = ImmutableSet.builder();
+    Map<String, String> executionRequirements = new HashMap<>();
+
     if (featureConfiguration.actionIsConfigured(getActionName())) {
-      executionRequirements.addAll(
-          featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements());
+      for (String req : featureConfiguration.getToolRequirementsForAction(getActionName())) {
+        executionRequirements.put(req, "");
+      }
     }
+    configuration.modifyExecutionInfo(
+        executionRequirements, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
 
     if (!isLtoIndexing) {
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
@@ -1170,7 +1102,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 configuration.isCodeCoverageEnabled(),
                 cppConfiguration,
-                CppHelper.getFdoBuildStamp(ruleContext, fdoSupport.getFdoSupport()),
+                CppHelper.getFdoBuildStamp(ruleContext, fdoProvider),
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary() && toolchain.toolchainNeedsPic()),
@@ -1205,15 +1137,13 @@ public class CppLinkActionBuilder {
         fake,
         fakeLinkerInputArtifacts,
         isLtoIndexing,
-        linkstampMap
-            .keySet()
-            .stream()
+        linkstampMap.keySet().stream()
             .map(Linkstamp::getArtifact)
             .collect(ImmutableList.toImmutableList()),
         linkCommandLine,
         configuration.getActionEnvironment(),
         toolchainEnv,
-        executionRequirements.build(),
+        ImmutableMap.copyOf(executionRequirements),
         toolchain.getToolPathFragment(Tool.LD),
         toolchain.getHostSystemName(),
         toolchain.getTargetCpu());
@@ -1249,13 +1179,10 @@ public class CppLinkActionBuilder {
       Collection<String> linkopts,
       boolean isNativeDeps,
       CppConfiguration cppConfig) {
-    boolean fullyStatic = (staticness == Link.LinkingMode.LEGACY_FULLY_STATIC);
     boolean mostlyStatic = (staticness == Link.LinkingMode.STATIC);
     boolean sharedLinkopts =
         type.isDynamicLibrary() || linkopts.contains("-shared") || cppConfig.hasSharedLinkOption();
-    return (isNativeDeps || cppConfig.legacyWholeArchive())
-        && (fullyStatic || mostlyStatic)
-        && sharedLinkopts;
+    return (isNativeDeps || cppConfig.legacyWholeArchive()) && mostlyStatic && sharedLinkopts;
   }
 
   private static ImmutableSet<Artifact> constructOutputs(
@@ -1510,7 +1437,7 @@ public class CppLinkActionBuilder {
   /**
    * Sets the degree of "staticness" of the link: fully static (static binding of all symbols),
    * mostly static (use dynamic binding only for symbols from glibc), dynamic (use dynamic binding
-   * wherever possible). The default is {@link Link.LinkingMode#LEGACY_FULLY_STATIC}.
+   * wherever possible). The default is {@link LinkingMode#STATIC}.
    */
   public CppLinkActionBuilder setLinkingMode(Link.LinkingMode linkingMode) {
     this.linkingMode = linkingMode;
@@ -1566,7 +1493,8 @@ public class CppLinkActionBuilder {
    * #addLibraries}, and {@link #addLinkstamps}.
    */
   public CppLinkActionBuilder addLinkParams(
-      CcLinkParams linkParams, RuleErrorConsumer errorListener) throws InterruptedException {
+      CcLinkParams linkParams, RuleErrorConsumer errorListener)
+      throws InterruptedException, RuleErrorException {
     addLinkopts(linkParams.flattenedLinkopts());
     addLibraries(linkParams.getLibraries());
     ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();

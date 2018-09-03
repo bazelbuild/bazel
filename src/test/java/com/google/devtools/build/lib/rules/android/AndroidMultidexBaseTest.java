@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -65,7 +66,7 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
     // Only created in legacy mode:
     Artifact strippedJar = getFirstArtifactEndingWith(artifacts, "main_dex_intermediate.jar");
     Artifact mainDexList = getFirstArtifactEndingWith(artifacts, "main_dex_list.txt");
-    String ruleName = Label.parseAbsolute(ruleLabel).getName();
+    String ruleName = Label.parseAbsolute(ruleLabel, ImmutableMap.of()).getName();
     Artifact mainDexProguardSpec = getFirstArtifactEndingWith(
         artifacts, "main_dex_" + ruleName + "_proguard.cfg");
 

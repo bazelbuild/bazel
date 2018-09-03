@@ -19,6 +19,7 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -228,7 +229,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
       throws LabelSyntaxException, NoSuchThingException, InterruptedException {
     Set<Target> targets = new HashSet<>();
     for (String strLabel : strLabels) {
-      Label label = Label.parseAbsolute(strLabel);
+      Label label = Label.parseAbsolute(strLabel, ImmutableMap.of());
       targets.add(getSkyframeExecutor().getPackageManager().getTarget(reporter, label));
     }
     return targets;

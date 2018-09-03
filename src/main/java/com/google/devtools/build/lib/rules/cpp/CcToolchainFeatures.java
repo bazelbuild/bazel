@@ -25,9 +25,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SingleVariables;
@@ -35,9 +37,9 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -100,17 +102,14 @@ public class CcToolchainFeatures implements Serializable {
   public static final String COLLIDING_PROVIDES_ERROR =
       "Symbol %s is provided by all of the following features: %s";
 
-  /**
-   * A single flag to be expanded under a set of variables.
-   */
+  /** A single flag to be expanded under a set of variables. */
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class Flag implements Serializable, Expandable {
+  public static class Flag implements Serializable, Expandable {
     private final ImmutableList<StringChunk> chunks;
 
-    @VisibleForSerialization
-    Flag(ImmutableList<StringChunk> chunks) {
+    public Flag(ImmutableList<StringChunk> chunks) {
       this.chunks = chunks;
     }
 
@@ -194,8 +193,7 @@ public class CcToolchainFeatures implements Serializable {
   /** A single environment key/value pair to be expanded under a set of variables. */
   @Immutable
   @AutoCodec
-  @VisibleForSerialization
-  static class EnvEntry implements Serializable {
+  public static class EnvEntry implements Serializable {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
 
@@ -206,8 +204,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+    public EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
       this.key = key;
       this.valueChunks = valueChunks;
     }
@@ -244,10 +241,10 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /** Used for equality check between a variable and a specific value. */
   @Immutable
   @AutoCodec
-  @VisibleForSerialization
-  static class VariableWithValue {
+  public static class VariableWithValue {
     public final String variable;
     public final String value;
 
@@ -264,7 +261,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class FlagGroup implements Serializable, Expandable {
+  public static class FlagGroup implements Serializable, Expandable {
     private final ImmutableList<Expandable> expandables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
@@ -461,7 +458,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class FlagSet implements Serializable {
+  public static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
@@ -491,8 +488,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    FlagSet(
+    public FlagSet(
         ImmutableSet<String> actions,
         ImmutableSet<String> expandIfAllAvailable,
         ImmutableSet<WithFeatureSet> withFeatureSets,
@@ -544,10 +540,14 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /**
+   * A set of positive and negative features. This stanza will evaluate to true when every 'feature'
+   * is enabled, and every 'not_feature' is not enabled.
+   */
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class WithFeatureSet implements Serializable {
+  public static class WithFeatureSet implements Serializable {
     private final ImmutableSet<String> features;
     private final ImmutableSet<String> notFeatures;
 
@@ -557,8 +557,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
+    public WithFeatureSet(ImmutableSet<String> features, ImmutableSet<String> notFeatures) {
       this.features = features;
       this.notFeatures = notFeatures;
     }
@@ -594,7 +593,7 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class EnvSet implements Serializable {
+  public static class EnvSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableList<EnvEntry> envEntries;
     private final ImmutableSet<WithFeatureSet> withFeatureSets;
@@ -615,8 +614,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     @AutoCodec.Instantiator
-    @VisibleForSerialization
-    EnvSet(
+    public EnvSet(
         ImmutableSet<String> actions,
         ImmutableList<EnvEntry> envEntries,
         ImmutableSet<WithFeatureSet> withFeatureSets) {
@@ -683,12 +681,18 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   @AutoCodec
   @VisibleForSerialization
-  static class Feature implements Serializable, CrosstoolSelectable {
+  public static class Feature implements Serializable, CrosstoolSelectable {
+    private static final Interner<Feature> FEATURE_INTERNER = BlazeInterners.newWeakInterner();
+
     private final String name;
     private final ImmutableList<FlagSet> flagSets;
     private final ImmutableList<EnvSet> envSets;
-    
-    private Feature(CToolchain.Feature feature) throws InvalidConfigurationException {
+    private final boolean enabled;
+    private final ImmutableList<ImmutableSet<String>> requires;
+    private final ImmutableList<String> implies;
+    private final ImmutableList<String> provides;
+
+    Feature(CToolchain.Feature feature) throws InvalidConfigurationException {
       this.name = feature.getName();
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : feature.getFlagSetList()) {
@@ -701,14 +705,47 @@ public class CcToolchainFeatures implements Serializable {
         envSetBuilder.add(new EnvSet(flagSet));
       }
       this.envSets = envSetBuilder.build();
+      this.enabled = feature.getEnabled();
+
+      ImmutableList.Builder<ImmutableSet<String>> requiresBuilder = ImmutableList.builder();
+      for (CToolchain.FeatureSet requiresFeatureSet : feature.getRequiresList()) {
+        ImmutableSet<String> featureSet = ImmutableSet.copyOf(requiresFeatureSet.getFeatureList());
+        requiresBuilder.add(featureSet);
+      }
+      this.requires = requiresBuilder.build();
+      this.implies = ImmutableList.copyOf(feature.getImpliesList());
+      this.provides = ImmutableList.copyOf(feature.getProvidesList());
+    }
+
+    public Feature(
+        String name,
+        ImmutableList<FlagSet> flagSets,
+        ImmutableList<EnvSet> envSets,
+        boolean enabled,
+        ImmutableList<ImmutableSet<String>> requires,
+        ImmutableList<String> implies,
+        ImmutableList<String> provides) {
+      this.name = name;
+      this.flagSets = flagSets;
+      this.envSets = envSets;
+      this.enabled = enabled;
+      this.requires = requires;
+      this.implies = implies;
+      this.provides = provides;
     }
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    Feature(String name, ImmutableList<FlagSet> flagSets, ImmutableList<EnvSet> envSets) {
-      this.name = name;
-      this.flagSets = flagSets;
-      this.envSets = envSets;
+    static Feature createFeatureForSerialization(
+        String name,
+        ImmutableList<FlagSet> flagSets,
+        ImmutableList<EnvSet> envSets,
+        boolean enabled,
+        ImmutableList<ImmutableSet<String>> requires,
+        ImmutableList<String> implies,
+        ImmutableList<String> provides) {
+      return FEATURE_INTERNER.intern(
+          new Feature(name, flagSets, envSets, enabled, requires, implies, provides));
     }
 
     @Override
@@ -748,14 +785,34 @@ public class CcToolchainFeatures implements Serializable {
         Feature that = (Feature) object;
         return name.equals(that.name)
             && Iterables.elementsEqual(flagSets, that.flagSets)
-            && Iterables.elementsEqual(envSets, that.envSets);
+            && Iterables.elementsEqual(envSets, that.envSets)
+            && Iterables.elementsEqual(requires, that.requires)
+            && Iterables.elementsEqual(implies, that.implies)
+            && Iterables.elementsEqual(provides, that.provides)
+            && enabled == that.enabled;
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(name, flagSets, envSets);
+      return Objects.hash(name, flagSets, envSets, requires, implies, provides, enabled);
+    }
+
+    boolean isEnabled() {
+      return enabled;
+    }
+
+    public ImmutableList<ImmutableSet<String>> getRequires() {
+      return requires;
+    }
+
+    public ImmutableList<String> getImplies() {
+      return implies;
+    }
+
+    public ImmutableList<String> getProvides() {
+      return provides;
     }
   }
 
@@ -771,10 +828,9 @@ public class CcToolchainFeatures implements Serializable {
 
     private Tool(
         CToolchain.Tool tool,
-        PathFragment crosstoolTop,
         ImmutableSet<WithFeatureSet> withFeatureSetSets) {
       this.withFeatureSetSets = withFeatureSetSets;
-      toolPathFragment = crosstoolTop.getRelative(tool.getToolPath());
+      this.toolPathFragment = PathFragment.create(tool.getToolPath());
       executionRequirements = ImmutableSet.copyOf(tool.getExecutionRequirementList());
     }
 
@@ -789,8 +845,8 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** Returns the path to this action's tool relative to the provided crosstool path. */
-    public PathFragment getToolPathFragment() {
-      return toolPathFragment;
+    public String getToolPathString(PathFragment ccToolchainPath) {
+      return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
     }
 
     /**
@@ -830,19 +886,23 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   @AutoCodec
-  static class ActionConfig implements Serializable, CrosstoolSelectable {
+  public static class ActionConfig implements Serializable, CrosstoolSelectable {
     public static final String FLAG_SET_WITH_ACTION_ERROR =
         "action_config %s specifies actions.  An action_config's flag sets automatically apply "
             + "to the configured action.  Thus, you must not specify action lists in an "
             + "action_config's flag set.";
 
+    private static final Interner<ActionConfig> ACTION_CONFIG_INTERNER =
+        BlazeInterners.newWeakInterner();
+
     private final String configName;
     private final String actionName;
     private final ImmutableList<Tool> tools;
     private final ImmutableList<FlagSet> flagSets;
+    private final boolean enabled;
+    private final ImmutableList<String> implies;
 
-    private ActionConfig(CToolchain.ActionConfig actionConfig, PathFragment crosstoolTop)
-        throws InvalidConfigurationException {
+    ActionConfig(CToolchain.ActionConfig actionConfig) throws InvalidConfigurationException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
       this.tools =
@@ -853,7 +913,6 @@ public class CcToolchainFeatures implements Serializable {
                   t ->
                       new Tool(
                           t,
-                          crosstoolTop,
                           t.getWithFeatureList()
                               .stream()
                               .map(f -> new WithFeatureSet(f))
@@ -870,19 +929,37 @@ public class CcToolchainFeatures implements Serializable {
         flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
       }
       this.flagSets = flagSetBuilder.build();
+
+      this.enabled = actionConfig.getEnabled();
+      this.implies = ImmutableList.copyOf(actionConfig.getImpliesList());
     }
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    ActionConfig(
+    public ActionConfig(
         String configName,
         String actionName,
         ImmutableList<Tool> tools,
-        ImmutableList<FlagSet> flagSets) {
+        ImmutableList<FlagSet> flagSets,
+        boolean enabled,
+        ImmutableList<String> implies) {
       this.configName = configName;
       this.actionName = actionName;
       this.tools = tools;
       this.flagSets = flagSets;
+      this.enabled = enabled;
+      this.implies = implies;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static ActionConfig createForSerialization(
+        String configName,
+        String actionName,
+        ImmutableList<Tool> tools,
+        ImmutableList<FlagSet> flagSets,
+        boolean enabled,
+        ImmutableList<String> implies) {
+      return ACTION_CONFIG_INTERNER.intern(
+          new ActionConfig(configName, actionName, tools, flagSets, enabled, implies));
     }
 
     @Override
@@ -929,17 +1006,48 @@ public class CcToolchainFeatures implements Serializable {
             actionName, variables, enabledFeatureNames, expander, commandLine);
       }
     }
+
+    boolean isEnabled() {
+      return enabled;
+    }
+
+    public ImmutableList<String> getImplies() {
+      return implies;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == this) {
+        return true;
+      }
+      if (!(other instanceof ActionConfig)) {
+        return false;
+      }
+      ActionConfig that = (ActionConfig) other;
+
+      return Objects.equals(configName, that.configName)
+          && Objects.equals(actionName, that.actionName)
+          && enabled == that.enabled
+          && Iterables.elementsEqual(tools, that.tools)
+          && Iterables.elementsEqual(flagSets, that.flagSets)
+          && Iterables.elementsEqual(implies, that.implies);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(configName, actionName, enabled, tools, flagSets, implies);
+    }
   }
 
   /** A description of how artifacts of a certain type are named. */
   @Immutable
-  private static class ArtifactNamePattern {
+  public static class ArtifactNamePattern {
 
     private final ArtifactCategory artifactCategory;
     private final String prefix;
     private final String extension;
 
-    private ArtifactNamePattern(CToolchain.ArtifactNamePattern artifactNamePattern)
+    ArtifactNamePattern(CToolchain.ArtifactNamePattern artifactNamePattern)
         throws InvalidConfigurationException {
 
       ArtifactCategory foundCategory = null;
@@ -954,14 +1062,39 @@ public class CcToolchainFeatures implements Serializable {
                 "Invalid toolchain configuration: Artifact category %s not recognized",
                 artifactNamePattern.getCategoryName()));
       }
+
+      String extension = artifactNamePattern.getExtension();
+      if (!foundCategory.getAllowedExtensions().contains(extension)) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "Unrecognized file extension '%s', allowed extensions are %s,"
+                    + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
+                extension,
+                StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+                foundCategory.getCategoryName()));
+      }
       this.artifactCategory = foundCategory;
       this.prefix = artifactNamePattern.getPrefix();
       this.extension = artifactNamePattern.getExtension();
     }
 
+    public ArtifactNamePattern(ArtifactCategory artifactCategory, String prefix, String extension) {
+      this.artifactCategory = artifactCategory;
+      this.prefix = prefix;
+      this.extension = extension;
+    }
+
     /** Returns the ArtifactCategory for this ArtifactNamePattern. */
     ArtifactCategory getArtifactCategory() {
       return this.artifactCategory;
+    }
+
+    public String getPrefix() {
+      return this.prefix;
+    }
+
+    public String getExtension() {
+      return this.extension;
     }
 
     /** Returns the artifact name that this pattern selects. */
@@ -973,35 +1106,53 @@ public class CcToolchainFeatures implements Serializable {
   /** Captures the set of enabled features and action configs for a rule. */
   @Immutable
   @AutoCodec
-  @SkylarkModule(
-    name = "feature_configuration",
-    documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "Class used to construct command lines from CROSSTOOL features."
-  )
-  public static class FeatureConfiguration {
+  public static class FeatureConfiguration implements FeatureConfigurationApi {
+    private static final Interner<FeatureConfiguration> FEATURE_CONFIGURATION_INTERNER =
+        BlazeInterners.newWeakInterner();
+
     private final ImmutableSet<String> enabledFeatureNames;
     private final ImmutableList<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
 
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
 
+    private final PathFragment ccToolchainPath;
+
     /**
      * {@link FeatureConfiguration} instance that doesn't produce any command lines. This is to be
      * used when creation of the real {@link FeatureConfiguration} failed, the rule error was
      * reported, but the analysis continues to collect more rule errors.
      */
-    public static final FeatureConfiguration EMPTY = new FeatureConfiguration();
+    public static final FeatureConfiguration EMPTY =
+        FEATURE_CONFIGURATION_INTERNER.intern(new FeatureConfiguration());
 
     protected FeatureConfiguration() {
-      this(ImmutableList.of(), ImmutableSet.of(), ImmutableMap.of());
+      this(
+          /* enabledFeatures= */ ImmutableList.of(),
+          /* enabledActionConfigActionNames= */ ImmutableSet.of(),
+          /* actionConfigByActionName= */ ImmutableMap.of(),
+          /* ccToolchainPath= */ PathFragment.EMPTY_FRAGMENT);
     }
 
     @AutoCodec.Instantiator
+    static FeatureConfiguration createForSerialization(
+        ImmutableList<Feature> enabledFeatures,
+        ImmutableSet<String> enabledActionConfigActionNames,
+        ImmutableMap<String, ActionConfig> actionConfigByActionName,
+        PathFragment ccToolchainPath) {
+      return FEATURE_CONFIGURATION_INTERNER.intern(
+          new FeatureConfiguration(
+              enabledFeatures,
+              enabledActionConfigActionNames,
+              actionConfigByActionName,
+              ccToolchainPath));
+    }
+
     FeatureConfiguration(
         ImmutableList<Feature> enabledFeatures,
         ImmutableSet<String> enabledActionConfigActionNames,
-        ImmutableMap<String, ActionConfig> actionConfigByActionName) {
+        ImmutableMap<String, ActionConfig> actionConfigByActionName,
+        PathFragment ccToolchainPath) {
       this.enabledFeatures = enabledFeatures;
 
       this.actionConfigByActionName = actionConfigByActionName;
@@ -1011,6 +1162,7 @@ public class CcToolchainFeatures implements Serializable {
       }
       this.enabledFeatureNames = featureBuilder.build();
       this.enabledActionConfigActionNames = enabledActionConfigActionNames;
+      this.ccToolchainPath = ccToolchainPath;
     }
 
     /**
@@ -1032,7 +1184,7 @@ public class CcToolchainFeatures implements Serializable {
 
     /** @return the command line for the given {@code action}. */
     public List<String> getCommandLine(String action, CcToolchainVariables variables) {
-      return getCommandLine(action, variables, null);
+      return getCommandLine(action, variables, /* expander= */ null);
     }
 
     public List<String> getCommandLine(
@@ -1087,14 +1239,22 @@ public class CcToolchainFeatures implements Serializable {
       return envBuilder.build();
     }
 
-    /** Returns a given action's tool under this FeatureConfiguration. */
-    public Tool getToolForAction(String actionName) {
+    public String getToolPathForAction(String actionName) {
       Preconditions.checkArgument(
           actionConfigByActionName.containsKey(actionName),
           "Action %s does not have an enabled configuration in the toolchain.",
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
-      return actionConfig.getTool(enabledFeatureNames);
+      return actionConfig.getTool(enabledFeatureNames).getToolPathString(ccToolchainPath);
+    }
+
+    ImmutableSet<String> getToolRequirementsForAction(String actionName) {
+      Preconditions.checkArgument(
+          actionConfigByActionName.containsKey(actionName),
+          "Action %s does not have an enabled configuration in the toolchain.",
+          actionName);
+      ActionConfig actionConfig = actionConfigByActionName.get(actionName);
+      return actionConfig.getTool(enabledFeatureNames).getExecutionRequirements();
     }
 
     @Override
@@ -1104,10 +1264,11 @@ public class CcToolchainFeatures implements Serializable {
       }
       if (object instanceof FeatureConfiguration) {
         FeatureConfiguration that = (FeatureConfiguration) object;
+        // Only compare actionConfigByActionName, enabledActionConfigActionnames and enabledFeatures
+        // because enabledFeatureNames is based on the list of Features.
         return Objects.equals(actionConfigByActionName, that.actionConfigByActionName)
             && Iterables.elementsEqual(
                 enabledActionConfigActionNames, that.enabledActionConfigActionNames)
-            && Iterables.elementsEqual(enabledFeatureNames, that.enabledFeatureNames)
             && Iterables.elementsEqual(enabledFeatures, that.enabledFeatures);
       }
       return false;
@@ -1193,14 +1354,18 @@ public class CcToolchainFeatures implements Serializable {
   private transient LoadingCache<ImmutableSet<String>, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
 
+  private PathFragment ccToolchainPath;
+
   /**
-   * Constructs the feature configuration from a {@code CToolchain} protocol buffer.
+   * Constructs the feature configuration from a {@link CcToolchainConfigInfo}.
    *
-   * @param toolchain the toolchain configuration as specified by the user.
+   * @param ccToolchainConfigInfo the toolchain information as specified by the user.
+   * @param ccToolchainPath location of the cc_toolchain.
    * @throws InvalidConfigurationException if the configuration has logical errors.
    */
   @VisibleForTesting
-  public CcToolchainFeatures(CToolchain toolchain, PathFragment crosstoolTop)
+  public CcToolchainFeatures(
+      CcToolchainConfigInfo ccToolchainConfigInfo, PathFragment ccToolchainPath)
       throws InvalidConfigurationException {
     // Build up the feature/action config graph.  We refer to features/action configs as
     // 'selectables'.
@@ -1213,21 +1378,19 @@ public class CcToolchainFeatures implements Serializable {
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
 
     ImmutableList.Builder<String> defaultSelectablesBuilder = ImmutableList.builder();
-    for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
-      Feature feature = new Feature(toolchainFeature);
+    for (Feature feature : ccToolchainConfigInfo.getFeatures()) {
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
-      if (toolchainFeature.getEnabled()) {
+      if (feature.isEnabled()) {
         defaultSelectablesBuilder.add(feature.getName());
       }
     }
 
-    for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
-      ActionConfig actionConfig = new ActionConfig(toolchainActionConfig, crosstoolTop);
+    for (ActionConfig actionConfig : ccToolchainConfigInfo.getActionConfigs()) {
       selectablesBuilder.add(actionConfig);
       selectablesByName.put(actionConfig.getName(), actionConfig);
       actionConfigsByActionName.put(actionConfig.getActionName(), actionConfig);
-      if (toolchainActionConfig.getEnabled()) {
+      if (actionConfig.isEnabled()) {
         defaultSelectablesBuilder.add(actionConfig.getName());
       }
     }
@@ -1236,18 +1399,12 @@ public class CcToolchainFeatures implements Serializable {
     this.selectables = selectablesBuilder.build();
     this.selectablesByName = ImmutableMap.copyOf(selectablesByName);
 
-    checkForActionNameDups(toolchain.getActionConfigList());
+    checkForActionNameDups(ccToolchainConfigInfo.getActionConfigs());
     checkForActivatableDups(this.selectables);
 
     this.actionConfigsByActionName = actionConfigsByActionName.build();
 
-    ImmutableList.Builder<ArtifactNamePattern> artifactNamePatternsBuilder =
-        ImmutableList.builder();
-    for (CToolchain.ArtifactNamePattern artifactNamePattern :
-        toolchain.getArtifactNamePatternList()) {
-      artifactNamePatternsBuilder.add(new ArtifactNamePattern(artifactNamePattern));
-    }
-    this.artifactNamePatterns = artifactNamePatternsBuilder.build();
+    this.artifactNamePatterns = ccToolchainConfigInfo.getArtifactNamePatterns();
 
     // Next, we build up all forward references for 'implies', 'requires', and 'provides' edges.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> implies =
@@ -1261,32 +1418,32 @@ public class CcToolchainFeatures implements Serializable {
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> requiredBy =
         ImmutableMultimap.builder();
 
-    for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
-      String name = toolchainFeature.getName();
+    for (Feature feature : ccToolchainConfigInfo.getFeatures()) {
+      String name = feature.getName();
       CrosstoolSelectable selectable = selectablesByName.get(name);
-      for (CToolchain.FeatureSet requiredFeatures : toolchainFeature.getRequiresList()) {
+      for (ImmutableSet<String> requiredFeatures : feature.getRequires()) {
         ImmutableSet.Builder<CrosstoolSelectable> allOf = ImmutableSet.builder();
-        for (String requiredName : requiredFeatures.getFeatureList()) {
+        for (String requiredName : requiredFeatures) {
           CrosstoolSelectable required = getActivatableOrFail(requiredName, name);
           allOf.add(required);
           requiredBy.put(required, selectable);
         }
         requires.put(selectable, allOf.build());
       }
-      for (String impliedName : toolchainFeature.getImpliesList()) {
+      for (String impliedName : feature.getImplies()) {
         CrosstoolSelectable implied = getActivatableOrFail(impliedName, name);
         impliedBy.put(implied, selectable);
         implies.put(selectable, implied);
       }
-      for (String providesName : toolchainFeature.getProvidesList()) {
+      for (String providesName : feature.getProvides()) {
         provides.put(selectable, providesName);
       }
     }
 
-    for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
-      String name = toolchainActionConfig.getConfigName();
+    for (ActionConfig actionConfig : ccToolchainConfigInfo.getActionConfigs()) {
+      String name = actionConfig.getName();
       CrosstoolSelectable selectable = selectablesByName.get(name);
-      for (String impliedName : toolchainActionConfig.getImpliesList()) {
+      for (String impliedName : actionConfig.getImplies()) {
         CrosstoolSelectable implied = getActivatableOrFail(impliedName, name);
         impliedBy.put(implied, selectable);
         implies.put(selectable, implied);
@@ -1298,6 +1455,7 @@ public class CcToolchainFeatures implements Serializable {
     this.provides = provides.build().inverse();
     this.impliedBy = impliedBy.build();
     this.requiredBy = requiredBy.build();
+    this.ccToolchainPath = ccToolchainPath;
   }
 
   private static void checkForActivatableDups(Iterable<CrosstoolSelectable> selectables)
@@ -1314,10 +1472,10 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
-  private static void checkForActionNameDups(Iterable<CToolchain.ActionConfig> actionConfigs)
+  private static void checkForActionNameDups(Iterable<ActionConfig> actionConfigs)
       throws InvalidConfigurationException {
     Collection<String> actionNames = new HashSet<>();
-    for (CToolchain.ActionConfig actionConfig : actionConfigs) {
+    for (ActionConfig actionConfig : actionConfigs) {
       if (!actionNames.add(actionConfig.getActionName())) {
         throw new InvalidConfigurationException(
             "Invalid toolchain configuration: multiple action "
@@ -1395,7 +1553,8 @@ public class CcToolchainFeatures implements Serializable {
             impliedBy,
             requires,
             requiredBy,
-            actionConfigsByActionName)
+            actionConfigsByActionName,
+            ccToolchainPath)
         .run();
   }
 
@@ -1449,6 +1608,27 @@ public class CcToolchainFeatures implements Serializable {
 
     return output.getParentDirectory()
         .getChild(patternForCategory.getArtifactName(output.getBaseName())).getPathString();
+  }
+
+  /**
+   * Returns the artifact name extension selected by the toolchain for the given artifact category.
+   *
+   * @throws InvalidConfigurationException if the category is not supported by the action config.
+   */
+  String getArtifactNameExtensionForCategory(ArtifactCategory artifactCategory)
+      throws InvalidConfigurationException {
+    ArtifactNamePattern patternForCategory = null;
+    for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
+      if (artifactNamePattern.getArtifactCategory() == artifactCategory) {
+        patternForCategory = artifactNamePattern;
+      }
+    }
+    if (patternForCategory == null) {
+      throw new InvalidConfigurationException(
+          String.format(
+              MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
+    }
+    return patternForCategory.getExtension();
   }
 
   /** Returns true if the toolchain defines an ArtifactNamePattern for the given category. */

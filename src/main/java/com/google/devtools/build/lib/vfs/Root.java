@@ -40,6 +40,12 @@ public abstract class Root implements Comparable<Root>, Serializable {
     return fileSystem.getAbsoluteRoot();
   }
 
+  public static Root toFileSystem(Root root, FileSystem fileSystem) {
+    return root.isAbsolute()
+      ? new AbsoluteRoot(fileSystem)
+      : new PathRoot(fileSystem.getPath(root.asPath().asFragment()));
+  }
+
   /** Returns a path by concatenating the root and the root-relative path. */
   public abstract Path getRelative(PathFragment rootRelativePath);
 

@@ -20,55 +20,69 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
+import com.google.protobuf.MessageLite;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousFileChannel;
-import java.nio.channels.CompletionHandler;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * An output stream supporting anynchronous writes, backed by a file.
- *
- * <p>We use an {@link AsynchronousFileChannel} to perform non-blocking writes to a file. It gets
- * tricky when it comes to {@link #closeAsync()}, as we may only complete the returned future when
- * all writes have completed (succeeded or failed). Thus, we use a field {@link #outstandingWrites}
- * to keep track of the number of writes that have not completed yet. It's incremented before a new
- * write and decremented after a write has completed. When it's {@code 0} it's safe to complete the
- * close future.
- */
+/** An output stream supporting asynchronous writes, backed by a file. */
 @ThreadSafety.ThreadSafe
 public class AsynchronousFileOutputStream extends OutputStream implements MessageOutputStream {
-  private final AsynchronousFileChannel ch;
-  private final WriteCompletionHandler completionHandler = new WriteCompletionHandler();
-  // The offset in the file to begin the next write at.
-  private long writeOffset;
-  // Number of writes that haven't completed yet.
-  private long outstandingWrites;
+  private static final byte[] POISON_PILL = new byte[1];
+
+  private final Thread writerThread;
+  // Maybe we should use an ArrayBlockingQueue instead, and accept that write may block if the
+  // buffer is full?
+  private final BlockingQueue<byte[]> queue = new LinkedBlockingDeque<>();
   // The future returned by closeAsync().
-  private SettableFuture<Void> closeFuture;
+  private final SettableFuture<Void> closeFuture = SettableFuture.create();
   // To store any exception raised from the writes.
   private final AtomicReference<Throwable> exception = new AtomicReference<>();
 
   public AsynchronousFileOutputStream(String filename) throws IOException {
     this(
-        AsynchronousFileChannel.open(
-            Paths.get(filename),
-            StandardOpenOption.WRITE,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING));
+        filename,
+        new BufferedOutputStream( // Use a buffer of 100 kByte, scientifically chosen at random.
+            new FileOutputStream(new File(filename), /*append=*/ false), 100000));
   }
 
   @VisibleForTesting
-  public AsynchronousFileOutputStream(AsynchronousFileChannel ch) throws IOException {
-    this.ch = ch;
+  AsynchronousFileOutputStream(String name, OutputStream out) {
+    writerThread = new Thread(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          byte[] data;
+          while ((data = queue.take()) != POISON_PILL) {
+            out.write(data);
+          }
+        } catch (InterruptedException e) {
+          // Exit quietly.
+        } catch (Exception e) {
+          exception.set(e);
+          closeFuture.setException(e);
+        } finally {
+          try {
+            out.close();
+            closeFuture.set(null);
+          } catch (Exception e) {
+            closeFuture.setException(e);
+          }
+        }
+      }
+    }, "async-file-writer:" + name);
+    writerThread.start();
   }
 
   public void write(String message) {
@@ -88,7 +102,7 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
     Preconditions.checkNotNull(m);
     final int size = m.getSerializedSize();
     ByteArrayOutputStream bos =
-        new ByteArrayOutputStream(CodedOutputStream.computeRawVarint32Size(size) + size);
+        new ByteArrayOutputStream(CodedOutputStream.computeUInt32SizeNoTag(size) + size);
     try {
       m.writeDelimitedTo(bos);
     } catch (IOException e) {
@@ -113,22 +127,23 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
    * continue.
    */
   @Override
-  public synchronized void write(byte[] data) {
+  public void write(byte[] data) {
     Preconditions.checkNotNull(data);
-    Preconditions.checkState(ch.isOpen());
-
-    if (closeFuture != null) {
-      throw new IllegalStateException("Attempting to write to stream after close");
+    if (closeFuture.isDone()) {
+      if (exception.get() != null) {
+        // There was a write failure. Silently return without doing anything.
+        return;
+      } else {
+        // The file was closed.
+        throw new IllegalStateException();
+      }
     }
-
-    outstandingWrites++;
-    ch.write(ByteBuffer.wrap(data), writeOffset, null, completionHandler);
-    writeOffset += data.length;
+    Uninterruptibles.putUninterruptibly(queue, data);
   }
 
-  /* Returns whether the stream is open for writing. */
+  /** Returns whether the stream is open for writing. */
   public boolean isOpen() {
-    return ch.isOpen();
+    return !closeFuture.isDone();
   }
 
   /**
@@ -136,9 +151,8 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
    *
    * <p>Pending writes will still continue asynchronously, but any errors will be ignored.
    */
-  @SuppressWarnings("FutureReturnValueIgnored")
   public void closeNow() {
-    closeAsync();
+    writerThread.interrupt();
   }
 
   /**
@@ -152,14 +166,10 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
       closeAsync().get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      throw new RuntimeException("Write interrupted");
     } catch (ExecutionException e) {
-      Throwable c = e.getCause();
-      Throwables.throwIfUnchecked(c);
-      if (c instanceof IOException) {
-        throw (IOException) c;
-      }
-      throw new IOException("Exception within stream close: " + c);
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwables.throwIfInstanceOf(e.getCause(), RuntimeException.class);
+      throw new RuntimeException(e.getCause());
     }
   }
 
@@ -170,30 +180,6 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
    */
   @Override
   public void flush() throws IOException {
-    ch.force(true);
-  }
-
-  /**
-   * Closes the channel, if close was invoked and there are no outstanding writes. Should only be
-   * called in a synchronized context.
-   */
-  private void closeIfNeeded() {
-    if (closeFuture == null || outstandingWrites > 0) {
-      return;
-    }
-    try {
-      flush();
-      ch.close();
-    } catch (Exception e) {
-      exception.compareAndSet(null, e);
-    } finally {
-      Throwable e = exception.get();
-      if (e == null) {
-        closeFuture.set(null);
-      } else {
-        closeFuture.setException(e);
-      }
-    }
   }
 
   /**
@@ -201,37 +187,8 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
    *
    * Any failed writes will propagate an exception.
    */
-  public synchronized ListenableFuture<Void> closeAsync() {
-    if (closeFuture != null) {
-      return closeFuture;
-    }
-    closeFuture = SettableFuture.create();
-    closeIfNeeded();
+  public ListenableFuture<Void> closeAsync() {
+    Uninterruptibles.putUninterruptibly(queue, POISON_PILL);
     return closeFuture;
-  }
-
-  /**
-   * Handler that's notified when a write completes.
-   */
-  private final class WriteCompletionHandler implements CompletionHandler<Integer, Void> {
-
-    @Override
-    public void completed(Integer result, Void attachment) {
-      countWritesAndTryClose();
-    }
-
-    @Override
-    public void failed(Throwable e, Void attachment) {
-      exception.compareAndSet(null, e);
-      countWritesAndTryClose();
-    }
-
-    private void countWritesAndTryClose() {
-      synchronized (AsynchronousFileOutputStream.this) {
-        Preconditions.checkState(outstandingWrites > 0);
-        outstandingWrites--;
-        closeIfNeeded();
-      }
-    }
   }
 }

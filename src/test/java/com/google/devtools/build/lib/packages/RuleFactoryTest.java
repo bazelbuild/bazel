@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
@@ -76,7 +77,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
 
     assertThat(pkg.getTarget("foo")).isSameAs(rule);
 
-    assertThat(rule.getLabel()).isEqualTo(Label.parseAbsolute("//mypkg:foo"));
+    assertThat(rule.getLabel()).isEqualTo(Label.parseAbsolute("//mypkg:foo", ImmutableMap.of()));
     assertThat(rule.getName()).isEqualTo("foo");
 
     assertThat(rule.getRuleClass()).isEqualTo("cc_library");

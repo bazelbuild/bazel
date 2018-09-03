@@ -14,21 +14,26 @@
 """Functions for producing the hash of an artifact."""
 
 def sha256(ctx, artifact):
-  """Create an action to compute the SHA-256 of an artifact."""
-  out = ctx.new_file(artifact.basename + ".sha256")
-  ctx.action(
-      executable = ctx.executable.sha256,
-      arguments = [artifact.path, out.path],
-      inputs = [artifact],
-      outputs = [out],
-      mnemonic = "SHA256")
-  return out
-
+    """Create an action to compute the SHA-256 of an artifact."""
+    out = ctx.new_file(artifact.basename + ".sha256")
+    ctx.action(
+        executable = ctx.executable.sha256,
+        arguments = [artifact.path, out.path],
+        inputs = [artifact],
+        outputs = [out],
+        mnemonic = "SHA256",
+        # This is necessary until the interpreter used by py_binary is more
+        # configurable. As a workaround, let users override $PATH with
+        # --action_env for this rule.
+        use_default_shell_env = True,
+    )
+    return out
 
 tools = {
     "sha256": attr.label(
-        default=Label("//tools/build_defs/hash:sha256"),
-        cfg="host",
-        executable=True,
-        allow_files=True)
+        default = Label("//tools/build_defs/hash:sha256"),
+        cfg = "host",
+        executable = True,
+        allow_files = True,
+    ),
 }

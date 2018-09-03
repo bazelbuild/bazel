@@ -22,20 +22,14 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Map;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
-@SkylarkModule(
-  name = "FeatureFlagInfo",
-  doc = "A provider used to access information about config_feature_flag rules."
-)
 @Immutable
-public class ConfigFeatureFlagProvider extends NativeInfo {
+public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatureFlagProviderApi {
 
   /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
@@ -89,33 +83,19 @@ public class ConfigFeatureFlagProvider extends NativeInfo {
   }
 
   /** Gets the current value of the flag in the flag's current configuration. */
-  @SkylarkCallable(
-      name = "value",
-      doc = "The current value of the flag in the flag's current configuration.",
-      structField = true
-  )
-  public String getValue() {
+  @Override
+  public String getFlagValue() {
     return value;
   }
 
   /** Returns whether this value is valid for this flag. */
-  @SkylarkCallable(
-    name = "is_valid_value",
-    doc = "The value of the flag in the configuration used by the flag rule.",
-    parameters = {
-      @Param(
-        name = "value",
-        type = String.class,
-        doc = "String, the value to check for validity for this flag."
-      ),
-    }
-  )
+  @Override
   public boolean isValidValue(String value) {
     return validityPredicate.apply(value);
   }
 
   // ConfigFeatureFlagProvider instances should all be unique, so we override the default
-  // equals and hashCode from Info to ensure that. SCO's toString is fine, however.
+  // equals and hashCode from InfoInterface to ensure that. SCO's toString is fine, however.
   @Override
   public boolean equals(Object other) {
     return other == this;

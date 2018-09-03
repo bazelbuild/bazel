@@ -13,9 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /** An {@link AndroidManifest} stamped with the correct package. */
@@ -27,7 +37,7 @@ public class StampedAndroidManifest extends AndroidManifest {
   }
 
   @Override
-  public StampedAndroidManifest stamp(RuleContext ruleContext) {
+  public StampedAndroidManifest stamp(AndroidDataContext dataContext) {
     // This manifest is already stamped
     return this;
   }
@@ -53,28 +63,118 @@ public class StampedAndroidManifest extends AndroidManifest {
 
   /** Creates an empty manifest stamped with a specified package. */
   public static StampedAndroidManifest createEmpty(
-      RuleContext ruleContext, String pkg, boolean exported) {
-    return new StampedAndroidManifest(
-        ApplicationManifest.generateManifest(ruleContext, pkg), pkg, exported);
+      ActionConstructionContext context, String pkg, boolean exported) {
+    Artifact generatedManifest =
+        context.getUniqueDirectoryArtifact("_generated", "AndroidManifest.xml");
+
+    String contents =
+        Joiner.on("\n")
+            .join(
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+                "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"",
+                "          package=\"" + pkg + "\">",
+                "   <application>",
+                "   </application>",
+                "</manifest>");
+    context.registerAction(
+        FileWriteAction.create(context, generatedManifest, contents, /*makeExecutable=*/ false));
+    return new StampedAndroidManifest(generatedManifest, pkg, exported);
   }
 
   public StampedAndroidManifest addMobileInstallStubApplication(RuleContext ruleContext)
       throws InterruptedException {
-    return new StampedAndroidManifest(
-        ApplicationManifest.addMobileInstallStubApplication(ruleContext, getManifest()),
-        getPackage(),
-        isExported());
+
+    Artifact stubManifest =
+        ruleContext.getImplicitOutputArtifact(
+            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_MANIFEST);
+    Artifact stubData =
+        ruleContext.getImplicitOutputArtifact(
+            AndroidRuleClasses.MOBILE_INSTALL_STUB_APPLICATION_DATA);
+
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(ruleContext.getExecutablePrerequisite("$stubify_manifest", Mode.HOST))
+            .setProgressMessage("Injecting mobile install stub application")
+            .setMnemonic("InjectMobileInstallStubApplication")
+            .addInput(getManifest())
+            .addOutput(stubManifest)
+            .addOutput(stubData);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("--mode=mobile_install")
+            .addExecPath("--input_manifest", getManifest())
+            .addExecPath("--output_manifest", stubManifest)
+            .addExecPath("--output_datafile", stubData);
+
+    String overridePackage = getManifestValues(ruleContext).get("applicationId");
+    if (overridePackage != null) {
+      commandLine.add("--override_package", overridePackage);
+    }
+
+    builder.addCommandLine(commandLine.build());
+    ruleContext.registerAction(builder.build(ruleContext));
+
+    return new StampedAndroidManifest(stubManifest, getPackage(), isExported());
+  }
+
+  public static Map<String, String> getManifestValues(RuleContext context) {
+    if (!context.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
+      return ImmutableMap.of();
+    }
+
+    Map<String, String> manifestValues =
+        new TreeMap<>(context.attributes().get("manifest_values", Type.STRING_DICT));
+
+    for (String variable : manifestValues.keySet()) {
+      manifestValues.put(
+          variable, context.getExpander().expand("manifest_values", manifestValues.get(variable)));
+    }
+    return ImmutableMap.copyOf(manifestValues);
   }
 
   public StampedAndroidManifest createSplitManifest(
       RuleContext ruleContext, String splitName, boolean hasCode) {
-    return new StampedAndroidManifest(
-        ApplicationManifest.createSplitManifest(ruleContext, getManifest(), splitName, hasCode),
-        getPackage(),
-        isExported());
+    // aapt insists that manifests be called AndroidManifest.xml, even though they have to be
+    // explicitly designated as manifests on the command line
+    Artifact splitManifest =
+        AndroidBinary.getDxArtifact(ruleContext, "split_" + splitName + "/AndroidManifest.xml");
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$build_split_manifest", Mode.HOST))
+            .setProgressMessage("Creating manifest for split %s", splitName)
+            .setMnemonic("AndroidBuildSplitManifest")
+            .addInput(getManifest())
+            .addOutput(splitManifest);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .addExecPath("--main_manifest", getManifest())
+            .addExecPath("--split_manifest", splitManifest)
+            .add("--split", splitName);
+    if (hasCode) {
+      commandLine.add("--hascode");
+    } else {
+      commandLine.add("--nohascode");
+    }
+
+    String overridePackage = getManifestValues(ruleContext).get("applicationId");
+
+    if (overridePackage != null) {
+      commandLine.add("--override_package", overridePackage);
+    }
+
+    builder.addCommandLine(commandLine.build());
+    ruleContext.registerAction(builder.build(ruleContext));
+
+    return new StampedAndroidManifest(splitManifest, getPackage(), isExported());
   }
 
   public AndroidManifestInfo toProvider() {
     return AndroidManifestInfo.of(getManifest(), getPackage(), isExported());
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    return (object instanceof StampedAndroidManifest && super.equals(object));
   }
 }

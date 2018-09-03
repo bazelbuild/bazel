@@ -62,24 +62,23 @@ public class FakeCppCompileAction extends CppCompileAction {
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
       Artifact sourceFile,
+      CppConfiguration cppConfiguration,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
       boolean usePic,
       boolean useHeaderModules,
-      boolean isStrictSystemIncludes,
       NestedSet<Artifact> mandatoryInputs,
       Iterable<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
-      NestedSet<Artifact> prunableInputs,
+      NestedSet<Artifact> prunableHeaders,
       Artifact outputFile,
       PathFragment tempOutputFile,
       DotdFile dotdFile,
       ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter nocopts,
-      Iterable<IncludeScannable> lipoScannables,
       CppSemantics cppSemantics,
-      CcToolchainProvider cppProvider,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
       ImmutableMap<String, String> executionInfo,
       Artifact grepIncludes) {
     super(
@@ -88,21 +87,20 @@ public class FakeCppCompileAction extends CppCompileAction {
         featureConfiguration,
         variables,
         sourceFile,
+        cppConfiguration,
         shouldScanIncludes,
         shouldPruneModules,
         usePic,
         useHeaderModules,
-        isStrictSystemIncludes,
         mandatoryInputs,
         inputsForInvalidation,
         builtinIncludeFiles,
-        prunableInputs,
+        prunableHeaders,
         outputFile,
         dotdFile,
         /* gcnoFile=*/ null,
         /* dwoFile=*/ null,
         /* ltoIndexingFile=*/ null,
-        /* optionalSourceFile=*/ null,
         env,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.
@@ -113,13 +111,12 @@ public class FakeCppCompileAction extends CppCompileAction {
         // time, so they can't depend on the contents of the ".d" file.)
         CcCompilationContext.disallowUndeclaredHeaders(ccCompilationContext),
         nocopts,
-        lipoScannables,
         /* additionalIncludeScanningRoots=*/ ImmutableList.of(),
         GUID,
         executionInfo,
-        CppCompileAction.CPP_COMPILE,
+        CppActionNames.CPP_COMPILE,
         cppSemantics,
-        cppProvider,
+        builtInIncludeDirectories,
         grepIncludes);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
@@ -221,7 +218,8 @@ public class FakeCppCompileAction extends CppCompileAction {
                         outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
                   }
                   if (input.equals(outputFile.getExecPathString())
-                      || input.equals(getDotdFile().getSafeExecPath().getPathString())) {
+                      || (getDotdFile() != null
+                          && input.equals(getDotdFile().getSafeExecPath().getPathString()))) {
                     result = outputPrefix + ShellEscaper.escapeString(input);
                   }
                   return result;
@@ -234,8 +232,12 @@ public class FakeCppCompileAction extends CppCompileAction {
     try {
       // Ensure that the .d file and .o file are siblings, so that the "mkdir" below works for
       // both.
-      Preconditions.checkState(outputFile.getExecPath().getParentDirectory().equals(
-          getDotdFile().getSafeExecPath().getParentDirectory()));
+      Preconditions.checkState(
+          getDotdFile() == null
+              || outputFile
+                  .getExecPath()
+                  .getParentDirectory()
+                  .equals(getDotdFile().getSafeExecPath().getParentDirectory()));
       FileSystemUtils.writeContent(
           actionExecutionContext.getInputPath(outputFile),
           ISO_8859_1,
@@ -254,11 +256,6 @@ public class FakeCppCompileAction extends CppCompileAction {
           + getOwner().getLabel() + ": " + e.getMessage(), this, false);
     }
     return ActionResult.create(spawnResults);
-  }
-
-  @Override
-  protected PathFragment getInternalOutputFile() {
-    return tempOutputFile;
   }
 
   @Override

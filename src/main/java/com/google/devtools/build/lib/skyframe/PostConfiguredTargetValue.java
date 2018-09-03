@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -28,11 +29,12 @@ import com.google.devtools.build.skyframe.SkyValue;
  * A post-processed ConfiguredTarget which is known to be transitively error-free from action
  * conflict issues.
  */
+@AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
 class PostConfiguredTargetValue implements SkyValue {
 
   private final ConfiguredTarget ct;
 
-  public PostConfiguredTargetValue(ConfiguredTarget ct) {
+  PostConfiguredTargetValue(ConfiguredTarget ct) {
     this.ct = Preconditions.checkNotNull(ct);
   }
 

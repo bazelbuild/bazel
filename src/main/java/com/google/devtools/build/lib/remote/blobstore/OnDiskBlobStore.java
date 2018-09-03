@@ -13,7 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -24,6 +28,7 @@ import java.util.UUID;
 /** A on-disk store for the remote action cache. */
 public final class OnDiskBlobStore implements SimpleBlobStore {
   private final Path root;
+  static final String ACTION_KEY_PREFIX = "ac_";
 
   public OnDiskBlobStore(Path root) {
     this.root = root;
@@ -35,21 +40,26 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public boolean get(String key, OutputStream out) throws IOException {
-    Path f = toPath(key);
-    if (!f.exists()) {
-      return false;
+  public ListenableFuture<Boolean> get(String key, OutputStream out) {
+    SettableFuture<Boolean> f = SettableFuture.create();
+    Path p = toPath(key);
+    if (!p.exists()) {
+      f.set(false);
+    } else {
+      try (InputStream in = p.getInputStream()) {
+        ByteStreams.copy(in, out);
+        f.set(true);
+      } catch (IOException e) {
+        f.setException(e);
+      }
     }
-    try (InputStream in = f.getInputStream()) {
-      ByteStreams.copy(in, out);
-    }
-    return true;
+    return f;
   }
 
   @Override
   public boolean getActionResult(String key, OutputStream out)
       throws IOException, InterruptedException {
-    return get(key, out);
+    return getFromFuture(get(ACTION_KEY_PREFIX + key, out));
   }
 
   @Override
@@ -71,7 +81,7 @@ public final class OnDiskBlobStore implements SimpleBlobStore {
 
   @Override
   public void putActionResult(String key, byte[] in) throws IOException, InterruptedException {
-    put(key, in.length, new ByteArrayInputStream(in));
+    put(ACTION_KEY_PREFIX + key, in.length, new ByteArrayInputStream(in));
   }
 
   @Override

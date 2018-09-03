@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection.EnvironmentWithGroup;
+import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -47,6 +48,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import javax.annotation.Nullable;
 
 /**
@@ -143,7 +145,22 @@ import javax.annotation.Nullable;
  * </code>.
  */
 public class ConstraintSemantics {
-  private ConstraintSemantics() {
+  public ConstraintSemantics() {
+  }
+
+  /**
+   * Logs an error message that the current rule violates constraints.
+   */
+  public void ruleError(RuleContext ruleContext, String message) {
+    ruleContext.ruleError(message);
+  }
+
+  /**
+   * Logs an error message that an attribute on the current rule doesn't properly declare
+   * constraints.
+   */
+  public void attributeError(RuleContext ruleContext, String attribute, String message) {
+    ruleContext.attributeError(attribute, message);
   }
 
   /**
@@ -194,7 +211,7 @@ public class ConstraintSemantics {
    * the given attributes. Only includes environments from "known" groups, i.e. the groups
    * owning the environments explicitly referenced from these attributes.
    */
-  private static class EnvironmentCollector {
+  private class EnvironmentCollector {
     private final RuleContext ruleContext;
     private final String restrictionAttr;
     private final String compatibilityAttr;
@@ -258,10 +275,10 @@ public class ConstraintSemantics {
           Label restrictionEnv = restrictionEnvironments.getEnvironments(group).iterator().next();
 
           if (compatibilityEnv.equals(restrictionEnv)) {
-            ruleContext.attributeError(compatibilityAttr, compatibilityEnv
+            attributeError(ruleContext, compatibilityAttr, compatibilityEnv
                 + " cannot appear both here and in " + restrictionAttr);
           } else {
-            ruleContext.attributeError(compatibilityAttr, compatibilityEnv + " and "
+            attributeError(ruleContext, compatibilityAttr, compatibilityEnv + " and "
                 + restrictionEnv + " belong to the same environment group. They should be declared "
                 + "together either here or in " + restrictionAttr);
           }
@@ -322,7 +339,7 @@ public class ConstraintSemantics {
      * environment: itself. Extract that from its more generic provider interface and sanity
      * check that that's in fact what we see.
      */
-    private static EnvironmentWithGroup resolveEnvironment(TransitiveInfoCollection envRule) {
+    private EnvironmentWithGroup resolveEnvironment(TransitiveInfoCollection envRule) {
       SupportedEnvironmentsProvider prereq =
           Preconditions.checkNotNull(envRule.getProvider(SupportedEnvironmentsProvider.class));
       return Iterables.getOnlyElement(prereq.getStaticEnvironments().getGroupedEnvironments());
@@ -378,7 +395,7 @@ public class ConstraintSemantics {
    *     as described above. Returns null if any errors are encountered.
    */
   @Nullable
-  public static EnvironmentCollection getSupportedEnvironments(RuleContext ruleContext) {
+  public EnvironmentCollection getSupportedEnvironments(RuleContext ruleContext) {
     if (!validateAttributes(ruleContext)) {
       return null;
     }
@@ -420,7 +437,7 @@ public class ConstraintSemantics {
    * no such defaults.
    */
   @Nullable
-  private static EnvironmentCollector maybeGetRuleClassDefaults(RuleContext ruleContext) {
+  private EnvironmentCollector maybeGetRuleClassDefaults(RuleContext ruleContext) {
     Rule rule = ruleContext.getRule();
     String restrictionAttr = RuleClass.DEFAULT_RESTRICTED_ENVIRONMENT_ATTR;
     String compatibilityAttr = RuleClass.DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR;
@@ -459,7 +476,7 @@ public class ConstraintSemantics {
    * Validity-checks this rule's constraint-related attributes. Returns true if all is good,
    * returns false and reports appropriate errors if there are any problems.
    */
-  private static boolean validateAttributes(RuleContext ruleContext) {
+  private boolean validateAttributes(RuleContext ruleContext) {
     AttributeMap attributes = ruleContext.attributes();
 
     // Report an error if "restricted to" is explicitly set to nothing. Even if this made
@@ -469,7 +486,7 @@ public class ConstraintSemantics {
         .getPrerequisites(restrictionAttr, RuleConfiguredTarget.Mode.DONT_CHECK);
     if (restrictionEnvironments.isEmpty()
         && attributes.isAttributeValueExplicitlySpecified(restrictionAttr)) {
-      ruleContext.attributeError(restrictionAttr, "attribute cannot be empty");
+      attributeError(ruleContext, restrictionAttr, "attribute cannot be empty");
       return false;
     }
 
@@ -518,11 +535,11 @@ public class ConstraintSemantics {
    *     pruning away environments through refinement. If multiple dependencies qualify (e.g. two
    *     direct deps under the current rule), one is arbitrarily chosen.
    */
-  public static void checkConstraints(
+  public void checkConstraints(
       RuleContext ruleContext,
       EnvironmentCollection staticEnvironments,
       EnvironmentCollection.Builder refinedEnvironments,
-      Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
     Set<EnvironmentWithGroup> refinedEnvironmentsSoFar = new LinkedHashSet<>();
     // Start with the full set of static environments:
     refinedEnvironmentsSoFar.addAll(staticEnvironments.getGroupedEnvironments());
@@ -561,15 +578,15 @@ public class ConstraintSemantics {
    * @param staticEnvironments the static environments of the rule being analyzed
    * @param dep the dep to check
    */
-  private static void checkStaticConstraints(RuleContext ruleContext,
+  private void checkStaticConstraints(RuleContext ruleContext,
       EnvironmentCollection staticEnvironments, TransitiveInfoCollection dep) {
     SupportedEnvironmentsProvider depEnvironments =
         dep.getProvider(SupportedEnvironmentsProvider.class);
     Collection<Label> unsupportedEnvironments =
         getUnsupportedEnvironments(depEnvironments.getStaticEnvironments(), staticEnvironments);
     if (!unsupportedEnvironments.isEmpty()) {
-      ruleContext.ruleError("dependency " + dep.getLabel()
-          + " doesn't support expected environment"
+      ruleError(ruleContext,
+          "dependency " + dep.getLabel() + " doesn't support expected environment"
           + (unsupportedEnvironments.size() == 1 ? "" : "s")
           + ": " + Joiner.on(", ").join(unsupportedEnvironments));
     }
@@ -587,7 +604,7 @@ public class ConstraintSemantics {
       Map<Label, EnvironmentWithGroup> labelsToEnvironments,
       Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
       Set<EnvironmentLabels> groupsWithEnvironmentsRemoved,
-      Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
 
     SupportedEnvironmentsProvider depEnvironments =
         dep.getProvider(SupportedEnvironmentsProvider.class);
@@ -617,7 +634,7 @@ public class ConstraintSemantics {
       refinedEnvironmentsSoFar.remove(envToPrune);
       groupsWithEnvironmentsRemoved.add(envToPrune.group());
       removedEnvironmentCulprits.put(envToPrune.environment(),
-          findOriginalRefiner(ruleContext, depEnvironments, envToPrune));
+          findOriginalRefiner(ruleContext, dep.getLabel(), depEnvironments, envToPrune));
       prunedEnvironmentsFromThisDep.add(envToPrune.environment());
     }
 
@@ -642,12 +659,12 @@ public class ConstraintSemantics {
    *
    * <p>Violations of this expectation trigger rule analysis errors.
    */
-  private static void checkRefinedConstraints(
+  private void checkRefinedConstraints(
       RuleContext ruleContext,
       Set<EnvironmentLabels> groupsWithEnvironmentsRemoved,
       Set<EnvironmentWithGroup> refinedEnvironmentsSoFar,
       EnvironmentCollection.Builder refinedEnvironments,
-      Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
     Set<EnvironmentLabels> refinedGroups = new LinkedHashSet<>();
     for (EnvironmentWithGroup envWithGroup : refinedEnvironmentsSoFar) {
       refinedEnvironments.put(envWithGroup.group(), envWithGroup.environment());
@@ -658,7 +675,7 @@ public class ConstraintSemantics {
             ? ImmutableSet.of()
             : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
     if (!newlyEmptyGroups.isEmpty()) {
-      ruleContext.ruleError(getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
+      ruleError(ruleContext, getOverRefinementError(newlyEmptyGroups, removedEnvironmentCulprits));
     }
   }
 
@@ -668,22 +685,38 @@ public class ConstraintSemantics {
    */
   private static String getOverRefinementError(
       Set<EnvironmentLabels> newlyEmptyGroups,
-      Map<Label, LabelAndLocation> removedEnvironmentCulprits) {
-    StringBuilder message = new StringBuilder("the current command-line flags disqualify "
-        + "all supported environments because of incompatible select() paths:");
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
+    StringJoiner message = new StringJoiner("\n")
+        .add("the current command line flags disqualify all supported environments because of "
+            + "incompatible select() paths:");
     for (EnvironmentLabels group : newlyEmptyGroups) {
       if (newlyEmptyGroups.size() > 1) {
-        message.append("\n\nenvironment group: " + group.getLabel() + ":");
+        message
+            .add(" ")
+            .add("environment group: " + group.getLabel() + ":");
       }
       for (Label prunedEnvironment : group.getEnvironments()) {
-        LabelAndLocation culprit = removedEnvironmentCulprits.get(prunedEnvironment);
-        if (culprit != null) { // Only environments this rule declared support for have culprits.
-          message.append("\n environment: " + prunedEnvironment
-              + " removed by: " + culprit.getLabel() + " (" + culprit.getLocation() + ")");
+        RemovedEnvironmentCulprit culprit = removedEnvironmentCulprits.get(prunedEnvironment);
+        // Only environments this rule statically declared support for have culprits.
+        if (culprit != null) {
+          message
+              .add(" ")
+              .add(getMissingEnvironmentCulpritMessage(prunedEnvironment, culprit));
         }
       }
     }
     return message.toString();
+  }
+
+  static String getMissingEnvironmentCulpritMessage(Label environment,
+      RemovedEnvironmentCulprit reason) {
+    LabelAndLocation culprit = reason.culprit();
+    return new StringJoiner("\n")
+        .add("  environment: " + environment)
+        .add("    removed by: " + culprit.getLabel() + " (" + culprit.getLocation() + ")")
+        .add("    which has a select() that chooses dep: " + reason.selectedDepForCulprit())
+        .add("    which lacks: " + environment)
+        .toString();
   }
 
   /**
@@ -698,12 +731,24 @@ public class ConstraintSemantics {
    *
    * <p>then D2 is the original refiner (even though D1 and R inherit the same pruning).
    */
-  private static LabelAndLocation findOriginalRefiner(
-      RuleContext ruleContext, SupportedEnvironmentsProvider dep, EnvironmentWithGroup envToPrune) {
-    LabelAndLocation depCulprit = dep.getRemovedEnvironmentCulprit(envToPrune.environment());
+  private static RemovedEnvironmentCulprit findOriginalRefiner(RuleContext ruleContext, Label dep,
+      SupportedEnvironmentsProvider depEnvironments, EnvironmentWithGroup envToPrune) {
+    RemovedEnvironmentCulprit depCulprit =
+        depEnvironments.getRemovedEnvironmentCulprit(envToPrune.environment());
+    if (depCulprit != null) {
+      return depCulprit;
+    }
     // If the dep has no record of this environment being refined, that means the current rule
     // is the culprit.
-    return depCulprit == null ? LabelAndLocation.of(ruleContext.getTarget()) : depCulprit;
+    return RemovedEnvironmentCulprit.create(
+        LabelAndLocation.of(ruleContext.getTarget()),
+        // While it'd be nice to know the dep's location too, it isn't strictly necessary.
+        // Especially since we already have the parent's location. So it's easy enough to find the
+        // dep. And we want to respect the efficiency concerns described in LabelAndLocation.
+        //
+        // Alternatively, we could prepare error strings directly in SupportedEnvironmentsProvider,
+        // which should remove the need for LabelAndLocation for any target.
+        dep);
   }
 
   /**

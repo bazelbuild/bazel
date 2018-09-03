@@ -254,14 +254,13 @@ function assert_singlejar_works() {
   mkdir -p "$pkg/jvm"
   cat > "$pkg/jvm/BUILD" <<EOF
 package(default_visibility=["//visibility:public"])
-java_runtime_suite(name='suite', default=':runtime')
 java_runtime(name='runtime', java_home='$javabase')
 EOF
 
 
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
-      "$stamp_arg" --javabase="//$pkg/jvm:suite" "$embed_label" >&"$TEST_log" \
+      "$stamp_arg" --javabase="//$pkg/jvm:runtime" "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
 
   mkdir $pkg/ugly/ || fail "mkdir failed"
@@ -650,8 +649,6 @@ java_binary(
         '--e=no_quotes',
         # no escaping expected
         '--f=stuff\$\$to"escape\\\\',
-        # test make variable expansion
-        '--g=\$(JAVABASE)',
     ],
 )
 EOF
@@ -673,7 +670,6 @@ EOF
       " --d=\"double_double\" " \
       ' --e=no_quotes ' \
       ' --f=stuff$to"escape\\ ' \
-      " --g=${runfiles_relative_javabase}" \
       ; do
     # NOTE: don't test the full path of the JDK, it's architecture-dependent.
     assert_contains $flag $STUBSCRIPT
@@ -811,7 +807,7 @@ java_library(
 EOF
   bazel build --java_header_compilation=true \
     //$pkg/java/test:a >& "$TEST_log" && fail "Unexpected success"
-  expect_log "package missing does not exist"
+  expect_log "symbol not found missing.NoSuch"
 }
 
 function test_java_import_with_empty_jars_attribute() {

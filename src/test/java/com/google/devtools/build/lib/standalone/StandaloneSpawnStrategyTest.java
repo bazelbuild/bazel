@@ -172,14 +172,14 @@ public class StandaloneSpawnStrategyTest {
   @Test
   public void testBinTrueExecutesFine() throws Exception {
     Spawn spawn = createSpawn(getTrueCommand());
-    executor.getSpawnActionContext(spawn).exec(spawn, createContext());
+    executor.getContext(SpawnActionContext.class).exec(spawn, createContext());
 
     assertThat(out()).isEmpty();
     assertThat(err()).isEmpty();
   }
 
   private List<SpawnResult> run(Spawn spawn) throws Exception {
-    return executor.getSpawnActionContext(spawn).exec(spawn, createContext());
+    return executor.getContext(SpawnActionContext.class).exec(spawn, createContext());
   }
 
   private ActionExecutionContext createContext() {
@@ -194,7 +194,8 @@ public class StandaloneSpawnStrategyTest {
         ImmutableMap.<String, String>of(),
         ImmutableMap.of(),
         SIMPLE_ARTIFACT_EXPANDER,
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   @Test

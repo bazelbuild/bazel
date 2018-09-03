@@ -1,0 +1,126 @@
+<a name="#my_rule"></a>
+## my_rule
+
+<pre>
+my_rule(name, first, second)
+</pre>
+
+This is my rule. It does stuff.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#my_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="#my_rule_first">
+      <td><code>first</code></td>
+      <td>
+        Label; required
+        <p>
+          first my_rule doc string
+        </p>
+      </td>
+    </tr>
+    <tr id="#my_rule_second">
+      <td><code>second</code></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#other_rule"></a>
+## other_rule
+
+<pre>
+other_rule(name, fourth, third)
+</pre>
+
+This is another rule.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#other_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="#other_rule_fourth">
+      <td><code>fourth</code></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
+    </tr>
+    <tr id="#other_rule_third">
+      <td><code>third</code></td>
+      <td>
+        Label; required
+        <p>
+          third other_rule doc string
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<a name="#yet_another_rule"></a>
+## yet_another_rule
+
+<pre>
+yet_another_rule(name, fifth)
+</pre>
+
+This is yet another rule
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#yet_another_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="#yet_another_rule_fifth">
+      <td><code>fifth</code></td>
+      <td>
+        Label; required
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

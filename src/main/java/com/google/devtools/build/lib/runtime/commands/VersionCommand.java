@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
  * The 'blaze version' command, which informs users about the blaze version
@@ -39,7 +39,7 @@ public final class VersionCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {}
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     BlazeVersionInfo info = BlazeVersionInfo.instance();
     if (info.getSummary() == null) {
       env.getReporter().handle(Event.error("Version information not available"));

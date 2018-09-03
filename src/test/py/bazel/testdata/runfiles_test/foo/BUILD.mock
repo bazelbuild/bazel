@@ -6,6 +6,7 @@ py_binary(
         "//bar:bar-java",
         "//bar:bar-py",
         "//bar:bar-sh",
+        "//bar:bar-cc",
     ],
     main = "foo.py",
     deps = ["@bazel_tools//tools/python/runfiles"],
@@ -19,9 +20,10 @@ java_binary(
         "//bar:bar-py",
         "//bar:bar-java",
         "//bar:bar-sh",
+        "//bar:bar-cc",
     ],
     main_class = "Foo",
-    deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )
 
 sh_binary(
@@ -32,6 +34,24 @@ sh_binary(
         "//bar:bar-java",
         "//bar:bar-py",
         "//bar:bar-sh",
+        "//bar:bar-cc",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+cc_binary(
+    name = "runfiles-cc",
+    srcs = ["foo.cc"],
+    data = [
+        "datadep/hello.txt",
+        "//bar:bar-java",
+        "//bar:bar-py",
+        "//bar:bar-sh",
+        "//bar:bar-cc",
+    ],
+    copts = select({
+        "@bazel_tools//src/conditions:windows": ["/DIS_WINDOWS=1"],
+        "//conditions:default": [],
+    }),
+    deps = ["@bazel_tools//tools/cpp/runfiles"],
 )

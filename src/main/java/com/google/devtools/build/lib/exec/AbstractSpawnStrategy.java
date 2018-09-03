@@ -20,11 +20,12 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -57,6 +58,17 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     this.spawnRunner = spawnRunner;
   }
 
+  /**
+   * Get's the {@link SpawnRunner} that this {@link AbstractSpawnStrategy} uses to actually run
+   * spawns.
+   *
+   * <p>This is considered a stop-gap until we refactor the entire SpawnStrategy / SpawnRunner
+   * mechanism to no longer need Spawn strategies.
+   */
+  public SpawnRunner getSpawnRunner() {
+    return spawnRunner;
+  }
+
   @Override
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
@@ -69,9 +81,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    if (actionExecutionContext.reportsSubcommands()) {
-      actionExecutionContext.reportSubcommand(spawn);
-    }
+
+    actionExecutionContext.maybeReportSubcommand(spawn);
+
     final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionContext context =
         new SpawnExecutionContextImpl(spawn, actionExecutionContext, writeOutputFiles, timeout);
@@ -111,7 +123,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       try {
         spawnLogContext.logSpawn(
             spawn,
-            actionExecutionContext.getActionInputFileCache(),
+            actionExecutionContext.getMetadataProvider(),
             context.getInputMapping(),
             context.getTimeout(),
             spawnResult);
@@ -180,13 +192,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
 
     @Override
-    public ActionInputFileCache getActionInputFileCache() {
-      return actionExecutionContext.getActionInputFileCache();
+    public MetadataProvider getMetadataProvider() {
+      return actionExecutionContext.getMetadataProvider();
     }
 
     @Override
     public ArtifactExpander getArtifactExpander() {
       return actionExecutionContext.getArtifactExpander();
+    }
+
+    @Override
+    public ArtifactPathResolver getPathResolver() {
+      return actionExecutionContext.getPathResolver();
     }
 
     @Override
@@ -221,7 +238,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
             spawnInputExpander.getInputMapping(
                 spawn,
                 actionExecutionContext.getArtifactExpander(),
-                actionExecutionContext.getActionInputFileCache());
+                actionExecutionContext.getMetadataProvider());
       }
       return lazyInputMapping;
     }

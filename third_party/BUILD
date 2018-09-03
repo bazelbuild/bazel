@@ -18,7 +18,6 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
@@ -36,6 +35,7 @@ filegroup(
         "//third_party/googleapis:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/pprof:srcs",
+        "//third_party/remoteapis:srcs",
     ],
 )
 
@@ -49,16 +49,6 @@ filegroup(
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
     ],
-)
-
-filegroup(
-    name = "d3-js",
-    srcs = glob(["javascript/d3/**/*.js"]),
-)
-
-filegroup(
-    name = "jquery",
-    srcs = glob(["javascript/jquery/**/*.jslib"]),
 )
 
 java_import(
@@ -85,7 +75,13 @@ java_import(
         "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
         "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
         "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
-        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+        # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
+        # We are unable to upgrade the other libraries yet due to internal
+        # constraints with Blaze. See
+        # https://github.com/bazelbuild/bazel/issues/4381
+        # TODO(bazel-team): Upgrade entire android_common suite to 26+ after
+        # resolving internal constraint.
+        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
         "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
         "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
         "android_common/com.android.tools_common_25.0.0.jar",
@@ -167,35 +163,35 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-6.0.jar"],
-    srcjar = "asm/asm-6.0-sources.jar",
+    jars = ["asm/asm-6.2.1.jar"],
+    srcjar = "asm/asm-6.2.1-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-6.0.jar"],
-    srcjar = "asm/asm-analysis-6.0-sources.jar",
+    jars = ["asm/asm-analysis-6.2.1.jar"],
+    srcjar = "asm/asm-analysis-6.2.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-6.0.jar"],
-    srcjar = "asm/asm-commons-6.0-sources.jar",
+    jars = ["asm/asm-commons-6.2.1.jar"],
+    srcjar = "asm/asm-commons-6.2.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-6.0.jar"],
-    srcjar = "asm/asm-tree-6.0-sources.jar",
+    jars = ["asm/asm-tree-6.2.1.jar"],
+    srcjar = "asm/asm-tree-6.2.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-6.0.jar"],
-    srcjar = "asm/asm-util-6.0-sources.jar",
+    jars = ["asm/asm-util-6.2.1.jar"],
+    srcjar = "asm/asm-util-6.2.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -296,16 +292,6 @@ filegroup(
 )
 
 java_import(
-    name = "bytebuddy",
-    jars = ["bytebuddy/byte-buddy-dep-0.7-rc6.jar"],
-    deps = [
-        ":asm",
-        ":asm-commons",
-        ":asm-util",
-    ],
-)
-
-java_import(
     name = "compile_testing",
     jars = ["compile_testing/compile-testing-0.13.jar"],
 )
@@ -313,14 +299,6 @@ java_import(
 java_import(
     name = "gson",
     jars = ["gson/gson-2.2.4.jar"],
-)
-
-java_import(
-    name = "hazelcast",
-    jars = [
-        "hazelcast/hazelcast-3.6.4.jar",
-        "hazelcast/hazelcast-client-3.6.4.jar",
-    ],
 )
 
 java_import(
@@ -333,16 +311,16 @@ java_import(
     name = "error_prone_annotations",
     jars = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "error_prone/error_prone_type_annotations-2.3.1.jar",
+        "error_prone/error_prone_type_annotations-2.3.2-SNAPSHOT.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.1.jar",
-        "error_prone/error_prone_check_api-2.3.1.jar",
-        "error_prone/error_prone_core-2.3.1.jar",
+        "error_prone/error_prone_annotation-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_check_api-2.3.2-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.3.2-SNAPSHOT.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -385,7 +363,7 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "guava/guava-24.1-jre.jar",
+        "guava/guava-25.1-jre.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
     ],
@@ -393,7 +371,7 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-24.1-jre.jar"],
+    jars = ["guava/guava-25.1-jre.jar"],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -419,7 +397,7 @@ java_import(
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-24.1-jre.jar"],
+    srcs = ["guava/guava-25.1-jre.jar"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -524,61 +502,34 @@ filegroup(
 # Testing
 
 java_import(
+    name = "diffutils",
+    jars = ["diffutils/diffutils-1.3.0.jar"],
+)
+
+java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-24.1-jre.jar"],
+    jars = ["guava/guava-testlib-25.1-jre.jar"],
 )
 
 java_import(
     name = "junit4",
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.11.jar",
+        "junit/junit-4.12.jar",
     ],
-)
-
-java_import(
-    name = "kryo_lib",
-    jars = ["kryo/kryo-3.0.2.jar"],
-)
-
-java_library(
-    name = "kryo",
-    exports = ["kryo_lib"],
-)
-
-java_import(
-    name = "minlog_lib",
-    jars = ["minlog/minlog-1.2.jar"],
-)
-
-java_library(
-    name = "minlog",
-    exports = ["minlog_lib"],
 )
 
 java_import(
     name = "mockito",
     jars = ["mockito/mockito-all-1.10.19.jar"],
+    deps = [
+        ":objenesis",
+    ],
 )
 
 java_import(
-    name = "objenesis_lib",
-    jars = ["objenesis/objenesis-1_3.jar"],
-)
-
-java_library(
     name = "objenesis",
-    exports = ["objenesis_lib"],
-)
-
-java_import(
-    name = "reflectasm_lib",
-    jars = ["reflectasm/reflectasm-1.10.1.jar"],
-)
-
-java_library(
-    name = "reflectasm",
-    exports = ["reflectasm_lib"],
+    jars = ["objenesis/objenesis-1_3.jar"],
 )
 
 java_import(
@@ -588,12 +539,15 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.36.jar"],
+    jars = ["truth/truth-0.42.jar"],
+    runtime_deps = [
+        ":diffutils",
+    ],
 )
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.36.jar"],
+    jars = ["truth8/truth-java8-extension-0.42.jar"],
 )
 
 java_import(
@@ -606,28 +560,30 @@ filegroup(
     name = "junit4-jars",
     srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.11.jar",
+        "junit/junit-4.12.jar",
     ],
 )
 
-config_setting(
+load(":compiler_config_setting.bzl", "create_compiler_config_setting")
+
+create_compiler_config_setting(
     name = "windows_mingw",
-    values = {"compiler": "windows_mingw"},
+    value = "windows_mingw",
 )
 
-config_setting(
+create_compiler_config_setting(
     name = "windows_msys64",
-    values = {"compiler": "windows_msys64"},
+    value = "windows_msys64",
 )
 
-config_setting(
+create_compiler_config_setting(
     name = "windows_msys64_mingw64",
-    values = {"compiler": "windows_msys64_mingw64"},
+    value = "windows_msys64_mingw64",
 )
 
-config_setting(
+create_compiler_config_setting(
     name = "windows_clang",
-    values = {"compiler": "windows_clang"},
+    value = "windows_clang",
 )
 
 config_setting(
@@ -648,6 +604,11 @@ config_setting(
 config_setting(
     name = "arm",
     values = {"host_cpu": "arm"},
+)
+
+config_setting(
+    name = "aarch64",
+    values = {"host_cpu": "aarch64"},
 )
 
 config_setting(

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 
 import com.google.common.collect.ImmutableList;
@@ -23,9 +24,9 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@code java_package_configuration} */
 public class JavaPackageConfigurationRule implements RuleDefinition {
@@ -38,7 +39,7 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
         the configuration should be applied to.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr("packages", BuildType.LABEL_LIST)
+            attr("packages", LABEL_LIST)
                 .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes()
                 .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
@@ -46,6 +47,10 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
         Java compiler flags.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javacopts", Type.STRING_LIST))
+        /* <!-- #BLAZE_RULE(java_package_configuration).ATTRIBUTE(data) -->
+        The list of files needed by this configuration at runtime.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
         .add(attr("output_licenses", LICENSE))
         .build();
   }

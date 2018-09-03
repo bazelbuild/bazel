@@ -17,16 +17,29 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.python.PythonOptions;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
  * A test for {@link BuildOptions}.
+ *
+ * Currently this tests native options and skylark options completely
+ * separately since these two types of options do not interact. In the future when we begin to
+ * migrate native options to skylark options, the format of this test class will need to accommodate
+ * that overlap.
  */
 @RunWith(JUnit4.class)
 public class BuildOptionsTest {
@@ -100,8 +113,13 @@ public class BuildOptionsTest {
     OptionsDiff diff = BuildOptions.diff(one, two);
 
     assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getExtraFirstFragmentClasses()).containsExactly(CppOptions.class);
-    assertThat(diff.getExtraSecondFragmentClasses()).containsExactlyElementsIn(TEST_OPTIONS);
+    assertThat(diff.getExtraFirstFragmentClassesForTesting()).containsExactly(CppOptions.class);
+    assertThat(
+            diff.getExtraSecondFragmentsForTesting()
+                .stream()
+                .map(Object::getClass)
+                .collect(Collectors.toSet()))
+        .containsExactlyElementsIn(TEST_OPTIONS);
   }
 
   @Test
@@ -151,7 +169,7 @@ public class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff() throws Exception {
+  public void applyDiff_nativeOptions() throws Exception {
     BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
     BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
     BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
@@ -164,5 +182,149 @@ public class BuildOptionsTest {
         .isEqualTo(otherFragment);
     assertThat(otherFragment.applyDiff(BuildOptions.diffForReconstruction(otherFragment, one)))
         .isEqualTo(one);
+  }
+
+  @Test
+  public void optionsDiff_sameSkylarkOptions() throws Exception {
+    String flagName = "//foo/flag";
+    String flagValue = "value";
+    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
+    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
+
+    assertThat(BuildOptions.diff(one, two).areSame()).isTrue();
+  }
+
+  @Test
+  public void optionsDiff_differentSkylarkOptions() throws Exception {
+    String flagName = "//bar/flag";
+    String flagValueOne = "valueOne";
+    String flagValueTwo = "valueTwo";
+    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
+    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValueTwo));
+
+    OptionsDiff diff = BuildOptions.diff(one, two);
+
+    assertThat(diff.areSame()).isFalse();
+    assertThat(diff.getSkylarkFirstForTesting().keySet())
+        .isEqualTo(diff.getSkylarkSecondForTesting().keySet());
+    assertThat(diff.getSkylarkFirstForTesting().keySet()).containsExactly(flagName);
+    assertThat(diff.getSkylarkFirstForTesting().values()).containsExactly(flagValueOne);
+    assertThat(diff.getSkylarkSecondForTesting().values()).containsExactly(flagValueTwo);
+  }
+
+  @Test
+  public void optionsDiff_extraSkylarkOptions() throws Exception {
+    String flagNameOne = "//extra/flag/one";
+    String flagNameTwo = "//extra/flag/two";
+    String flagValue = "foo";
+    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
+    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
+
+    OptionsDiff diff = BuildOptions.diff(one, two);
+
+    assertThat(diff.areSame()).isFalse();
+    assertThat(diff.getExtraSkylarkOptionsFirstForTesting()).containsExactly(flagNameOne);
+    assertThat(diff.getExtraSkylarkOptionsSecondForTesting().entrySet())
+        .containsExactly(Maps.immutableEntry(flagNameTwo, flagValue));
+  }
+
+  @Test
+  public void applyDiff_sameSkylarkOptions() throws Exception {
+    String flagName = "//foo/flag";
+    String flagValue = "value";
+    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
+    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
+
+    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+
+    assertThat(reconstructedTwo).isEqualTo(two);
+    assertThat(reconstructedTwo).isNotSameAs(two);
+
+    BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
+
+    assertThat(reconstructedOne).isSameAs(one);
+  }
+
+  @Test
+  public void applyDiff_differentSkylarkOptions() throws Exception {
+    String flagName = "//bar/flag";
+    String flagValueOne = "valueOne";
+    String flagValueTwo = "valueTwo";
+    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
+    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValueTwo));
+
+    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+
+    assertThat(reconstructedTwo).isEqualTo(two);
+    assertThat(reconstructedTwo).isNotSameAs(two);
+  }
+
+  @Test
+  public void applyDiff_extraSkylarkOptions() throws Exception {
+    String flagNameOne = "//extra/flag/one";
+    String flagNameTwo = "//extra/flag/two";
+    String flagValue = "foo";
+    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
+    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
+
+    BuildOptions reconstructedTwo = one.applyDiff(BuildOptions.diffForReconstruction(one, two));
+    
+    assertThat(reconstructedTwo).isEqualTo(two);
+    assertThat(reconstructedTwo).isNotSameAs(two);
+  }
+
+  private static ImmutableList.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {
+    return ImmutableList.<Class<? extends FragmentOptions>>builder()
+        .addAll(TEST_OPTIONS)
+        .add(CppOptions.class);
+  }
+
+  /**
+   * Tests that an {@link OptionsDiffForReconstruction} serializes stably. Unfortunately, still
+   * passes without fixes! (Perhaps more classes and diffs are needed?)
+   */
+  @Test
+  public void codecStability() throws Exception {
+    BuildOptions one =
+        BuildOptions.of(
+            makeOptionsClassBuilder()
+                .add(AndroidConfiguration.Options.class)
+                .add(ProtoConfiguration.Options.class)
+                .build());
+    BuildOptions two =
+        BuildOptions.of(
+            makeOptionsClassBuilder().add(JavaOptions.class).add(PythonOptions.class).build(),
+            "--cpu=k8",
+            "--compilation_mode=opt",
+            "--compiler=gcc",
+            "--copt=-Dfoo",
+            "--javacopt=--javacoption",
+            "--experimental_fix_deps_tool=fake",
+            "--build_python_zip=no",
+            "--force_python=py2");
+    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
+    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
+    assertThat(diff2).isEqualTo(diff1);
+    assertThat(
+            TestUtils.toBytes(
+                diff2,
+                ImmutableMap.of(
+                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())))
+        .isEqualTo(
+            TestUtils.toBytes(
+                diff1,
+                ImmutableMap.of(
+                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())));
+  }
+
+  @Test
+  public void repeatedCodec() throws Exception {
+    BuildOptions one = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    BuildOptions two = BuildOptions.of(TEST_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
+    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(one, two);
+    BuildOptions.OptionsDiffCache cache = new BuildOptions.FingerprintingKDiffToByteStringCache();
+    assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
+        .isEqualTo(
+            TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
   }
 }

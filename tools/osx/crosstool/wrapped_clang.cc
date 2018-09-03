@@ -22,8 +22,10 @@
 // are passed in, then they all must be passed in.
 // "DSYM_HINT_LINKED_BINARY": Workspace-relative path to binary output of the
 //    link action generating the dsym file.
-// "DSYM_HINT_DSYM_PATH": Workspace-relative path to dSYM directory.
-// "DSYM_HINT_DSYM_BUNDLE_ZIP": Workspace-relative path to dSYM zip.
+// "DSYM_HINT_DSYM_PATH": Workspace-relative path to dSYM dwarf file or bundle.
+// "DSYM_HINT_DSYM_BUNDLE_ZIP": (optional) Workspace-relative path to dSYM zip.
+//   - If this is specified, a dSYM bundle is created, otherwise just a regular
+//     DWARF file is created.
 //
 // Likewise, this wrapper also contains a workaround for a bug in ld that causes
 // flaky builds when using Bitcode symbol maps. ld allows the
@@ -118,17 +120,6 @@ void RunSubProcess(const std::vector<std::string> &args) {
   }
 }
 
-// Splits txt using whitespace delimiter, pushing each substring into strs.
-void SplitAndAdd(const std::string &txt, std::vector<std::string> &strs) {
-  for (std::istringstream stream(txt); !stream.eof();) {
-    std::string substring;
-    stream >> substring;
-    if (!substring.empty()) {
-      strs.push_back(substring);
-    }
-  }
-}
-
 // Finds and replaces all instances of oldsub with newsub, in-place on str.
 void FindAndReplace(const std::string &oldsub, const std::string &newsub,
                     std::string *str) {
@@ -186,6 +177,15 @@ int main(int argc, char *argv[]) {
   std::vector<std::string> processed_args = {"/usr/bin/xcrun", tool_name};
 
   std::string linked_binary, dsym_path, dsym_bundle_zip, bitcode_symbol_map;
+  std::string dest_dir;
+
+  std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
+                                                   std::free};
+  if (cwd == nullptr) {
+    std::cerr << "Error determining current working directory\n";
+    abort();
+  }
+
   for (int i = 1; i < argc; i++) {
     std::string arg(argv[i]);
 
@@ -205,24 +205,25 @@ int main(int argc, char *argv[]) {
       std::ofstream bitcode_symbol_map_file(bitcode_symbol_map);
       arg = bitcode_symbol_map;
     }
+    if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
+      arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
+    }
     FindAndReplace("__BAZEL_XCODE_DEVELOPER_DIR__", developer_dir, &arg);
     FindAndReplace("__BAZEL_XCODE_SDKROOT__", sdk_root, &arg);
-    SplitAndAdd(arg, processed_args);
+    processed_args.push_back(arg);
   }
 
   // Check to see if we should postprocess with dsymutil.
   bool postprocess = false;
+  bool dsyms_use_zip_file = false;
   if ((!linked_binary.empty()) || (!dsym_path.empty()) ||
       (!dsym_bundle_zip.empty())) {
-    if ((linked_binary.empty()) || (dsym_path.empty()) ||
-        (dsym_bundle_zip.empty())) {
+    if ((linked_binary.empty()) || (dsym_path.empty())) {
       const char *missing_dsym_flag;
       if (linked_binary.empty()) {
         missing_dsym_flag = "DSYM_HINT_LINKED_BINARY";
-      } else if (dsym_path.empty()) {
-        missing_dsym_flag = "DSYM_HINT_DSYM_PATH";
       } else {
-        missing_dsym_flag = "DSYM_HINT_DSYM_BUNDLE_ZIP";
+        missing_dsym_flag = "DSYM_HINT_DSYM_PATH";
       }
       std::cerr << "Error in clang wrapper: If any dsym "
               "hint is defined, then "
@@ -230,6 +231,7 @@ int main(int argc, char *argv[]) {
       abort();
     } else {
       postprocess = true;
+      dsyms_use_zip_file = !(dsym_bundle_zip.empty());
     }
   }
 
@@ -243,26 +245,25 @@ int main(int argc, char *argv[]) {
 
   std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun", "dsymutil",
                                             linked_binary, "-o", dsym_path};
+  if (!dsyms_use_zip_file) {
+    dsymutil_args.push_back("--flat");
+  }
 
   RunSubProcess(dsymutil_args);
 
-  std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
-                                                   std::free};
-  if (cwd == nullptr) {
-    std::cerr << "Error determining current working directory\n";
-    abort();
-  }
-  std::vector<std::string> zip_args = {
-      "/usr/bin/zip", "-q", "-r",
-      std::string(cwd.get()) + "/" + dsym_bundle_zip, "."};
-  if (chdir(dsym_path.c_str()) < 0) {
-    std::cerr << "Error changing directory to '" << dsym_path << "'\n";
+  if (dsyms_use_zip_file) {
+    std::vector<std::string> zip_args = {
+        "/usr/bin/zip", "-q", "-r",
+        std::string(cwd.get()) + "/" + dsym_bundle_zip, "."};
+    if (chdir(dsym_path.c_str()) < 0) {
+      std::cerr << "Error changing directory to '" << dsym_path << "'\n";
+      abort();
+    }
+
+    ExecProcess(zip_args);
+    std::cerr << "ExecProcess should not return. Please fix!\n";
     abort();
   }
 
-  ExecProcess(zip_args);
-
-  std::cerr << "Should never get to end of wrapped_clang. Please fix!\n";
-  abort();
   return 0;
 }

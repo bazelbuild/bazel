@@ -17,6 +17,8 @@
 
 #include <string>
 
+#include "src/tools/singlejar/port.h"
+
 /*
  * A mapped read-only file with auto closing.
  *
@@ -28,12 +30,6 @@
  */
 class MappedFile {
  public:
-#ifdef COMPILER_MSVC
-  typedef /* HANDLE = void* */ void *FileHandleType;
-#else  // not COMPILER_MSVC
-  typedef int FileHandleType;
-#endif  // COMPILER_MSVC
-
   MappedFile();
 
   ~MappedFile() { Close(); }
@@ -51,23 +47,20 @@ class MappedFile {
   const unsigned char *address(off_t offset) const {
     return mapped_start_ + offset;
   }
-  off_t offset(const void *address) const {
+  off64_t offset(const void *address) const {
     return reinterpret_cast<const unsigned char *>(address) - mapped_start_;
   }
-  FileHandleType fd() const { return fd_; }
+  int fd() const { return fd_; }
   size_t size() const { return mapped_end_ - mapped_start_; }
-  bool is_open() const;
+  bool is_open() const { return fd_ >= 0; }
 
  private:
   unsigned char *mapped_start_;
   unsigned char *mapped_end_;
-  FileHandleType fd_;
+  int fd_;
+#ifdef _WIN32
+  /* HANDLE */ void *hMapFile_;
+#endif
 };
-
-#ifdef COMPILER_MSVC
-#include "src/tools/singlejar/mapped_file_windows.inc"
-#else  // not COMPILER_MSVC
-#include "src/tools/singlejar/mapped_file_posix.inc"
-#endif  // COMPILER_MSVC
 
 #endif  //  BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_H_

@@ -44,12 +44,13 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -128,9 +129,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .addSourceJar(srcJar)
         .addAllTransitiveSourceJars(common.collectTransitiveSourceJars(srcJar));
     Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
+    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
-        JavaRuleOutputJarsProvider.builder().addOutputJar(
-            classJar, null /* iJar */, ImmutableList.of(srcJar));
+        JavaRuleOutputJarsProvider.builder()
+            .addOutputJar(classJar, null /* iJar */, manifestProtoOutput, ImmutableList.of(srcJar));
 
     CppConfiguration cppConfiguration = ruleContext.getConfiguration().getFragment(
         CppConfiguration.class);
@@ -139,23 +141,22 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // TODO(b/64384912): Remove in favor of CcToolchainProvider
     boolean stripAsDefault =
         ccToolchain.useFission() && cppConfiguration.getCompilationMode() == CompilationMode.OPT;
-    Artifact launcher = semantics.getLauncher(ruleContext, common, deployArchiveBuilder,
-        runfilesBuilder, jvmFlags, attributesBuilder, stripAsDefault);
-
     DeployArchiveBuilder unstrippedDeployArchiveBuilder = null;
-    Artifact unstrippedLauncher = null;
     if (stripAsDefault) {
       unstrippedDeployArchiveBuilder = new DeployArchiveBuilder(semantics, ruleContext);
-      unstrippedLauncher =
-          semantics.getLauncher(
-              ruleContext,
-              common,
-              unstrippedDeployArchiveBuilder,
-              runfilesBuilder,
-              jvmFlags,
-              attributesBuilder,
-              /* shouldStrip= */ false);
     }
+    Pair<Artifact, Artifact> launcherAndUnstrippedLauncher =
+        semantics.getLauncher(
+            ruleContext,
+            common,
+            deployArchiveBuilder,
+            unstrippedDeployArchiveBuilder,
+            runfilesBuilder,
+            jvmFlags,
+            attributesBuilder,
+            stripAsDefault);
+    Artifact launcher = launcherAndUnstrippedLauncher.first;
+    Artifact unstrippedLauncher = launcherAndUnstrippedLauncher.second;
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
     Artifact instrumentationMetadata =
@@ -222,8 +223,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
-
-    Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
     // The gensrc jar is created only if the target uses annotation processing. Otherwise,
     // it is null, and the source jar action will not depend on the compile action.
@@ -307,7 +306,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         new JavaPrimaryClassProvider(
             semantics.getPrimaryClass(ruleContext, common.getSrcsArtifacts())));
     if (generatedExtensionRegistryProvider != null) {
-      builder.add(GeneratedExtensionRegistryProvider.class, generatedExtensionRegistryProvider);
+      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
 
     Artifact deployJar =
@@ -444,6 +443,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaInfo javaInfo = javaInfoBuilder
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceInfoProvider.class,
+                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .build();
 
     return builder
@@ -461,9 +462,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .add(
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
-        .add(
-            JavaSourceInfoProvider.class,
-            JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .build();
   }
@@ -538,7 +536,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("runtime_deps", Mode.TARGET);
     builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
-    semantics.addDependenciesForRunfiles(ruleContext, builder);
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
         && !ruleContext.getConfiguration().isExperimentalJavaCoverage()) {

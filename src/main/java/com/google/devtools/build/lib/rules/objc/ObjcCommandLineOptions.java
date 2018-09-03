@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -28,7 +27,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /** Command-line options for building Objective-C targets. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "ios_simulator_version",
@@ -177,6 +175,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate debug symbol(.dSYM) file(s)."
   )
   public boolean appleGenerateDsym;
+
+  @Option(
+      name = "apple_enable_auto_dsym_dbg",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
+  public boolean appleEnableAutoDsymDbg;
 
   @Option(
     name = "ios_signing_cert_name",

@@ -121,7 +121,7 @@ public final class QueryUtil {
    * <p>Should only be used by QueryExpressions when it is the only way of achieving correctness.
    */
   public static <T> QueryTaskFuture<ThreadSafeMutableSet<T>> evalAll(
-      QueryEnvironment<T> env, VariableContext<T> context, QueryExpression expr) {
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, QueryExpression expr) {
     final AggregateAllCallback<T, ThreadSafeMutableSet<T>> callback = newAggregateAllCallback(env);
     return env.whenSucceedsCall(
         env.eval(expr, context, callback),
@@ -224,15 +224,8 @@ public final class QueryUtil {
     private final Set<K> alreadySeen;
 
     public UniquifierImpl(KeyExtractor<T, K> extractor) {
-      this(extractor, /*concurrencyLevel=*/ 1);
-    }
-
-    public UniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
       this.extractor = extractor;
-      this.alreadySeen =
-          Collections.newSetFromMap(
-              new ConcurrentHashMap<>(
-                  /*initialCapacity=*/ concurrencyLevel, /*loadFactor=*/ 0.75f));
+      this.alreadySeen = Collections.newSetFromMap(new ConcurrentHashMap<>());
     }
 
     @Override

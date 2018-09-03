@@ -149,16 +149,19 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    * Creates a new FileWriteAction instance.
    *
    * <p>There are no inputs. Transparent compression is controlled by the {@code
-   * --experimental_transparent_compression} flag. No reference to the {@link RuleContext} will be
-   * maintained.
+   * --experimental_transparent_compression} flag. No reference to the {@link
+   * ActionConstructionContext} will be maintained.
    *
-   * @param context the rule context
+   * @param context the action construction context
    * @param output the Artifact that will be created by executing this Action
    * @param fileContents the contents to be written to the file
    * @param makeExecutable whether the output file is made executable
    */
   public static FileWriteAction create(
-      RuleContext context, Artifact output, CharSequence fileContents, boolean makeExecutable) {
+      ActionConstructionContext context,
+      Artifact output,
+      CharSequence fileContents,
+      boolean makeExecutable) {
     return new FileWriteAction(
         context.getActionOwner(),
         Artifact.NO_ARTIFACTS,

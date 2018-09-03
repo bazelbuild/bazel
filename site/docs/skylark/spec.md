@@ -12,7 +12,7 @@ domain-specific functions and data types beyond those provided by the
 core language.  For example, Skylark is embedded within (and was
 originally developed for) the [Bazel build tool](https://bazel.build),
 and [Bazel's build language](https://docs.bazel.build/versions/master/skylark/language.html) is based on Skylark.
-Another implementation in Go can be found here: https://github.com/google/skylark/
+Another implementation in Go can be found here: [https://github.com/google/skylark/](https://github.com/google/skylark/)
 
 This document was derived from the [description of the Go
 implementation](https://github.com/google/skylark/blob/master/doc/spec.md)
@@ -23,7 +23,7 @@ and the Go specification, Copyright 2009&ndash;2017, The Go Authors. It is
 now maintained by the Bazel team.
 
 The name "Skylark" is a code name of the Bazel project.
-We plan to rename the language before the end of 2017 to reflect its
+We plan to rename the language soon to reflect its
 applicability to projects unrelated to Bazel.
 
 <!-- [TOC] -->
@@ -1149,8 +1149,6 @@ CallSuffix  = '(' [Arguments [',']] ')' .
 SliceSuffix = '[' [Expression] [':' Test [':' Test]] ']' .
 ```
 
-TODO: resolve position of -x, and 'not x' in grammar: Operand or UnaryExpr?
-
 ### Identifiers
 
 ```text
@@ -1272,7 +1270,7 @@ There are two unary operators, both appearing before their operand:
 `-`, and `not`.
 
 ```text
-UnaryExpr = '-' PrimaryExpr
+UnaryExpr = '-' Test
           | 'not' Test
           .
 ```
@@ -3135,7 +3133,7 @@ the final element does not necessarily end with a line terminator.
 <a id='string·title'></a>
 ### string·title
 
-`S.lower()` returns a copy of the string S with letters converted to titlecase.
+`S.title()` returns a copy of the string S with letters converted to titlecase.
 
 Letters are converted to uppercase at the start of words, lowercase elsewhere.
 
@@ -3146,7 +3144,7 @@ Letters are converted to uppercase at the start of words, lowercase elsewhere.
 <a id='string·upper'></a>
 ### string·upper
 
-`S.lower()` returns a copy of the string S with letters converted to lowercase.
+`S.upper()` returns a copy of the string S with letters converted to uppercase.
 
 ```python
 "Hello, World!".upper()                 # "HELLO, WORLD!"
@@ -3211,7 +3209,6 @@ Operand = identifier
         | ListExpr | ListComp
         | DictExpr | DictComp
         | '(' [Expression [',']] ')'
-        | '-' PrimaryExpr
         .
 
 DotSuffix   = '.' identifier .
@@ -3232,7 +3229,9 @@ Entry    = Test ':' Test .
 
 CompClause = 'for' LoopVariables 'in' Test | 'if' Test .
 
-UnaryExpr = 'not' Test .
+UnaryExpr = '-' Test
+          | 'not' Test
+          .
 
 BinaryExpr = Test {Binop Test} .
 

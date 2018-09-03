@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.pkgcache.FilteringPolicies.FILTER_TE
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -152,11 +153,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     skyframeExecutor.setDeletedPackages(deletedPackages);
   }
 
-  private TargetPatternEvaluator shiftOffset() {
-    parser.updateOffset(fooOffset);
-    return parser;
-  }
-
   private Set<Label> parseList(String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(
@@ -176,13 +172,25 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
       FilteringPolicy policy, String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(getFailFast(
-        parseTargetPatternList(parser, parsingListener, Arrays.asList(patterns), policy, false)));
+        parseTargetPatternList(
+            PathFragment.EMPTY_FRAGMENT,
+            parser,
+            parsingListener,
+            Arrays.asList(patterns),
+            policy,
+            false)));
+  }
+
+  private Set<Label> parseListRelative(PathFragment offset, String... patterns)
+      throws TargetParsingException, InterruptedException {
+    return targetsToLabels(getFailFast(parseTargetPatternList(
+        offset, parser, parsingListener, Arrays.asList(patterns), false)));
   }
 
   private Set<Label> parseListRelative(String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(getFailFast(parseTargetPatternList(
-        shiftOffset(), parsingListener, Arrays.asList(patterns), false)));
+        fooOffset, parser, parsingListener, Arrays.asList(patterns), false)));
   }
 
   private static Set<Target> getFailFast(ResolvedTargets<Target> result) {
@@ -190,10 +198,14 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     return result.getTargets();
   }
 
-  private void expectError(TargetPatternEvaluator parser, String expectedError,
-      String target) throws InterruptedException {
+  private void expectError(
+      PathFragment offset,
+      TargetPatternEvaluator parser,
+      String expectedError,
+      String target)
+          throws InterruptedException {
     try {
-      parser.parseTargetPattern(parsingListener, target, false);
+      parseTargetPatternList(offset, parser, parsingListener, ImmutableList.of(target), false);
       fail("target='" + target + "', expected error: " + expectedError);
     } catch (TargetParsingException e) {
       assertThat(e).hasMessageThat().contains(expectedError);
@@ -201,23 +213,27 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   private void expectError(String expectedError, String target) throws InterruptedException {
-    expectError(parser, expectedError, target);
+    expectError(PathFragment.EMPTY_FRAGMENT, parser, expectedError, target);
   }
 
   private void expectErrorRelative(String expectedError, String target)
       throws InterruptedException {
-    expectError(shiftOffset(), expectedError, target);
+    expectError(fooOffset, parser, expectedError, target);
   }
 
   private Label parseIndividualTarget(String targetLabel) throws Exception {
     return Iterables.getOnlyElement(
-        getFailFast(parser.parseTargetPattern(parsingListener, targetLabel, false))).getLabel();
+        getFailFast(
+            parseTargetPatternList(parser, parsingListener, ImmutableList.of(targetLabel), false)))
+        .getLabel();
   }
 
   private Label parseIndividualTargetRelative(String targetLabel) throws Exception {
     return Iterables.getOnlyElement(
         getFailFast(
-            shiftOffset().parseTargetPattern(parsingListener, targetLabel, false))).getLabel();
+            parseTargetPatternList(
+                fooOffset, parser, parsingListener, ImmutableList.of(targetLabel), false)))
+        .getLabel();
   }
 
   @Test
@@ -336,14 +352,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("nest/nest/BUILD",
         "cc_library(name = 'nested2', srcs = [ ])");
 
-    updateOffset(PathFragment.create("nest"));
-    assertThat(parseList(":all")).containsExactlyElementsIn(labels("//nest:nested1"));
-    updateOffset(PathFragment.create("nest/nest"));
-    assertThat(parseList(":all")).containsExactlyElementsIn(labels("//nest/nest:nested2"));
-  }
-
-  protected void updateOffset(PathFragment rel) {
-    parser.updateOffset(rel);
+    assertThat(parseListRelative(PathFragment.create("nest"), ":all"))
+        .containsExactlyElementsIn(labels("//nest:nested1"));
+    assertThat(parseListRelative(PathFragment.create("nest/nest"), ":all"))
+        .containsExactlyElementsIn(labels("//nest/nest:nested2"));
   }
 
   private void runFindTargetsInPackage(String suffix) throws Exception {
@@ -473,16 +485,20 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testParsesIterableOfLabels() throws Exception {
-    Set<Label> labels = Sets.newHashSet(Label.parseAbsolute("//foo/bar:bar1"),
-        Label.parseAbsolute("//foo:foo1"));
+    Set<Label> labels =
+        Sets.newHashSet(
+            Label.parseAbsolute("//foo/bar:bar1", ImmutableMap.of()),
+            Label.parseAbsolute("//foo:foo1", ImmutableMap.of()));
     assertThat(parseList("//foo/bar:bar1", "//foo:foo1")).isEqualTo(labels);
     parsingListener.assertEmpty();
   }
 
   @Test
   public void testParseAbsoluteWithRelativeParser() throws Exception {
-    Set<Label> labels = Sets.newHashSet(Label.parseAbsolute("//foo/bar:bar1"),
-        Label.parseAbsolute("//foo:foo1"));
+    Set<Label> labels =
+        Sets.newHashSet(
+            Label.parseAbsolute("//foo/bar:bar1", ImmutableMap.of()),
+            Label.parseAbsolute("//foo:foo1", ImmutableMap.of()));
     assertThat(parseListRelative("//foo/bar:bar1", "//foo:foo1")).isEqualTo(labels);
     parsingListener.assertEmpty();
   }
@@ -508,7 +524,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("x/y/BUILD", "cc_library(name='y')");
     scratch.file("x/z/BUILD", "cc_library(name='z')");
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
-    assertThat(parseList("x/...")).isEqualTo(Sets.newHashSet(Label.parseAbsolute("//x/z")));
+    assertThat(parseList("x/..."))
+        .isEqualTo(Sets.newHashSet(Label.parseAbsolute("//x/z", ImmutableMap.of())));
   }
 
   @Test
@@ -517,10 +534,16 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("x/z/BUILD", "cc_library(name='z')");
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
 
-    parser.updateOffset(PathFragment.create("x"));
     assertThat(
-            targetsToLabels(getFailFast(parser.parseTargetPattern(parsingListener, "...", false))))
-        .isEqualTo(Sets.newHashSet(Label.parseAbsolute("//x/z")));
+            targetsToLabels(
+                getFailFast(
+                    parseTargetPatternList(
+                        PathFragment.create("x"),
+                        parser,
+                        parsingListener,
+                        ImmutableList.of("..."),
+                        false))))
+        .isEqualTo(Sets.newHashSet(Label.parseAbsolute("//x/z", ImmutableMap.of())));
   }
 
   @Test
@@ -528,15 +551,19 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("x/y/BUILD", "cc_library(name='y')");
     scratch.file("x/z/BUILD", "cc_library(name='z')");
 
-    assertThat(parseList("x/...")).containsExactly(
-        Label.parseAbsolute("//x/y"), Label.parseAbsolute("//x/z"));
+    assertThat(parseList("x/..."))
+        .containsExactly(
+            Label.parseAbsolute("//x/y", ImmutableMap.of()),
+            Label.parseAbsolute("//x/z", ImmutableMap.of()));
 
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
-    assertThat(parseList("x/...")).containsExactly(Label.parseAbsolute("//x/z"));
+    assertThat(parseList("x/...")).containsExactly(Label.parseAbsolute("//x/z", ImmutableMap.of()));
 
     setDeletedPackages(ImmutableSet.<PackageIdentifier>of());
-    assertThat(parseList("x/...")).containsExactly(
-        Label.parseAbsolute("//x/y"), Label.parseAbsolute("//x/z"));
+    assertThat(parseList("x/..."))
+        .containsExactly(
+            Label.parseAbsolute("//x/y", ImmutableMap.of()),
+            Label.parseAbsolute("//x/z", ImmutableMap.of()));
   }
 
   @Test
@@ -599,27 +626,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseListRelative("//foo/...:*")).containsExactlyElementsIn(targetsBeneathFoo);
   }
 
-  @Test
-  public void testFactoryMethod() throws Exception {
-    Path workspace = scratch.dir("/client/workspace");
-    Path underWorkspace = scratch.dir("/client/workspace/foo");
-    Path notUnderWorkspace = scratch.dir("/client/otherclient");
-
-    updateOffset(workspace, underWorkspace);
-    updateOffset(workspace, workspace);
-
-    // The client must be equal to or underneath the workspace.
-    try {
-      updateOffset(workspace, notUnderWorkspace);
-      fail("Should have failed because client was not underneath the workspace");
-    } catch (IllegalArgumentException expected) {
-    }
-  }
-
-  private void updateOffset(Path workspace, Path workingDir) {
-    parser.updateOffset(workingDir.relativeTo(workspace));
-  }
-
   private void setupSubDirectoryCircularSymlink() throws Exception {
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     Path child = parent.getRelative("child");
@@ -653,7 +659,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     // We make sure that the parent package is present, so that in the subsequent nokeep_going
     // build, the pattern parsing will have as many of its deps available as possible, which
     // exercises more code coverage during error bubbling.
-    assertThat(parseList("//parent:all")).containsExactly(Label.parseAbsolute("//parent:parent"));
+    assertThat(parseList("//parent:all"))
+        .containsExactly(Label.parseAbsolute("//parent:parent", ImmutableMap.of()));
     try {
       parseList("//parent/...");
       fail();
@@ -725,7 +732,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     // Ensure that validateTargetPattern's checking is strictly weaker than
     // that of parseTargetPattern.
     try {
-      parser.parseTargetPattern(parsingListener, target, false);
+      parseTargetPatternList(parser, parsingListener, ImmutableList.of(target), false);
       fail("parseTargetPattern(" + target + ") inconsistent with parseTargetPattern!");
     } catch (TargetParsingException expected) {
       /* ignore */
@@ -745,9 +752,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testSetOffset() throws Exception {
     assertThat(parseIndividualTarget("foo:foo1").toString()).isEqualTo("//foo:foo1");
-
-    parser.updateOffset(PathFragment.create("foo"));
-    assertThat(parseIndividualTarget(":foo1").toString()).isEqualTo("//foo:foo1");
+    assertThat(parseIndividualTargetRelative(":foo1").toString()).isEqualTo("//foo:foo1");
   }
 
   @Test
@@ -828,7 +833,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertContainsEvent("name 'BROKEN' is not defined");
     assertThat(result.first)
         .containsExactlyElementsIn(
-            Sets.newHashSet(Label.parseAbsolute("//x/y:a"), Label.parseAbsolute("//x/y:b")));
+            Sets.newHashSet(
+                Label.parseAbsolute("//x/y:a", ImmutableMap.of()),
+                Label.parseAbsolute("//x/y:b", ImmutableMap.of())));
     assertThat(result.second).isFalse();
   }
 
@@ -914,7 +921,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         "genrule(name='c', outs=['c.out'])");
 
     Pair<Set<Label>, Boolean> result = parseListKeepGoing("//loading:y");
-    assertThat(result.first).containsExactly(Label.parseAbsolute("//loading:y"));
+    assertThat(result.first).containsExactly(Label.parseAbsolute("//loading:y", ImmutableMap.of()));
     assertContainsEvent("missing value for mandatory attribute");
     assertThat(result.second).isFalse();
   }
@@ -954,8 +961,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         .modify(PathFragment.create("h/i/j/BUILD")).build();
     invalidate(modifiedFileSet);
 
-    assertThat(parseList("//h/...")).containsExactly(Label.parseAbsolute("//h/i/j:j"),
-        Label.parseAbsolute("//h"));
+    assertThat(parseList("//h/..."))
+        .containsExactly(
+            Label.parseAbsolute("//h/i/j:j", ImmutableMap.of()),
+            Label.parseAbsolute("//h", ImmutableMap.of()));
   }
 
   @Test
@@ -981,7 +990,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     invalidate(modifiedFileSet);
     reporter.addHandler(failFastHandler);
     Set<Label> nonEmptyResult = parseList("//h/...");
-    assertThat(nonEmptyResult).containsExactly(Label.parseAbsolute("//h/i/j/k:l"));
+    assertThat(nonEmptyResult)
+        .containsExactly(Label.parseAbsolute("//h/i/j/k:l", ImmutableMap.of()));
   }
 
   @Test
@@ -1006,8 +1016,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     reporter.addHandler(failFastHandler);
     Set<Label> result = parseList("//t/...");
 
-    assertThat(result).containsExactly(Label.parseAbsolute("//t:t"),
-        Label.parseAbsolute("//t/u/v:t"));
+    assertThat(result)
+        .containsExactly(
+            Label.parseAbsolute("//t:t", ImmutableMap.of()),
+            Label.parseAbsolute("//t/u/v:t", ImmutableMap.of()));
   }
 
   @Test
@@ -1018,8 +1030,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("a/b/BUILD", "filegroup(name='g')");
     ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
         ImmutableList.of("//a/b/..."), true);
-    assertThat(targetsToLabels(result.getTargets())).containsExactly(
-        Label.parseAbsolute("//a/b:g"));
+    assertThat(targetsToLabels(result.getTargets()))
+        .containsExactly(Label.parseAbsolute("//a/b:g", ImmutableMap.of()));
   }
 
   @Test
@@ -1030,8 +1042,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("a/b/BUILD", "filegroup(name='g')");
     ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
         ImmutableList.of("//a/b/..."), true);
-    assertThat(targetsToLabels(result.getTargets())).contains(
-        Label.parseAbsolute("//a/b:g"));
+    assertThat(targetsToLabels(result.getTargets()))
+        .contains(Label.parseAbsolute("//a/b:g", ImmutableMap.of()));
   }
 
   @Test
@@ -1050,9 +1062,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     ac.getChild("symlink").createSymbolicLink(PathFragment.create("../../from-c"));
     ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
         ImmutableList.of("//a/..."), true);
-    assertThat(targetsToLabels(result.getTargets())).containsExactly(
-        Label.parseAbsolute("//a/c/symlink:from-c"),
-        Label.parseAbsolute("//a/b/not-a-symlink:not-a-symlink"));
+    assertThat(targetsToLabels(result.getTargets()))
+        .containsExactly(
+            Label.parseAbsolute("//a/c/symlink:from-c", ImmutableMap.of()),
+            Label.parseAbsolute("//a/b/not-a-symlink:not-a-symlink", ImmutableMap.of()));
   }
 
   @Test
@@ -1064,8 +1077,8 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     d.getChild("c").createSymbolicLink(targetFragment);
     rootDirectory.getChild("convenience").createSymbolicLink(targetFragment);
     Set<Label> result = parseList("//...");
-    assertThat(result).doesNotContain(Label.parseAbsolute("//convenience:c"));
-    assertThat(result).doesNotContain(Label.parseAbsolute("//d/c:c"));
+    assertThat(result).doesNotContain(Label.parseAbsolute("//convenience:c", ImmutableMap.of()));
+    assertThat(result).doesNotContain(Label.parseAbsolute("//d/c:c", ImmutableMap.of()));
   }
 
   @Test
@@ -1076,13 +1089,13 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testTopLevelPackage_Relative_BuildFile() throws Exception {
     Set<Label> result = parseList("BUILD");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:BUILD"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:BUILD", ImmutableMap.of()));
   }
 
   @Test
   public void testTopLevelPackage_Relative_DeclaredTarget() throws Exception {
     Set<Label> result = parseList("fg");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg", ImmutableMap.of()));
   }
 
   @Test
@@ -1093,13 +1106,13 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testTopLevelPackage_Relative_ColonAll() throws Exception {
     Set<Label> result = parseList(":all");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg", ImmutableMap.of()));
   }
 
   @Test
   public void testTopLevelPackage_Relative_InputFile() throws Exception {
     Set<Label> result = parseList("foo.cc");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:foo.cc"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:foo.cc", ImmutableMap.of()));
   }
 
   @Test
@@ -1110,25 +1123,25 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testTopLevelPackage_Absolute_BuildFile() throws Exception {
     Set<Label> result = parseList("//:BUILD");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:BUILD"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:BUILD", ImmutableMap.of()));
   }
 
   @Test
   public void testTopLevelPackage_Absolute_DeclaredTarget() throws Exception {
     Set<Label> result = parseList("//:fg");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg", ImmutableMap.of()));
   }
 
   @Test
   public void testTopLevelPackage_Absolute_All() throws Exception {
     Set<Label> result = parseList("//:all");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg", ImmutableMap.of()));
   }
 
   @Test
   public void testTopLevelPackage_Absolute_InputFile() throws Exception {
     Set<Label> result = parseList("//:foo.cc");
-    assertThat(result).containsExactly(Label.parseAbsolute("//:foo.cc"));
+    assertThat(result).containsExactly(Label.parseAbsolute("//:foo.cc", ImmutableMap.of()));
   }
 
   @Test

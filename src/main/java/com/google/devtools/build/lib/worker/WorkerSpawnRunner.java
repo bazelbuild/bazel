@@ -25,10 +25,10 @@ import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -127,11 +127,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
     ImmutableMap<String, String> env = spawn.getEnvironment();
 
-    ActionInputFileCache inputFileCache = context.getActionInputFileCache();
+    MetadataProvider inputFileCache = context.getMetadataProvider();
 
     SortedMap<PathFragment, HashCode> workerFiles =
         WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn, context.getArtifactExpander(), context.getActionInputFileCache());
+            spawn, context.getArtifactExpander(), context.getMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
@@ -199,7 +199,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionContext context,
       List<String> flagfiles,
-      ActionInputFileCache inputFileCache)
+      MetadataProvider inputFileCache)
       throws IOException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
@@ -232,6 +232,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * files. The @ itself can be escaped with @@. This deliberately does not expand --flagfile= style
    * arguments, because we want to get rid of the expansion entirely at some point in time.
    *
+   * Also check that the argument is not an external repository label, because they start with `@`
+   * and are not flagfile locations.
+   *
    * @param execRoot the current execroot of the build (relative paths will be assumed to be
    *     relative to this directory).
    * @param arg the argument to expand.
@@ -240,7 +243,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
       throws IOException {
-    if (arg.startsWith("@") && !arg.startsWith("@@")) {
+    if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
       for (String line :
           Files.readAllLines(
               Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
@@ -249,6 +252,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
     } else {
       requestBuilder.addArguments(arg);
     }
+  }
+
+  private static boolean isExternalRepositoryLabel(String arg) {
+    return arg.matches("^@.*//.*");
   }
 
   private WorkResponse execInWorker(
@@ -270,6 +277,17 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw new UserExecException(
             ErrorMessage.builder()
                 .message("IOException while borrowing a worker from the pool:")
+                .exception(e)
+                .build()
+                .toString());
+      }
+
+      try {
+        context.prefetchInputs();
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("IOException while prefetching for worker:")
                 .exception(e)
                 .build()
                 .toString());

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -100,7 +101,7 @@ public class MultiArchBinarySupport {
      * dylib symbols should be subtracted from this provider.
      */
     abstract ObjcProvider objcLinkProvider();
-    
+
     /**
      * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have dylib
      * symbols subtracted, thus signaling that this target is still responsible for those symbols.
@@ -184,7 +185,6 @@ public class MultiArchBinarySupport {
               j2ObjcEntryClassProvider,
               extraLinkArgs,
               extraLinkInputs,
-              DsymOutputType.APP,
               dependencySpecificConfiguration.toolchain())
           .validateAttributes();
       ruleContext.assertNoErrors();
@@ -202,8 +202,6 @@ public class MultiArchBinarySupport {
    *     dependencies of the current rule are built
    * @param configToDepsCollectionMap a map from child configuration to providers that "deps" of the
    *     current rule have propagated in that configuration
-   * @param configurationToNonPropagatedObjcMap a map from child configuration to providers that
-   *     "non_propagated_deps" of the current rule have propagated in that configuration
    * @param dylibProviders {@link TransitiveInfoCollection}s that dynamic library dependencies of
    *     the current rule have propagated
    * @throws RuleErrorException if there are attribute errors in the current rule context
@@ -213,7 +211,6 @@ public class MultiArchBinarySupport {
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
           configToCTATDepsCollectionMap,
-      ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
       Iterable<TransitiveInfoCollection> dylibProviders)
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
@@ -259,7 +256,6 @@ public class MultiArchBinarySupport {
               childConfig,
               intermediateArtifacts,
               nullToEmptyList(configToCTATDepsCollectionMap.get(childConfig)),
-              nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
               additionalDepProviders);
       ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
@@ -301,7 +297,6 @@ public class MultiArchBinarySupport {
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       List<ConfiguredTargetAndData> propagatedConfiguredTargetAndDataDeps,
-      List<ObjcProvider> nonPropagatedObjcDeps,
       Iterable<ObjcProvider> additionalDepProviders) throws InterruptedException {
 
     ObjcCommon.Builder commonBuilder =
@@ -310,14 +305,10 @@ public class MultiArchBinarySupport {
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
             .addDeps(propagatedConfiguredTargetAndDataDeps)
             .addDepObjcProviders(additionalDepProviders)
-            .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(false)
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
-      commonBuilder.addDebugArtifacts(DsymOutputType.APP);
-    }
     return commonBuilder.build();
   }
 
@@ -336,9 +327,19 @@ public class MultiArchBinarySupport {
     return avoidArtifacts.build();
   }
 
+  @Deprecated // Use BuiltinProvider instead.
   private static <T extends Info> Iterable<T> getTypedProviders(
       Iterable<TransitiveInfoCollection> infoCollections,
       NativeProvider<T> providerClass) {
+    return Streams.stream(infoCollections)
+        .filter(infoCollection -> infoCollection.get(providerClass) != null)
+        .map(infoCollection -> infoCollection.get(providerClass))
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  private static <T extends Info> Iterable<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections,
+      BuiltinProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))

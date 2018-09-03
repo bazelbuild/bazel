@@ -150,7 +150,7 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
    */
   protected Collection<Label> supportedEnvironments(String ruleName, String ruleDef)
       throws Exception {
-    return ConstraintSemantics.getSupportedEnvironments(
+    return (new ConstraintSemantics()).getSupportedEnvironments(
         getRuleContext(scratchConfiguredTarget("hello", ruleName, ruleDef))).getEnvironments();
   }
 }

@@ -21,8 +21,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkbuildapi.ProtoSourcesProviderApi;
 
 // TODO(carmi): Rename the class to ProtoInfoProvider.
 /**
@@ -31,9 +30,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
  */
 @AutoValue
 @Immutable
-@SkylarkModule(name = "ProtoSourcesProvider", doc = "")
 @AutoCodec
-public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
+public abstract class ProtoSourcesProvider
+    implements TransitiveInfoProvider, ProtoSourcesProviderApi<Artifact> {
   /** The name of the field in Skylark used to access this class. */
   public static final String SKYLARK_NAME = "proto";
 
@@ -45,7 +44,8 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> checkDepsProtoSources,
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
-      NestedSet<String> transitiveProtoPathFlags) {
+      NestedSet<String> transitiveProtoPathFlags,
+      String protoSourceRoot) {
     return new AutoValue_ProtoSourcesProvider(
         transitiveImports,
         transitiveProtoSources,
@@ -53,37 +53,26 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
         checkDepsProtoSources,
         directDescriptorSet,
         transitiveDescriptorSets,
-        transitiveProtoPathFlags);
+        transitiveProtoPathFlags,
+        protoSourceRoot);
   }
 
   /**
    * Transitive imports including weak dependencies This determines the order of "-I" arguments to
    * the protocol compiler, and that is probably important
    */
-  @SkylarkCallable(
-    name = "transitive_imports",
-    doc = "Transitive imports including weak dependencies.",
-    structField = true
-  )
+  @Override
   public abstract NestedSet<Artifact> getTransitiveImports();
 
   /** Returns the proto sources for this rule and all its dependent protocol buffer rules. */
-  @SkylarkCallable(
-    name = "transitive_sources",
-    doc = "Proto sources for this rule and all its dependent protocol buffer rules.",
-    structField = true
-  )
+  @Override
   // TODO(bazel-team): The difference between transitive imports and transitive proto sources
   // should never be used by Skylark or by an Aspect. One of these two should be removed,
   // preferably soon, before Skylark users start depending on them.
   public abstract NestedSet<Artifact> getTransitiveProtoSources();
 
   /** Returns the proto sources from the 'srcs' attribute. */
-  @SkylarkCallable(
-    name = "direct_sources",
-    doc = "Proto sources from the 'srcs' attribute.",
-    structField = true
-  )
+  @Override
   public abstract ImmutableList<Artifact> getDirectProtoSources();
 
   /**
@@ -93,14 +82,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
    * <p>This must be a set to avoid collecting the same source twice when depending on 2 proxy
    * proto_library's that depend on the same proto_library.
    */
-  @SkylarkCallable(
-    name = "check_deps_sources",
-    doc =
-        "Proto sources from the 'srcs' attribute. If the library is a proxy library "
-            + "that has no sources, it contains the check_deps_sources "
-            + "from this library's direct deps.",
-    structField = true
-  )
+  @Override
   public abstract NestedSet<Artifact> getCheckDepsProtoSources();
 
   /**
@@ -109,11 +91,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
    * (remember that proto-compiler reads all transitive .proto files, even when producing the
    * direct-srcs descriptor set)
    */
-  @SkylarkCallable(
-    name = "direct_descriptor_set",
-    doc = "The FileDescriptorSet of the direct sources. If no srcs, contains an empty file. ",
-    structField = true
-  )
+  @Override
   public abstract Artifact directDescriptorSet();
 
   /**
@@ -122,26 +100,18 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
    * (remember that proto-compiler reads all transitive .proto files, even when producing the
    * direct-srcs descriptor set)
    */
-  @SkylarkCallable(
-    name = "transitive_descriptor_sets",
-    doc =
-        "A set of FileDescriptorSet files of all dependent proto_library rules, and this one's. "
-            + "This is not the same as passing --include_imports to proto-compiler. "
-            + "Will be empty if no dependencies. ",
-    structField = true
-  )
+  @Override
   public abstract NestedSet<Artifact> transitiveDescriptorSets();
 
   /**
    * Directories of .proto sources collected from the transitive closure. These flags will be passed
    * to {@code protoc} in the specified order, via the {@code --proto_path} flag.
    */
-  @SkylarkCallable(
-      name = "transitive_proto_path",
-      doc = "A set of proto source roots collected from the transitive closure of this rule.",
-      structField = true
-  )
+  @Override
   public abstract NestedSet<String> getTransitiveProtoPathFlags();
+
+  /** The {@code proto_source_root} of the current library. */
+  public abstract String getProtoSourceRoot();
 
   ProtoSourcesProvider() {}
 }

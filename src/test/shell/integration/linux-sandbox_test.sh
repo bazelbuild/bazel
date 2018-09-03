@@ -250,6 +250,8 @@ function assert_linux_sandbox_exec_time() {
       -- \
       "${cpu_time_spender_sandbox_path}" "${user_time_low}" "${sys_time_low}" \
       &> "${TEST_log}" || code="$?"
+  sed -e 's,^subprocess stdout: ,,' "${stdout_path}" >>"${TEST_log}"
+  sed -e 's,^subprocess stderr: ,,' "${stderr_path}" >>"${TEST_log}"
   assert_equals 0 "${code}"
 
   assert_execution_time_in_range \
@@ -261,15 +263,15 @@ function assert_linux_sandbox_exec_time() {
 }
 
 function test_stats_high_user_time() {
-  assert_linux_sandbox_exec_time 10 12 0 2
+  assert_linux_sandbox_exec_time 10 19 0 9
 }
 
 function test_stats_high_system_time() {
-  assert_linux_sandbox_exec_time 0 2 10 12
+  assert_linux_sandbox_exec_time 0 9 10 19
 }
 
 function test_stats_high_user_time_and_high_system_time() {
-  assert_linux_sandbox_exec_time 10 12 10 12
+  assert_linux_sandbox_exec_time 10 19 10 19
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

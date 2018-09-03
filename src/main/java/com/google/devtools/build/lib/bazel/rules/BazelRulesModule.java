@@ -49,6 +49,33 @@ public class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public boolean directRun;
+
+    @Deprecated
+    @Option(
+        name = "glibc",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public String glibc;
+    
+    @Deprecated
+    @Option(
+        name = "experimental_shortened_obj_file_path",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        defaultValue = "true",
+        help = "This option is deprecated and has no effect.")
+    public boolean shortenObjFilePath;
+
+    @Option(
+        name = "force_ignore_dash_static",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "noop")
+    public boolean forceIgnoreDashStatic;
   }
 
   @Override

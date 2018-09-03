@@ -83,10 +83,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
-    JavaCompilationArgs javaCompilationArgs =
-        common.collectJavaCompilationArgs(false, neverLink, false);
-    JavaCompilationArgs recursiveJavaCompilationArgs =
-        common.collectJavaCompilationArgs(true, neverLink, false);
+    JavaCompilationArgsProvider javaCompilationArgs =
+        common.collectJavaCompilationArgs(neverLink, false);
     NestedSet<Artifact> transitiveJavaSourceJars =
         collectTransitiveJavaSourceJars(ruleContext, srcJar);
     if (srcJar != null) {
@@ -128,7 +126,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
       ruleOutputJarsProviderBuilder.addOutputJar(
-          jar, compilationToRuntimeJarMap.inverse().get(jar), srcJars);
+          jar, compilationToRuntimeJarMap.inverse().get(jar), null /* manifestProto */, srcJars);
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
@@ -136,8 +134,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs);
+    JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     common.addTransitiveInfoProviders(ruleBuilder, javaInfoBuilder, filesToBuild, null);
@@ -146,6 +143,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
         .setRuntimeJars(javaArtifacts.getRuntimeJars())
         .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
         .setNeverlink(neverLink)
@@ -160,8 +158,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
-        .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-        .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
+        .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs)
         .build();

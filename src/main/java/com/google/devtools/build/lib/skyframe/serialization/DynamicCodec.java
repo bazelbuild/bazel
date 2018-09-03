@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.UnsafeProvider;
+import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -132,7 +132,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
     } else {
       try {
         context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
-      } catch (SerializationException.NoCodecException e) {
+      } catch (SerializationException e) {
         e.addTrail(this.type);
         throw e;
       }

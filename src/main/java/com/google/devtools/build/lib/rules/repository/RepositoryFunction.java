@@ -17,7 +17,10 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,8 +37,6 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
-import com.google.devtools.build.lib.skyframe.FileStateValue.RegularFileStateValue;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -206,7 +207,7 @@ public abstract class RepositoryFunction {
       RootedPath rootedPath;
       String fileKey = key.substring(5);
       if (LabelValidator.isAbsolute(fileKey)) {
-        rootedPath = getRootedPathFromLabel(Label.parseAbsolute(fileKey), env);
+        rootedPath = getRootedPathFromLabel(Label.parseAbsolute(fileKey, ImmutableMap.of()), env);
       } else {
         // TODO(pcloudy): Removing checking absolute path, they should all be absolute label.
         PathFragment filePathFragment = PathFragment.create(fileKey);
@@ -523,6 +524,8 @@ public abstract class RepositoryFunction {
       // first.
       Rule rule = ExternalPackageUtil.getRuleByName(repositoryName, env);
       if (rule == null) {
+        // Still an override might change the content of the repository.
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
         return;
       }
 
@@ -549,7 +552,11 @@ public abstract class RepositoryFunction {
       // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
       // Environment)
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
-      // of the resolution. Therefore we are safe to ignore that Exception.
+      // of the resolution.
+      //
+      // Alternatively, the repository might still be provided by an override. Therefore, in
+      // any case, register the dependency on the repository overrides.
+      RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
       return;
     } catch (ExternalPackageException ex) {
       // This should never happen.

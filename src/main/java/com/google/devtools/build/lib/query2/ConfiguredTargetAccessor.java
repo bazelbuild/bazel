@@ -13,7 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -22,18 +34,27 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-/** A {@link TargetAccessor} for {@link ConfiguredTarget} objects. Incomplete. */
+/**
+ * A {@link TargetAccessor} for {@link ConfiguredTarget} objects.
+ *
+ * <p>Incomplete; we'll implement getVisibility when needed.
+ */
 class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
 
   private final WalkableGraph walkableGraph;
+  private final ConfiguredTargetQueryEnvironment queryEnvironment;
 
-  ConfiguredTargetAccessor(WalkableGraph walkableGraph) {
+  ConfiguredTargetAccessor(
+      WalkableGraph walkableGraph, ConfiguredTargetQueryEnvironment queryEnvironment) {
     this.walkableGraph = walkableGraph;
+    this.queryEnvironment = queryEnvironment;
   }
 
   @Override
@@ -77,8 +98,39 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
-    // TODO(bazel-team): implement this if needed.
-    throw new UnsupportedOperationException();
+    Preconditions.checkArgument(
+        isRule(configuredTarget),
+        "%s %s is not a rule configured target",
+        errorMsgPrefix,
+        getLabel(configuredTarget));
+
+    Multimap<Label, ConfiguredTarget> depsByLabel =
+        Multimaps.index(
+            queryEnvironment.getFwdDeps(ImmutableList.of(configuredTarget)),
+            ConfiguredTarget::getLabel);
+
+    Rule rule = (Rule) getTargetFromConfiguredTarget(configuredTarget);
+    ImmutableMap<Label, ConfigMatchingProvider> configConditions =
+        ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
+    ConfiguredAttributeMapper attributeMapper =
+        ConfiguredAttributeMapper.of(rule, configConditions);
+    if (!attributeMapper.has(attrName)) {
+      throw new QueryException(
+          caller,
+          String.format(
+              "%s %s of type %s does not have attribute '%s'",
+              errorMsgPrefix, configuredTarget, rule.getRuleClass(), attrName));
+    }
+
+    List<Label> attrLabels;
+    if (attributeMapper.getAttributeType(attrName).equals(LABEL)) {
+      attrLabels = ImmutableList.of(attributeMapper.get(attrName, LABEL));
+    } else {
+      attrLabels = attributeMapper.get(attrName, LABEL_LIST);
+    }
+    List<ConfiguredTarget> toReturn = new ArrayList<>();
+    attrLabels.forEach(label -> toReturn.addAll(depsByLabel.get(label)));
+    return toReturn;
   }
 
   @Override
@@ -107,14 +159,21 @@ class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
   }
 
   public Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {
+    return getTargetFromConfiguredTarget(configuredTarget, walkableGraph);
+  }
+
+  public static Target getTargetFromConfiguredTarget(
+      ConfiguredTarget configuredTarget, WalkableGraph walkableGraph) {
     Target target = null;
     try {
+      Label label =
+          configuredTarget instanceof AliasConfiguredTarget
+              ? ((AliasConfiguredTarget) configuredTarget).getOriginalLabel()
+              : configuredTarget.getLabel();
       target =
-          ((PackageValue)
-                  walkableGraph.getValue(
-                      PackageValue.key(configuredTarget.getLabel().getPackageIdentifier())))
+          ((PackageValue) walkableGraph.getValue(PackageValue.key(label.getPackageIdentifier())))
               .getPackage()
-              .getTarget(configuredTarget.getLabel().getName());
+              .getTarget(label.getName());
     } catch (NoSuchTargetException e) {
       throw new IllegalStateException("Unable to get target from package in accessor.");
     } catch (InterruptedException e2) {

@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,52 +13,92 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdlProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 /**
  * Configured targets implementing this provider can contribute Android IDL information to the
  * compilation.
  */
-@AutoValue
 @Immutable
-public abstract class AndroidIdlProvider implements TransitiveInfoProvider {
+public final class AndroidIdlProvider extends NativeInfo
+    implements AndroidIdlProviderApi<Artifact> {
 
-  public static final AndroidIdlProvider EMPTY =
-      AndroidIdlProvider.create(
-          NestedSetBuilder.<String>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+  public static final String PROVIDER_NAME = "AndroidIdlInfo";
+  public static final Provider PROVIDER = new Provider();
 
-  public static AndroidIdlProvider create(
+  private final NestedSet<String> transitiveIdlImportRoots;
+  private final NestedSet<Artifact> transitiveIdlImports;
+  private final NestedSet<Artifact> transitiveIdlJars;
+  private final NestedSet<Artifact> transitiveIdlPreprocessed;
+
+  public AndroidIdlProvider(
       NestedSet<String> transitiveIdlImportRoots,
       NestedSet<Artifact> transitiveIdlImports,
       NestedSet<Artifact> transitiveIdlJars,
       NestedSet<Artifact> transitiveIdlPreprocessed) {
-    return new AutoValue_AndroidIdlProvider(
-        transitiveIdlImportRoots,
-        transitiveIdlImports,
-        transitiveIdlJars,
-        transitiveIdlPreprocessed);
+    super(PROVIDER);
+    this.transitiveIdlImportRoots = transitiveIdlImportRoots;
+    this.transitiveIdlImports = transitiveIdlImports;
+    this.transitiveIdlJars = transitiveIdlJars;
+    this.transitiveIdlPreprocessed = transitiveIdlPreprocessed;
   }
 
-  /** The set of IDL import roots need for compiling the IDL sources in the transitive closure. */
-  public abstract NestedSet<String> getTransitiveIdlImportRoots();
+  @Override
+  public NestedSet<String> getTransitiveIdlImportRoots() {
+    return transitiveIdlImportRoots;
+  }
 
-  /** The IDL files in the transitive closure. */
-  public abstract NestedSet<Artifact> getTransitiveIdlImports();
+  @Override
+  public NestedSet<Artifact> getTransitiveIdlImports() {
+    return transitiveIdlImports;
+  }
 
-  /** The IDL jars in the transitive closure, both class and source jars. */
-  public abstract NestedSet<Artifact> getTransitiveIdlJars();
+  @Override
+  public NestedSet<Artifact> getTransitiveIdlJars() {
+    return transitiveIdlJars;
+  }
 
-  /** The preprocessed IDL files in the transitive closure. */
-  public abstract NestedSet<Artifact> getTransitiveIdlPreprocessed();
+  @Override
+  public NestedSet<Artifact> getTransitiveIdlPreprocessed() {
+    return transitiveIdlPreprocessed;
+  }
 
-  AndroidIdlProvider() {}
+  /** The provider can construct the Android IDL provider. */
+  public static class Provider extends BuiltinProvider<AndroidIdlProvider>
+      implements AndroidIdlProviderApi.Provider<Artifact> {
+
+    private Provider() {
+      super(PROVIDER_NAME, AndroidIdlProvider.class);
+    }
+
+    @Override
+    public AndroidIdlProvider createInfo(
+        SkylarkNestedSet transitiveIdlImportRoots,
+        SkylarkNestedSet transitiveIdlImports,
+        SkylarkNestedSet transitiveIdlJars,
+        SkylarkNestedSet transitiveIdlPreprocessed)
+        throws EvalException {
+      return new AndroidIdlProvider(
+          NestedSetBuilder.<String>stableOrder()
+              .addTransitive(transitiveIdlImportRoots.getSet(String.class))
+              .build(),
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(transitiveIdlImports.getSet(Artifact.class))
+              .build(),
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(transitiveIdlJars.getSet(Artifact.class))
+              .build(),
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(transitiveIdlPreprocessed.getSet(Artifact.class))
+              .build());
+    }
+  }
 }

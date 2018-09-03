@@ -31,9 +31,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,14 +40,9 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Provider for a platform, which is a group of constraints and values. */
-@SkylarkModule(
-  name = "PlatformInfo",
-  doc = "Provides access to data about a specific platform.",
-  category = SkylarkModuleCategory.PROVIDER
-)
 @Immutable
 @AutoCodec
-public class PlatformInfo extends NativeInfo {
+public class PlatformInfo extends NativeInfo implements PlatformInfoApi<ConstraintValueInfo> {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
 
@@ -90,22 +83,12 @@ public class PlatformInfo extends NativeInfo {
     return new PlatformInfo(label, constraintsBuilder.build(), remoteExecutionProperties, location);
   }
 
-  @SkylarkCallable(
-    name = "label",
-    doc = "The label of the target that created this platform.",
-    structField = true
-  )
+  @Override
   public Label label() {
     return label;
   }
 
-  @SkylarkCallable(
-    name = "constraints",
-    doc =
-        "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
-            + "this platform.",
-    structField = true
-  )
+  @Override
   public Iterable<ConstraintValueInfo> constraints() {
     return constraints.values().asList();
   }
@@ -119,11 +102,7 @@ public class PlatformInfo extends NativeInfo {
     return constraints.get(constraint);
   }
 
-  @SkylarkCallable(
-    name = "remoteExecutionProperties",
-    doc = "Properties that are available for the use of remote execution.",
-    structField = true
-  )
+  @Override
   public String remoteExecutionProperties() {
     return remoteExecutionProperties;
   }
@@ -145,7 +124,7 @@ public class PlatformInfo extends NativeInfo {
   public static class Builder {
     private Label label;
     private final List<ConstraintValueInfo> constraints = new ArrayList<>();
-    private String remoteExecutionProperties;
+    private String remoteExecutionProperties = "";
     private Location location = Location.BUILTIN;
 
     /**

@@ -14,11 +14,10 @@
 package com.google.devtools.build.docgen;
 
 import com.google.devtools.build.lib.testutil.ClasspathSuite;
-
 import org.junit.runner.RunWith;
 
 /**
- * Test suite for options parsing framework.
+ * Test suite for skylark documentation generation.
  */
 @RunWith(ClasspathSuite.class)
 public class DocumentationTests {

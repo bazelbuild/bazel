@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
 /**
@@ -74,7 +74,7 @@ public final class ProjectFileSupport {
                   BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
               .getPathEntries();
       ProjectFile projectFile = projectFileProvider.getProjectFile(
-          workingDir, packagePath, projectFilePath);
+          workingDir, packagePath, projectFilePath, optionsParser);
       eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
       optionsParser.parse(
@@ -89,7 +89,7 @@ public final class ProjectFileSupport {
    * process it.
    */
   public static List<String> getTargets(
-      ProjectFile.Provider projectFileProvider, OptionsProvider options) {
+      ProjectFile.Provider projectFileProvider, OptionsParsingResult options) {
     List<String> targets = options.getResidue();
     if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {

@@ -71,6 +71,20 @@ public final class HttpUtils {
   }
 
   private static URL mergeUrls(URI preferred, URL original) throws IOException {
+    // Try to short cut to preferred.toURL() to preserve the original presentation of the
+    // quoting (as a call to the structed URI constructor puts quoting into a canocial form).
+    // This is necessary as some sites rely on the precise presentation for the authentication
+    // scheme of their redirect URLs.
+    if (preferred.getHost() != null
+        && preferred.getScheme() != null
+        && (preferred.getUserInfo() != null || original.getUserInfo() == null)
+        && (preferred.getFragment() != null || original.getRef() == null)) {
+      // In this case we obviously do not inherit anything from the original URL, as all inheritable
+      // fields are either set explicitly or not present in the original either. Therefore, it is
+      // safe to short cut.
+      return preferred.toURL();
+    }
+
     // If the Location value provided in a 3xx (Redirection) response does not have a fragment
     // component, a user agent MUST process the redirection as if the value inherits the fragment
     // component of the URI reference used to generate the request target (i.e., the redirection

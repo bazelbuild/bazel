@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import java.util.stream.Collectors;
@@ -35,10 +36,11 @@ public final class ImportDepsCheckActionBuilder {
 
   private Artifact outputArtifact;
   private Artifact jdepsArtifact;
-  private String ruleLabel;
+  private Label ruleLabel;
   private NestedSet<Artifact> jarsToCheck;
   private NestedSet<Artifact> bootclasspath;
   private NestedSet<Artifact> declaredDeps;
+  private NestedSet<Artifact> transitiveDeps;
   private ImportDepsCheckingLevel importDepsCheckingLevel;
 
   private ImportDepsCheckActionBuilder() {}
@@ -49,13 +51,13 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  public ImportDepsCheckActionBuilder outputArtifiact(Artifact outputArtifact) {
+  public ImportDepsCheckActionBuilder outputArtifact(Artifact outputArtifact) {
     checkState(this.outputArtifact == null);
     this.outputArtifact = checkNotNull(outputArtifact);
     return this;
   }
 
-  public ImportDepsCheckActionBuilder ruleLabel(String ruleLabel) {
+  public ImportDepsCheckActionBuilder ruleLabel(Label ruleLabel) {
     checkState(this.ruleLabel == null);
     this.ruleLabel = checkNotNull(ruleLabel);
     return this;
@@ -68,7 +70,7 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  public ImportDepsCheckActionBuilder bootcalsspath(NestedSet<Artifact> bootclasspath) {
+  public ImportDepsCheckActionBuilder bootclasspath(NestedSet<Artifact> bootclasspath) {
     checkState(this.bootclasspath == null);
     this.bootclasspath = checkNotNull(bootclasspath);
     return this;
@@ -86,11 +88,18 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
+  public ImportDepsCheckActionBuilder transitiveDeps(NestedSet<Artifact> transitiveDeps) {
+    checkState(this.transitiveDeps == null);
+    this.transitiveDeps = checkNotNull(transitiveDeps);
+    return this;
+  }
+
   public void buildAndRegister(RuleContext ruleContext) {
     checkNotNull(outputArtifact);
     checkNotNull(jarsToCheck);
     checkNotNull(bootclasspath);
     checkNotNull(declaredDeps);
+    checkNotNull(transitiveDeps);
     checkNotNull(importDepsCheckingLevel);
     checkNotNull(jdepsArtifact);
     checkNotNull(ruleLabel);
@@ -101,6 +110,7 @@ public final class ImportDepsCheckActionBuilder {
             .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker", Mode.HOST))
             .addTransitiveInputs(jarsToCheck)
             .addTransitiveInputs(declaredDeps)
+            .addTransitiveInputs(transitiveDeps)
             .addTransitiveInputs(bootclasspath)
             .addOutput(outputArtifact)
             .addOutput(jdepsArtifact)
@@ -120,18 +130,18 @@ public final class ImportDepsCheckActionBuilder {
     return CustomCommandLine.builder()
         .addExecPath("--output", outputArtifact)
         .addExecPaths(VectorArg.addBefore("--input").each(jarsToCheck))
-        .addExecPaths(VectorArg.addBefore("--classpath_entry").each(declaredDeps))
+        .addExecPaths(VectorArg.addBefore("--directdep").each(declaredDeps))
+        .addExecPaths(VectorArg.addBefore("--classpath_entry").each(transitiveDeps))
         .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath))
         .addDynamicString(convertErrorFlag(importDepsCheckingLevel))
         .addExecPath("--jdeps_output", jdepsArtifact)
-        .add("--rule_label", ruleLabel)
+        .add("--rule_label", ruleLabel.toString())
         .build();
   }
 
   private static String convertErrorFlag(ImportDepsCheckingLevel level) {
     switch (level) {
       case ERROR:
-      case STRICT_ERROR:
         return "--checking_mode=error";
       case WARNING:
         return "--checking_mode=warning";

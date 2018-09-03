@@ -41,60 +41,55 @@ See :func:`apple_action`."""
 XCRUNWRAPPER_LABEL = "//external:xcrunwrapper"
 """The label for xcrunwrapper tool."""
 
-
 def label_scoped_path(ctx, path):
-  """Return the path scoped to target's label."""
-  return ctx.label.name + "/" + path.lstrip("/")
-
+    """Return the path scoped to target's label."""
+    return ctx.label.name + "/" + path.lstrip("/")
 
 def module_cache_path(ctx):
-  """Returns the Clang module cache path to use for this rule."""
-  return ctx.genfiles_dir.path + "/_objc_module_cache"
-
+    """Returns the Clang module cache path to use for this rule."""
+    return ctx.genfiles_dir.path + "/_objc_module_cache"
 
 def apple_action(ctx, **kw):
-  """Creates an action that only runs on MacOS/Darwin.
+    """Creates an action that only runs on MacOS/Darwin.
 
-  Call it similar to how you would call ctx.action:
-    apple_action(ctx, outputs=[...], inputs=[...],...)
-  """
-  execution_requirements = dict(kw.get("execution_requirements", {}))
-  execution_requirements.update(DARWIN_EXECUTION_REQUIREMENTS)
+    Call it similar to how you would call ctx.action:
+      apple_action(ctx, outputs=[...], inputs=[...],...)
+    """
+    execution_requirements = dict(kw.get("execution_requirements", {}))
+    execution_requirements.update(DARWIN_EXECUTION_REQUIREMENTS)
 
-  no_sandbox = kw.pop("no_sandbox", False)
-  if no_sandbox:
-    execution_requirements["nosandbox"] = "1"
+    no_sandbox = kw.pop("no_sandbox", False)
+    if no_sandbox:
+        execution_requirements["nosandbox"] = "1"
 
-  kw["execution_requirements"] = execution_requirements
+    kw["execution_requirements"] = execution_requirements
 
-  ctx.action(**kw)
-
+    ctx.action(**kw)
 
 def xcrun_env(ctx):
-  """Returns the environment dictionary necessary to use xcrunwrapper."""
-  platform = ctx.fragments.apple.single_arch_platform
+    """Returns the environment dictionary necessary to use xcrunwrapper."""
+    platform = ctx.fragments.apple.single_arch_platform
 
-  if hasattr(apple_common, "apple_host_system_env"):
-    xcode_config =  ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
-    env = apple_common.target_apple_env(xcode_config, platform)
-    env.update(apple_common.apple_host_system_env(xcode_config))
-  else:
-    env = ctx.fragments.apple.target_apple_env(platform)
-    env.update(ctx.fragments.apple.apple_host_system_env())
+    if hasattr(apple_common, "apple_host_system_env"):
+        xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+        env = apple_common.target_apple_env(xcode_config, platform)
+        env.update(apple_common.apple_host_system_env(xcode_config))
+    else:
+        env = ctx.fragments.apple.target_apple_env(platform)
+        env.update(ctx.fragments.apple.apple_host_system_env())
 
-  return env
-
+    return env
 
 def xcrun_action(ctx, **kw):
-  """Creates an apple action that executes xcrunwrapper.
+    """Creates an apple action that executes xcrunwrapper.
 
-  args:
-    ctx: The context of the rule that owns this action.
+    args:
+      ctx: The context of the rule that owns this action.
 
-  This method takes the same keyword arguments as ctx.action, however you don't
-  need to specify the executable.
-  """
-  kw["env"] = dict(kw.get("env", {}))
-  kw["env"].update(xcrun_env(ctx))
+    This method takes the same keyword arguments as ctx.action, however you don't
+    need to specify the executable.
+    """
+    kw["env"] = dict(kw.get("env", {}))
+    kw["env"].update(xcrun_env(ctx))
 
-  apple_action(ctx, executable=ctx.executable._xcrunwrapper, **kw)
+    apple_action(ctx, executable = ctx.executable._xcrunwrapper, **kw)

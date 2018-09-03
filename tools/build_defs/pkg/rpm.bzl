@@ -18,109 +18,114 @@ rpm_filetype = [".rpm"]
 spec_filetype = [".spec"]
 
 def _pkg_rpm_impl(ctx):
-  """Implements to pkg_rpm rule."""
+    """Implements to pkg_rpm rule."""
 
-  files = []
-  args = ["--name=" + ctx.label.name]
+    files = []
+    args = ["--name=" + ctx.label.name]
 
-  # Version can be specified by a file or inlined.
-  if ctx.attr.version_file:
-    if ctx.attr.version:
-      fail("Both version and version_file attributes were specified")
-    args += ["--version=@" + ctx.file.version_file.path]
-    files += [ctx.file.version_file]
-  elif ctx.attr.version:
-    args += ["--version=" + ctx.attr.version]
+    # Version can be specified by a file or inlined.
+    if ctx.attr.version_file:
+        if ctx.attr.version:
+            fail("Both version and version_file attributes were specified")
+        args += ["--version=@" + ctx.file.version_file.path]
+        files += [ctx.file.version_file]
+    elif ctx.attr.version:
+        args += ["--version=" + ctx.attr.version]
 
-  # Release can be specified by a file or inlined.
-  if ctx.attr.release_file:
-    if ctx.attr.release:
-      fail("Both release and release_file attributes were specified")
-    args += ["--release=@" + ctx.file.release_file.path]
-    files += [ctx.file.release_file]
-  elif ctx.attr.release:
-    args += ["--release=" + ctx.attr.release]
+    # Release can be specified by a file or inlined.
+    if ctx.attr.release_file:
+        if ctx.attr.release:
+            fail("Both release and release_file attributes were specified")
+        args += ["--release=@" + ctx.file.release_file.path]
+        files += [ctx.file.release_file]
+    elif ctx.attr.release:
+        args += ["--release=" + ctx.attr.release]
 
-  if ctx.attr.architecture:
-    args += ["--arch=" + ctx.attr.architecture]
+    if ctx.attr.architecture:
+        args += ["--arch=" + ctx.attr.architecture]
 
-  if not ctx.attr.spec_file:
-    fail("spec_file was not specified")
+    if not ctx.attr.spec_file:
+        fail("spec_file was not specified")
 
-  # Expand the spec file template.
-  spec_file = ctx.actions.declare_file("%s.spec" % ctx.label.name)
-  # Create the default substitutions based on the data files.
-  substitutions = {}
-  for data_file in ctx.files.data:
-    key = "{%s}" % data_file.basename
-    substitutions[key] = data_file.path
-  ctx.actions.expand_template(
-    template = ctx.file.spec_file,
-    output = spec_file,
-    substitutions = substitutions)
-  args += ["--spec_file=" + spec_file.path]
-  files += [spec_file]
+    # Expand the spec file template.
+    spec_file = ctx.actions.declare_file("%s.spec" % ctx.label.name)
 
-  args += ["--out_file=" + ctx.outputs.rpm.path]
+    # Create the default substitutions based on the data files.
+    substitutions = {}
+    for data_file in ctx.files.data:
+        key = "{%s}" % data_file.basename
+        substitutions[key] = data_file.path
+    ctx.actions.expand_template(
+        template = ctx.file.spec_file,
+        output = spec_file,
+        substitutions = substitutions,
+    )
+    args += ["--spec_file=" + spec_file.path]
+    files += [spec_file]
 
-  # Add data files.
-  if ctx.file.changelog:
-    files += [ctx.file.changelog]
-    args += [ctx.file.changelog.path]
-  files += ctx.files.data
+    args += ["--out_file=" + ctx.outputs.rpm.path]
 
-  for f in ctx.files.data:
-    args += [f.path]
+    # Add data files.
+    if ctx.file.changelog:
+        files += [ctx.file.changelog]
+        args += [ctx.file.changelog.path]
+    files += ctx.files.data
 
-  if ctx.attr.debug:
-    args += ["--debug"]
+    for f in ctx.files.data:
+        args += [f.path]
 
-  # Call the generator script.
-  # TODO(katre): Generate a source RPM.
-  ctx.actions.run(
-      executable = ctx.executable._make_rpm,
-      use_default_shell_env = True,
-      arguments = args,
-      inputs = files,
-      outputs = [ctx.outputs.rpm],
-      mnemonic = "MakeRpm")
+    if ctx.attr.debug:
+        args += ["--debug"]
 
-  # Link the RPM to the expected output name.
-  ctx.actions.run(
-      executable = "ln",
-      arguments = [
-        "-s",
-        ctx.outputs.rpm.basename,
-        ctx.outputs.out.path,
-      ],
-      inputs = [ctx.outputs.rpm],
-      outputs = [ctx.outputs.out])
+    # Call the generator script.
+    # TODO(katre): Generate a source RPM.
+    ctx.actions.run(
+        executable = ctx.executable._make_rpm,
+        use_default_shell_env = True,
+        arguments = args,
+        inputs = files,
+        outputs = [ctx.outputs.rpm],
+        mnemonic = "MakeRpm",
+    )
 
-  # Link the RPM to the RPM-recommended output name.
-  if "rpm_nvra" in dir(ctx.outputs):
+    # Link the RPM to the expected output name.
     ctx.actions.run(
         executable = "ln",
         arguments = [
-          "-s",
-          ctx.outputs.rpm.basename,
-          ctx.outputs.rpm_nvra.path,
+            "-s",
+            ctx.outputs.rpm.basename,
+            ctx.outputs.out.path,
         ],
         inputs = [ctx.outputs.rpm],
-        outputs = [ctx.outputs.rpm_nvra])
+        outputs = [ctx.outputs.out],
+    )
+
+    # Link the RPM to the RPM-recommended output name.
+    if "rpm_nvra" in dir(ctx.outputs):
+        ctx.actions.run(
+            executable = "ln",
+            arguments = [
+                "-s",
+                ctx.outputs.rpm.basename,
+                ctx.outputs.rpm_nvra.path,
+            ],
+            inputs = [ctx.outputs.rpm],
+            outputs = [ctx.outputs.rpm_nvra],
+        )
 
 def _pkg_rpm_outputs(version, release):
-  outputs = {
-      "out": "%{name}.rpm",
-      "rpm": "%{name}-%{architecture}.rpm",
-  }
+    outputs = {
+        "out": "%{name}.rpm",
+        "rpm": "%{name}-%{architecture}.rpm",
+    }
 
-  # The "rpm_nvra" output follows the recommended package naming convention of
-  # Name-Version-Release.Arch.rpm
-  # See http://ftp.rpm.org/max-rpm/ch-rpm-file-format.html
-  if version and release:
-    outputs["rpm_nvra"] = "%{name}-%{version}-%{release}.%{architecture}.rpm"
+    # The "rpm_nvra" output follows the recommended package naming convention of
+    # Name-Version-Release.Arch.rpm
+    # See http://ftp.rpm.org/max-rpm/ch-rpm-file-format.html
+    if version and release:
+        outputs["rpm_nvra"] = "%{name}-%{version}-%{release}.%{architecture}.rpm"
 
-  return outputs
+    return outputs
 
 # Define the rule.
 pkg_rpm = rule(
@@ -144,9 +149,9 @@ pkg_rpm = rule(
             mandatory = True,
             allow_files = True,
         ),
-        "release_file": attr.label(allow_files=True, single_file=True),
+        "release_file": attr.label(allow_files = True, single_file = True),
         "release": attr.string(),
-        "debug": attr.bool(default=False),
+        "debug": attr.bool(default = False),
 
         # Implicit dependencies.
         "_make_rpm": attr.label(
@@ -169,7 +174,10 @@ an RPM package based on the spec_file and data attributes.
 Two outputs are guaranteed to be produced: "%{name}.rpm", and
 "%{name}-%{architecture}.rpm". If the "version" and "release" arguments are
 non-empty, a third output will be produced, following the RPM-recommended
-N-V-R.A format (Name-Version-Release.Architecture.rpm).
+N-V-R.A format (Name-Version-Release.Architecture.rpm). Note that due to
+the fact that rule implementations cannot access the contents of files,
+the "version_file" and "release_file" arguments will not create an output
+using N-V-R.A format.
 
 Args:
   spec_file: The RPM spec file to use. If the version or version_file

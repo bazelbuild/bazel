@@ -38,17 +38,12 @@ import java.util.Set;
 public class AggregatingChartCreator implements ChartCreator {
 
   /** The tasks in the 'actions' category. */
-  private static final Set<ProfilerTask> ACTION_TASKS = EnumSet.of(ProfilerTask.ACTION,
-      ProfilerTask.ACTION_SUBMIT);
+  private static final Set<ProfilerTask> ACTION_TASKS = EnumSet.of(ProfilerTask.ACTION);
 
   /** The tasks in the 'blaze internal' category. */
   private static final Set<ProfilerTask> BLAZE_TASKS =
       EnumSet.of(
           ProfilerTask.CREATE_PACKAGE,
-          ProfilerTask.PACKAGE_VALIDITY_CHECK,
-          ProfilerTask.CONFIGURED_TARGET,
-          ProfilerTask.TRANSITIVE_CLOSURE,
-          ProfilerTask.EXCEPTION,
           ProfilerTask.INFO,
           ProfilerTask.UNKNOWN);
 
@@ -117,13 +112,13 @@ public class AggregatingChartCreator implements ChartCreator {
 
     for (ProfileInfo.Task task : info.allTasksById) {
       if (ACTION_TASKS.contains(task.type)) {
-        createBar(chart, task, actionType);
+        createBar(chart, info.getMinTaskStartTime(), task, actionType);
       } else if (LOCK_TASKS.contains(task.type)) {
-        createBar(chart, task, lockType);
+        createBar(chart, info.getMinTaskStartTime(), task, lockType);
       } else if (BLAZE_TASKS.contains(task.type)) {
-        createBar(chart, task, blazeType);
+        createBar(chart, info.getMinTaskStartTime(), task, blazeType);
       } else if (showVFS && VFS_TASKS.contains(task.type)) {
-        createBar(chart, task, vfsType);
+        createBar(chart, info.getMinTaskStartTime(), task, vfsType);
       }
     }
 
@@ -137,9 +132,11 @@ public class AggregatingChartCreator implements ChartCreator {
    * @param task the profiler task from which the bar is created
    * @param type the type of the bar
    */
-  private void createBar(Chart chart, Task task, ChartBarType type) {
+  private void createBar(Chart chart, long minTaskStartTime, Task task, ChartBarType type) {
     String label = task.type.description + ": " + task.getDescription();
-    chart.addBar(task.threadId, task.startTime, task.startTime + task.durationNanos, type, label);
+    chart.addBar(task.threadId,
+        task.startTime - minTaskStartTime,
+        task.startTime - minTaskStartTime + task.durationNanos, type, label);
   }
 
   /**
@@ -149,7 +146,7 @@ public class AggregatingChartCreator implements ChartCreator {
    */
   private void createTypes(Chart chart) {
     actionType = chart.createType("Action processing", new Color(0x000099));
-    blazeType = chart.createType("Blaze internal processing", new Color(0x999999));
+    blazeType = chart.createType("Bazel internal processing", new Color(0x999999));
     lockType = chart.createType("Waiting for resources", new Color(0x990000));
     if (showVFS) {
       vfsType = chart.createType("File system access", new Color(0x009900));

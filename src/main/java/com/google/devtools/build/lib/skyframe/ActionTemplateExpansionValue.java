@@ -26,9 +26,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
  * Value that stores expanded actions from ActionTemplate.
  */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
-  ActionTemplateExpansionValue(
-      GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
-    super(generatingActions, removeActionsAfterEvaluation);
+  ActionTemplateExpansionValue(GeneratingActions generatingActions) {
+    super(generatingActions);
   }
 
   static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {

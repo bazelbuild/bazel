@@ -78,26 +78,41 @@ public class DepsCheckerClassVisitorTest extends AbstractClassCacheTest {
             libraryExceptionJar,
             clientJar);
     assertThat(collector.getSortedMissingClassInternalNames()).isEmpty();
-    assertThat(collector.getSortedMissingMembers())
+    assertThat(
+            collector
+                .getSortedMissingMembers()
+                .stream()
+                .map(DepsCheckerClassVisitorTest::constructFullQualifiedMemberName)
+                .collect(ImmutableList.toImmutableList()))
         .containsExactly(
-            MissingMember.create(
+            constructFullyQualifiedMemberName(
                 "com/google/devtools/build/importdeps/testdata/Library$Class1",
                 "I",
                 "Lcom/google/devtools/build/importdeps/testdata/Library$Class1;"),
-            MissingMember.create(
+            constructFullyQualifiedMemberName(
                 "com/google/devtools/build/importdeps/testdata/Library$Class3",
                 "field",
                 "Lcom/google/devtools/build/importdeps/testdata/Library$Class4;"),
-            MissingMember.create(
+            constructFullyQualifiedMemberName(
                 "com/google/devtools/build/importdeps/testdata/Library$Class4",
                 "createClass5",
                 "()Lcom/google/devtools/build/importdeps/testdata/Library$Class5;"),
-            MissingMember.create(
+            constructFullyQualifiedMemberName(
                 "com/google/devtools/build/importdeps/testdata/Library$Class5",
                 "create",
                 "(Lcom/google/devtools/build/importdeps/testdata/Library$Class7;)"
                     + "Lcom/google/devtools/build/importdeps/testdata/Library$Class6;"))
         .inOrder();
+  }
+
+  private static String constructFullQualifiedMemberName(MissingMember member) {
+    return constructFullyQualifiedMemberName(
+        member.owner().internalName(), member.memberName(), member.descriptor());
+  }
+
+  private static String constructFullyQualifiedMemberName(
+      String owner, String memberName, String descriptor) {
+    return owner + memberName + descriptor;
   }
 
   private ImmutableList<String> getMissingClassesInClient(Path... classpath) throws IOException {

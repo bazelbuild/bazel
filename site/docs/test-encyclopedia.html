@@ -163,7 +163,7 @@ Any test that does not specify a recognized size will default to being a medium
 test.</p>
 
 <p>Tests can be parallelized via test sharding. See
-<a href="command-line-reference.html#flag--test_sharding_strategy"><code>--test_sharding_strategy</code></a>
+<a href="user-manual.html#sharding-strategy"><code>--test_sharding_strategy</code></a>
 and
 <a href="be/common-definitions.html#common-attributes-tests"><code>shard_count</code></a>
 to enable test sharding. When sharding is enabled, the test runner is launched
@@ -171,7 +171,7 @@ once per shard. The environment variable
 <a href="#initial-conditions"><code>TEST_TOTAL_SHARDS</code></a> is the number
 of shards, and
 <a href="#initial-conditions"><code>TEST_SHARD_INDEX</code></a> is the shard
-index, beginning at 1. Runners use this information to select which tests to
+index, beginning at 0. Runners use this information to select which tests to
 run - for example, using a round-robin strategy. Not all test runners support sharding.
 If a runner supports sharding, it must create or update the last modified date
 of the file specified by
@@ -226,7 +226,7 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
     <tr>
       <td><code>TEST_RANDOM_SEED</code></td>
-      <td colspan="2">If the <code class='flag'>--runs_per_test</code> option is used, TEST_RANDOM_SEED
+      <td>If the <code class='flag'>--runs_per_test</code> option is used, TEST_RANDOM_SEED
       is set to the <var>run number</var> (starting with 1) for each individual test run.</td>
       <td>optional</td>
     </tr>
@@ -243,7 +243,7 @@ test unless the user explicitly requests it.</p>
 
     </td><td>optional</td></tr>
     <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
-    <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="command-line-reference.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
+    <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="user-manual.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
 
     <tr><td><code>TZ</code></td><td><code>UTC</code></td><td>required</td></tr>
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
@@ -447,7 +447,7 @@ prematurely and mark it as having failed.</p>
     </tr>
 
     <tr>
-      <th><code>manual</code></th>
+      <th><code>manual*</code></th>
 
       <td>don't include test target in wildcard target patterns like <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
     </tr>
@@ -473,6 +473,7 @@ prematurely and mark it as having failed.</p>
   </tbody>
 </table>
 
+*Note: bazel <code>query</code> does not respect the manual tag.
 <h3>Runfiles</h3>
 
 <p>In the following, assume there is a *_binary() rule labeled <code>//foo/bar:unittest</code>,

@@ -38,7 +38,7 @@ public class LoadFilesFunction implements QueryEnvironment.QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<QueryEnvironment.Argument> args,
       final Callback<T> callback) {
@@ -52,12 +52,10 @@ public class LoadFilesFunction implements QueryEnvironment.QueryFunction {
               throws QueryException, InterruptedException {
             ThreadSafeMutableSet<T> result = env.createThreadSafeMutableSet();
             Iterables.addAll(result, partialResult);
-            callback.process(uniquifier.unique(
-                env.getBuildFiles(
-                    expression,
-                    result,
-                    /* BUILD */ false,
-                    /* load */ true)));
+            callback.process(
+                uniquifier.unique(
+                    env.getBuildFiles(
+                        expression, result, /*buildFiles=*/ false, /*loads=*/ true, context)));
           }
         });
   }

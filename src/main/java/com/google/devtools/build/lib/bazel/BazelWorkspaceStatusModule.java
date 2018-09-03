@@ -62,9 +62,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TreeMap;
-import java.util.UUID;
 
 /**
  * Provides information about the workspace (e.g. source control context, current machine, current
@@ -79,19 +77,18 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {
     private final Artifact stableStatus;
     private final Artifact volatileStatus;
-    private final Options options;
+    private final Supplier<Options> options;
     private final String username;
     private final String hostname;
-    private final com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand;
-    private final ImmutableMap<String, String> clientEnv;
+    private final Supplier<ImmutableMap<String, String>> clientEnv;
 
     @SuppressWarnings("unused") // Read by serialization.
     private final Path workspace;
 
     @AutoCodec.VisibleForSerialization
     BazelWorkspaceStatusAction(
-        WorkspaceStatusAction.Options options,
-        ImmutableMap<String, String> clientEnv,
+        Supplier<Options> options,
+        Supplier<ImmutableMap<String, String>> clientEnv,
         Path workspace,
         Artifact stableStatus,
         Artifact volatileStatus,
@@ -106,37 +103,45 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       this.username = USER_NAME.value();
       this.hostname = hostname;
       this.clientEnv = clientEnv;
-      this.getWorkspaceStatusCommand =
-          options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
-              ? null
-              : new CommandBuilder()
-                  .addArgs(options.workspaceStatusCommand.toString())
-                  // Pass client env, because certain SCM client(like
-                  // perforce, git) relies on environment variables to work
-                  // correctly.
-                  .setEnv(clientEnv)
-                  .setWorkingDir(workspace)
-                  .useShell(true)
-                  .build();
       this.workspace = workspace;
     }
 
-    private String getAdditionalWorkspaceStatus(ActionExecutionContext actionExecutionContext)
+    private com.google.devtools.build.lib.shell.Command getGetWorkspaceStatusCommand(
+        Options options, ImmutableMap<String, String> clientEnv) {
+      return options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
+          ? null
+          : new CommandBuilder()
+              .addArgs(options.workspaceStatusCommand.toString())
+              // Pass client env, because certain SCM client(like
+              // perforce, git) relies on environment variables to work
+              // correctly.
+              .setEnv(clientEnv)
+              .setWorkingDir(workspace)
+              .useShell(true)
+              .build();
+    }
+
+    private String getAdditionalWorkspaceStatus(
+        Options options,
+        ImmutableMap<String, String> clientEnv,
+        ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
+      com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand =
+          getGetWorkspaceStatusCommand(options, clientEnv);
       try {
-        if (this.getWorkspaceStatusCommand != null) {
+        if (getWorkspaceStatusCommand != null) {
           actionExecutionContext
               .getEventHandler()
               .handle(
                   Event.progress(
                       "Getting additional workspace status by running "
                           + options.workspaceStatusCommand));
-          CommandResult result = this.getWorkspaceStatusCommand.execute();
+          CommandResult result = getWorkspaceStatusCommand.execute();
           if (result.getTerminationStatus().success()) {
             return new String(result.getStdout(), UTF_8);
           }
           throw new BadExitStatusException(
-              this.getWorkspaceStatusCommand,
+              getWorkspaceStatusCommand,
               result,
               "workspace status command failed: " + result.getTerminationStatus());
         }
@@ -193,9 +198,12 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
+      Options options = this.options.get();
+      ImmutableMap<String, String> clientEnv = this.clientEnv.get();
       try {
-        Map<String, String> statusMap = parseWorkspaceStatus(
-            getAdditionalWorkspaceStatus(actionExecutionContext));
+        Map<String, String> statusMap =
+            parseWorkspaceStatus(
+                getAdditionalWorkspaceStatus(options, clientEnv, actionExecutionContext));
         Map<String, String> volatileMap = new TreeMap<>();
         Map<String, String> stableMap = new TreeMap<>();
 
@@ -210,7 +218,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
         stableMap.put(BuildInfo.BUILD_HOST, hostname);
         stableMap.put(BuildInfo.BUILD_USER, username);
-        volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis() / 1000));
+        volatileMap.put(
+            BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis(clientEnv) / 1000));
 
         Map<String, String> overallMap = new TreeMap<>();
         overallMap.putAll(volatileMap);
@@ -242,7 +251,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
      * This method returns the current time for stamping, using SOURCE_DATE_EPOCH
      * (https://reproducible-builds.org/specs/source-date-epoch/) if provided.
      */
-    private long getCurrentTimeMillis() {
+    private static long getCurrentTimeMillis(ImmutableMap<String, String> clientEnv) {
       if (clientEnv.containsKey("SOURCE_DATE_EPOCH")) {
         String value = clientEnv.get("SOURCE_DATE_EPOCH").trim();
         if (!value.isEmpty()) {
@@ -254,27 +263,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         }
       }
       return System.currentTimeMillis();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof BazelWorkspaceStatusAction)) {
-        return false;
-      }
-
-      // We consider clientEnv in equality because we pass it when executing the workspace status
-      // command
-
-      BazelWorkspaceStatusAction that = (BazelWorkspaceStatusAction) o;
-      return this.clientEnv.equals(that.clientEnv)
-          && this.stableStatus.equals(that.stableStatus)
-          && this.volatileStatus.equals(that.volatileStatus)
-          && this.options.equals(that.options);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(clientEnv, stableStatus, volatileStatus, options);
     }
 
     @Override
@@ -315,8 +303,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     @Override
     public WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory factory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
-        String workspaceName) {
+        ArtifactFactory factory, ArtifactOwner artifactOwner, String workspaceName) {
       ArtifactRoot root = env.getDirectories().getBuildDataDirectory(workspaceName);
 
       Artifact stableArtifact = factory.getDerivedArtifact(
@@ -325,24 +312,24 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           PathFragment.create("volatile-status.txt"), root, artifactOwner);
 
       return new BazelWorkspaceStatusAction(
-          options,
-          ImmutableMap.copyOf(env.getClientEnv()),
+          () -> options,
+          () -> ImmutableMap.copyOf(env.getClientEnv()),
           env.getDirectories().getWorkspace(),
           stableArtifact,
           volatileArtifact,
           getHostname());
     }
+  }
 
-    /**
-     * Returns cached short hostname.
-     *
-     * <p>Hostname lookup performs reverse DNS lookup which in bad cases can take seconds. To
-     * speedup builds we only lookup hostname once and cache the result. Therefore if hostname
-     * changes during bazel server lifetime, bazel will not see the change.
-     */
-    private String getHostname() {
-      return NetUtil.getCachedShortHostName();
-    }
+  /**
+   * Returns cached short hostname.
+   *
+   * <p>Hostname lookup performs reverse DNS lookup which in bad cases can take seconds. To speed up
+   * builds we only lookup hostname once and cache the result. Therefore if the hostname changes
+   * during bazel server lifetime, bazel will not see the change.
+   */
+  private static String getHostname() {
+    return NetUtil.getCachedShortHostName();
   }
 
   @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)

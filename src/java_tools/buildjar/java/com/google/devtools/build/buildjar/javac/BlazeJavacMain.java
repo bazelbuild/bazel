@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar.javac;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -130,7 +131,7 @@ public class BlazeJavacMain {
     }
     errWriter.flush();
     return new BlazeJavacResult(
-        ok, filterDiagnostics(ok, diagnostics.build()), errOutput.toString(), compiler);
+        ok, filterDiagnostics(diagnostics.build()), errOutput.toString(), compiler);
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -145,22 +146,35 @@ public class BlazeJavacMain {
           "compiler.note.unchecked.recompile",
           "compiler.note.unchecked.filename.additional",
           "compiler.note.unchecked.plural.additional",
-          "compiler.warn.sun.proprietary");
+          "compiler.warn.sun.proprietary",
+          // avoid warning spam when enabling processor options for an entire tree, only a subset
+          // of which actually runs the processor
+          "compiler.warn.proc.unmatched.processor.options",
+          // don't want about v54 class files when running javac9 on JDK 10
+          // TODO(cushon): remove after the next javac update
+          "compiler.warn.big.major.version",
+          // don't want about incompatible processor source versions when running javac9 on JDK 10
+          // TODO(cushon): remove after the next javac update
+          "compiler.warn.proc.processor.incompatible.source.version");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
-      boolean ok, ImmutableList<FormattedDiagnostic> diagnostics) {
+      ImmutableList<FormattedDiagnostic> diagnostics) {
+    boolean werror =
+        diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
     return diagnostics
         .stream()
-        .filter(d -> shouldReportDiagnostic(ok, d))
+        .filter(d -> shouldReportDiagnostic(werror, d))
+        // Print errors last to make them more visible.
+        .sorted(comparing(FormattedDiagnostic::getKind).reversed())
         .collect(toImmutableList());
   }
 
-  private static boolean shouldReportDiagnostic(boolean ok, FormattedDiagnostic diagnostic) {
+  private static boolean shouldReportDiagnostic(boolean werror, FormattedDiagnostic diagnostic) {
     if (!IGNORED_DIAGNOSTIC_CODES.contains(diagnostic.getCode())) {
       return true;
     }
-    if (!ok && diagnostic.getKind() != Diagnostic.Kind.NOTE) {
-      // show compiler.warn.sun.proprietary in case we're running with -Werror
+    // show compiler.warn.sun.proprietary if we're running with -Werror
+    if (werror && diagnostic.getKind() != Diagnostic.Kind.NOTE) {
       return true;
     }
     return false;

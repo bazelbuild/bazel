@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.util.FileType;
  */
 public class PyRuleClasses {
 
-  public static final FileType PYTHON_SOURCE = FileType.of(".py");
+  public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
   public static final LibraryLanguage LANGUAGE = new LibraryLanguage("Python");
 
   /**

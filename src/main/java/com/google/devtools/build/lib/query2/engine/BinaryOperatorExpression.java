@@ -57,7 +57,7 @@ public class BinaryOperatorExpression extends QueryExpression {
 
   @Override
   public <T> QueryTaskFuture<Void> eval(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+      QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
     switch (operator) {
       case PLUS:
       case UNION:
@@ -82,7 +82,7 @@ public class BinaryOperatorExpression extends QueryExpression {
   private static <T> QueryTaskFuture<Void> evalPlus(
       ImmutableList<QueryExpression> operands,
       QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       Callback<T> callback) {
     ArrayList<QueryTaskFuture<Void>> queryTasks = new ArrayList<>(operands.size());
     for (QueryExpression operand : operands) {
@@ -92,13 +92,13 @@ public class BinaryOperatorExpression extends QueryExpression {
   }
 
   /**
-   * Evaluates an expression of the form "e1 - e2 - ... - eK" by noting its equivalence to
-   * "e1 - (e2 + ... + eK)" and evaluating the subexpressions on the right-hand-side separately.
+   * Evaluates an expression of the form "e1 - e2 - ... - eK" by noting its equivalence to "e1 - (e2
+   * + ... + eK)" and evaluating the subexpressions on the right-hand-side separately.
    */
   private static <T> QueryTaskFuture<Void> evalMinus(
       final ImmutableList<QueryExpression> operands,
       final QueryEnvironment<T> env,
-      final VariableContext<T> context,
+      final QueryExpressionContext<T> context,
       final Callback<T> callback) {
     QueryTaskFuture<ThreadSafeMutableSet<T>> lhsValueFuture =
         QueryUtil.evalAll(env, context, operands.get(0));
@@ -131,7 +131,7 @@ public class BinaryOperatorExpression extends QueryExpression {
 
   private <T> QueryTaskFuture<Void> evalIntersect(
       final QueryEnvironment<T> env,
-      final VariableContext<T> context,
+      final QueryExpressionContext<T> context,
       final Callback<T> callback) {
     // For each right-hand side operand, intersection cannot be performed in a streaming manner; the
     // entire result of that operand is needed. So, in order to avoid pinning too much in memory at

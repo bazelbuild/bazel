@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
 import java.util.List;
 
 /**
@@ -37,11 +38,21 @@ import java.util.List;
  */
 public class AttrFunction extends RegexFilterExpression {
   AttrFunction() {
+    super(/*invert=*/ false);
+  }
+
+  private AttrFunction(boolean invert) {
+    super(invert);
+  }
+
+  @Override
+  public FilteringQueryFunction invert() {
+    return new AttrFunction(!invert);
   }
 
   @Override
   public String getName() {
-    return "attr";
+    return (invert ? "no" : "") + "attr";
   }
 
   @Override

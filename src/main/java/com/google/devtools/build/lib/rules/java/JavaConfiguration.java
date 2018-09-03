@@ -22,15 +22,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaConfigurationApi;
 import com.google.devtools.common.options.TriState;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +38,8 @@ import javax.annotation.Nullable;
 /** A java compiler configuration containing the flags required for compilation. */
 @AutoCodec
 @Immutable
-@SkylarkModule(
-  name = "java",
-  doc = "A java compiler configuration.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-public final class JavaConfiguration extends Fragment {
+public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
+
   /** Values for the --java_classpath option */
   public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
@@ -76,9 +71,7 @@ public final class JavaConfiguration extends Fragment {
     /** Emit warnings when the dependencies of java_import/aar_import are not complete. */
     WARNING,
     /** Emit errors when the dependencies of java_import/aar_import are not complete. */
-    ERROR,
-    /** Emit errors when the DIRECT dependencies of java_import/aar_import are not complete. */
-    STRICT_ERROR,
+    ERROR
   }
 
   /**
@@ -157,9 +150,10 @@ public final class JavaConfiguration extends Fragment {
   private final Label javaLauncherLabel;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
-  private final boolean headerCompilationDisableJavacFallback;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
+  private final boolean protoGeneratedStrictDeps;
+  private final boolean isJavaProtoExportsEnabled;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
@@ -180,6 +174,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
+  private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
@@ -193,7 +188,6 @@ public final class JavaConfiguration extends Fragment {
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
-    this.headerCompilationDisableJavacFallback = javaOptions.headerCompilationDisableJavacFallback;
     this.generateJavaDeps =
         javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
     this.javaClasspath = javaOptions.javaClasspath;
@@ -209,6 +203,8 @@ public final class JavaConfiguration extends Fragment {
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
+    this.protoGeneratedStrictDeps = javaOptions.protoGeneratedStrictDeps;
+    this.isJavaProtoExportsEnabled = javaOptions.isJavaProtoExportsEnabled;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
@@ -216,11 +212,12 @@ public final class JavaConfiguration extends Fragment {
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
     this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
+    this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
       try {
-        Label label = Label.parseAbsolute(s);
+        Label label = Label.parseAbsolute(s, ImmutableMap.of());
         translationsBuilder.add(label);
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("Invalid translations target '" + s + "', make " +
@@ -247,9 +244,10 @@ public final class JavaConfiguration extends Fragment {
       Label javaLauncherLabel,
       boolean useIjars,
       boolean useHeaderCompilation,
-      boolean headerCompilationDisableJavacFallback,
       boolean generateJavaDeps,
       boolean strictDepsJavaProtos,
+      boolean protoGeneratedStrictDeps,
+      boolean isJavaProtoExportsEnabled,
       OneVersionEnforcementLevel enforceOneVersion,
       boolean enforceOneVersionOnJavaTests,
       ImportDepsCheckingLevel importDepsCheckingLevel,
@@ -270,15 +268,17 @@ public final class JavaConfiguration extends Fragment {
       boolean explicitJavaTestDeps,
       boolean experimentalTestRunner,
       boolean jplPropagateCcLinkParamsStore,
+      boolean addTestSupportToCompileTimeDeps,
       ImmutableList<Label> pluginList,
       boolean useLegacyBazelJavaTest) {
     this.commandLineJavacFlags = commandLineJavacFlags;
     this.javaLauncherLabel = javaLauncherLabel;
     this.useIjars = useIjars;
     this.useHeaderCompilation = useHeaderCompilation;
-    this.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
     this.generateJavaDeps = generateJavaDeps;
     this.strictDepsJavaProtos = strictDepsJavaProtos;
+    this.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
+    this.isJavaProtoExportsEnabled = isJavaProtoExportsEnabled;
     this.enforceOneVersion = enforceOneVersion;
     this.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = importDepsCheckingLevel;
@@ -299,23 +299,19 @@ public final class JavaConfiguration extends Fragment {
     this.explicitJavaTestDeps = explicitJavaTestDeps;
     this.experimentalTestRunner = experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+    this.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
     this.pluginList = pluginList;
     this.useLegacyBazelJavaTest = useLegacyBazelJavaTest;
   }
 
-  @SkylarkCallable(name = "default_javac_flags", structField = true,
-      doc = "The default flags for the Java compiler.")
+  @Override
   // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
   }
 
-  @SkylarkCallable(
-      name = "strict_java_deps",
-      structField = true,
-      doc = "The value of the strict_java_deps flag."
-  )
+  @Override
   public String getStrictJavaDepsName() {
     return strictJavaDeps.name().toLowerCase();
   }
@@ -328,11 +324,6 @@ public final class JavaConfiguration extends Fragment {
     }
   }
 
-  @Override
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
-  }
-
   /**
    * Returns true iff Java compilation should use ijars.
    */
@@ -343,14 +334,6 @@ public final class JavaConfiguration extends Fragment {
   /** Returns true iff Java header compilation is enabled. */
   public boolean useHeaderCompilation() {
     return useHeaderCompilation;
-  }
-
-  /**
-   * If --java_header_compilation is set, report diagnostics from turbine instead of falling back to
-   * javac. Diagnostics will be produced more quickly, but may be less helpful.
-   */
-  public boolean headerCompilationDisableJavacFallback() {
-    return headerCompilationDisableJavacFallback;
   }
 
   /**
@@ -399,9 +382,11 @@ public final class JavaConfiguration extends Fragment {
     return javaLauncherLabel;
   }
 
-  /**
-   * Returns the label provided with --proguard_top, if any.
-   */
+  /** Returns the label provided with --proguard_top, if any. */
+  @SkylarkConfigurationField(
+      name = "proguard_top",
+      doc = "Returns the label provided with --proguard_top, if any.",
+      defaultInToolRepository = true)
   @Nullable
   public Label getProguardBinary() {
     return proguardBinary;
@@ -435,9 +420,12 @@ public final class JavaConfiguration extends Fragment {
     return bundleTranslations == TriState.NO;
   }
 
-  /**
-   * Returns the label of the default java_toolchain rule
-   */
+  /** Returns the label of the default java_toolchain rule */
+  @SkylarkConfigurationField(
+      name = "java_toolchain",
+      doc = "Returns the label of the default java_toolchain rule.",
+      defaultLabel = "//tools/jdk:toolchain",
+      defaultInToolRepository = true)
   public Label getToolchainLabel() {
     return toolchainLabel;
   }
@@ -516,8 +504,20 @@ public final class JavaConfiguration extends Fragment {
     return strictDepsJavaProtos;
   }
 
+  public boolean isProtoGeneratedStrictDeps() {
+    return protoGeneratedStrictDeps;
+  }
+
+  public boolean isJavaProtoExportsEnabled() {
+    return isJavaProtoExportsEnabled;
+  }
+
   public boolean jplPropagateCcLinkParamsStore() {
     return jplPropagateCcLinkParamsStore;
+  }
+
+  public boolean addTestSupportToCompileTimeDeps() {
+    return addTestSupportToCompileTimeDeps;
   }
 
   public List<Label> getPlugins() {

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -38,76 +38,6 @@ import java.io.IOException;
  * Creates mock BUILD files required for the C/C++ rules.
  */
 public abstract class MockCcSupport {
-
-  /**
-   * Builder to build crosstool files for unit testing.
-   */
-  public static final class CrosstoolBuilder {
-    public static final String DEFAULT_TARGET_CPU = "k8";
-    public static final String MAJOR_VERSION = "13";
-    public static final String MINOR_VERSION = "0";
-
-    private final CrosstoolConfig.CrosstoolRelease.Builder builder =
-        CrosstoolConfig.CrosstoolRelease.newBuilder()
-            .setMajorVersion(MAJOR_VERSION)
-            .setMinorVersion(MINOR_VERSION)
-            .setDefaultTargetCpu(DEFAULT_TARGET_CPU);
-
-    /** Adds a default toolchain in the order of the calls. */
-    public CrosstoolBuilder addDefaultToolchain(String cpu, String toolchainIdentifier) {
-      builder.addDefaultToolchainBuilder().setCpu(cpu).setToolchainIdentifier(toolchainIdentifier);
-      return this;
-    }
-
-    /** Adds a default toolchain in the order of the calls. */
-    public CrosstoolBuilder addDefaultToolchain(
-        String cpu, String toolchainIdentifier, boolean supportsLipo) {
-      builder
-          .addDefaultToolchainBuilder()
-          .setCpu(cpu)
-          .setToolchainIdentifier(toolchainIdentifier)
-          .setSupportsLipo(supportsLipo);
-      return this;
-    }
-
-    /** Adds a toolchain where all required fields are set. */
-    public CrosstoolBuilder addToolchain(String cpu, String toolchainIdentifier, String compiler) {
-      builder
-          .addToolchainBuilder()
-          .setTargetCpu(cpu)
-          .setToolchainIdentifier(toolchainIdentifier)
-          .setHostSystemName("host-system-name")
-          .setTargetSystemName("target-system-name")
-          .setTargetLibc("target-libc")
-          .setCompiler(compiler)
-          .setAbiVersion("abi-version")
-          .setAbiLibcVersion("abi-libc-version")
-          // TODO(klimek): Move to features.
-          .setSupportsStartEndLib(true);
-      return this;
-    }
-
-    /** Appends the snippet {@code configuration} to all previously added toolchains. */
-    public CrosstoolBuilder appendToAllToolchains(CToolchain configuration) {
-      for (CToolchain.Builder toolchainBuilder : builder.getToolchainBuilderList()) {
-        toolchainBuilder.mergeFrom(configuration);
-      }
-      return this;
-    }
-
-    /** Appends the snippet {@code configuration} to all previously added toolchains. */
-    public CrosstoolBuilder appendToAllToolchains(String... configuration) throws IOException {
-      CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-      TextFormat.merge(Joiner.on("\n").join(configuration), toolchainBuilder);
-      appendToAllToolchains(toolchainBuilder.buildPartial());
-      return this;
-    }
-
-    /** Returns the text proto containing the crosstool. */
-    public String build() {
-      return TextFormat.printToString(builder.build());
-    }
-  }
 
   /** Filter to remove implicit crosstool artifact and module map inputs of C/C++ rules. */
   public static final Predicate<Artifact> CC_ARTIFACT_FILTER =
@@ -150,10 +80,8 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing header processing.
-   */
-  public static final String HEADER_PROCESSING_FEATURE_CONFIGURATION =
+  /** A feature configuration snippet useful for testing header processing. */
+  public static final String PARSE_HEADERS_FEATURE_CONFIGURATION =
       ""
           + "feature {"
           + "  name: 'parse_headers'"
@@ -161,15 +89,6 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-parsing'"
           + "    flag_group {"
           + "      flag: '<c++-header-parsing>'"
-          + "    }"
-          + "  }"
-          + "}"
-          + "feature {"
-          + "  name: 'preprocess_headers'"
-          + "  flag_set {"
-          + "    action: 'c++-header-preprocessing'"
-          + "    flag_group {"
-          + "      flag: '<c++-header-preprocessing>'"
           + "    }"
           + "  }"
           + "}";
@@ -183,7 +102,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    flag_group {"
           + "      iterate_over: 'dependent_module_map_files'"
@@ -226,7 +144,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    flag_group {"
           + "      flag: 'module_name:%{module_name}'"
@@ -240,7 +157,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-modules-compile'"
           + "    flag_group {"
           + "      iterate_over: 'module_files'"
@@ -265,7 +181,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    env_entry {"
           + "      key: 'cat'"
@@ -279,7 +194,6 @@ public abstract class MockCcSupport {
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    action: 'c++-header-parsing'"
-          + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    env_entry {"
           + "      key: 'module'"
@@ -407,6 +321,23 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String XBINARY_FDO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'xbinaryfdo'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'lto-backend'"
+          + "    expand_if_all_available: 'fdo_profile_path'"
+          + "    flag_group {"
+          + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+          + "      flag: '-fprofile-correction'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String FDO_OPTIMIZE_CONFIGURATION =
       ""
           + "feature {"
@@ -478,7 +409,7 @@ public abstract class MockCcSupport {
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   prefix: 'lib'"
-          + "   extension: '.tweaked.a'"
+          + "   extension: '.lib'"
           + "}";
 
   public static final String STATIC_LINK_AS_DOT_A_CONFIGURATION =
@@ -490,13 +421,13 @@ public abstract class MockCcSupport {
           + "}";
 
   public static final String EMPTY_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_COMPILE);
+      emptyActionConfigFor(CppActionNames.CPP_COMPILE);
 
   public static final String EMPTY_MODULE_CODEGEN_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_MODULE_CODEGEN);
+      emptyActionConfigFor(CppActionNames.CPP_MODULE_CODEGEN);
 
   public static final String EMPTY_MODULE_COMPILE_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CPP_MODULE_COMPILE);
+      emptyActionConfigFor(CppActionNames.CPP_MODULE_COMPILE);
 
   public static final String EMPTY_EXECUTABLE_ACTION_CONFIG =
       emptyActionConfigFor(LinkTargetType.EXECUTABLE.getActionName());
@@ -511,10 +442,9 @@ public abstract class MockCcSupport {
       emptyActionConfigFor(LinkTargetType.STATIC_LIBRARY.getActionName());
 
   public static final String EMPTY_CLIF_MATCH_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.CLIF_MATCH);
+      emptyActionConfigFor(CppActionNames.CLIF_MATCH);
 
-  public static final String EMPTY_STRIP_ACTION_CONFIG =
-      emptyActionConfigFor(CppCompileAction.STRIP_ACTION_NAME);
+  public static final String EMPTY_STRIP_ACTION_CONFIG = emptyActionConfigFor(CppActionNames.STRIP);
 
   /**
    * Creates action_config for {@code actionName} action using DUMMY_TOOL that doesn't imply any
@@ -664,59 +594,6 @@ public abstract class MockCcSupport {
     createCrosstoolPackage(config, false, true, null, null, crosstool);
   }
 
-  /**
-   * Create a new crosstool configuration specified by {@code builder}.
-   *
-   * <p>If used from a {@code BuildViewTestCase}, make sure to call {@code
-   * BuildViewTestCase.invalidatePackages} after calling this method to force re-loading of the
-   * crosstool's BUILD files.
-   */
-  public void setupCrosstoolFromScratch(MockToolsConfig config, CrosstoolBuilder builder)
-      throws IOException {
-    if (config.isRealFileSystem()) {
-      throw new RuntimeException(
-          "Cannot use setupCrosstoolFromScratch when config.isRealFileSystem() is true; "
-              + "use this function only for unit tests.");
-    }
-    // TODO(klimek): Get the version information from the crosstool builder and set up the
-    // crosstool with that information.
-    createCrosstoolPackage(
-        config,
-        /*addEmbeddedRuntimes=*/ false,
-        /*addModuleMap=*/ true,
-        null,
-        null,
-        builder.build());
-  }
-
-  protected static void createToolsCppPackage(MockToolsConfig config) throws IOException {
-    config.create(
-        "tools/cpp/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "toolchain_type(name = 'toolchain_type')",
-        "cc_library(name = 'stl')",
-        "alias(name='toolchain', actual='//third_party/crosstool')",
-        "cc_library(name = 'malloc')",
-        "filegroup(",
-        "    name = 'interface_library_builder',",
-        "    srcs = ['build_interface_so'],",
-        ")",
-        "filegroup(",
-        "    name = 'link_dynamic_library',",
-        "    srcs = ['link_dynamic_library.sh'],",
-        ")",
-        "exports_files(['grep-includes'])");
-    if (config.isRealFileSystem()) {
-      config.linkTool("tools/cpp/link_dynamic_library.sh");
-      config.linkTool("tools/cpp/build_interface_so");
-      config.linkTool("tools/cpp/grep-includes");
-    } else {
-      config.create("tools/cpp/link_dynamic_library.sh", "");
-      config.create("tools/cpp/build_interface_so", "");
-      config.create("tools/cpp/grep-includes", "");
-    }
-  }
-
   protected void createCrosstoolPackage(MockToolsConfig config, boolean addEmbeddedRuntimes)
       throws IOException {
     createCrosstoolPackage(config, addEmbeddedRuntimes, /*addModuleMap=*/ true, null, null);
@@ -804,8 +681,6 @@ public abstract class MockCcSupport {
   public abstract Label getMockCrosstoolLabel();
 
   public abstract String readCrosstoolFile() throws IOException;
-
-  public abstract String getMockLibcPath();
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 

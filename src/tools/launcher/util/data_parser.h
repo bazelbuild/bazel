@@ -25,10 +25,10 @@ namespace launcher {
 
 class LaunchDataParser {
  public:
-  typedef std::unordered_map<std::string, std::string> LaunchInfo;
+  typedef std::unordered_map<std::string, std::wstring> LaunchInfo;
   LaunchDataParser() = delete;
   ~LaunchDataParser() = delete;
-  static bool GetLaunchInfo(const std::string& binary_path,
+  static bool GetLaunchInfo(const std::wstring& binary_path,
                             LaunchInfo* launch_info);
 
  private:

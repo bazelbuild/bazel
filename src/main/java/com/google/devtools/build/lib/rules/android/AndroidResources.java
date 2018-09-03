@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.android.resources.ResourceFolderType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
+import com.google.devtools.build.lib.rules.android.DataBinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -100,10 +102,6 @@ public class AndroidResources {
     validateManifest(ruleContext);
   }
 
-  public static boolean decoupleDataProcessing(RuleContext ruleContext) {
-    return AndroidCommon.getAndroidConfig(ruleContext).decoupleDataProcessing();
-  }
-
   /**
    * Validates that there are no targets with resources in the srcs, as they should not be used with
    * the Android data logic.
@@ -128,7 +126,7 @@ public class AndroidResources {
 
   public static AndroidResources from(RuleContext ruleContext, String resourcesAttr)
       throws RuleErrorException {
-    if (!hasLocalResourcesAttributes(ruleContext)) {
+    if (!hasLocalResourcesAttributes(ruleContext.attributes())) {
       return empty();
     }
 
@@ -160,8 +158,8 @@ public class AndroidResources {
    * target's resource attribute ("resource_files" in general, but local_resource_files for
    * android_test), not any other attributes.
    */
-  private static boolean hasLocalResourcesAttributes(RuleContext ruleContext) {
-    return ruleContext.attributes().has("assets") || ruleContext.attributes().has("resource_files");
+  private static boolean hasLocalResourcesAttributes(AttributeMap attrs) {
+    return attrs.has("assets") || attrs.has("resource_files");
   }
 
   static AndroidResources empty() {
@@ -401,13 +399,13 @@ public class AndroidResources {
 
   /** Parses these resources. */
   public ParsedAndroidResources parse(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
-      boolean enableDataBinding,
-      AndroidAaptVersion aaptVersion)
+      AndroidAaptVersion aaptVersion,
+      DataBindingContext dataBindingContext)
       throws InterruptedException {
     return ParsedAndroidResources.parseFrom(
-        ruleContext, this, manifest, enableDataBinding, aaptVersion);
+        dataContext, this, manifest, aaptVersion, dataBindingContext);
   }
 
   /**
@@ -415,30 +413,35 @@ public class AndroidResources {
    * these resources.
    */
   public ValidatedAndroidResources process(
-      RuleContext ruleContext, StampedAndroidManifest manifest, boolean neverlink)
+      RuleContext ruleContext,
+      AndroidDataContext dataContext,
+      StampedAndroidManifest manifest,
+      DataBindingContext dataBindingContext,
+      boolean neverlink)
       throws RuleErrorException, InterruptedException {
-    boolean enableDataBinding = DataBinding.isEnabled(ruleContext);
-    AndroidAaptVersion aaptVersion = AndroidAaptVersion.chooseTargetAaptVersion(ruleContext);
-    ResourceDependencies resourceDeps = ResourceDependencies.fromRuleDeps(ruleContext, neverlink);
-
-    return process(ruleContext, manifest, resourceDeps, enableDataBinding, aaptVersion);
+    return process(
+        dataContext,
+        manifest,
+        ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
+        dataBindingContext,
+        AndroidAaptVersion.chooseTargetAaptVersion(ruleContext));
   }
 
   ValidatedAndroidResources process(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
-      boolean enableDataBinding,
+      DataBindingContext dataBindingContext,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
-    return parse(ruleContext, manifest, enableDataBinding, aaptVersion)
-        .merge(ruleContext, resourceDeps, enableDataBinding, aaptVersion)
-        .validate(ruleContext, aaptVersion);
+    return parse(dataContext, manifest, aaptVersion, dataBindingContext)
+        .merge(dataContext, resourceDeps, aaptVersion)
+        .validate(dataContext, aaptVersion);
   }
 
   @Override
   public boolean equals(Object object) {
-    if (object == null || getClass() != object.getClass()) {
+    if (!(object instanceof AndroidResources)) {
       return false;
     }
 
@@ -449,5 +452,13 @@ public class AndroidResources {
   @Override
   public int hashCode() {
     return Objects.hash(resources, resourceRoots);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("resources", resources)
+        .add("resourceRoots", resourceRoots)
+        .toString();
   }
 }

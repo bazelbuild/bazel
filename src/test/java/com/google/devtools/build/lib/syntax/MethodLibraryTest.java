@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -146,7 +149,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
-            "expected value of type 'string' for parameter 'sub', "
+            "expected value of type 'string or tuple of strings' for parameter 'sub', "
                 + "in method call startswith(int) of 'string'",
             "'test'.startswith(1)")
         .testIfErrorContains(
@@ -168,16 +171,48 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testGetAttrMissingField() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "object of type 'string' has no attribute \"not_there\"",
+            "object of type 'string' has no attribute 'not_there'",
             "getattr('a string', 'not_there')")
         .testStatement("getattr('a string', 'not_there', 'use this')", "use this")
         .testStatement("getattr('a string', 'not there', None)", Runtime.NONE);
   }
 
+  @SkylarkModule(name = "AStruct", documented = false, doc = "")
+  static final class AStruct implements ClassObject {
+    @Override
+    public Object getValue(String name) {
+      switch (name) {
+        case "field":
+          return "a";
+        default:
+          return null;
+      }
+    }
+
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return ImmutableList.of("field");
+    }
+
+    @Override
+    public String getErrorMessageForUnknownField(String name) {
+      return null;
+    }
+  }
+
+  @Test
+  public void testGetAttrMissingField_typoDetection() throws Exception {
+    new SkylarkTest()
+        .update("s", new AStruct())
+        .testIfExactError(
+            "object of type 'AStruct' has no attribute 'feild' (did you mean 'field'?)",
+            "getattr(s, 'feild')");
+  }
+
   @Test
   public void testGetAttrWithMethods() throws Exception {
     String msg =
-        "object of type 'string' has no attribute \"count\", however, "
+        "object of type 'string' has no attribute 'count', however, "
             + "a method of that name exists";
     new SkylarkTest()
         .testIfExactError(msg, "getattr('a string', 'count')")
@@ -451,7 +486,123 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(range(5, 0, -1))", "[5, 4, 3, 2, 1]")
         .testStatement("str(range(5, 0, -10))", "[5]")
         .testStatement("str(range(0, -3, -2))", "[0, -2]")
+        .testStatement("str(range(5)[1:])", "[1, 2, 3, 4]")
+        .testStatement("len(range(5)[1:])", 4)
+        .testStatement("str(range(5)[:2])", "[0, 1]")
+        .testStatement("str(range(10)[1:9:2])", "[1, 3, 5, 7]")
+        .testStatement("str(range(10)[1:10:2])", "[1, 3, 5, 7, 9]")
+        .testStatement("str(range(10)[1:11:2])", "[1, 3, 5, 7, 9]")
+        .testStatement("str(range(0, 10, 2)[::2])", "[0, 4, 8]")
+        .testStatement("str(range(0, 10, 2)[::-2])", "[8, 4, 0]")
         .testIfErrorContains("step cannot be 0", "range(2, 3, 0)");
+  }
+
+  @Test
+  public void testRangeIsList() throws Exception {
+    // range(), and slices of ranges, may change in the future to return read-only views. But for
+    // now it's just a list and can therefore be ordered, mutated, and concatenated. This test
+    // ensures we don't break backward compatibility until we intend to, even if range() is
+    // optimized to return lazy list-like values.
+    runRangeIsListAssertions("range(3)");
+    runRangeIsListAssertions("range(4)[:3]");
+  }
+
+  @Test
+  public void testRangeType() throws Exception {
+    new BothModesTest("--incompatible_range_type=true")
+        .setUp("a = range(3)")
+        .testStatement("len(a)", 3)
+        .testStatement("str(a)", "range(0, 3)")
+        .testStatement("str(range(1,2,3))", "range(1, 2, 3)")
+        .testStatement("repr(a)", "range(0, 3)")
+        .testStatement("repr(range(1,2,3))", "range(1, 2, 3)")
+        .testStatement("type(a)", "range")
+        .testIfErrorContains("unsupported operand type(s) for +: 'range' and 'range'", "a + a")
+        .testIfErrorContains("type 'range' has no method append(int)", "a.append(3)")
+        .testStatement("str(list(range(5)))", "[0, 1, 2, 3, 4]")
+        .testStatement("str(list(range(0)))", "[]")
+        .testStatement("str(list(range(1)))", "[0]")
+        .testStatement("str(list(range(-2)))", "[]")
+        .testStatement("str(list(range(-3, 2)))", "[-3, -2, -1, 0, 1]")
+        .testStatement("str(list(range(3, 2)))", "[]")
+        .testStatement("str(list(range(3, 3)))", "[]")
+        .testStatement("str(list(range(3, 4)))", "[3]")
+        .testStatement("str(list(range(3, 5)))", "[3, 4]")
+        .testStatement("str(list(range(-3, 5, 2)))", "[-3, -1, 1, 3]")
+        .testStatement("str(list(range(-3, 6, 2)))", "[-3, -1, 1, 3, 5]")
+        .testStatement("str(list(range(5, 0, -1)))", "[5, 4, 3, 2, 1]")
+        .testStatement("str(list(range(5, 0, -10)))", "[5]")
+        .testStatement("str(list(range(0, -3, -2)))", "[0, -2]")
+        .testStatement("range(3)[-1]", 2)
+        .testIfErrorContains(
+            "index out of range (index is 3, but sequence has 3 elements)", "range(3)[3]")
+        .testStatement("str(range(5)[1:])", "range(1, 5)")
+        .testStatement("len(range(5)[1:])", 4)
+        .testStatement("str(range(5)[:2])", "range(0, 2)")
+        .testStatement("str(range(10)[1:9:2])", "range(1, 9, 2)")
+        .testStatement("str(list(range(10)[1:9:2]))", "[1, 3, 5, 7]")
+        .testStatement("str(range(10)[1:10:2])", "range(1, 10, 2)")
+        .testStatement("str(range(10)[1:11:2])", "range(1, 10, 2)")
+        .testStatement("str(range(0, 10, 2)[::2])", "range(0, 10, 4)")
+        .testStatement("str(range(0, 10, 2)[::-2])", "range(8, -2, -4)")
+        .testStatement("str(range(5)[1::-1])", "range(1, -1, -1)")
+        .testIfErrorContains("step cannot be 0", "range(2, 3, 0)")
+        .testIfErrorContains(
+            "unsupported operand type(s) for *: 'range' and 'int'", "range(3) * 3");
+    ;
+  }
+
+  /**
+   * Helper function for testRangeIsList that expects a range or range slice expression producing
+   * the range value containing [0, 1, 2].
+   */
+  private void runRangeIsListAssertions(String range3expr) throws Exception {
+    // Check stringifications.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .testStatement("str(a)", "[0, 1, 2]")
+        .testStatement("repr(a)", "[0, 1, 2]")
+        .testStatement("type(a)", "list");
+
+    // Check comparisons.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .setUp("b = range(0, 3, 1)")
+        .setUp("c = range(1, 4)")
+        .setUp("L = [0, 1, 2]")
+        .setUp("T = (0, 1, 2)")
+        .testStatement("a == b", true)
+        .testStatement("a == c", false)
+        .testStatement("a < b", false)
+        .testStatement("a < c", true)
+        .testStatement("a == L", true)
+        .testStatement("a == T", false)
+        .testStatement("a < L", false)
+        .testIfErrorContains("Cannot compare list with tuple", "a < T");
+
+    // Check mutations.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .testStatement("a.append(3); str(a)", "[0, 1, 2, 3]");
+    new SkylarkTest()
+        .testStatement(
+            "def f():\n"
+            + "  a = " + range3expr + "\n"
+            + "  b = a\n"
+            + "  a += [3]\n"
+            + "  return str(b)\n"
+            + "f()\n",
+            "[0, 1, 2, 3]");
+
+    // Check concatenations.
+    new BothModesTest()
+        .setUp("a = " + range3expr)
+        .setUp("b = range(3, 4)")
+        .setUp("L = [3]")
+        .setUp("T = (3,)")
+        .testStatement("str(a + b)", "[0, 1, 2, 3]")
+        .testStatement("str(a + L)", "[0, 1, 2, 3]")
+        .testIfErrorContains("unsupported operand type(s) for +: 'list' and 'tuple", "str(a + T)");
   }
 
   @Test

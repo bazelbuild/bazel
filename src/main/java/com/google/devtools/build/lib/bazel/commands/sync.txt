@@ -1,0 +1,10 @@
+
+Usage: %{product} %{command} [<option> ...]
+
+Ensures that all Skylark repository rules of the top-level WORKSPACE
+file are called.
+
+NOTE: This command is still very experimental and the precise semantics
+will change in the near future.
+
+%{options}

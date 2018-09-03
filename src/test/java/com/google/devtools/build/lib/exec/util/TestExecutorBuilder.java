@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
@@ -60,6 +61,7 @@ public class TestExecutorBuilder {
     this.fileSystem = fileSystem;
     this.directories = directories;
     strategies.add(new FileWriteStrategy());
+    strategies.add(new LocalTemplateExpansionStrategy());
     strategies.add(new SymlinkTreeStrategy(null, binTools));
   }
 

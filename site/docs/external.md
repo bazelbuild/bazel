@@ -44,6 +44,7 @@ This `WORKSPACE` file uses the same syntax as BUILD files, but allows a
 different set of rules. The full list of built-in rules are in the Build
 Encyclopedia's [Workspace Rules](be/workspace.html).
 
+<a name="types"></a>
 ## Supported types of external dependencies
 
 A few basic types of external dependencies can be used:
@@ -120,6 +121,7 @@ files.
 <a name="external-packages"></a>
 ### Depending on external packages
 
+<a name="maven-repositories"></a>
 #### Maven repositories
 
 Use the rule [`maven_jar`](https://docs.bazel.build/be/workspace.html#maven_jar)
@@ -127,12 +129,95 @@ Use the rule [`maven_jar`](https://docs.bazel.build/be/workspace.html#maven_jar)
 to download a jar from a Maven repository and make it available as a Java
 dependency.
 
+<a name="fetching-dependencies"></a>
 ## Fetching dependencies
 
 By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to disable this behavior or prefetch dependencies, use
 [`bazel fetch`](http://docs.bazel.build/user-manual.html#fetch).
 
+<a name="shadowing-dependencies"></a>
+## Shadowing dependencies
+
+Whenever possible, it is recommended to have a single version policy in your
+project. This is required for dependencies that you compile against and end up
+in your final binary. But for cases where this isn't true, it is possible to
+shadow dependencies. Consider the following scenario:
+
+myproject/WORKSPACE
+
+```python
+local_repository(
+    name = "A",
+    path = "../A",
+)
+local_repository(
+    name = "B",
+    path = "../B",
+)
+```
+
+A/WORKSPACE
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "testrunner",
+    urls = ["https://github.com/testrunner/v1.zip"],
+    sha256 = "...",
+)
+```
+
+B/WORKSPACE
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "testrunner",
+    urls = ["https://github.com/testrunner/v2.zip"],
+    sha256 = "..."
+)
+```
+
+Both dependencies `A` and `B` depend on `testrunner`, but they depend on
+different versions of `testrunner`. There is no reason for these test runners to
+not peacefully coexist within `myproject`, however they will clash with each
+other since they have the same name. To declare both dependencies,
+update myproject/WORKSPACE:
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "testrunner-v1",
+    urls = ["https://github.com/testrunner/v1.zip"],
+    sha256 = "..."
+)
+http_archive(
+    name = "testrunner-v2",
+    urls = ["https://github.com/testrunner/v2.zip"],
+    sha256 = "..."
+)
+local_repository(
+    name = "A",
+    path = "../A",
+    repo_mapping = {"@testrunner" : "@testrunner-v1"}
+)
+local_repository(
+    name = "B",
+    path = "../B",
+    repo_mapping = {"@testrunner" : "@testrunner-v2"}
+)
+```
+
+This mechanism can also be used to join diamonds. For example if `A` and `B`
+had the same dependency but call it by different names, those dependencies can
+be joined in myproject/WORKSPACE.
+
+This behavior is currently gated behind a flag,
+`--experimental_enable_repo_mapping`.
+
+
+<a name="using-proxies"></a>
 ## Using Proxies
 
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
@@ -152,11 +237,13 @@ Large `WORKSPACE` files can be generated using the tool `generate_workspace`.
 For details, see
 [Generate external dependencies from Maven projects](generate-workspace.md).
 
+<a name="caching"></a>
 ## Caching of external dependencies
 
 Bazel caches external dependencies and re-downloads or updates them when
 the `WORKSPACE` file changes.
 
+<a name="layout"></a>
 ## Layout
 
 External dependencies are all downloaded and symlinked under a directory named

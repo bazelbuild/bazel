@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.query2.output.CqueryOptions;
 import com.google.devtools.build.lib.query2.output.ProtoOutputFormatter;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -117,8 +118,18 @@ public class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private class ConfiguredProtoOutputFormatter extends ProtoOutputFormatter {
     @Override
     protected void addAttributes(Build.Rule.Builder rulePb, Rule rule) throws InterruptedException {
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-          ((RuleConfiguredTarget) currentTarget).getConfigConditions();
+      // We know <code>currentTarget</code> will be one of these two types of configured targets
+      // because this method is only triggered in ProtoOutputFormatter.toTargetProtoBuffer when
+      // the target in currentTarget is an instanceof Rule.
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+      if (currentTarget instanceof AliasConfiguredTarget) {
+        configConditions = ((AliasConfiguredTarget) currentTarget).getConfigConditions();
+      } else if (currentTarget instanceof RuleConfiguredTarget) {
+        configConditions = ((RuleConfiguredTarget) currentTarget).getConfigConditions();
+      } else {
+        // Other subclasses of ConfiguredTarget don't have attribute information.
+        return;
+      }
       ConfiguredAttributeMapper attributeMapper =
           ConfiguredAttributeMapper.of(rule, configConditions);
       Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();

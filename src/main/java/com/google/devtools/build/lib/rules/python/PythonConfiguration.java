@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
 import java.util.Arrays;
@@ -32,6 +34,10 @@ import java.util.List;
  */
 @AutoCodec
 @Immutable
+@SkylarkModule(
+    name = "py",
+    doc = "A configuration fragment for SWIG.",
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
 public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final boolean ignorePythonVersionAttribute;
   private final PythonVersion defaultPythonVersion;

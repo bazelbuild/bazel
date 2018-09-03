@@ -159,8 +159,12 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
             }
 
             @Override
-            public long getSize() throws IOException {
-              return stat.getSize();
+            public long getSize()  {
+              try {
+                return stat.getSize();
+              } catch (IOException e) {
+                throw new IllegalStateException(e);
+              }
             }
 
             @Override

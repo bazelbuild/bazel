@@ -179,4 +179,14 @@ public interface ActionAnalysisMetadata {
       return this != NORMAL;
     }
   }
+
+  /**
+   * Whether this action has loose headers.
+   *
+   * <p>If this is true, top-down evaluation considers an action changed if any source files in
+   * package have changed.
+   */
+  default boolean hasLooseHeaders() {
+    return false;
+  }
 }

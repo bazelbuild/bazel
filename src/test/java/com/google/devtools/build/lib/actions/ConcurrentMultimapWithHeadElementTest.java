@@ -137,7 +137,6 @@ public class ConcurrentMultimapWithHeadElementTest {
           TimeUnit.SECONDS,
           /*failFastOnException=*/ true,
           "action-graph-test",
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 

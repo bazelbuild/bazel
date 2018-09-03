@@ -24,12 +24,9 @@ import com.android.builder.model.AaptOptions;
 import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.ExecutorSingleton;
 import com.android.ide.common.internal.LoggedErrorException;
-import com.android.io.FileWrapper;
-import com.android.io.StreamException;
 import com.android.repository.Revision;
 import com.android.utils.ILogger;
 import com.android.utils.StdLogger;
-import com.android.xml.AndroidManifest;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -64,7 +61,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
-import javax.xml.xpath.XPathExpressionException;
 
 /** Provides a wrapper around the AOSP build tools for resource processing. */
 public class AndroidResourceProcessor {
@@ -515,25 +511,11 @@ public class AndroidResourceProcessor {
 
     ProcessXmlOptions options = new ProcessXmlOptions();
     options.setAppId(packagePath);
-    options.setLibrary(variantType == VariantType.LIBRARY);
     options.setResInput(resourceDir.toFile());
     options.setResOutput(processedResourceDir.toFile());
     options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
     // Whether or not to aggregate data-bound .xml files into a single .zip.
     options.setZipLayoutInfo(shouldZipDataBindingInfo);
-
-    try {
-      Object minSdk = AndroidManifest.getMinSdkVersion(new FileWrapper(androidManifest.toFile()));
-      if (minSdk instanceof Integer) {
-        options.setMinSdk(((Integer) minSdk).intValue());
-      } else {
-        // TODO(bazel-team): Enforce the minimum SDK check.
-        options.setMinSdk(15);
-      }
-    } catch (XPathExpressionException | StreamException e) {
-      // TODO(bazel-team): Enforce the minimum SDK check.
-      options.setMinSdk(15);
-    }
 
     try {
       AndroidDataBinding.doRun(options);
@@ -656,10 +638,6 @@ public class AndroidResourceProcessor {
     public void verbose(@NonNull String msgFormat, Object... args) {
       out.println(String.format(msgFormat, args));
     }
-  }
-
-  public static void writeDummyManifestForAapt(Path dummyManifest, String packageForR) {
-    AndroidManifestProcessor.writeDummyManifestForAapt(dummyManifest, packageForR);
   }
 
   /** Shutdown AOSP utilized thread-pool. */

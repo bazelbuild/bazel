@@ -54,13 +54,10 @@ public class DeterministicHelper extends NotifyingHelper {
     }
   }
 
+  /** Compare using SkyKey argument first, so that tests can easily order keys. */
   private static final Comparator<SkyKey> ALPHABETICAL_SKYKEY_COMPARATOR =
-      new Comparator<SkyKey>() {
-        @Override
-        public int compare(SkyKey o1, SkyKey o2) {
-          return o1.toString().compareTo(o2.toString());
-        }
-      };
+      Comparator.<SkyKey, String>comparing(key -> key.argument().toString())
+          .thenComparing(key -> key.functionName().toString());
 
   DeterministicHelper(Listener listener) {
     super(listener);
@@ -146,6 +143,13 @@ public class DeterministicHelper extends NotifyingHelper {
     public synchronized Set<SkyKey> getInProgressReverseDeps() {
       TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
       result.addAll(super.getInProgressReverseDeps());
+      return result;
+    }
+
+    @Override
+    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+      TreeSet<SkyKey> result = new TreeSet<>(ALPHABETICAL_SKYKEY_COMPARATOR);
+      result.addAll(super.setValue(value, version));
       return result;
     }
   }

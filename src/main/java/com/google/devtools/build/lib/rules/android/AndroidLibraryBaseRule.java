@@ -59,9 +59,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         compiled. (This is useful if you need to generate a set of .java files with
         a genrule or build extension.)
         </p>
-        <p>This rule currently forces source and class compatibility with Java 7,
-        although try with resources is not supported.
-        </p>
         <p>If <code>srcs</code> is omitted, then any dependency specified in
         <code>deps</code> is exported from this rule (see
         <a href="${link java_library.exports}">java_library's exports</a> for more

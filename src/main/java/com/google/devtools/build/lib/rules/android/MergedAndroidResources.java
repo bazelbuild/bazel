@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
@@ -38,14 +37,13 @@ public class MergedAndroidResources extends ParsedAndroidResources {
   private final ProcessedAndroidManifest manifest;
 
   public static MergedAndroidResources mergeFrom(
-      RuleContext ruleContext,
+      AndroidDataContext dataContext,
       ParsedAndroidResources parsed,
       ResourceDependencies resourceDeps,
-      boolean enableDataBinding,
       AndroidAaptVersion aaptVersion)
       throws InterruptedException {
 
-    AndroidConfiguration androidConfiguration = AndroidCommon.getAndroidConfig(ruleContext);
+    AndroidConfiguration androidConfiguration = dataContext.getAndroidConfig();
 
     boolean useCompiledMerge =
         aaptVersion == AndroidAaptVersion.AAPT2 && androidConfiguration.skipParsingAction();
@@ -55,24 +53,22 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         "Should not use compiled merge if no compiled symbols are available!");
 
     AndroidResourceMergingActionBuilder builder =
-        new AndroidResourceMergingActionBuilder(ruleContext)
+        new AndroidResourceMergingActionBuilder()
             .setJavaPackage(parsed.getJavaPackage())
             .withDependencies(resourceDeps)
             .setThrowOnResourceConflict(androidConfiguration.throwOnResourceConflict())
             .setUseCompiledMerge(useCompiledMerge);
 
-    if (enableDataBinding) {
-      builder.setDataBindingInfoZip(DataBinding.getLayoutInfoFile(ruleContext));
-    }
+    parsed.asDataBindingContext().supplyLayoutInfo(builder::setDataBindingInfoZip);
 
     return builder
         .setManifestOut(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
+            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
         .setMergedResourcesOut(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
         .setClassJarOut(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-        .build(ruleContext, parsed);
+            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+        .build(dataContext, parsed);
   }
 
   public static MergedAndroidResources of(
@@ -96,7 +92,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
         other.manifest);
   }
 
-  private MergedAndroidResources(
+  protected MergedAndroidResources(
       ParsedAndroidResources other,
       Artifact mergedResources,
       Artifact classJar,
@@ -111,6 +107,15 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     this.manifest = manifest;
   }
 
+  /**
+   * Gets an Artifact containing a zip of merged resources.
+   *
+   * <p>If assets were processed together with resources, the zip will also contain merged assets.
+   *
+   * @deprecated This artifact is produced by an often-expensive action and should not be used if
+   *     another option is available. Furthermore, it will be replaced by flat files once we
+   *     completely move to aapt2.
+   */
   @Deprecated
   public Artifact getMergedResources() {
     return mergedResources;
@@ -145,12 +150,13 @@ public class MergedAndroidResources extends ParsedAndroidResources {
   /**
    * Validates and packages this rule's resources.
    *
-   * <p>See {@link ValidatedAndroidResources#validateFrom(RuleContext, MergedAndroidResources,
-   * AndroidAaptVersion)}. This method is a convenience method for calling that one.
+   * <p>See {@link ValidatedAndroidResources#validateFrom(AndroidDataContext,
+   * MergedAndroidResources, AndroidAaptVersion)}. This method is a convenience method for calling
+   * that one.
    */
-  public ValidatedAndroidResources validate(RuleContext ruleContext, AndroidAaptVersion aaptVersion)
-      throws InterruptedException {
-    return ValidatedAndroidResources.validateFrom(ruleContext, this, aaptVersion);
+  public ValidatedAndroidResources validate(
+      AndroidDataContext dataContext, AndroidAaptVersion aaptVersion) throws InterruptedException {
+    return ValidatedAndroidResources.validateFrom(dataContext, this, aaptVersion);
   }
 
   @Override
@@ -171,7 +177,7 @@ public class MergedAndroidResources extends ParsedAndroidResources {
 
   @Override
   public boolean equals(Object object) {
-    if (!super.equals(object)) {
+    if (!super.equals(object) || !(object instanceof MergedAndroidResources)) {
       return false;
     }
 

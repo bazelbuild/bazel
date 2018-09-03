@@ -19,6 +19,7 @@
 
 #include <cinttypes>
 #include <string>
+#include <vector>
 
 namespace blaze_util {
 
@@ -31,10 +32,15 @@ class IFileMtime {
  public:
   virtual ~IFileMtime() {}
 
-  // Queries the mtime of `path` to see whether it's in the distant future.
-  // Returns true if querying succeeded and stores the result in `result`.
-  // Returns false if querying failed.
-  virtual bool GetIfInDistantFuture(const std::string &path, bool *result) = 0;
+  // Checks if `path` is a file/directory in the embedded tools directory that
+  // was not tampered with.
+  // Returns true if `path` is a directory or directory symlink, or if `path` is
+  // a file with an mtime in the distant future.
+  // Returns false otherwise, or if querying the information failed.
+  // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
+  // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
+  // not generic file-handling logic.
+  virtual bool IsUntampered(const std::string &path) = 0;
 
   // Sets the mtime of file under `path` to the current time.
   // Returns true if the mtime was changed successfully.
@@ -50,10 +56,7 @@ class IFileMtime {
 // Creates a platform-specific implementation of `IFileMtime`.
 IFileMtime *CreateFileMtime();
 
-// Split a path to dirname and basename parts.
-std::pair<std::string, std::string> SplitPath(const std::string &path);
-
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
 // We cannot include <windows.h> because it #defines many symbols that conflict
 // with our function names, e.g. GetUserName, SendMessage.
 // Instead of typedef'ing HANDLE, let's use the actual type, void*. If that ever
@@ -61,9 +64,9 @@ std::pair<std::string, std::string> SplitPath(const std::string &path);
 // (very unlikely, given how fundamental this type is in Windows), then we'd get
 // a compilation error.
 typedef /* HANDLE */ void *file_handle_type;
-#else   // !(defined(COMPILER_MSVC) || defined(__CYGWIN__))
+#else   // !(defined(_WIN32) || defined(__CYGWIN__))
 typedef int file_handle_type;
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 // Result of a `ReadFromHandle` operation.
 //
@@ -162,16 +165,8 @@ bool CanExecuteFile(const std::string &path);
 // Follows symlinks/junctions.
 bool CanAccessDirectory(const std::string &path);
 
-bool IsDevNull(const char *path);
-
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
-
-// Returns true if `path` is the root directory or a Windows drive root.
-bool IsRootDirectory(const std::string &path);
-
-// Returns true if `path` is absolute.
-bool IsAbsolute(const std::string &path);
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
@@ -210,22 +205,51 @@ class DirectoryEntryConsumer {
 void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
+#if defined(_WIN32) || defined(__CYGWIN__)
+std::wstring GetCwdW();
+bool MakeDirectoriesW(const std::wstring &path, unsigned int mode);
 
-bool AsWindowsPath(const std::string &path, std::string *result,
-                   std::string *error);
+// Resolve a symlink to its target.
+// If `path` is a symlink, result will contain the target it points to,
+// If `path` is a not a symlink, result will contain `path` itself.
+// If the resolving succeeds, this function returns true,
+// otherwise it returns false.
+bool ReadSymlinkW(const std::wstring &path, std::wstring *result);
 
-bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath,
-                           std::string *error);
+// Check if `path` is a directory.
+bool IsDirectoryW(const std::wstring &path);
 
-// Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
-// Result will never have a UNC prefix, nor a trailing "/" or "\".
-// Works also for non-existent paths; shortens as much of them as it can.
-// Also works for non-existent drives.
-bool AsShortWindowsPath(const std::string &path, std::string *result,
-                        std::string *error);
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// Interface to be implemented by ForEachDirectoryEntryW clients.
+class DirectoryEntryConsumerW {
+ public:
+  virtual ~DirectoryEntryConsumerW() {}
+
+  // This method is called for each entry in a directory.
+  // `name` is the full path of the entry.
+  // `is_directory` is true if this entry is a directory (but false if this is a
+  // symlink pointing to a directory).
+  virtual void Consume(const std::wstring &name, bool is_directory) = 0;
+};
+
+// Lists all files in `path` and all of its subdirectories.
+//
+// Does not follow symlinks / junctions.
+//
+// Populates `result` with the full paths of the files. Every entry will have
+// `path` as its prefix. If `path` is a file, `result` contains just this
+// file.
+void GetAllFilesUnderW(const std::wstring &path,
+                       std::vector<std::wstring> *result);
+
+// Visible for testing only.
+typedef void (*_ForEachDirectoryEntryW)(const std::wstring &path,
+                                        DirectoryEntryConsumerW *consume);
+
+// Visible for testing only.
+void _GetAllFilesUnderW(const std::wstring &path,
+                        std::vector<std::wstring> *result,
+                        _ForEachDirectoryEntryW walk_entries);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util
 

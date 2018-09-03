@@ -12,8 +12,8 @@ instructions.
 
 ## Known issues
 
-We mark Windows-related Bazel issues on GitHub with the "multi-platform >
-windows" label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+We mark Windows-related Bazel issues on GitHub with the "platform:windows"
+label. [You can see the open issues here.](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3A%22platform%3A+windows%22)
 
 ## Running Bazel: MSYS2 shell vs. Command Prompt vs. PowerShell
 
@@ -39,8 +39,8 @@ Python and the Visual C++ compiler. If you need to auto-configure again, run
 
 You can also tell Bazel where to find the Python binary and the C++ compiler:
 - use the [`--python_path=c:\path\to\python.exe`](command-line-reference.html#flag--python_path) flag for Python
-- use the `BAZEL_VC` or `BAZEL_VS` environment variable. See the [Build
-  C++ section](#build_cpp) below.
+- use the `BAZEL_VC` or the `BAZEL_VS` environment variable (they are *not* the same!).
+  See the [Build C++ section](#build_cpp) below.
 
 ### <a name="build_cpp"></a>Build C++
 
@@ -58,14 +58,14 @@ To build C++ targets, you need:
         features are not installed by default.
 
     *   Install the [Visual C++ Build
-        Tools 2015 or later](http://landinghub.visualstudio.com/visual-cpp-build-tools).
+        Tools 2015 or later](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2017).
 
         If [alwayslink](be/c-cpp.html#cc_library.alwayslink) doesn't work with
         VS 2017, that is due to a
         [known issue](https://github.com/bazelbuild/bazel/issues/3949),
         please upgrade your VS 2017 to the latest version.
 
-*   The `BAZEL_VS` or `BAZEL_VC` environment variable.
+*   The `BAZEL_VS` or `BAZEL_VC` environment variable. (They are *not* the same!)
 
     Bazel tries to locate the C++ compiler the first time you build any
     target. To tell Bazel where the compiler is, you can set one of the
@@ -86,6 +86,9 @@ To build C++ targets, you need:
     ```
     set BAZEL_VC=C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC
     ```
+
+    The first command sets the path to Visual Studio (BAZEL\_V<b>S</b>), the other
+    sets the path to Visual C++ (BAZEL\_V<b>C</b>).
 
 *   The [Windows
     SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).

@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import java.util.List;
 
@@ -82,7 +82,7 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
     if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
       env.getReporter().handle(Event.warn(
@@ -107,7 +107,7 @@ public class TestCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult doTest(CommandEnvironment env,
-      OptionsProvider options,
+      OptionsParsingResult options,
       AggregatingTestListener testListener) {
     BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
@@ -176,7 +176,7 @@ public class TestCommand implements BlazeCommand {
   private boolean analyzeTestResults(Collection<ConfiguredTarget> testTargets,
                                      Collection<ConfiguredTarget> skippedTargets,
                                      AggregatingTestListener listener,
-                                     OptionsProvider options) {
+                                     OptionsParsingResult options) {
     TestResultNotifier notifier = new TerminalTestResultNotifier(printer, options);
     return listener.getAnalyzer().differentialAnalyzeAndReport(
         testTargets, skippedTargets, listener, notifier);

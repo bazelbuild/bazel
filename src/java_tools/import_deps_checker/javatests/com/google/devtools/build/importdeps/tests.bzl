@@ -11,66 +11,92 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-'''Helpers to create golden tests, to minimize code duplication.'''
+"""Helpers to create golden tests, to minimize code duplication."""
 
-def create_golden_test(name, golden_output_file, golden_stderr_file, expect_errors, checking_mode,
-                       has_bootclasspath, testdata_pkg, import_deps_checker, rt_jar,
-                       missing_jar = None, replacing_jar = None, direct_jars = []):
-  '''Create a golden test for the dependency checker.'''
-  all_dep_jars = [
-      "testdata_client",
-      "testdata_lib_Library",
-      "testdata_lib_LibraryAnnotations",
-      "testdata_lib_LibraryException",
-      "testdata_lib_LibraryInterface",
-      ]
-  client_jar = testdata_pkg + ":testdata_client"
-  data = [
-      golden_output_file,
-      golden_stderr_file,
-      import_deps_checker,
-      rt_jar,
-      ] + [testdata_pkg + ":" + x for x in all_dep_jars]
-  if (replacing_jar):
-    data.append(testdata_pkg + ":" + replacing_jar)
+def _compile_time_jars(ctx):
+    jars = depset([], transitive = [dep[JavaInfo].transitive_compile_time_jars for dep in ctx.attr.deps])
+    return [DefaultInfo(
+        files = jars,
+        runfiles = ctx.runfiles(transitive_files = jars),
+    )]
 
-  args = [
-      "$(location %s)" % golden_output_file,
-      "$(location %s)" % golden_stderr_file,
-      # The exit code 199 means the checker emits errors on dependency issues.
-      "199" if expect_errors else "0",
-      "$(location %s)" % import_deps_checker,
-      "--checking_mode=%s" % checking_mode,
-      ]
-  args.append("--bootclasspath_entry")
-  if has_bootclasspath:
-    args.append("$(location %s)" % rt_jar)
-  else:
-    args.append("$(location %s)" % client_jar) # Fake bootclasspath.
+compile_time_jars = rule(
+    attrs = {
+        "deps": attr.label_list(providers = ["java"]),
+    },
+    implementation = _compile_time_jars,
+)
 
-  for dep in all_dep_jars:
-    if dep == missing_jar:
-      if replacing_jar:
+def create_golden_test(
+        name,
+        golden_output_file,
+        golden_stderr_file,
+        expect_errors,
+        checking_mode,
+        has_bootclasspath,
+        testdata_pkg,
+        import_deps_checker,
+        rt_jar,
+        missing_jar = None,
+        replacing_jar = None,
+        direct_jars = []):
+    """Create a golden test for the dependency checker."""
+    all_dep_jars = [
+        "testdata_client",
+        "testdata_lib_Library",
+        "testdata_lib_LibraryAnnotations",
+        "testdata_lib_LibraryException",
+        "testdata_lib_LibraryInterface",
+    ]
+    client_jar = testdata_pkg + ":testdata_client"
+    data = [
+        golden_output_file,
+        golden_stderr_file,
+        import_deps_checker,
+        rt_jar,
+        ":DumpProto",
+    ] + [testdata_pkg + ":" + x for x in all_dep_jars]
+    if (replacing_jar):
+        data.append(testdata_pkg + ":" + replacing_jar)
+
+    args = [
+        "$(location %s)" % golden_output_file,
+        "$(location %s)" % golden_stderr_file,
+        # The exit code 199 means the checker emits errors on dependency issues.
+        "199" if expect_errors else "0",
+        "$(location :DumpProto)",
+        "$(location %s)" % import_deps_checker,
+        "--checking_mode=%s" % checking_mode,
+    ]
+    args.append("--bootclasspath_entry")
+    if has_bootclasspath:
+        args.append("$(location %s)" % rt_jar)
+    else:
+        args.append("$(location %s)" % client_jar)  # Fake bootclasspath.
+
+    for dep in all_dep_jars:
+        if dep == missing_jar:
+            if replacing_jar:
+                args.append("--classpath_entry")
+                args.append("$(location %s:%s)" % (testdata_pkg, replacing_jar))
+            continue
         args.append("--classpath_entry")
-        args.append("$(location %s:%s)" % (testdata_pkg, replacing_jar))
-      continue
-    args.append("--classpath_entry")
-    args.append("$(location %s:%s)" % (testdata_pkg, dep))
+        args.append("$(location %s:%s)" % (testdata_pkg, dep))
 
-  for dep in direct_jars:
-    args.append("--directdep")
-    args.append("$(location %s:%s)" % (testdata_pkg, dep))
+    for dep in direct_jars:
+        args.append("--directdep")
+        args.append("$(location %s:%s)" % (testdata_pkg, dep))
 
-  args = args + [
-      "--input",
-      "$(location %s:testdata_client)" % testdata_pkg,
-      ]
+    args = args + [
+        "--input",
+        "$(location %s:testdata_client)" % testdata_pkg,
+    ]
 
-  args.append("--rule_label=:%s" % name)
+    args.append("--rule_label=:%s" % name)
 
-  native.sh_test(
-      name=name,
-      srcs = ["golden_test.sh"],
-      args = args,
-      data = data,
-      )
+    native.sh_test(
+        name = name,
+        srcs = ["golden_test.sh"],
+        args = args,
+        data = data,
+    )

@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #define _WITH_DPRINTF
+#include "src/main/cpp/blaze_util_platform.h"
+
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -34,9 +36,10 @@
 
 #include <cassert>
 #include <cinttypes>
+#include <set>
+#include <string>
 
 #include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
@@ -45,14 +48,76 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze {
 
 using blaze_exit_code::INTERNAL_ERROR;
 using blaze_util::GetLastErrorString;
 
+using std::set;
 using std::string;
 using std::vector;
+
+namespace embedded_binaries {
+
+class PosixDumper : public Dumper {
+ public:
+  static PosixDumper* Create(string* error);
+  ~PosixDumper() { Finish(nullptr); }
+  void Dump(const void* data, const size_t size, const string& path) override;
+  bool Finish(string* error) override;
+
+ private:
+  PosixDumper() : was_error_(false) {}
+
+  set<string> dir_cache_;
+  string error_msg_;
+  bool was_error_;
+};
+
+Dumper* Create(string* error) { return PosixDumper::Create(error); }
+
+PosixDumper* PosixDumper::Create(string* error) { return new PosixDumper(); }
+
+void PosixDumper::Dump(const void* data, const size_t size,
+                       const string& path) {
+  if (was_error_) {
+    return;
+  }
+
+  string dirname = blaze_util::Dirname(path);
+  // Performance optimization: memoize the paths we already created a
+  // directory for, to spare a stat in attempting to recreate an already
+  // existing directory.
+  if (dir_cache_.insert(dirname).second) {
+    if (!blaze_util::MakeDirectories(dirname, 0777)) {
+      was_error_ = true;
+      string msg = GetLastErrorString();
+      error_msg_ = string("couldn't create '") + path + "': " + msg;
+    }
+  }
+
+  if (was_error_) {
+    return;
+  }
+
+  if (!blaze_util::WriteFile(data, size, path, 0755)) {
+    was_error_ = true;
+    string msg = GetLastErrorString();
+    error_msg_ = string("Failed to write zipped file '") + path + "': " + msg;
+  }
+}
+
+bool PosixDumper::Finish(string* error) {
+  if (was_error_ && error) {
+    *error = error_msg_;
+  }
+  return !was_error_;
+}
+
+}  // namespace embedded_binaries
 
 SignalHandler SignalHandler::INSTANCE;
 
@@ -139,14 +204,6 @@ string GetProcessIdAsString() {
 
 string GetHomeDir() { return GetEnv("HOME"); }
 
-string FindSystemWideBlazerc() {
-  string path = "/etc/bazel.bazelrc";
-  if (blaze_util::CanReadFile(path)) {
-    return path;
-  }
-  return "";
-}
-
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
 // NB: execve() requires pointers to non-const char arrays but .c_str() returns
@@ -172,10 +229,6 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   const char** argv = ConvertStringVectorToArgv(args_vector);
   execv(exe.c_str(), const_cast<char**>(argv));
 }
-
-std::string ConvertPath(const std::string &path) { return path; }
-
-std::string PathAsJvmFlag(const std::string& path) { return path; }
 
 const char kListSeparator = ':';
 
@@ -403,10 +456,6 @@ int ExecuteDaemon(const string& exe,
   }
 }
 
-bool CompareAbsolutePaths(const string& a, const string& b) {
-  return a == b;
-}
-
 string GetHashedBaseDir(const string& root, const string& hashable) {
   unsigned char buf[blaze_util::Md5Digest::kDigestLength];
   blaze_util::Md5Digest digest;
@@ -607,7 +656,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     }
 
     if (!block) {
-      BAZEL_DIE(blaze_exit_code::BAD_ARGV)
+      BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the lock is held and --noblock_for_lock was "
              "given.";
     }
@@ -724,13 +773,13 @@ int GetTerminalColumns() {
 // Raises a resource limit to the maximum allowed value.
 //
 // This function raises the limit of the resource given in "resource" from its
-// soft limit to its hard limit. If the hard limit is unlimited, uses the
-// kernel-level limit fetched from the sysctl property given in "sysctl_name"
-// because setting the soft limit to unlimited may not work.
+// soft limit to its hard limit. If the hard limit is unlimited and
+// allow_infinity is false, uses the kernel-level limit because setting the
+// soft limit to unlimited may not work.
 //
 // Note that this is a best-effort operation. Any failure during this process
 // will result in a warning but execution will continue.
-static bool UnlimitResource(const int resource) {
+static bool UnlimitResource(const int resource, const bool allow_infinity) {
   struct rlimit rl;
   if (getrlimit(resource, &rl) == -1) {
     BAZEL_LOG(WARNING) << "failed to get resource limit " << resource << ": "
@@ -746,7 +795,7 @@ static bool UnlimitResource(const int resource) {
   }
 
   rl.rlim_cur = rl.rlim_max;
-  if (rl.rlim_cur == RLIM_INFINITY) {
+  if (rl.rlim_cur == RLIM_INFINITY && !allow_infinity) {
     const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
     if (explicit_limit <= 0) {
       // If not implemented (-1) or on an error (0), do nothing and try to
@@ -770,9 +819,13 @@ static bool UnlimitResource(const int resource) {
 
 bool UnlimitResources() {
   bool success = true;
-  success &= UnlimitResource(RLIMIT_NOFILE);
-  success &= UnlimitResource(RLIMIT_NPROC);
+  success &= UnlimitResource(RLIMIT_NOFILE, false);
+  success &= UnlimitResource(RLIMIT_NPROC, false);
   return success;
+}
+
+bool UnlimitCoredumps() {
+  return UnlimitResource(RLIMIT_CORE, true);
 }
 
 void DetectBashOrDie() {

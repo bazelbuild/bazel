@@ -27,10 +27,10 @@ import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.OutputBaseSupplier;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -166,7 +167,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           public ActionResult execute(ActionExecutionContext actionExecutionContext) {
             try {
               // Check the file cache for input TreeFileArtifacts.
-              ActionInputFileCache fileCache = actionExecutionContext.getActionInputFileCache();
+              MetadataProvider fileCache = actionExecutionContext.getMetadataProvider();
               assertThat(fileCache.getMetadata(outOneFileOne).getType().isFile()).isTrue();
               assertThat(fileCache.getMetadata(outOneFileTwo).getType().isFile()).isTrue();
 
@@ -1227,9 +1228,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   /** A dummy action template expansion function that just returns the injected actions */
   private static class DummyActionTemplateExpansionFunction implements SkyFunction {
     private final ActionKeyContext actionKeyContext;
-    private final List<Action> actions;
+    private final ImmutableList<ActionAnalysisMetadata> actions;
 
-    DummyActionTemplateExpansionFunction(ActionKeyContext actionKeyContext, List<Action> actions) {
+    DummyActionTemplateExpansionFunction(
+        ActionKeyContext actionKeyContext, ImmutableList<ActionAnalysisMetadata> actions) {
       this.actionKeyContext = actionKeyContext;
       this.actions = actions;
     }
@@ -1238,7 +1240,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env) {
       try {
         return new ActionTemplateExpansionValue(
-            Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions), false);
+            Actions.filterSharedActionsAndThrowActionConflict(actionKeyContext, actions));
       } catch (ActionConflictException e) {
         throw new IllegalStateException(e);
       }

@@ -1,0 +1,18 @@
+ERROR: The dependencies for the following 1 jar(s) are not complete.
+      1.third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l/liba-hjar.jar
+The details are listed below:
+Missing com.google.protobuf.GeneratedMessage
+Missing com.google.protobuf.MessageOrBuilder
+Indirectly missing class com.google.protobuf.GeneratedMessage. Referenced by:
+    p.P1$M1 (in j_p_l:p1 java_proto_library")
+    p.P2$M2 (in j_p_l:p2 java_proto_library")
+Indirectly missing class com.google.protobuf.MessageOrBuilder. Referenced by:
+    p.P1$M1OrBuilder (in j_p_l:p1 java_proto_library")
+    p.P2$M2OrBuilder (in j_p_l:p2 java_proto_library")
+===Total===
+missing=2
+incomplete=2
+missing_members=0
+*** Command to add missing strict dependencies: ***
+
+    add_dep "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l:p1 java_proto_library" "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l:p2 java_proto_library" //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/j_p_l/a

@@ -19,6 +19,8 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -26,13 +28,15 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.io.IOException;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * Parameters of a filesystem traversal requested by a Fileset rule.
  *
  * <p>This object stores the details of the traversal request, e.g. whether it's a direct or nested
- * traversal (see {@link #getDirectTraversal()} and {@link #getNestedTraversal()}) or who the owner
+ * traversal (see {@link #getDirectTraversal()} and {@link #getNestedArtifact()}) or who the owner
  * of the traversal is.
  */
 public interface FilesetTraversalParams {
@@ -104,16 +108,14 @@ public interface FilesetTraversalParams {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public final boolean equals(Object o) {
       if (o == this) {
         return true;
       }
       if (o instanceof FilesetTraversalParams.DirectTraversalRoot) {
         FilesetTraversalParams.DirectTraversalRoot that =
             (FilesetTraversalParams.DirectTraversalRoot) o;
-        // Careful! We must compare the artifact owners, which the default {@link Artifact#equals()}
-        // method does not do. See the comments on {@link ArtifactSkyKey} and http://b/73738481.
-        return Artifact.equalWithOwner(this.getOutputArtifact(), that.getOutputArtifact())
+        return Objects.equals(this.getOutputArtifact(), that.getOutputArtifact())
             && (this.getRootPart().equals(that.getRootPart()))
             && (this.getRelativePart().equals(that.getRelativePart()));
       }
@@ -220,6 +222,9 @@ public interface FilesetTraversalParams {
     /** Returns the desired behavior when the traversal hits a subpackage. */
     public abstract PackageBoundaryMode getPackageBoundaryMode();
 
+    /** Returns whether Filesets treat outputs in a strict manner, assuming regular files. */
+    public abstract boolean isStrictFilesetOutput();
+
     @Memoized
     @Override
     public abstract int hashCode();
@@ -232,6 +237,7 @@ public interface FilesetTraversalParams {
       fp.addBoolean(isFollowingSymlinks());
       fp.addBoolean(isRecursive());
       fp.addBoolean(isGenerated());
+      fp.addBoolean(isStrictFilesetOutput());
       getPackageBoundaryMode().fingerprint(fp);
       return fp.digestAndReset();
     }
@@ -242,6 +248,7 @@ public interface FilesetTraversalParams {
         boolean isPackage,
         boolean followingSymlinks,
         PackageBoundaryMode packageBoundaryMode,
+        boolean isStrictFilesetOutput,
         boolean isRecursive,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
@@ -250,7 +257,8 @@ public interface FilesetTraversalParams {
           isRecursive,
           isGenerated,
           followingSymlinks,
-          packageBoundaryMode);
+          packageBoundaryMode,
+          isStrictFilesetOutput);
     }
   }
 
@@ -270,20 +278,42 @@ public interface FilesetTraversalParams {
    * directory (when FilesetEntry.srcdir is specified) or traversal of a single file (when
    * FilesetEntry.files is specified). See {@link DirectTraversal} for more detail.
    *
-   * <p>The value is present if and only if {@link #getNestedTraversal} is empty.
+   * <p>The value is present if and only if {@link #getNestedArtifact} is null and
+   * {@link #additionalLinks} is null.
    */
   Optional<DirectTraversal> getDirectTraversal();
 
   /**
-   * Returns the parameters of the nested traversal request, if any.
+   * Returns the Fileset Artifact of the nested traversal request, if any.
    *
    * <p>A nested traversal is the traversal of another Fileset referenced by FilesetEntry.srcdir.
    *
-   * <p>The value is non-empty when {@link #getDirectTraversal} is absent AND the nested Fileset has
-   * non-empty FilesetEntries.
+   * <p>The value is non-null when {@link #getDirectTraversal} is absent and
+   * {@link #additionalLinks} is null.
    */
-  ImmutableList<FilesetTraversalParams> getNestedTraversal();
+  @Nullable
+  Artifact getNestedArtifact();
+
+  /**
+   * Returns a {@link LinkSupplier} to add a customized collection of links.
+   *
+   * <p>The value is non-null when {@link #getDirectTraversal} is absent and
+   * {@link #getNestedArtifact} is null.
+   */
+  @Nullable
+  LinkSupplier additionalLinks();
 
   /** Adds the fingerprint of this traversal object. */
   void fingerprint(Fingerprint fp);
+
+  /**
+   * A {@link LinkSupplier} returns a collection of {@link FilesetOutputSymlink} to include in the
+   * Fileset.
+   */
+  interface LinkSupplier {
+    ImmutableList<FilesetOutputSymlink> getLinks(EventHandler handler, Location location)
+        throws IOException;
+
+    void fingerprint(Fingerprint fp);
+  }
 }

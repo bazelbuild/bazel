@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -64,10 +65,15 @@ public interface IncludeScanner {
    * <p>{@code mainSource} is the source file relative to which the {@code cmdlineIncludes} are
    * interpreted.</p>
    */
-  void process(Artifact mainSource, Collection<Artifact> sources,
-      Map<Artifact, Artifact> legalOutputPaths, List<PathFragment> includeDirs,
-      List<PathFragment> quoteIncludeDirs, List<String> cmdlineIncludes,
-      Set<Artifact> includes, ActionExecutionContext actionExecutionContext, Artifact grepIncludes)
+  void process(
+      Artifact mainSource,
+      Collection<Artifact> sources,
+      IncludeScanningHeaderData includeScanningHeaderData,
+      List<String> cmdlineIncludes,
+      Set<Artifact> includes,
+      ActionExecutionMetadata actionExecutionMetadata,
+      ActionExecutionContext actionExecutionContext,
+      Artifact grepIncludes)
       throws IOException, ExecException, InterruptedException;
 
   /** Supplies IncludeScanners upon request. */
@@ -96,8 +102,11 @@ public interface IncludeScanner {
      * @param actionExecutionContext the context for {@code action}.
      * @param profilerTaskName what the {@link Profiler} should record this call for.
      */
-    public static Collection<Artifact> scanForIncludedInputs(IncludeScannable action,
+    public static Collection<Artifact> scanForIncludedInputs(
+        IncludeScannable action,
         IncludeScannerSupplier includeScannerSupplier,
+        IncludeScanningHeaderData includeScanningHeaderData,
+        ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         String profilerTaskName)
         throws ExecException, InterruptedException {
@@ -108,47 +117,42 @@ public interface IncludeScanner {
       includes.addAll(action.getBuiltInIncludeFiles());
 
       Profiler profiler = Profiler.instance();
-      try {
-        profiler.startTask(ProfilerTask.SCANNER, profilerTaskName);
+      try (SilentCloseable c = profiler.profile(ProfilerTask.SCANNER, profilerTaskName)) {
+        // Deduplicate include directories. This can occur especially with "built-in" and "system"
+        // include directories because of the way we retrieve them. Duplicate include directories
+        // really mess up #include_next directives.
+        Set<PathFragment> includeDirs = new LinkedHashSet<>(action.getIncludeDirs());
+        List<PathFragment> quoteIncludeDirs = action.getQuoteIncludeDirs();
+        List<String> cmdlineIncludes = action.getCmdlineIncludes();
 
-        // We need to scan the action itself, but also the auxiliary scannables
-        // (for LIPO). There is no need to call getAuxiliaryScannables
-        // recursively.
-        for (IncludeScannable scannable :
-          Iterables.concat(ImmutableList.of(action), action.getAuxiliaryScannables())) {
+        includeDirs.addAll(action.getSystemIncludeDirs());
 
-          Map<Artifact, Artifact> legalOutputPaths = scannable.getLegalGeneratedScannerFileMap();
-          // Deduplicate include directories. This can occur especially with "built-in" and "system"
-          // include directories because of the way we retrieve them. Duplicate include directories
-          // really mess up #include_next directives.
-          Set<PathFragment> includeDirs = new LinkedHashSet<>(scannable.getIncludeDirs());
-          List<PathFragment> quoteIncludeDirs = scannable.getQuoteIncludeDirs();
-          List<String> cmdlineIncludes = scannable.getCmdlineIncludes();
-
-          includeDirs.addAll(scannable.getSystemIncludeDirs());
-
-          // Add the system include paths to the list of include paths.
-          for (PathFragment pathFragment : action.getBuiltInIncludeDirectories()) {
-            if (pathFragment.isAbsolute()) {
-              absoluteBuiltInIncludeDirs.add(pathFragment);
-            }
-            includeDirs.add(pathFragment);
+        // Add the system include paths to the list of include paths.
+        for (PathFragment pathFragment : action.getBuiltInIncludeDirectories()) {
+          if (pathFragment.isAbsolute()) {
+            absoluteBuiltInIncludeDirs.add(pathFragment);
           }
-
-          List<PathFragment> includeDirList = ImmutableList.copyOf(includeDirs);
-          IncludeScanner scanner = includeScannerSupplier.scannerFor(quoteIncludeDirs,
-              includeDirList);
-
-          Artifact mainSource =  scannable.getMainIncludeScannerSource();
-          Collection<Artifact> sources = scannable.getIncludeScannerSources();
-          scanner.process(mainSource, sources, legalOutputPaths, quoteIncludeDirs,
-              includeDirList, cmdlineIncludes, includes, actionExecutionContext,
-              action.getGrepIncludes());
+          includeDirs.add(pathFragment);
         }
+
+        List<PathFragment> includeDirList = ImmutableList.copyOf(includeDirs);
+        IncludeScanner scanner =
+            includeScannerSupplier.scannerFor(quoteIncludeDirs, includeDirList);
+
+        Artifact mainSource = action.getMainIncludeScannerSource();
+        Collection<Artifact> sources = action.getIncludeScannerSources();
+        scanner.process(
+            mainSource,
+            sources,
+            includeScanningHeaderData,
+            cmdlineIncludes,
+            includes,
+            actionExecutionMetadata,
+            actionExecutionContext,
+            action.getGrepIncludes());
+
       } catch (IOException e) {
         throw new EnvironmentalExecException(e.getMessage());
-      } finally {
-        profiler.completeTask(ProfilerTask.SCANNER);
       }
 
       // Collect inputs and output
@@ -170,6 +174,39 @@ public interface IncludeScanner {
         inputs.add(included);
       }
       return inputs;
+    }
+  }
+
+  /**
+   * Holds pre-aggregated information that the {@link IncludeScanner} needs from the compilation
+   * action.
+   */
+  class IncludeScanningHeaderData {
+    /**
+     * Lookup table to find the {@link Artifact}s of generated files based on their {@link
+     * Artifact#execPath}.
+     */
+    private final Map<PathFragment, Artifact> pathToLegalOutputArtifact;
+
+    /**
+     * The set of headers that are modular, i.e. are going to be read as a serialized AST rather
+     * than from the textual source file. Depending on the implementation, it is likely that further
+     * input discovery through such headers is unnecessary as the serialized AST is self-contained.
+     */
+    private final Set<Artifact> modularHeaders;
+
+    public IncludeScanningHeaderData(
+        Map<PathFragment, Artifact> pathToLegalOutputArtifact, Set<Artifact> modularHeaders) {
+      this.pathToLegalOutputArtifact = pathToLegalOutputArtifact;
+      this.modularHeaders = modularHeaders;
+    }
+
+    public Set<Artifact> getModularHeaders() {
+      return modularHeaders;
+    }
+
+    public Map<PathFragment, Artifact> getPathToLegalOutputArtifact() {
+      return pathToLegalOutputArtifact;
     }
   }
 }

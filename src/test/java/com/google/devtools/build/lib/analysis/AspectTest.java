@@ -25,8 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -438,7 +438,7 @@ public class AspectTest extends AnalysisTestCase {
       @Override
       public ConfiguredAspect create(
           ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-          throws InterruptedException {
+          throws InterruptedException, ActionConflictException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
         return new ConfiguredAspect.Builder(this, parameters, ruleContext)
             .addProvider(
@@ -508,7 +508,7 @@ public class AspectTest extends AnalysisTestCase {
       @Override
       public ConfiguredAspect create(
           ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
-          throws InterruptedException {
+          throws InterruptedException, ActionConflictException {
         ruleContext.registerAction(new NullAction(ruleContext.createOutputArtifact()));
         return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
       }
@@ -610,11 +610,11 @@ public class AspectTest extends AnalysisTestCase {
 
     // Sanity check: //x:d injects an aspect which produces some extra-action.
     {
-      BuildView.AnalysisResult analysisResult = update("//x:d");
+      AnalysisResult analysisResult = update("//x:d");
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }
@@ -624,11 +624,11 @@ public class AspectTest extends AnalysisTestCase {
 
     // Actual test: //x:a reports actions registered by the aspect it injects.
     {
-      BuildView.AnalysisResult analysisResult = update("//x:a");
+      AnalysisResult analysisResult = update("//x:a");
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }

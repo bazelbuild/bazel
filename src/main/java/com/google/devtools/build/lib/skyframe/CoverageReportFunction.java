@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -33,12 +32,9 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public class CoverageReportFunction implements SkyFunction {
   private final ActionKeyContext actionKeyContext;
-  private final Supplier<Boolean> removeActionsAfterEvaluation;
 
-  CoverageReportFunction(
-      ActionKeyContext actionKeyContext, Supplier<Boolean> removeActionsAfterEvaluation) {
+  CoverageReportFunction(ActionKeyContext actionKeyContext) {
     this.actionKeyContext = actionKeyContext;
-    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
   @Override
@@ -67,7 +63,7 @@ public class CoverageReportFunction implements SkyFunction {
     } catch (ActionConflictException e) {
       throw new IllegalStateException("Action conflicts not expected in coverage: " + skyKey, e);
     }
-    return new CoverageReportValue(generatingActions, removeActionsAfterEvaluation.get());
+    return new CoverageReportValue(generatingActions);
   }
 
   @Override

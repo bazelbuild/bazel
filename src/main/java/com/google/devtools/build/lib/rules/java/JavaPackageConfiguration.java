@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.Type;
@@ -39,11 +42,16 @@ public class JavaPackageConfiguration implements RuleConfiguredTargetFactory {
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
                 "packages", Mode.HOST, PackageSpecificationProvider.class));
+    FileProvider dataProvider = ruleContext.getPrerequisite("data", Mode.HOST, FileProvider.class);
+    NestedSet<Artifact> data =
+        dataProvider != null
+            ? dataProvider.getFilesToBuild()
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     List<String> javacopts = ruleContext.attributes().get("javacopts", Type.STRING_LIST);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
-        .addProvider(JavaPackageConfigurationProvider.create(packages, javacopts))
+        .addProvider(JavaPackageConfigurationProvider.create(packages, javacopts, data))
         .build();
   }
 }

@@ -48,6 +48,22 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
 
   protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
 
+  /**
+   * Can be used to skip individual keys on the path to cycle.
+   *
+   * @param key
+   */
+  protected boolean shouldSkip(SkyKey key) {
+    return false;
+  }
+
+  /**
+   * Can be used to report an additional message about the cycle.
+   *
+   * @param eventHandler
+   * @param topLevelKey
+   * @param cycleInfo
+   */
   protected String getAdditionalMessageAboutCycle(
       ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
     return "";
@@ -75,6 +91,9 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
       ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
       ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
       for (SkyKey value : pathToCycle) {
+        if (shouldSkip(value)) {
+          continue;
+        }
         cycleMessage.append("\n    ");
         cycleMessage.append(prettyPrint(value));
       }

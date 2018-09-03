@@ -18,22 +18,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** A provider of information about this target's manifest. */
-@SkylarkModule(
-    name = "AndroidManifestInfo",
-    doc =
-        "Information about the Android manifest provided by a rule. Note that, as of now, the"
-            + " information exposed in this object is not directly consumed by Android rules -"
-            + " instead, use an AndroidResourcesInfo.",
-    category = SkylarkModuleCategory.PROVIDER)
-public class AndroidManifestInfo extends NativeInfo {
+public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {
   private static final String SKYLARK_NAME = "AndroidManifestInfo";
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -78,23 +69,17 @@ public class AndroidManifestInfo extends NativeInfo {
     this.exportsManifest = exportsManifest;
   }
 
-  @SkylarkCallable(
-      name = "manifest",
-      doc = "This target's manifest, merged with manifests from dependencies",
-      structField = true)
+  @Override
   public Artifact getManifest() {
     return manifest;
   }
 
-  @SkylarkCallable(name = "package", doc = "This target's package", structField = true)
+  @Override
   public String getPackage() {
     return pkg;
   }
 
-  @SkylarkCallable(
-      name = "exports_manifest",
-      doc = "If this manifest should be exported to targets that depend on it",
-      structField = true)
+  @Override
   public boolean exportsManifest() {
     return exportsManifest;
   }

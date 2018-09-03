@@ -14,97 +14,50 @@
 
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
-import com.google.devtools.build.lib.cmdline.Label;
-import java.util.TreeMap;
+import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
- * Abstract base class for {@code toolchain_type}.
+ * Implementation of {@code toolchain_type}.
  */
 public class ToolchainType implements RuleConfiguredTargetFactory {
-  private ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap;
-  private final Function<RuleContext, ImmutableMap<Label, Class<? extends Fragment>>>
-      fragmentMapFromRuleContext;
-  private final ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap;
-
-  protected ToolchainType(
-      ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap,
-      ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap) {
-    this.fragmentMap = fragmentMap;
-    this.fragmentMapFromRuleContext = null;
-    this.hardcodedVariableMap = hardcodedVariableMap;
-  }
-
-  // This constructor is required to allow for toolchains that depend on the tools repository,
-  // which depends on RuleContext.
-  protected ToolchainType(
-      Function<RuleContext, ImmutableMap<Label, Class<? extends Fragment>>>
-          fragmentMapFromRuleContext,
-      ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap) {
-    this.fragmentMap = null;
-    this.fragmentMapFromRuleContext = fragmentMapFromRuleContext;
-    this.hardcodedVariableMap = hardcodedVariableMap;
-  }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException, ActionConflictException {
-    if (fragmentMap == null && fragmentMapFromRuleContext != null) {
-      this.fragmentMap = fragmentMapFromRuleContext.apply(ruleContext);
-    }
+      throws ActionConflictException {
 
-    // This cannot be an ImmutableMap.Builder because that asserts when a key is duplicated
-    TreeMap<String, String> makeVariables = new TreeMap<>();
-    ImmutableMap.Builder<String, String> fragmentBuilder = ImmutableMap.builder();
+    // TODO(katre): Add provider type checking to ensure the wrong provider isn't registered for
+    // a toolchain type.
 
-    // If this toolchain type is enabled, we can derive make variables from it.  Otherwise, we
-    // derive make variables from the corresponding configuration fragment.
-    if (ruleContext.getConfiguration().getOptions().get(Options.class).makeVariableSource
-            == MakeVariableSource.TOOLCHAIN
-        && ruleContext
-            .getFragment(PlatformConfiguration.class)
-            .isToolchainTypeEnabled(ruleContext.getLabel())) {
-      ResolvedToolchainProviders providers =
-          (ResolvedToolchainProviders)
-              ruleContext.getToolchainContext().getResolvedToolchainProviders();
-      providers.getForToolchainType(ruleContext.getLabel()).addGlobalMakeVariables(fragmentBuilder);
-    } else {
-      Class<? extends BuildConfiguration.Fragment> fragmentClass =
-          fragmentMap.get(ruleContext.getLabel());
-      if (fragmentClass != null) {
-        BuildConfiguration.Fragment fragment = ruleContext.getFragment(fragmentClass);
-        fragment.addGlobalMakeVariables(fragmentBuilder);
-      }
-    }
-    makeVariables.putAll(fragmentBuilder.build());
-
-    ImmutableMap<String, String> hardcodedVariables =
-        hardcodedVariableMap.get(ruleContext.getLabel());
-    if (hardcodedVariables != null) {
-      makeVariables.putAll(hardcodedVariables);
-    }
-    // This will eventually go to Skyframe using getAnalysisEnvironment.getSkyframeEnv() to figure
-    // out the lookup rule -> toolchain rule mapping. For now, it only provides Make variables that
-    // come from BuildConfiguration so no need to ask Skyframe.
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(new TemplateVariableInfo(
-            ImmutableMap.copyOf(makeVariables), ruleContext.getRule().getLocation()))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
+  }
+
+  /** Definition for {@code toolchain_type}. */
+  public static class ToolchainTypeRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder.removeAttribute("licenses").removeAttribute("distribs").build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("toolchain_type")
+          .factoryClass(ToolchainType.class)
+          .ancestors(BaseRuleClasses.BaseRule.class)
+          .build();
+    }
   }
 }

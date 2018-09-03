@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -30,121 +31,65 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
-import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import java.util.Map;
 
 /**
  * The Skylark module containing the definition of {@code repository_rule} function to define a
  * skylark remote repository.
  */
-public class SkylarkRepositoryModule {
+public class SkylarkRepositoryModule implements RepositoryModuleApi {
 
-  @SkylarkSignature(
-      name = "repository_rule",
-      doc =
-          "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
-              + "called from the WORKSPACE file.",
-      returnType = BaseFunction.class,
-      parameters = {
-        @Param(
-            name = "implementation",
-            type = BaseFunction.class,
-            doc =
-                "the function implementing this rule, has to have exactly one parameter: "
-                    + "<code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The function "
-                    + "is called during loading phase for each instance of the rule."),
-        @Param(
-            name = "attrs",
-            type = SkylarkDict.class,
-            noneable = true,
-            defaultValue = "None",
-            doc =
-                "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                    + "name to an attribute object (see <a href=\"attr.html\">attr</a> "
-                    + "module). Attributes starting with <code>_</code> are private, and can be "
-                    + "used to add an implicit dependency on a label to a file (a repository "
-                    + "rule cannot depend on a generated artifact). The attribute "
-                    + "<code>name</code> is implicitly added and must not be specified.",
-            named = true,
-            positional = false),
-        @Param(
-            name = "local",
-            type = Boolean.class,
-            defaultValue = "False",
-            doc =
-                "Indicate that this rule fetches everything from the local system and should be "
-                    + "reevaluated at every fetch.",
-            named = true,
-            positional = false),
-        @Param(
-            name = "environ",
-            type = SkylarkList.class,
-            generic1 = String.class,
-            defaultValue = "[]",
-            doc =
-                "Provides a list of environment variable that this repository rule depends on. If"
-                    + " an environment variable in that list change, the repository will be refetched.",
-            named = true,
-            positional = false)
-      },
-      useAst = true,
-      useEnvironment = true)
-  private static final BuiltinFunction repositoryRule =
-      new BuiltinFunction("repository_rule") {
-        @SuppressWarnings({"rawtypes", "unused"})
-        // an Attribute.Builder instead of a Attribute.Builder<?> but it's OK.
-        public BaseFunction invoke(
-            BaseFunction implementation,
-            Object attrs,
-            Boolean local,
-            SkylarkList<String> environ,
-            FuncallExpression ast,
-            com.google.devtools.build.lib.syntax.Environment funcallEnv)
-            throws EvalException {
-          funcallEnv.checkLoadingOrWorkspacePhase("repository_rule", ast.getLocation());
-          // We'll set the name later, pass the empty string for now.
-          RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
+  @Override
+  public BaseFunction repositoryRule(
+      BaseFunction implementation,
+      Object attrs,
+      Boolean local,
+      SkylarkList<String> environ,
+      FuncallExpression ast,
+      com.google.devtools.build.lib.syntax.Environment funcallEnv)
+      throws EvalException {
+    funcallEnv.checkLoadingOrWorkspacePhase("repository_rule", ast.getLocation());
+    // We'll set the name later, pass the empty string for now.
+    RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
-          builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
-          builder.addOrOverrideAttribute(
-              attr("$environ", STRING_LIST).defaultValue(environ).build());
-          BaseRuleClasses.nameAttribute(builder);
-          BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
-          builder.add(attr("expect_failure", STRING));
-          if (attrs != Runtime.NONE) {
-            for (Map.Entry<String, Descriptor> attr :
-                castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
-              Descriptor attrDescriptor = attr.getValue();
-              AttributeValueSource source = attrDescriptor.getValueSource();
-              String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
-              builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
-            }
-          }
-          builder.setConfiguredTargetFunction(implementation);
-          builder.setRuleDefinitionEnvironmentLabelAndHashCode(
-              funcallEnv.getGlobals().getTransitiveLabel(),
-              funcallEnv.getTransitiveContentHashCode());
-          builder.setWorkspaceOnly();
-          return new RepositoryRuleFunction(builder);
-        }
-      };
+    builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
+    builder.addOrOverrideAttribute(
+        attr("$environ", STRING_LIST).defaultValue(environ).build());
+    BaseRuleClasses.nameAttribute(builder);
+    BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
+    builder.add(attr("expect_failure", STRING));
+    if (attrs != Runtime.NONE) {
+      for (Map.Entry<String, Descriptor> attr :
+          castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+        Descriptor attrDescriptor = attr.getValue();
+        AttributeValueSource source = attrDescriptor.getValueSource();
+        String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
+        builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
+      }
+    }
+    builder.setConfiguredTargetFunction(implementation);
+    builder.setRuleDefinitionEnvironmentLabelAndHashCode(
+        funcallEnv.getGlobals().getTransitiveLabel(),
+        funcallEnv.getTransitiveContentHashCode());
+    builder.setWorkspaceOnly();
+    return new RepositoryRuleFunction(builder);
+  }
 
-  private static final class RepositoryRuleFunction extends BaseFunction {
+  private static final class RepositoryRuleFunction extends BaseFunction
+      implements SkylarkExportable {
     private final RuleClass.Builder builder;
+    private Label extensionLabel;
+    private String exportedName;
 
     public RepositoryRuleFunction(RuleClass.Builder builder) {
       super("repository_rule", FunctionSignature.KWARGS);
@@ -152,18 +97,37 @@ public class SkylarkRepositoryModule {
     }
 
     @Override
+    public void export(Label extensionLabel, String exportedName) {
+      this.extensionLabel = extensionLabel;
+      this.exportedName = exportedName;
+    }
+
+    @Override
+    public boolean isExported() {
+      return extensionLabel != null;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      if (exportedName == null) {
+        printer.append("<anonymous skylark repository rule>");
+      } else {
+        printer.append("<skylark repository rule " + extensionLabel + "%" + exportedName + ">");
+      }
+    }
+
+    @Override
     public Object call(
         Object[] args, FuncallExpression ast, com.google.devtools.build.lib.syntax.Environment env)
         throws EvalException, InterruptedException {
       String ruleClassName = null;
-      Expression function = ast.getFunction();
-      if (function instanceof Identifier) {
-        ruleClassName = ((Identifier) function).getName();
-      } else if (function instanceof DotExpression) {
-        ruleClassName = ((DotExpression) function).getField().getName();
+      // If the function ever got exported, we take the name it was exported to.
+      if (isExported()) {
+        ruleClassName = exportedName;
       } else {
-        // TODO: Remove the wrong assumption that a  "function name" always exists and is relevant
-        throw new IllegalStateException("Function is not an identifier or method call");
+        throw new EvalException(ast.getLocation(),
+            "Use of unexported repository rule; this repository rule class has not been exported"
+            + "by a Skylark file");
       }
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
@@ -176,9 +140,5 @@ public class SkylarkRepositoryModule {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
     }
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRepositoryModule.class);
   }
 }

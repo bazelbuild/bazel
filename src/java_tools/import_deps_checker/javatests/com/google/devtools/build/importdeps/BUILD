@@ -133,7 +133,7 @@ create_golden_test(
     name = "warn_on_bootclasspath_missing_golden_test",
     checking_mode = "warning",
     expect_errors = False,
-    golden_output_file = "golden_bootclasspath_missing.txt",
+    golden_output_file = "golden_warn_on_bootclasspath_missing.txt.txt",
     golden_stderr_file = "golden_bootclasspath_missing.stderr.warningtxt",
     has_bootclasspath = False,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -225,7 +225,7 @@ create_golden_test(
     name = "complete_classpath_golden_test",
     checking_mode = "error",
     expect_errors = False,
-    golden_output_file = "golden_complete_classpath.txt",
+    golden_output_file = "golden_silent_on_bootclasspath_missing_golden_test.txt",
     golden_stderr_file = "golden_complete_classpath.stderr.txt",
     has_bootclasspath = True,
     import_deps_checker = "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
@@ -258,6 +258,7 @@ sh_test(
         "$(location golden_string_annotation_value_test.txt)",
         "$(location golden_string_annotation_value_test.stderr.txt)",
         "199",
+        "$(location :DumpProto)",
         "$(location //third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker)",
         "--checking_mode=error",
         "--bootclasspath_entry",
@@ -268,6 +269,7 @@ sh_test(
         "$(location //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libOneAnnotationValue.jar)",
     ],
     data = [
+        ":DumpProto",
         ":libempty.jar",
         "//third_party/bazel/src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
         "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:golden_string_annotation_value_test.stderr.txt",
@@ -275,4 +277,10 @@ sh_test(
         "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libOneAnnotationValue.jar",
         "//third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libStringAnnotation.jar",
     ],
+)
+
+java_binary(
+    name = "DumpProto",
+    srcs = ["DumpProto.java"],
+    deps = ["//third_party/bazel/src/main/protobuf:deps_java_proto"],
 )

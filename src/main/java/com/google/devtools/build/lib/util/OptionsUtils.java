@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,7 +51,7 @@ public final class OptionsUtils {
    * Returns a string representation of the non-hidden explicitly or implicitly
    * specified options; option values are shell-escaped.
    */
-  public static String asShellEscapedString(OptionsProvider options) {
+  public static String asShellEscapedString(OptionsParsingResult options) {
     return asShellEscapedString(options.asCompleteListOfParsedOptions());
   }
 
@@ -74,7 +74,7 @@ public final class OptionsUtils {
    * Return a representation of the non-hidden specified options, as a list of string. No escaping
    * is done.
    */
-  public static List<String> asArgumentList(OptionsProvider options) {
+  public static List<String> asArgumentList(OptionsParsingResult options) {
     return asArgumentList(options.asCompleteListOfParsedOptions());
   }
 
@@ -83,7 +83,7 @@ public final class OptionsUtils {
    * filtering out any sensitive options; option values are shell-escaped.
    */
   public static String asFilteredShellEscapedString(
-      OptionsProvider options, Iterable<ParsedOptionDescription> optionsList) {
+      OptionsParsingResult options, Iterable<ParsedOptionDescription> optionsList) {
     return asShellEscapedString(optionsList);
   }
 
@@ -92,7 +92,7 @@ public final class OptionsUtils {
    * specified options, filtering out any sensitive options; option values are
    * shell-escaped.
    */
-  public static String asFilteredShellEscapedString(OptionsProvider options) {
+  public static String asFilteredShellEscapedString(OptionsParsingResult options) {
     return asFilteredShellEscapedString(options, options.asCompleteListOfParsedOptions());
   }
 

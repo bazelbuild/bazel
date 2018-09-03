@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.runtime.mobileinstall;
 
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
  * Module for mobile_install.
  */
 public final class MobileInstallModule extends BlazeModule {
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(
         new MobileInstallCommand());
   }

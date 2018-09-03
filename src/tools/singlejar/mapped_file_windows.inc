@@ -15,34 +15,105 @@
 #ifndef BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_WINDOWS_H_
 #define BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_WINDOWS_H_ 1
 
-#if !defined(COMPILER_MSVC) || !defined(_WIN64)
+#if !defined(_WIN64)
 #error This code is for 64 bit Windows.
+#endif
+
+#include "src/tools/singlejar/diag.h"
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
 
 #include <windows.h>
 
 #include <string>
 
-typedef HANDLE FileHandleType;
+MappedFile::MappedFile()
+    : mapped_start_(nullptr),
+      mapped_end_(nullptr),
+      fd_(-1),
+      hMapFile_(INVALID_HANDLE_VALUE) {}
 
-inline MappedFile::MappedFile()
-    : mapped_start_(nullptr), mapped_end_(nullptr), fd_(INVALID_HANDLE_VALUE) {}
+bool MappedFile::Open(const std::string& path) {
+  if (is_open()) {
+    diag_errx(1, "%s:%d: This instance is already open", __FILE__, __LINE__);
+  }
+  if ((fd_ = _open(path.c_str(), O_RDONLY | O_BINARY)) < 0) {
+    diag_warn("%s:%d: open %s:", __FILE__, __LINE__, path.c_str());
+    return false;
+  }
 
-inline bool MappedFile::Open(const std::string& path) {
-  // TODO(laszlocsomor): implement as part of
-  // https://github.com/bazelbuild/bazel/issues/2241
-  return false;
+  HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(fd_));
+  LARGE_INTEGER temp;
+  ::GetFileSizeEx(hFile, &temp);
+  size_t fileSize = temp.QuadPart;
+
+  if (fileSize == 0) {
+    // This is where Windows implementation differs from POSIX's.
+    // CreateFileMapping cannot map empty file:
+    //
+    // From
+    // https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-createfilemappinga
+    //
+    // An attempt to map a file with a length of 0 (zero) fails with an error
+    // code of ERROR_FILE_INVALID. Applications should test for files with a
+    // length of 0 (zero) and reject those files.
+    //
+    // Since the test at //src/tools/singlerjar/input_jar_bad_jar_test expects
+    // empty file to fail anyway, returning error here shouldn't be a problem.
+    diag_warn("%s:%d: Windows MappedFile cannot handle empty file (%s)",
+              __FILE__, __LINE__, path.c_str());
+    _close(fd_);
+    fd_ = -1;
+    return false;
+  }
+
+  hMapFile_ = ::CreateFileMapping(
+      hFile,
+      nullptr,                             // default security
+      PAGE_READONLY,                       // read-only permission
+      static_cast<DWORD>(fileSize >> 32),  // size of mapping object, high
+      static_cast<DWORD>(fileSize),        // size of mapping object, low
+      nullptr);                            // name of mapping object
+
+  if (hMapFile_ == nullptr) {
+    diag_warn("%s:%d: CreateFileMapping for %s failed", __FILE__, __LINE__,
+              path.c_str());
+    _close(fd_);
+    fd_ = -1;
+    return false;
+  }
+
+  mapped_start_ = static_cast<unsigned char*>(
+      MapViewOfFile(hMapFile_,
+                    FILE_MAP_READ | FILE_MAP_COPY,  // PROT_READ | MAP_PRIVATE
+                    0,                              // file offset, high
+                    0,                              // file offset, low
+                    fileSize));                     // file size
+  if (mapped_start_ == nullptr) {
+    diag_warn("%s:%d: MapViewOfFile for %s failed", __FILE__, __LINE__,
+              path.c_str());
+    ::CloseHandle(hMapFile_);
+    _close(fd_);
+    hMapFile_ = INVALID_HANDLE_VALUE;
+    fd_ = -1;
+    return false;
+  }
+
+  mapped_end_ = mapped_start_ + fileSize;
+  return true;
 }
 
-inline void MappedFile::Close() {
-  // TODO(laszlocsomor): implement as part of
-  // https://github.com/bazelbuild/bazel/issues/2241
-}
-
-inline bool MappedFile::is_open() const {
-  // TODO(laszlocsomor): implement as part of
-  // https://github.com/bazelbuild/bazel/issues/2241
-  return false;
+void MappedFile::Close() {
+  if (is_open()) {
+    ::UnmapViewOfFile(mapped_start_);
+    ::CloseHandle(hMapFile_);
+    _close(fd_);
+    hMapFile_ = INVALID_HANDLE_VALUE;
+    fd_ = -1;
+    mapped_start_ = mapped_end_ = nullptr;
+  }
 }
 
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_WINDOWS_H_

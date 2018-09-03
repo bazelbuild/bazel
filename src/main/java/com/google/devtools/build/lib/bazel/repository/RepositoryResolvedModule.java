@@ -39,7 +39,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableSet.of("fetch", "build", "query").contains(command.name())
+    return ImmutableSet.of("sync", "fetch", "build", "query").contains(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryResolvedOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }
@@ -60,11 +60,11 @@ public final class RepositoryResolvedModule extends BlazeModule {
   @Override
   public void afterCommand() {
     if (resolvedFile != null) {
-      try {
-        Writer writer = Files.newWriter(new File(resolvedFile), StandardCharsets.UTF_8);
-        // TODO(aehlig): pretty print
-        writer.write(EXPORTED_NAME + " = " + Printer.repr(resultBuilder.build()));
-        writer.close();
+      try (Writer writer = Files.newWriter(new File(resolvedFile), StandardCharsets.UTF_8)) {
+        writer.write(
+            EXPORTED_NAME
+                + " = "
+                + Printer.getPrettyPrinter().repr(resultBuilder.build()).toString());
       } catch (IOException e) {
         logger.warning("IO Error writing to file " + resolvedFile + ": " + e);
       }

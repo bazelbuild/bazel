@@ -53,7 +53,7 @@ public class AllRdepsFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression expression,
       List<Argument> args,
       Callback<T> callback) {
@@ -81,7 +81,7 @@ public class AllRdepsFunction implements QueryFunction {
       final QueryEnvironment<T> env,
       QueryExpression expression,
       final Predicate<T> universe,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final Callback<T> callback,
       final int depth) {
     final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
@@ -104,7 +104,8 @@ public class AllRdepsFunction implements QueryFunction {
               Iterables.addAll(
                   next,
                   env.getReverseDeps(
-                      minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i)));
+                      minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i),
+                      context));
               callback.process(currentInUniverse);
               if (next.isEmpty()) {
                 // Exit when there are no more nodes to visit.

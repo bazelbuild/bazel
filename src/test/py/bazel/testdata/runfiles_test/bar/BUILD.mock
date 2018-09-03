@@ -13,7 +13,7 @@ java_binary(
     srcs = ["Bar.java"],
     data = ["bar-java-data.txt"],
     main_class = "Bar",
-    deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )
 
 sh_binary(
@@ -21,4 +21,11 @@ sh_binary(
     srcs = ["bar.sh"],
     data = ["bar-sh-data.txt"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+cc_binary(
+    name = "bar-cc",
+    srcs = ["bar.cc"],
+    data = ["bar-cc-data.txt"],
+    deps = ["@bazel_tools//tools/cpp/runfiles"],
 )

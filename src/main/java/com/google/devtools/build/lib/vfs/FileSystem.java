@@ -18,11 +18,10 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,47 +37,17 @@ import java.util.List;
 @ThreadSafe
 public abstract class FileSystem {
 
-  /** Type of hash function to use for digesting files. */
-  // The underlying HashFunctions are immutable and thread safe.
-  @SuppressWarnings("ImmutableEnumChecker")
-  public enum HashFunction {
-    MD5(Hashing.md5()),
-    SHA1(Hashing.sha1()),
-    SHA256(Hashing.sha256());
+  private final DigestHashFunction digestFunction;
 
-    private final com.google.common.hash.HashFunction hash;
-
-    HashFunction(com.google.common.hash.HashFunction hash) {
-      this.hash = hash;
-    }
-
-    /** Converts to {@link HashFunction}. */
-    public static class Converter extends EnumConverter<HashFunction> {
-      public Converter() {
-        super(HashFunction.class, "hash function");
-      }
-    }
-
-    public com.google.common.hash.HashFunction getHash() {
-      return hash;
-    }
-
-    public boolean isValidDigest(byte[] digest) {
-      return digest != null && digest.length * 8 == hash.bits();
-    }
+  public FileSystem() throws DefaultHashFunctionNotSetException {
+    digestFunction = DigestHashFunction.getDefault();
   }
 
-  private final HashFunction digestFunction;
-
-  public FileSystem() {
-    this(HashFunction.MD5);
-  }
-
-  public FileSystem(HashFunction digestFunction) {
+  public FileSystem(DigestHashFunction digestFunction) {
     this.digestFunction = Preconditions.checkNotNull(digestFunction);
   }
 
-  public HashFunction getDigestFunction() {
+  public DigestHashFunction getDigestFunction() {
     return digestFunction;
   }
 
@@ -266,56 +235,29 @@ public abstract class FileSystem {
   }
 
   /**
-   * Gets a fast digest for the given path and hash function type, or {@code null} if there
-   * isn't one available or the filesystem doesn't support them. This digest should be
-   * suitable for detecting changes to the file.
-   */
-  protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
-    return null;
-  }
-
-  /**
    * Gets a fast digest for the given path, or {@code null} if there isn't one available or the
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
-  protected final byte[] getFastDigest(Path path) throws IOException {
-    return getFastDigest(path, digestFunction);
-  }
-
-  /**
-   * Returns whether the given digest is a valid digest for the default digest function.
-   */
-  public boolean isValidDigest(byte[] digest) {
-    return digestFunction.isValidDigest(digest);
-  }
-
-  /**
-   * Returns the digest of the file denoted by the path, following
-   * symbolic links, for the given hash digest function.
-   *
-   * @return a new byte array containing the file's digest
-   * @throws IOException if the digest could not be computed for any reason
-   *
-   * Subclasses may (and do) optimize this computation for particular digest functions.
-   */
-  protected byte[] getDigest(final Path path, HashFunction hashFunction) throws IOException {
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
-      }
-    }.hash(hashFunction.getHash()).asBytes();
+  protected byte[] getFastDigest(Path path) throws IOException {
+    return null;
   }
 
   /**
    * Returns the digest of the file denoted by the path, following symbolic links.
    *
+   * <p>Subclasses may (and do) optimize this computation for a particular digest functions.
+   *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  protected final byte[] getDigest(final Path path) throws IOException {
-    return getDigest(path, digestFunction);
+  protected byte[] getDigest(final Path path) throws IOException {
+    return new ByteSource() {
+      @Override
+      public InputStream openStream() throws IOException {
+        return getInputStream(path);
+      }
+    }.hash(digestFunction.getHashFunction()).asBytes();
   }
 
   /**

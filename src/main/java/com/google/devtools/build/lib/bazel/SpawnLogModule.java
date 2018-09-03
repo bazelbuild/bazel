@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.bazel;
 
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -31,14 +29,6 @@ import java.io.IOException;
  * Module providing on-demand spawn logging.
  */
 public final class SpawnLogModule extends BlazeModule {
-
-  private static final class SpawnLogContextConsumer implements ActionContextConsumer {
-    @Override
-    public void populate(SpawnActionContextMaps.Builder builder) {
-      builder.strategyByContextMap().put(SpawnLogContext.class, "");
-    }
-  }
-
   private SpawnLogContext spawnLogContext;
 
   @Override
@@ -58,7 +48,7 @@ public final class SpawnLogModule extends BlazeModule {
             "Error found creating SpawnLogContext", ExitCode.COMMAND_LINE_ERROR));
       }
       builder.addActionContext(spawnLogContext);
-      builder.addActionContextConsumer(new SpawnLogContextConsumer());
+      builder.addStrategyByContext(SpawnLogContext.class, "");
     } else {
       spawnLogContext = null;
     }

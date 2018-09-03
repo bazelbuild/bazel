@@ -13,13 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -61,6 +65,8 @@ public enum LinkBuildVariables {
   INTERFACE_LIBRARY_OUTPUT("interface_library_output_path"),
   /** Linker flags coming from the legacy crosstool fields. */
   LEGACY_LINK_FLAGS("legacy_link_flags"),
+  /** Linker flags coming from the --linkopt or linkopts attribute. */
+  USER_LINK_FLAGS("user_link_flags"),
   /** Path to which to write symbol counts. */
   SYMBOL_COUNTS_OUTPUT("symbol_counts_output"),
   /** A build variable giving linkstamp paths. */
@@ -69,10 +75,6 @@ public enum LinkBuildVariables {
   FORCE_PIC("force_pic"),
   /** Presence of this variable indicates that the debug symbols should be stripped. */
   STRIP_DEBUG_SYMBOLS("strip_debug_symbols"),
-  @Deprecated
-  IS_CC_TEST_LINK_ACTION("is_cc_test_link_action"),
-  @Deprecated
-  IS_NOT_CC_TEST_LINK_ACTION("is_not_cc_test_link_action"),
   /** Truthy when current action is a cc_test linking action, falsey otherwise. */
   IS_CC_TEST("is_cc_test"),
   /**
@@ -93,26 +95,33 @@ public enum LinkBuildVariables {
 
   public static CcToolchainVariables setupVariables(
       boolean isUsingLinkerNotArchiver,
-      BuildConfiguration configuration,
-      Artifact outputArtifact,
-      Artifact paramFile,
-      Artifact thinltoParamFile,
-      Artifact thinltoMergedObjectFile,
+      PathFragment binDirectoryPath,
+      String outputFile,
+      boolean isCreatingSharedLibrary,
+      String paramFile,
+      String thinltoParamFile,
+      String thinltoMergedObjectFile,
       boolean mustKeepDebug,
       Artifact symbolCounts,
       CcToolchainProvider ccToolchainProvider,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
-      Artifact interfaceLibraryBuilder,
-      Artifact interfaceLibraryOutput,
+      Iterable<String> userLinkFlags,
+      String interfaceLibraryBuilder,
+      String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
-      ActionInput defFile,
-      FdoSupportProvider fdoSupport,
+      String defFile,
+      FdoProvider fdoProvider,
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
-      Iterable<String> librarySearchDirectories) {
-    CcToolchainVariables.Builder buildVariables = new CcToolchainVariables.Builder();
+      Iterable<String> librarySearchDirectories,
+      boolean isLegacyFullyStaticLinkingMode,
+      boolean isStaticLinkingMode,
+      boolean addIfsoRelatedVariables)
+      throws EvalException {
+    CcToolchainVariables.Builder buildVariables =
+        new CcToolchainVariables.Builder(ccToolchainProvider.getBuildVariables());
 
     // symbol counting
     if (symbolCounts != null) {
@@ -136,10 +145,8 @@ public enum LinkBuildVariables {
 
     if (useTestOnlyFlags) {
       buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-      buildVariables.addStringVariable(IS_CC_TEST_LINK_ACTION.getVariableName(), "");
     } else {
       buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
-      buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION.getVariableName(), "");
     }
 
     if (runtimeLibrarySearchDirectories != null) {
@@ -147,32 +154,29 @@ public enum LinkBuildVariables {
           RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName(), runtimeLibrarySearchDirectories);
     }
 
-    buildVariables.addCustomBuiltVariable(LIBRARIES_TO_LINK.getVariableName(), librariesToLink);
-    // TODO(b/72803478): Remove once existing crosstools have been migrated
-    buildVariables.addStringVariable("libs_to_link_dont_emit_objects_for_archiver", "");
+    if (librariesToLink != null) {
+      buildVariables.addCustomBuiltVariable(LIBRARIES_TO_LINK.getVariableName(), librariesToLink);
+    }
 
     buildVariables.addStringSequenceVariable(
         LIBRARY_SEARCH_DIRECTORIES.getVariableName(), librarySearchDirectories);
 
     if (paramFile != null) {
-      buildVariables.addStringVariable(
-          LINKER_PARAM_FILE.getVariableName(), paramFile.getExecPathString());
+      buildVariables.addStringVariable(LINKER_PARAM_FILE.getVariableName(), paramFile);
     }
 
     // output exec path
-    if (outputArtifact != null && !isLtoIndexing) {
-      buildVariables.addStringVariable(
-          OUTPUT_EXECPATH.getVariableName(), outputArtifact.getExecPathString());
+    if (outputFile != null && !isLtoIndexing) {
+      buildVariables.addStringVariable(OUTPUT_EXECPATH.getVariableName(), outputFile);
     }
 
     if (isLtoIndexing) {
       if (thinltoParamFile != null) {
         // This is a lto-indexing action and we want it to populate param file.
         buildVariables.addStringVariable(
-            THINLTO_INDEXING_PARAM_FILE.getVariableName(), thinltoParamFile.getExecPathString());
+            THINLTO_INDEXING_PARAM_FILE.getVariableName(), thinltoParamFile);
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
-        buildVariables.addStringVariable(
-            "thinlto_optional_params_file", "=" + thinltoParamFile.getExecPathString());
+        buildVariables.addStringVariable("thinlto_optional_params_file", "=" + thinltoParamFile);
       } else {
         buildVariables.addStringVariable(THINLTO_INDEXING_PARAM_FILE.getVariableName(), "");
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
@@ -180,50 +184,163 @@ public enum LinkBuildVariables {
       }
       buildVariables.addStringVariable(
           THINLTO_PREFIX_REPLACE.getVariableName(),
-          configuration.getBinDirectory().getExecPathString()
+          binDirectoryPath.getSafePathString()
               + ";"
-              + configuration.getBinDirectory().getExecPath().getRelative(ltoOutputRootPrefix));
+              + binDirectoryPath.getRelative(ltoOutputRootPrefix));
+      String objectFileExtension;
+      try {
+        objectFileExtension = ccToolchainProvider.getFeatures()
+            .getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE);
+      } catch (InvalidConfigurationException e) {
+        throw new EvalException(null, "artifact name pattern for object_file must be specified", e);
+      }
       buildVariables.addStringVariable(
           THINLTO_OBJECT_SUFFIX_REPLACE.getVariableName(),
           Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
-              + ";"
-              + Iterables.getOnlyElement(CppFileTypes.OBJECT_FILE.getExtensions()));
+              + ";" + objectFileExtension);
       if (thinltoMergedObjectFile != null) {
         buildVariables.addStringVariable(
-            THINLTO_MERGED_OBJECT_FILE.getVariableName(),
-            thinltoMergedObjectFile.getExecPathString());
+            THINLTO_MERGED_OBJECT_FILE.getVariableName(), thinltoMergedObjectFile);
       }
     } else {
       if (thinltoParamFile != null) {
         // This is a normal link action and we need to use param file created by lto-indexing.
-        buildVariables.addStringVariable(
-            THINLTO_PARAM_FILE.getVariableName(), thinltoParamFile.getExecPathString());
+        buildVariables.addStringVariable(THINLTO_PARAM_FILE.getVariableName(), thinltoParamFile);
       }
     }
-    boolean shouldGenerateInterfaceLibrary =
-        outputArtifact != null
-            && interfaceLibraryBuilder != null
-            && interfaceLibraryOutput != null
-            && !isLtoIndexing;
-    buildVariables.addStringVariable(
-        GENERATE_INTERFACE_LIBRARY.getVariableName(),
-        shouldGenerateInterfaceLibrary ? "yes" : "no");
-    buildVariables.addStringVariable(
-        INTERFACE_LIBRARY_BUILDER.getVariableName(),
-        shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder.getExecPathString() : "ignored");
-    buildVariables.addStringVariable(
-        INTERFACE_LIBRARY_INPUT.getVariableName(),
-        shouldGenerateInterfaceLibrary ? outputArtifact.getExecPathString() : "ignored");
-    buildVariables.addStringVariable(
-        INTERFACE_LIBRARY_OUTPUT.getVariableName(),
-        shouldGenerateInterfaceLibrary ? interfaceLibraryOutput.getExecPathString() : "ignored");
 
-    if (defFile != null) {
+    if (addIfsoRelatedVariables) {
+      boolean shouldGenerateInterfaceLibrary =
+          outputFile != null
+              && interfaceLibraryBuilder != null
+              && interfaceLibraryOutput != null
+              && !isLtoIndexing;
       buildVariables.addStringVariable(
-          DEF_FILE_PATH.getVariableName(), defFile.getExecPathString());
+          GENERATE_INTERFACE_LIBRARY.getVariableName(),
+          shouldGenerateInterfaceLibrary ? "yes" : "no");
+      buildVariables.addStringVariable(
+          INTERFACE_LIBRARY_BUILDER.getVariableName(),
+          shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder : "ignored");
+      buildVariables.addStringVariable(
+          INTERFACE_LIBRARY_INPUT.getVariableName(),
+          shouldGenerateInterfaceLibrary ? outputFile : "ignored");
+      buildVariables.addStringVariable(
+          INTERFACE_LIBRARY_OUTPUT.getVariableName(),
+          shouldGenerateInterfaceLibrary ? interfaceLibraryOutput : "ignored");
     }
 
-    fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
+    if (defFile != null) {
+      buildVariables.addStringVariable(DEF_FILE_PATH.getVariableName(), defFile);
+    }
+
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      buildVariables.addStringVariable("fdo_instrument_path", fdoProvider.getFdoInstrument());
+    }
+
+    Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
+    if (!isLtoIndexing) {
+      userLinkFlagsWithLtoIndexingIfNeeded = userLinkFlags;
+    } else {
+      ImmutableList.Builder<String> opts = ImmutableList.builder();
+      opts.addAll(userLinkFlags);
+      opts.addAll(
+          featureConfiguration.getCommandLine(
+              CppActionNames.LTO_INDEXING, buildVariables.build(), /* expander= */ null));
+      opts.addAll(ccToolchainProvider.getCppConfiguration().getLtoIndexOptions());
+      userLinkFlagsWithLtoIndexingIfNeeded = opts.build();
+    }
+
+    // For now, silently ignore linkopts if this is a static library
+    userLinkFlagsWithLtoIndexingIfNeeded =
+        isUsingLinkerNotArchiver ? userLinkFlagsWithLtoIndexingIfNeeded : ImmutableList.of();
+
+    buildVariables.addStringSequenceVariable(
+        LinkBuildVariables.USER_LINK_FLAGS.getVariableName(),
+        removePieIfCreatingSharedLibrary(
+            isCreatingSharedLibrary, userLinkFlagsWithLtoIndexingIfNeeded));
+    buildVariables.addStringSequenceVariable(
+        LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName(),
+        getToolchainFlags(
+            isLegacyFullyStaticLinkingMode,
+            isStaticLinkingMode,
+            isUsingLinkerNotArchiver,
+            featureConfiguration,
+            ccToolchainProvider,
+            useTestOnlyFlags,
+            isCreatingSharedLibrary,
+            userLinkFlags));
+
     return buildVariables.build();
+  }
+
+  private static ImmutableList<String> getToolchainFlags(
+      boolean isLegacyFullyStaticLinkingMode,
+      boolean isStaticLinkingMode,
+      boolean isUsingLinkerNotArchiver,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccToolchainProvider,
+      boolean useTestOnlyFlags,
+      boolean isCreatingSharedLibrary,
+      Iterable<String> userLinkFlags) {
+    if (!isUsingLinkerNotArchiver) {
+      return ImmutableList.of();
+    }
+    CppConfiguration cppConfiguration = ccToolchainProvider.getCppConfiguration();
+    boolean sharedLinkopts =
+        isCreatingSharedLibrary
+            || Iterables.contains(userLinkFlags, "-shared")
+            || cppConfiguration.hasSharedLinkOption();
+
+    List<String> result = new ArrayList<>();
+
+    // Extra toolchain link options based on the output's link staticness.
+    if (isLegacyFullyStaticLinkingMode) {
+      result.addAll(
+          CppHelper.getFullyStaticLinkOptions(
+              cppConfiguration, ccToolchainProvider, sharedLinkopts));
+    } else if (isStaticLinkingMode) {
+      if (!featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINKING_MODE)) {
+        result.addAll(
+            CppHelper.getMostlyStaticLinkOptions(
+                cppConfiguration,
+                ccToolchainProvider,
+                sharedLinkopts,
+                featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)));
+      } else {
+        result.addAll(ccToolchainProvider.getLegacyLinkOptions());
+      }
+    } else {
+      if (!featureConfiguration.isEnabled(CppRuleClasses.DYNAMIC_LINKING_MODE)) {
+        result.addAll(
+            CppHelper.getDynamicLinkOptions(cppConfiguration, ccToolchainProvider, sharedLinkopts));
+      } else {
+        result.addAll(ccToolchainProvider.getLegacyLinkOptions());
+      }
+    }
+
+    // Extra test-specific link options.
+    if (useTestOnlyFlags) {
+      result.addAll(ccToolchainProvider.getTestOnlyLinkOptions());
+    }
+
+    if (!cppConfiguration.enableLinkoptsInUserLinkFlags()) {
+      result.addAll(ccToolchainProvider.getLinkOptions());
+    }
+
+    // -pie is not compatible with shared and should be
+    // removed when the latter is part of the link command. Should we need to further
+    // distinguish between shared libraries and executables, we could add additional
+    // command line / CROSSTOOL flags that distinguish them. But as long as this is
+    // the only relevant use case we're just special-casing it here.
+    return ImmutableList.copyOf(removePieIfCreatingSharedLibrary(isCreatingSharedLibrary, result));
+  }
+
+  private static Iterable<String> removePieIfCreatingSharedLibrary(
+      boolean isCreatingSharedLibrary, Iterable<String> flags) {
+    if (isCreatingSharedLibrary) {
+      return Iterables.filter(flags, Predicates.not(Predicates.equalTo("-pie")));
+    } else {
+      return flags;
+    }
   }
 }

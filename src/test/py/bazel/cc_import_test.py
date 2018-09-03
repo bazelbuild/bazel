@@ -79,7 +79,7 @@ class CcImportTest(test_base.TestBase):
     self.ScratchFile('lib/a.cc', [
         '#include <stdio.h>',
         '',
-        '#ifdef COMPILER_MSVC',
+        '#ifdef _WIN32',
         '  #define DLLEXPORT __declspec(dllexport)',
         '#else',
         '  #define DLLEXPORT',
@@ -247,10 +247,9 @@ class CcImportTest(test_base.TestBase):
                   ''.join(stderr))
 
   def AssertFileContentContains(self, file_path, entry):
-    f = open(file_path, 'r')
-    if entry not in f.read():
-      self.fail('File "%s" does not contain "%s"' % (file_path, entry))
-    f.close()
+    with open(file_path, 'r') as f:
+      if entry not in f.read():
+        self.fail('File "%s" does not contain "%s"' % (file_path, entry))
 
 
 if __name__ == '__main__':

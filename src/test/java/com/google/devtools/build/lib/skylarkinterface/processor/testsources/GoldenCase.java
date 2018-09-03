@@ -76,14 +76,15 @@ public class GoldenCase {
     return 0;
   }
 
-  @SkylarkCallable(
-    name = "three_arg_method",
-    documented = false)
-  public String threeArgMethod(String one, Integer two, String three) {
-    return "bar";
-  }
-
-  @SkylarkCallable(name = "three_arg_method_with_ast", documented = false, useAst = true)
+  @SkylarkCallable(name = "three_arg_method_with_ast",
+      documented = false,
+      parameters = {
+          @Param(name = "one", type = String.class, named = true),
+          @Param(name = "two", type = Integer.class, named = true),
+          @Param(name = "three", type = String.class, named = true,
+              defaultValue = "None", noneable = true),
+      },
+      useAst = true)
   public String threeArgMethod(String one, Integer two, String three, FuncallExpression ast) {
     return "bar";
   }
@@ -101,7 +102,7 @@ public class GoldenCase {
           },
           named = true, defaultValue = "None", noneable = true),
     })
-  public String threeArgMethodWithParams(String one, Integer two, Object three) {
+  public String threeArgMethod(String one, Integer two, Object three) {
     return "baz";
   }
 
@@ -210,5 +211,19 @@ public class GoldenCase {
   )
   public Integer selfCallMethod(String one, Integer two) {
     return 0;
+  }
+
+  @SkylarkCallable(
+      name = "struct_field_method_with_extra_args",
+      documented = false,
+      structField = true,
+      useLocation = true,
+      useEnvironment = true,
+      useSkylarkSemantics = true
+  )
+  public String structFieldMethodWithInfo(Location location,
+      Environment environment,
+      SkylarkSemantics skylarkSemantics) {
+    return "dragon";
   }
 }

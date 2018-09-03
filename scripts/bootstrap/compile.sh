@@ -20,7 +20,7 @@ PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/bui
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.10.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-GUAVA_VERSION=24.1
+GUAVA_VERSION=25.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
@@ -30,7 +30,7 @@ LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 #
 # Please read the comment in third_party/BUILD for more details.
 LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
-for i in $(seq 0 $((${#LIBRARY_JARS_ARRAY[@]} - 1)))
+for i in $(eval echo {0..$((${#LIBRARY_JARS_ARRAY[@]} - 1))})
 do
   [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ]] && ERROR_PRONE_INDEX=$i
   [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ]] && GUAVA_INDEX=$i
@@ -114,9 +114,14 @@ function java_compilation() {
     cat "$paramfile" >&2
   fi
 
+  # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
+  # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
+  # Useful if your system chooses too small of a max heap for javac.
+  # We intentionally rely on shell word splitting to allow multiple
+  # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      -encoding UTF-8 "@${paramfile}"
+      -encoding UTF-8 ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do

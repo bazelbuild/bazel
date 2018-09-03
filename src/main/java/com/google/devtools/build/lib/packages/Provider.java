@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.ProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 
 /**
- * Declared Provider (a constructor for {@link Info}).
+ * Declared Provider (a constructor for {@link InfoInterface}).
  *
  * <p>Declared providers can be declared either natively ({@link NativeProvider} or in Skylark
  * {@link SkylarkProvider}.
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
  * <p>{@link Provider} serves both as "type identifier" for declared provider instances and as a
  * function that can be called to construct a provider. To the Skylark user, there are "providers"
  * and "provider instances"; the former is a Java instance of this class, and the latter is a Java
- * instance of {@link Info}.
+ * instance of {@link InfoInterface}.
  *
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.

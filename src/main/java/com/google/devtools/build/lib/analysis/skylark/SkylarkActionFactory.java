@@ -13,18 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.skylark;
 
+import static java.util.stream.Collectors.toList;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -35,13 +40,14 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
@@ -60,10 +66,13 @@ import com.google.devtools.build.lib.syntax.SkylarkMutable;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.GeneratedMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -105,14 +114,22 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
   @Override
   public Artifact declareDirectory(String filename, Object sibling) throws EvalException {
     context.checkMutable("actions.declare_directory");
+    Artifact result;
     if (Runtime.NONE.equals(sibling)) {
-      return ruleContext.getPackageRelativeTreeArtifact(
-          PathFragment.create(filename), newFileRoot());
+      result =
+          ruleContext.getPackageRelativeTreeArtifact(PathFragment.create(filename), newFileRoot());
     } else {
       PathFragment original = ((Artifact) sibling).getRootRelativePath();
       PathFragment fragment = original.replaceName(filename);
-      return ruleContext.getTreeArtifact(fragment, newFileRoot());
+      result = ruleContext.getTreeArtifact(fragment, newFileRoot());
     }
+    if (!result.isTreeArtifact()) {
+      throw new EvalException(
+          null,
+          String.format(
+              "'%s' has already been declared as a regular file, not directory.", filename));
+    }
+    return result;
   }
 
   @Override
@@ -132,10 +149,14 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             inputSet,
             ImmutableList.of(PseudoAction.getDummyOutput(ruleContext)),
             mnemonic,
-            SpawnInfo.spawnInfo,
+            SPAWN_INFO,
             SpawnInfo.newBuilder().build());
     ruleContext.registerAction(action);
   }
+
+  @AutoCodec @AutoCodec.VisibleForSerialization
+  static final GeneratedMessage.GeneratedExtension<ExtraActionInfo, SpawnInfo> SPAWN_INFO =
+      SpawnInfo.spawnInfo;
 
   @Override
   public void write(FileApi output, Object content, Boolean isExecutable) throws EvalException {
@@ -149,6 +170,9 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
+              skylarkSemantics.incompatibleExpandDirectories()
+                  ? args.getTreeArtifacts()
+                  : ImmutableList.of(),
               (Artifact) output,
               args.build(),
               args.parameterFileType,
@@ -181,7 +205,6 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     buildCommandLine(builder, argumentsList);
     if (executableUnchecked instanceof Artifact) {
       Artifact executable = (Artifact) executableUnchecked;
-      builder.addInput(executable);
       FilesToRunProvider provider = context.getExecutableRunfiles(executable);
       if (provider == null) {
         builder.setExecutable(executable);
@@ -272,8 +295,9 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else if (commandUnchecked instanceof SkylarkList) {
       SkylarkList commandList = (SkylarkList) commandUnchecked;
-      if (commandList.size() < 3) {
-        throw new EvalException(null, "'command' list has to be of size at least 3");
+      if (argumentList.size() > 0) {
+        throw new EvalException(location,
+            "'arguments' must be empty if 'command' is a sequence of strings");
       }
       @SuppressWarnings("unchecked")
       List<String> command = commandList.getContents(String.class, "command");
@@ -324,6 +348,11 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
                   .setFlagFormatString(args.flagFormatString)
                   .setUseAlways(args.useAlways)
                   .setCharset(StandardCharsets.UTF_8)
+                  .setInputs(
+                      skylarkSemantics.incompatibleExpandDirectories()
+                              && !context.getConfiguration().deferParamFiles()
+                          ? args.getTreeArtifacts()
+                          : ImmutableList.of())
                   .build();
         }
         builder.addCommandLine(args.commandLine.build(), paramFileInfo);
@@ -384,11 +413,45 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     } else {
       // Users didn't pass 'tools', kick in compatibility modes
-      // Full legacy support -- add tools from inputs
-      for (Artifact artifact : inputArtifacts) {
-        FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
-        if (provider != null) {
-          builder.addTool(provider);
+      if (skylarkSemantics.incompatibleNoSupportToolsInActionInputs()) {
+        // In this mode we error out if we find any tools among the inputs
+        List<Artifact> tools = null;
+        for (Artifact artifact : inputArtifacts) {
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          if (provider != null) {
+            tools = tools != null ? tools : new ArrayList<>(1);
+            tools.add(artifact);
+          }
+        }
+        if (tools != null) {
+          String toolsAsString =
+              Joiner.on(", ")
+                  .join(
+                      tools
+                          .stream()
+                          .map(Artifact::getExecPathString)
+                          .map(s -> "'" + s + "'")
+                          .collect(toList()));
+          throw new EvalException(
+              location,
+              String.format(
+                  "Found tool(s) %s in inputs. "
+                      + "A tool is an input with executable=True set. "
+                      + "All tools should be passed using the 'tools' "
+                      + "argument instead of 'inputs' in order to make their runfiles available "
+                      + "to the action. This safety check will not be performed once the action "
+                      + "is modified to take a 'tools' argument. "
+                      + "To temporarily disable this check, "
+                      + "set --incompatible_no_support_tools_in_action_inputs=false.",
+                  toolsAsString));
+        }
+      } else {
+        // Full legacy support -- add tools from inputs
+        for (Artifact artifact : inputArtifacts) {
+          FilesToRunProvider provider = context.getExecutableRunfiles(artifact);
+          if (provider != null) {
+            builder.addTool(provider);
+          }
         }
       }
     }
@@ -486,6 +549,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     private final Mutability mutability;
     private final SkylarkSemantics skylarkSemantics;
     private final SkylarkCustomCommandLine.Builder commandLine;
+    private List<NestedSet<Object>> potentialTreeArtifacts = new ArrayList<>();
+    private final Set<Artifact> treeArtifacts = new HashSet<>();
     private ParameterFileType parameterFileType = ParameterFileType.SHELL_QUOTED;
     private String flagFormatString;
     private boolean useAlways;
@@ -533,6 +598,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
             /* formatJoined= */ null,
             /* omitIfEmpty= */ false,
             /* uniquify= */ false,
+            skylarkSemantics.incompatibleExpandDirectories(),
             /* terminateWith= */ null,
             loc);
 
@@ -568,6 +634,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         Object beforeEach,
         Boolean omitIfEmpty,
         Boolean uniquify,
+        Object expandDirectories,
         Object terminateWith,
         Location loc)
         throws EvalException {
@@ -594,6 +661,9 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
           /* formatJoined= */ null,
           omitIfEmpty,
           uniquify,
+          expandDirectories == Runtime.UNBOUND
+              ? skylarkSemantics.incompatibleExpandDirectories()
+              : (Boolean) expandDirectories,
           terminateWith != Runtime.NONE ? (String) terminateWith : null,
           loc);
       return Runtime.NONE;
@@ -609,6 +679,7 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         Object formatJoined,
         Boolean omitIfEmpty,
         Boolean uniquify,
+        Object expandDirectories,
         Location loc)
         throws EvalException {
       if (isImmutable()) {
@@ -634,6 +705,9 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
           formatJoined != Runtime.NONE ? (String) formatJoined : null,
           omitIfEmpty,
           uniquify,
+          expandDirectories == Runtime.UNBOUND
+              ? skylarkSemantics.incompatibleExpandDirectories()
+              : (Boolean) expandDirectories,
           /* terminateWith= */ null,
           loc);
       return Runtime.NONE;
@@ -650,23 +724,33 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
         String formatJoined,
         boolean omitIfEmpty,
         boolean uniquify,
+        boolean expandDirectories,
         String terminateWith,
         Location loc)
         throws EvalException {
       SkylarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof SkylarkNestedSet) {
-        NestedSet<?> nestedSet = ((SkylarkNestedSet) value).getSet(Object.class);
+        SkylarkNestedSet skylarkNestedSet = ((SkylarkNestedSet) value);
+        NestedSet<Object> nestedSet = skylarkNestedSet.getSet(Object.class);
+        if (expandDirectories) {
+          potentialTreeArtifacts.add(nestedSet);
+        }
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
-        SkylarkList skylarkList = (SkylarkList) value;
+        @SuppressWarnings("unchecked")
+        SkylarkList<Object> skylarkList = (SkylarkList<Object>) value;
+        if (expandDirectories) {
+          scanForTreeArtifacts(skylarkList);
+        }
         vectorArg = new SkylarkCustomCommandLine.VectorArg.Builder(skylarkList);
       }
       validateMapEach(mapEach, loc);
-      validateFormatString("format_each", formatEach);
-      validateFormatString("format_joined", formatJoined);
+      validateFormatString("format_each", formatEach, loc);
+      validateFormatString("format_joined", formatJoined, loc);
       vectorArg
           .setLocation(loc)
           .setArgName(argName)
+          .setExpandDirectories(expandDirectories)
           .setMapAll(mapAll)
           .setFormatEach(formatEach)
           .setBeforeEach(beforeEach)
@@ -716,13 +800,13 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     }
 
-    private void validateFormatString(String argumentName, @Nullable String formatStr)
+    private void validateFormatString(String argumentName, @Nullable String formatStr, Location loc)
         throws EvalException {
       if (formatStr != null
           && skylarkSemantics.incompatibleDisallowOldStyleArgsAdd()
-          && !CommandLineItemSimpleFormatter.isValid(formatStr)) {
+          && !SingleStringArgFormatter.isValid(formatStr)) {
         throw new EvalException(
-            null,
+            loc,
             String.format(
                 "Invalid value for parameter \"%s\": Expected string with a single \"%%s\"",
                 argumentName));
@@ -731,7 +815,8 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
 
     private void addScalarArg(Object value, String format, BaseFunction mapFn, Location loc)
         throws EvalException {
-      validateFormatString("format", format);
+      validateNoTreeArtifact(value, loc);
+      validateFormatString("format", format, loc);
       if (format == null && mapFn == null) {
         commandLine.add(value);
       } else {
@@ -741,12 +826,24 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
       }
     }
 
+    private void validateNoTreeArtifact(Object value, Location loc) throws EvalException {
+      if (skylarkSemantics.incompatibleExpandDirectories()
+          && (value instanceof Artifact)
+          && ((Artifact) value).isTreeArtifact()) {
+        throw new EvalException(
+            loc,
+            "Cannot add directories to Args#add since they may expand to multiple values. "
+                + "Either use Args#add_all (if you want expansion) "
+                + "or args.add(directory.path) (if you do not).");
+      }
+    }
+
     @Override
     public void useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException {
       if (isImmutable()) {
         throw new EvalException(null, "cannot modify frozen value");
       }
-      if (!paramFileArg.contains("%s")) {
+      if (!SingleStringArgFormatter.isValid(paramFileArg)) {
         throw new EvalException(
             null,
             "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"");
@@ -794,6 +891,22 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     @Override
     public void repr(SkylarkPrinter printer) {
       printer.append("context.args() object");
+    }
+
+    ImmutableSet<Artifact> getTreeArtifacts() {
+      for (Iterable<Object> collection : potentialTreeArtifacts) {
+        scanForTreeArtifacts(collection);
+      }
+      potentialTreeArtifacts.clear();
+      return ImmutableSet.copyOf(treeArtifacts);
+    }
+
+    private void scanForTreeArtifacts(Iterable<?> objects) {
+      for (Object object : objects) {
+        if ((object instanceof Artifact) && ((Artifact) object).isTreeArtifact()) {
+          treeArtifacts.add((Artifact) object);
+        }
+      }
     }
   }
 

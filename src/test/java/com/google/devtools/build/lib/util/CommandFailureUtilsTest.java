@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,9 +34,9 @@ public class CommandFailureUtilsTest {
     }
     args[7] = "with spaces"; // Test embedded spaces in argument.
     args[9] = "*";           // Test shell meta characters.
-    Map<String, String> env = new HashMap<>();
-    env.put("PATH", "/usr/bin:/bin:/sbin");
+    Map<String, String> env = new LinkedHashMap<>();
     env.put("FOO", "foo");
+    env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = "/my/working/directory";
     String message = CommandFailureUtils.describeCommandError(false, Arrays.asList(args), env, cwd);
     String verboseMessage =
@@ -69,7 +69,7 @@ public class CommandFailureUtilsTest {
     args[0] = "/bin/sh";
     args[1] = "-c";
     args[2] = "echo Some errors 1>&2; echo Some output; exit 42";
-    Map<String, String> env = new HashMap<>();
+    Map<String, String> env = new LinkedHashMap<>();
     env.put("FOO", "foo");
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = null;
@@ -88,5 +88,38 @@ public class CommandFailureUtilsTest {
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
                 + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')");
+  }
+
+  @Test
+  public void describeCommandPrettyPrintArgs() throws Exception {
+
+    String[] args = new String[6];
+    args[0] = "some_command";
+    for (int i = 1; i < args.length; i++) {
+      args[i] = "arg" + i;
+    }
+    args[3] = "with spaces"; // Test embedded spaces in argument.
+    args[4] = "*";           // Test shell meta characters.
+
+    Map<String, String> env = new LinkedHashMap<>();
+    env.put("FOO", "foo");
+    env.put("PATH", "/usr/bin:/bin:/sbin");
+
+    String cwd = "/my/working/directory";
+    String message = CommandFailureUtils.describeCommand(
+        CommandDescriptionForm.COMPLETE, true, Arrays.asList(args), env, cwd);
+
+    assertThat(message)
+        .isEqualTo(
+                  "(cd /my/working/directory && \\\n"
+                + "  exec env - \\\n"
+                + "    FOO=foo \\\n"
+                + "    PATH=/usr/bin:/bin:/sbin \\\n"
+                + "  some_command \\\n"
+                + "    arg1 \\\n"
+                + "    arg2 \\\n"
+                + "    'with spaces' \\\n"
+                + "    '*' \\\n"
+                + "    arg5)");
   }
 }

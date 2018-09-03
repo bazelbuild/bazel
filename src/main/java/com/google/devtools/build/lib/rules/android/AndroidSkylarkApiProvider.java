@@ -25,9 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkApiProviderApi;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -35,17 +33,9 @@ import javax.annotation.Nullable;
  * A class that exposes the Android providers to Skylark. It is intended to provide a simple and
  * stable interface for Skylark users.
  */
-@SkylarkModule(
-  name = "AndroidSkylarkApiProvider",
-  title = "android",
-  category = SkylarkModuleCategory.PROVIDER,
-  doc =
-      "Provides access to information about Android rules. Every Android-related target provides "
-          + "this struct, accessible as a <code>android</code> field on a "
-          + "<a href=\"Target.html\">target</a>."
-)
 @Immutable
-public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
+public class AndroidSkylarkApiProvider extends SkylarkApiProvider
+    implements AndroidSkylarkApiProviderApi<Artifact> {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "android";
 
@@ -56,136 +46,79 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     this.resourceInfo = resourceInfo;
   }
 
-  @SkylarkCallable(
-    name = "apk",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns an APK produced by this target."
-  )
+  @Override
   public Artifact getApk() {
     return getIdeInfoProvider().getSignedApk();
   }
 
   private AndroidIdeInfoProvider getIdeInfoProvider() {
-    return getInfo().getProvider(AndroidIdeInfoProvider.class);
+    return getInfo().get(AndroidIdeInfoProvider.PROVIDER);
   }
 
-  @SkylarkCallable(
-    name = "java_package",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a java package for this target."
-  )
+  @Override
   public String getJavaPackage() {
     return getIdeInfoProvider().getJavaPackage();
   }
 
-  @SkylarkCallable(
-    name = "manifest",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a manifest file for this target."
-  )
+  @Override
   public Artifact getManifest() {
     return getIdeInfoProvider().getManifest();
   }
 
-  @SkylarkCallable(
-    name = "merged_manifest",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a manifest file for this target after all processing, e.g.: merging, etc."
-  )
+  @Override
   public Artifact getMergedManifest() {
     return getIdeInfoProvider().getGeneratedManifest();
   }
 
-  @SkylarkCallable(
-    name = "native_libs",
-    structField = true,
-    doc =
-        "Returns the native libraries as a dictionary of the libraries' architecture as a string "
-            + "to a set of the native library files, or the empty dictionary if there are no "
-            + "native libraries."
-  )
+  @Override
   public ImmutableMap<String, NestedSet<Artifact>> getNativeLibs() {
     return getIdeInfoProvider().getNativeLibs();
   }
 
-  @SkylarkCallable(
-    name = "resource_apk",
-    structField = true,
-    doc = "Returns the resources container for the target."
-  )
+  @Override
   public Artifact getResourceApk() {
     return getIdeInfoProvider().getResourceApk();
   }
 
-  @SkylarkCallable(
-    name = "apks_under_test",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a collection of APKs that this target tests."
-  )
+  @Override
   public ImmutableCollection<Artifact> getApksUnderTest() {
     return getIdeInfoProvider().getApksUnderTest();
   }
 
-  @SkylarkCallable(
-    name = "defines_resources",
-    structField = true,
-    doc = "Returns <code>True</code> if the target defines any Android resources directly."
-  )
+  @Override
   public boolean definesAndroidResources() {
     return getIdeInfoProvider().definesAndroidResources();
   }
 
-  @SkylarkCallable(
-    name = "idl",
-    structField = true,
-    doc = "Returns information about IDL files associated with this target."
-  )
+  @Override
   public IdlInfo getIdlInfo() {
     return idlInfo;
   }
 
-  @SkylarkCallable(
-    name = "resources",
-    structField = true,
-    doc = "Returns resources defined by this target."
-  )
+  @Override
   public NestedSet<Artifact> getResources() {
-    return collectDirectArtifacts(ValidatedAndroidData::getResources);
+    return collectDirectArtifacts(ValidatedAndroidResources::getResources);
   }
 
-  @SkylarkCallable(
-    name = "resource_jar",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns a jar file for classes generated from resources."
-  )
+  @Override
   @Nullable
   public JavaRuleOutputJarsProvider.OutputJar getResourceJar() {
     return getIdeInfoProvider().getResourceJar();
   }
 
-  @SkylarkCallable(
-    name = "aar",
-    structField = true,
-    allowReturnNones = true,
-    doc = "Returns the aar output of this target."
-  )
+  @Override
   public Artifact getAar() {
     return getIdeInfoProvider().getAar();
   }
 
   private NestedSet<Artifact> collectDirectArtifacts(
-      final Function<ValidatedAndroidData, Iterable<Artifact>> artifactFunction) {
+      final Function<ValidatedAndroidResources, Iterable<Artifact>> artifactFunction) {
     if (resourceInfo == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     // This will iterate over all (direct) resources. If this turns out to be a performance
-    // problem, {@link ResourceContainer#getArtifacts} can be changed to return NestedSets.
+    // problem, {@link ValidatedAndroidResources#getArtifacts()} can be changed to return
+    // NestedSets.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
         Iterables.concat(
@@ -194,43 +127,24 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   /** Helper class to provide information about IDLs related to this rule. */
-  @SkylarkModule(
-    name = "AndroidSkylarkIdlInfo",
-    category = SkylarkModuleCategory.NONE,
-    doc = "Provides access to information about Android rules."
-  )
   @Immutable
-  public class IdlInfo {
-    @SkylarkCallable(
-      name = "import_root",
-      structField = true,
-      allowReturnNones = true,
-      doc = "Returns the root of IDL packages if not the java root."
-    )
+  public class IdlInfo implements IdlInfoApi<Artifact> {
+    @Override
     public String getImportRoot() {
       return getIdeInfoProvider().getIdlImportRoot();
     }
 
-    @SkylarkCallable(name = "sources", structField = true, doc = "Returns a list of IDL files.")
+    @Override
     public ImmutableCollection<Artifact> getSources() {
       return getIdeInfoProvider().getIdlSrcs();
     }
 
-    @SkylarkCallable(
-      name = "generated_java_files",
-      structField = true,
-      doc = "Returns a list Java files generated from IDL sources."
-    )
+    @Override
     public ImmutableCollection<Artifact> getIdlGeneratedJavaFiles() {
       return getIdeInfoProvider().getIdlGeneratedJavaFiles();
     }
 
-    @SkylarkCallable(
-      name = "output",
-      structField = true,
-      allowReturnNones = true,
-      doc = "Returns a jar file for classes generated from IDL sources."
-    )
+    @Override
     @Nullable
     public JavaRuleOutputJarsProvider.OutputJar getIdlOutput() {
       if (getIdeInfoProvider().getIdlClassJar() == null) {
@@ -240,6 +154,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
       Artifact idlSourceJar = getIdeInfoProvider().getIdlSourceJar();
       return new OutputJar(
           getIdeInfoProvider().getIdlClassJar(),
+          null,
           null,
           idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar));
     }

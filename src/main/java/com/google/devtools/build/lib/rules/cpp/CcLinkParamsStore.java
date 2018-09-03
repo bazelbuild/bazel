@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 
 /** An implementation class for the AbstractCcLinkParamsStore. */
 @AutoCodec
+@Deprecated
+// TODO(plf): Remove class, use CcLinkParams instances individually.
 public final class CcLinkParamsStore extends AbstractCcLinkParamsStore {
   public static final ObjectCodec<com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore> CODEC =
       new CcLinkParamsStore_AutoCodec();
@@ -63,15 +65,15 @@ public final class CcLinkParamsStore extends AbstractCcLinkParamsStore {
 
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  CcLinkParamsStore(
-      CcLinkParams staticSharedParams,
-      CcLinkParams staticNoSharedParams,
-      CcLinkParams noStaticSharedParams,
-      CcLinkParams noStaticNoSharedParams) {
-    super.staticSharedParams = staticSharedParams;
-    super.staticNoSharedParams = staticNoSharedParams;
-    super.noStaticSharedParams = noStaticSharedParams;
-    super.noStaticNoSharedParams = noStaticNoSharedParams;
+  public CcLinkParamsStore(
+      CcLinkParams staticModeParamsForDynamicLibrary,
+      CcLinkParams staticModeParamsForExecutable,
+      CcLinkParams dynamicModeParamsForDynamicLibrary,
+      CcLinkParams dynamicModeParamsForExecutable) {
+    super.staticModeParamsForDynamicLibrary = staticModeParamsForDynamicLibrary;
+    super.staticModeParamsForExecutable = staticModeParamsForExecutable;
+    super.dynamicModeParamsForDynamicLibrary = dynamicModeParamsForDynamicLibrary;
+    super.dynamicModeParamsForExecutable = dynamicModeParamsForExecutable;
   }
 
   public static com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore merge(

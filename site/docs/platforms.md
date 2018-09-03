@@ -16,7 +16,8 @@ Bazel can build and test code on a variety of operating systems and hardware
 using many different build tools, such as linkers and compilers. These
 combinations of software and hardware are what Bazel considers *platforms*.
 One major use for specifying a platform for a build is automatic
-[toolchain](toolchains.html) selection.
+[toolchain](toolchains.html)
+selection.
 
 Bazel recognizes the following types of platforms:
 
@@ -46,14 +47,11 @@ version of a build tool, such as a linker or compiler.
 
 You define a platform in a `BUILD` file using the following Bazel rules:
 
-*  [`constraint_setting`](be/platform.html#constraint_setting) - defines a
-   constraint.
+*   [`constraint_setting`](be/platform.html#constraint_setting)  - defines a constraint.
 
-*  [`constraint_value`](be/platform.html#constraint_value) - defines an allowed
-   value for a constraint.
+*   [`constraint_value`](be/platform.html#constraint_value)  - defines an allowed value for a constraint.
 
-*  [`platform`](be/platform.html#platform) - defines a platform by specifying
-   a set of constraints and their values.
+*   [`platform`](be/platform.html#platform)  - defines a platform by specifying a set of constraints and their values.
 
 The following example defines the `glibc_version` constraint and its two allowed
 values. It then defines a platform that uses the `glibc_version` constraint
@@ -129,5 +127,7 @@ command-line flags:
 *  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
 
 Platforms can also be used with the `config_setting` rule to define configurable
-attributes. See [config_setting](be/general.html#config_setting) for more
+attributes. See
+[config_setting](be/general.html#config_setting)
+for more
 details.

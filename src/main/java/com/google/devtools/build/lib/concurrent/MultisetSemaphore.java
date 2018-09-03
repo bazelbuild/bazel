@@ -133,51 +133,68 @@ public abstract class MultisetSemaphore<T> {
   }
 
   private static class NaiveMultisetSemaphore<T> extends MultisetSemaphore<T> {
+    private final int maxNumUniqueValues;
     private final Semaphore semaphore;
     private final Object lock = new Object();
     // Protected by 'lock'.
-    private final HashMultiset<T> actualValues;
+    private final HashMultiset<T> actualValues = HashMultiset.create();
 
     private NaiveMultisetSemaphore(int maxNumUniqueValues) {
+      this.maxNumUniqueValues = maxNumUniqueValues;
       this.semaphore = new Semaphore(maxNumUniqueValues);
-      actualValues = HashMultiset.create();
     }
 
     @Override
     public void acquireAll(Set<T> valuesToAcquire) throws InterruptedException {
-      int numUniqueValuesToAcquire = 0;
+      int oldNumNeededPermits;
       synchronized (lock) {
-        for (T value : valuesToAcquire) {
-          int oldCount = actualValues.add(value, 1);
-          if (oldCount == 0) {
-            numUniqueValuesToAcquire++;
+        oldNumNeededPermits = computeNumNeededPermitsLocked(valuesToAcquire);
+      }
+      while (true) {
+        semaphore.acquire(oldNumNeededPermits);
+        synchronized (lock) {
+          int newNumNeededPermits = computeNumNeededPermitsLocked(valuesToAcquire);
+          if (newNumNeededPermits != oldNumNeededPermits) {
+            // While we were doing 'acquire' above, another thread won the race to acquire the first
+            // usage of one of the values in 'valuesToAcquire' or release the last usage of one of
+            // the values. This means we either acquired too many or too few permits, respectively,
+            // above. Release the permits we did acquire, in order to restore the accuracy of the
+            // semaphore's current count, and then try again.
+            semaphore.release(oldNumNeededPermits);
+            oldNumNeededPermits = newNumNeededPermits;
+            continue;
+          } else {
+            // Our modification to the semaphore was correct, so it's sound to update the multiset.
+            valuesToAcquire.forEach(actualValues::add);
+            return;
           }
         }
       }
-      semaphore.acquire(numUniqueValuesToAcquire);
+    }
+
+    private int computeNumNeededPermitsLocked(Set<T> valuesToAcquire) {
+      // We need a permit for each value that is not already in the multiset.
+      return (int) valuesToAcquire.stream()
+          .filter(v -> actualValues.count(v) == 0)
+          .count();
     }
 
     @Override
     public void releaseAll(Set<T> valuesToRelease) {
-      int numUniqueValuesToRelease = 0;
       synchronized (lock) {
-        for (T value : valuesToRelease) {
-          int oldCount = actualValues.remove(value, 1);
-          if (oldCount == 1) {
-            numUniqueValuesToRelease++;
-          }
-        }
+        // We need to release a permit for each value that currently has multiplicity 1.
+        int numPermitsToRelease =
+            valuesToRelease
+                .stream()
+                .mapToInt(v -> actualValues.remove(v, 1) == 1 ? 1 : 0)
+                .sum();
+        semaphore.release(numPermitsToRelease);
       }
-      semaphore.release(numUniqueValuesToRelease);
     }
 
     @Override
     public int estimateCurrentNumUniqueValues() {
-      // Notes:
-      //   (1) The race here is completely benign; we're just supposed to return an estimate.
-      //   (2) See the javadoc for Multiset#size, which explains to use entrySet().size() to get the
-      //       number of unique values.
-      return actualValues.entrySet().size();
+      return maxNumUniqueValues - semaphore.availablePermits();
     }
   }
 }

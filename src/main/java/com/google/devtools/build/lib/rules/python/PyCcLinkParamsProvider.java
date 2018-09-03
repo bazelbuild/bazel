@@ -15,29 +15,44 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
 /** A target that provides C++ libraries to be linked into Python targets. */
 @Immutable
 @AutoCodec
-public final class PyCcLinkParamsProvider implements TransitiveInfoProvider {
-  private final CcLinkParamsStore store;
+@SkylarkModule(
+    name = "PyCcLinkParamsProvider",
+    documented = false,
+    category = SkylarkModuleCategory.PROVIDER,
+    doc = "Wrapper for every C++ linking provider")
+public final class PyCcLinkParamsProvider extends NativeInfo {
+  public static final NativeProvider<PyCcLinkParamsProvider> PROVIDER =
+      new NativeProvider<PyCcLinkParamsProvider>(
+          PyCcLinkParamsProvider.class, "PyCcLinkParamsProvider") {};
 
-  public PyCcLinkParamsProvider(CcLinkParamsStore store) {
-    this.store = store;
+  private final CcLinkingInfo ccLinkingInfo;
+
+  public PyCcLinkParamsProvider(CcLinkingInfo ccLinkingInfo) {
+    super(PROVIDER);
+    this.ccLinkingInfo = ccLinkingInfo;
   }
 
-  public AbstractCcLinkParamsStore getLinkParams() {
-    return store;
+  @SkylarkCallable(name = "cc_linking_info", doc = "", documented = false)
+  public CcLinkingInfo getCcLinkingInfo() {
+    return ccLinkingInfo;
   }
 
   public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
       input -> {
-        PyCcLinkParamsProvider provider = input.getProvider(PyCcLinkParamsProvider.class);
-        return provider == null ? null : provider.getLinkParams();
+        PyCcLinkParamsProvider provider = input.get(PyCcLinkParamsProvider.PROVIDER);
+        return provider == null ? null : provider.getCcLinkingInfo().getCcLinkParamsStore();
       };
 }

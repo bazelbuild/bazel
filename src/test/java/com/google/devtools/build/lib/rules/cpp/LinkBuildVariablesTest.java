@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.util.OsUtils;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -106,7 +106,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     String variableValue =
         getVariableValue(variables, LinkBuildVariables.LINKER_PARAM_FILE.getVariableName());
-    assertThat(variableValue).matches(".*bin/x/bin" + OsUtils.executableExtension() + "-2.params$");
+    assertThat(variableValue).matches(".*bin/x/bin" + "-2.params$");
   }
 
   @Test
@@ -164,13 +164,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o");
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o.thinlto.bc");
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
 
     String interfaceLibraryBuilder =
@@ -257,13 +257,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o");
+            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/x/a.pic.o.thinlto.bc");
+                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
 
     assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
@@ -367,5 +367,52 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
       }
     }
     return null;
+  }
+
+  @Test
+  public void testUserLinkFlags() throws Exception {
+    useConfiguration("--linkopt=-bar", "--noexperimental_linkopts_in_user_link_flags");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'], linkopts = ['-foo'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo");
+    CcToolchainVariables testVariables =
+        getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    ImmutableList<String> userLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+    assertThat(userLinkFlags).contains("-foo");
+    assertThat(userLinkFlags).doesNotContain("-bar");
+
+    ImmutableList<String> legacyLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName());
+    assertThat(legacyLinkFlags).doesNotContain("-foo");
+    assertThat(legacyLinkFlags).contains("-bar");
+  }
+
+  @Test
+  public void testUserLinkFlagsWithLinkoptOption() throws Exception {
+    useConfiguration("--linkopt=-bar", "--experimental_linkopts_in_user_link_flags");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'], linkopts = ['-foo'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo");
+    CcToolchainVariables testVariables =
+        getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    ImmutableList<String> userLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+    assertThat(userLinkFlags).containsAllOf("-foo", "-bar").inOrder();
+
+    ImmutableList<String> legacyLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName());
+    assertThat(legacyLinkFlags).doesNotContain("-foo");
+    assertThat(legacyLinkFlags).doesNotContain("-bar");
   }
 }

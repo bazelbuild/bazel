@@ -139,8 +139,8 @@ public class PackageCacheTest extends FoundationTestCase {
         analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
-        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     skyframeExecutor.setDeletedPackages(
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
@@ -194,7 +194,7 @@ public class PackageCacheTest extends FoundationTestCase {
   }
 
   private Target getTarget(String label) throws Exception {
-    return getTarget(Label.parseAbsolute(label));
+    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
   }
 
   private void createPkg1() throws IOException {
@@ -245,7 +245,7 @@ public class PackageCacheTest extends FoundationTestCase {
   @Test
   public void testGetTarget() throws Exception {
     createPkg1();
-    Label label = Label.parseAbsolute("//pkg1:foo");
+    Label label = Label.parseAbsolute("//pkg1:foo", ImmutableMap.of());
     Target target = getTarget(label);
     assertThat(target.getLabel()).isEqualTo(label);
   }
@@ -403,7 +403,7 @@ public class PackageCacheTest extends FoundationTestCase {
   }
 
   private void assertLabelValidity(boolean expected, String labelString) throws Exception {
-    Label label = Label.parseAbsolute(labelString);
+    Label label = Label.parseAbsolute(labelString, ImmutableMap.of());
 
     boolean actual = false;
     String error = null;
@@ -488,8 +488,7 @@ public class PackageCacheTest extends FoundationTestCase {
   @Test
   public void testAddedBuildFileCausesLabelToBecomeInvalid() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "pkg/BUILD", "           cc_library(name = 'foo', ", "           srcs = ['x/y.cc'])");
+    scratch.file("pkg/BUILD", "cc_library(name = 'foo', srcs = ['x/y.cc'])");
 
     assertLabelValidity(true, "//pkg:x/y.cc");
 

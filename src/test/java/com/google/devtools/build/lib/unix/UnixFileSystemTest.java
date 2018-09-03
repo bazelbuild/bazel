@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.unix;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -23,16 +24,13 @@ import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for the {@link com.google.devtools.build.lib.unix.UnixFileSystem} class. */
-@RunWith(JUnit4.class)
 public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
-  protected FileSystem getFreshFileSystem() {
-    return new UnixFileSystem();
+  protected FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
+    return new UnixFileSystem(digestHashFunction);
   }
 
   @Override

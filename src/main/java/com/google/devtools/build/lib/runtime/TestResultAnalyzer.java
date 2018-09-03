@@ -252,13 +252,11 @@ public class TestResultAnalyzer {
 
     List<Path> passed = new ArrayList<>();
     if (result.getData().hasPassedLog()) {
-      passed.add(result.getTestAction().getTestLog().getPath().getRelative(
-          result.getData().getPassedLog()));
+      passed.add(result.getTestLogPath().getRelative(result.getData().getPassedLog()));
     }
-
     List<Path> failed = new ArrayList<>();
     for (String path : result.getData().getFailedLogsList()) {
-      failed.add(result.getTestAction().getTestLog().getPath().getRelative(path));
+      failed.add(result.getTestLogPath().getRelative(path));
     }
 
     summaryBuilder
@@ -267,6 +265,7 @@ public class TestResultAnalyzer {
         .addFailedLogs(failed)
         .addWarnings(result.getData().getWarningList())
         .collectFailedTests(result.getData().getTestCase())
+        .countTotalTestCases(result.getData().getTestCase())
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();

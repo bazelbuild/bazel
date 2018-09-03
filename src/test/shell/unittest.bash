@@ -717,7 +717,7 @@ if [ "$UNAME" = "linux" ] || [[ "$UNAME" =~ msys_nt* ]]; then
 else
     function timestamp() {
       # OS X and FreeBSD do not have %N so python is the best we can do
-      python -c 'import time; print int(round(time.time() * 1000))'
+      python -c 'import time; print(int(round(time.time() * 1000)))'
     }
 fi
 
@@ -754,7 +754,7 @@ function run_suite() {
       TESTS=$(declare -F | awk '{print $3}' | grep ^test_)
     elif [ -n "${TEST_WARNINGS_OUTPUT_FILE:-}" ]; then
       if grep -q "TESTS=" "$TEST_script" ; then
-        echo "TESTS variable overridden in Blaze sh_test. Please remove before submitting" \
+        echo "TESTS variable overridden in Bazel sh_test. Please remove before submitting" \
           >> "$TEST_WARNINGS_OUTPUT_FILE"
       fi
     fi

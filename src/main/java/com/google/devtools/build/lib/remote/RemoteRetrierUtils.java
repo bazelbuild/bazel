@@ -22,11 +22,14 @@ import io.grpc.StatusRuntimeException;
 /** Methods useful when using the {@link RemoteRetrier}. */
 public final class RemoteRetrierUtils {
 
-  public static boolean causedByStatus(RetryException e, Status.Code expected) {
-    if (e.getCause() instanceof StatusRuntimeException) {
-      return ((StatusRuntimeException) e.getCause()).getStatus().getCode() == expected;
-    } else if (e.getCause() instanceof StatusException) {
-      return ((StatusException) e.getCause()).getStatus().getCode() == expected;
+  public static boolean causedByStatus(Throwable e, Status.Code expected) {
+    if (e instanceof RetryException) {
+      e = e.getCause();
+    }
+    if (e instanceof StatusRuntimeException) {
+      return ((StatusRuntimeException) e).getStatus().getCode() == expected;
+    } else if (e instanceof StatusException) {
+      return ((StatusException) e).getStatus().getCode() == expected;
     }
     return false;
   }

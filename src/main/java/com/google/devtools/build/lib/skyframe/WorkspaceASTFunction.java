@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -72,6 +74,7 @@ public class WorkspaceASTFunction implements SkyFunction {
             BuildFileAST.parseBuildFile(
                 ParserInputSource.create(bytes, repoWorkspace.asFragment()),
                 ast.getStatements(),
+                /* repositoryMapping= */ ImmutableMap.of(),
                 env.getListener());
         if (ast.containsErrors()) {
           throw new WorkspaceASTFunctionException(
@@ -80,11 +83,14 @@ public class WorkspaceASTFunction implements SkyFunction {
               Transience.PERSISTENT);
         }
       }
-      ast = BuildFileAST.parseBuildFile(
-          ParserInputSource.create(ruleClassProvider.getDefaultWorkspaceSuffix(),
-              PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
-          ast.getStatements(),
-          env.getListener());
+      ast =
+          BuildFileAST.parseBuildFile(
+              ParserInputSource.create(
+                  ruleClassProvider.getDefaultWorkspaceSuffix(),
+                  PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
+              ast.getStatements(),
+              /* repositoryMapping= */ ImmutableMap.of(),
+              env.getListener());
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
             new BuildFileContainsErrorsException(

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.packages.Rule;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.repository.ExternalPackageUtil;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -53,7 +53,8 @@ import org.apache.maven.settings.building.SettingsBuildingResult;
  * Implementation of maven_repository.
  */
 public class MavenServerFunction implements SkyFunction {
-  public static final SkyFunctionName NAME = SkyFunctionName.create("MAVEN_SERVER_FUNCTION");
+  public static final SkyFunctionName NAME =
+      SkyFunctionName.createHermetic("MAVEN_SERVER_FUNCTION");
 
   private static final String USER_KEY = "user";
   private static final String SYSTEM_KEY = "system";

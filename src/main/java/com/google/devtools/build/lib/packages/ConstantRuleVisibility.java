@@ -14,12 +14,13 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.EvalException;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -30,21 +31,21 @@ import java.util.List;
  */
 @Immutable @ThreadSafe
 public class ConstantRuleVisibility implements RuleVisibility, Serializable {
-  static final Label LEGACY_PUBLIC_LABEL;  // same as "public"; used for automated depot cleanup
-  private static final Label PUBLIC_LABEL;
-  private static final Label PRIVATE_LABEL;
+  @AutoCodec
+  static final Label LEGACY_PUBLIC_LABEL; // same as "public"; used for automated depot cleanup
 
-  public static final ConstantRuleVisibility PUBLIC =
-      new ConstantRuleVisibility(true);
+  @AutoCodec @AutoCodec.VisibleForSerialization static final Label PUBLIC_LABEL;
+  @AutoCodec @AutoCodec.VisibleForSerialization static final Label PRIVATE_LABEL;
 
-  public static final ConstantRuleVisibility PRIVATE =
-      new ConstantRuleVisibility(false);
+  @AutoCodec public static final ConstantRuleVisibility PUBLIC = new ConstantRuleVisibility(true);
+
+  @AutoCodec public static final ConstantRuleVisibility PRIVATE = new ConstantRuleVisibility(false);
 
   static {
     try {
-      PUBLIC_LABEL = Label.parseAbsolute("//visibility:public");
-      LEGACY_PUBLIC_LABEL = Label.parseAbsolute("//visibility:legacy_public");
-      PRIVATE_LABEL = Label.parseAbsolute("//visibility:private");
+      PUBLIC_LABEL = Label.parseAbsolute("//visibility:public", ImmutableMap.of());
+      LEGACY_PUBLIC_LABEL = Label.parseAbsolute("//visibility:legacy_public", ImmutableMap.of());
+      PRIVATE_LABEL = Label.parseAbsolute("//visibility:private", ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException();
     }

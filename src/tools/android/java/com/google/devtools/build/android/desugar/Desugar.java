@@ -524,6 +524,9 @@ class Desugar {
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector)
       throws IOException {
     for (String inputFilename : inputFiles) {
+      if ("module-info.class".equals(inputFilename)) {
+        continue;  // Drop module-info.class since it has no meaning on Android
+      }
       if (OutputFileProvider.DESUGAR_DEPS_FILENAME.equals(inputFilename)) {
         // TODO(kmb): rule out that this happens or merge input file with what's in depsCollector
         continue;  // skip as we're writing a new file like this at the end or don't want it

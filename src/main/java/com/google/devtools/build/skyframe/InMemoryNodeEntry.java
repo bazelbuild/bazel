@@ -194,8 +194,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  @Nullable
   public SkyValue getValueMaybeWithMetadata() {
-    Preconditions.checkState(isDone(), "no value until done: %s", this);
     return value;
   }
 
@@ -275,6 +275,22 @@ public class InMemoryNodeEntry implements NodeEntry {
     return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
   }
 
+  /**
+   * Highly dangerous method. Used only for testing/debugging. Can only be called on an in-progress
+   * entry that is not dirty and that will not keep edges. Returns all the entry's reverse deps,
+   * which must all be {@link SkyKey}s representing {@link Op#ADD} operations, since that is the
+   * operation that is stored bare. Used for speed, since it avoids making any copies, so should be
+   * much faster than {@link #getInProgressReverseDeps}.
+   */
+  @SuppressWarnings("unchecked")
+  public synchronized Iterable<SkyKey> unsafeGetUnconsolidatedRdeps() {
+    Preconditions.checkState(!isDone(), this);
+    Preconditions.checkState(!isDirty(), this);
+    Preconditions.checkState(keepEdges().equals(KeepEdgesPolicy.NONE), this);
+    Preconditions.checkState(getOpToStoreBare() == OpToStoreBare.ADD, this);
+    return (Iterable<SkyKey>) (List<?>) reverseDepsDataToConsolidate;
+  }
+
   @Override
   public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
       throws InterruptedException {
@@ -291,8 +307,16 @@ public class InMemoryNodeEntry implements NodeEntry {
       // value, because preserving == equality is even better than .equals() equality.
       this.value = getDirtyBuildingState().getLastBuildValue();
     } else {
+      boolean forcedRebuild =
+          isDirty() && getDirtyBuildingState().getDirtyState() == DirtyState.FORCED_REBUILDING;
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
+      Preconditions.checkState(
+          forcedRebuild || !this.lastChangedVersion.equals(version),
+          "Changed value but with the same version? %s %s %s",
+          this.lastChangedVersion,
+          version,
+          this);
       this.lastChangedVersion = version;
       this.value = value;
     }
@@ -459,21 +483,19 @@ public class InMemoryNodeEntry implements NodeEntry {
           DirtyBuildingState.create(isChanged, GroupedList.<SkyKey>create(directDeps), value);
       value = null;
       directDeps = null;
-      return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
+      return new FromCleanMarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
     }
-    // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty
-    // thread may have lost the race, but it is the caller's responsibility not to try to mark
-    // this node changed twice. The end result of racing markers must be a changed node, since one
-    // of the markers is trying to mark the node changed.
-    Preconditions.checkState(isChanged != isChanged(),
-        "Cannot mark node dirty twice or changed twice: %s", this);
+
     Preconditions.checkState(value == null, "Value should have been reset already %s", this);
-    if (isChanged) {
-      // If the changed marker lost the race, we just need to mark changed in this method -- all
-      // other work was done by the dirty marker.
-      getDirtyBuildingState().markChanged();
+    if (isChanged != isChanged()) {
+      if (isChanged) {
+        getDirtyBuildingState().markChanged();
+      }
+      // If !isChanged, then this call made no changes to the node, but redundancy is a property of
+      // the sequence of markDirty calls, not their effects.
+      return FromDirtyMarkedDirtyResult.NOT_REDUNDANT;
     }
-    return null;
+    return FromDirtyMarkedDirtyResult.REDUNDANT;
   }
 
   @Override
@@ -496,7 +518,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Version getVersion() {
+  public Version getVersion() {
     return lastChangedVersion;
   }
 
@@ -536,8 +558,9 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
+      DirtyState dirtyState = getDirtyBuildingState().getDirtyState();
       Preconditions.checkState(
-          getDirtyBuildingState().getDirtyState() == DirtyState.REBUILDING, this);
+          dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
       return getDirtyBuildingState().getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
     } else {
       return ImmutableSet.of();

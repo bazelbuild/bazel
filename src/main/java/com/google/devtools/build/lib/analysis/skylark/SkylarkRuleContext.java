@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
@@ -55,12 +56,12 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
@@ -136,7 +137,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   private SkylarkDict<String, String> makeVariables;
   private SkylarkAttributesCollection attributesCollection;
   private SkylarkAttributesCollection ruleAttributesCollection;
-  private Info splitAttributes;
+  private StructImpl splitAttributes;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private ImmutableMap<Artifact, Label> artifactsLabelMap;
@@ -412,7 +413,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     return ruleLabelCanonicalName;
   }
 
-  private static Info buildSplitAttributeInfo(
+  private static StructImpl buildSplitAttributeInfo(
       Collection<Attribute> attributes, RuleContext ruleContext) {
 
     ImmutableMap.Builder<String, Object> splitAttrInfos = ImmutableMap.builder();
@@ -452,7 +453,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       }
     }
 
-    return NativeProvider.STRUCT.create(
+    return StructProvider.STRUCT.create(
         splitAttrInfos.build(),
         "No attribute '%s' in split_attr. Make sure that this attribute is defined with a "
             + "split configuration.");
@@ -501,13 +502,13 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Info getAttr() throws EvalException {
+  public StructImpl getAttr() throws EvalException {
     checkMutable("attr");
     return attributesCollection.getAttr();
   }
 
   @Override
-  public Info getSplitAttr() throws EvalException {
+  public StructImpl getSplitAttr() throws EvalException {
     checkMutable("split_attr");
     if (splitAttributes == null) {
       throw new EvalException(
@@ -518,21 +519,21 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   /** See {@link RuleContext#getExecutablePrerequisite(String, Mode)}. */
   @Override
-  public Info getExecutable() throws EvalException {
+  public StructImpl getExecutable() throws EvalException {
     checkMutable("executable");
     return attributesCollection.getExecutable();
   }
 
   /** See {@link RuleContext#getPrerequisiteArtifact(String, Mode)}. */
   @Override
-  public Info getFile() throws EvalException {
+  public StructImpl getFile() throws EvalException {
     checkMutable("file");
     return attributesCollection.getFile();
   }
 
   /** See {@link RuleContext#getPrerequisiteArtifacts(String, Mode)}. */
   @Override
-  public Info getFiles() throws EvalException {
+  public StructImpl getFiles() throws EvalException {
     checkMutable("files");
     return attributesCollection.getFiles();
   }
@@ -595,6 +596,12 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
+  public ImmutableList<String> getDisabledFeatures() throws EvalException {
+    checkMutable("disabled_features");
+    return ImmutableList.copyOf(ruleContext.getDisabledFeatures());
+  }
+
+  @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
     return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
@@ -649,7 +656,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   @Override
   public SkylarkIndexable toolchains() throws EvalException {
     checkMutable("toolchains");
-    return ruleContext.getToolchainContext().getResolvedToolchainProviders();
+    return ruleContext.getToolchainContext();
   }
 
   @Override
@@ -690,7 +697,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
   }
 
   @Override
-  public Artifact newFile(String filename) throws EvalException {
+  public Artifact newFileFromFilename(String filename) throws EvalException {
     checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(filename, Runtime.NONE);
@@ -698,13 +705,14 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   // Kept for compatibility with old code.
   @Override
-  public Artifact newFile(FileRootApi root, String filename) throws EvalException {
+  public Artifact newFileFromRoot(FileRootApi root, String filename) throws EvalException {
     checkMutable("new_file");
     return ruleContext.getPackageRelativeArtifact(filename, (ArtifactRoot) root);
   }
 
   @Override
-  public Artifact newFile(FileApi baseArtifact, String newBaseName) throws EvalException {
+  public Artifact newFileFromBaseFile(FileApi baseArtifact, String newBaseName)
+      throws EvalException {
     checkDeprecated("ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(newBaseName, baseArtifact);
@@ -712,7 +720,7 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
 
   // Kept for compatibility with old code.
   @Override
-  public Artifact newFile(FileRootApi root, FileApi baseArtifact, String suffix)
+  public Artifact newFileFromRootAndBase(FileRootApi root, FileApi baseArtifact, String suffix)
       throws EvalException {
     checkMutable("new_file");
     PathFragment original = ((Artifact) baseArtifact).getRootRelativePath();
@@ -751,11 +759,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     checkMutable("expand_make_variables");
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            // TODO(lberki): This should be removed. But only after either verifying that no one
-            // uses it or providing an alternative.
-            ruleContext.getMakeVariables(ImmutableList.of(":cc_toolchain")),
+            this.getRuleContext(),
             ruleContext.getRule().getPackage(),
-            ruleContext.getConfiguration()) {
+            ruleContext.getConfiguration(),
+            ImmutableList.of()) {
           @Override
           public String lookupVariable(String variableName) throws ExpansionException {
             if (additionalSubstitutions.containsKey(variableName)) {
@@ -971,10 +978,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, env);
     // The best way to fix this probably is to convert CommandHelper to Skylark.
     CommandHelper helper =
-        new CommandHelper(
-            getRuleContext(),
-            tools.getContents(TransitiveInfoCollection.class, "tools"),
-            ImmutableMap.copyOf(labelDict));
+        CommandHelper.builder(getRuleContext())
+            .addToolDependencies(tools.getContents(TransitiveInfoCollection.class, "tools"))
+            .addLabelMap(labelDict)
+            .build();
     String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
     if (expandLocations) {
       command =
@@ -995,12 +1002,18 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
                 String.class,
                 String.class,
                 "execution_requirements"));
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
     List<String> argv =
-        helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX, executionRequirements);
+        helper.buildCommandLine(
+            shExecutable, command, inputs, SCRIPT_SUFFIX, executionRequirements);
     return Tuple.<Object>of(
         MutableList.copyOf(env, inputs),
         MutableList.copyOf(env, argv),
         helper.getToolsRunfilesSuppliers());
+  }
+
+  public SkylarkSemantics getSkylarkSemantics() {
+    return skylarkSemantics;
   }
 
   /**

@@ -1355,7 +1355,7 @@ genrule(
 EOF
 
   bazel clean --expunge
-  bazel build --experimental_distdir="${WRKDIR}/distfiles" //:local \
+  bazel build --distdir="${WRKDIR}/distfiles" //:local \
     || fail "expected success"
 }
 
@@ -1399,7 +1399,7 @@ genrule(
 EOF
 
   bazel clean --expunge
-  bazel build --experimental_distdir="../distfiles" //:local \
+  bazel build --distdir="../distfiles" //:local \
     || fail "expected success"
 }
 

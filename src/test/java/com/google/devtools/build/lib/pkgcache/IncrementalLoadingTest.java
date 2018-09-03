@@ -58,7 +58,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -352,7 +352,7 @@ public class IncrementalLoadingTest {
     Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
     List<?> globList = (List<?>) ((Rule) target).getAttributeContainer().getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt"));
+    assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
   }
 
   @Test
@@ -414,7 +414,7 @@ public class IncrementalLoadingTest {
       private View currentView;
 
       @Override
-      public View getCurrentView(OptionsClassProvider options) {
+      public View getCurrentView(OptionsProvider options) {
         lastView = currentView;
         currentView = new View() {};
         return currentView;
@@ -506,8 +506,8 @@ public class IncrementalLoadingTest {
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
+      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     }
 
     Path addFile(String fileName, String... content) throws IOException {
@@ -597,8 +597,8 @@ public class IncrementalLoadingTest {
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
+      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter(new EventBus()));

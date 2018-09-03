@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -74,13 +75,10 @@ final class SkylarkDocumentationCollector {
       throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
-      SkylarkModule annotation = candidateClass.getAnnotation(SkylarkModule.class);
-      if (annotation != null) {
-        collectJavaObjects(annotation, candidateClass, modules);
-      }
-      SkylarkGlobalLibrary
-          globalNamespaceAnnotation = candidateClass.getAnnotation(SkylarkGlobalLibrary.class);
-      if (globalNamespaceAnnotation != null) {
+      SkylarkModule moduleAnnotation = candidateClass.getAnnotation(SkylarkModule.class);
+      if (moduleAnnotation != null) {
+        collectJavaObjects(moduleAnnotation, candidateClass, modules);
+      } else if (candidateClass.getAnnotation(SkylarkGlobalLibrary.class) != null) {
         collectBuiltinMethods(modules, candidateClass);
       }
       collectBuiltinDoc(modules, candidateClass.getDeclaredFields());
@@ -91,7 +89,7 @@ final class SkylarkDocumentationCollector {
   private static SkylarkModuleDoc getTopLevelModuleDoc(Map<String, SkylarkModuleDoc> modules) {
     SkylarkModule annotation = getTopLevelModule();
     modules.computeIfAbsent(
-        annotation.name(), (String k) -> new SkylarkModuleDoc(annotation, Object.class));
+        annotation.name(), (String k) -> new SkylarkModuleDoc(annotation, TopLevelModule.class));
     return modules.get(annotation.name());
   }
 
@@ -103,8 +101,29 @@ final class SkylarkDocumentationCollector {
 
     SkylarkModule annotation = Preconditions.checkNotNull(
         Runtime.getSkylarkNamespace(moduleClass).getAnnotation(SkylarkModule.class));
-    modules.computeIfAbsent(
-        annotation.name(), (String k) -> new SkylarkModuleDoc(annotation, moduleClass));
+    SkylarkModuleDoc previousModuleDoc = modules.get(annotation.name());
+    if (previousModuleDoc == null || !previousModuleDoc.getAnnotation().documented()) {
+      // There is no registered module doc by that name, or the current candidate is "undocumented".
+      modules.put(annotation.name(), new SkylarkModuleDoc(annotation, moduleClass));
+    } else if (previousModuleDoc.getClassObject() != moduleClass && annotation.documented()) {
+      // Both modules generate documentation for the same name. This is fine if one is a
+      // subclass of the other, in which case the subclass documentation takes precedence.
+      // (This is useful if one module is a "common" stable module, and its subclass is
+      // an experimental module that also supports all stable methods.)
+      if (previousModuleDoc.getClassObject().isAssignableFrom(moduleClass)) {
+        modules.put(annotation.name(), new SkylarkModuleDoc(annotation, moduleClass));
+      } else if (moduleClass.isAssignableFrom(previousModuleDoc.getClassObject())) {
+        // This case means the subclass was processed first, so discard the superclass.
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "%s and %s are both modules with the same documentation for '%s'",
+                moduleClass,
+                previousModuleDoc.getClassObject(),
+                previousModuleDoc.getAnnotation().name()));
+      }
+    }
+
     return modules.get(annotation.name());
   }
 
@@ -222,6 +241,21 @@ final class SkylarkDocumentationCollector {
         Preconditions.checkNotNull(method.getAnnotation(SkylarkConstructor.class));
     Class<?> objectClass = constructorAnnotation.objectType();
     SkylarkModuleDoc module = getSkylarkModuleDoc(objectClass, modules);
-    module.setConstructor(new SkylarkJavaMethodDoc(originatingModuleName, method, callable));
+
+    String fullyQualifiedName;
+    if (!constructorAnnotation.receiverNameForDoc().isEmpty()) {
+      fullyQualifiedName = constructorAnnotation.receiverNameForDoc();
+    } else {
+      fullyQualifiedName = getFullyQualifiedName(originatingModuleName, callable);
+    }
+
+    module.setConstructor(new SkylarkConstructorMethodDoc(fullyQualifiedName, method, callable));
+  }
+
+  private static String getFullyQualifiedName(
+      String objectName, SkylarkCallable callable) {
+    String objectDotExpressionPrefix = objectName.isEmpty() ? "" : objectName + ".";
+    String methodName = callable.name();
+    return objectDotExpressionPrefix + methodName;
   }
 }

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -44,6 +43,7 @@ import java.util.Map;
  */
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
+  private final PathFragment shExecutable;
   private final ImmutableList<Artifact> resolvedTools;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> resolvedData;
@@ -54,6 +54,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final Label label;
 
   public ExtraActionSpec(
+      PathFragment shExecutable,
       Iterable<Artifact> resolvedTools,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> resolvedData,
@@ -62,6 +63,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       Label label,
       Map<String, String> executionInfo,
       boolean requiresActionOutput) {
+    this.shExecutable = shExecutable;
     this.resolvedTools = ImmutableList.copyOf(resolvedTools);
     this.runfilesSupplier = runfilesSupplier;
     this.resolvedData = ImmutableList.copyOf(resolvedData);
@@ -120,11 +122,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     // See {@link #createExpandedCommand} for list of supported variables.
     String command = createExpandedCommand(owningRule, actionToShadow, extraActionInfoFile);
 
-    CommandHelper commandHelper =
-        new CommandHelper(
-            owningRule,
-            ImmutableList.<TransitiveInfoCollection>of(),
-            ImmutableMap.<Label, Iterable<Artifact>>of());
+    CommandHelper commandHelper = CommandHelper.builder(owningRule).build();
 
     // Multiple actions in the same configured target need to have different names for the artifact
     // that might be created here, so we append something that should be unique for each action.
@@ -132,8 +130,13 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
         actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
             + "."
             + actionToShadow.getKey(owningRule.getActionKeyContext());
-    List<String> argv = commandHelper.buildCommandLine(command, extraActionInputs,
-        "." + actionUniquifier + ".extra_action_script.sh", executionInfo);
+    List<String> argv =
+        commandHelper.buildCommandLine(
+            shExecutable,
+            command,
+            extraActionInputs,
+            "." + actionUniquifier + ".extra_action_script.sh",
+            executionInfo);
 
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(
@@ -145,7 +148,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
             createDummyOutput,
             CommandLine.of(argv),
             owningRule.getConfiguration().getActionEnvironment(),
-            executionInfo,
+            owningRule.getConfiguration().modifiedExecutionInfo(executionInfo, label.getName()),
             commandMessage,
             label.getName()));
 

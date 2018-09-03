@@ -31,6 +31,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -276,7 +278,7 @@ public final class Attribute implements Comparable<Attribute> {
    * based on attributes of that rule. For instance, a split transition on a rule's deps may differ
    * depending on the 'platform' attribute of the rule.
    */
-  public interface SplitTransitionProvider {
+  public interface SplitTransitionProvider extends SplitTransitionProviderApi {
     /**
      * Returns the {@link SplitTransition} given the attribute mapper of the originating rule.
      */
@@ -602,22 +604,15 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Defines the configuration transition for this attribute. Defaults to
-     * {@code NONE}.
-     */
-    public Builder<TYPE> cfg(SplitTransition configTransition) {
-      return cfg(new BasicSplitTransitionProvider(Preconditions.checkNotNull(configTransition)));
-    }
-
-    /**
-     * Defines the configuration transition for this attribute. Defaults to
-     * {@code NONE}.
+     * Defines the configuration transition for this attribute (e.g. a {@link PatchTransition} or
+     * {@link SplitTransition}). Defaults to {@code NONE}.
      */
     public Builder<TYPE> cfg(ConfigurationTransition configTransition) {
+      Preconditions.checkNotNull(configTransition);
       Preconditions.checkState(this.configTransition == NoTransition.INSTANCE,
           "the configuration transition is already set");
       if (configTransition instanceof SplitTransition) {
-        return cfg((SplitTransition) configTransition);
+        return cfg(new BasicSplitTransitionProvider((SplitTransition) configTransition));
       } else {
         this.configTransition = configTransition;
         return this;
@@ -1066,8 +1061,11 @@ public final class Attribute implements Comparable<Attribute> {
      * dependencies through this attribute.
      */
     public Builder<TYPE> aspect(NativeAspectClass aspect) {
-      return this.aspect(aspect, input -> AspectParameters.EMPTY);
+      return this.aspect(aspect, EMPTY_FUNCTION);
     }
+
+    @AutoCodec @AutoCodec.VisibleForSerialization
+    static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
     public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect, Location location)
         throws EvalException {
@@ -1513,7 +1511,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Object invokeCallback(EventHandler eventHandler, Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
       ClassObject attrs =
-          NativeProvider.STRUCT.create(
+          StructProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(eventHandler, attrs);
       try {

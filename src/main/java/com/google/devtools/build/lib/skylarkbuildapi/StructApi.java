@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 /** Interface for the "struct" object in the build API. */
 @SkylarkModule(
@@ -57,8 +60,9 @@ public interface StructApi extends SkylarkValue {
       name = "to_json",
       doc =
           "Creates a JSON string from the struct parameter. This method only works if all "
-              + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-              + "list of these types. Quotes and new lines in strings are escaped. "
+              + "struct elements (recursively) are strings, ints, booleans, other structs, a "
+              + "list of these types or a dictionary with string keys and values of these types. "
+              + "Quotes and new lines in strings are escaped. "
               + "Examples:<br><pre class=language-python>"
               + "struct(key=123).to_json()\n# {\"key\":123}\n\n"
               + "struct(key=True).to_json()\n# {\"key\":true}\n\n"
@@ -72,4 +76,29 @@ public interface StructApi extends SkylarkValue {
               + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
       useLocation = true)
   public String toJson(Location loc) throws EvalException;
+
+  /**
+   * Callable Provider for new struct objects.
+   */
+  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  public interface StructProviderApi extends ProviderApi {
+
+    @SkylarkCallable(
+        name = "struct",
+        doc =
+            "Creates an immutable struct using the keyword arguments as attributes. It is used to "
+                + "group multiple values together. Example:<br>"
+                + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
+                + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
+        extraKeywords =
+            @Param(
+                name = "kwargs",
+                type = SkylarkDict.class,
+                defaultValue = "{}",
+                doc = "Dictionary of arguments."),
+        useLocation = true,
+        selfCall = true)
+    @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
+    public StructApi createStruct(SkylarkDict<?, ?> kwargs, Location loc) throws EvalException;
+  }
 }

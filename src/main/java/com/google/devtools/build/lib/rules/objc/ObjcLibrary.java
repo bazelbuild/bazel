@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,12 +25,16 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -52,9 +57,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
         .addDepObjcProviders(
             ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
-        .addNonPropagatedDepObjcProviders(
-            ruleContext.getPrerequisites(
-                "non_propagated_deps", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -108,9 +110,14 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
     ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsStore(
-        new CcLinkParamsStore(new ObjcLibraryCcLinkParamsStore(common)));
+    CcLinkParams ccLinkParams = buildCcLinkParams(common);
+    CcLinkingInfo ccLinkingInfo =
+        CcLinkingInfo.Builder.create()
+            .setStaticModeParamsForDynamicLibrary(ccLinkParams)
+            .setStaticModeParamsForExecutable(ccLinkParams)
+            .setDynamicModeParamsForDynamicLibrary(ccLinkParams)
+            .setDynamicModeParamsForExecutable(ccLinkParams)
+            .build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(common.getObjcProvider())
@@ -120,9 +127,31 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(objectFilesCollector.build()))
-        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
+        .addNativeDeclaredProvider(ccLinkingInfo)
         .addOutputGroups(outputGroupCollector)
         .build();
+  }
+
+  public CcLinkParams buildCcLinkParams(ObjcCommon common) {
+    ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
+    ObjcProvider objcProvider = common.getObjcProvider();
+    for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
+      libraries.add(
+          LinkerInputs.opaqueLibraryToLink(
+              library,
+              ArtifactCategory.STATIC_LIBRARY,
+              FileSystemUtils.removeExtension(library.getRootRelativePathString())));
+    }
+    libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
+
+    CcLinkParams.Builder builder = CcLinkParams.builder();
+    builder.addLibraries(libraries.build());
+
+    for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK)) {
+      builder.addLinkOpts(ImmutableList.of("-framework", sdkFramework.getName()));
+    }
+
+    return builder.build();
   }
 
   /** Throws errors or warnings for bad attribute state. */

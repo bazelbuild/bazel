@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -252,7 +253,7 @@ public abstract class ProguardHelper {
         ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
             ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS, Mode.TARGET).list()
             : ImmutableList.<Artifact>of(),
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class));
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.PROVIDER));
   }
 
   /**
@@ -269,11 +270,33 @@ public abstract class ProguardHelper {
    * behavior.
    */
   public static ImmutableList<Artifact> collectTransitiveProguardSpecs(
-      RuleContext ruleContext,
+      RuleContext context,
       Iterable<Artifact> specsToInclude,
       ImmutableList<Artifact> localProguardSpecs,
       Iterable<ProguardSpecProvider> proguardDeps) {
-    JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
+    return collectTransitiveProguardSpecs(
+        context.getLabel(), context, specsToInclude, localProguardSpecs, proguardDeps);
+  }
+  /**
+   * Retrieves the full set of proguard specs that should be applied to this binary, including the
+   * specs passed in, if Proguard should run on the given rule.
+   *
+   * <p>Unlike {@link #collectTransitiveProguardSpecs(RuleContext, Iterable)}, this method requires
+   * values to be passed in explicitly, and does not extract them from rule attributes.
+   *
+   * <p>If Proguard shouldn't be applied, or the legacy link mode is used and there are no
+   * proguard_specs on this rule, an empty list will be returned, regardless of any given specs or
+   * specs from dependencies. {@link
+   * com.google.devtools.build.lib.rules.android.AndroidBinary#createAndroidBinary} relies on that
+   * behavior.
+   */
+  public static ImmutableList<Artifact> collectTransitiveProguardSpecs(
+      Label label,
+      ActionConstructionContext context,
+      Iterable<Artifact> specsToInclude,
+      ImmutableList<Artifact> localProguardSpecs,
+      Iterable<ProguardSpecProvider> proguardDeps) {
+    JavaOptimizationMode optMode = getJavaOptimizationMode(context);
     if (optMode == JavaOptimizationMode.NOOP) {
       return ImmutableList.of();
     }
@@ -295,10 +318,10 @@ public abstract class ProguardHelper {
     // Generate and include implicit Proguard spec for requested mode.
     if (!optMode.getImplicitProguardDirectives().isEmpty()) {
       Artifact implicitDirectives =
-          getProguardConfigArtifact(ruleContext, optMode.name().toLowerCase());
-      ruleContext.registerAction(
+          getProguardConfigArtifact(label, context, optMode.name().toLowerCase());
+      context.registerAction(
           FileWriteAction.create(
-              ruleContext,
+              context,
               implicitDirectives,
               optMode.getImplicitProguardDirectives(),
               /*makeExecutable=*/ false));
@@ -621,7 +644,8 @@ public abstract class ProguardHelper {
 
     if (proguardDictionary != null) {
       builder.addInput(proguardDictionary);
-      commandLine.addExecPath("-obfuscationdictionary", proguardDictionary)
+      commandLine
+          .addExecPath("-obfuscationdictionary", proguardDictionary)
           .addExecPath("-classobfuscationdictionary", proguardDictionary)
           .addExecPath("-packageobfuscationdictionary", proguardDictionary);
     }
@@ -665,22 +689,30 @@ public abstract class ProguardHelper {
   /** Returns an intermediate artifact used to run Proguard. */
   public static Artifact getProguardTempArtifact(
       RuleContext ruleContext, String prefix, String name) {
+    return getProguardTempArtifact(ruleContext.getLabel(), ruleContext, prefix, name);
+  }
+
+  /** Returns an intermediate artifact used to run Proguard. */
+  public static Artifact getProguardTempArtifact(
+      Label label, ActionConstructionContext context, String prefix, String name) {
     // TODO(bazel-team): Remove the redundant inclusion of the rule name, as getUniqueDirectory
     // includes the rulename as well.
-    return Preconditions.checkNotNull(
-        ruleContext.getUniqueDirectoryArtifact(
-            "proguard",
-            Joiner.on("_").join(prefix, ruleContext.getLabel().getName(), name),
-            ruleContext.getBinOrGenfilesDirectory()));
+    return context.getUniqueDirectoryArtifact(
+        "proguard", Joiner.on("_").join(prefix, label.getName(), name));
   }
 
   public static Artifact getProguardConfigArtifact(RuleContext ruleContext, String prefix) {
-    return getProguardTempArtifact(ruleContext, prefix, "proguard.cfg");
+    return getProguardConfigArtifact(ruleContext.getLabel(), ruleContext, prefix);
+  }
+
+  public static Artifact getProguardConfigArtifact(
+      Label label, ActionConstructionContext context, String prefix) {
+    return getProguardTempArtifact(label, context, prefix, "proguard.cfg");
   }
 
   /** Returns {@link JavaConfiguration#getJavaOptimizationMode()}. */
-  public static JavaOptimizationMode getJavaOptimizationMode(RuleContext ruleContext) {
-    return ruleContext
+  public static JavaOptimizationMode getJavaOptimizationMode(ActionConstructionContext context) {
+    return context
         .getConfiguration()
         .getFragment(JavaConfiguration.class)
         .getJavaOptimizationMode();

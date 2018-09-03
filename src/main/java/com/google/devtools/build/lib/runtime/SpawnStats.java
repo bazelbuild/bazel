@@ -42,7 +42,6 @@ class SpawnStats {
 
   private static class ResultString {
     StringBuilder result = new StringBuilder();
-    String firstRunner;
     int spawnsCount = 0;
     int runnersNum = 0;
 
@@ -53,10 +52,6 @@ class SpawnStats {
     public void add(String name, int count) {
       spawnsCount += count;
       runnersNum += 1;
-
-      if (runnersNum == 1) {
-        firstRunner = name;
-      }
 
       if (result.length() > 0) {
         result.append(", ");
@@ -70,9 +65,6 @@ class SpawnStats {
     public String toString() {
       if (runnersNum == 0) {
         return "";
-      }
-      if (runnersNum == 1) {
-        return ", " + firstRunner;
       }
       return ": " + result;
     }

@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.util.logging.Level.SEVERE;
 import static java.util.logging.Level.WARNING;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
@@ -28,7 +30,6 @@ import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.Status;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
@@ -80,7 +81,10 @@ final class ByteStreamServer extends ByteStreamImplBase {
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
-      Chunker c = new Chunker(cache.downloadBlob(digest), digestUtil);
+      Chunker c =
+          Chunker.builder(digestUtil)
+              .setInput(digest, getFromFuture(cache.downloadBlob(digest)))
+              .build();
       while (c.hasNext()) {
         responseObserver.onNext(
             ReadResponse.newBuilder().setData(c.next().getData()).build());
@@ -99,7 +103,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     Path temp = workPath.getRelative("upload").getRelative(UUID.randomUUID().toString());
     try {
       FileSystemUtils.createDirectoryAndParents(temp.getParentDirectory());
-      temp.getOutputStream().close();
+      FileSystemUtils.createEmptyFile(temp);
     } catch (IOException e) {
       logger.log(SEVERE, "Failed to create temporary file for upload", e);
       responseObserver.onError(StatusUtils.internalError(e));

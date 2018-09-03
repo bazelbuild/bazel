@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -335,7 +336,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz");
+    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
     when(targetA.getLabel()).thenReturn(labelA);
     ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
@@ -368,7 +369,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz");
+    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
     when(targetA.getLabel()).thenReturn(labelA);
     ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
@@ -399,7 +400,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz");
+    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
     ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
     when(targetA.getLabel()).thenReturn(labelA);
     ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
@@ -434,7 +435,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         "Building some/very/very/long/path/for/some/library/directory/foo.jar (42 source files)",
         "some/very/very/long/path/for/some/library/directory/foo.jar");
     Label label =
-        Label.parseAbsolute("//some/very/very/long/path/for/some/library/directory:libfoo");
+        Label.parseAbsolute(
+            "//some/very/very/long/path/for/some/library/directory:libfoo", ImmutableMap.of());
     ActionOwner owner =
         ActionOwner.create(
             label,
@@ -509,7 +511,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     Label bartestLabel =
         Label.parseAbsolute(
-            "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest");
+            "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest",
+            ImmutableMap.of());
     ConfiguredTarget bartestTarget = Mockito.mock(ConfiguredTarget.class);
     when(bartestTarget.getLabel()).thenReturn(bartestLabel);
 
@@ -772,7 +775,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
 
-    Label labelFooTest = Label.parseAbsolute("//foo/bar:footest");
+    Label labelFooTest = Label.parseAbsolute("//foo/bar:footest", ImmutableMap.of());
     ConfiguredTarget targetFooTest = Mockito.mock(ConfiguredTarget.class);
     when(targetFooTest.getLabel()).thenReturn(labelFooTest);
     ActionOwner fooOwner =
@@ -787,7 +790,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
             null,
             null);
 
-    Label labelBarTest = Label.parseAbsolute("//baz:bartest");
+    Label labelBarTest = Label.parseAbsolute("//baz:bartest", ImmutableMap.of());
     ConfiguredTarget targetBarTest = Mockito.mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);

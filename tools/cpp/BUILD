@@ -17,7 +17,7 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])  # Apache 2.0
 
 # The toolchain type used to distinguish cc toolchains.
-cc_toolchain_type(name = "toolchain_type")
+toolchain_type(name = "toolchain_type")
 
 # It is frequently necessary to constrain platforms based on the cc compiler type.
 constraint_setting(name = "cc_compiler")
@@ -47,8 +47,11 @@ constraint_value(
     constraint_setting = ":cc_compiler",
 )
 
-# TODO(lberki): Remove this once cc_toolchain_alias is in a Bazel release
 cc_toolchain_alias(name = "current_cc_toolchain")
+
+cc_host_toolchain_alias(name = "current_cc_host_toolchain")
+
+cc_libc_top_alias(name = "current_libc_top")
 
 cc_library(
     name = "malloc",
@@ -94,7 +97,6 @@ cc_toolchain_suite(
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
         "ppc|compiler": ":cc-compiler-ppc",
-        "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
 
@@ -317,32 +319,6 @@ toolchain(
     toolchain_type = ":toolchain_type",
 )
 
-cc_toolchain(
-    name = "cc-compiler-ios_x86_64",
-    all_files = ":empty",
-    compiler_files = ":empty",
-    cpu = "local",
-    dwp_files = ":empty",
-    dynamic_runtime_libs = [":empty"],
-    linker_files = ":empty",
-    objcopy_files = ":empty",
-    static_runtime_libs = [":empty"],
-    strip_files = ":empty",
-    supports_param_files = 0,
-)
-
-toolchain(
-    name = "cc-toolchain-ios_x86_64",
-    exec_compatible_with = [
-    ],
-    target_compatible_with = [
-        "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//platforms:ios",
-    ],
-    toolchain = ":cc-compiler-ios_x86_64",
-    toolchain_type = ":toolchain_type",
-)
-
 filegroup(
     name = "every-file-x64_windows",
     srcs = [
@@ -392,3 +368,7 @@ filegroup(
     name = "crosstool_lib",
     srcs = ["crosstool_lib.bzl"],
 )
+
+load(":compiler_flag.bzl", "compiler_flag")
+
+compiler_flag(name = "compiler")

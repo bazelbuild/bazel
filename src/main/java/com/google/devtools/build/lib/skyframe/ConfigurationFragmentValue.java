@@ -72,7 +72,7 @@ public class ConfigurationFragmentValue implements SkyValue {
     private ConfigurationFragmentKey(
         BuildOptions buildOptions, Class<? extends Fragment> fragmentType) {
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
-      this.checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
+      this.checksum = Fingerprint.getHexDigest(buildOptions.computeCacheKey());
       this.fragmentType = Preconditions.checkNotNull(fragmentType);
     }
 

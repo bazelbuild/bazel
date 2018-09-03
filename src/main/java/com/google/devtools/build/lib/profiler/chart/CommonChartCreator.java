@@ -36,8 +36,8 @@ public final class CommonChartCreator {
     if (task != null) {
       String label = task.type.description + ": " + task.getDescription();
       ChartBarType type = chart.lookUpType(task.getDescription());
-      long stop = task.startTime + info.getPhaseDuration(task);
-      chart.addTimeRange(task.startTime, stop, type, label);
+      long stop = task.startTime - info.getMinTaskStartTime() + info.getPhaseDuration(task);
+      chart.addTimeRange(task.startTime - info.getMinTaskStartTime(), stop, type, label);
     }
   }
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
 
-  protected final ConcurrentMap<SkyKey, InMemoryNodeEntry> nodeMap = new ConcurrentHashMap<>(1024);
+  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap = new ConcurrentHashMap<>(1024);
   private final boolean keepEdges;
 
   InMemoryGraphImpl() {
@@ -52,7 +51,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public InMemoryNodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey skyKey) {
+  public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey skyKey) {
     return nodeMap.get(skyKey);
   }
 
@@ -63,7 +62,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
     HashMap<SkyKey, NodeEntry> result = new HashMap<>();
     for (SkyKey key : keys) {
-      InMemoryNodeEntry entry = get(null, Reason.OTHER, key);
+      NodeEntry entry = get(null, Reason.OTHER, key);
       if (entry != null) {
         result.put(key, entry);
       }
@@ -71,17 +70,20 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return result;
   }
 
-  protected InMemoryNodeEntry createIfAbsent(SkyKey key) {
-    InMemoryNodeEntry newval =
-        keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
-    InMemoryNodeEntry oldval = nodeMap.putIfAbsent(key, newval);
+  protected NodeEntry newNodeEntry(SkyKey key) {
+    return keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
+  }
+
+  protected NodeEntry createIfAbsent(SkyKey key) {
+    NodeEntry newval = newNodeEntry(key);
+    NodeEntry oldval = nodeMap.putIfAbsent(key, newval);
     return oldval == null ? newval : oldval;
   }
 
   @Override
-  public Map<SkyKey, InMemoryNodeEntry> createIfAbsentBatch(
+  public Map<SkyKey, NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    ImmutableMap.Builder<SkyKey, InMemoryNodeEntry> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, NodeEntry> builder = ImmutableMap.builder();
     for (SkyKey key : keys) {
       builder.put(key, createIfAbsent(key));
     }
@@ -98,10 +100,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return Collections.unmodifiableMap(
         Maps.transformValues(
             nodeMap,
-            new Function<InMemoryNodeEntry, SkyValue>() {
-              @Override
-              public SkyValue apply(InMemoryNodeEntry entry) {
+            entry -> {
+              try {
                 return entry.toValue();
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
               }
             }));
   }
@@ -112,17 +115,21 @@ public class InMemoryGraphImpl implements InMemoryGraph {
         Maps.filterValues(
             Maps.transformValues(
                 nodeMap,
-                new Function<InMemoryNodeEntry, SkyValue>() {
-                  @Override
-                  public SkyValue apply(InMemoryNodeEntry entry) {
-                    return entry.isDone() ? entry.getValue() : null;
+                entry -> {
+                  if (!entry.isDone()) {
+                    return null;
+                  }
+                  try {
+                    return entry.getValue();
+                  } catch (InterruptedException e) {
+                    throw new IllegalStateException(e);
                   }
                 }),
             Predicates.notNull()));
   }
 
   @Override
-  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
+  public Map<SkyKey, NodeEntry> getAllValues() {
     return Collections.unmodifiableMap(nodeMap);
   }
 

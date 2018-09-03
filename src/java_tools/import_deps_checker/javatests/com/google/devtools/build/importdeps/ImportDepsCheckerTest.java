@@ -57,7 +57,7 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
         ImmutableList.of(bootclasspath),
         ImmutableList.of(libraryAnnotationsJar),
         ImmutableList.of(libraryJar),
-        true,
+        false,
         ImmutableList.of());
     testJdepsProto(
         ImmutableList.of(bootclasspath),

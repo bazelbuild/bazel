@@ -114,8 +114,25 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void testRegisteredToolchains_invalidPattern() throws Exception {
+    rewriteWorkspace("register_toolchains('/:invalid:label:syntax')");
+
+    // Request the toolchains.
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(toolchainsKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "invalid registered toolchain '/:invalid:label:syntax': "
+                + "not a valid absolute pattern");
+  }
+
+  @Test
   public void testRegisteredToolchains_notToolchain() throws Exception {
-    rewriteWorkspace("register_toolchains(", "    '//error:not_a_toolchain')");
+    rewriteWorkspace("register_toolchains('//error:not_a_toolchain')");
     scratch.file("error/BUILD", "filegroup(name = 'not_a_toolchain')");
 
     // Request the toolchains.
@@ -239,9 +256,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .addEqualityGroup(
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain1, toolchain2)),
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain1, toolchain2)))
+        .addEqualityGroup(RegisteredToolchainsValue.create(ImmutableList.of(toolchain1)))
+        .addEqualityGroup(RegisteredToolchainsValue.create(ImmutableList.of(toolchain2)))
         .addEqualityGroup(
-            RegisteredToolchainsValue.create(ImmutableList.of(toolchain1)),
-            RegisteredToolchainsValue.create(ImmutableList.of(toolchain2)),
-            RegisteredToolchainsValue.create(ImmutableList.of(toolchain2, toolchain1)));
+            RegisteredToolchainsValue.create(ImmutableList.of(toolchain2, toolchain1)))
+        .testEquals();
   }
 }

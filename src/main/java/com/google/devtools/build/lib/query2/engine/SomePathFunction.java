@@ -53,7 +53,7 @@ class SomePathFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
@@ -83,7 +83,7 @@ class SomePathFunction implements QueryFunction {
             for (T x : uniquifier.unique(fromValue)) {
               ThreadSafeMutableSet<T> xSet = env.createThreadSafeMutableSet();
               xSet.add(x);
-              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet);
+              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet, context);
               SetView<T> result;
               if (xtc.size() > toValue.size()) {
                 result = Sets.intersection(toValue, xtc);
@@ -91,7 +91,7 @@ class SomePathFunction implements QueryFunction {
                 result = Sets.intersection(xtc, toValue);
               }
               if (!result.isEmpty()) {
-                callback.process(env.getNodesOnPath(x, result.iterator().next()));
+                callback.process(env.getNodesOnPath(x, result.iterator().next(), context));
                 return null;
               }
               uniquifier.unique(xtc);

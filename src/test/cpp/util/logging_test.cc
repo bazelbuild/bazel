@@ -20,6 +20,7 @@
 #include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 
@@ -59,7 +60,7 @@ TEST(LoggingTest, NoHandler_InfoLogsIgnored) {
   blaze_util::SetLogHandler(nullptr);
 
   // Log something.
-  std::string teststring = "test that the log messages get ignored";
+  std::string teststring = "test that the info log messages get ignored";
   BAZEL_LOG(INFO) << teststring;
 
   // Check that stderr does not receive the message.
@@ -130,8 +131,7 @@ TEST(LoggingTest, BazelLogHandler_DumpsToCerrAtDestruction) {
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
 }
 
-// Tests for the BazelLogHandler, deactivated by
-// SetLoggingOutputStream(nullptr).
+// Tests for the BazelLogHandler's buffer after SetLoggingOutputStream(nullptr).
 
 TEST(LoggingTest, BazelLogHandler_DoesNotDumpToStderrIfOuputStreamSetToNull) {
   // Set up logging and be prepared to capture stderr at destruction.
@@ -190,9 +190,10 @@ TEST(LoggingTest, BazelLogHandler_PrintsWarningsEvenIfOuputStreamSetToNull) {
   blaze_util::SetLoggingOutputStream(nullptr);
 
   BAZEL_LOG(WARNING) << "this is a warning";
+  std::string expectedWarning = "WARNING: this is a warning";
 
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_THAT(stderr_output, HasSubstr("WARNING: this is a warning"));
+  EXPECT_THAT(stderr_output, HasSubstr(expectedWarning));
 }
 
 TEST(LoggingTest, BazelLogHandler_PrintsErrorsEvenIfOuputStreamSetToNull) {
@@ -204,9 +205,56 @@ TEST(LoggingTest, BazelLogHandler_PrintsErrorsEvenIfOuputStreamSetToNull) {
   blaze_util::SetLoggingOutputStream(nullptr);
 
   BAZEL_LOG(ERROR) << "this is an error, alert!";
+  std::string expectedError = "ERROR: this is an error, alert!";
 
   std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_THAT(stderr_output, HasSubstr("ERROR: this is an error, alert!\n"));
+  EXPECT_THAT(stderr_output, HasSubstr(expectedError));
+}
+
+TEST(LoggingTest,
+     BazelLogHandler_BufferedInfoLogsGetLostEvenIfOutputStreamSetToNull) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+
+  // Log something before telling the loghandler where to send it.
+  std::string teststring = "this message should be lost.";
+  BAZEL_LOG(INFO) << teststring;
+
+  // Ask that the debug logs not be kept.
+  blaze_util::SetLoggingOutputStream(nullptr);
+
+  // Set a null log handler, which causes the BazelLogHandler to be destructed.
+  // This prompts its logs to be flushed, so we can capture them.
+  blaze_util::SetLogHandler(nullptr);
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
+}
+
+TEST(LoggingTest,
+     BazelLogHandler_BufferedWarningLogsRedirectedAfterOutputStreamSetToNull) {
+  // Set up logging and be prepared to capture stderr at destruction.
+  testing::internal::CaptureStderr();
+  std::unique_ptr<blaze_util::BazelLogHandler> handler(
+      new blaze_util::BazelLogHandler());
+  blaze_util::SetLogHandler(std::move(handler));
+
+  // Log something before telling the loghandler where to send it.
+  std::string teststring = "test that this message gets directed to cerr";
+  BAZEL_LOG(WARNING) << teststring;
+  std::string expectedWarning =
+      "WARNING: test that this message gets directed to cerr";
+
+  // Ask that the debug logs not be kept.
+  blaze_util::SetLoggingOutputStream(nullptr);
+
+  // Set a null log handler, which causes the BazelLogHandler to be destructed.
+  // This prompts its logs to be flushed, so we can capture them.
+  blaze_util::SetLogHandler(nullptr);
+  std::string stderr_output = testing::internal::GetCapturedStderr();
+  EXPECT_THAT(stderr_output, HasSubstr(expectedWarning));
 }
 
 // Tests for the BazelLogHandler & SetLoggingOutputStream
@@ -331,7 +379,8 @@ TEST(LoggingTest, BazelLogHandler_ImpossibleFile) {
       new std::ofstream("/this/doesnt/exist.log", std::fstream::out));
   blaze_util::SetLoggingOutputStream(std::move(bad_logfile_stream_));
 
-  // Cause the logs to be flushed, and capture them.
+  // Set a null log handler, which causes the BazelLogHandler to be destructed.
+  // This prompts its logs to be flushed, so we can capture them..
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
   EXPECT_THAT(stderr_output,
@@ -354,7 +403,8 @@ TEST(LoggingTest, BazelLogHandler_DirectingLogsToCerrWorks) {
   std::string teststring = "test that the log messages get directed to cerr";
   BAZEL_LOG(INFO) << teststring;
 
-  // Cause the logs to be flushed, and capture them.
+  // Set a null log handler, which causes the BazelLogHandler to be destructed.
+  // This prompts its logs to be flushed, so we can capture them.
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
@@ -374,7 +424,8 @@ TEST(LoggingTest, BazelLogHandler_BufferedLogsGetDirectedToCerr) {
   // Ask that the logs get output to stderr
   blaze_util::SetLoggingOutputStreamToStderr();
 
-  // Cause the logs to be flushed, and capture them.
+  // Set a null log handler, which causes the BazelLogHandler to be destructed.
+  // This prompts its logs to be flushed, so we can capture them.
   blaze_util::SetLogHandler(nullptr);
   std::string stderr_output = testing::internal::GetCapturedStderr();
   EXPECT_THAT(stderr_output, HasSubstr(teststring));
@@ -495,9 +546,7 @@ TEST(LoggingDeathTest,
 
         BAZEL_DIE(42) << "dying with exit code 42.";
       },
-      ::testing::ExitedWithCode(42),
-      "\\[bazel FATAL .*\\] dying with exit code 42.");
-
+      ::testing::ExitedWithCode(42), "FATAL: dying with exit code 42.");
   // Check that the error is also in the custom stream.
   std::string output;
   ASSERT_TRUE(blaze_util::ReadFile(logfile, &output));

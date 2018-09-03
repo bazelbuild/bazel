@@ -11,31 +11,55 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A target that provides C++ libraries to be linked into Android targets. */
-@AutoValue
 @Immutable
-public abstract class AndroidCcLinkParamsProvider implements TransitiveInfoProvider {
-  public static AndroidCcLinkParamsProvider create(AbstractCcLinkParamsStore store) {
-    return new AutoValue_AndroidCcLinkParamsProvider(new CcLinkParamsStore(store));
+public final class AndroidCcLinkParamsProvider extends NativeInfo
+    implements AndroidCcLinkParamsProviderApi<CcLinkingInfo> {
+  public static final String PROVIDER_NAME = "AndroidCcLinkParamsInfo";
+  public static final Provider PROVIDER = new Provider();
+
+  private final CcLinkingInfo ccLinkingInfo;
+
+  public AndroidCcLinkParamsProvider(CcLinkingInfo ccLinkingInfo) {
+    super(PROVIDER);
+    this.ccLinkingInfo = ccLinkingInfo;
   }
 
-  public abstract AbstractCcLinkParamsStore getLinkParams();
+  @Override
+  public CcLinkingInfo getLinkParams() {
+    return ccLinkingInfo;
+  }
 
   public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
       (TransitiveInfoCollection input) -> {
-        AndroidCcLinkParamsProvider provider = input.getProvider(AndroidCcLinkParamsProvider.class);
-        return provider == null ? null : provider.getLinkParams();
+        AndroidCcLinkParamsProvider provider = input.get(AndroidCcLinkParamsProvider.PROVIDER);
+        return provider == null ? null : provider.getLinkParams().getCcLinkParamsStore();
       };
 
-  AndroidCcLinkParamsProvider() {}
+  /** Provider class for {@link AndroidCcLinkParamsProvider} objects. */
+  public static class Provider extends BuiltinProvider<AndroidCcLinkParamsProvider>
+      implements AndroidCcLinkParamsProviderApi.Provider<CcLinkingInfo> {
+    private Provider() {
+      super(PROVIDER_NAME, AndroidCcLinkParamsProvider.class);
+    }
+
+    @Override
+    public AndroidCcLinkParamsProviderApi<CcLinkingInfo> createInfo(CcLinkingInfo ccLinkingInfo)
+        throws EvalException {
+      return new AndroidCcLinkParamsProvider(ccLinkingInfo);
+    }
+  }
 }

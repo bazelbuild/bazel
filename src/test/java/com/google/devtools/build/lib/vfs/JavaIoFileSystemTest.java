@@ -34,23 +34,20 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
- * Tests for the {@link JavaIoFileSystem}. That file system by itself is not
- * capable of creating symlinks; use the unix one to create them, so that the
- * test can check that the file system handles their existence correctly.
+ * Tests for the {@link JavaIoFileSystem}. That file system by itself is not capable of creating
+ * symlinks; use the unix one to create them, so that the test can check that the file system
+ * handles their existence correctly.
  */
-@RunWith(JUnit4.class)
 public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
 
   private ManualClock clock;
 
   @Override
-  public FileSystem getFreshFileSystem() {
+  public FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
     clock = new ManualClock();
-    return new JavaIoFileSystem(clock);
+    return new JavaIoFileSystem(clock, digestHashFunction);
   }
 
   // Tests are inherited from the FileSystemTest

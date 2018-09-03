@@ -21,9 +21,7 @@ import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.repository.SkylarkExecutionResultApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -39,16 +37,8 @@ import java.util.Map;
  * contains the standard output stream content, the standard error stream content and the execution
  * return code.
  */
-@SkylarkModule(
-  name = "exec_result",
-  category = SkylarkModuleCategory.NONE,
-  doc =
-      "A structure storing result of repository_ctx.execute() method. It contains the standard"
-          + " output stream content, the standard error stream content and the execution return"
-          + " code."
-)
 @Immutable
-final class SkylarkExecutionResult {
+final class SkylarkExecutionResult implements SkylarkExecutionResultApi {
   private final int returnCode;
   private final String stdout;
   private final String stderr;
@@ -59,30 +49,17 @@ final class SkylarkExecutionResult {
     this.stderr = stderr;
   }
 
-  @SkylarkCallable(
-    name = "return_code",
-    structField = true,
-    doc = "The return code returned after the execution of the program. 256 if an error happened"
-        + " while executing the command."
-  )
+  @Override
   public int getReturnCode() {
     return returnCode;
   }
 
-  @SkylarkCallable(
-    name = "stdout",
-    structField = true,
-    doc = "The content of the standard output returned by the execution."
-  )
+  @Override
   public String getStdout() {
     return stdout;
   }
 
-  @SkylarkCallable(
-    name = "stderr",
-    structField = true,
-    doc = "The content of the standard error output returned by the execution."
-  )
+  @Override
   public String getStderr() {
     return stderr;
   }

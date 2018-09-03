@@ -62,10 +62,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     return super.defaultFlags().with(Flag.TRIMMED_CONFIGURATIONS);
   }
 
-  private static class EmptySplitTransition implements SplitTransition {
+  private static class NoopSplitTransition implements SplitTransition {
     @Override
     public List<BuildOptions> split(BuildOptions buildOptions) {
-      return ImmutableList.of();
+      return ImmutableList.of(buildOptions);
     }
   }
 
@@ -91,7 +91,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static class SetsCpuPatchTransition implements PatchTransition {
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
       result.get(BuildConfiguration.Options.class).cpu = "SET BY PATCH";
       return result;
@@ -111,7 +111,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
           "empty_split",
           attr("with_empty_transition", LABEL)
               .allowedFileTypes(FileTypeSet.ANY_FILE)
-              .cfg(new EmptySplitTransition()));
+              .cfg(new NoopSplitTransition()));
 
   /** Rule with a split transition on an attribute. */
   private static final MockRule ATTRIBUTE_TRANSITION_RULE = () ->
@@ -139,7 +139,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
       result.get(TestConfiguration.TestOptions.class).testFilter = "SET BY PATCH FACTORY: " + value;
       return result;
@@ -182,7 +182,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     }
 
     @Override
-    public BuildOptions apply(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options) {
       BuildOptions result = options.clone();
       TestConfiguration.TestOptions testOpts = result.get(TestConfiguration.TestOptions.class);
       ImmutableList<String> testArgs =
@@ -306,6 +306,54 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
             "deps transition",
             "rule class transition",
             "trimming transition for //a:ruleclass_inner")
+        .inOrder();
+  }
+
+  @Test
+  public void trimmingTransitionsAreComposedInOrderOfAdding() throws Exception {
+    RuleTransitionFactory firstTrimmingTransitionFactory =
+        (rule) ->
+            new AddArgumentToTestArgsTransition(
+                "first trimming transition for " + rule.getLabel().toString());
+    RuleTransitionFactory secondTrimmingTransitionFactory =
+        (rule) ->
+            new AddArgumentToTestArgsTransition(
+                "second trimming transition for " + rule.getLabel().toString());
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addRuleDefinition(TestAspects.BASE_RULE);
+    builder.addRuleDefinition(TEST_BASE_RULE);
+    builder.overrideTrimmingTransitionFactoryForTesting(firstTrimmingTransitionFactory);
+    builder.addTrimmingTransitionFactory(secondTrimmingTransitionFactory);
+    useRuleClassProvider(builder.build());
+    scratch.file(
+        "a/skylark.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    '_base': attr.label(default = '//a:base'),",
+        "  }",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':skylark.bzl', 'skylark_rule')",
+        // ensure that all Skylark rules get the TestConfiguration fragment
+        "test_base(name = 'base')",
+        // skylark rules get trimmed
+        "skylark_rule(name = 'skylark_solo', deps = [':base'])");
+
+    ConfiguredTarget configuredTarget;
+    BuildConfiguration config;
+
+    configuredTarget = Iterables.getOnlyElement(update("//a:skylark_solo").getTargetsToBuild());
+    config = getConfiguration(configuredTarget);
+    assertThat(config.getFragment(TestConfiguration.class).getTestArguments())
+        .containsExactly(
+            "first trimming transition for //a:skylark_solo",
+            "second trimming transition for //a:skylark_solo")
         .inOrder();
   }
 
@@ -485,7 +533,7 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
   private static PatchTransition newPatchTransition(final String value) {
     return new PatchTransition() {
       @Override
-      public BuildOptions apply(BuildOptions options) {
+      public BuildOptions patch(BuildOptions options) {
         BuildOptions toOptions = options.clone();
         TestConfiguration.TestOptions baseOptions =
             toOptions.get(TestConfiguration.TestOptions.class);

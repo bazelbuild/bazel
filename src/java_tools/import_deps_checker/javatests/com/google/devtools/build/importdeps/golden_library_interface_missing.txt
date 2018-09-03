@@ -1,11 +1,14 @@
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$One
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
-Incomplete ancestor classpath for com.google.devtools.build.importdeps.testdata.Client
-    missing ancestor: com.google.devtools.build.importdeps.testdata.LibraryInterface
-    resolution failure path: com.google.devtools.build.importdeps.testdata.LibraryInterface
-===Total===
-missing=4
-incomplete=1
-missing_members=0
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_Library.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryAnnotations.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryException.jar"
+  kind: EXPLICIT
+}
+rule_label: ":library_interface_missing_golden_test"
+success: true

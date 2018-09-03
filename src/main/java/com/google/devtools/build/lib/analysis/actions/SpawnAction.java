@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +39,6 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CommandLineItemSimpleFormatter;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -283,7 +284,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, CommandLineExpansionException {
     Spawn spawn = getSpawn(actionExecutionContext);
-    return getContext(actionExecutionContext, spawn).exec(spawn, actionExecutionContext);
+    return actionExecutionContext.getContext(SpawnActionContext.class)
+        .exec(spawn, actionExecutionContext);
   }
 
   @Override
@@ -305,7 +307,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           failMessage =
               "error executing shell command: "
                   + "'"
-                  + truncate(Iterables.get(getArguments(), 2), 200)
+                  + truncate(Joiner.on(" ").join(getArguments()), 200)
                   + "'";
         } catch (CommandLineExpansionException commandLineExpansionException) {
           failMessage =
@@ -355,7 +357,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
-        actionExecutionContext.getInputFilesetMappings());
+        actionExecutionContext.getTopLevelFilesets());
   }
 
   Spawn getSpawn(
@@ -493,11 +495,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @Override
   public Map<String, String> getExecutionInfo() {
     return executionInfo;
-  }
-
-  protected SpawnActionContext getContext(
-      ActionExecutionContext actionExecutionContext, Spawn spawn) {
-    return actionExecutionContext.getSpawnActionContext(spawn);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
@@ -670,7 +667,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               ? configuration.getActionEnvironment()
               : ActionEnvironment.create(environment, inheritedEnvironment);
       Action spawnAction =
-          buildSpawnAction(owner, commandLines, configuration.getCommandLineLimits(), env);
+          buildSpawnAction(
+              owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
       actions[0] = spawnAction;
       return actions;
     }
@@ -687,6 +685,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           owner,
           result.build(),
           CommandLineLimits.UNLIMITED,
+          null,
           ActionEnvironment.create(environment, inheritedEnvironment));
     }
 
@@ -730,6 +729,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           ParameterFileWriteAction paramFileWriteAction =
               new ParameterFileWriteAction(
                   owner,
+                  paramFileInfo.getInputs(),
                   paramFile,
                   commandLine,
                   paramFileInfo.getFileType(),
@@ -774,6 +774,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ActionOwner owner,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
+        @Nullable BuildConfiguration configuration,
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
@@ -802,7 +803,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           commandLineLimits,
           isShellCommand,
           env,
-          ImmutableMap.copyOf(executionInfo),
+          configuration == null
+              ? executionInfo
+              : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
           progressMessage,
           new CompositeRunfilesSupplier(
               Iterables.concat(this.inputRunfilesSuppliers, this.toolRunfilesSuppliers)),
@@ -1383,8 +1386,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           Artifact paramFile = (Artifact) value;
           String flagFormatString = (String) values[++i];
           result.add(
-              CommandLineItemSimpleFormatter.format(
-                  flagFormatString, paramFile.getExecPathString()));
+              SingleStringArgFormatter.format(flagFormatString, paramFile.getExecPathString()));
         } else if (value instanceof CommandLine) {
           CommandLine commandLine = (CommandLine) value;
           if (artifactExpander != null) {

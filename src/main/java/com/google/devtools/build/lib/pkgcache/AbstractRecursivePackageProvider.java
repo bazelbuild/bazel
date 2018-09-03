@@ -14,35 +14,16 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.vfs.Path;
 
 /** Partial implementation of RecursivePackageProvider to provide some common methods. */
 public abstract class AbstractRecursivePackageProvider implements RecursivePackageProvider {
 
-  private final PathPackageLocator pkgPath;
-
-  protected AbstractRecursivePackageProvider(PathPackageLocator pkgPath) {
-    this.pkgPath = pkgPath;
+  protected AbstractRecursivePackageProvider() {
   }
-
-  @Override
-  public Path getBuildFileForPackage(PackageIdentifier packageName) {
-    try {
-      return pkgPath.getPackageBuildFile(packageName);
-    } catch (NoSuchPackageException e) {
-      return null;
-    }
-  }
-
-  public PathPackageLocator getPkgPath() {
-    return pkgPath;
-  }
-
 
   @Override
   public Target getTarget(ExtendedEventHandler eventHandler, Label label)

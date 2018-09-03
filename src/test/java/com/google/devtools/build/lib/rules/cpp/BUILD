@@ -12,14 +12,24 @@ filegroup(
 
 java_test(
     name = "cpp-rules-tests",
-    srcs = glob(["*.java"]) + ["proto/CcProtoLibraryTest.java"],
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "CcImportBaseConfiguredTargetTest.java",
+            "SkylarkCcCommonTestHelper.java",
+        ],
+    ) + ["proto/CcProtoLibraryTest.java"],
     resources = [
+        "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib.bzl",
         "//tools/cpp:crosstool_utils",
         "//tools/cpp:lib_cc_configure",
     ],
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":CcImportBaseConfiguredTargetTest",
+        ":SkylarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -38,6 +48,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -78,7 +89,32 @@ java_library(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/java/dd_plist",
-        "//third_party/protobuf/3.4.0:protobuf_java",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "CcImportBaseConfiguredTargetTest",
+    srcs = ["CcImportBaseConfiguredTargetTest.java"],
+    deps = [
+        ":SkylarkCcCommonTestHelper",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "SkylarkCcCommonTestHelper",
+    srcs = ["SkylarkCcCommonTestHelper.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 

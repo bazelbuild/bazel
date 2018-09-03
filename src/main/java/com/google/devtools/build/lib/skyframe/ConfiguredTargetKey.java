@@ -62,6 +62,13 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return of(getLabel(configuredTarget), configurationKey, isHostConfiguration);
   }
 
+  public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
+    return of(
+        getLabel(configuredTarget),
+        configuredTarget.getConfigurationKey(),
+        /*isHostConfiguration=*/ false);
+  }
+
   /**
    * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
    * not {@code O(edges between configured targets)}.
@@ -170,12 +177,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
 
   @Override
   public String toString() {
-    return String.format(
-        "%s %s %s (%s)",
-        label,
-        configurationKey,
-        isHostConfiguration(),
-        System.identityHashCode(this));
+    return String.format("%s %s %s", label, configurationKey, isHostConfiguration());
   }
 
   static class HostConfiguredTargetKey extends ConfiguredTargetKey {

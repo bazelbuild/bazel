@@ -27,7 +27,7 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
     }
     buffer_->DecompressEntryContents(cdh, lh, inflater_.get());
   } else {
-    errx(2, "META-INF/desugar_deps is neither stored nor deflated");
+    diag_errx(2, "META-INF/desugar_deps is neither stored nor deflated");
   }
 
   // TODO(kmb): Wrap buffer_ as ZeroCopyInputStream to avoid copying out.
@@ -41,10 +41,10 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
   bazel::tools::desugar::DesugarDepsInfo deps_info;
   google::protobuf::io::CodedInputStream content(buf, data_size);
   if (!deps_info.ParseFromCodedStream(&content)) {
-    errx(2, "META-INF/desugar_deps: unable to parse");
+    diag_errx(2, "META-INF/desugar_deps: unable to parse");
   }
   if (!content.ConsumedEntireMessage()) {
-    errx(2, "META-INF/desugar_deps: unexpected trailing content");
+    diag_errx(2, "META-INF/desugar_deps: unexpected trailing content");
   }
   free(buf);
 
@@ -91,36 +91,39 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
 
 void *Java8DesugarDepsChecker::OutputEntry(bool compress) {
   if (verbose_) {
-    fprintf(stderr, "Needed deps: %lu\n", needed_deps_.size());
-    fprintf(stderr, "Interfaces to check: %lu\n", missing_interfaces_.size());
-    fprintf(stderr, "Sub-interfaces: %lu\n", extended_interfaces_.size());
-    fprintf(stderr, "Interfaces w/ default methods: %lu\n",
+    fprintf(stderr, "Needed deps: %zu\n", needed_deps_.size());
+    fprintf(stderr, "Interfaces to check: %zu\n", missing_interfaces_.size());
+    fprintf(stderr, "Sub-interfaces: %zu\n", extended_interfaces_.size());
+    fprintf(stderr, "Interfaces w/ default methods: %zu\n",
             has_default_methods_.size());
   }
-  for (auto needed : needed_deps_) {
+  for (const auto &needed : needed_deps_) {
     if (verbose_) {
       fprintf(stderr, "Looking for %s\n", needed.first.c_str());
     }
     if (!known_member_(needed.first)) {
       if (fail_on_error_) {
-        errx(2, "%s referenced by %s but not found.  Is the former defined in "
-                "a neverlink library?",
-                needed.first.c_str(), needed.second.c_str());
+        diag_errx(2,
+                  "%s referenced by %s but not found.  Is the former defined"
+                  " in a neverlink library?",
+                  needed.first.c_str(), needed.second.c_str());
       } else {
         error_ = true;
       }
     }
   }
 
-  for (auto missing : missing_interfaces_) {
+  for (const auto &missing : missing_interfaces_) {
     if (verbose_) {
       fprintf(stderr, "Checking %s\n", missing.first.c_str());
     }
     if (HasDefaultMethods(missing.first)) {
       if (fail_on_error_) {
-        errx(2, "%s needed on the classpath for desugaring %s.  Please add the "
-                "missing dependency to the target containing the latter.",
-                missing.first.c_str(), missing.second.c_str());
+        diag_errx(
+            2,
+            "%s needed on the classpath for desugaring %s.  Please add"
+            " the missing dependency to the target containing the latter.",
+            missing.first.c_str(), missing.second.c_str());
       } else {
         error_ = true;
       }

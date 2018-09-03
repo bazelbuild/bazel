@@ -225,7 +225,7 @@ public class AggregatingTestListener {
   @AllowConcurrentEvents
   public void targetComplete(TargetCompleteEvent event) {
     if (event.failed()) {
-      targetFailure(asKey(event.getTarget()));
+      targetFailure(event.getConfiguredTargetKey());
     }
   }
 

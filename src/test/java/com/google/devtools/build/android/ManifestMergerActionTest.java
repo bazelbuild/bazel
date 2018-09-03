@@ -108,14 +108,17 @@ public class ManifestMergerActionTest {
         });
 
     assertThat(
-        Joiner.on(" ")
-            .join(Files.readAllLines(mergedManifest, UTF_8))
-            .replaceAll("\\s+", " ")
-            .trim())
+            Joiner.on(" ")
+                .join(Files.readAllLines(mergedManifest, UTF_8))
+                .replaceAll("\\s+", " ")
+                .trim())
         .isEqualTo(
             "<?xml version=\"1.0\" encoding=\"utf-8\"?> "
                 + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" "
-                + "package=\"foo.bar.baz\" />");
+                + "package=\"foo.bar.baz\" > "
+                + "<uses-sdk android:minSdkVersion=\"1\" /> "
+                + "<application /> "
+                + "</manifest>");
   }
 
   @Test public void testMerge() throws Exception {

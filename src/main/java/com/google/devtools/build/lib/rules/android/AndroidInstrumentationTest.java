@@ -29,9 +29,9 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -256,7 +256,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   }
 
   private static ImmutableList<Artifact> getDataDeps(RuleContext ruleContext) {
-    return ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
+    return ruleContext.getPrerequisiteArtifacts("data", Mode.DONT_CHECK).list();
   }
 
   /**

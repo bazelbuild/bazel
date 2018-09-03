@@ -90,9 +90,9 @@ function test_genrule_and_genquery() {
   diff $want ./bazel-bin/examples/gen/genquery \
     || fail "genrule and genquery output differs"
 
-  grep -qE "^//tools/jdk:jdk$" $want || {
+  grep -qE "^@bazel_tools//tools/jdk:jdk$" $want || {
     cat $want
-    fail "//tools/jdk:jdk not found in genquery output"
+    fail "@bazel_tools//tools/jdk:jdk not found in genquery output"
   }
 }
 
@@ -118,6 +118,8 @@ function test_native_python_with_zip() {
 
 function test_shell() {
   assert_build "//examples/shell:bin"
+  unset RUNFILES_DIR
+  unset RUNFILES_MANIFEST_FILE
   assert_bazel_run "//examples/shell:bin" "Hello Bazel!"
   assert_test_ok "//examples/shell:test"
 }

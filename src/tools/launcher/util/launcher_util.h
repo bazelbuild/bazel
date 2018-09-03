@@ -25,77 +25,78 @@ namespace launcher {
 std::string GetLastErrorString();
 
 // Prints the specified error message and exits nonzero.
-__declspec(noreturn) void die(const char* format, ...) PRINTF_ATTRIBUTE(1, 2);
+__declspec(noreturn) void die(const wchar_t* format, ...)
+    PRINTF_ATTRIBUTE(1, 2);
 
 // Prints the specified error message.
-void PrintError(const char* format, ...) PRINTF_ATTRIBUTE(1, 2);
+void PrintError(const wchar_t* format, ...) PRINTF_ATTRIBUTE(1, 2);
 
 // Strip the .exe extension from binary path.
 //
 // On Windows, if the binary path is foo/bar/bin.exe then return foo/bar/bin
-std::string GetBinaryPathWithoutExtension(const std::string& binary);
+std::wstring GetBinaryPathWithoutExtension(const std::wstring& binary);
 
 // Add exectuable extension to binary path
 //
 // On Windows, if the binary path is foo/bar/bin then return foo/bar/bin.exe
-std::string GetBinaryPathWithExtension(const std::string& binary);
+std::wstring GetBinaryPathWithExtension(const std::wstring& binary);
 
 // Escape a command line argument.
 //
 // If the argument has space, then we quote it.
 // Escape " to \"
 // Escape \ to \\ if escape_backslash is true
-std::string GetEscapedArgument(const std::string& argument,
-                               bool escape_backslash);
+std::wstring GetEscapedArgument(const std::wstring& argument,
+                                bool escape_backslash);
 
 // Convert a path to an absolute Windows path with \\?\ prefix.
 // This method will print an error and exit if it cannot convert the path.
-std::wstring AsAbsoluteWindowsPath(const char* path);
+std::wstring AsAbsoluteWindowsPath(const wchar_t* path);
 
 // Check if a file exists at a given path.
-bool DoesFilePathExist(const char* path);
+bool DoesFilePathExist(const wchar_t* path);
 
 // Check if a directory exists at a given path.
-bool DoesDirectoryPathExist(const char* path);
+bool DoesDirectoryPathExist(const wchar_t* path);
 
 // Delete a file at a given path.
-bool DeleteFileByPath(const char* path);
+bool DeleteFileByPath(const wchar_t* path);
 
 // Delete a directory at a given path,.
 // If it's a real directory, it must be empty
 // If it's a junction, the target directory it points to doesn't have to be
 // empty, the junction will be deleted regardless of the state of the target.
-bool DeleteDirectoryByPath(const char* path);
+bool DeleteDirectoryByPath(const wchar_t* path);
 
 // Get the value of a specific environment variable
 //
 // Return true if succeeded and the result is stored in buffer.
 // Return false if the environment variable doesn't exist or the value is empty.
-bool GetEnv(const std::string& env_name, std::string* buffer);
+bool GetEnv(const std::wstring& env_name, std::wstring* buffer);
 
 // Set the value of a specific environment variable
 //
 // Return true if succeeded, otherwise false.
-bool SetEnv(const std::string& env_name, const std::string& value);
+bool SetEnv(const std::wstring& env_name, const std::wstring& value);
 
 // Return a random string with a given length.
 // The string consists of a-zA-Z0-9
-std::string GetRandomStr(size_t len);
+std::wstring GetRandomStr(size_t len);
 
 // Normalize a path to a Windows path in lower case
-bool NormalizePath(const std::string& path, std::string* result);
+bool NormalizePath(const std::wstring& path, std::wstring* result);
 
 // Get the base name from a normalized absoulute path
-std::string GetBaseNameFromPath(const std::string& path);
+std::wstring GetBaseNameFromPath(const std::wstring& path);
 
 // Get parent directory from a normalized absoulute path
-std::string GetParentDirFromPath(const std::string& path);
+std::wstring GetParentDirFromPath(const std::wstring& path);
 
 // Calculate a relative path from `path` to `base`.
 // This function expects normalized Windows path in lower case.
 // `path` and `base` should be both absolute or both relative.
-bool RelativeTo(const std::string& path, const std::string& base,
-                std::string* result);
+bool RelativeTo(const std::wstring& path, const std::wstring& base,
+                std::wstring* result);
 
 }  // namespace launcher
 }  // namespace bazel

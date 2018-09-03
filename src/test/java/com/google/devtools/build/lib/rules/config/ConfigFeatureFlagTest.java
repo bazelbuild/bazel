@@ -80,7 +80,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    name = 'flag',",
         "    allowed_values = ['default', 'configured', 'other'],",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
+    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
         .isEqualTo("configured");
   }
 
@@ -101,7 +101,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
+    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getFlagValue())
         .isEqualTo("configured");
   }
 
@@ -272,7 +272,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
         "    allowed_values = ['default', 'configured', 'other'],",
         "    default_value = 'default',",
         ")");
-    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top")).getValue())
+    assertThat(ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:top"))
+               .getFlagValue())
         .isEqualTo("default");
   }
 

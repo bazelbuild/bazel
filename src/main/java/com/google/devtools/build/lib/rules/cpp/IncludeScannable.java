@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -92,23 +91,10 @@ public interface IncludeScannable {
   NestedSet<Artifact> getDeclaredIncludeSrcs();
 
   /**
-   * Returns additional scannables that need also be scanned when scanning this
-   * scannable. May be empty but not null. This is not evaluated recursively.
-   */
-  Iterable<IncludeScannable> getAuxiliaryScannables();
-
-  /**
-   * Returns a map of (generated header:.includes file listing the header's includes) which may be
-   * reached during include scanning. Generated files which are reached, but not in the key set,
-   * must be ignored.
-   *
-   * <p>If grepping of output files is not enabled via --extract_generated_inclusions, keys
-   * should just map to null.
-   */
-  Map<Artifact, Artifact> getLegalGeneratedScannerFileMap();
-
-  /**
-   * Returns an artifact that is the executable for {@link ExtractInclusionAction}.
+   * Returns an artifact that is the executable for grepping #include lines from a file.
    */
   Artifact getGrepIncludes();
+
+  /** Returns modules necessary for building and using the output of this action. */
+  NestedSet<Artifact> getDiscoveredModules();
 }

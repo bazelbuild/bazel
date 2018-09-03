@@ -16,10 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import java.io.IOException;
 
-/**
- * Exception thrown when we try to digest a directory in {@code ActionInputFileCache}.
- *
- */
+/** Exception thrown when we try to digest a directory in {@code MetadataProvider}. */
 public class DigestOfDirectoryException extends IOException {
 
   public DigestOfDirectoryException(String message) {

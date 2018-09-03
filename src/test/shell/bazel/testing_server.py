@@ -62,8 +62,8 @@ class Handler(BaseHTTPRequestHandler):
       self.wfile.write('not authenticated')
 
   def serve_file(self):
-    file_to_serve = open(str(os.getcwd()) + self.path)
-    self.wfile.write(file_to_serve.read())
+    with open(str(os.getcwd()) + self.path) as file_to_serve:
+      self.wfile.write(file_to_serve.read())
 
 
 if __name__ == '__main__':

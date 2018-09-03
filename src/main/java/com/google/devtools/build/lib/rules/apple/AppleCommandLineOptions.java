@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
@@ -25,14 +24,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBitcodeModeApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -45,11 +40,7 @@ import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class AppleCommandLineOptions extends FragmentOptions {
-  public static final ObjectCodec<AppleCommandLineOptions> CODEC =
-      new AppleCommandLineOptions_AutoCodec();
-
   @Option(
     name = "experimental_apple_mandatory_minimum_version",
     defaultValue = "false",
@@ -341,6 +332,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public boolean enableAppleCrosstoolTransition;
 
   @Option(
+      name = "apple_crosstool_in_output_directory_name",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags =  {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If true, all Apple configurations have a different output directory than non-Apple "
+          + "ones")
+  public boolean appleCrosstoolInOutputDirectoryName;
+
+  @Option(
     name = "target_uses_apple_crosstool",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -366,34 +367,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   }
 
   /**
-   * Returns the architecture implied by these options.
-   *
-   * <p>In contexts in which a configuration instance is present, prefer {@link
-   * AppleConfiguration#getSingleArchitecture}.
-   */
-  public String getSingleArchitecture() {
-    if (!Strings.isNullOrEmpty(appleSplitCpu)) {
-      return appleSplitCpu;
-    }
-    switch (applePlatformType) {
-      case IOS:
-        if (!iosMultiCpus.isEmpty()) {
-          return iosMultiCpus.get(0);
-        } else {
-          return iosCpu;
-        }
-      case WATCHOS:
-        return watchosCpus.get(0);
-      case TVOS:
-        return tvosCpus.get(0);
-      case MACOS:
-        return macosCpus.get(0);
-      default:
-        throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
-    }
-  }
-
-  /**
    * Represents the Apple Bitcode mode for compilation steps.
    *
    * <p>Bitcode is an intermediate representation of a compiled program. For many platforms, Apple
@@ -402,19 +375,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
    * <p>This is a build-wide value, as bitcode mode needs to be consistent among a target and its
    * compiled dependencies.
    */
-  @SkylarkModule(
-    name = "apple_bitcode_mode",
-    category = SkylarkModuleCategory.NONE,
-    doc =
-        "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
-            + "Possible values are:<br><ul>"
-            + "<li><code>'none'</code></li>"
-            + "<li><code>'embedded'</code></li>"
-            + "<li><code>'embedded_markers'</code></li>"
-            + "</ul>"
-  )
   @Immutable
-  public enum AppleBitcodeMode implements SkylarkValue {
+  public enum AppleBitcodeMode implements AppleBitcodeModeApi {
 
     /** Do not compile bitcode. */
     NONE("none", ImmutableList.<String>of()),

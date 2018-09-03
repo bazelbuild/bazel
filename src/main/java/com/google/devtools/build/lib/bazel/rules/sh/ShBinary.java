@@ -27,12 +27,16 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -93,6 +97,13 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(runfilesSupport, mainExecutable)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(
+            InstrumentedFilesProvider.class,
+            InstrumentedFilesCollector.collect(
+                ruleContext,
+                new InstrumentationSpec(FileTypeSet.NO_FILE),
+                InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
+                filesToBuild))
         .build();
   }
 

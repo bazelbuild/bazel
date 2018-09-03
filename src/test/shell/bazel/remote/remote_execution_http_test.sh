@@ -29,12 +29,12 @@ function set_up() {
   while [ $attempts -le 5 ]; do
     (( attempts++ ))
     worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-    hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
-    "${bazel_data}/src/tools/remote/worker" \
+    http_port=$(pick_random_unused_tcp_port) || fail "no port found"
+    "${BAZEL_RUNFILES}/src/tools/remote/worker" \
         --work_path="${work_path}" \
         --listen_port=${worker_port} \
-        --hazelcast_standalone_listen_port=${hazelcast_port} \
-        --pid_file="${pid_file}" >& $TEST_log &
+        --http_listen_port=${http_port} \
+        --pid_file="${pid_file}" &
     local wait_seconds=0
     until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 15 ]; do
       sleep 1
@@ -72,22 +72,21 @@ EOF
 #include <iostream>
 int main() { std::cout << "Hello world!" << std::endl; return 0; }
 EOF
-  bazel build //a:test >& $TEST_log \
+  bazel build //a:test \
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge >& $TEST_log
+  bazel clean --expunge
   bazel build \
-      --experimental_remote_spawn_cache=true  \
-      --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
-      //a:test >& $TEST_log \
+      --remote_http_cache=http://localhost:${http_port} \
+      //a:test \
       || fail "Failed to build //a:test with remote REST cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote cache generated different result"
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
   # to check this?
   if [[ "$PLATFORM" = "linux" ]]; then
-    if netstat -tn | grep -qE ":${hazelcast_port}\\s+ESTABLISHED$"; then
+    if netstat -tn | grep -qE ":${http_port}\\s+ESTABLISHED$"; then
       fail "connections to to cache not closed"
     fi
   fi
@@ -112,7 +111,6 @@ EOF
 
   bazel clean --expunge >& $TEST_log
   bazel build \
-      --experimental_remote_spawn_cache=true \
       --remote_http_cache=http://bad.hostname/bad/cache \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache service"
@@ -121,7 +119,7 @@ EOF
   # Check that persistent connections are closed after the build. Is there a good cross-platform way
   # to check this?
   if [[ "$PLATFORM" = "linux" ]]; then
-    if netstat -tn | grep -qE ":${hazelcast_port}\\s+ESTABLISHED$"; then
+    if netstat -tn | grep -qE ":${http_port}\\s+ESTABLISHED$"; then
       fail "connections to to cache not closed"
     fi
   fi
@@ -136,17 +134,8 @@ genrule(
 )
 EOF
     bazel build \
-          --genrule_strategy=remote \
           --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
-          //:make-link &> $TEST_log \
-          && fail "should have failed" || true
-    expect_log "/l is a symbolic link"
-
-    bazel build \
-          --experimental_remote_spawn_cache \
-          --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+          --remote_http_cache=http://localhost:${http_port} \
           //:make-link &> $TEST_log \
           && fail "should have failed" || true
     expect_log "/l is a symbolic link"
@@ -161,98 +150,11 @@ genrule(
 )
 EOF
     bazel build \
-          --genrule_strategy=remote \
           --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+          --remote_http_cache=http://localhost:${http_port} \
           //:make-link &> $TEST_log \
           && fail "should have failed" || true
     expect_log "dir/l is a symbolic link"
-
-    bazel build \
-          --experimental_remote_spawn_cache \
-          --noremote_allow_symlink_upload \
-          --remote_http_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
-          //:make-link &> $TEST_log \
-          && fail "should have failed" || true
-    expect_log "dir/l is a symbolic link"
-}
-
-function set_directory_artifact_testfixtures() {
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-package(default_visibility = ["//visibility:public"])
-genrule(
-  name = "test",
-  srcs = ["dir"],
-  outs = ["qux"],
-  cmd = 'mkdir $@ && paste -d"\n" $(location dir)/foo.txt $(location dir)/sub2/symlinked.txt > $@/out.txt',
-)
-EOF
-
-  # Need this to avoid any leftover
-  rm -rf a/dir
-
-  mkdir -p a/dir
-  cat > a/dir/foo.txt <<EOF
-Hello, world
-EOF
-  mkdir -p a/dir/sub1
-  cat > a/dir/sub1/bar.txt <<EOF
-Shuffle, duffle, muzzle, muff
-EOF
-  mkdir -p a/dir/sub2
-  ln -s ../sub1/bar.txt a/dir/sub2/symlinked.txt
-
-  cat > a/test_expected <<EOF
-Hello, world
-Shuffle, duffle, muzzle, muff
-EOF
-}
-
-function test_directory_artifact_local() {
-  set_directory_artifact_testfixtures
-
-  bazel build //a:test >& $TEST_log \
-    || fail "Failed to build //a:test without remote execution"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
-      || fail "Local execution generated different result"
-}
-
-function test_directory_artifact() {
-  set_directory_artifact_testfixtures
-
-  bazel build \
-      --spawn_strategy=remote \
-      --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
-      //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote execution"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
-      || fail "Remote execution generated different result"
-}
-
-function test_directory_artifact_grpc_cache() {
-  set_directory_artifact_testfixtures
-
-  bazel build \
-      --spawn_strategy=remote \
-      --remote_cache=localhost:${worker_port} \
-      //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote gRPC cache"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
-      || fail "Remote cache generated different result"
-}
-
-function test_directory_artifact_rest_cache() {
-  set_directory_artifact_testfixtures
-
-  bazel build \
-      --spawn_strategy=remote \
-      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
-      //a:test >& $TEST_log \
-      || fail "Failed to build //a:test with remote REST cache"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
-      || fail "Remote cache generated different result"
 }
 
 function set_directory_artifact_skylark_testfixtures() {
@@ -272,7 +174,10 @@ def _gen_output_dir_impl(ctx):
       arguments = [output_dir.path],
   )
   return [
-      DefaultInfo(files=depset(direct=[output_dir])),
+      DefaultInfo(
+          files=depset(direct=[output_dir]),
+          data_runfiles=ctx.runfiles(files=[output_dir]),
+      ),
   ]
 
 gen_output_dir = rule(
@@ -297,7 +202,26 @@ genrule(
     outs = ["qux"],
     cmd = "mkdir $@ && paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@/out.txt",
 )
+
+sh_binary(
+    name = "a-tool",
+    srcs = ["a-tool.sh"],
+    data = [":output_dir"],
+)
+
+genrule(
+    name = "test2",
+    outs = ["test2-out.txt"],
+    cmd = "$(location :a-tool) > $@",
+    tools = [":a-tool"],
+)
 EOF
+
+  cat > a/a-tool.sh <<'EOF'
+#!/bin/sh -eu
+cat "$0".runfiles/main/a/dir/foo.txt "$0".runfiles/main/a/dir/sub1/bar.txt
+EOF
+  chmod u+x a/a-tool.sh
 
   cat > a/test_expected <<EOF
 Hello, world!
@@ -320,7 +244,6 @@ function test_directory_artifact_skylark() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=localhost:${worker_port} \
-      --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
@@ -331,7 +254,6 @@ function test_directory_artifact_skylark_grpc_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
@@ -343,11 +265,21 @@ function test_directory_artifact_skylark_rest_cache() {
   set_directory_artifact_skylark_testfixtures
 
   bazel build \
-      --spawn_strategy=remote \
-      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps \
+      --remote_rest_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote REST cache"
   diff bazel-genfiles/a/qux/out.txt a/test_expected \
+      || fail "Remote cache generated different result"
+}
+
+function test_directory_artifact_in_runfiles_skylark_rest_cache() {
+  set_directory_artifact_skylark_testfixtures
+
+  bazel build \
+      --remote_rest_cache=http://localhost:${http_port} \
+      //a:test2 >& $TEST_log \
+      || fail "Failed to build //a:test2 with remote REST cache"
+  diff bazel-genfiles/a/test2-out.txt a/test_expected \
       || fail "Remote cache generated different result"
 }
 

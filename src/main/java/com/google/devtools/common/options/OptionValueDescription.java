@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.Collection;
 import java.util.Comparator;
@@ -221,6 +222,10 @@ public abstract class OptionValueDescription {
                         + "option by %s",
                     optionDefinition, optionThatDependsOnEffectiveValue));
           } else if (samePriorityCategory
+              && parsedOption
+                  .getPriority()
+                  .getPriorityCategory()
+                  .equals(PriorityCategory.COMMAND_LINE)
               && ((optionThatExpandedToEffectiveValue == null) && (expandedFrom != null))) {
             // Create a warning if an expansion option overrides an explicit option:
             warnings.add(

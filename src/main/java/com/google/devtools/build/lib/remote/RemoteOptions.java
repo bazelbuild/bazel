@@ -36,16 +36,26 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteHttpCache;
 
   @Option(
-    name = "remote_rest_cache_pool_size",
-    defaultValue = "20",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Size of the HTTP pool for making requests to the REST cache.",
-    deprecationWarning =
-        "The value will be ignored and the option will be removed in the next "
-            + "release. Bazel selects the ideal pool size automatically."
+      name = "remote_cache_proxy",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Connect to the remote cache through a proxy. Currently this flag can only be used to "
+              + "configure a Unix domain socket (unix:/path/to/socket) for the HTTP cache."
   )
-  public int restCachePoolSize;
+  public String remoteCacheProxy;
+
+  @Option(
+      name = "remote_max_connections",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "The max. number of concurrent network connections to the remote cache/executor. By "
+              + "default Bazel limits the number of TCP connections to 100. Setting this flag to "
+              + "0 will make Bazel choose the number of connections automatically.")
+  public int remoteMaxConnections;
 
   @Option(
     name = "remote_executor",
@@ -91,6 +101,14 @@ public final class RemoteOptions extends OptionsBase {
     help = "Whether to fall back to standalone local execution strategy if remote execution fails."
   )
   public boolean remoteLocalFallback;
+
+  @Option(
+      name = "remote_local_fallback_strategy",
+      defaultValue = "local",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The strategy to use when remote execution has to fallback to local execution.")
+  public String remoteLocalFallbackStrategy;
 
   @Option(
     name = "remote_upload_local_results",
@@ -164,11 +182,12 @@ public final class RemoteOptions extends OptionsBase {
   )
   public double experimentalRemoteRetryJitter;
 
+  @Deprecated
   @Option(
     name = "experimental_remote_spawn_cache",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    effectTags = {OptionEffectTag.NO_OP},
     help =
         "Whether to use the experimental spawn cache infrastructure for remote caching. "
             + "Enabling this flag makes Bazel ignore any setting for remote_executor."

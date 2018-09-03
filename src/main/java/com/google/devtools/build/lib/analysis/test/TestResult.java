@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.TestAttempt;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -81,7 +83,13 @@ public class TestResult {
    *         you need log location.
    */
   public Path getTestLogPath() {
-    return testAction.getTestLog().getPath();
+    Path testLogPath = testAction.getTestLog().getPath();
+    // If we have an exec root we'll use its fileSystem
+    if (execRoot != null) {
+      FileSystem fileSystem = execRoot.getFileSystem();
+      return fileSystem.getPath(testLogPath.getPathString());
+    }
+    return testLogPath;
   }
 
   /**
@@ -167,6 +175,6 @@ public class TestResult {
    */
   private Collection<Pair<String, Path>> getFiles() {
     // TODO(ulfjack): Cache the set of generated files in the TestResultData.
-    return testAction.getTestOutputsMapping(execRoot);
+    return testAction.getTestOutputsMapping(ArtifactPathResolver.forExecRoot(execRoot), execRoot);
   }
 }

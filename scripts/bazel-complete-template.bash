@@ -154,7 +154,8 @@ _bazel__package_path() {
 _bazel__options_for() {
   local options
   if [[ "${BAZEL_COMMAND_LIST}" =~ ^(.* )?$1( .*)?$ ]]; then
-      local option_name=$(echo $1 | perl -ne 'print uc' | tr "-" "_")
+      # assumes option names only use ASCII characters
+      local option_name=$(echo $1 | tr a-z A-Z | tr "-" "_")
       eval "echo \${BAZEL_COMMAND_${option_name}_FLAGS}" | tr " " "\n"
   fi
 }
@@ -164,7 +165,8 @@ _bazel__options_for() {
 _bazel__expansion_for() {
   local options
   if [[ "${BAZEL_COMMAND_LIST}" =~ ^(.* )?$1( .*)?$ ]]; then
-      local option_name=$(echo $1 | perl -ne 'print uc' | tr "-" "_")
+      # assumes option names only use ASCII characters
+      local option_name=$(echo $1 | tr a-z A-Z | tr "-" "_")
       eval "echo \${BAZEL_COMMAND_${option_name}_ARGUMENT}"
   fi
 }

@@ -14,67 +14,31 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcRunfilesApi;
 
 /**
- * Runfiles provider for C++ targets.
+ * Runfiles for C++ targets.
  *
- * <p>Contains two {@link Runfiles} objects: one for the eventual statically linked binary and one
- * for the one that uses shared libraries. Data dependencies are present in both.
+ * <p>Contains two {@link Runfiles} objects: one for the statically linked binary and one for the
+ * dynamically linked binary. Both contain dynamic libraries needed at runtime and data
+ * dependencies.
  */
+// TODO(plf): Remove class once Skylark rules have been migrated off it.
 @Immutable
 @AutoCodec
-public final class CcRunfiles {
+public final class CcRunfiles implements CcRunfilesApi {
 
-  private final Runfiles staticRunfiles;
-  private final Runfiles sharedRunfiles;
-
-  @AutoCodec.Instantiator
-  public CcRunfiles(Runfiles staticRunfiles, Runfiles sharedRunfiles) {
-    this.staticRunfiles = staticRunfiles;
-    this.sharedRunfiles = sharedRunfiles;
+  @Override
+  public Runfiles getRunfilesForLinkingStatically() {
+    return Runfiles.EMPTY;
   }
 
-  public Runfiles getStaticRunfiles() {
-    return staticRunfiles;
+  @Override
+  public Runfiles getRunfilesForLinkingDynamically() {
+    return Runfiles.EMPTY;
   }
 
-  public Runfiles getSharedRunfiles() {
-    return sharedRunfiles;
-  }
-
-  /**
-   * Returns a function that gets the static C++ runfiles from a {@link TransitiveInfoCollection} or
-   * the empty runfiles instance if it does not contain that provider.
-   */
-  public static final Function<TransitiveInfoCollection, Runfiles> STATIC_RUNFILES =
-      input -> {
-        CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-        CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
-        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getStaticRunfiles();
-      };
-
-  /**
-   * Returns a function that gets the shared C++ runfiles from a {@link TransitiveInfoCollection} or
-   * the empty runfiles instance if it does not contain that provider.
-   */
-  public static final Function<TransitiveInfoCollection, Runfiles> SHARED_RUNFILES =
-      input -> {
-        CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-        CcRunfiles ccRunfiles = provider == null ? null : provider.getCcRunfiles();
-        return ccRunfiles == null ? Runfiles.EMPTY : ccRunfiles.getSharedRunfiles();
-      };
-
-  /**
-   * Returns a function that gets the C++ runfiles from a {@link TransitiveInfoCollection} or
-   * the empty runfiles instance if it does not contain that provider.
-   */
-  public static final Function<TransitiveInfoCollection, Runfiles> runfilesFunction(
-      boolean linkingStatically) {
-    return linkingStatically ? STATIC_RUNFILES : SHARED_RUNFILES;
-  }
 }

@@ -29,7 +29,6 @@ function set_up() {
   # TODO(b/37617303): make test UI-independent
   add_to_bazelrc "fetch --noexperimental_ui"
   add_to_bazelrc "build --noexperimental_ui"
-  add_to_bazelrc "build --noexperimental_skyframe_target_pattern_evaluator"
 }
 
 function tear_down() {
@@ -106,6 +105,7 @@ maven_jar(
     artifact = "com.example.carnivore:carnivore:1.23",
     repository = 'http://localhost:$fileserver_port/',
     sha1 = '$sha1',
+    sha1_src = '$sha1_src',
 )
 bind(name = 'mongoose', actual = '@endangered//jar')
 EOF
@@ -498,7 +498,11 @@ function test_maven_jar_exists_in_cache() {
     || echo "Expected fetch to succeed"
 
   if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1/file ]; then
-    fail "the file was not cached successfully"
+    fail "the jar file was not cached successfully"
+  fi
+
+  if [ ! -f $repo_cache_dir/content_addressable/sha1/$sha1_src/file ]; then
+    fail "the sources file was not cached successfully"
   fi
 }
 

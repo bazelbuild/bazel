@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -46,24 +49,34 @@ import javax.annotation.Nullable;
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
-  public static boolean isSupported(CommandEnvironment cmdEnv) {
+  // Since checking if sandbox is supported is expensive, we remember what we've checked.
+  private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
+
+  /**
+   * Returns whether the linux sandbox is supported on the local machine by running a small command
+   * in it.
+   */
+  public static boolean isSupported(final CommandEnvironment cmdEnv) {
     if (OS.getCurrent() != OS.LINUX) {
       return false;
     }
     if (!LinuxSandboxUtil.isSupported(cmdEnv)) {
       return false;
     }
+    Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
+    return isSupportedMap.computeIfAbsent(
+        linuxSandbox, linuxSandboxPath -> computeIsSupported(cmdEnv, linuxSandboxPath));
+  }
 
+  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox) {
     ImmutableList<String> linuxSandboxArgv =
-        LinuxSandboxUtil.commandLineBuilder(
-                LinuxSandboxUtil.getLinuxSandbox(cmdEnv), ImmutableList.of("/bin/true"))
-            .build();
+        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true")).build();
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
 
     Command cmd = new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd);
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
       return false;
@@ -146,7 +159,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setTmpfsDirectories(getTmpfsPaths())
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
-            .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
+            .setCreateNetworkNamespace(
+                !(allowNetwork
+                    || Spawns.requiresNetwork(
+                        spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
             .setUseDebugMode(getSandboxOptions().sandboxDebug)
             .setKillDelay(timeoutKillDelay);
 

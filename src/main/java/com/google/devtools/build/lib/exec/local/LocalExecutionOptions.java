@@ -18,6 +18,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 import java.util.regex.Pattern;
 
 /**
@@ -59,4 +60,9 @@ public class LocalExecutionOptions extends OptionsBase {
             + "locally executed actions which don't use sandboxing"
   )
   public boolean collectLocalExecutionStatistics;
+
+  public Duration getLocalSigkillGraceSeconds() {
+    // TODO(ulfjack): Change localSigkillGraceSeconds type to Duration.
+    return Duration.ofSeconds(localSigkillGraceSeconds);
+  }
 }

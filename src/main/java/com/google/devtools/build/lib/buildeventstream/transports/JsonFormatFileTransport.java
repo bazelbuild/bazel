@@ -14,30 +14,29 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
+import com.google.common.base.Charsets;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
+import java.util.function.Consumer;
 
 /**
  * A simple {@link BuildEventTransport} that writes the JSON representation of the protocol-buffer
  * representation of the events to a file.
  */
 public final class JsonFormatFileTransport extends FileTransport {
-  private final BuildEventProtocolOptions options;
-  private final PathConverter pathConverter;
-
   JsonFormatFileTransport(
-      String path, BuildEventProtocolOptions options, PathConverter pathConverter)
-          throws IOException {
-    super(path);
-    this.options = options;
-    this.pathConverter = pathConverter;
+      String path,
+      BuildEventProtocolOptions options,
+      BuildEventArtifactUploader uploader,
+      Consumer<AbruptExitException> exitFunc)
+      throws IOException {
+    super(path, options, uploader, exitFunc);
   }
 
   @Override
@@ -46,37 +45,17 @@ public final class JsonFormatFileTransport extends FileTransport {
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
-    BuildEventContext converters =
-        new BuildEventContext() {
-          @Override
-          public PathConverter pathConverter() {
-            return pathConverter;
-          }
-
-          @Override
-          public ArtifactGroupNamer artifactGroupNamer() {
-            return namer;
-          }
-
-          @Override
-          public BuildEventProtocolOptions getOptions() {
-            return options;
-          }
-        };
+  protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
     String protoJsonRepresentation;
     try {
       protoJsonRepresentation =
-          JsonFormat.printer()
-                  .omittingInsignificantWhitespace()
-                  .print(event.asStreamProto(converters))
-              + "\n";
+          JsonFormat.printer().omittingInsignificantWhitespace().print(buildEvent) + "\n";
     } catch (InvalidProtocolBufferException e) {
       // We don't expect any unknown Any fields in our protocol buffer. Nevertheless, handle
       // the exception gracefully and, at least, return valid JSON with an id field.
       protoJsonRepresentation =
           "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
     }
-    write(protoJsonRepresentation);
+    return protoJsonRepresentation.getBytes(Charsets.UTF_8);
   }
 }

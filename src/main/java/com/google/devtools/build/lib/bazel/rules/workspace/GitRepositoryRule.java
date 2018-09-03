@@ -85,51 +85,9 @@ public class GitRepositoryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = git_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-<em><p>Warning: this rule has several limitations. We recommend using
-<a href="#http_archive"><code>http_archive</code></a> instead for more robust and secure
-performance.</p>
-
-<p><code>git_repository</code> has several issues:
-
-<ul>
-<li>Security - <code>http_archive</code> allows a sha256 to be specified, which ensures that the
-downloaded code is exactly what was expected.
-<li>Reliability - <code>http_archive</code> allows the user to specify multiple URLs to attempt
-downloads from. Most services have downtime occasionally, so specifying multiple remotes decreases
-the chances of being unable to download a dependency.
-<li>Speed - <code>http_archive</code> multiplexes downloads to get the fastest possible rate.
-You can also generally download a tarball that is a "shallow clone" of the repository, which
-decreases the size of the download.
-<li>Library issues - This implementation uses an old version of jGit and since this rule is
-deprecated, we don't plan to upgrade it.
-</ul>
-
-<p>Many git repository hosts serve tarballs of the repository, so depend on those if possible.
-For GitHub, this takes the form:
-
-<pre>
-http_archive(
-    name = "&lt;name&gt;",
-    strip_prefix = "&lt;top-level-name&gt;",
-    urls = ["https://github.com/&lt;user&gt;/&lt;repo&gt;/archive/&lt;commit or tag&gt;.tar.gz"],
-)
-</pre>
-
-The <code>top-level-name</code> is often needed because the contents of the archive are nested down
-a directory when the tarball is extracted. For example the Apple Build Rules are referred to using:
-
-<pre>
-http_archive(
-    name = "build_bazel_rules_apple",
-    strip_prefix = "rules_apple-0.4.0",
-    urls = ["https://github.com/bazelbuild/rules_apple/archive/0.4.0.tar.gz"],
-)
-</pre>
-
-If you are using a private repository, prefer the
-<a href="https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/git.bzl">Skylark git
-repository rules</a>, which will use your system's git install (instead of jGit). These rules
-are built into Bazel and have the same API as the native rules.</p></em>
+<p><strong>Deprecated.
+<code>load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")</code>
+for a drop-in replacement.</strong></p>
 
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
 available for binding.</p>

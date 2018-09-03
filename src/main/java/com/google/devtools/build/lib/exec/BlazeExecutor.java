@@ -16,21 +16,18 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -48,17 +45,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class BlazeExecutor implements Executor {
 
   private final boolean verboseFailures;
-  private final boolean showSubcommands;
+  private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final Reporter reporter;
   private final EventBus eventBus;
   private final Clock clock;
-  private final OptionsClassProvider options;
+  private final OptionsProvider options;
   private AtomicBoolean inExecutionPhase;
 
   private final Map<Class<? extends ActionContext>, ActionContext> contextMap;
-  private final SpawnActionContextMaps spawnActionContextMaps;
 
   /**
    * Constructs an Executor, bound to a specified output base path, and which will use the specified
@@ -77,7 +73,7 @@ public final class BlazeExecutor implements Executor {
       Reporter reporter,
       EventBus eventBus,
       Clock clock,
-      OptionsClassProvider options,
+      OptionsProvider options,
       SpawnActionContextMaps spawnActionContextMaps,
       Iterable<ActionContextProvider> contextProviders)
       throws ExecutorInitException {
@@ -90,7 +86,6 @@ public final class BlazeExecutor implements Executor {
     this.eventBus = eventBus;
     this.clock = clock;
     this.options = options;
-    this.spawnActionContextMaps = spawnActionContextMaps;
     this.inExecutionPhase = new AtomicBoolean(false);
     this.contextMap = spawnActionContextMaps.contextMap();
 
@@ -129,7 +124,7 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public boolean reportsSubcommands() {
+  public ShowSubcommands reportsSubcommands() {
     return showSubcommands;
   }
 
@@ -139,8 +134,6 @@ public final class BlazeExecutor implements Executor {
    */
   public void executionPhaseStarting() {
     Preconditions.checkState(!inExecutionPhase.getAndSet(true));
-    Profiler.instance().startTask(ProfilerTask.INFO, "Initializing executors");
-    Profiler.instance().completeTask(ProfilerTask.INFO);
   }
 
   /**
@@ -151,9 +144,6 @@ public final class BlazeExecutor implements Executor {
     if (!inExecutionPhase.get()) {
       return;
     }
-
-    Profiler.instance().startTask(ProfilerTask.INFO, "Shutting down executors");
-    Profiler.instance().completeTask(ProfilerTask.INFO);
     inExecutionPhase.set(false);
   }
 
@@ -180,18 +170,7 @@ public final class BlazeExecutor implements Executor {
 
   @Override
   public <T extends ActionContext> T getContext(Class<? extends T> type) {
-    Preconditions.checkArgument(type != SpawnActionContext.class,
-        "should use getSpawnActionContext instead");
     return type.cast(contextMap.get(type));
-  }
-
-  /**
-   * Returns the {@link SpawnActionContext} to use for the given mnemonic. If no execution mode is
-   * set, then it returns the default strategy for spawn actions.
-   */
-  @Override
-  public SpawnActionContext getSpawnActionContext(Spawn spawn) {
-    return spawnActionContextMaps.getSpawnActionContext(spawn, reporter);
   }
 
   /** Returns true iff the --verbose_failures option was enabled. */
@@ -202,7 +181,7 @@ public final class BlazeExecutor implements Executor {
 
   /** Returns the options associated with the execution. */
   @Override
-  public OptionsClassProvider getOptions() {
+  public OptionsProvider getOptions() {
     return options;
   }
 }

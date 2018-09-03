@@ -18,7 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -47,7 +50,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -81,22 +83,6 @@ public final class Runfiles implements RunfilesApi {
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
-
-  private static final Function<Artifact, PathFragment> GET_ROOT_RELATIVE_PATH =
-      new Function<Artifact, PathFragment>() {
-        @Override
-        public PathFragment apply(Artifact input) {
-          return input.getRootRelativePath();
-        }
-      };
-
-  private static final Function<PathFragment, String> PATH_FRAGMENT_TO_STRING =
-      new Function<PathFragment, String>() {
-        @Override
-        public String apply(PathFragment input) {
-          return input.toString();
-        }
-      };
 
   /**
    * An entry in the runfiles map.
@@ -345,7 +331,7 @@ public final class Runfiles implements RunfilesApi {
   @Override
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
-    allArtifacts.addAll(unconditionalArtifacts.toCollection());
+    allArtifacts.addTransitive(unconditionalArtifacts);
     for (PruningManifest manifest : getPruningManifests()) {
       allArtifacts.addTransitive(manifest.getCandidateRunfiles());
     }
@@ -360,12 +346,18 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public NestedSet<String> getEmptyFilenames() {
-    Set<PathFragment> manifest = new TreeSet<>();
-    Iterables.addAll(
-        manifest, Iterables.transform(getArtifacts().toCollection(), GET_ROOT_RELATIVE_PATH));
-    return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER,
-        Iterables.transform(emptyFilesSupplier.getExtraPaths(manifest), PATH_FRAGMENT_TO_STRING));
+    Set<PathFragment> manifestKeys =
+        Streams.concat(
+                Streams.stream(symlinks).map(SymlinkEntry::getPath),
+                Streams.stream(getArtifacts()).map(Artifact::getRootRelativePath))
+            .collect(ImmutableSet.toImmutableSet());
+    Iterable<PathFragment> emptyKeys = emptyFilesSupplier.getExtraPaths(manifestKeys);
+    return NestedSetBuilder.<String>stableOrder()
+        .addAll(
+            Streams.stream(emptyKeys)
+                .map(PathFragment::toString)
+                .collect(ImmutableList.toImmutableList()))
+        .build();
   }
 
   /**
@@ -1002,7 +994,8 @@ public final class Runfiles implements RunfilesApi {
      * Collects runfiles from data dependencies of a target.
      */
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(getPrerequisites(ruleContext, "data", Mode.DATA), RunfilesProvider.DATA_RUNFILES);
+      addTargets(getPrerequisites(ruleContext, "data", Mode.DONT_CHECK),
+          RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 
@@ -1168,5 +1161,30 @@ public final class Runfiles implements RunfilesApi {
     builder.merge(this);
     builder.merge((Runfiles) other);
     return builder.build();
+  }
+
+  /**
+   * Fingerprint this {@link Runfiles} tree.
+   */
+  public void fingerprint(Fingerprint fp) {
+    fp.addBoolean(getLegacyExternalRunfiles());
+    fp.addPath(getSuffix());
+    Map<PathFragment, Artifact> symlinks = getSymlinksAsMap(null);
+    fp.addInt(symlinks.size());
+    for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
+      fp.addPath(symlink.getKey());
+      fp.addPath(symlink.getValue().getExecPath());
+    }
+    Map<PathFragment, Artifact> rootSymlinks = getRootSymlinksAsMap(null);
+    fp.addInt(rootSymlinks.size());
+    for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
+      fp.addPath(rootSymlink.getKey());
+      fp.addPath(rootSymlink.getValue().getExecPath());
+    }
+
+    for (Artifact artifact : getArtifacts()) {
+      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getExecPath());
+    }
   }
 }

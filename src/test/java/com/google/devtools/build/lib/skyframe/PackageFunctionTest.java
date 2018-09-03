@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -90,8 +91,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
-            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
   }
 
   @Override
@@ -124,11 +125,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path fooBuildFile = scratch.file("foo/BUILD");
     Path fooDir = fooBuildFile.getParentDirectory();
 
-    // Our custom filesystem says "foo/BUILD" exists but its parent "foo" is a file.
-    FileStatus inconsistentParentFileStatus = new FileStatus() {
+    // Our custom filesystem says that fooDir is neither a file nor directory nor symlink
+    FileStatus inconsistentFileStatus = new FileStatus() {
       @Override
       public boolean isFile() {
-        return true;
+        return false;
       }
 
       @Override
@@ -166,13 +167,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
         return 0;
       }
     };
-    fs.stubStat(fooDir, inconsistentParentFileStatus);
+
+    fs.stubStat(fooBuildFile, inconsistentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
     SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, tsgm);
     differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    String expectedMessage = "/workspace/foo/BUILD exists but its parent path /workspace/foo isn't "
-        + "an existing directory";
+    String expectedMessage = "according to stat, existing path /workspace/foo/BUILD is neither"
+        + " a file nor directory nor symlink.";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
     assertThat(result.hasError()).isTrue();
@@ -200,13 +202,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // has a child directory "baz".
     fs.stubStat(bazDir, null);
     RootedPath barDirRootedPath = RootedPath.toRootedPath(pkgRoot, barDir);
-    FileStateValue barDirFileStateValue = FileStateValue.create(barDirRootedPath, tsgm);
-    FileValue barDirFileValue = FileValue.value(barDirRootedPath, barDirFileStateValue,
-        barDirRootedPath, barDirFileStateValue);
-    DirectoryListingValue barDirListing = DirectoryListingValue.value(barDirRootedPath,
-        barDirFileValue, DirectoryListingStateValue.create(ImmutableList.of(
-            new Dirent("baz", Dirent.Type.DIRECTORY))));
-    differencer.inject(ImmutableMap.of(DirectoryListingValue.key(barDirRootedPath), barDirListing));
+    differencer.inject(
+        ImmutableMap.of(
+            DirectoryListingStateValue.key(barDirRootedPath),
+            DirectoryListingStateValue.create(
+                ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY)))));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
@@ -323,8 +323,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
-            ImmutableMap.<String, String>of(),
             tsgm);
+    getSkyframeExecutor().setActionEnv(ImmutableMap.<String, String>of());
     assertSrcs(validPackage(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
   }
 
@@ -446,8 +446,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
-    assertThat(value.getPackage().getSkylarkFileDependencies()).containsExactly(
-        Label.parseAbsolute("//bar:ext.bzl"), Label.parseAbsolute("//baz:ext.bzl"));
+    assertThat(value.getPackage().getSkylarkFileDependencies())
+        .containsExactly(
+            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
 
     scratch.overwriteFile("bar/ext.bzl",
         "load('//qux:ext.bzl', 'c')",
@@ -459,8 +461,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     value = validPackage(skyKey);
-    assertThat(value.getPackage().getSkylarkFileDependencies()).containsExactly(
-        Label.parseAbsolute("//bar:ext.bzl"), Label.parseAbsolute("//qux:ext.bzl"));
+    assertThat(value.getPackage().getSkylarkFileDependencies())
+        .containsExactly(
+            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
+            Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));
   }
 
   @Test
@@ -570,7 +574,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     getSkyframeExecutor()
         .invalidate(
             Predicates.equalTo(
-                com.google.devtools.build.lib.skyframe.FileStateValue.key(
+                FileStateValue.key(
                     RootedPath.toRootedPath(
                         Root.fromPath(workspacePath.getParentDirectory()),
                         PathFragment.create(workspacePath.getBaseName())))));

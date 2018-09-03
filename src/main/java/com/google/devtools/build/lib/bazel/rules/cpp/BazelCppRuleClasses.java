@@ -52,14 +52,14 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.cpp.CcModule.CcSkylarkInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
-import com.google.devtools.build.lib.rules.cpp.TransitiveLipoInfoProvider;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -224,11 +224,6 @@ public class BazelCppRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
-          .add(
-              attr(TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, LABEL)
-                  .cfg(LipoContextCollectorTransition.INSTANCE)
-                  .value(CppRuleClasses.LIPO_CONTEXT_COLLECTOR)
-                  .skipPrereqValidatorCheck())
           .build();
     }
 
@@ -287,7 +282,7 @@ public class BazelCppRuleClasses {
                                 // thus a dependency of def_parser.
                                 || label.startsWith(toolsRepository + "//tools/cpp")
                             ? null
-                            : env.getLabel(defParserLabel);
+                            : Label.parseAbsoluteUnchecked(defParserLabel);
                       }
                     }));
       }
@@ -356,7 +351,9 @@ public class BazelCppRuleClasses {
               attr("deps", LABEL_LIST)
                   .allowedRuleClasses(DEPS_ALLOWED_RULES)
                   .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
-                  .skipAnalysisTimeFileTypeCheck())
+                  .skipAnalysisTimeFileTypeCheck()
+                  .mandatoryProviders(
+                      SkylarkProviderIdentifier.forKey(CcSkylarkInfo.PROVIDER.getKey())))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(win_def_file) -->
           The Windows DEF file to be passed to linker.
           <p>This attribute should only be used when Windows is the target platform.
@@ -398,7 +395,7 @@ public class BazelCppRuleClasses {
           .add(attr("nocopts", STRING))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkstatic) -->
            For <a href="${link cc_binary}"><code>cc_binary</code></a> and
-           <a href="${link cc_test}"><code>cc_test</code></a>: link the binary in mostly-static
+           <a href="${link cc_test}"><code>cc_test</code></a>: link the binary in static
            mode. For <code>cc_library.linkstatic</code>: see below.
            <p>
              By default this option is on for <code>cc_binary</code> and off for the rest.
@@ -412,13 +409,13 @@ public class BazelCppRuleClasses {
            </p>
            <p>There are really three different ways to link an executable:</p>
            <ul>
-           <li> FULLY STATIC, in which everything is linked statically; e.g. "<code>gcc -static
-             foo.o libbar.a libbaz.a -lm</code>".<br/>
-             This mode is enabled by specifying <code>-static</code> in the
-             <a href="#cc_binary.linkopts"><code>linkopts</code></a> attribute.</li>
-           <li> MOSTLY STATIC, in which all user libraries are linked statically (if a static
-             version is available), but where system libraries are linked dynamically, e.g.
-             "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>
+           <li> STATIC with fully_static_link feature, in which everything is linked statically;
+             e.g. "<code>gcc -static foo.o libbar.a libbaz.a -lm</code>".<br/>
+             This mode is enabled by specifying <code>fully_static_link</code> in the
+             <a href="#cc_binary.features"><code>features</code></a> attribute.</li>
+           <li> STATIC, in which all user libraries are linked statically (if a static
+             version is available), but where system libraries (excluding C/C++ runtime libraries)
+             are linked dynamically, e.g. "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>
              This mode is enabled by specifying <code>linkstatic=True</code>.</li>
            <li> DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is
              available), e.g. "<code>gcc foo.o libfoo.so libbaz.so -lm</code>".<br/>
@@ -463,16 +460,6 @@ public class BazelCppRuleClasses {
           .build();
     }
   }
-
-  /** Implementation for the :lipo_context attribute. */
-  static final LabelLateBoundDefault<?> LIPO_CONTEXT =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          CppConfiguration.class,
-          null,
-          (rule, attributes, cppConfig) -> {
-            Label result = cppConfig.getLipoContextLabel();
-            return (rule == null || rule.getLabel().equals(result)) ? null : result;
-          });
 
   /**
    * Helper rule class.

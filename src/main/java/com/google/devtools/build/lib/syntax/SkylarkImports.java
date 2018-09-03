@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -140,7 +142,9 @@ public class SkylarkImports {
           PathFragment.create(containingFileLabel.getName()).getParentDirectory();
       String targetNameForImport = containingDirInPkg.getRelative(importFile).toString();
       try {
-        return containingFileLabel.getRelative(targetNameForImport);
+        // This is for imports relative to the current repository, so repositoryMapping can be
+        // empty
+        return containingFileLabel.getRelativeWithRemapping(targetNameForImport, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         // Shouldn't happen because the parent label is assumed to be valid and the target string is
         // validated on construction.
@@ -196,7 +200,9 @@ public class SkylarkImports {
       // Unlike a relative path import, the import target is relative to the containing package,
       // not the containing directory within the package.
       try {
-        return containingFileLabel.getRelative(importTarget);
+        // This is for imports relative to the current repository, so repositoryMapping can be
+        // empty
+        return containingFileLabel.getRelativeWithRemapping(importTarget, ImmutableMap.of());
       } catch (LabelSyntaxException e) {
         // shouldn't happen because the parent label is assumed validated and the target string is
         // validated on construction
@@ -235,18 +241,35 @@ public class SkylarkImports {
 
   /**
    * Creates and syntactically validates a {@link SkylarkImports} instance from a string.
-   * <p>
-   * There four syntactic import variants: Absolute paths, relative paths, absolute labels, and
-   * relative labels
+   *
+   * <p>There are four syntactic import variants: Absolute paths, relative paths, absolute labels,
+   * and relative labels
    *
    * @throws SkylarkImportSyntaxException if the string is not a valid Skylark import.
    */
   public static SkylarkImport create(String importString) throws SkylarkImportSyntaxException {
+    return create(importString, /* repositoryMapping= */ ImmutableMap.of());
+  }
+
+  /**
+   * Creates and syntactically validates a {@link SkylarkImports} instance from a string.
+   *
+   * <p>There four syntactic import variants: Absolute paths, relative paths, absolute labels, and
+   * relative labels
+   *
+   * <p>Absolute labels will have the repository portion of the label remapped if it is present in
+   * {@code repositoryMapping}
+   *
+   * @throws SkylarkImportSyntaxException if the string is not a valid Skylark import.
+   */
+  public static SkylarkImport create(
+      String importString, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws SkylarkImportSyntaxException {
     if (importString.startsWith("//") || importString.startsWith("@")) {
       // Absolute label.
       Label importLabel;
       try {
-        importLabel = Label.parseAbsolute(importString, false);
+        importLabel = Label.parseAbsolute(importString, false, repositoryMapping);
       } catch (LabelSyntaxException e) {
         throw new SkylarkImportSyntaxException(INVALID_LABEL_PREFIX + e.getMessage());
       }

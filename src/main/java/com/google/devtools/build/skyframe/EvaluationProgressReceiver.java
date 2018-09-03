@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Receiver for various stages of the lifetime of a skyframe node evaluation. */
 @ThreadSafety.ThreadSafe
@@ -27,6 +28,26 @@ public interface EvaluationProgressReceiver {
     BUILT,
     /** The value is clean or re-validated. */
     CLEAN,
+  }
+
+  /** Whether or not evaluation of this node succeeded. */
+  enum EvaluationSuccessState {
+    SUCCESS(true),
+    FAILURE(false);
+
+    EvaluationSuccessState(boolean succeeded) {
+      this.succeeded = succeeded;
+    }
+
+    private final boolean succeeded;
+
+    public boolean succeeded() {
+      return succeeded;
+    }
+
+    public Supplier<EvaluationSuccessState> supplier() {
+      return () -> this;
+    }
   }
 
   /**
@@ -97,10 +118,17 @@ public interface EvaluationProgressReceiver {
    *
    * <p>{@code state} indicates the new state of the node.
    *
-   * <p>If the value builder threw an error when building this node, then
-   * {@code valueSupplier.get()} evaluates to null.
+   * <p>If the value builder threw an error when building this node, then {@code
+   * valueSupplier.get()} evaluates to null.
+   *
+   * @param value The sky value. Only available if just evaluated, eg. on success *and* <code>
+   *     state == EvalutionState.BUILT</code>
    */
-  void evaluated(SkyKey skyKey, Supplier<SkyValue> valueSupplier, EvaluationState state);
+  void evaluated(
+      SkyKey skyKey,
+      @Nullable SkyValue value,
+      Supplier<EvaluationSuccessState> evaluationSuccessState,
+      EvaluationState state);
 
   /** An {@link EvaluationProgressReceiver} that does nothing. */
   class NullEvaluationProgressReceiver implements EvaluationProgressReceiver {
@@ -121,7 +149,10 @@ public interface EvaluationProgressReceiver {
     }
 
     @Override
-    public void evaluated(SkyKey skyKey, Supplier<SkyValue> valueSupplier, EvaluationState state) {
-    }
+    public void evaluated(
+        SkyKey skyKey,
+        @Nullable SkyValue value,
+        Supplier<EvaluationSuccessState> evaluationSuccessState,
+        EvaluationState state) {}
   }
 }

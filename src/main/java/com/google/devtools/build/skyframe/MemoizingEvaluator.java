@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +52,23 @@ public interface MemoizingEvaluator {
       Version version,
       boolean keepGoing,
       int numThreads,
+      ExtendedEventHandler reporter)
+      throws InterruptedException;
+
+  /**
+   * Computes the transitive closure of a given set of values at the given {@link Version}. See
+   * {@link EagerInvalidator#invalidate}.
+   *
+   * <p>The returned EvaluationResult is guaranteed to contain a result for at least one root if
+   * keepGoing is false. It will contain a result for every root if keepGoing is true, <i>unless</i>
+   * the evaluation failed with a "catastrophic" error. In that case, some or all results may be
+   * missing.
+   */
+  <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<? extends SkyKey> roots,
+      Version version,
+      boolean keepGoing,
+      Supplier<ExecutorService> executorService,
       ExtendedEventHandler reporter)
       throws InterruptedException;
 
@@ -123,6 +142,9 @@ public interface MemoizingEvaluator {
   @Nullable
   SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
+  @Nullable
+  NodeEntry getExistingEntryAtLatestVersion(SkyKey key) throws InterruptedException;
+
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
    * otherwise.
@@ -133,9 +155,6 @@ public interface MemoizingEvaluator {
   @VisibleForTesting
   @Nullable
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
-
-  @Nullable
-  NodeEntry getExistingEntryForTesting(SkyKey key) throws InterruptedException;
 
   /**
    * Tests that want finer control over the graph being used may provide a {@code transformer} here.
@@ -166,6 +185,7 @@ public interface MemoizingEvaluator {
         Differencer differencer,
         EvaluationProgressReceiver progressReceiver,
         GraphInconsistencyReceiver graphInconsistencyReceiver,
+        EventFilter eventFilter,
         EmittedEventState emittedEventState,
         boolean keepEdges);
   }

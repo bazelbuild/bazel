@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory;
 
 /** A set of basic rules - Bazel won't work correctly without these. */
 public final class CoreRules implements RuleSet {
@@ -30,7 +30,10 @@ public final class CoreRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setShouldInvalidateCacheForDiff(
+        TestConfiguration.HAVE_OPTIONS_AFFECTING_NON_TEST_TARGETS_CHANGED);
     builder.addConfig(TestConfiguration.TestOptions.class, new TestConfiguration.Loader());
+    builder.addTrimmingTransitionFactory(new TestTrimmingTransitionFactory());
     builder.addRuleDefinition(new BaseRuleClasses.RootRule());
     builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.RuleBase());
@@ -38,7 +41,6 @@ public final class CoreRules implements RuleSet {
     builder.addRuleDefinition(new BaseRuleClasses.BinaryBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.TestBaseRule());
     builder.addRuleDefinition(new BaseRuleClasses.ErrorRule());
-    builder.addNativeProvider(NativeProvider.STRUCT);
   }
 
   @Override

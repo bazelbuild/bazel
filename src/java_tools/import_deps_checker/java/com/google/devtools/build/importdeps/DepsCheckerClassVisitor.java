@@ -107,7 +107,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       }
       MemberInfo member = MemberInfo.create(name, desc);
       if (!classInfo.get().containsMember(member)) {
-        resultCollector.addMissingMember(owner, member);
+        resultCollector.addMissingMember(classInfo.get(), member);
       }
     } catch (RuntimeException e) {
       System.err.printf(
@@ -174,12 +174,19 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       resultCollector.addMissingOrIncompleteClass(internalName, state);
     } else {
       if (state.isIncompleteState()) {
-        String missingAncestor = state.asIncompleteState().getMissingAncestor();
-        AbstractClassEntryState ancestorState = classCache.getClassState(missingAncestor);
-        checkState(
-            ancestorState.isMissingState(), "The ancestor should be missing. %s", ancestorState);
-        resultCollector.addMissingOrIncompleteClass(missingAncestor, ancestorState);
-        resultCollector.addMissingOrIncompleteClass(internalName, state);
+        state
+            .asIncompleteState()
+            .missingAncestors()
+            .forEach(
+                missingAncestor -> {
+                  AbstractClassEntryState ancestorState = classCache.getClassState(missingAncestor);
+                  checkState(
+                      ancestorState.isMissingState(),
+                      "The ancestor should be missing. %s",
+                      ancestorState);
+                  resultCollector.addMissingOrIncompleteClass(missingAncestor, ancestorState);
+                  resultCollector.addMissingOrIncompleteClass(internalName, state);
+                });
       }
       ClassInfo info = state.classInfo().get();
       if (!info.directDep()) {

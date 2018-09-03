@@ -54,20 +54,18 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -184,24 +182,26 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   private Artifact getPrefetchHintsArtifact(
       FdoInputFile prefetchHintsFile, RuleContext ruleContext) {
-    Artifact prefetchHintsArtifact = null;
-    if (prefetchHintsFile != null) {
-      prefetchHintsArtifact = prefetchHintsFile.getArtifact();
-      if (prefetchHintsArtifact == null) {
-        prefetchHintsArtifact =
-            ruleContext.getUniqueDirectoryArtifact(
-                "fdo",
-                prefetchHintsFile.getAbsolutePath().getBaseName(),
-                ruleContext.getBinOrGenfilesDirectory());
-        ruleContext.registerAction(
-            new SymlinkAction(
-                ruleContext.getActionOwner(),
-                PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
-                prefetchHintsArtifact,
-                "Symlinking LLVM Cache Prefetch Hints Profile "
-                    + prefetchHintsFile.getAbsolutePath().getPathString()));
-      }
+    if (prefetchHintsFile == null) {
+      return null;
     }
+    Artifact prefetchHintsArtifact = prefetchHintsFile.getArtifact();
+    if (prefetchHintsArtifact != null) {
+      return prefetchHintsArtifact;
+    }
+
+    prefetchHintsArtifact =
+        ruleContext.getUniqueDirectoryArtifact(
+            "fdo",
+            prefetchHintsFile.getAbsolutePath().getBaseName(),
+            ruleContext.getBinOrGenfilesDirectory());
+    ruleContext.registerAction(
+        new SymlinkAction(
+            ruleContext.getActionOwner(),
+            PathFragment.create(prefetchHintsFile.getAbsolutePath().getPathString()),
+            prefetchHintsArtifact,
+            "Symlinking LLVM Cache Prefetch Hints Profile "
+                + prefetchHintsFile.getAbsolutePath().getPathString()));
     return prefetchHintsArtifact;
   }
 
@@ -210,8 +210,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * the indexed format (.profdata) if necessary.
    */
   private Artifact convertLLVMRawProfileToIndexed(
-      PathFragment fdoProfile, CppToolchainInfo toolchainInfo, RuleContext ruleContext)
-      throws InterruptedException {
+      PathFragment fdoProfile, CppToolchainInfo toolchainInfo, RuleContext ruleContext) {
 
     Artifact profileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
@@ -232,7 +231,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     Artifact rawProfileArtifact;
 
-    if (fdoProfile.getBaseName().endsWith(".zip")) {
+    if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoProfile)) {
       // Get the zipper binary for unzipping the profile.
       Artifact zipperBinaryArtifact = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
       if (zipperBinaryArtifact == null) {
@@ -325,15 +324,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    TransitiveInfoCollection lipoContextCollector =
-        ruleContext.getPrerequisite(
-            TransitiveLipoInfoProvider.LIPO_CONTEXT_COLLECTOR, Mode.DONT_CHECK);
-    if (lipoContextCollector != null
-        && lipoContextCollector.getProvider(LipoContextProvider.class) == null) {
-      ruleContext.ruleError("--lipo_context must point to a cc_binary or a cc_test rule");
-      return null;
-    }
-
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
@@ -380,48 +370,30 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       }
     }
 
-    FileTypeSet validExtensions =
-        FileTypeSet.of(
-            CppFileTypes.GCC_AUTO_PROFILE,
-            CppFileTypes.LLVM_PROFILE,
-            CppFileTypes.LLVM_PROFILE_RAW,
-            FileType.of(".zip"));
-    if (fdoZip != null && !validExtensions.matches(fdoZip.getPathString())) {
+    FdoMode fdoMode;
+    if (fdoZip == null) {
+      fdoMode = FdoMode.OFF;
+    } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
+      fdoMode = FdoMode.AUTO_FDO;
+    } else if (CppFileTypes.XBINARY_PROFILE.matches(fdoZip)) {
+      fdoMode = FdoMode.XBINARY_FDO;
+    } else if (CppFileTypes.LLVM_PROFILE.matches(fdoZip)) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else if (CppFileTypes.LLVM_PROFILE_RAW.matches(fdoZip)) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoZip)) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else {
       ruleContext.ruleError("invalid extension for FDO profile file.");
       return null;
     }
 
-    FdoMode fdoMode;
-    if (fdoZip == null) {
-      fdoMode = FdoMode.OFF;
-    } else if (CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip.getBaseName())) {
-      fdoMode = FdoMode.AUTO_FDO;
-    } else if (isLLVMOptimizedFdo(toolchainInfo.isLLVMCompiler(), fdoZip)) {
-      fdoMode = FdoMode.LLVM_FDO;
-    } else {
-      fdoMode = FdoMode.VANILLA;
-    }
-
-    SkyKey fdoKey =
-        FdoSupportValue.key(
-            cppConfiguration.getLipoMode(),
-            fdoZip,
-            prefetchHints,
-            cppConfiguration.getFdoInstrument(),
-            fdoMode);
+    SkyKey fdoKey = FdoSupportValue.key(fdoZip);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    FdoSupportValue fdoSupport;
-    try {
-      fdoSupport = (FdoSupportValue) skyframeEnv.getValueOrThrow(
-          fdoKey, FdoException.class, IOException.class);
-    } catch (FdoException | IOException e) {
-      ruleContext.ruleError("cannot initialize FDO: " + e.getMessage());
-      return null;
-    }
-
+    FdoSupportValue fdoSupport = (FdoSupportValue) skyframeEnv.getValue(fdoKey);
     if (skyframeEnv.valuesMissing()) {
-      return null;
+     return null;
     }
 
     final Label label = ruleContext.getLabel();
@@ -557,13 +529,24 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (fdoMode == FdoMode.LLVM_FDO) {
       profileArtifact =
           convertLLVMRawProfileToIndexed(
-              fdoSupport.getFdoSupport().getFdoProfile().asFragment(), toolchainInfo, ruleContext);
+              fdoSupport.getFdoProfile().asFragment(), toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
         return null;
       }
+    } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
+      Path fdoProfile = fdoSupport.getFdoProfile();
+      profileArtifact = ruleContext.getUniqueDirectoryArtifact(
+              "fdo",
+              fdoProfile.getBaseName(),
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(new SymlinkAction(
+          ruleContext.getActionOwner(),
+          fdoProfile.asFragment(),
+          profileArtifact,
+          "Symlinking FDO profile " + fdoProfile.getPathString()));
     }
-    Artifact hintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
-    ProfileArtifacts profileArtifacts = new ProfileArtifacts(profileArtifact, hintsArtifact);
+
+    Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
     reportInvalidOptions(ruleContext, toolchainInfo);
 
@@ -614,8 +597,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .addProvider(
-                fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifacts))
+            .addProvider(new FdoProvider(
+                fdoSupport.getFdoProfile(), fdoMode, cppConfiguration.getFdoInstrument(),
+                profileArtifact, prefetchHintsArtifact))
             .setFilesToBuild(crosstool)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
@@ -639,14 +623,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
-  private boolean isLLVMOptimizedFdo(boolean isLLVMCompiler, PathFragment fdoProfilePath) {
-    return fdoProfilePath != null
-        && (CppFileTypes.LLVM_PROFILE.matches(fdoProfilePath)
-            || CppFileTypes.LLVM_PROFILE_RAW.matches(fdoProfilePath)
-            || (isLLVMCompiler && fdoProfilePath.toString().endsWith(".zip")));
-  }
-
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private CppToolchainInfo getCppToolchainInfo(
       RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
@@ -661,10 +637,19 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     // If we found a toolchain, use it.
     try {
+      toolchain =
+          CppToolchainInfo.addLegacyFeatures(
+              toolchain, cppConfiguration.getCrosstoolTopPathFragment());
+      CcToolchainConfigInfo ccToolchainConfigInfo =
+          CcToolchainConfigInfo.fromToolchain(
+              cppConfiguration.getCrosstoolFile().getProto(), toolchain);
       return CppToolchainInfo.create(
-          toolchain,
           cppConfiguration.getCrosstoolTopPathFragment(),
-          cppConfiguration.getCcToolchainRuleLabel());
+          cppConfiguration.getCcToolchainRuleLabel(),
+          ccToolchainConfigInfo,
+          cppConfiguration.disableLegacyCrosstoolFields(),
+          cppConfiguration.disableCompilationModeFlags(),
+          cppConfiguration.disableLinkingModeFlags());
     } catch (InvalidConfigurationException e) {
       throw ruleContext.throwWithRuleError(e.getMessage());
     }
@@ -753,19 +738,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (compiler.isEmpty()) {
       compiler = null;
     }
-    String libc = ruleContext.attributes().get("libc", Type.STRING);
-    if (libc.isEmpty()) {
-      libc = null;
-    }
-    CrosstoolConfigurationIdentifier config =
-        new CrosstoolConfigurationIdentifier(cpu, compiler, libc);
+    CrosstoolConfigurationIdentifier config = new CrosstoolConfigurationIdentifier(cpu, compiler);
 
     try {
       return CrosstoolConfigurationLoader.selectToolchain(
           cppConfiguration.getCrosstoolFile().getProto(),
           config,
-          cppConfiguration.getLipoMode(),
-          cppConfiguration.shouldConvertLipoToThinLto(),
           cppConfiguration.getCpuTransformer());
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(
@@ -892,6 +870,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   private final CcToolchainVariables getBuildVariables(
       RuleContext ruleContext, PathFragment defaultSysroot) throws RuleErrorException {
     CcToolchainVariables.Builder variables = new CcToolchainVariables.Builder();
+
+    CppConfiguration cppConfiguration =
+        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+    String minOsVersion = cppConfiguration.getMinimumOsVersion();
+    if (minOsVersion != null) {
+      variables.addStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, minOsVersion);
+    }
 
     PathFragment sysroot = calculateSysroot(ruleContext, defaultSysroot);
     if (sysroot != null) {

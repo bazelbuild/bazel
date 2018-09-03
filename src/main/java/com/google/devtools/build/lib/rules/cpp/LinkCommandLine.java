@@ -50,7 +50,6 @@ public final class LinkCommandLine extends CommandLine {
   private final Iterable<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final Link.LinkingMode linkingMode;
-  private final ImmutableList<String> linkopts;
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
@@ -65,7 +64,6 @@ public final class LinkCommandLine extends CommandLine {
       Iterable<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       Link.LinkingMode linkingMode,
-      ImmutableList<String> linkopts,
       @Nullable PathFragment toolchainLibrariesSolibDir,
       boolean nativeDeps,
       boolean useTestOnlyFlags,
@@ -81,7 +79,6 @@ public final class LinkCommandLine extends CommandLine {
     this.linkerInputArtifacts = Preconditions.checkNotNull(linkerInputArtifacts);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkingMode = Preconditions.checkNotNull(linkingMode);
-    this.linkopts = linkopts;
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
@@ -119,15 +116,17 @@ public final class LinkCommandLine extends CommandLine {
    * Returns the additional linker options for this link.
    */
   public ImmutableList<String> getLinkopts() {
-    return linkopts;
+    if (variables.isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
+      return CcToolchainVariables.toStringList(
+          variables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+    } else {
+      return ImmutableList.of();
+    }
   }
 
   /** Returns the path to the linker. */
   public String getLinkerPathString() {
-    return featureConfiguration
-        .getToolForAction(linkTargetType.getActionName())
-        .getToolPathFragment()
-        .getPathString();
+    return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
   }
 
   /**
@@ -304,10 +303,6 @@ public final class LinkCommandLine extends CommandLine {
         paramFileArgs.add("--start-lib");
       } else if (arg.equals("-Wl,--end-lib")) {
         paramFileArgs.add("--end-lib");
-      } else if (arg.equals("--incremental-unchanged")) {
-        paramFileArgs.add(arg);
-      } else if (arg.equals("--incremental-changed")) {
-        paramFileArgs.add(arg);
       } else if (arg.charAt(0) == '-') {
         if (arg.startsWith("-l")) {
           paramFileArgs.add(arg);
@@ -319,9 +314,15 @@ public final class LinkCommandLine extends CommandLine {
             commandlineArgs.add(args.get(++i));
           }
         }
-      } else if (arg.endsWith(".a") || arg.endsWith(".lo") || arg.endsWith(".so")
-          || arg.endsWith(".ifso") || arg.endsWith(".o")
-          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(arg)) {
+      } else if (CppFileTypes.OBJECT_FILE.apply(arg)
+          || CppFileTypes.PIC_OBJECT_FILE.apply(arg)
+          || CppFileTypes.ARCHIVE.apply(arg)
+          || CppFileTypes.PIC_ARCHIVE.apply(arg)
+          || CppFileTypes.ALWAYS_LINK_LIBRARY.apply(arg)
+          || CppFileTypes.ALWAYS_LINK_PIC_LIBRARY.apply(arg)
+          || CppFileTypes.SHARED_LIBRARY.apply(arg)
+          || CppFileTypes.INTERFACE_SHARED_LIBRARY.apply(arg)
+          || CppFileTypes.VERSIONED_SHARED_LIBRARY.apply(arg)) {
         // All objects of any kind go into the linker parameters.
         paramFileArgs.add(arg);
       } else {
@@ -373,11 +374,7 @@ public final class LinkCommandLine extends CommandLine {
       Preconditions.checkArgument(
           featureConfiguration.actionIsConfigured(actionName),
           String.format("Expected action_config for '%s' to be configured", actionName));
-      argv.add(
-          featureConfiguration
-              .getToolForAction(linkTargetType.getActionName())
-              .getToolPathFragment()
-              .getPathString());
+      argv.add(featureConfiguration.getToolPathForAction(linkTargetType.getActionName()));
     }
     argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
     return argv;
@@ -412,8 +409,7 @@ public final class LinkCommandLine extends CommandLine {
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
     private Iterable<Artifact> linkerInputArtifacts = ImmutableList.of();
     @Nullable private LinkTargetType linkTargetType;
-    private Link.LinkingMode linkingMode = Link.LinkingMode.LEGACY_FULLY_STATIC;
-    private ImmutableList<String> linkopts = ImmutableList.of();
+    private Link.LinkingMode linkingMode = Link.LinkingMode.STATIC;
     @Nullable private PathFragment toolchainLibrariesSolibDir;
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
@@ -437,7 +433,7 @@ public final class LinkCommandLine extends CommandLine {
       if (ruleContext != null) {
         Preconditions.checkNotNull(featureConfiguration);
       }
-      
+
       if (variables == null) {
         variables = CcToolchainVariables.EMPTY;
       }
@@ -451,7 +447,6 @@ public final class LinkCommandLine extends CommandLine {
           linkerInputArtifacts,
           linkTargetType,
           linkingMode,
-          linkopts,
           toolchainLibrariesSolibDir,
           nativeDeps,
           useTestOnlyFlags,
@@ -495,21 +490,9 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets the linker options. These are passed to the linker in addition to the other linker
-     * options like linker inputs, symbol count options, etc. The {@link #build} method throws an
-     * exception if the linker options are non-empty for a static link (see {@link
-     * LinkTargetType#linkerOrArchiver()}).
-     */
-    public Builder setLinkopts(ImmutableList<String> linkopts) {
-      this.linkopts = linkopts;
-      return this;
-    }
-
-    /**
      * Sets how static the link is supposed to be. For static target types (see {@link
      * LinkTargetType#linkerOrArchiver()}}), the {@link #build} method throws an exception if this
-     * is not {@link Link.LinkingMode#LEGACY_FULLY_STATIC}. The default setting is {@link
-     * Link.LinkingMode#LEGACY_FULLY_STATIC}.
+     * is not {@link LinkingMode#STATIC}. The default setting is {@link LinkingMode#STATIC}.
      */
     public Builder setLinkingMode(Link.LinkingMode linkingMode) {
       this.linkingMode = linkingMode;

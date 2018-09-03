@@ -29,6 +29,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -88,7 +90,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -101,7 +103,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.function.BooleanSupplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -150,8 +151,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
-      BooleanSupplier usesActionFileSystem) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -171,8 +171,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         GraphInconsistencyReceiver.THROWING,
         defaultBuildOptions,
         new PackageProgressReceiver(),
-        mutableArtifactFactorySupplier,
-        usesActionFileSystem);
+        mutableArtifactFactorySupplier);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -209,8 +208,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildFilesByPriority,
         actionOnIOExceptionReadingBuildFile,
         defaultBuildOptions,
-        new MutableArtifactFactorySupplier(),
-        /*usesActionFileSystem=*/ () -> false);
+        new MutableArtifactFactorySupplier());
   }
 
   public static SequencedSkyframeExecutor create(
@@ -229,8 +227,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<BuildFileName> buildFilesByPriority,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
-      BooleanSupplier usesActionFileSystem) {
+      MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -249,8 +246,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             buildFilesByPriority,
             actionOnIOExceptionReadingBuildFile,
             defaultBuildOptions,
-            mutableArtifactFactorySupplier,
-            usesActionFileSystem);
+            mutableArtifactFactorySupplier);
     skyframeExecutor.init();
     return skyframeExecutor;
   }
@@ -292,7 +288,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
-      OptionsClassProvider options)
+      OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
@@ -313,8 +309,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           SkyFunctions.AST_FILE_LOOKUP,
-          SkyFunctions.FILE_STATE,
-          SkyFunctions.FILE,
+          FileStateValue.FILE_STATE,
+          FileValue.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
@@ -359,11 +355,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   /** Uses diff awareness on all the package paths to invalidate changed files. */
   @VisibleForTesting
   public void handleDiffs(ExtendedEventHandler eventHandler) throws InterruptedException {
-    handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsClassProvider.EMPTY);
+    handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsProvider.EMPTY);
   }
 
   private void handleDiffs(
-      ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsClassProvider options)
+      ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsProvider options)
       throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
@@ -561,8 +557,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
     // We are searching only for changed files, DirectoryListingValues don't depend on
     // child values, that's why they are invalidated separately
-    return Iterables.size(Iterables.filter(modifiedValues,
-        SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)));
+    return Iterables.size(
+        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateValue.FILE_STATE)));
   }
 
   /**
@@ -578,8 +574,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @Override
   public void decideKeepIncrementalState(
-      boolean batch, boolean keepStateAfterBuild, boolean shouldTrackIncrementalState,
-      boolean discardAnalysisCache, boolean discardActionsAfterExecution,
+      boolean batch,
+      boolean keepStateAfterBuild,
+      boolean shouldTrackIncrementalState,
+      boolean discardAnalysisCache,
       EventHandler eventHandler) {
     Preconditions.checkState(!active);
     boolean oldValueOfTrackIncrementalState = trackIncrementalState;
@@ -608,7 +606,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    removeActionsAfterEvaluation.set(!trackIncrementalState && discardActionsAfterExecution);
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
@@ -764,17 +761,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler) {
     Map<String, RuleStat> ruleStats = new HashMap<>();
-    for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
-        memoizingEvaluator.getGraphMap().entrySet()) {
-      NodeEntry entry = skyKeyAndNodeEntry.getValue();
-      if (entry == null || !entry.isDone()) {
-        continue;
-      }
-      SkyKey key = skyKeyAndNodeEntry.getKey();
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+        memoizingEvaluator.getDoneValues().entrySet()) {
+      SkyValue value = skyKeyAndValue.getValue();
+      SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
       if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-        try {
-          ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
           ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
           if (configuredTarget instanceof RuleConfiguredTarget) {
 
@@ -793,20 +786,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                     ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
             ruleStat.addRule(ctValue.getNumActions());
           }
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("No interruption in sequenced evaluation", e);
-        }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
-        try {
-          AspectValue aspectValue = (AspectValue) entry.getValue();
+        AspectValue aspectValue = (AspectValue) value;
           AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
           RuleStat ruleStat =
               ruleStats.computeIfAbsent(
                   aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
           ruleStat.addRule(aspectValue.getNumActions());
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("No interruption in sequenced evaluation", e);
-        }
       }
     }
     return new ArrayList<>(ruleStats.values());
@@ -817,13 +803,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       List<String> actionGraphTargets, boolean includeActionCmdLine)
       throws CommandLineExpansionException {
     ActionGraphDump actionGraphDump = new ActionGraphDump(actionGraphTargets, includeActionCmdLine);
-    for (Map.Entry<SkyKey, ? extends NodeEntry> skyKeyAndNodeEntry :
-        memoizingEvaluator.getGraphMap().entrySet()) {
-      NodeEntry entry = skyKeyAndNodeEntry.getValue();
-      SkyKey key = skyKeyAndNodeEntry.getKey();
+    for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+        memoizingEvaluator.getDoneValues().entrySet()) {
+      SkyKey key = skyKeyAndValue.getKey();
+      SkyValue skyValue = skyKeyAndValue.getValue();
       SkyFunctionName functionName = key.functionName();
       try {
-        SkyValue skyValue = entry.getValue();
         // The skyValue may be null in case analysis of the previous build failed.
         if (skyValue != null) {
           if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {

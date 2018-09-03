@@ -17,7 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,14 +37,15 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
 
   public SkylarkJavaMethodDoc(String moduleName, Method method, SkylarkCallable callable) {
     this.moduleName = moduleName;
-    this.name = callable.name().isEmpty()
-        ? StringUtilities.toPythonStyleFunctionName(method.getName())
-        : callable.name();
+    this.name = callable.name();
     this.method = method;
     this.callable = callable;
     this.params =
         SkylarkDocUtils.determineParams(
-            this, callable.parameters(), callable.extraPositionals(), callable.extraKeywords());
+            this,
+            withoutSelfParam(callable, method),
+            callable.extraPositionals(),
+            callable.extraKeywords());
   }
 
   public Method getMethod() {
@@ -81,6 +83,11 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   }
 
   @Override
+  public String getShortName() {
+    return name;
+  }
+
+  @Override
   public String getDocumentation() {
     return SkylarkDocUtils.substituteVariables(callable.doc());
   }
@@ -99,11 +106,21 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   }
 
   @Override
+  public String getReturnType() {
+    return EvalUtils.getDataTypeNameFromClass(method.getReturnType());
+  }
+
+  @Override
   public List<SkylarkParamDoc> getParams() {
     return params;
   }
 
   public void setOverloaded(boolean isOverloaded) {
     this.isOverloaded = isOverloaded;
+  }
+
+  @Override
+  public Boolean isCallable() {
+    return !SkylarkInterfaceUtils.getSkylarkCallable(this.method).structField();
   }
 }

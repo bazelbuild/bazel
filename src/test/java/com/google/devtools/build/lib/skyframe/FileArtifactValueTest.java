@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
+import static com.google.devtools.build.lib.actions.FileArtifactValue.create;
 import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -157,17 +158,18 @@ public class FileArtifactValueTest {
   @Test
   public void testIOException() throws Exception {
     final IOException exception = new IOException("beep");
-    FileSystem fs = new InMemoryFileSystem() {
-      @Override
-      public byte[] getDigest(Path path, HashFunction hf) throws IOException {
-        throw exception;
-      }
+    FileSystem fs =
+        new InMemoryFileSystem() {
+          @Override
+          public byte[] getDigest(Path path) throws IOException {
+            throw exception;
+          }
 
-      @Override
-      protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
-        throw exception;
-      }
-    };
+          @Override
+          protected byte[] getFastDigest(Path path) throws IOException {
+            throw exception;
+          }
+        };
     Path path = fs.getPath("/some/path");
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, "content");

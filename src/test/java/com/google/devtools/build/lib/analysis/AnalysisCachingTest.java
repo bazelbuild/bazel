@@ -14,21 +14,42 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsParser;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -139,13 +160,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       return;
     }
     useConfiguration("--cpu=k8");
-    scratch.file("conflict/BUILD",
+    scratch.file(
+        "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])",
-        "cc_binary(name='foo', deps=['x'], data=['_objs/x/conflict/foo.pic.o'])");
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])",
+        "cc_binary(name='foo', deps=['x'], data=['_objs/x/foo.pic.o'])");
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:foo");
-    assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
     assertThat(getAnalysisResult().getTargetsToBuild()).isEmpty();
   }
 
@@ -161,22 +183,23 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
     useConfiguration("--cpu=k8");
-    scratch.file("conflict/BUILD",
+    scratch.file(
+        "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     update("//conflict:x");
     ConfiguredTarget conflict = getConfiguredTarget("//conflict:x");
-    Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/conflict/foo.pic.o", conflict));
+    Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/foo.pic.o", conflict));
     assertThat(oldAction.getOwner().getLabel().toString()).isEqualTo("//conflict:x");
-    scratch.overwriteFile("conflict/BUILD",
+    scratch.overwriteFile(
+        "conflict/BUILD",
         "cc_library(name='newx', srcs=['foo.cc'])", // Rename target.
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
-    update(defaultFlags(), "//conflict:_objs/x/conflict/foo.pic.o");
-    ConfiguredTarget objsConflict = getConfiguredTarget("//conflict:_objs/x/conflict/foo.pic.o");
-    Action newAction =
-        getGeneratingAction(getBinArtifact("_objs/x/conflict/foo.pic.o", objsConflict));
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+    update(defaultFlags(), "//conflict:_objs/x/foo.pic.o");
+    ConfiguredTarget objsConflict = getConfiguredTarget("//conflict:_objs/x/foo.pic.o");
+    Action newAction = getGeneratingAction(getBinArtifact("_objs/x/foo.pic.o", objsConflict));
     assertThat(newAction.getOwner().getLabel().toString())
-        .isEqualTo("//conflict:_objs/x/conflict/foo.pic.o");
+        .isEqualTo("//conflict:_objs/x/foo.pic.o");
   }
 
   /**
@@ -189,13 +212,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       return;
     }
     useConfiguration("--cpu=k8");
-    scratch.file("conflict/BUILD",
+    scratch.file(
+        "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
-    assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
+    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
   }
 
   @Test
@@ -205,26 +228,26 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       return;
     }
     useConfiguration("--cpu=k8");
-    scratch.file("conflict/BUILD",
-                "cc_library(name='x', srcs=['foo.cc'])",
-                "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
+    scratch.file(
+        "conflict/BUILD",
+        "cc_library(name='x', srcs=['foo.cc'])",
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
     skyframeExecutor.clearAnalysisCache(
         ImmutableList.<ConfiguredTarget>of(), ImmutableSet.<AspectValue>of());
-    assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
     eventCollector.clear();
-    scratch.overwriteFile("conflict/BUILD",
+    scratch.overwriteFile(
+        "conflict/BUILD",
         "cc_library(name='x', srcs=['baz.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
-    update(defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
     assertNoEvents();
   }
-  
+
   /**
    * For two conflicting actions whose primary inputs are different, no list diff detail should be
    * part of the output.
@@ -239,14 +262,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.pic.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
-    update(
-        defaultFlags().with(Flag.KEEP_GOING),
-        "//conflict:x",
-        "//conflict:_objs/x/conflict/foo.pic.o");
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o");
 
-    assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("file 'conflict/_objs/x/foo.pic.o' " + CONFLICT_MSG);
     assertDoesNotContainEvent("MandatoryInputs");
     assertDoesNotContainEvent("Outputs");
   }
@@ -266,13 +286,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo1.cc', 'foo2.cc', 'foo3.cc', 'foo4.cc', 'foo5.cc'"
             + ", 'foo6.cc'])",
-        "genrule(name = 'foo', outs=['_objs/x/conflict/foo1.pic.o'], srcs=['foo1.cc', 'foo2.cc', "
+        "genrule(name = 'foo', outs=['_objs/x/foo1.pic.o'], srcs=['foo1.cc', 'foo2.cc', "
             + "'foo3.cc', 'foo4.cc', 'foo5.cc', 'foo6.cc'], cmd='', output_to_bindir=1)");
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:foo");
 
-    Event event =
-        assertContainsEvent("file 'conflict/_objs/x/conflict/foo1.pic.o' " + CONFLICT_MSG);
+    Event event = assertContainsEvent("file 'conflict/_objs/x/foo1.pic.o' " + CONFLICT_MSG);
     assertContainsEvent("MandatoryInputs");
     assertContainsEvent("Outputs");
 
@@ -298,15 +317,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       return;
     }
     useConfiguration("--cpu=k8");
-    scratch.file("conflict/BUILD",
+    scratch.file(
+        "conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/conflict/foo.o', srcs=['bar.cc'])");
+        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     reporter.removeHandler(failFastHandler); // expect errors
     int successfulAnalyses =
-        update(
-                defaultFlags().with(Flag.KEEP_GOING),
-                "//conflict:x",
-                "//conflict:_objs/x/conflict/foo.pic.o")
+        update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o")
             .getTargetsToBuild()
             .size();
     assertThat(successfulAnalyses).isEqualTo(1);
@@ -455,22 +472,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update();
     assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
   }
-  
-  @Test
-  public void testWorkspaceStatusCommandIsNotCachedForNullBuild() throws Exception {
-    if (getInternalTestExecutionMode() != InternalTestExecutionMode.NORMAL) {
-      // TODO(b/66477180): maybe just ignore.
-      return;
-    }
-    update();
-    WorkspaceStatusAction actionA = getView().getLastWorkspaceBuildInfoActionForTesting();
-    assertThat(actionA.getMnemonic()).isEqualTo("DummyBuildInfoAction");
-
-    workspaceStatusActionFactory.setKey("Second");
-    update();
-    WorkspaceStatusAction actionB = getView().getLastWorkspaceBuildInfoActionForTesting();
-    assertThat(actionB.getMnemonic()).isEqualTo("DummyBuildInfoActionSecond");
-  }
 
   @Test
   public void testSkyframeCacheInvalidationBuildFileChange() throws Exception {
@@ -561,5 +562,500 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"))
         .isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+  }
+
+  /** Test options class for testing diff-based analysis cache resetting. */
+  public static final class DiffResetOptions extends FragmentOptions {
+    public static final PatchTransition CLEAR_IRRELEVANT =
+        (options) -> {
+          BuildOptions cloned = options.clone();
+          cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
+          return cloned;
+        };
+
+    @Option(
+        name = "probably_irrelevant",
+        defaultValue = "(unset)",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "This option is irrelevant to non-uses_irrelevant targets and is trimmed from them.")
+    public String probablyIrrelevantOption;
+
+    @Option(
+        name = "definitely_relevant",
+        defaultValue = "(unset)",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "This option is not trimmed and is used by all targets.")
+    public String definitelyRelevantOption;
+
+    @Option(
+        name = "host_relevant",
+        defaultValue = "(unset)",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "This option is not trimmed and is used by all host targets.")
+    public String hostRelevantOption;
+
+    @Override
+    public DiffResetOptions getHost() {
+      DiffResetOptions host = ((DiffResetOptions) super.getHost());
+      host.definitelyRelevantOption = hostRelevantOption;
+      return host;
+    }
+  }
+
+  @SkylarkModule(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
+  private static final class DiffResetFragment extends BuildConfiguration.Fragment {}
+
+  private static final class DiffResetFactory implements ConfigurationFragmentFactory {
+    @Override
+    public BuildConfiguration.Fragment create(BuildOptions options) {
+      return new DiffResetFragment();
+    }
+
+    @Override
+    public Class<? extends BuildConfiguration.Fragment> creates() {
+      return DiffResetFragment.class;
+    }
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+      return ImmutableSet.of(DiffResetOptions.class);
+    }
+  }
+
+  private void setupDiffResetTesting() throws Exception {
+    OptionDefinition probablyIrrelevantOption =
+        OptionsParser.getOptionDefinitions(DiffResetOptions.class)
+            .stream()
+            .filter(definition -> definition.getOptionName().equals("probably_irrelevant"))
+            .collect(MoreCollectors.onlyElement());
+    ImmutableSet<OptionDefinition> optionsThatCanChange = ImmutableSet.of(probablyIrrelevantOption);
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfig(DiffResetOptions.class, new DiffResetFactory());
+    builder.overrideShouldInvalidateCacheForDiffForTesting(
+        (diff, newOptions) -> {
+          for (OptionDefinition changed : diff.getFirst().keySet()) {
+            if (!optionsThatCanChange.contains(changed)) {
+              return true;
+            }
+          }
+          return false;
+        });
+    builder.overrideTrimmingTransitionFactoryForTesting(
+        (rule) -> {
+          if (rule.getRuleClassObject().getName().equals("uses_irrelevant")) {
+            return NoTransition.INSTANCE;
+          }
+          return DiffResetOptions.CLEAR_IRRELEVANT;
+        });
+    useRuleClassProvider(builder.build());
+    scratch.file(
+        "test/lib.bzl",
+        "def _empty_impl(ctx):",
+        "  pass",
+        "normal_lib = rule(",
+        "    implementation = _empty_impl,",
+        "    fragments = ['test_diff_fragment'],",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "        'host_deps': attr.label_list(cfg='host'),",
+        "    },",
+        ")",
+        "uses_irrelevant = rule(",
+        "    implementation = _empty_impl,",
+        "    fragments = ['test_diff_fragment'],",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "        'host_deps': attr.label_list(cfg='host'),",
+        "    },",
+        ")");
+    update();
+  }
+
+  private void assertNumberOfAnalyzedConfigurationsOfTargets(
+      Map<String, Integer> targetsWithCounts) {
+    ImmutableMultiset<Label> actualSet =
+        getSkyframeEvaluatedTargetKeys()
+            .stream()
+            .filter(key -> key instanceof ConfiguredTargetKey)
+            .map(key -> ((ConfiguredTargetKey) key).getLabel())
+            .collect(toImmutableMultiset());
+    ImmutableMap<Label, Integer> expected =
+        targetsWithCounts
+            .entrySet()
+            .stream()
+            .collect(
+                toImmutableMap(
+                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()),
+                    entry -> entry.getValue()));
+    ImmutableMap<Label, Integer> actual =
+        expected
+            .keySet()
+            .stream()
+            .collect(toImmutableMap(label -> label, label -> actualSet.count(label)));
+    assertThat(actual).containsExactlyEntriesIn(expected);
+  }
+
+  @Test
+  public void cacheNotClearedWhenOptionsStaySame() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--definitely_relevant=Testing");
+    update("//test:top");
+    update("//test:top");
+    // these targets were cached and did not need to be reanalyzed
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 0)
+            .put("//test:shared", 0)
+            .build());
+  }
+
+  @Test
+  public void cacheNotClearedWhenOptionsStaySameWithMultiCpu() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--experimental_multi_cpu=k8,ppc", "--definitely_relevant=Testing");
+    update("//test:top");
+    update("//test:top");
+    // these targets were cached and did not need to be reanalyzed
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 0)
+            .put("//test:shared", 0)
+            .build());
+  }
+
+  @Test
+  public void cacheClearedWhenNonAllowedOptionsChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--definitely_relevant=Test 1");
+    update("//test:top");
+    useConfiguration("--definitely_relevant=Test 2");
+    update("//test:top");
+    useConfiguration("--definitely_relevant=Test 1");
+    update("//test:top");
+    // these targets needed to be reanalyzed even though we built them in this configuration
+    // just a moment ago
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 1)
+            .build());
+  }
+
+  @Test
+  public void cacheClearedWhenNonAllowedHostOptionsChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', host_deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--host_relevant=Test 1");
+    update("//test:top");
+    useConfiguration("--host_relevant=Test 2");
+    update("//test:top");
+    useConfiguration("--host_relevant=Test 1");
+    update("//test:top");
+    // these targets needed to be reanalyzed even though we built them in this configuration
+    // just a moment ago
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 1)
+            .build());
+  }
+
+  @Test
+  public void cacheClearedWhenMultiCpuChanges() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--experimental_multi_cpu=k8,ppc");
+    update("//test:top");
+    useConfiguration("--experimental_multi_cpu=k8,armeabi-v7a");
+    update("//test:top");
+    // we needed to reanalyze these in both k8 and armeabi-v7a even though we did the k8 analysis
+    // just a moment ago as part of the previous build
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 2)
+            .put("//test:shared", 2)
+            .build());
+  }
+
+  @Test
+  public void cacheClearedWhenMultiCpuGetsBigger() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--experimental_multi_cpu=k8,ppc");
+    update("//test:top");
+    useConfiguration("--experimental_multi_cpu=k8,ppc,armeabi-v7a");
+    update("//test:top");
+    // we needed to reanalyze these in all of {k8,ppc,armeabi-v7a} even though we did the k8 and ppc
+    // analysis just a moment ago as part of the previous build
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 3)
+            .put("//test:shared", 3)
+            .build());
+  }
+
+  @Test
+  public void cacheClearedWhenMultiCpuGetsSmaller() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--experimental_multi_cpu=k8,ppc,armeabi-v7a");
+    update("//test:top");
+    useConfiguration("--experimental_multi_cpu=k8,ppc");
+    update("//test:top");
+    // we needed to reanalyze these in both k8 and ppc even though we did the k8 and ppc
+    // analysis just a moment ago as part of the previous build
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 2)
+            .put("//test:shared", 2)
+            .build());
+  }
+
+  @Test
+  public void cacheNotClearedWhenAllowedOptionsChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 1");
+    update("//test:top");
+    useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 2");
+    update("//test:top");
+    // the shared library got to reuse the cached value, while the entry point had to be rebuilt in
+    // the new configuration
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 0)
+            .build());
+    useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 1");
+    update("//test:top");
+    // now we're back to the old configuration with no cache clears, so no work needed to be done
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 0)
+            .put("//test:shared", 0)
+            .build());
+  }
+
+  @Test
+  public void cacheNotClearedWhenAllowedOptionsChangeWithMultiCpu() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
+        "uses_irrelevant(name='top', deps=[':shared'])",
+        "normal_lib(name='shared')");
+    useConfiguration(
+        "--experimental_multi_cpu=k8,ppc",
+        "--definitely_relevant=Testing",
+        "--probably_irrelevant=Test 1");
+    update("//test:top");
+    useConfiguration(
+        "--experimental_multi_cpu=k8,ppc",
+        "--definitely_relevant=Testing",
+        "--probably_irrelevant=Test 2");
+    update("//test:top");
+    // the shared library got to reuse the cached value, while the entry point had to be rebuilt in
+    // the new configurations
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 2)
+            .put("//test:shared", 0)
+            .build());
+    useConfiguration(
+        "--experimental_multi_cpu=k8,ppc",
+        "--definitely_relevant=Testing",
+        "--probably_irrelevant=Test 1");
+    update("//test:top");
+    // now we're back to the old configurations with no cache clears, so no work needed to be done
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 0)
+            .put("//test:shared", 0)
+            .build());
+  }
+
+  @Test
+  public void noCacheClearMessageAfterCleanWithSameOptions() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration();
+    update("//test:top");
+    cleanSkyframe();
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterCleanWithDifferentOptions() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=before");
+    update("//test:top");
+    cleanSkyframe();
+    useConfiguration("--definitely_relevant=after");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterDiscardAnalysisCacheThenCleanWithSameOptions()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--discard_analysis_cache");
+    update("//test:top");
+    cleanSkyframe();
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterDiscardAnalysisCacheThenCleanWithChangedOptions()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=before", "--discard_analysis_cache");
+    update("//test:top");
+    cleanSkyframe();
+    useConfiguration("--definitely_relevant=after", "--discard_analysis_cache");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void cacheClearMessageAfterDiscardAnalysisCacheBuild() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--probably_irrelevant=yeah", "--discard_analysis_cache");
+    update("//test:top");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent("--discard_analysis_cache");
+    assertDoesNotContainEvent("Build options have changed");
+    assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void noCacheClearMessageAfterNonDiscardAnalysisCacheBuild() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--discard_analysis_cache");
+    update("//test:top");
+    useConfiguration();
+    update("//test:top");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void noCacheClearMessageAfterIrrelevantOptionChanges() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--probably_irrelevant=old");
+    update("//test:top");
+    useConfiguration("--probably_irrelevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertNoEvents();
+  }
+
+  @Test
+  public void cacheClearMessageAfterRelevantOptionChanges() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--definitely_relevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertDoesNotContainEvent("--discard_analysis_cache");
+    assertContainsEvent("Build options have changed");
+    assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void cacheClearMessageAfterDiscardAnalysisCacheBuildWithRelevantOptionChanges()
+      throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        "load(':lib.bzl', 'normal_lib')",
+        "normal_lib(name='top')");
+    useConfiguration("--discard_analysis_cache", "--definitely_relevant=old");
+    update("//test:top");
+    useConfiguration("--discard_analysis_cache", "--definitely_relevant=new");
+    eventCollector.clear();
+    update("//test:top");
+    assertContainsEvent("--discard_analysis_cache");
+    assertDoesNotContainEvent("Build options have changed");
+    assertContainsEvent("discarding analysis cache");
   }
 }

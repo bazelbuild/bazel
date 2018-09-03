@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -192,12 +193,15 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   @Test
   public void testTargetEnvironment() throws Exception {
     BuildConfiguration oneEnvConfig = create("--target_environment=//foo");
-    assertThat(oneEnvConfig.getTargetEnvironments()).containsExactly(Label.parseAbsolute("//foo"));
+    assertThat(oneEnvConfig.getTargetEnvironments())
+        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
 
     BuildConfiguration twoEnvsConfig =
         create("--target_environment=//foo", "--target_environment=//bar");
     assertThat(twoEnvsConfig.getTargetEnvironments())
-        .containsExactly(Label.parseAbsolute("//foo"), Label.parseAbsolute("//bar"));
+        .containsExactly(
+            Label.parseAbsolute("//foo", ImmutableMap.of()),
+            Label.parseAbsolute("//bar", ImmutableMap.of()));
 
     BuildConfiguration noEnvsConfig = create();
     assertThat(noEnvsConfig.getTargetEnvironments()).isEmpty();
@@ -458,9 +462,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     // Unnecessary ImmutableList.copyOf apparently necessary to choose non-varargs constructor.
     new SerializationTester(ImmutableList.copyOf(getTestConfigurations()))
         .addDependency(FileSystem.class, getScratch().getFileSystem())
-        .addDependency(
-            BuildConfigurationValue.KeyCodecCache.class,
-            new BuildConfigurationValue.KeyCodecCache())
+        .addDependency(BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())
         .setVerificationFunction(BuildConfigurationTest::verifyDeserialized)
         .runTests();
   }
@@ -472,9 +474,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
                 .stream()
                 .map(BuildConfigurationValue::key)
                 .collect(ImmutableList.toImmutableList()))
-        .addDependency(
-            BuildConfigurationValue.KeyCodecCache.class,
-            new BuildConfigurationValue.KeyCodecCache())
+        .addDependency(BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())
         .runTests();
   }
 
@@ -486,7 +486,6 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
    */
   private static void verifyDeserialized(
       BuildConfiguration subject, BuildConfiguration deserialized) {
-    assertThat(deserialized.isActionsEnabled()).isEqualTo(subject.isActionsEnabled());
     assertThat(deserialized.getOptions()).isEqualTo(subject.getOptions());
   }
 }

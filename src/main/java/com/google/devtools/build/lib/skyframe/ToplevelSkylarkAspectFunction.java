@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
@@ -66,7 +67,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     } catch (SkylarkImportFailedException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new LoadSkylarkAspectFunctionException(
-          new AspectCreationException(e.getMessage()));
+          new AspectCreationException(e.getMessage(), Label.parseAbsoluteUnchecked("//:empty")));
     }
     if (labelLookupMap == null) {
       return null;
@@ -82,8 +83,9 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
         return null;
       }
       if (!skylarkAspect.getParamAttributes().isEmpty()) {
-        throw new AspectCreationException("Cannot instantiate parameterized aspect "
-            + skylarkAspect.getName() + " at the top level.", extensionFileLabel);
+        String msg = "Cannot instantiate parameterized aspect " + skylarkAspect.getName()
+            + " at the top level.";
+        throw new AspectCreationException(msg, new LabelCause(extensionFileLabel, msg));
       }
     } catch (AspectCreationException e) {
       throw new LoadSkylarkAspectFunctionException(e);

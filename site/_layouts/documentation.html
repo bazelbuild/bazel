@@ -26,8 +26,8 @@ nav: docs
            <h3>Home</h3>
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/bazel-overview.html">Bazel Overview</a></li>
+              <li><a href="/versions/{{ site.version }}/bazel-vision.html">Bazel Vision</a></li>
               <li><a href="/versions/{{ site.version }}/getting-started.html">Getting Started</a></li>
-              <li><a href="/versions/{{ site.version }}/experimental.html">Experimental Features</a></li>
             </ul>
 
            <h3>Using Bazel</h3>
@@ -95,6 +95,18 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#javascript-menu" aria-expanded="false"
+                    aria-controls="javascript-menu">
+                  Bazel and JavaScript<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="javascript-menu">
+                  <li><a href="/versions/{{ site.version }}/bazel-and-javascript.html">JavaScript Resources</a></li>
+                  <li><a href="/versions/{{ site.version }}/build-javascript.html">Building JavaScript</a></li>
+                </ul>
+              </li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#android-menu" aria-expanded="false"
                     aria-controls="android-menu">
                   Bazel and Android<span class="caret"></span>
@@ -102,6 +114,9 @@ nav: docs
                 <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
                   <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android Resources</a></li>
                   <li><a href="/versions/{{ site.version }}/mobile-install.html">Using mobile-install</a></li>
+                  <li><a href="/versions/{{ site.version }}/android-instrumentation-test.html">Android Instrumentation Tests</a></li>
+                  <li><a href="/versions/{{ site.version }}/android-ndk.html">Android NDK</a></li>
+                  <li><a href="https://plugins.jetbrains.com/plugin/9185-bazel">Android Studio Plugin</a></li>
                 </ul>
               </li>
 
@@ -121,6 +136,7 @@ nav: docs
               <li><a href="/versions/{{ site.version }}/external.html">Adding External Dependencies</a></li>
               <li><a href="/versions/{{ site.version }}/query-how-to.html">Querying Builds</a></li>
               <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
+              <li><a href="/versions/{{ site.version }}/configurable-attributes.html">Configurable Attributes</a></li>
               <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
               <li><a href="/versions/{{ site.version }}/remote-caching.html">Remote Caching</a></li>
              </ul>
@@ -163,6 +179,7 @@ nav: docs
                        <li><a href="/versions/{{ site.version }}/be/java.html">Java</a></li>
                        <li><a href="https://github.com/bazelbuild/rules_closure">JavaScript (Closure)</a></li>
                        <li><a href="https://github.com/bazelbuild/rules_jsonnet">Jsonnet</a></li>
+                       <li><a href="https://bazelbuild.github.io/rules_nodejs">NodeJS</a></li>
                        <li><a href="/versions/{{ site.version }}/be/objective-c.html">Objective C</a></li>
                        <li><a href="/versions/{{ site.version }}/be/protocol-buffer.html">Protocol Buffers</a></li>
                        <li><a href="/versions/{{ site.version }}/be/python.html">Python</a></li>
@@ -188,11 +205,11 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#skylark-concepts" aria-expanded="false"
-                    aria-controls="skylark-concepts">
+                    href="#starlark-concepts" aria-expanded="false"
+                    aria-controls="starlark-concepts">
                   Concepts<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-concepts">
+                <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-concepts">
                   <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
@@ -204,11 +221,11 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#skylark-practices" aria-expanded="false"
-                    aria-controls="skylark-practices">
+                    href="#starlark-practices" aria-expanded="false"
+                    aria-controls="starlark-practices">
                   Best Practices<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-practices">
+                <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-practices">
                   <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">.bzl Style Guide</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/backward-compatibility.html">Backward Compatibility</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/testing.html">Testing</a></li>
@@ -216,12 +233,14 @@ nav: docs
                   <li><a href="/versions/{{ site.version }}/skylark/skylint.html">Linter</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/performance.html">Optimizing Performance</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/deploying.html">Deploying Rules</a></li>
+                  <li><a href="/versions/{{ site.version }}/remote-execution-rules.html">Guidelines for Remote Execution</a></li>
+                  <li><a href="/versions/{{ site.version }}/remote-execution-sandbox.html">Troubleshooting Remote Execution</a></li>
                 </ul>
               </li>
 
               <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Skylark Language</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/language.html">Starlark Language</a></li>
             </ul>
           </nav>
         </div>

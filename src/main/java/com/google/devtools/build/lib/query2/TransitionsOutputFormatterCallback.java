@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
@@ -34,9 +35,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
@@ -56,10 +56,11 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -129,10 +130,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
       BuildOptions fromOptions = config.getOptions();
       try {
-        // Note: Being able to pull the $toolchain attr unconditionally from the mapper relies on
-        // the fact that {@link PlatformSemantics.TOOLCHAIN_ATTRS} exists in every rule.
-        // Also, we don't actually use fromOptions in our implementation of DependencyResolver but
-        // passing to avoid passing a null and since we have the information anyway.
+        // Note: Being able to pull the $resolved_toolchain_internal attr unconditionally from the
+        // mapper relies on the fact that {@link PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR} exists
+        // in every rule. Also, we don't actually use fromOptions in our implementation of
+        // DependencyResolver but passing to avoid passing a null and since we have the information
+        // anyway.
         deps =
             new FormatterDependencyResolver(configuredTarget, reporter)
                 .dependentNodeMap(
@@ -142,7 +144,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
                     configConditions,
                     ImmutableSet.copyOf(
                         ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions)
-                            .get(PlatformSemantics.TOOLCHAINS_ATTR, BuildType.LABEL_LIST)),
+                            .get(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, BuildType.LABEL_LIST)),
                     fromOptions,
                     trimmingTransitionFactory);
       } catch (EvalException | InvalidConfigurationException | InconsistentAspectOrderException e) {
@@ -153,18 +155,8 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
             || attributeAndDep.getValue().getTransition() instanceof NoTransition) {
           continue;
         }
-        List<BuildOptions> toOptions;
         Dependency dep = attributeAndDep.getValue();
-        ConfigurationTransition transition = dep.getTransition();
-        if (transition instanceof SplitTransition) {
-          toOptions = ((SplitTransition) transition).split(fromOptions);
-        } else if (transition instanceof PatchTransition) {
-          toOptions = Collections.singletonList(((PatchTransition) transition).apply(fromOptions));
-        } else {
-          throw new IllegalStateException(
-              "If this error is thrown, cquery needs to be updated to take into account non-Patch"
-                  + " and non-Split Transitions");
-        }
+        List<BuildOptions> toOptions = dep.getTransition().apply(fromOptions);
         String hostConfigurationChecksum = hostConfiguration.checksum();
         addResult(
             "  "
@@ -253,9 +245,16 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
     }
 
     @Override
-    protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses)
-        throws InterruptedException {
-      return partialResultMap.get(label);
+    protected Map<Label, Target> getTargets(
+        Iterable<Label> labels,
+        Target fromTarget,
+        NestedSetBuilder<Cause> rootCauses,
+        int labelsSizeHint) {
+      return Streams.stream(labels)
+          .distinct()
+          .filter(Objects::nonNull)
+          .filter(partialResultMap::containsKey)
+          .collect(Collectors.toMap(Function.identity(), partialResultMap::get));
     }
 
     @Override

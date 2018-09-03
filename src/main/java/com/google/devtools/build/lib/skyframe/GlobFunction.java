@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -31,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -41,8 +42,7 @@ import javax.annotation.Nullable;
  */
 public final class GlobFunction implements SkyFunction {
 
-  private final Cache<String, Pattern> regexPatternCache =
-      CacheBuilder.newBuilder().maximumSize(10000).concurrencyLevel(4).build();
+  private final ConcurrentHashMap<String, Pattern> regexPatternCache = new ConcurrentHashMap<>();
 
   private final boolean alwaysUseDirListing;
 

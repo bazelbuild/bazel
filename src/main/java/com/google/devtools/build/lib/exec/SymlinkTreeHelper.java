@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.CommandUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -116,7 +117,7 @@ public final class SymlinkTreeHelper {
         createSymlinksUsingCommand(
             actionExecutionContext.getExecRoot(), binTools, shellEnvironment);
       } catch (CommandException e) {
-        throw new UserExecException(e.getMessage(), e);
+        throw new UserExecException(CommandUtils.describeCommandFailure(true, e), e);
       }
     } else {
       // Pretend we created the runfiles tree by copying the manifest

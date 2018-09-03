@@ -18,28 +18,32 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
@@ -70,7 +74,10 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectRunfilesForBinary(
-      RuleContext ruleContext, Runfiles.Builder builder, PyCommon common) {
+      RuleContext ruleContext,
+      Runfiles.Builder builder,
+      PyCommon common,
+      CcLinkingInfo ccLinkingInfo) {
     addRuntime(ruleContext, builder);
   }
 
@@ -128,7 +135,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   public Artifact createExecutable(
       RuleContext ruleContext,
       PyCommon common,
-      AbstractCcLinkParamsStore ccLinkParamsStore,
+      CcLinkingInfo ccLinkingInfo,
       NestedSet<PathFragment> imports)
       throws InterruptedException {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
@@ -354,4 +361,19 @@ public class BazelPythonSemantics implements PythonSemantics {
     return pythonBinary;
   }
 
+  @Override
+  public CcLinkingInfo buildCcLinkingInfoProvider(
+      Iterable<? extends TransitiveInfoCollection> deps) {
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .addAll(
+                Streams.stream(AnalysisUtils.getProviders(deps, PyCcLinkParamsProvider.PROVIDER))
+                    .map(PyCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .build();
+
+    // TODO(plf): return empty CcLinkingInfo.
+    return CcLinkingInfo.merge(ccLinkingInfos);
+  }
 }

@@ -52,7 +52,7 @@ class SomeFunction implements QueryFunction {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {

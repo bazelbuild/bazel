@@ -18,8 +18,8 @@
 #include <string>
 
 #include "src/main/cpp/util/errors.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "third_party/ijar/mapped_file.h"
 

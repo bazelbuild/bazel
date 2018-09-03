@@ -162,10 +162,8 @@ public final class PhaseHtml extends HtmlPrinter {
       }
     }
 
-    long graphTime = execPhase.getTotalDurationNanos(ProfilerTask.ACTION_GRAPH);
-    long execTime = execPhase.getPhaseDurationNanos() - graphTime;
+    long execTime = execPhase.getPhaseDurationNanos();
 
-    printTwoColumnStatistic("Action dependency map creation", graphTime);
     printTwoColumnStatistic("Actual execution time", execTime);
 
     CriticalPathHtml criticalPaths = null;

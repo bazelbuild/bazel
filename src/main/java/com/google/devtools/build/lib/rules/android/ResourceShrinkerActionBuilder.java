@@ -17,17 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
-import com.google.devtools.build.lib.util.OS;
 import java.util.Collections;
 import java.util.List;
 
@@ -37,26 +27,14 @@ public class ResourceShrinkerActionBuilder {
   private Artifact resourceFilesZip;
   private Artifact shrunkJar;
   private Artifact proguardMapping;
-  private ValidatedAndroidData primaryResources;
+  private ValidatedAndroidResources primaryResources;
   private ResourceDependencies dependencyResources;
   private Artifact resourceApkOut;
   private Artifact shrunkResourcesOut;
   private Artifact logOut;
 
-  private final RuleContext ruleContext;
-  private final SpawnAction.Builder spawnActionBuilder;
-  private final AndroidSdkProvider sdk;
-
   private List<String> uncompressedExtensions = Collections.emptyList();
-  private ResourceFilterFactory resourceFilterFactory;
-
-  /** @param ruleContext The RuleContext of the owning rule. */
-  public ResourceShrinkerActionBuilder(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-    this.spawnActionBuilder = new SpawnAction.Builder();
-    this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    this.resourceFilterFactory = ResourceFilterFactory.empty();
-  }
+  private ResourceFilterFactory resourceFilterFactory = ResourceFilterFactory.empty();
 
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
       List<String> uncompressedExtensions) {
@@ -90,10 +68,10 @@ public class ResourceShrinkerActionBuilder {
   }
 
   /**
-   * @param primary The fully processed {@link ValidatedAndroidData} of the resources to be shrunk.
-   *     Must contain both an R.txt and merged manifest.
+   * @param primary The fully processed {@link ValidatedAndroidResources} of the resources to be
+   *     shrunk. Must contain both an R.txt and merged manifest.
    */
-  public ResourceShrinkerActionBuilder withPrimary(ValidatedAndroidData primary) {
+  public ResourceShrinkerActionBuilder withPrimary(ValidatedAndroidResources primary) {
     checkNotNull(primary);
     checkNotNull(primary.getManifest());
     checkNotNull(primary.getRTxt());
@@ -101,7 +79,7 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /** @param resourceDeps The full dependency tree of {@link ResourceContainer}s. */
+  /** @param resourceDeps The full dependency tree of resources. */
   public ResourceShrinkerActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencyResources = resourceDeps;
     return this;
@@ -131,38 +109,7 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  public Artifact build() {
-    ImmutableList.Builder<Artifact> inputs = ImmutableList.builder();
-    ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
-
-    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
-
-    // Set the busybox tool.
-    FilesToRunProvider aapt;
-
-    if (targetAaptVersion == AndroidAaptVersion.AAPT2) {
-      aapt = sdk.getAapt2();
-      commandLine.add("--tool").add("SHRINK_AAPT2").add("--");
-      commandLine.addExecPath("--aapt2", aapt.getExecutable());
-    } else {
-      aapt = sdk.getAapt();
-      commandLine.add("--tool").add("SHRINK").add("--");
-      commandLine.addExecPath("--aapt", aapt.getExecutable());
-    }
-
-    commandLine.addExecPath("--androidJar", sdk.getAndroidJar());
-    inputs.add(sdk.getAndroidJar());
-
-    if (!uncompressedExtensions.isEmpty()) {
-      commandLine.addAll(
-          "--uncompressedExtensions", VectorArg.join(",").each(uncompressedExtensions));
-    }
-    if (ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT) {
-      commandLine.add("--debug");
-    }
-    if (resourceFilterFactory.hasConfigurationFilters()) {
-      commandLine.add("--resourceConfigs", resourceFilterFactory.getConfigurationFilterString());
-    }
+  public Artifact build(AndroidDataContext dataContext) {
 
     checkNotNull(resourceFilesZip);
     checkNotNull(shrunkJar);
@@ -172,70 +119,39 @@ public class ResourceShrinkerActionBuilder {
     checkNotNull(primaryResources.getManifest());
     checkNotNull(resourceApkOut);
 
-    commandLine.addExecPath("--resources", resourceFilesZip);
-    inputs.add(resourceFilesZip);
-
-    commandLine.addExecPath("--shrunkJar", shrunkJar);
-    inputs.add(shrunkJar);
-
-    commandLine.addExecPath("--proguardMapping", proguardMapping);
-    inputs.add(proguardMapping);
-
-    commandLine.addExecPath("--rTxt", primaryResources.getRTxt());
-    inputs.add(primaryResources.getRTxt());
-
-    commandLine.addExecPath("--primaryManifest", primaryResources.getManifest());
-    inputs.add(primaryResources.getManifest());
-
-    ImmutableList<Artifact> dependencyManifests = getManifests(dependencyResources);
-    if (!dependencyManifests.isEmpty()) {
-      commandLine.addExecPaths("--dependencyManifest", dependencyManifests);
-      inputs.addAll(dependencyManifests);
+    BusyBoxActionBuilder builder;
+    if (targetAaptVersion == AndroidAaptVersion.AAPT2) {
+      builder = BusyBoxActionBuilder.create(dataContext, "SHRINK_AAPT2");
+    } else {
+      builder =
+          BusyBoxActionBuilder.create(dataContext, "SHRINK")
+              .maybeAddVectoredFlag("--uncompressedExtensions", uncompressedExtensions)
+              // Order, for some reason, is important.
+              .addVectoredFlag(
+                  "--resourcePackages", getResourcePackages(primaryResources, dependencyResources))
+              .addInput("--primaryManifest", primaryResources.getManifest())
+              .maybeAddInput("--dependencyManifest", getManifests(dependencyResources));
     }
 
-    ImmutableList<String> resourcePackages =
-        getResourcePackages(primaryResources, dependencyResources);
-    commandLine.addAll("--resourcePackages", VectorArg.join(",").each(resourcePackages));
-
-    commandLine.addExecPath("--shrunkResourceApk", resourceApkOut);
-    outputs.add(resourceApkOut);
-
-    commandLine.addExecPath("--shrunkResources", shrunkResourcesOut);
-    outputs.add(shrunkResourcesOut);
-
-    commandLine.addExecPath("--log", logOut);
-    outputs.add(logOut);
-
-    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
-    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-    // file.
-    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-    // list-type and list-of-list-type flags that use such problematic separators in favor of
-    // multi-value flags (to remove one level of listing) and by changing all list separators to a
-    // platform-safe character (= comma).
-    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
-
-    ruleContext.registerAction(
-        spawnActionBuilder
-            .useDefaultShellEnvironment()
-            .addTool(aapt)
-            .addInputs(inputs.build())
-            .addOutputs(outputs.build())
-            .addCommandLine(commandLine.build(), paramFileInfo.build())
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Shrinking resources for %s", ruleContext.getLabel())
-            .setMnemonic("ResourceShrinker")
-            .build(ruleContext));
+    builder
+        .addAapt(targetAaptVersion)
+        .addAndroidJar()
+        .maybeAddFlag("--debug", dataContext.useDebug())
+        .addInput("--resources", resourceFilesZip)
+        .addInput("--shrunkJar", shrunkJar)
+        .addInput("--proguardMapping", proguardMapping)
+        .addInput("--rTxt", primaryResources.getRTxt())
+        .addOutput("--shrunkResourceApk", resourceApkOut)
+        .addOutput("--shrunkResources", shrunkResourcesOut)
+        .addOutput("--log", logOut)
+        .buildAndRegister("Shrinking resources", "ResourceShrinker");
 
     return resourceApkOut;
   }
 
   private ImmutableList<Artifact> getManifests(ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<Artifact> manifests = ImmutableList.builder();
-    for (ValidatedAndroidData resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
       if (resources.getManifest() != null) {
         manifests.add(resources.getManifest());
       }
@@ -244,10 +160,10 @@ public class ResourceShrinkerActionBuilder {
   }
 
   private ImmutableList<String> getResourcePackages(
-      ValidatedAndroidData primaryResources, ResourceDependencies resourceDependencies) {
+      ValidatedAndroidResources primaryResources, ResourceDependencies resourceDependencies) {
     ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
     resourcePackages.add(primaryResources.getJavaPackage());
-    for (ValidatedAndroidData resources : resourceDependencies.getResourceContainers()) {
+    for (ValidatedAndroidResources resources : resourceDependencies.getResourceContainers()) {
       resourcePackages.add(resources.getJavaPackage());
     }
     return resourcePackages.build();

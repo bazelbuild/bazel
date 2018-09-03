@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -49,7 +51,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
 
   @Before
   public final void createTransformer() throws Exception {
-    parser = getPackageManager().newTargetPatternEvaluator();
+    parser = skyframeExecutor.newTargetPatternEvaluator();
     transformer = new CompileOneDependencyTransformer(getPackageManager());
   }
 
@@ -66,7 +68,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   private static Set<Label> labels(String... labelStrings) throws LabelSyntaxException {
     Set<Label> labels = new HashSet<>();
     for (String labelString : labelStrings) {
-      labels.add(Label.parseAbsolute(labelString));
+      labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
     }
     return labels;
   }
@@ -75,7 +77,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
       TargetPatternEvaluator parser, Reporter reporter,
       List<String> targetPatterns, FilteringPolicy policy,
       boolean keepGoing) throws Exception {
-    return parser.parseTargetPatternList(reporter, targetPatterns, policy, keepGoing);
+    return parser.parseTargetPatternList(
+        PathFragment.EMPTY_FRAGMENT, reporter, targetPatterns, policy, keepGoing);
   }
 
   private ResolvedTargets<Target> parseCompileOneDep(String... patterns) throws Exception {
@@ -91,12 +94,14 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   private Set<Label> parseListCompileOneDepRelative(String... patterns)
       throws TargetParsingException, IOException, InterruptedException {
     Path foo = scratch.dir("foo");
-    TargetPatternEvaluator fooOffsetParser = getPackageManager().newTargetPatternEvaluator();
-    fooOffsetParser.updateOffset(foo.relativeTo(rootDirectory));
+    TargetPatternEvaluator fooOffsetParser = skyframeExecutor.newTargetPatternEvaluator();
     ResolvedTargets<Target> result;
     try {
       result = fooOffsetParser.parseTargetPatternList(
-          reporter, Arrays.asList(patterns), FilteringPolicies.NO_FILTER, false);
+          foo.relativeTo(rootDirectory),
+          reporter,
+          Arrays.asList(patterns),
+          FilteringPolicies.NO_FILTER, false);
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }

@@ -37,6 +37,18 @@ public class CqueryOptions extends CommonQueryOptions {
   }
 
   @Option(
+      name = "output",
+      defaultValue = "label",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The format in which the cquery results should be printed. Allowed values for cquery "
+              + "are: label, transitions, proto. If you select 'transitions', you also have to "
+              + "specify the --transitions=(lite|full) option."
+  )
+  public String outputFormat;
+
+  @Option(
       name = "transitions",
       converter = TransitionsConverter.class,
       defaultValue = "none",

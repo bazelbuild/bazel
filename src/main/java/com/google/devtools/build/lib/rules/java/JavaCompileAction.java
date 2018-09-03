@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.LazyString;
@@ -73,6 +75,7 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class JavaCompileAction extends SpawnAction {
+
   private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
 
   private static final ResourceSet LOCAL_RESOURCES =
@@ -85,6 +88,7 @@ public final class JavaCompileAction extends SpawnAction {
   // TODO(#3320): This is missing the configuration's action environment!
   static final ActionEnvironment UTF8_ACTION_ENVIRONMENT =
       ActionEnvironment.create(UTF8_ENVIRONMENT);
+  public static final String MNEMONIC = "Javac";
 
   private final CommandLine javaCompileCommandLine;
 
@@ -115,10 +119,8 @@ public final class JavaCompileAction extends SpawnAction {
   /** The list of classpath entries to search for annotation processors. */
   private final NestedSet<Artifact> processorPath;
 
-  /**
-   * The list of annotation processor classes to run.
-   */
-  private final ImmutableList<String> processorNames;
+  /** The list of annotation processor classes to run. */
+  private final NestedSet<String> processorNames;
 
   /** Set of additional Java source files to compile. */
   private final ImmutableList<Artifact> sourceJars;
@@ -189,7 +191,7 @@ public final class JavaCompileAction extends SpawnAction {
       ImmutableList<Artifact> sourcePathEntries,
       ImmutableList<Artifact> extdirInputs,
       NestedSet<Artifact> processorPath,
-      List<String> processorNames,
+      NestedSet<String> processorNames,
       Collection<Artifact> sourceJars,
       ImmutableSet<Artifact> sourceFiles,
       List<String> javacOpts,
@@ -215,7 +217,7 @@ public final class JavaCompileAction extends SpawnAction {
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         runfilesSupplier,
-        "Javac",
+        MNEMONIC,
         /* executeUnconditionally= */ false,
         /* extraActionInfoSupplier= */ null);
     this.javaCompileCommandLine = javaCompileCommandLine;
@@ -226,7 +228,7 @@ public final class JavaCompileAction extends SpawnAction {
     this.sourcePathEntries = ImmutableList.copyOf(sourcePathEntries);
     this.extdirInputs = extdirInputs;
     this.processorPath = processorPath;
-    this.processorNames = ImmutableList.copyOf(processorNames);
+    this.processorNames = processorNames;
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.sourceFiles = sourceFiles;
     this.javacOpts = ImmutableList.copyOf(javacOpts);
@@ -318,7 +320,7 @@ public final class JavaCompileAction extends SpawnAction {
    */
   @VisibleForTesting
   public List<String> getProcessorNames() {
-    return processorNames;
+    return processorNames.toList();
   }
 
   /**
@@ -383,6 +385,7 @@ public final class JavaCompileAction extends SpawnAction {
     info.setOutputjar(getOutputJar().getExecPathString());
 
     try {
+      info.addAllArgument(getArguments());
       return super.getExtraActionInfo(actionKeyContext)
           .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
     } catch (CommandLineExpansionException e) {
@@ -455,8 +458,8 @@ public final class JavaCompileAction extends SpawnAction {
     private PathFragment sourceGenDirectory;
     private PathFragment tempDirectory;
     private PathFragment classDirectory;
-    private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    private final List<String> processorNames = new ArrayList<>();
+    private JavaPluginInfo plugins = JavaPluginInfo.empty();
+    private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private Label targetLabel;
     @Nullable private String injectingRuleKind;
 
@@ -571,7 +574,9 @@ public final class JavaCompileAction extends SpawnAction {
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(classpathEntries)
               .addTransitive(compileTimeDependencyArtifacts)
-              .addTransitive(processorPath)
+              .addTransitive(plugins.processorClasspath())
+              .addTransitive(plugins.data())
+              .addTransitive(extraData)
               .addAll(sourceJars)
               .addAll(sourceFiles)
               .addAll(javabaseInputs)
@@ -632,8 +637,8 @@ public final class JavaCompileAction extends SpawnAction {
           bootclasspathEntries,
           sourcePathEntries,
           extdirInputs,
-          processorPath,
-          processorNames,
+          plugins.processorClasspath(),
+          plugins.processorClasses(),
           sourceJars,
           sourceFiles,
           internedJcopts,
@@ -684,12 +689,8 @@ public final class JavaCompileAction extends SpawnAction {
       if (!sourcePathEntries.isEmpty()) {
         result.addExecPaths("--sourcepath", sourcePathEntries);
       }
-      if (!processorPath.isEmpty()) {
-        result.addExecPaths("--processorpath", processorPath);
-      }
-      if (!processorNames.isEmpty()) {
-        result.addAll("--processors", ImmutableList.copyOf(processorNames));
-      }
+      result.addExecPaths("--processorpath", plugins.processorClasspath());
+      result.addAll("--processors", plugins.processorClasses());
       if (!sourceJars.isEmpty()) {
         result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
       }
@@ -775,12 +776,12 @@ public final class JavaCompileAction extends SpawnAction {
     }
 
     private String getProcessorNames() {
-      if (processorNames.isEmpty()) {
+      if (plugins.processorClasses().isEmpty()) {
         return "";
       }
       StringBuilder sb = new StringBuilder();
       List<String> shortNames = new ArrayList<>();
-      for (String name : processorNames) {
+      for (String name : plugins.processorClasses()) {
         // Annotation processor names are qualified class names. Omit the package part for the
         // progress message, e.g. `com.google.Foo` -> `Foo`.
         int idx = name.lastIndexOf('.');
@@ -952,14 +953,17 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder setProcessorPaths(NestedSet<Artifact> processorPaths) {
-      this.processorPath = processorPaths;
+    public Builder setPlugins(JavaPluginInfo plugins) {
+      checkNotNull(plugins, "plugins must not be null");
+      checkState(this.plugins.isEmpty());
+      this.plugins = plugins;
       return this;
     }
 
-    public Builder addProcessorNames(Collection<String> processorNames) {
-      this.processorNames.addAll(processorNames);
-      return this;
+    public void setExtraData(NestedSet<Artifact> extraData) {
+      checkNotNull(extraData, "extraData must not be null");
+      checkState(this.extraData.isEmpty());
+      this.extraData = extraData;
     }
 
     public Builder setLangtoolsJar(Artifact langtoolsJar) {

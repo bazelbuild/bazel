@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.util.Pair;
 public class OutputFileConfiguredTarget extends FileConfiguredTarget
     implements InstrumentedFilesProvider {
 
+  private final Artifact artifact;
   private final TransitiveInfoCollection generatingRule;
 
   public OutputFileConfiguredTarget(
@@ -62,11 +63,17 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
       Artifact artifact,
       TransitiveInfoCollection generatingRule) {
     super(label, configurationKey, visibility, artifact);
+    this.artifact = artifact;
     this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 
   public TransitiveInfoCollection getGeneratingRule() {
     return generatingRule;
+  }
+
+  @Override
+  public final Artifact getArtifact() {
+    return artifact;
   }
 
   @Override

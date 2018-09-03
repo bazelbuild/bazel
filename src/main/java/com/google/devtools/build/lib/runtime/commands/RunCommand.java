@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
@@ -77,7 +78,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -100,9 +101,7 @@ import javax.annotation.Nullable;
          help = "resource:run.txt",
          allowResidue = true,
          hasSensitiveResidue = true,
-         binaryStdOut = true,
-         completion = "label-bin",
-         binaryStdErr = true)
+         completion = "label-bin")
 public class RunCommand implements BlazeCommand  {
   /** Options for the "run" command. */
   public static class RunOptions extends OptionsBase {
@@ -186,13 +185,19 @@ public class RunCommand implements BlazeCommand  {
     String productName = env.getRuntime().getProductName();
     Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
 
+    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+
     PathFragment executablePath = executable.getPath().asFragment();
-    PathFragment prettyExecutablePath = OutputDirectoryLinksUtils.getPrettyPath(
-          executable.getPath(),
-          env.getWorkspaceName(),
-          env.getWorkspace(),
-          env.getOptions().getOptions(BuildRequestOptions.class).getSymlinkPrefix(productName),
-          productName);
+    PathFragment prettyExecutablePath =
+        OutputDirectoryLinksUtils.getPrettyPath(
+            executable.getPath(),
+            env.getWorkspaceName(),
+            env.getWorkspace(),
+            requestOptions.printWorkspaceInOutputPathsIfNeeded
+                ? env.getWorkingDirectory()
+                : env.getWorkspace(),
+            requestOptions.getSymlinkPrefix(productName),
+            productName);
 
     RunUnder runUnder = env.getOptions().getOptions(BuildConfiguration.Options.class).runUnder;
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option
@@ -229,7 +234,7 @@ public class RunCommand implements BlazeCommand  {
   }
 
   @Override
-  public BlazeCommandResult exec(CommandEnvironment env, OptionsProvider options) {
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     RunOptions runOptions = options.getOptions(RunOptions.class);
     // This list should look like: ["//executable:target", "arg1", "arg2"]
     List<String> targetAndArgs = options.getResidue();
@@ -383,8 +388,11 @@ public class RunCommand implements BlazeCommand  {
       Path tmpDirRoot = TestStrategy.getTmpRoot(
           env.getWorkspace(), env.getExecRoot(), executionOptions);
       PathFragment relativeTmpDir = tmpDirRoot.relativeTo(env.getExecRoot());
-      Duration timeout = configuration.getTestTimeout().get(
-          testAction.getTestProperties().getTimeout());
+      Duration timeout =
+          configuration
+              .getFragment(TestConfiguration.class)
+              .getTestTimeout()
+              .get(testAction.getTestProperties().getTimeout());
       runEnvironment.putAll(testPolicy.computeTestEnvironment(
           testAction,
           env.getClientEnv(),
@@ -415,7 +423,10 @@ public class RunCommand implements BlazeCommand  {
     if (runOptions.scriptPath != null) {
       String unisolatedCommand = CommandFailureUtils.describeCommand(
           CommandDescriptionForm.COMPLETE_UNISOLATED,
-          cmdLine, runEnvironment, workingDir.getPathString());
+          /* prettyPrintArgs= */ false,
+          cmdLine,
+          runEnvironment,
+          workingDir.getPathString());
       if (writeScript(env, shExecutable, runOptions.scriptPath, unisolatedCommand)) {
         return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
       } else {

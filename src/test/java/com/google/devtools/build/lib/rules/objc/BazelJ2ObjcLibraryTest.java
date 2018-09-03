@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -62,6 +63,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
+  protected NativeAspectClass getJ2ObjcAspect() {
+    return ruleClassProvider.getNativeAspectClass(J2ObjcAspect.NAME);
+  }
 
   /**
    * Gets the target with the given label, using the apple_binary multi-arch split transition with
@@ -256,11 +260,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
-    ConfiguredTarget proto =
-        getConfiguredTarget(
-            "//java/com/google/dummy/test/proto:test", getAppleCrosstoolConfiguration());
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
-    Artifact classMappingFile = getGenfilesArtifact("test.clsmap.properties", proto);
+    Artifact classMappingFile =
+        getGenfilesArtifact(
+            "test.clsmap.properties",
+            getConfiguredTarget(
+                "//java/com/google/dummy/test/proto:test_proto", getAppleCrosstoolConfiguration()),
+            getJ2ObjcAspect());
 
     assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
   }
@@ -286,12 +292,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
     ConfiguredTarget test = getConfiguredTarget("//x:test_proto", getAppleCrosstoolConfiguration());
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
-    Artifact classMappingFile = getGenfilesArtifact("test.clsmap.properties", test);
+    Artifact classMappingFile =
+        getGenfilesArtifact("test.clsmap.properties", test, getJ2ObjcAspect());
     assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
 
     ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
-    Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test);
-    Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test);
+    Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
+    Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
     assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
     assertThat(objcProvider.get(ObjcProvider.SOURCE)).contains(sourceFile);
   }
@@ -333,13 +340,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     J2ObjcMappingFileProvider provider = target.getProvider(J2ObjcMappingFileProvider.class);
 
     Artifact classMappingFile =
-        getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test);
+        getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test, getJ2ObjcAspect());
     assertThat(provider.getClassMappingFiles()).containsExactly(classMappingFile);
 
     ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
 
-    Artifact headerFile = getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test);
-    Artifact sourceFile = getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.m", test);
+    Artifact headerFile =
+        getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
+    Artifact sourceFile =
+        getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.m", test, getJ2ObjcAspect());
     assertThat(objcProvider.get(ObjcProvider.HEADER)).contains(headerFile);
     assertThat(objcProvider.get(ObjcProvider.SOURCE)).contains(sourceFile);
     assertThat(objcProvider.get(ObjcProvider.INCLUDE))
@@ -371,7 +380,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       String objFileName,
       Iterable<String> compilationInputExecPaths)
       throws Exception {
-    String labelName = Label.parseAbsolute(targetLabel).getName();
+    String labelName = Label.parseAbsolute(targetLabel, ImmutableMap.of()).getName();
     CommandAction linkAction =
         (CommandAction)
             getGeneratingAction(
@@ -785,6 +794,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
+            null,
             null);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -836,6 +846,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
+            null,
             null);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
@@ -1169,9 +1180,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertThat(objectFilesFromGenJar.isTreeArtifact()).isTrue();
     assertThat(objectFilesFromGenJar.getRootRelativePathString())
-        .isEqualTo(
-            "java/com/google/app/test/_objs/test/java/com/google/app/test/_j2objc/"
-                + "src_jar_files/test/source_files");
+        .isEqualTo("java/com/google/app/test/_objs/test/non_arc/source_files");
 
     ActionAnalysisMetadata actionTemplate =
         getActionGraph().getGeneratingAction(objectFilesFromGenJar);

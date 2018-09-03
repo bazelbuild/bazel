@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -71,7 +72,7 @@ public final class TestProvider implements TransitiveInfoProvider {
     private final String testRuleClass;
     private final ImmutableList<Artifact> testStatusArtifacts;
     private final ImmutableList<Artifact> coverageArtifacts;
-    private final Artifact coverageReportGenerator;
+    private final FilesToRunProvider coverageReportGenerator;
 
     /**
      * Don't call this directly. Instead use
@@ -80,7 +81,7 @@ public final class TestProvider implements TransitiveInfoProvider {
     TestParams(int runs, int shards, TestTimeout timeout, String testRuleClass,
         ImmutableList<Artifact> testStatusArtifacts,
         ImmutableList<Artifact> coverageArtifacts,
-        Artifact coverageReportGenerator) {
+        FilesToRunProvider coverageReportGenerator) {
       this.runs = runs;
       this.shards = shards;
       this.timeout = timeout;
@@ -136,7 +137,7 @@ public final class TestProvider implements TransitiveInfoProvider {
     /**
      * Returns the coverage report generator tool.
      */
-    public Artifact getCoverageReportGenerator() {
+    public FilesToRunProvider getCoverageReportGenerator() {
       return coverageReportGenerator;
     }
   }

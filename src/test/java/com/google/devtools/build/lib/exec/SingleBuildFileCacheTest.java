@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
@@ -54,26 +56,30 @@ public class SingleBuildFileCacheTest {
   public final void setUp() throws Exception {
     calls = new HashMap<>();
     md5Overrides = new HashMap<>();
-    fs = new InMemoryFileSystem() {
-        @Override
-        protected InputStream getInputStream(Path path) throws IOException {
-          int c = calls.containsKey(path.toString())
-              ? calls.get(path.toString()) : 0;
-          c++;
-          calls.put(path.toString(), c);
-          return super.getInputStream(path);
-        }
+    fs =
+        new InMemoryFileSystem() {
+          @Override
+          protected InputStream getInputStream(Path path) throws IOException {
+            int c = calls.containsKey(path.toString()) ? calls.get(path.toString()) : 0;
+            c++;
+            calls.put(path.toString(), c);
+            return super.getInputStream(path);
+          }
 
-        @Override
-        protected byte[] getDigest(Path path, HashFunction hf) throws IOException {
-          assertThat(hf).isEqualTo(HashFunction.MD5);
-          byte[] override = md5Overrides.get(path.getPathString());
-          return override != null ? override : super.getDigest(path, hf);
-        }
-      };
+          @Override
+          protected byte[] getDigest(Path path) throws IOException {
+            assertThat(getDigestFunction()).isEqualTo(DigestHashFunction.MD5);
+            byte[] override = md5Overrides.get(path.getPathString());
+            return override != null ? override : super.getDigest(path);
+          }
+
+          @Override
+          protected byte[] getFastDigest(Path path) throws IOException {
+            return null;
+          }
+        };
     underTest = new SingleBuildFileCache("/", fs);
-    Path file = fs.getPath("/empty");
-    file.getOutputStream().close();
+    FileSystemUtils.createEmptyFile(fs.getPath("/empty"));
   }
 
   @Test
@@ -103,7 +109,7 @@ public class SingleBuildFileCacheTest {
   public void testCache() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
     underTest.getMetadata(empty).getDigest();
-    assert(calls.containsKey("/empty"));
+    assertThat(calls).containsKey("/empty");
     assertThat((int) calls.get("/empty")).isEqualTo(1);
     underTest.getMetadata(empty).getDigest();
     assertThat((int) calls.get("/empty")).isEqualTo(1);
@@ -116,14 +122,7 @@ public class SingleBuildFileCacheTest {
     byte[] digestBytes = underTest.getMetadata(empty).getDigest();
     ByteString digest = ByteString.copyFromUtf8(
         BaseEncoding.base16().lowerCase().encode(digestBytes));
-
     assertThat(digest.toStringUtf8()).isEqualTo(EMPTY_MD5);
-    assertThat(underTest.getInputFromDigest(digest).getExecPathString()).isEqualTo("/empty");
-    assert(underTest.contentsAvailableLocally(digest));
-
-    ByteString other = ByteString.copyFrom("f41d8cd98f00b204e9800998ecf8427e", "UTF-16");
-    assert(!underTest.contentsAvailableLocally(other));
-    assert(calls.containsKey("/empty"));
   }
 
   @Test
@@ -135,9 +134,9 @@ public class SingleBuildFileCacheTest {
 
     ActionInput input = ActionInputHelper.fromPath("/unreadable");
     Path file = fs.getPath("/unreadable");
-    file.getOutputStream().close();
+    FileSystemUtils.createEmptyFile(file);
     file.chmod(0);
     ByteString actualDigest = ByteString.copyFrom(underTest.getMetadata(input).getDigest());
-    assertThat(expectedDigest).isEqualTo(actualDigest);
+    assertThat(actualDigest).isEqualTo(expectedDigest);
   }
 }

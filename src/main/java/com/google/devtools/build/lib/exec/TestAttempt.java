@@ -19,9 +19,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -40,7 +42,8 @@ import java.util.List;
 public class TestAttempt implements BuildEventWithOrderConstraint {
 
   private final TestRunnerAction testAction;
-  private final BlazeTestStatus status;
+  private final TestStatus status;
+  private final String statusDetails;
   private final boolean cachedLocally;
   private final int attempt;
   private final boolean lastAttempt;
@@ -63,6 +66,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
       BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       int attempt,
       BlazeTestStatus status,
+      String statusDetails,
       long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
@@ -71,7 +75,8 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     this.testAction = testAction;
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.attempt = attempt;
-    this.status = Preconditions.checkNotNull(status);
+    this.status = BuildEventStreamerUtils.bepStatus(Preconditions.checkNotNull(status));
+    this.statusDetails = statusDetails;
     this.cachedLocally = cachedLocally;
     this.startTimeMillis = startTimeMillis;
     this.durationMillis = durationMillis;
@@ -86,24 +91,22 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
    */
   public static TestAttempt forExecutedTestResult(
       TestRunnerAction testAction,
-      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
+      TestResultData attemptData,
       int attempt,
-      BlazeTestStatus status,
-      long startTimeMillis,
-      long durationMillis,
       Collection<Pair<String, Path>> files,
-      List<String> testWarnings,
+      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo,
       boolean lastAttempt) {
     return new TestAttempt(
         false,
         testAction,
         executionInfo,
         attempt,
-        status,
-        startTimeMillis,
-        durationMillis,
+        attemptData.getStatus(),
+        attemptData.getStatusDetails(),
+        attemptData.getStartTimeMillisEpoch(),
+        attemptData.getRunDurationMillis(),
         files,
-        testWarnings,
+        attemptData.getWarningList(),
         lastAttempt);
   }
 
@@ -120,6 +123,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         executionInfo,
         attempt,
         attemptData.getStatus(),
+        attemptData.getStatusDetails(),
         attemptData.getStartTimeMillisEpoch(),
         attemptData.getRunDurationMillis(),
         files,
@@ -143,7 +147,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   }
 
   @VisibleForTesting
-  public BlazeTestStatus getStatus() {
+  public TestStatus getStatus() {
     return status;
   }
 
@@ -185,23 +189,42 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   }
 
   @Override
+  public ImmutableList<LocalFile> referencedLocalFiles() {
+    LocalFileType localFileType =
+        status == TestStatus.PASSED
+            ? LocalFileType.SUCCESSFUL_TEST_OUTPUT
+            : LocalFileType.FAILED_TEST_OUTPUT;
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    for (Pair<String, Path> file : files) {
+      localFiles.add(new LocalFile(file.getSecond(), localFileType));
+    }
+    return localFiles.build();
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
+    return GenericBuildEvent.protoChaining(this).setTestResult(asTestResult(converters)).build();
+  }
+
+  @VisibleForTesting
+  public BuildEventStreamProtos.TestResult asTestResult(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
-    builder.setStatus(BuildEventStreamerUtils.bepStatus(status));
+    builder.setStatus(status);
+    builder.setStatusDetails(statusDetails);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {
-      builder.addTestActionOutput(
-          BuildEventStreamProtos.File.newBuilder()
-              .setName(file.getFirst())
-              .setUri(pathConverter.apply(file.getSecond()))
-              .build());
+      String uri = pathConverter.apply(file.getSecond());
+      if (uri != null) {
+        builder.addTestActionOutput(
+            BuildEventStreamProtos.File.newBuilder().setName(file.getFirst()).setUri(uri).build());
+      }
     }
-    return GenericBuildEvent.protoChaining(this).setTestResult(builder.build()).build();
+    return builder.build();
   }
 }

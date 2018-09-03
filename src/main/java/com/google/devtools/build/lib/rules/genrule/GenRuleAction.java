@@ -40,6 +40,7 @@ import java.util.List;
 @AutoCodec
 public class GenRuleAction extends SpawnAction {
 
+  public static final String MNEMONIC = "Genrule";
   private static final ResourceSet GENRULE_RESOURCES =
       // Not chosen scientifically/carefully.  300MB memory, 100% CPU, no I/O.
       ResourceSet.createWithRamCpuIo(300, 1.0, 0.0);
@@ -68,7 +69,7 @@ public class GenRuleAction extends SpawnAction {
         executionInfo,
         progressMessage,
         runfilesSupplier,
-        "Genrule",
+        MNEMONIC,
         false,
         null);
   }
@@ -77,7 +78,7 @@ public class GenRuleAction extends SpawnAction {
   protected List<SpawnResult> internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     EventHandler reporter = actionExecutionContext.getEventHandler();
-    checkInputsForDirectories(reporter, actionExecutionContext.getActionInputFileCache());
+    checkInputsForDirectories(reporter, actionExecutionContext.getMetadataProvider());
     List<SpawnResult> spawnResults = ImmutableList.of();
     try {
       spawnResults = super.internalExecute(actionExecutionContext);

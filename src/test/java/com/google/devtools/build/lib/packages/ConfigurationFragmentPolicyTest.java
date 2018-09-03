@@ -15,11 +15,14 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -73,6 +76,16 @@ public final class ConfigurationFragmentPolicyTest {
 
   private static final ConfigurationTransition TEST_HOST_TRANSITION =
       new ConfigurationTransition() {
+        @Override
+        public List<BuildOptions> apply(BuildOptions buildOptions) {
+          return ImmutableList.of(buildOptions);
+        }
+
+        @Override
+        public String reasonForOverride() {
+          return null;
+        }
+
         @Override
         public boolean isHostTransition() {
           return true;

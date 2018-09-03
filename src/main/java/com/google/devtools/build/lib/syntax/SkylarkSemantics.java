@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 
 /**
  * Options that affect Skylark semantics.
@@ -39,13 +41,25 @@ public abstract class SkylarkSemantics {
       AutoValue_SkylarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
+
+  public abstract boolean experimentalEnableRepoMapping();
+
+  public abstract boolean experimentalRemapMainRepo();
+
   public abstract boolean incompatibleBzlDisallowLoadAfterStatement();
 
   public abstract boolean incompatibleDepsetIsNotIterable();
 
   public abstract boolean incompatibleDepsetUnion();
 
+  public abstract boolean incompatibleDisableDeprecatedAttrParams();
+
   public abstract boolean incompatibleDisableObjcProviderResources();
+
+  public abstract boolean incompatibleDisallowConflictingProviders();
+
+  public abstract boolean incompatibleDisallowDataTransition();
 
   public abstract boolean incompatibleDisallowDictPlus();
 
@@ -57,13 +71,23 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowSlashOperator();
 
+  public abstract boolean incompatibleExpandDirectories();
+
+  public abstract boolean incompatibleGenerateJavaCommonSourceJar();
+
   public abstract boolean incompatibleNewActionsApi();
 
+  public abstract boolean incompatibleNoSupportToolsInActionInputs();
+
   public abstract boolean incompatiblePackageNameIsAFunction();
+
+  public abstract boolean incompatibleRangeType();
 
   public abstract boolean incompatibleRemoveNativeGitRepository();
 
   public abstract boolean incompatibleRemoveNativeHttpArchive();
+
+  public abstract boolean incompatibleStaticNameResolution();
 
   public abstract boolean incompatibleStringIsNotIterable();
 
@@ -84,19 +108,30 @@ public abstract class SkylarkSemantics {
   public static final SkylarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
+          .experimentalEnableRepoMapping(false)
+          .experimentalRemapMainRepo(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
           .incompatibleDepsetIsNotIterable(false)
           .incompatibleDepsetUnion(false)
+          .incompatibleDisableDeprecatedAttrParams(false)
           .incompatibleDisableObjcProviderResources(false)
+          .incompatibleDisallowConflictingProviders(false)
+          .incompatibleDisallowDataTransition(false)
           .incompatibleDisallowDictPlus(false)
           .incompatibleDisallowFileType(false)
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowSlashOperator(false)
+          .incompatibleExpandDirectories(false)
+          .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
+          .incompatibleNoSupportToolsInActionInputs(false)
           .incompatiblePackageNameIsAFunction(false)
+          .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
+          .incompatibleStaticNameResolution(false)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)
           .build();
@@ -106,13 +141,25 @@ public abstract class SkylarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
+
+    public abstract Builder experimentalEnableRepoMapping(boolean value);
+
+    public abstract Builder experimentalRemapMainRepo(boolean value);
+
     public abstract Builder incompatibleBzlDisallowLoadAfterStatement(boolean value);
 
     public abstract Builder incompatibleDepsetIsNotIterable(boolean value);
 
     public abstract Builder incompatibleDepsetUnion(boolean value);
 
+    public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
+
     public abstract Builder incompatibleDisableObjcProviderResources(boolean value);
+
+    public abstract Builder incompatibleDisallowConflictingProviders(boolean value);
+
+    public abstract Builder incompatibleDisallowDataTransition(boolean value);
 
     public abstract Builder incompatibleDisallowDictPlus(boolean value);
 
@@ -124,13 +171,23 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleDisallowSlashOperator(boolean value);
 
+    public abstract Builder incompatibleExpandDirectories(boolean value);
+
+    public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
+
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
+    public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
+
     public abstract Builder incompatiblePackageNameIsAFunction(boolean value);
+
+    public abstract Builder incompatibleRangeType(boolean value);
 
     public abstract Builder incompatibleRemoveNativeGitRepository(boolean value);
 
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
+
+    public abstract Builder incompatibleStaticNameResolution(boolean value);
 
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
 

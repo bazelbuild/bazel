@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -145,7 +146,7 @@ public final class BuildType {
    * <p>The caller is responsible for casting the returned value appropriately.
    */
   public static <T> Object selectableConvert(
-      Type type, Object x, Object what, @Nullable Label context)
+      Type<T> type, Object x, Object what, LabelConversionContext context)
       throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.syntax.SelectorList) {
       return new SelectorList<T>(
@@ -196,6 +197,31 @@ public final class BuildType {
     }
   }
 
+  /** Context in which to evaluate a label with repository remappings */
+  public static class LabelConversionContext {
+    private final Label label;
+    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+
+    public LabelConversionContext(
+        Label label, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      this.label = label;
+      this.repositoryMapping = repositoryMapping;
+    }
+
+    public Label getLabel() {
+      return label;
+    }
+
+    public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+      return repositoryMapping;
+    }
+
+    @Override
+    public String toString() {
+      return label.toString();
+    }
+  }
+
   private static class LabelType extends Type<Label> {
     private final LabelClass labelClass;
 
@@ -236,10 +262,26 @@ public final class BuildType {
         return (Label) x;
       }
       try {
-        if (x instanceof String && context == null) {
-          return Label.parseAbsolute((String) x, false);
+        if (!(x instanceof String)) {
+          throw new ConversionException(Type.STRING, x, what);
         }
-        return ((Label) context).getRelative(STRING.convert(x, what, context));
+        // TODO(b/110101445): check if context is ever actually null
+        if (context == null) {
+          return Label.parseAbsolute(
+              (String) x, /* defaultToMain= */ false, /* repositoryMapping= */ ImmutableMap.of());
+          // TODO(b/110308446): remove instances of context being a Label
+        } else if (context instanceof Label) {
+          return ((Label) context)
+              .getRelativeWithRemapping(STRING.convert(x, what, context), ImmutableMap.of());
+        } else if (context instanceof LabelConversionContext) {
+          LabelConversionContext labelConversionContext = (LabelConversionContext) context;
+          return labelConversionContext
+              .getLabel()
+              .getRelativeWithRemapping(
+                  STRING.convert(x, what, context), labelConversionContext.getRepositoryMapping());
+        } else {
+          throw new ConversionException("invalid context '" + context + "' in " + what);
+        }
       } catch (LabelSyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
             + what + ": " + e.getMessage());
@@ -259,7 +301,7 @@ public final class BuildType {
     public static <ValueT> LabelKeyedDictType<ValueT> create(Type<ValueT> valueType) {
       Preconditions.checkArgument(
           valueType.getLabelClass() == LabelClass.NONE
-          || valueType.getLabelClass() == LabelClass.DEPENDENCY,
+              || valueType.getLabelClass() == LabelClass.DEPENDENCY,
           "Values associated with label keys must not be labels themselves.");
       return new LabelKeyedDictType<>(valueType);
     }
@@ -428,16 +470,22 @@ public final class BuildType {
       }
       try {
         // Enforce value is relative to the context.
-        Label currentRule = (Label) context;
-        Label result = currentRule.getRelative(value);
+        Label currentRule;
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+        if (context instanceof LabelConversionContext) {
+          currentRule = ((LabelConversionContext) context).getLabel();
+          repositoryMapping = ((LabelConversionContext) context).getRepositoryMapping();
+        } else {
+          throw new ConversionException("invalid context '" + context + "' in " + what);
+        }
+        Label result = currentRule.getRelativeWithRemapping(value, repositoryMapping);
         if (!result.getPackageIdentifier().equals(currentRule.getPackageIdentifier())) {
           throw new ConversionException("label '" + value + "' is not in the current package");
         }
         return result;
       } catch (LabelSyntaxException e) {
         throw new ConversionException(
-            "illegal output file name '" + value + "' in rule " + context + ": "
-            + e.getMessage());
+            "illegal output file name '" + value + "' in rule " + context + ": " + e.getMessage());
       }
     }
   }
@@ -452,8 +500,9 @@ public final class BuildType {
     private final List<Selector<T>> elements;
 
     @VisibleForTesting
-    SelectorList(List<Object> x, Object what, @Nullable Label context,
-        Type<T> originalType) throws ConversionException {
+    SelectorList(
+        List<Object> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType)
+        throws ConversionException {
       if (x.size() > 1 && originalType.concat(ImmutableList.<T>of()) == null) {
         throw new ConversionException(
             String.format("type '%s' doesn't support select concatenation", originalType));
@@ -500,11 +549,11 @@ public final class BuildType {
     public Set<Label> getKeyLabels() {
       ImmutableSet.Builder<Label> keys = ImmutableSet.builder();
       for (Selector<T> selector : getSelectors()) {
-         for (Label label : selector.getEntries().keySet()) {
-           if (!Selector.isReservedLabel(label)) {
-             keys.add(label);
-           }
-         }
+        for (Label label : selector.getEntries().keySet()) {
+          if (!Selector.isReservedLabel(label)) {
+            keys.add(label);
+          }
+        }
       }
       return keys.build();
     }
@@ -550,19 +599,24 @@ public final class BuildType {
     private final String noMatchError;
     private final boolean hasDefaultCondition;
 
-    /**
-     * Creates a new Selector using the default error message when no conditions match.
-     */
-    Selector(ImmutableMap<?, ?> x, Object what, @Nullable Label context, Type<T> originalType)
+    /** Creates a new Selector using the default error message when no conditions match. */
+    Selector(
+        ImmutableMap<?, ?> x,
+        Object what,
+        @Nullable LabelConversionContext context,
+        Type<T> originalType)
         throws ConversionException {
       this(x, what, context, originalType, "");
     }
 
-    /**
-     * Creates a new Selector with a custom error message for when no conditions match.
-     */
-    Selector(ImmutableMap<?, ?> x, Object what, @Nullable Label context, Type<T> originalType,
-        String noMatchError) throws ConversionException {
+    /** Creates a new Selector with a custom error message for when no conditions match. */
+    Selector(
+        ImmutableMap<?, ?> x,
+        Object what,
+        @Nullable LabelConversionContext context,
+        Type<T> originalType,
+        String noMatchError)
+        throws ConversionException {
       this.originalType = originalType;
       LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(x.size());
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
@@ -577,7 +631,11 @@ public final class BuildType {
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);
         } else {
-          result.put(key, originalType.convert(entry.getValue(), what, context));
+          String selectBranch = what == null
+              ? null
+              : String.format("each branch in select expression of %s (including '%s')",
+                  what.toString(), key.toString());
+          result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
       }
       this.map = Collections.unmodifiableMap(result);

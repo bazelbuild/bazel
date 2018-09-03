@@ -42,7 +42,7 @@ import java.util.Map;
 @Immutable
 @AutoCodec
 public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
-  private static final String GUID = "62be38ad-1243-46b9-9948-9bdfa81f8918";
+  private static final String GUID = "7243b846-b2f2-4057-97a4-00e2da6c6ffd";
 
   private final boolean writeVolatileInfo;
   private final boolean writeStableInfo;
@@ -109,16 +109,11 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
         Writer writer = new OutputStreamWriter(out, UTF_8);
 
        for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
-          if (!key.getValue().isInLanguage("C++")) {
-            continue;
-          }
-
           String value = redacted ? key.getValue().getRedactedValue()
               : values.containsKey(key.getKey()) ? values.get(key.getKey())
               : key.getValue().getDefaultValue();
 
           switch (key.getValue().getType()) {
-            case VERBATIM:
             case INTEGER:
               break;
 

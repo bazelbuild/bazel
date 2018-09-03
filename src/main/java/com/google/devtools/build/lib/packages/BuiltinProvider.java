@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider.NativeKey;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 
 /**
@@ -31,7 +32,7 @@ import javax.annotation.Nullable;
  * true, and with {@link SkylarkConstructor} for the info type it constructs.
  */
 @Immutable
-public abstract class BuiltinProvider<T extends Info> implements Provider {
+public abstract class BuiltinProvider<T extends InfoInterface> implements Provider {
   private final NativeKey key;
   private final String name;
   private final Class<T> valueClass;
@@ -87,5 +88,21 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<function " + getPrintableName() + ">");
+  }
+
+  /**
+   * Convenience method for subclasses of this class to throw a consistent error when
+   * a provider is unable to be constructed from skylark.
+   */
+  protected T throwUnsupportedConstructorException(Location loc) throws EvalException {
+    throw new EvalException(
+        loc, String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
+  }
+
+  /**
+   * Returns the identifier of this provider.
+   */
+  public SkylarkProviderIdentifier id() {
+    return SkylarkProviderIdentifier.forKey(getKey());
   }
 }

@@ -28,11 +28,13 @@ java_library(
 java_library(
     name = "testdata_lib_Library",
     srcs = ["Library.java"],
+    deps = [":testdata_lib_LibraryInterface"],
 )
 
 java_library(
     name = "testdata_lib_Library_no_members",
     srcs = ["library_no_members/com/google/devtools/build/importdeps/testdata/Library.java"],
+    deps = [":testdata_lib_LibraryInterface"],
 )
 
 java_library(

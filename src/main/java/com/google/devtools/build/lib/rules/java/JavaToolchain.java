@@ -67,6 +67,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.getExecutablePrerequisite("javabuilder", Mode.HOST);
     FilesToRunProvider headerCompiler =
         ruleContext.getExecutablePrerequisite("header_compiler", Mode.HOST);
+    FilesToRunProvider headerCompilerDirect =
+        ruleContext.getExecutablePrerequisite("header_compiler_direct", Mode.HOST);
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar", Mode.HOST);
@@ -108,6 +110,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             tools,
             javabuilder,
             headerCompiler,
+            headerCompilerDirect,
             forciblyDisableHeaderCompilation,
             singleJar,
             oneVersion,
@@ -139,10 +142,6 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     String target = ruleContext.attributes().get("target_version", Type.STRING);
     if (!isNullOrEmpty(target)) {
       javacopts.add("-target").add(target);
-    }
-    String encoding = ruleContext.attributes().get("encoding", Type.STRING);
-    if (!isNullOrEmpty(encoding)) {
-      javacopts.add("-encoding", encoding);
     }
     List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
     if (!xlint.isEmpty()) {

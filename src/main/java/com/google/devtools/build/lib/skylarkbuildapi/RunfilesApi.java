@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -51,7 +52,16 @@ public interface RunfilesApi {
     name = "merge",
     doc =
         "Returns a new runfiles object that includes all the contents of this one and the "
-            + "argument."
+            + "argument.",
+    parameters = {
+        @Param(
+            name = "other",
+            positional = true,
+            named = false,
+            type = RunfilesApi.class,
+            doc = "The runfiles object to merge into this."
+        ),
+    }
   )
   public RunfilesApi merge(RunfilesApi other);
 }

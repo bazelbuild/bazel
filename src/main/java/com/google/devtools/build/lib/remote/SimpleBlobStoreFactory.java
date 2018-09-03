@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStore;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -37,10 +38,20 @@ public final class SimpleBlobStoreFactory {
 
   public static SimpleBlobStore createRest(RemoteOptions options, Credentials creds) {
     try {
-      return new HttpBlobStore(
-          URI.create(options.remoteHttpCache),
-          (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout),
-          creds);
+      URI uri = URI.create(options.remoteHttpCache);
+      int timeoutMillis = (int) TimeUnit.SECONDS.toMillis(options.remoteTimeout);
+
+      if (options.remoteCacheProxy != null) {
+        if (options.remoteCacheProxy.startsWith("unix:")) {
+          return HttpBlobStore.create(
+            new DomainSocketAddress(options.remoteCacheProxy.replaceFirst("^unix:", "")),
+              uri, timeoutMillis, options.remoteMaxConnections, creds);
+        } else {
+          throw new Exception("Remote cache proxy unsupported: " + options.remoteCacheProxy);
+        }
+      } else {
+        return HttpBlobStore.create(uri, timeoutMillis, options.remoteMaxConnections, creds);
+      }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -74,10 +85,10 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
-    return options.diskCache != null;
+    return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  private static boolean isRestUrlOptions(RemoteOptions options) {
+  static boolean isRestUrlOptions(RemoteOptions options) {
     return options.remoteHttpCache != null;
   }
 }

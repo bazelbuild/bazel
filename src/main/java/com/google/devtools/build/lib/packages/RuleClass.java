@@ -32,14 +32,17 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -198,6 +201,44 @@ public class RuleClass {
      * configured target creation in cases where it can no longer continue.
      */
     public static final class RuleErrorException extends Exception {}
+  }
+
+  /**
+   * Describes in which way a rule implementation allows additional execution platform constraints.
+   */
+  public enum ExecutionPlatformConstraintsAllowed {
+    /**
+     * Allows additional execution platform constraints to be added in the rule definition, which
+     * apply to all targets of that rule.
+     */
+    PER_RULE(1),
+    /**
+     * Users are allowed to specify additional execution platform constraints for each target, using
+     * the 'exec_compatible_with' attribute. This also allows setting constraints in the rule
+     * definition, like PER_RULE.
+     */
+    PER_TARGET(2);
+
+    private final int priority;
+
+    ExecutionPlatformConstraintsAllowed(int priority) {
+      this.priority = priority;
+    }
+
+    public int priority() {
+      return priority;
+    }
+
+    public static ExecutionPlatformConstraintsAllowed highestPriority(
+        ExecutionPlatformConstraintsAllowed first, ExecutionPlatformConstraintsAllowed... rest) {
+      ExecutionPlatformConstraintsAllowed result = first;
+      for (ExecutionPlatformConstraintsAllowed value : rest) {
+        if (result == null || result.priority() < value.priority()) {
+          result = value;
+        }
+      }
+      return result;
+    }
   }
 
   /**
@@ -614,6 +655,10 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean supportsPlatforms = true;
+    private ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed =
+        ExecutionPlatformConstraintsAllowed.PER_RULE;
+    private Set<Label> executionPlatformConstraints = new HashSet<>();
+    private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -647,10 +692,16 @@ public class RuleClass {
         addRequiredToolchains(parent.getRequiredToolchains());
         supportsPlatforms = parent.supportsPlatforms;
 
+        // Make sure we use the highest priority value from all parents.
+        executionPlatformConstraintsAllowed(
+            ExecutionPlatformConstraintsAllowed.highestPriority(
+                executionPlatformConstraintsAllowed, parent.executionPlatformConstraintsAllowed()));
+        addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
+
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
           Preconditions.checkArgument(
-              !attributes.containsKey(attrName) || attributes.get(attrName) == attribute,
+              !attributes.containsKey(attrName) || attributes.get(attrName).equals(attribute),
               "Attribute %s is inherited multiple times in %s ruleclass",
               attrName,
               name);
@@ -706,6 +757,15 @@ public class RuleClass {
       if (type == RuleClassType.PLACEHOLDER) {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentHashCode, this.name);
       }
+      if (executionPlatformConstraintsAllowed == ExecutionPlatformConstraintsAllowed.PER_TARGET
+          && !this.contains("exec_compatible_with")) {
+        this.add(
+            attr("exec_compatible_with", BuildType.LABEL_LIST)
+                .allowedFileTypes()
+                .nonconfigurable("Used in toolchain resolution")
+                .value(ImmutableList.of()));
+      }
+
       return new RuleClass(
           name,
           key,
@@ -733,6 +793,9 @@ public class RuleClass {
           supportsConstraintChecking,
           requiredToolchains,
           supportsPlatforms,
+          executionPlatformConstraintsAllowed,
+          executionPlatformConstraints,
+          outputFileKind,
           attributes.values());
     }
 
@@ -895,24 +958,22 @@ public class RuleClass {
     /**
      * Applies the given transition to all incoming edges for this rule class.
      *
+     * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
+     * rule's parent: use {@link Attribute.Builder#cfg(ConfigurationTransition)} on the parent to
+     * declare splits.
+     *
      * <p>If you need the transition to depend on the rule it's being applied to, use
      * {@link #cfg(RuleTransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      Preconditions.checkState(type != RuleClassType.ABSTRACT,
-          "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(this.transitionFactory == null,
-          "Property cfg has already been set");
-      Preconditions.checkNotNull(transition);
-      this.transitionFactory = new FixedTransitionFactory(transition);
-      return this;
+      return cfg(new FixedTransitionFactory(transition));
     }
 
     /**
      * Applies the given transition factory to all incoming edges for this rule class.
      *
-     * <p>Unlike{@link #cfg(ConfigurationTransition)}, the factory can examine the rule when
-     * deciding what transition to use.
+     * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
+     * transition to use.
      */
     public Builder cfg(RuleTransitionFactory transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
@@ -1081,6 +1142,18 @@ public class RuleClass {
     }
 
     /**
+     * Sets the kind of output files this rule creates.
+     * DO NOT USE! This only exists to support the non-open-sourced {@code fileset} rule.
+     * {@see OutputFile.Kind}.
+     */
+    public Builder setOutputFileKind(OutputFile.Kind outputFileKind) {
+      this.outputFileKind = outputFileKind;
+      return this;
+    }
+
+
+
+    /**
      * Declares that instances of this rule are compatible with the specified environments,
      * in addition to the defaults declared by their environment groups. This can be overridden
      * by rule-specific declarations. See
@@ -1148,18 +1221,62 @@ public class RuleClass {
       return this;
     }
 
+    /**
+     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
     public Builder addRequiredToolchains(Iterable<Label> toolchainLabels) {
       Iterables.addAll(this.requiredToolchains, toolchainLabels);
       return this;
     }
 
+    /**
+     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
     public Builder addRequiredToolchains(Label... toolchainLabels) {
-      Iterables.addAll(this.requiredToolchains, Lists.newArrayList(toolchainLabels));
+      return this.addRequiredToolchains(Lists.newArrayList(toolchainLabels));
+    }
+
+    /**
+     * Rules that support platforms can use toolchains and execution platforms. Rules that are part
+     * of configuring toolchains and platforms should set this to {@code false}.
+     */
+    public Builder supportsPlatforms(boolean flag) {
+      this.supportsPlatforms = flag;
       return this;
     }
 
-    public Builder supportsPlatforms(boolean flag) {
-      this.supportsPlatforms = flag;
+    /**
+     * Specifies whether targets of this rule can add additional constraints on the execution
+     * platform selected. If this is {@link ExecutionPlatformConstraintsAllowed#PER_TARGET}, there
+     * will be an attribute named {@code exec_compatible_with} that can be used to add these
+     * constraints.
+     *
+     * <p>Please note that this value is not inherited by child rules, and must be re-set on them if
+     * the same behavior is required.
+     */
+    public Builder executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed value) {
+      this.executionPlatformConstraintsAllowed = value;
+      return this;
+    }
+
+    /**
+     * Adds additional execution platform constraints that apply for all targets from this rule.
+     *
+     * <p>Please note that this value is inherited by child rules.
+     */
+    public Builder addExecutionPlatformConstraints(Label... constraints) {
+      return this.addExecutionPlatformConstraints(Lists.newArrayList(constraints));
+    }
+
+    /**
+     * Adds additional execution platform constraints that apply for all targets from this rule.
+     *
+     * <p>Please note that this value is inherited by child rules.
+     */
+    public Builder addExecutionPlatformConstraints(Iterable<Label> constraints) {
+      Iterables.addAll(this.executionPlatformConstraints, constraints);
       return this;
     }
 
@@ -1265,6 +1382,7 @@ public class RuleClass {
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
 
   @Nullable private final String ruleDefinitionEnvironmentHashCode;
+  private final OutputFile.Kind outputFileKind;
 
   /**
    * The set of configuration fragments which are legal for this rule's implementation to access.
@@ -1280,6 +1398,8 @@ public class RuleClass {
 
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean supportsPlatforms;
+  private final ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed;
+  private final ImmutableSet<Label> executionPlatformConstraints;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1329,6 +1449,9 @@ public class RuleClass {
       boolean supportsConstraintChecking,
       Set<Label> requiredToolchains,
       boolean supportsPlatforms,
+      ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed,
+      Set<Label> executionPlatformConstraints,
+      OutputFile.Kind  outputFileKind,
       Collection<Attribute> attributes) {
     this.name = name;
     this.key = key;
@@ -1351,6 +1474,7 @@ public class RuleClass {
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentHashCode = ruleDefinitionEnvironmentHashCode;
+    this.outputFileKind = outputFileKind;
     validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
@@ -1359,6 +1483,8 @@ public class RuleClass {
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.supportsPlatforms = supportsPlatforms;
+    this.executionPlatformConstraintsAllowed = executionPlatformConstraintsAllowed;
+    this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
 
     // Create the index and collect non-configurable attributes.
     int index = 0;
@@ -1642,7 +1768,8 @@ public class RuleClass {
       EventHandler eventHandler)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     BitSet definedAttrIndices =
-        populateDefinedRuleAttributeValues(rule, attributeValues, eventHandler);
+        populateDefinedRuleAttributeValues(
+            rule, pkgBuilder.getRepositoryMapping(), attributeValues, eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -1655,12 +1782,15 @@ public class RuleClass {
    * <p>Handles the special cases of the attribute named {@code "name"} and attributes with value
    * {@link Runtime#NONE}.
    *
-   * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a
-   * value for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported
-   * on {@code eventHandler}.
+   * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a value
+   * for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported on {@code
+   * eventHandler}.
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
-      Rule rule, AttributeValues<T> attributeValues, EventHandler eventHandler) {
+      Rule rule,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      AttributeValues<T> attributeValues,
+      EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
       String attributeName = attributeValues.getName(attributeAccessor);
@@ -1685,7 +1815,8 @@ public class RuleClass {
       Object nativeAttributeValue;
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
-          nativeAttributeValue = convertFromBuildLangType(rule, attr, attributeValue);
+          nativeAttributeValue =
+              convertFromBuildLangType(rule, attr, attributeValue, repositoryMapping);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -1981,13 +2112,19 @@ public class RuleClass {
    * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
    * a selector expression but {@code attr.isConfigurable()} is {@code false}.
    */
-  private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
+  private static Object convertFromBuildLangType(
+      Rule rule,
+      Attribute attr,
+      Object buildLangValue,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws ConversionException {
-    Object converted = BuildType.selectableConvert(
-        attr.getType(),
-        buildLangValue,
-        new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-        rule.getLabel());
+    LabelConversionContext context = new LabelConversionContext(rule.getLabel(), repositoryMapping);
+    Object converted =
+        BuildType.selectableConvert(
+            attr.getType(),
+            buildLangValue,
+            new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
+            context);
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(
@@ -2173,6 +2310,19 @@ public class RuleClass {
 
   public boolean supportsPlatforms() {
     return supportsPlatforms;
+  }
+
+  public ExecutionPlatformConstraintsAllowed executionPlatformConstraintsAllowed() {
+    return executionPlatformConstraintsAllowed;
+  }
+
+  public ImmutableSet<Label> getExecutionPlatformConstraints() {
+    return executionPlatformConstraints;
+  }
+
+  @Nullable
+  public OutputFile.Kind  getOutputFileKind() {
+    return outputFileKind;
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {

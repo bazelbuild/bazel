@@ -16,16 +16,10 @@ package com.google.devtools.build.lib.rules;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.ToolchainContext.ResolvedToolchainProviders;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,114 +29,82 @@ import org.junit.runners.JUnit4;
 public class ToolchainTypeTest extends BuildViewTestCase {
 
   @Test
-  public void testSmoke() throws Exception {
-    ConfiguredTarget cc =
-        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
-    assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables())
-        .containsKey("TARGET_CPU");
-  }
-
-  @Test
-  public void testCcToolchainDoesNotProvideJavaMakeVariables() throws Exception {
-    ConfiguredTarget cc =
-        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
-    assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables()).doesNotContainKey("JAVABASE");
-  }
-
-  @Test
-  public void testMakeVariablesFromToolchain() throws Exception {
-    MockPlatformSupport.addMockPiiiPlatform(
-        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
-    useConfiguration(
-        "--enabled_toolchain_types="
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/cpp:toolchain_type",
-        "--experimental_platforms=//mock_platform:mock-piii-platform",
-        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii",
-        "--make_variables_source=toolchain");
-    ConfiguredTarget cc =
-        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
-    assertThat(cc.get(TemplateVariableInfo.PROVIDER).getVariables())
-        .containsEntry("TARGET_CPU", "piii");
-  }
-
-  @Test
-  public void testGlibcVersionSetInEnv() throws Exception {
-    MockPlatformSupport.addMockPiiiPlatform(
-        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
-    useConfiguration(
-        "--enabled_toolchain_types="
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/cpp:toolchain_type",
-        "--experimental_platforms=//mock_platform:mock-piii-platform",
-        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii",
-        "--make_variables_source=toolchain");
-    ConfiguredTarget toolchainType =
-        getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type");
-    Map<String, String> makeVariables =
-        toolchainType.get(TemplateVariableInfo.PROVIDER).getVariables();
-
-    ConfiguredTarget target =
-        ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
-            .setList("srcs", "a.cc")
-            .write();
-
-    ResolvedToolchainProviders providers =
-        (ResolvedToolchainProviders)
-            getRuleContext(target).getToolchainContext().getResolvedToolchainProviders();
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider)
-            providers.getForToolchainType(
-                Label.parseAbsolute(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type"));
-
-    String targetLibc = toolchainProvider.getTargetLibc();
-    String glibcVersion = makeVariables.get("GLIBC_VERSION");
-    assertThat(glibcVersion).isNotNull();
-    if (targetLibc.startsWith("glibc-")) {
-      assertThat(glibcVersion).isEqualTo(targetLibc.substring("glibc-".length()));
-    } else {
-      assertThat(glibcVersion).isEqualTo(targetLibc);
-    }
-  }
-
-  @Test
   public void testCcTargetsDependOnCcToolchainAutomatically() throws Exception {
-    MockPlatformSupport.addMockPiiiPlatform(
-        mockToolsConfig, analysisMock.ccSupport().getMockCrosstoolLabel());
+    scratch.file(
+        "a/BUILD",
+        "filegroup(",
+        "   name='empty')",
+        "package(default_visibility=['//visibility:public'])",
+        "constraint_setting(name = 'mock_setting')",
+        "constraint_value(name = 'mock_value', constraint_setting = ':mock_setting')",
+        "platform(",
+        "   name = 'mock-platform',",
+        "   constraint_values = [':mock_value'],",
+        ")",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    proto='''",
+        "      toolchain_identifier: 'banana'",
+        "      abi_version: 'banana'",
+        "      abi_libc_version: 'banana'",
+        "      compiler: 'banana'",
+        "      host_system_name: 'banana'",
+        "      target_system_name: 'banana'",
+        "      target_cpu: 'banana'",
+        "      target_libc: 'banana'",
+        "    ''')",
+        "toolchain(",
+        "   name = 'toolchain_b',",
+        "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "   toolchain = ':b',",
+        "   target_compatible_with = [':mock_value'],",
+        ")");
+
     useConfiguration(
         "--enabled_toolchain_types="
             + TestConstants.TOOLS_REPOSITORY
             + "//tools/cpp:toolchain_type",
-        "--experimental_platforms=//mock_platform:mock-piii-platform",
-        "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii",
+        "--experimental_platforms=//a:mock-platform",
+        "--extra_toolchains=//a:toolchain_b",
         "--make_variables_source=toolchain");
 
     // for cc_library, cc_binary, and cc_test, we check that $(TARGET_CPU) is a valid Make variable
     ConfiguredTarget cclibrary =
         ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cclib")
             .setList("srcs", "a.cc")
-            .setList("copts", "foobar$(TARGET_CPU)")
+            .setList("copts", "foobar-$(ABI)")
             .write();
     CppCompileAction compileAction =
-        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cclib/cclib/a.o", cclibrary));
-    assertThat(compileAction.getArguments()).contains("foobarpiii");
+        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cclib/a.o", cclibrary));
+    assertThat(compileAction.getArguments()).contains("foobar-banana");
 
     ConfiguredTarget ccbinary =
         ScratchAttributeWriter.fromLabelString(this, "cc_binary", "//ccbin")
             .setList("srcs", "a.cc")
-            .setList("copts", "foobar$(TARGET_CPU)")
+            .setList("copts", "foobar-$(ABI)")
             .write();
     compileAction =
-        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/ccbin/ccbin/a.o", ccbinary));
-    assertThat(compileAction.getArguments()).contains("foobarpiii");
+        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/ccbin/a.o", ccbinary));
+    assertThat(compileAction.getArguments()).contains("foobar-banana");
 
     ConfiguredTarget cctest =
         ScratchAttributeWriter.fromLabelString(this, "cc_test", "//cctest")
             .setList("srcs", "a.cc")
-            .setList("copts", "foobar$(TARGET_CPU)")
+            .setList("copts", "foobar-$(ABI)")
             .write();
     compileAction =
-        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cctest/cctest/a.o", cctest));
-    assertThat(compileAction.getArguments()).contains("foobarpiii");
+        (CppCompileAction) getGeneratingAction(getBinArtifact("_objs/cctest/a.o", cctest));
+    assertThat(compileAction.getArguments()).contains("foobar-banana");
   }
 }

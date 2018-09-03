@@ -24,6 +24,7 @@ filegroup(
         "diag.h",
         "input_jar.cc",
         "input_jar.h",
+        "mapped_file.cc",
         "mapped_file.h",
         "mapped_file_posix.inc",
         "mapped_file_windows.inc",
@@ -31,6 +32,8 @@ filegroup(
         "options.h",
         "output_jar.cc",
         "output_jar.h",
+        "port.cc",
+        "port.h",
         "singlejar_main.cc",
         "token_stream.h",
         "transient_bytes.h",
@@ -50,7 +53,6 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkstatic = 1,
-    # TODO(b/68065069): use singlejar_local except in remote execution
     visibility = ["//visibility:public"],
     deps = [
         "options",
@@ -200,7 +202,6 @@ cc_test(
     ],
     deps = [
         ":options",
-        ":test_util",
         ":token_stream",
         "//src/main/cpp/util",
         "@com_google_googletest//:gtest_main",
@@ -210,12 +211,10 @@ cc_test(
 sh_test(
     name = "output_jar_bash_test",
     srcs = ["output_jar_shell_test.sh"],
-    args = [
-        "src/test/shell",
-        "$(location :singlejar)",
-    ],
     data = [
         ":singlejar",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     deps = ["//src/test/shell:bashunit"],
 )
@@ -294,7 +293,6 @@ cc_test(
         ":zlib_interface",
     ],
     deps = [
-        ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
@@ -303,14 +301,11 @@ cc_test(
 sh_test(
     name = "zip64_test",
     srcs = ["zip64_test.sh"],
-    args = [
-        "src/test/shell",
-        "$(location :singlejar)",
-        "$(location @local_jdk//:jar)",
-    ],
     data = [
         ":singlejar",
-        "//tools/defaults:jdk",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+        "@bazel_tools//tools/jdk:current_java_runtime",
         "@local_jdk//:jar",
     ],
     deps = ["//src/test/shell:bashunit"],
@@ -335,6 +330,7 @@ cc_library(
     hdrs = ["desugar_checking.h"],
     deps = [
         ":combiners",
+        "//src/main/protobuf:desugar_deps_cc_proto",
     ],
 )
 
@@ -345,14 +341,24 @@ cc_library(
 )
 
 cc_library(
+    name = "port",
+    srcs = ["port.cc"],
+    hdrs = ["port.h"],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
     name = "mapped_file",
-    srcs = select({
+    srcs = ["mapped_file.cc"] + select({
         "//src:windows": ["mapped_file_windows.inc"],
         "//conditions:default": ["mapped_file_posix.inc"],
     }),
     hdrs = ["mapped_file.h"],
     visibility = ["//visibility:private"],
-    deps = [":diag"],
+    deps = [
+        ":diag",
+        ":port",
+    ],
 )
 
 cc_library(
@@ -397,6 +403,7 @@ cc_library(
         ":input_jar",
         ":mapped_file",
         ":options",
+        ":port",
         "//src/main/cpp/util",
         "//third_party/zlib",
     ],
@@ -478,7 +485,7 @@ genrule(
     name = "stored_jar",
     srcs = [
         "output_jar.cc",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     outs = ["stored.jar"],
     cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",

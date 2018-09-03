@@ -16,43 +16,36 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import java.util.ArrayList;
 
 /**
  * Basic implementation of {@link ActionLookupValue} where the value itself owns and maintains
  * the list of generating actions.
  */
 public class BasicActionLookupValue extends ActionLookupValue {
-  protected final ArrayList<ActionAnalysisMetadata> actions;
+  protected final ImmutableList<ActionAnalysisMetadata> actions;
   @VisibleForSerialization protected final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
-  protected BasicActionLookupValue(
-      ActionAnalysisMetadata action,
-      boolean removeActionAfterEvaluation) {
-    this(Actions.GeneratingActions.fromSingleAction(action), removeActionAfterEvaluation);
+  protected BasicActionLookupValue(ActionAnalysisMetadata action) {
+    this(Actions.GeneratingActions.fromSingleAction(action));
   }
 
   protected BasicActionLookupValue(
-      ArrayList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Artifact, Integer> generatingActionIndex,
-      boolean removeActionsAfterEvaluation) {
-    super(removeActionsAfterEvaluation);
+      ImmutableList<ActionAnalysisMetadata> actions,
+      ImmutableMap<Artifact, Integer> generatingActionIndex) {
     this.actions = actions;
     this.generatingActionIndex = generatingActionIndex;
   }
 
   @VisibleForTesting
-  public BasicActionLookupValue(
-      Actions.GeneratingActions generatingActions, boolean removeActionsAfterEvaluation) {
-    this(new ArrayList<>(generatingActions.getActions()),
-        generatingActions.getGeneratingActionIndex(),
-        removeActionsAfterEvaluation);
+  public BasicActionLookupValue(Actions.GeneratingActions generatingActions) {
+    this(generatingActions.getActions(), generatingActions.getGeneratingActionIndex());
   }
 
   @Override
-  protected ArrayList<ActionAnalysisMetadata> getActions() {
+  protected ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
   }
 

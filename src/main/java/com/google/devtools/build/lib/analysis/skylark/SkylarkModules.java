@@ -14,16 +14,15 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.BazelLibrary;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
-import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * The basis for a Skylark Environment with all build-related modules registered.
@@ -32,38 +31,26 @@ public final class SkylarkModules {
 
   private SkylarkModules() { }
 
+  /** A bootstrap for non-rules-specific globals of the build API. */
+  private static TopLevelBootstrap topLevelBootstrap =
+      new TopLevelBootstrap(
+          new BazelBuildApiGlobals(),
+          new SkylarkAttr(),
+          new SkylarkCommandLine(),
+          new SkylarkNativeModule(),
+          new SkylarkRuleClassFunctions(),
+          StructProvider.STRUCT,
+          OutputGroupInfo.SKYLARK_CONSTRUCTOR,
+          ActionsProvider.INSTANCE,
+          DefaultInfo.PROVIDER);
   /**
-   * The list of built in Skylark modules. Documentation is generated automatically for all these
-   * modules. They are also registered with the {@link Environment}.
+   * Adds bindings for skylark built-ins and non-rules-specific globals of the build API to
+   * the given environment map builder.
    */
-  public static final ImmutableList<Class<?>> MODULES =
-      ImmutableList.of(
-          BazelBuildApiGlobals.class,
-          SkylarkAttr.class,
-          SkylarkCommandLine.class,
-          SkylarkNativeModule.class,
-          SkylarkRuleClassFunctions.class);
+  public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> envBuilder) {
+    Runtime.addConstantsToBuilder(envBuilder);
+    MethodLibrary.addBindingsToBuilder(envBuilder);
 
-  /** Global bindings for all Skylark modules */
-  private static final Map<List<Class<?>>, GlobalFrame> cache = new HashMap<>();
-
-  public static Environment.GlobalFrame getGlobals(List<Class<?>> modules) {
-    if (!cache.containsKey(modules)) {
-      cache.put(modules, createGlobals(modules));
-    }
-    return cache.get(modules);
-  }
-
-  private static Environment.GlobalFrame createGlobals(List<Class<?>> modules) {
-    try (Mutability mutability = Mutability.create("SkylarkModules")) {
-      Environment env = Environment.builder(mutability)
-          .useDefaultSemantics()
-          .setGlobals(BazelLibrary.GLOBALS)
-          .build();
-      for (Class<?> moduleClass : modules) {
-        Runtime.setupModuleGlobals(env, moduleClass);
-      }
-      return env.getGlobals();
-    }
+    topLevelBootstrap.addBindingsToBuilder(envBuilder);
   }
 }

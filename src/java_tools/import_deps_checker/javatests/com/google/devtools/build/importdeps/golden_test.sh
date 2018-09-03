@@ -22,6 +22,8 @@ gold_stderr_file=$1
 shift
 expected_exit_code=$1
 shift
+PRINT_JDEPS_PROTO=$1
+shift
 
 if [ -d "$TEST_TMPDIR" ]; then
   # Running as part of blaze test
@@ -43,7 +45,7 @@ output_file="${output}/actual_result.txt"
 checker_stderr="${output}/checker_stderr.txt"
 
 # Run the checker command.
-$@ --output "${output_file}" 2> ${checker_stderr}
+$@ --jdeps_output "${output_file}" 2> ${checker_stderr}
 
 checker_ret=$?
 if [[ "${checker_ret}" != ${expected_exit_code} ]]; then
@@ -52,12 +54,12 @@ if [[ "${checker_ret}" != ${expected_exit_code} ]]; then
   exit 1 # Exit with an error.
 fi
 
-diff "${gold_output_file}" "${output_file}"
+diff "${gold_output_file}" <($PRINT_JDEPS_PROTO "${output_file}")
 gold_output_ret=$?
 
 if [[ "${gold_output_ret}" != 0 ]] ; then
   echo "============== Actual Output =============="
-  cat "${output_file}"
+  $PRINT_JDEPS_PROTO "${output_file}"
   echo "" # New line.
   echo "==========================================="
 

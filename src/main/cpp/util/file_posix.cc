@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/util/file_platform.h"
+
 #include <dirent.h>  // DIR, dirent, opendir, closedir
 #include <errno.h>
 #include <fcntl.h>   // O_RDONLY
@@ -29,11 +31,12 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
-using std::pair;
 using std::string;
 
 // Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
@@ -178,18 +181,6 @@ IPipe* CreatePipe() {
   return new PosixPipe(fd[0], fd[1]);
 }
 
-pair<string, string> SplitPath(const string &path) {
-  size_t pos = path.rfind('/');
-
-  // Handle the case with no '/' in 'path'.
-  if (pos == string::npos) return std::make_pair("", path);
-
-  // Handle the case with a single leading '/' in 'path'.
-  if (pos == 0) return std::make_pair(string(path, 0, 1), string(path, 1));
-
-  return std::make_pair(string(path, 0, pos), string(path, pos + 1));
-}
-
 int ReadFromHandle(file_handle_type fd, void *data, size_t size, int *error) {
   int result = read(fd, data, size);
   if (error != nullptr) {
@@ -299,10 +290,6 @@ static bool CanAccess(const string &path, bool read, bool write, bool exec) {
   return access(path.c_str(), mode) == 0;
 }
 
-bool IsDevNull(const char *path) {
-  return path != NULL && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
-}
-
 bool CanReadFile(const std::string &path) {
   return !IsDirectory(path) && CanAccess(path, true, false, false);
 }
@@ -319,12 +306,6 @@ bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
-
-bool IsRootDirectory(const string &path) {
-  return path.size() == 1 && path[0] == '/';
-}
-
-bool IsAbsolute(const string &path) { return !path.empty() && path[0] == '/'; }
 
 void SyncFile(const string& path) {
   const char* file_path = path.c_str();
@@ -347,7 +328,7 @@ class PosixFileMtime : public IFileMtime {
       : near_future_(GetFuture(9)),
         distant_future_({GetFuture(10), GetFuture(10)}) {}
 
-  bool GetIfInDistantFuture(const string &path, bool *result) override;
+  bool IsUntampered(const string &path) override;
   bool SetToNow(const string &path) override;
   bool SetToDistantFuture(const string &path) override;
 
@@ -362,18 +343,18 @@ class PosixFileMtime : public IFileMtime {
   static time_t GetFuture(unsigned int years);
 };
 
-bool PosixFileMtime::GetIfInDistantFuture(const string &path, bool *result) {
+bool PosixFileMtime::IsUntampered(const string &path) {
   struct stat buf;
   if (stat(path.c_str(), &buf)) {
     return false;
   }
+
   // Compare the mtime with `near_future_`, not with `GetNow()` or
   // `distant_future_`.
   // This way we don't need to call GetNow() every time we want to compare and
   // we also don't need to worry about potentially unreliable time equality
   // check (in case it uses floats or something crazy).
-  *result = (buf.st_mtime > near_future_);
-  return true;
+  return S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
 }
 
 bool PosixFileMtime::SetToNow(const string &path) {

@@ -80,8 +80,8 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
       }
     }
     if (extraActions.isEmpty()) {
-      ruleContext.attributeWarning("extra_actions",
-          "No extra_action is specified for this version of blaze.");
+      ruleContext.attributeWarning(
+          "extra_actions", "No extra_action is specified for this version of bazel.");
     }
     return extraActions;
   }

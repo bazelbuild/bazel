@@ -23,11 +23,16 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,27 +41,47 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class DebuggerSerializationTest {
 
+  private final ThreadObjectMap dummyObjectMap = new ThreadObjectMap();
+
+  /**
+   * Returns the {@link Value} proto message corresponding to the given object and label. Subsequent
+   * calls may return values with different IDs.
+   */
+  private Value getValueProto(String label, Object value) {
+    return DebuggerSerialization.getValueProto(dummyObjectMap, label, value);
+  }
+
+  private ImmutableList<Value> getChildren(Value value) {
+    Object object = dummyObjectMap.getValue(value.getId());
+    return object != null
+        ? DebuggerSerialization.getChildren(dummyObjectMap, object)
+        : ImmutableList.of();
+  }
+
   @Test
   public void testSimpleNestedSet() {
     Set<String> children = ImmutableSet.of("a", "b");
     SkylarkNestedSet set =
         SkylarkNestedSet.of(Object.class, NestedSetBuilder.stableOrder().addAll(children).build());
 
-    Value value = DebuggerSerialization.getValueProto("name", set);
+    Value value = getValueProto("name", set);
 
     assertTypeAndDescription(set, value);
-    assertThat(value.getChildList()).hasSize(3);
-    assertThat(value.getChild(0))
+    assertThat(value.getHasChildren()).isTrue();
+    assertThat(value.getLabel()).isEqualTo("name");
+
+    List<Value> childValues = getChildren(value);
+
+    assertThat(childValues.get(0))
         .isEqualTo(
             Value.newBuilder()
                 .setLabel("order")
                 .setType("Traversal order")
                 .setDescription("default")
                 .build());
-    assertEqualIgnoringTypeAndDescription(
-        value.getChild(1), DebuggerSerialization.getValueProto("directs", children));
-    assertEqualIgnoringTypeAndDescription(
-        value.getChild(2), DebuggerSerialization.getValueProto("transitives", ImmutableList.of()));
+    assertEqualIgnoringTypeDescriptionAndId(childValues.get(1), getValueProto("directs", children));
+    assertEqualIgnoringTypeDescriptionAndId(
+        childValues.get(2), getValueProto("transitives", ImmutableList.of()));
   }
 
   @Test
@@ -72,45 +97,40 @@ public final class DebuggerSerializationTest {
                 .addTransitive(innerNestedSet)
                 .build());
 
-    Value value = DebuggerSerialization.getValueProto("name", outerSet);
+    Value value = getValueProto("name", outerSet);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(outerSet, value);
-    assertThat(value.getChildList()).hasSize(3);
-    assertThat(value.getChild(0))
+    assertThat(childValues).hasSize(3);
+    assertThat(childValues.get(0))
         .isEqualTo(
             Value.newBuilder()
                 .setLabel("order")
                 .setType("Traversal order")
                 .setDescription("topological")
                 .build());
-    assertEqualIgnoringTypeAndDescription(
-        value.getChild(1), DebuggerSerialization.getValueProto("directs", directChildren));
-    assertEqualIgnoringTypeAndDescription(
-        value.getChild(2),
-        DebuggerSerialization.getValueProto(
-            "transitives", ImmutableList.of(new NestedSetView<>(innerNestedSet))));
+    assertEqualIgnoringTypeDescriptionAndId(
+        childValues.get(1), getValueProto("directs", directChildren));
+    assertEqualIgnoringTypeDescriptionAndId(
+        childValues.get(2),
+        getValueProto("transitives", ImmutableList.of(new NestedSetView<>(innerNestedSet))));
   }
 
   @Test
   public void testSimpleMap() {
     Map<String, Integer> map = ImmutableMap.of("a", 1, "b", 2);
 
-    Value value = DebuggerSerialization.getValueProto("name", map);
+    Value value = getValueProto("name", map);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(map, value);
-    assertThat(value.getChildList()).hasSize(2);
-    assertThat(value.getChild(0).getLabel()).isEqualTo("[0]");
-    assertThat(value.getChild(0).getChildList())
-        .isEqualTo(
-            ImmutableList.of(
-                DebuggerSerialization.getValueProto("key", "a"),
-                DebuggerSerialization.getValueProto("value", 1)));
-    assertThat(value.getChild(1).getLabel()).isEqualTo("[1]");
-    assertThat(value.getChild(1).getChildList())
-        .isEqualTo(
-            ImmutableList.of(
-                DebuggerSerialization.getValueProto("key", "b"),
-                DebuggerSerialization.getValueProto("value", 2)));
+    assertThat(childValues).hasSize(2);
+    assertThat(childValues.get(0).getLabel()).isEqualTo("[0]");
+    assertThat(getChildren(childValues.get(0)))
+        .isEqualTo(ImmutableList.of(getValueProto("key", "a"), getValueProto("value", 1)));
+    assertThat(childValues.get(1).getLabel()).isEqualTo("[1]");
+    assertThat(getChildren(childValues.get(1)))
+        .isEqualTo(ImmutableList.of(getValueProto("key", "b"), getValueProto("value", 2)));
   }
 
   @Test
@@ -118,72 +138,128 @@ public final class DebuggerSerializationTest {
     Set<String> set = ImmutableSet.of("a", "b");
     Map<String, Object> map = ImmutableMap.of("a", set);
 
-    Value value = DebuggerSerialization.getValueProto("name", map);
+    Value value = getValueProto("name", map);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(map, value);
-    assertThat(value.getChildList()).hasSize(1);
-    assertThat(value.getChild(0).getLabel()).isEqualTo("[0]");
-    assertThat(value.getChild(0).getChildList())
+    assertThat(childValues).hasSize(1);
+    assertThat(childValues.get(0).getLabel()).isEqualTo("[0]");
+    assertThat(clearIds(getChildren(childValues.get(0))))
         .isEqualTo(
-            ImmutableList.of(
-                DebuggerSerialization.getValueProto("key", "a"),
-                DebuggerSerialization.getValueProto("value", set)));
+            ImmutableList.of(getValueProto("key", "a"), clearId(getValueProto("value", set))));
   }
 
   @Test
   public void testSimpleIterable() {
     Iterable<Integer> iter = ImmutableList.of(1, 2);
 
-    Value value = DebuggerSerialization.getValueProto("name", iter);
+    Value value = getValueProto("name", iter);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(iter, value);
-    assertThat(value.getChildList()).hasSize(2);
-    assertThat(value.getChild(0)).isEqualTo(DebuggerSerialization.getValueProto("[0]", 1));
-    assertThat(value.getChild(1)).isEqualTo(DebuggerSerialization.getValueProto("[1]", 2));
+    assertThat(childValues).hasSize(2);
+    assertThat(childValues.get(0)).isEqualTo(getValueProto("[0]", 1));
+    assertThat(childValues.get(1)).isEqualTo(getValueProto("[1]", 2));
   }
 
   @Test
   public void testNestedIterable() {
     Iterable<Object> iter = ImmutableList.of(ImmutableList.of(1, 2));
 
-    Value value = DebuggerSerialization.getValueProto("name", iter);
+    Value value = getValueProto("name", iter);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(iter, value);
-    assertThat(value.getChildList()).hasSize(1);
-    assertThat(value.getChild(0))
-        .isEqualTo(DebuggerSerialization.getValueProto("[0]", ImmutableList.of(1, 2)));
+    assertThat(childValues).hasSize(1);
+    assertValuesEqualIgnoringId(childValues.get(0), getValueProto("[0]", ImmutableList.of(1, 2)));
   }
 
   @Test
   public void testSimpleArray() {
     int[] array = new int[] {1, 2};
 
-    Value value = DebuggerSerialization.getValueProto("name", array);
+    Value value = getValueProto("name", array);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(array, value);
-    assertThat(value.getChildList()).hasSize(2);
-    assertThat(value.getChild(0)).isEqualTo(DebuggerSerialization.getValueProto("[0]", 1));
-    assertThat(value.getChild(1)).isEqualTo(DebuggerSerialization.getValueProto("[1]", 2));
+    assertThat(childValues).hasSize(2);
+    assertThat(childValues.get(0)).isEqualTo(getValueProto("[0]", 1));
+    assertThat(childValues.get(1)).isEqualTo(getValueProto("[1]", 2));
   }
 
   @Test
   public void testNestedArray() {
     Object[] array = new Object[] {1, ImmutableList.of(2, 3)};
 
-    Value value = DebuggerSerialization.getValueProto("name", array);
+    Value value = getValueProto("name", array);
+    List<Value> childValues = getChildren(value);
 
     assertTypeAndDescription(array, value);
-    assertThat(value.getChildList()).hasSize(2);
-    assertThat(value.getChild(0)).isEqualTo(DebuggerSerialization.getValueProto("[0]", 1));
-    assertThat(value.getChild(1))
-        .isEqualTo(DebuggerSerialization.getValueProto("[1]", ImmutableList.of(2, 3)));
+    assertThat(childValues).hasSize(2);
+    assertThat(childValues.get(0)).isEqualTo(getValueProto("[0]", 1));
+    assertValuesEqualIgnoringId(childValues.get(1), getValueProto("[1]", ImmutableList.of(2, 3)));
   }
 
   @Test
   public void testUnrecognizedObjectOrSkylarkPrimitiveHasNoChildren() {
-    assertThat(DebuggerSerialization.getValueProto("name", 1).getChildList()).isEmpty();
-    assertThat(DebuggerSerialization.getValueProto("name", "string").getChildList()).isEmpty();
-    assertThat(DebuggerSerialization.getValueProto("name", new Object()).getChildList()).isEmpty();
+    assertThat(getValueProto("name", 1).getHasChildren()).isFalse();
+    assertThat(getValueProto("name", "string").getHasChildren()).isFalse();
+    assertThat(getValueProto("name", new Object()).getHasChildren()).isFalse();
+  }
+
+  @Test
+  public void testSkylarkValue() {
+    DummyType dummy = new DummyType();
+
+    Value value = getValueProto("name", dummy);
+    assertTypeAndDescription(dummy, value);
+    assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
+  }
+
+  private static class DummyType implements SkylarkValue {
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("DummyType");
+    }
+
+    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    public boolean bool() {
+      return true;
+    }
+
+    public boolean anotherMethod() {
+      return false;
+    }
+  }
+
+  @Test
+  public void testSkipSkylarkCallableThrowingException() {
+    DummyTypeWithException dummy = new DummyTypeWithException();
+
+    Value value = getValueProto("name", dummy);
+    assertTypeAndDescription(dummy, value);
+    assertThat(getChildren(value)).containsExactly(getValueProto("bool", true));
+  }
+
+  private static class DummyTypeWithException implements SkylarkValue {
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("DummyTypeWithException");
+    }
+
+    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    public boolean bool() {
+      return true;
+    }
+
+    @SkylarkCallable(name = "invalid", doc = "Throws exception!", structField = true)
+    public boolean invalid() {
+      throw new IllegalArgumentException();
+    }
+
+    public boolean anotherMethod() {
+      return false;
+    }
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {
@@ -192,14 +268,30 @@ public final class DebuggerSerializationTest {
   }
 
   /**
-   * Type and description are implementation dependent (e.g. NestedSetView#directs returns a list
-   * instead of a set if there are no duplicates, which changes both 'type' and 'description').
+   * Type, description, and ID are implementation dependent (e.g. NestedSetView#directs returns a
+   * list instead of a set if there are no duplicates, which changes both 'type' and 'description').
    */
-  private static void assertEqualIgnoringTypeAndDescription(Value value1, Value value2) {
+  private void assertEqualIgnoringTypeDescriptionAndId(Value value1, Value value2) {
     assertThat(value1.getLabel()).isEqualTo(value2.getLabel());
-    assertThat(value1.getChildCount()).isEqualTo(value2.getChildCount());
-    for (int i = 0; i < value1.getChildCount(); i++) {
-      assertEqualIgnoringTypeAndDescription(value1.getChild(i), value2.getChild(i));
+
+    List<Value> children1 = getChildren(value1);
+    List<Value> children2 = getChildren(value2);
+
+    assertThat(children1).hasSize(children2.size());
+    for (int i = 0; i < children1.size(); i++) {
+      assertEqualIgnoringTypeDescriptionAndId(children1.get(i), children2.get(i));
     }
+  }
+
+  private void assertValuesEqualIgnoringId(Value value1, Value value2) {
+    assertThat(clearId(value1)).isEqualTo(clearId(value2));
+  }
+
+  private Value clearId(Value value) {
+    return value.toBuilder().clearId().build();
+  }
+
+  private List<Value> clearIds(List<Value> values) {
+    return values.stream().map(this::clearId).collect(Collectors.toList());
   }
 }

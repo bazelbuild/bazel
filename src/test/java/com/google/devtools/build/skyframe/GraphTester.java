@@ -50,11 +50,15 @@ import javax.annotation.Nullable;
 public class GraphTester {
 
   public static final SkyFunctionName NODE_TYPE = SkyFunctionName.FOR_TESTING;
-  private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> functionMap =
-      ImmutableMap.of(GraphTester.NODE_TYPE, new DelegatingFunction());
+  private final Map<SkyFunctionName, SkyFunction> functionMap = new HashMap<>();
 
   private final Map<SkyKey, TestFunction> values = new HashMap<>();
   private final Set<SkyKey> modifiedValues = new LinkedHashSet<>();
+
+  public GraphTester() {
+    functionMap.put(NODE_TYPE, new DelegatingFunction());
+    functionMap.put(FOR_TESTING_NONHERMETIC, new DelegatingFunction());
+  }
 
   public TestFunction getOrCreate(String name) {
     return getOrCreate(skyKey(name));
@@ -165,6 +169,10 @@ public class GraphTester {
 
   public static SkyKey skyKey(String key) {
     return Key.create(key);
+  }
+
+  public static NonHermeticKey nonHermeticKey(String key) {
+    return NonHermeticKey.create(key);
   }
 
   /** A value in the testing graph that is constructed in the tester. */
@@ -309,7 +317,11 @@ public class GraphTester {
   }
 
   public ImmutableMap<SkyFunctionName, ? extends SkyFunction> getSkyFunctionMap() {
-    return functionMap;
+    return ImmutableMap.copyOf(functionMap);
+  }
+
+  public void putSkyFunction(SkyFunctionName functionName, SkyFunction function) {
+    functionMap.put(functionName, function);
   }
 
   /**
@@ -414,11 +426,12 @@ public class GraphTester {
   static class Key extends AbstractSkyKey<String> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    @AutoCodec.VisibleForSerialization
-    Key(String arg) {
+    private Key(String arg) {
       super(arg);
     }
 
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
     static Key create(String arg) {
       return interner.intern(new Key(arg));
     }
@@ -428,4 +441,28 @@ public class GraphTester {
       return SkyFunctionName.FOR_TESTING;
     }
   }
+
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  static class NonHermeticKey extends AbstractSkyKey<String> {
+    private static final Interner<NonHermeticKey> interner = BlazeInterners.newWeakInterner();
+
+    private NonHermeticKey(String arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static NonHermeticKey create(String arg) {
+      return interner.intern(new NonHermeticKey(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return FOR_TESTING_NONHERMETIC;
+    }
+  }
+
+  private static final SkyFunctionName FOR_TESTING_NONHERMETIC =
+      SkyFunctionName.createNonHermetic("FOR_TESTING_NONHERMETIC");
 }

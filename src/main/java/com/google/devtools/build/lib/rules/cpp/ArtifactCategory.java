@@ -13,22 +13,28 @@
 // limitations under the License
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.EvalException;
+import java.util.Arrays;
+
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
  * select a single artifact.
  */
 public enum ArtifactCategory {
-  STATIC_LIBRARY("lib", ".a"),
-  ALWAYSLINK_STATIC_LIBRARY("lib", ".lo"),
-  DYNAMIC_LIBRARY("lib", ".so"),
-  EXECUTABLE("", ""),
-  INTERFACE_LIBRARY("lib", ".ifso"),
+  STATIC_LIBRARY("lib", ".a", ".lib"),
+  ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
+  DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
+  EXECUTABLE("", "", ".exe"),
+  INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
-  OBJECT_FILE("", ".o"),
+  OBJECT_FILE("", ".o", ".obj"),
   PIC_OBJECT_FILE("", ".pic.o"),
   CPP_MODULE("", ".pcm"),
-  GENERATED_ASSEMBLY("", ".s"),
+  GENERATED_ASSEMBLY("", ".s", ".asm"),
   PROCESSED_HEADER("", ".processed"),
   GENERATED_HEADER("", ".h"),
   PREPROCESSED_C_SOURCE("", ".i"),
@@ -38,12 +44,53 @@ public enum ArtifactCategory {
   // the options passed to the clif_matcher.
   CLIF_OUTPUT_PROTO("", ".opb");
 
+  private static final ArtifactCategory[] ALLOWED_FROM_SKYLARK = {
+    STATIC_LIBRARY, ALWAYSLINK_STATIC_LIBRARY, DYNAMIC_LIBRARY, INTERFACE_LIBRARY
+  };
+
   private final String defaultPrefix;
   private final String defaultExtension;
+  private final String skylarkName;
+  // The extensions allowed for this artifact name pattern, Bazel should recognized them as
+  // corresponding file type in CppFileTypes.java
+  final ImmutableList<String> allowedExtensions;
 
-  ArtifactCategory(String prefix, String extension) {
-    this.defaultPrefix = prefix;
-    this.defaultExtension = extension;
+  ArtifactCategory(
+      String defaultPrefix,
+      String defaultExtension,
+      String... extraAllowedExtensions) {
+    this.defaultPrefix = defaultPrefix;
+    this.defaultExtension = defaultExtension;
+    this.allowedExtensions =
+        new ImmutableList.Builder<String>()
+            .add(defaultExtension)
+            .add(extraAllowedExtensions)
+            .build();
+
+    this.skylarkName = toString().toLowerCase();
+  }
+
+  public String getSkylarkName() {
+    return skylarkName;
+  }
+
+  public static ArtifactCategory fromString(
+      String skylarkName, Location location, String fieldForError) throws EvalException {
+    for (ArtifactCategory registerActions : ALLOWED_FROM_SKYLARK) {
+      if (registerActions.getSkylarkName().equals(skylarkName)) {
+        return registerActions;
+      }
+    }
+    throw new EvalException(
+        location,
+        String.format(
+            "Possible values for %s: %s",
+            fieldForError,
+            Joiner.on(", ")
+                .join(
+                    Arrays.stream(ALLOWED_FROM_SKYLARK)
+                        .map(ArtifactCategory::getSkylarkName)
+                        .collect(ImmutableList.toImmutableList()))));
   }
 
   /** Returns the name of the category. */
@@ -57,5 +104,9 @@ public enum ArtifactCategory {
 
   public String getDefaultExtension() {
     return defaultExtension;
+  }
+
+  public ImmutableList<String> getAllowedExtensions() {
+    return allowedExtensions;
   }
 }

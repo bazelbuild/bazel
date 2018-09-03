@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestCase {
 
-  private static final class ConfigFeatureFlagsOptionsProvider implements OptionsClassProvider {
+  private static final class ConfigFeatureFlagsOptionsProvider implements OptionsProvider {
     private final ImmutableMap<Label, String> flagValues;
 
     public ConfigFeatureFlagsOptionsProvider(Map<Label, String> flagValues) {
@@ -58,11 +58,16 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
       }
       return null;
     }
+
+    @Override
+    public Map<String, Object> getSkylarkOptions() {
+      return ImmutableMap.of();
+    }
   }
 
   private static BuildOptions getOptionsWithoutFlagFragment() {
     return BuildOptions.of(
-        ImmutableList.<Class<? extends FragmentOptions>>of(), OptionsClassProvider.EMPTY);
+        ImmutableList.<Class<? extends FragmentOptions>>of(), OptionsProvider.EMPTY);
   }
 
   private static BuildOptions getOptionsWithFlagFragment(Map<Label, String> values) {
@@ -86,7 +91,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
 
     BuildOptions original = getOptionsWithoutFlagFragment();
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isSameAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
@@ -109,7 +114,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
 
     BuildOptions original = getOptionsWithoutFlagFragment();
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isSameAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
@@ -120,10 +125,11 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     Rule rule = scratchRule("a", "empty", "feature_flag_setter(name = 'empty', flag_values = {})");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
-    Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:flag"), "value");
+    Map<Label, String> originalFlagMap =
+        ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "value");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isNotSameAs(original);
     assertThat(original.get(ConfigFeatureFlagOptions.class).getFlagValues())
@@ -147,11 +153,13 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
             "    default_value = 'a')");
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values").buildTransitionFor(rule);
-    Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:old"), "value");
-    Map<Label, String> expectedFlagMap = ImmutableMap.of(Label.parseAbsolute("//a:flag"), "a");
+    Map<Label, String> originalFlagMap =
+        ImmutableMap.of(Label.parseAbsolute("//a:old", ImmutableMap.of()), "value");
+    Map<Label, String> expectedFlagMap =
+        ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "a");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
-    BuildOptions converted = transition.apply(original);
+    BuildOptions converted = transition.patch(original);
 
     assertThat(converted).isNotSameAs(original);
     assertThat(original.get(ConfigFeatureFlagOptions.class).getFlagValues())

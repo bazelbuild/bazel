@@ -46,11 +46,11 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
-import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -147,7 +147,8 @@ public final class ActionsTestUtil {
         actionGraph == null
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -182,7 +183,8 @@ public final class ActionsTestUtil {
         ImmutableMap.of(),
         ImmutableMap.of(),
         createDummyArtifactExpander(),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        /*skyframeDepsResult=*/ null);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -233,6 +235,7 @@ public final class ActionsTestUtil {
           result.put(key, ValueOrUntypedException.ofValueUntyped(value));
           continue;
         }
+        errorMightHaveBeenFound = true;
         ErrorInfo errorInfo = evaluationResult.getError(key);
         if (errorInfo == null || errorInfo.getException() == null) {
           result.put(key, ValueOrUntypedException.ofNull());
@@ -709,7 +712,7 @@ public final class ActionsTestUtil {
    */
   public static class FakeMetadataHandlerBase implements MetadataHandler {
     @Override
-    public Metadata getMetadata(Artifact artifact) throws IOException {
+    public FileArtifactValue getMetadata(Artifact artifact) throws IOException {
       throw new UnsupportedOperationException();
     }
 
@@ -734,8 +737,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectRemoteFile(
-        Artifact output, byte[] digest, long size, long modifiedTime, int locationIndex) {
+    public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
       throw new UnsupportedOperationException();
     }
 

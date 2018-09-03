@@ -14,362 +14,410 @@
 # limitations under the License.
 """Configuring the C++ toolchain on Unix platforms."""
 
-
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
-    "auto_configure_warning",
     "auto_configure_fail",
+    "auto_configure_warning",
     "escape_string",
     "get_env_var",
+    "resolve_labels",
     "split_escaped",
     "which",
-    "tpl",
 )
 
 def _uniq(iterable):
-  """Remove duplicates from a list."""
+    """Remove duplicates from a list."""
 
-  unique_elements = {element: None for element in iterable}
-  return unique_elements.keys()
+    unique_elements = {element: None for element in iterable}
+    return unique_elements.keys()
 
 def _prepare_include_path(repo_ctx, path):
-  """Resolve and sanitize include path before outputting it into the crosstool.
+    """Resolve and sanitize include path before outputting it into the crosstool.
 
-  Args:
-    repo_ctx: repository_ctx object.
-    path: an include path to be sanitized.
+    Args:
+      repo_ctx: repository_ctx object.
+      path: an include path to be sanitized.
 
-  Returns:
-    Sanitized include path that can be written to the crosstoot. Resulting path
-    is absolute if it is outside the repository and relative otherwise.
-  """
+    Returns:
+      Sanitized include path that can be written to the crosstoot. Resulting path
+      is absolute if it is outside the repository and relative otherwise.
+    """
 
-  repo_root = str(repo_ctx.path("."))
-  # We're on UNIX, so the path delimiter is '/'.
-  repo_root += "/"
-  path = str(repo_ctx.path(path))
-  if path.startswith(repo_root):
-    return escape_string(path[len(repo_root):])
-  return escape_string(path)
+    repo_root = str(repo_ctx.path("."))
+
+    # We're on UNIX, so the path delimiter is '/'.
+    repo_root += "/"
+    path = str(repo_ctx.path(path))
+    if path.startswith(repo_root):
+        return escape_string(path[len(repo_root):])
+    return escape_string(path)
 
 def _get_value(it):
-  """Convert `it` in serialized protobuf format."""
-  if type(it) == "int":
-    return str(it)
-  elif type(it) == "bool":
-    return "true" if it else "false"
-  else:
-    return "\"%s\"" % it
-
-
-def _build_crosstool(d, prefix="  "):
-  """Convert `d` to a string version of a CROSSTOOL file content."""
-  lines = []
-  for k in d:
-    if type(d[k]) == "list":
-      for it in d[k]:
-        lines.append("%s%s: %s" % (prefix, k, _get_value(it)))
+    """Convert `it` in serialized protobuf format."""
+    if type(it) == "int":
+        return str(it)
+    elif type(it) == "bool":
+        return "true" if it else "false"
     else:
-      lines.append("%s%s: %s" % (prefix, k, _get_value(d[k])))
-  return "\n".join(lines)
+        return "\"%s\"" % it
 
+def _build_crosstool(d, prefix = "  "):
+    """Convert `d` to a string version of a CROSSTOOL file content."""
+    lines = []
+    for k in d:
+        if type(d[k]) == "list":
+            for it in d[k]:
+                lines.append("%s%s: %s" % (prefix, k, _get_value(it)))
+        else:
+            lines.append("%s%s: %s" % (prefix, k, _get_value(d[k])))
+    return "\n".join(lines)
 
 def _build_tool_path(d):
-  """Build the list of %-escaped tool_path for the CROSSTOOL file."""
-  lines = []
-  for k in d:
-    lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, escape_string(d[k])))
-  return "\n".join(lines)
+    """Build the list of %-escaped tool_path for the CROSSTOOL file."""
+    lines = []
+    for k in d:
+        lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, escape_string(d[k])))
+    return "\n".join(lines)
 
 def _find_tool(repository_ctx, tool, overriden_tools):
-  """Find a tool for repository, taking overriden tools into account."""
-  if tool in overriden_tools:
-    return overriden_tools[tool]
-  return which(repository_ctx, tool, "/usr/bin/" + tool)
+    """Find a tool for repository, taking overriden tools into account."""
+    if tool in overriden_tools:
+        return overriden_tools[tool]
+    return which(repository_ctx, tool, "/usr/bin/" + tool)
 
 def _get_tool_paths(repository_ctx, overriden_tools):
-  """Compute the path to the various tools. Doesn't %-escape the result!"""
-  return dict({k: _find_tool(repository_ctx, k, overriden_tools)
-          for k in [
-              "ar",
-              "ld",
-              "cpp",
-              "gcc",
-              "dwp",
-              "gcov",
-              "nm",
-              "objcopy",
-              "objdump",
-              "strip",
-          ]}.items())
+    """Compute the path to the various tools. Doesn't %-escape the result!"""
+    return dict({
+        k: _find_tool(repository_ctx, k, overriden_tools)
+        for k in [
+            "ar",
+            "ld",
+            "cpp",
+            "gcc",
+            "dwp",
+            "gcov",
+            "nm",
+            "objcopy",
+            "objdump",
+            "strip",
+        ]
+    }.items())
 
 def _escaped_cplus_include_paths(repository_ctx):
-  """Use ${CPLUS_INCLUDE_PATH} to compute the %-escaped list of flags for cxxflag."""
-  if "CPLUS_INCLUDE_PATH" in repository_ctx.os.environ:
-    result = []
-    for p in repository_ctx.os.environ["CPLUS_INCLUDE_PATH"].split(":"):
-      p = escape_string(str(repository_ctx.path(p)))  # Normalize the path
-      result.append("-I" + p)
-    return result
-  else:
-    return []
-
+    """Use ${CPLUS_INCLUDE_PATH} to compute the %-escaped list of flags for cxxflag."""
+    if "CPLUS_INCLUDE_PATH" in repository_ctx.os.environ:
+        result = []
+        for p in repository_ctx.os.environ["CPLUS_INCLUDE_PATH"].split(":"):
+            p = escape_string(str(repository_ctx.path(p)))  # Normalize the path
+            result.append("-I" + p)
+        return result
+    else:
+        return []
 
 _INC_DIR_MARKER_BEGIN = "#include <...>"
 
 # OSX add " (framework directory)" at the end of line, strip it.
 _OSX_FRAMEWORK_SUFFIX = " (framework directory)"
-_OSX_FRAMEWORK_SUFFIX_LEN =  len(_OSX_FRAMEWORK_SUFFIX)
+_OSX_FRAMEWORK_SUFFIX_LEN = len(_OSX_FRAMEWORK_SUFFIX)
 
 def _cxx_inc_convert(path):
-  """Convert path returned by cc -E xc++ in a complete path. Doesn't %-escape the path!"""
-  path = path.strip()
-  if path.endswith(_OSX_FRAMEWORK_SUFFIX):
-    path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
-  return path
-
+    """Convert path returned by cc -E xc++ in a complete path. Doesn't %-escape the path!"""
+    path = path.strip()
+    if path.endswith(_OSX_FRAMEWORK_SUFFIX):
+        path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
+    return path
 
 def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_flags = []):
-  """Compute the list of default %-escaped C++ include directories."""
-  result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
-  index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
-  if index1 == -1:
-    return []
-  index1 = result.stderr.find("\n", index1)
-  if index1 == -1:
-    return []
-  index2 = result.stderr.rfind("\n ")
-  if index2 == -1 or index2 < index1:
-    return []
-  index2 = result.stderr.find("\n", index2 + 1)
-  if index2 == -1:
-    inc_dirs = result.stderr[index1 + 1:]
-  else:
-    inc_dirs = result.stderr[index1 + 1:index2].strip()
+    """Compute the list of default %-escaped C++ include directories."""
+    result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
+    index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
+    if index1 == -1:
+        return []
+    index1 = result.stderr.find("\n", index1)
+    if index1 == -1:
+        return []
+    index2 = result.stderr.rfind("\n ")
+    if index2 == -1 or index2 < index1:
+        return []
+    index2 = result.stderr.find("\n", index2 + 1)
+    if index2 == -1:
+        inc_dirs = result.stderr[index1 + 1:]
+    else:
+        inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-  return [_prepare_include_path(repository_ctx, _cxx_inc_convert(p))
-          for p in inc_dirs.split("\n")]
+    return [
+        _prepare_include_path(repository_ctx, _cxx_inc_convert(p))
+        for p in inc_dirs.split("\n")
+    ]
 
+def _is_compiler_option_supported(repository_ctx, cc, option):
+    """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
+    result = repository_ctx.execute([
+        cc,
+        option,
+        "-o",
+        "/dev/null",
+        "-c",
+        str(repository_ctx.path("tools/cpp/empty.cc")),
+    ])
+    return result.stderr.find(option) == -1
 
-def _is_option_supported(repository_ctx, cc, option):
-  """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
-  result = repository_ctx.execute([
-      cc,
-      option,
-      "-o",
-      "/dev/null",
-      "-c",
-      str(repository_ctx.path("tools/cpp/empty.cc"))
-  ])
-  return result.stderr.find(option) == -1
-
-
-def _add_option_if_supported(repository_ctx, cc, option):
-  """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
-  return [option] if _is_option_supported(repository_ctx, cc, option) else []
-
+def _is_linker_option_supported(repository_ctx, cc, option, pattern):
+    """Checks that `option` is supported by the C linker. Doesn't %-escape the option."""
+    result = repository_ctx.execute([
+        cc,
+        option,
+        "-o",
+        "/dev/null",
+        str(repository_ctx.path("tools/cpp/empty.cc")),
+    ])
+    return result.stderr.find(pattern) == -1
 
 def _is_gold_supported(repository_ctx, cc):
-  """Checks that `gold` is supported by the C compiler."""
-  result = repository_ctx.execute([
-      cc,
-      "-fuse-ld=gold",
-      "-o",
-      "/dev/null",
-      # Some macos clang versions don't fail when setting -fuse-ld=gold, adding
-      # these lines to force it to. This also means that we will not detect
-      # gold when only a very old (year 2010 and older) is present.
-      "-Wl,--start-lib",
-      "-Wl,--end-lib",
-      str(repository_ctx.path("tools/cpp/empty.cc"))
-  ])
-  return result.return_code == 0
+    """Checks that `gold` is supported by the C compiler."""
+    result = repository_ctx.execute([
+        cc,
+        "-fuse-ld=gold",
+        "-o",
+        "/dev/null",
+        # Some macos clang versions don't fail when setting -fuse-ld=gold, adding
+        # these lines to force it to. This also means that we will not detect
+        # gold when only a very old (year 2010 and older) is present.
+        "-Wl,--start-lib",
+        "-Wl,--end-lib",
+        str(repository_ctx.path("tools/cpp/empty.cc")),
+    ])
+    return result.return_code == 0
+
+def _add_compiler_option_if_supported(repository_ctx, cc, option):
+    """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
+    return [option] if _is_compiler_option_supported(repository_ctx, cc, option) else []
+
+def _add_linker_option_if_supported(repository_ctx, cc, option, pattern):
+    """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
+    return [option] if _is_linker_option_supported(repository_ctx, cc, option, pattern) else []
 
 def _get_no_canonical_prefixes_opt(repository_ctx, cc):
-  # If the compiler sometimes rewrites paths in the .d files without symlinks
-  # (ie when they're shorter), it confuses Bazel's logic for verifying all
-  # #included header files are listed as inputs to the action.
+    # If the compiler sometimes rewrites paths in the .d files without symlinks
+    # (ie when they're shorter), it confuses Bazel's logic for verifying all
+    # #included header files are listed as inputs to the action.
 
-  # The '-fno-canonical-system-headers' should be enough, but clang does not
-  # support it, so we also try '-no-canonical-prefixes' if first option does
-  # not work.
-  opt = _add_option_if_supported(repository_ctx, cc,
-                                 "-fno-canonical-system-headers")
-  if len(opt) == 0:
-    return _add_option_if_supported(repository_ctx, cc,
-                                    "-no-canonical-prefixes")
-  return opt
+    # The '-fno-canonical-system-headers' should be enough, but clang does not
+    # support it, so we also try '-no-canonical-prefixes' if first option does
+    # not work.
+    opt = _add_compiler_option_if_supported(
+        repository_ctx,
+        cc,
+        "-fno-canonical-system-headers",
+    )
+    if len(opt) == 0:
+        return _add_compiler_option_if_supported(
+            repository_ctx,
+            cc,
+            "-no-canonical-prefixes",
+        )
+    return opt
 
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
-  """Return the content for the CROSSTOOL file, in a dictionary."""
-  supports_gold_linker = _is_gold_supported(repository_ctx, cc)
-  cc_path = repository_ctx.path(cc)
-  if not str(cc_path).startswith(str(repository_ctx.path(".")) + '/'):
-    # cc is outside the repository, set -B
-    bin_search_flag = ["-B" + escape_string(str(cc_path.dirname))]
-  else:
-    # cc is inside the repository, don't set -B.
-    bin_search_flag = []
+    """Return the content for the CROSSTOOL file, in a dictionary."""
+    supports_gold_linker = _is_gold_supported(repository_ctx, cc)
+    cc_path = repository_ctx.path(cc)
+    if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
+        # cc is outside the repository, set -B
+        bin_search_flag = ["-B" + escape_string(str(cc_path.dirname))]
+    else:
+        # cc is inside the repository, don't set -B.
+        bin_search_flag = []
 
-  escaped_cxx_include_directories = _uniq(
-      get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
-      get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++") +
-      get_escaped_cxx_inc_directories(
-          repository_ctx, cc, "-xc", _get_no_canonical_prefixes_opt(repository_ctx, cc)) +
-      get_escaped_cxx_inc_directories(
-          repository_ctx, cc, "-xc++", _get_no_canonical_prefixes_opt(repository_ctx, cc)))
-  return {
-      "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
-      "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
-      "builtin_sysroot": "",
-      "compiler": escape_string(get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False)),
-      "host_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local", False)),
-      "needsPic": True,
-      "supports_gold_linker": supports_gold_linker,
-      "supports_incremental_linker": False,
-      "supports_fission": False,
-      "supports_interface_shared_objects": False,
-      "supports_normalizing_ar": False,
-      "supports_start_end_lib": supports_gold_linker,
-      "target_libc": "macosx" if darwin else escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
-      "target_cpu": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
-      "target_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
-      "cxx_flag": [
-          "-std=c++0x",
-      ] + _escaped_cplus_include_paths(repository_ctx),
-      "linker_flag": (
-          ["-fuse-ld=gold"] if supports_gold_linker else []
-      ) + _add_option_if_supported(
-          repository_ctx, cc, "-Wl,-no-as-needed"
-      ) + _add_option_if_supported(
-          repository_ctx, cc, "-Wl,-z,relro,-z,now"
-      ) + ([
-          "-undefined",
-          "dynamic_lookup",
-          "-headerpad_max_install_names",
-          ] if darwin else bin_search_flag + [
-              # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
-              "-B/usr/bin",
-              # Gold linker only? Can we enable this by default?
-              # "-Wl,--warn-execstack",
-              # "-Wl,--detect-odr-violations"
-          ] + _add_option_if_supported(
-              # Have gcc return the exit code from ld.
-              repository_ctx, cc, "-pass-exit-codes")
-          ) + split_escaped(
-                  get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False), ":"),
-      "cxx_builtin_include_directory": escaped_cxx_include_directories,
-      "objcopy_embed_flag": ["-I", "binary"],
-      "unfiltered_cxx_flag":
-          _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
-              # Make C++ compilation deterministic. Use linkstamping instead of these
-              # compiler symbols.
-              "-Wno-builtin-macro-redefined",
-              "-D__DATE__=\\\"redacted\\\"",
-              "-D__TIMESTAMP__=\\\"redacted\\\"",
-              "-D__TIME__=\\\"redacted\\\""
-          ],
-      "compiler_flag": [
-          # Security hardening requires optimization.
-          # We need to undef it as some distributions now have it enabled by default.
-          "-U_FORTIFY_SOURCE",
-          "-fstack-protector",
-          # All warnings are enabled. Maybe enable -Werror as well?
-          "-Wall",
-          # Enable a few more warnings that aren't part of -Wall.
-      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else bin_search_flag + [
-          # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
-          "-B/usr/bin",
-      ]) + (
-          # Disable problematic warnings.
-          _add_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
-          # has false positives
-          _add_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
-          # Enable coloring even if there's no attached terminal. Bazel removes the
-          # escape sequences if --nocolor is specified.
-          _add_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics")) + [
-              # Keep stack frames for debugging, even in opt mode.
-              "-fno-omit-frame-pointer",
-          ],
-  }
+    escaped_cxx_include_directories = _uniq(
+        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
+        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++") +
+        get_escaped_cxx_inc_directories(
+            repository_ctx,
+            cc,
+            "-xc",
+            _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ) +
+        get_escaped_cxx_inc_directories(
+            repository_ctx,
+            cc,
+            "-xc++",
+            _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ),
+    )
+    return {
+        "abi_version": escape_string(get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
+        "abi_libc_version": escape_string(get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
+        "builtin_sysroot": "",
+        "compiler": escape_string(get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False)),
+        "host_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local", False)),
+        "needsPic": True,
+        "supports_gold_linker": supports_gold_linker,
+        "supports_incremental_linker": False,
+        "supports_fission": False,
+        "supports_interface_shared_objects": False,
+        "supports_normalizing_ar": False,
+        "supports_start_end_lib": supports_gold_linker,
+        "target_libc": "macosx" if darwin else escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
+        "target_cpu": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
+        "target_system_name": escape_string(get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
+        "cxx_flag": [
+            "-std=c++0x",
+        ] + _escaped_cplus_include_paths(repository_ctx),
+        "linker_flag": (
+            ["-fuse-ld=gold"] if supports_gold_linker else []
+        ) + _add_linker_option_if_supported(
+            repository_ctx,
+            cc,
+            "-Wl,-no-as-needed",
+            "-no-as-needed",
+        ) + _add_linker_option_if_supported(
+            repository_ctx,
+            cc,
+            "-Wl,-z,relro,-z,now",
+            "-z",
+        ) + (
+            [
+                "-undefined",
+                "dynamic_lookup",
+                "-headerpad_max_install_names",
+            ] if darwin else bin_search_flag + [
+                # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
+                "-B/usr/bin",
+                # Gold linker only? Can we enable this by default?
+                # "-Wl,--warn-execstack",
+                # "-Wl,--detect-odr-violations"
+            ] + _add_compiler_option_if_supported(
+                # Have gcc return the exit code from ld.
+                repository_ctx,
+                cc,
+                "-pass-exit-codes",
+            )
+        ) + split_escaped(
+            get_env_var(repository_ctx, "BAZEL_LINKOPTS", "-lstdc++:-lm", False),
+            ":",
+        ),
+        "cxx_builtin_include_directory": escaped_cxx_include_directories,
+        "objcopy_embed_flag": ["-I", "binary"],
+        "unfiltered_cxx_flag": _get_no_canonical_prefixes_opt(repository_ctx, cc) + [
+            # Make C++ compilation deterministic. Use linkstamping instead of these
+            # compiler symbols.
+            "-Wno-builtin-macro-redefined",
+            "-D__DATE__=\\\"redacted\\\"",
+            "-D__TIMESTAMP__=\\\"redacted\\\"",
+            "-D__TIME__=\\\"redacted\\\"",
+        ],
+        "compiler_flag": [
+            # Security hardening requires optimization.
+            # We need to undef it as some distributions now have it enabled by default.
+            "-U_FORTIFY_SOURCE",
+            "-fstack-protector",
+            # All warnings are enabled. Maybe enable -Werror as well?
+            "-Wall",
+            # Enable a few more warnings that aren't part of -Wall.
+        ] + ((
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wthread-safety") +
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wself-assign")
+        ) if darwin else bin_search_flag + [
+            # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
+            "-B/usr/bin",
+        ]) + (
+            # Disable problematic warnings.
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
+            # has false positives
+            _add_compiler_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
+            # Enable coloring even if there's no attached terminal. Bazel removes the
+            # escape sequences if --nocolor is specified.
+            _add_compiler_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics")
+        ) + [
+            # Keep stack frames for debugging, even in opt mode.
+            "-fno-omit-frame-pointer",
+        ],
+    }
 
+def _opt_content(repository_ctx, cc, darwin):
+    """Return the content of the opt specific section of the CROSSTOOL file."""
+    return {
+        "compiler_flag": [
+            # No debug symbols.
+            # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
+            # even generally? However, that can't happen here, as it requires special
+            # handling in Bazel.
+            "-g0",
 
-def _opt_content(darwin):
-  """Return the content of the opt specific section of the CROSSTOOL file."""
-  return {
-      "compiler_flag": [
-          # No debug symbols.
-          # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
-          # even generally? However, that can't happen here, as it requires special
-          # handling in Bazel.
-          "-g0",
+            # Conservative choice for -O
+            # -O3 can increase binary size and even slow down the resulting binaries.
+            # Profile first and / or use FDO if you need better performance than this.
+            "-O2",
 
-          # Conservative choice for -O
-          # -O3 can increase binary size and even slow down the resulting binaries.
-          # Profile first and / or use FDO if you need better performance than this.
-          "-O2",
+            # Security hardening on by default.
+            # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
+            "-D_FORTIFY_SOURCE=1",
 
-          # Security hardening on by default.
-          # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-          "-D_FORTIFY_SOURCE=1",
+            # Disable assertions
+            "-DNDEBUG",
 
-          # Disable assertions
-          "-DNDEBUG",
-
-          # Removal of unused code and data at link time (can this increase binary size in some cases?).
-          "-ffunction-sections",
-          "-fdata-sections"
-      ],
-      "linker_flag": [] if darwin else ["-Wl,--gc-sections"]
-  }
-
+            # Removal of unused code and data at link time (can this increase binary size in some cases?).
+            "-ffunction-sections",
+            "-fdata-sections",
+        ],
+        "linker_flag": (
+            [] if darwin else _add_linker_option_if_supported(
+                repository_ctx,
+                cc,
+                "-Wl,--gc-sections",
+                "-gc-sections",
+            )
+        ),
+    }
 
 def _dbg_content():
-  """Return the content of the dbg specific section of the CROSSTOOL file."""
-  # Enable debug symbols
-  return {"compiler_flag": "-g"}
+    """Return the content of the dbg specific section of the CROSSTOOL file."""
 
+    # Enable debug symbols
+    return {"compiler_flag": "-g"}
 
 def get_env(repository_ctx):
-  """Convert the environment in a list of export if in Homebrew. Doesn't %-escape the result!"""
-  env = repository_ctx.os.environ
-  if "HOMEBREW_RUBY_PATH" in env:
-    return "\n".join([
-        "export %s='%s'" % (k, env[k].replace("'", "'\\''"))
-        for k in env
-        if k != "_" and k.find(".") == -1
-    ])
-  else:
-    return ""
-
+    """Convert the environment in a list of export if in Homebrew. Doesn't %-escape the result!"""
+    env = repository_ctx.os.environ
+    if "HOMEBREW_RUBY_PATH" in env:
+        return "\n".join([
+            "export %s='%s'" % (k, env[k].replace("'", "'\\''"))
+            for k in env
+            if k != "_" and k.find(".") == -1
+        ])
+    else:
+        return ""
 
 def _coverage_feature(repository_ctx, darwin):
-  use_llvm_cov = "1" == get_env_var(
-      repository_ctx,
-      "BAZEL_USE_LLVM_NATIVE_COVERAGE",
-      default="0",
-      enable_warning=False)
-  if darwin or use_llvm_cov:
-    compile_flags = """flag_group {
+    use_llvm_cov = "1" == get_env_var(
+        repository_ctx,
+        "BAZEL_USE_LLVM_NATIVE_COVERAGE",
+        default = "0",
+        enable_warning = False,
+    )
+    if darwin or use_llvm_cov:
+        compile_flags = """flag_group {
         flag: '-fprofile-instr-generate'
         flag: '-fcoverage-mapping'
       }"""
-    link_flags = """flag_group {
+        link_flags = """flag_group {
         flag: '-fprofile-instr-generate'
       }"""
-  else:
-    # gcc requires --coverage being passed for compilation and linking
-    # https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#Instrumentation-Options
-    compile_flags = """flag_group {
+    else:
+        # gcc requires --coverage being passed for compilation and linking
+        # https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#Instrumentation-Options
+        compile_flags = """flag_group {
         flag: '--coverage'
       }"""
-    link_flags = """flag_group {
+        link_flags = """flag_group {
         flag: '--coverage'
       }"""
-  # Note that we also set --coverage for c++-link-nodeps-dynamic-library. The
-  # generated code contains references to gcov symbols, and the dynamic linker
-  # can't resolve them unless the library is linked against gcov.
-  return """
+
+    # Note that we also set --coverage for c++-link-nodeps-dynamic-library. The
+    # generated code contains references to gcov symbols, and the dynamic linker
+    # can't resolve them unless the library is linked against gcov.
+    return """
     feature {
       name: 'coverage'
       provides: 'profile'
@@ -378,7 +426,6 @@ def _coverage_feature(repository_ctx, darwin):
         action: 'c-compile'
         action: 'c++-compile'
         action: 'c++-header-parsing'
-        action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
         """ + compile_flags + """
       }
@@ -391,90 +438,130 @@ def _coverage_feature(repository_ctx, darwin):
     }
   """
 
-def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False):
-  """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
+def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
+    """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
-  if name in overriden_tools:
-    return overriden_tools[name]
+    if name in overriden_tools:
+        return overriden_tools[name]
 
-  result = name
-  env_value = repository_ctx.os.environ.get(env_name)
-  env_value_with_paren = ""
-  if env_value != None:
-    env_value = env_value.strip()
-    if env_value:
-      result = env_value
-      env_value_with_paren = " (%s)" % env_value
-  if result.startswith("/"):
-    # Absolute path, maybe we should make this suported by our which function.
+    result = name
+    env_value = repository_ctx.os.environ.get(env_name)
+    env_value_with_paren = ""
+    if env_value != None:
+        env_value = env_value.strip()
+        if env_value:
+            result = env_value
+            env_value_with_paren = " (%s)" % env_value
+    if result.startswith("/"):
+        # Absolute path, maybe we should make this suported by our which function.
+        return result
+    result = repository_ctx.which(result)
+    if result == None:
+        msg = ("Cannot find %s or %s%s; either correct your path or set the %s" +
+               " environment variable") % (name, env_name, env_value_with_paren, env_name)
+        if warn:
+            if not silent:
+                auto_configure_warning(msg)
+        else:
+            auto_configure_fail(msg)
     return result
-  result = repository_ctx.which(result)
-  if result == None:
-    msg = ("Cannot find %s or %s%s; either correct your path or set the %s"
-           + " environment variable") % (name, env_name, env_value_with_paren, env_name)
-    if warn:
-      auto_configure_warning(msg)
-    else:
-      auto_configure_fail(msg)
-  return result
 
 def find_cc(repository_ctx, overriden_tools):
-  return _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+    return _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
 
 def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
-  """Configure C++ toolchain on Unix platforms."""
-  repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
-  darwin = cpu_value == "darwin"
+    """Configure C++ toolchain on Unix platforms."""
+    paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:BUILD.tpl",
+        "@bazel_tools//tools/cpp:CROSSTOOL.tpl",
+        "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl",
+        "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
+    ])
 
-  cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
-  overriden_tools = dict(overriden_tools)
-  overriden_tools["gcc"] = cc
-  overriden_tools["gcov"] = _find_generic(
-      repository_ctx, "gcov", "GCOV", overriden_tools, warn = True)
-  if darwin:
-    overriden_tools["gcc"] = "cc_wrapper.sh"
-    overriden_tools["ar"] = "/usr/bin/libtool"
+    repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
+    darwin = cpu_value == "darwin"
 
-  tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
-  crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
-  opt_content = _opt_content(darwin)
-  dbg_content = _dbg_content()
-  tpl(repository_ctx, "BUILD", {
-      "%{name}": cpu_value,
-      "%{supports_param_files}": "0" if darwin else "1",
-      "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
-      "%{compiler}": get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
-  })
-  tpl(repository_ctx,
-      "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
-      {"%{cc}": escape_string(str(cc)),
-       "%{env}": escape_string(get_env(repository_ctx))},
-      "cc_wrapper.sh")
-  tpl(repository_ctx, "CROSSTOOL", {
-      "%{cpu}": escape_string(cpu_value),
-      "%{default_toolchain_name}": escape_string(
-          get_env_var(repository_ctx,
-                      "CC_TOOLCHAIN_NAME",
-                      "local",
-                      False)),
-      "%{toolchain_name}": escape_string(
-          get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False)),
-      "%{content}": _build_crosstool(crosstool_content) + "\n" +
-                    _build_tool_path(tool_paths),
-      "%{opt_content}": _build_crosstool(opt_content, "    "),
-      "%{dbg_content}": _build_crosstool(dbg_content, "    "),
-      "%{cxx_builtin_include_directory}": "",
-      "%{coverage}": _coverage_feature(repository_ctx, darwin),
-      "%{msvc_env_tmp}": "",
-      "%{msvc_env_path}": "",
-      "%{msvc_env_include}": "",
-      "%{msvc_env_lib}": "",
-      "%{msvc_cl_path}": "",
-      "%{msvc_ml_path}": "",
-      "%{msvc_link_path}": "",
-      "%{msvc_lib_path}": "",
-      "%{msys_x64_mingw_content}": "",
-      "%{dbg_mode_debug}": "",
-      "%{fastbuild_mode_debug}": "",
-      "%{compilation_mode_content}": "",
-  })
+    cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+    overriden_tools = dict(overriden_tools)
+    overriden_tools["gcc"] = cc
+    overriden_tools["gcov"] = _find_generic(
+        repository_ctx,
+        "gcov",
+        "GCOV",
+        overriden_tools,
+        warn = True,
+        silent = True,
+    )
+    if darwin:
+        overriden_tools["gcc"] = "cc_wrapper.sh"
+        overriden_tools["ar"] = "/usr/bin/libtool"
+
+    tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
+    crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
+    opt_content = _opt_content(repository_ctx, cc, darwin)
+    dbg_content = _dbg_content()
+
+    repository_ctx.template(
+        "BUILD",
+        paths["@bazel_tools//tools/cpp:BUILD.tpl"],
+        {
+            "%{name}": cpu_value,
+            "%{supports_param_files}": "0" if darwin else "1",
+            "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+            "%{compiler}": get_env_var(
+                repository_ctx,
+                "BAZEL_COMPILER",
+                "compiler",
+                False,
+            ),
+        },
+    )
+
+    cc_wrapper_src = (
+        "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl" if darwin else "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl"
+    )
+    repository_ctx.template(
+        "cc_wrapper.sh",
+        paths[cc_wrapper_src],
+        {
+            "%{cc}": escape_string(str(cc)),
+            "%{env}": escape_string(get_env(repository_ctx)),
+        },
+    )
+
+    repository_ctx.template(
+        "CROSSTOOL",
+        paths["@bazel_tools//tools/cpp:CROSSTOOL.tpl"],
+        {
+            "%{cpu}": escape_string(cpu_value),
+            "%{default_toolchain_name}": escape_string(
+                get_env_var(
+                    repository_ctx,
+                    "CC_TOOLCHAIN_NAME",
+                    "local",
+                    False,
+                ),
+            ),
+            "%{toolchain_name}": escape_string(
+                get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
+            ),
+            "%{content}": _build_crosstool(crosstool_content) + "\n" +
+                          _build_tool_path(tool_paths),
+            "%{opt_content}": _build_crosstool(opt_content, "    "),
+            "%{dbg_content}": _build_crosstool(dbg_content, "    "),
+            "%{cxx_builtin_include_directory}": "",
+            "%{coverage}": _coverage_feature(repository_ctx, darwin),
+            "%{msvc_env_tmp}": "",
+            "%{msvc_env_path}": "",
+            "%{msvc_env_include}": "",
+            "%{msvc_env_lib}": "",
+            "%{msvc_cl_path}": "",
+            "%{msvc_ml_path}": "",
+            "%{msvc_link_path}": "",
+            "%{msvc_lib_path}": "",
+            "%{msys_x64_mingw_content}": "",
+            "%{dbg_mode_debug}": "",
+            "%{fastbuild_mode_debug}": "",
+            "%{compilation_mode_content}": "",
+        },
+    )

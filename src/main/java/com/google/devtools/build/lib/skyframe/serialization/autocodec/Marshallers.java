@@ -16,14 +16,11 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.squareup.javapoet.TypeName;
-import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -306,65 +303,6 @@ class Marshallers {
         }
       };
 
-  private final Marshaller multimapMarshaller =
-      new Marshaller() {
-        @Override
-        public boolean matches(DeclaredType type) {
-          return matchesErased(type, ImmutableMultimap.class)
-              || matchesErased(type, ImmutableListMultimap.class);
-        }
-
-        @Override
-        public void addSerializationCode(Context context) {
-          context.builder.addStatement("codedOut.writeInt32NoTag($L.size())", context.name);
-          String entryName = context.makeName("entry");
-          Context key =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(0), entryName + ".getKey()");
-          Context value =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(1), entryName + ".getValue()");
-          context.builder.beginControlFlow(
-              "for ($T<$T, $T> $L : $L.entries())",
-              Map.Entry.class,
-              key.getTypeName(),
-              value.getTypeName(),
-              entryName,
-              context.name);
-          writeSerializationCode(key);
-          writeSerializationCode(value);
-          context.builder.endControlFlow();
-        }
-
-        @Override
-        public void addDeserializationCode(Context context) {
-          Context key =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(0), context.makeName("key"));
-          Context value =
-              context.with(
-                  context.getDeclaredType().getTypeArguments().get(1), context.makeName("value"));
-          String builderName = context.makeName("builder");
-          context.builder.addStatement(
-              "$T<$T, $T> $L = new $T<>()",
-              ImmutableListMultimap.Builder.class,
-              key.getTypeName(),
-              value.getTypeName(),
-              builderName,
-              ImmutableListMultimap.Builder.class);
-          String lengthName = context.makeName("length");
-          context.builder.addStatement("int $L = codedIn.readInt32()", lengthName);
-          String indexName = context.makeName("i");
-          context.builder.beginControlFlow(
-              "for (int $L = 0; $L < $L; ++$L)", indexName, indexName, lengthName, indexName);
-          writeDeserializationCode(key);
-          writeDeserializationCode(value);
-          context.builder.addStatement("$L.put($L, $L)", builderName, key.name, value.name);
-          context.builder.endControlFlow();
-          context.builder.addStatement("$L = $L.build()", context.name, builderName);
-        }
-      };
-
   /** Delegates marshalling back to the context. */
   private final Marshaller contextMarshaller =
       new Marshaller() {
@@ -396,7 +334,6 @@ class Marshallers {
       ImmutableList.of(
           charSequenceMarshaller,
           supplierMarshaller,
-          multimapMarshaller,
           contextMarshaller);
 
   /** True when {@code type} has the same type as {@code clazz}. */

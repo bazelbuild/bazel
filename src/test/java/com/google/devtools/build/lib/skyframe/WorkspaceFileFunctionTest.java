@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -131,7 +134,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   // Dummy harmcrest matcher that match the function name of a skykey
   static class SkyKeyMatchers extends BaseMatcher<SkyKey> {
     private final SkyFunctionName functionName;
-    
+
     public SkyKeyMatchers(SkyFunctionName functionName) {
       this.functionName = functionName;
     }
@@ -142,14 +145,14 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       }
       return false;
     }
-    
+
     @Override
     public void describeTo(Description description) {}
   }
 
   private SkyFunction.Environment getEnv() throws InterruptedException {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
-    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.FILE))))
+    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(FileValue.FILE))))
         .thenReturn(fakeWorkspaceFileValue);
     Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_FILE))))
         .then(
@@ -204,7 +207,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key = ExternalPackageFunction.key(workspacePath);
     PackageValue value = (PackageValue) externalSkyFunc.compute(key, getEnv());
     Package pkg = value.getPackage();
-    assertThat(getLabelMapping(pkg, "foo/bar")).isEqualTo(Label.parseAbsolute("//foo:bar"));
+    assertThat(getLabelMapping(pkg, "foo/bar"))
+        .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     MoreAsserts.assertNoEvents(pkg.getEvents());
   }
 
@@ -216,7 +220,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key = ExternalPackageFunction.key(workspacePath);
     PackageValue value = (PackageValue) externalSkyFunc.compute(key, getEnv());
     Package pkg = value.getPackage();
-    assertThat(getLabelMapping(pkg, "foo/bar")).isEqualTo(Label.parseAbsolute("//foo:bar"));
+    assertThat(getLabelMapping(pkg, "foo/bar"))
+        .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     MoreAsserts.assertNoEvents(pkg.getEvents());
   }
 
@@ -272,7 +277,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key = ExternalPackageFunction.key(workspacePath);
     PackageValue value = (PackageValue) externalSkyFunc.compute(key, getEnv());
     Package pkg = value.getPackage();
-    assertThat(getLabelMapping(pkg, "foo/bar")).isEqualTo(Label.parseAbsolute("//foo:bar"));
+    assertThat(getLabelMapping(pkg, "foo/bar"))
+        .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     MoreAsserts.assertNoEvents(pkg.getEvents());
   }
 }

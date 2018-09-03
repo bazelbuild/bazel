@@ -14,16 +14,18 @@
 
 package com.google.devtools.build.docgen;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.nio.file.Files;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.MethodInvocationException;
 import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.StringWriter;
 
 /**
  * Class that represents a page to be generated using the {@link TemplateEngine}.
@@ -65,7 +67,7 @@ class Page {
     stringWriter.close();
 
     String[] lines = stringWriter.toString().split(System.getProperty("line.separator"));
-    try (FileWriter fileWriter = new FileWriter(outputFile)) {
+    try (Writer fileWriter = Files.newBufferedWriter(outputFile.toPath(), UTF_8)) {
       for (String line : lines) {
         // Strip trailing whitespace then append newline before writing to file.
         fileWriter.write(line.replaceFirst("\\s+$", "") + "\n");

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.genrule.BazelGenRuleRule;
+import com.google.devtools.build.lib.rules.ToolchainType.ToolchainTypeRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 
@@ -31,7 +31,7 @@ public class ToolchainRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addRuleDefinition(new BazelToolchainTypeRule());
+    builder.addRuleDefinition(new ToolchainTypeRule());
     builder.addRuleDefinition(new GenRuleBaseRule());
     builder.addRuleDefinition(new BazelGenRuleRule());
   }

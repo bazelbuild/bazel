@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -49,17 +51,40 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(
-        parser, eventHandler, targetPatterns, FilteringPolicies.NO_FILTER, keepGoing);
+        PathFragment.EMPTY_FRAGMENT,
+        parser,
+        eventHandler,
+        targetPatterns,
+        FilteringPolicies.NO_FILTER,
+        keepGoing);
   }
 
   protected static ResolvedTargets<Target> parseTargetPatternList(
+      PathFragment relativeWorkingDirectory,
+      TargetPatternEvaluator parser,
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
+    return parseTargetPatternList(
+        relativeWorkingDirectory,
+        parser,
+        eventHandler,
+        targetPatterns,
+        FilteringPolicies.NO_FILTER,
+        keepGoing);
+  }
+
+  protected static ResolvedTargets<Target> parseTargetPatternList(
+      PathFragment relativeWorkingDirectory,
       TargetPatternEvaluator parser,
       ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       FilteringPolicy policy,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
-    return parser.parseTargetPatternList(eventHandler, targetPatterns, policy, keepGoing);
+    return parser.parseTargetPatternList(
+        relativeWorkingDirectory, eventHandler, targetPatterns, policy, keepGoing);
   }
 
   /**
@@ -77,14 +102,14 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
   @Before
   public final void initializeParser() throws Exception {
     setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
-    parser = skyframeExecutor.getPackageManager().newTargetPatternEvaluator();
+    parser = skyframeExecutor.newTargetPatternEvaluator();
     parsingListener = new RecordingParsingListener(reporter);
   }
 
   protected static Set<Label> labels(String... labelStrings) throws LabelSyntaxException {
     Set<Label> labels = new HashSet<>();
     for (String labelString : labelStrings) {
-      labels.add(Label.parseAbsolute(labelString));
+      labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
     }
     return labels;
   }

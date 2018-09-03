@@ -17,11 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -73,7 +75,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
@@ -83,7 +85,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
   @Test
   public void buildHelperCreateJavaInfoWithOutputJarAndUseIJar() throws Exception {
-   
+
     ruleBuilder()
         .withIJar()
         .build();
@@ -103,7 +105,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib-ijar.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
@@ -165,7 +167,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
@@ -192,7 +194,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
@@ -205,7 +207,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
     ruleBuilder()
         .withNeverLink()
         .build();
-    
+
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
@@ -222,7 +224,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars())).isEmpty();
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getTransitiveCompileTimeJars()))
@@ -471,7 +473,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_exports-hjar.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_exports.jar");
     assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_exports.jar");
@@ -505,9 +507,8 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(
-        exportsProvider.getTransitiveExports())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b"));
+    assertThat(exportsProvider.getTransitiveExports())
+        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         javaInfo.getProvider(JavaCompilationArgsProvider.class);
@@ -518,7 +519,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a-hjar.jar",
             "foo/libmy_java_lib_b-hjar.jar");
 
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly(
             "foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar");
 
@@ -576,9 +577,8 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaExportsProvider exportsProvider = javaInfo.getProvider(JavaExportsProvider.class);
 
-    assertThat(
-        exportsProvider.getTransitiveExports())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b"));
+    assertThat(exportsProvider.getTransitiveExports())
+        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         javaInfo.getProvider(JavaCompilationArgsProvider.class);
@@ -589,7 +589,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a-hjar.jar",
             "foo/libmy_java_lib_b-hjar.jar");
 
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getFullCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly(
             "foo/my_skylark_rule_lib.jar", "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar");
 
@@ -631,32 +631,52 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectFullCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getJavaCompilationArgs().getFullCompileTimeJars()))
-        .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getDirectCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib-stamped.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getRuntimeJars()))
         .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider
-                    .getRecursiveJavaCompilationArgs()
-                    .getFullCompileTimeJars()))
-        .containsExactly("foo/my_skylark_rule_lib.jar");
-    assertThat(
-            prettyArtifactNames(
-                javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars()))
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.getTransitiveCompileTimeJars()))
         .containsExactly("foo/my_skylark_rule_lib-stamped.jar");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithJdeps_javaRuleOutputJarsProvider() throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_skylark_rule',",
+        "  output_jar = 'my_skylark_rule_lib.jar',",
+        "  source_jars = ['my_skylark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  jdeps = 'my_jdeps.pb',",
+        ")");
+    assertNoEvents();
+
+    JavaRuleOutputJarsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
+
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs
+                    .getOutputJars()
+                    .stream()
+                    .map(o -> o.getClassJar())
+                    .collect(ImmutableList.toImmutableList())))
+        .containsExactly("foo/my_skylark_rule_lib.jar");
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs
+                    .getOutputJars()
+                    .stream()
+                    .flatMap(o -> Streams.stream(o.getSrcJars()))
+                    .collect(ImmutableList.toImmutableList())))
+        .containsExactly("foo/my_skylark_rule_src.jar");
+    assertThat(ruleOutputs.getJdeps().prettyPrint()).isEqualTo("foo/my_jdeps.pb");
   }
 
   @Test
@@ -753,6 +773,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
         "    deps = dp,",
         "    runtime_deps = dp_runtime,",
         "    exports = dp_exports,",
+        "    jdeps = ctx.file.jdeps,",
         useIJar || sourceFiles ? "    actions = ctx.actions," : "",
         useIJar || sourceFiles ? "    java_toolchain = ctx.attr._toolchain," : "",
         sourceFiles ? "    host_javabase = ctx.attr._host_javabase," : "",
@@ -801,13 +822,14 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
       }
       lines.add(
           "  javaInfo = JavaInfo(",
-          "    output_jar = ctx.outputs.output_jar, ",
+          "    output_jar = ctx.outputs.output_jar,",
           "    compile_jar = compile_jar,",
           "    source_jar = source_jar,",
           neverLink ? "    neverlink = True," : "",
           "    deps = dp,",
           "    runtime_deps = dp_runtime,",
           "    exports = dp_exports,",
+          "    jdeps = ctx.file.jdeps,",
           "  )",
           "  return [result(property = javaInfo)]");
       return lines.build().toArray(new String[] {});
@@ -837,6 +859,7 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
           "    'output_jar' : attr.output(default=None, mandatory=True),",
           "    'source_jars' : attr.label_list(allow_files=['.jar']),",
           "    'sources' : attr.label_list(allow_files=['.java']),",
+          "    'jdeps' : attr.label(allow_single_file=True),",
           useIJar || stampJar || sourceFiles
               ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
               : "",
@@ -854,8 +877,10 @@ public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
 
   private JavaInfo fetchJavaInfo() throws Exception {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
-    Info info =
-        myRuleTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "result"));
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
+            new SkylarkKey(
+                Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
 
     @SuppressWarnings("unchecked")
     JavaInfo javaInfo = (JavaInfo) info.getValue("property");

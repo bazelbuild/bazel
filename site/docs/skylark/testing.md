@@ -5,7 +5,7 @@ title: Testing
 
 # Testing
 
-There are several different approaches to testing Skylark code in Bazel. This
+There are several different approaches to testing Starlark code in Bazel. This
 page gathers the current best practices and frameworks by use case.
 
 <!-- [TOC] -->
@@ -17,7 +17,7 @@ page gathers the current best practices and frameworks by use case.
 [`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/unittest.bzl)
 for checking the analysis-time behavior of rules, such as their actions and
 providers. It is currently the best option for tests that need to access the
-inner workings of Skylark rules.
+inner workings of rules.
 
 Some caveats:
 
@@ -82,9 +82,11 @@ myrule = rule(
 
 `//mypkg/myrules_test.bzl`:
 
+
 ```python
 load("@bazel_skylib//:lib.bzl", "asserts", "unittest")
 load(":myrules.bzl", "myrule", "MyInfo")
+
 # ==== Check the provider contents ====
 
 def _provider_contents_test_impl(ctx):
@@ -131,7 +133,7 @@ def myrules_test_suite():
           # ...
       ],
   )
-````
+```
 
 The test can be run with `bazel test //mypkg:myrules_test`.
 
@@ -312,9 +314,9 @@ sh_test(
 ### Using a custom rule
 
 A more complicated alternative is to write the shell script as a template that
-gets instantiated by a new Skylark rule. This involves more indirection and
-Skylark logic, but leads to cleaner BUILD files. As a side-benefit, any argument
-preprocessing can be done in Skylark instead of the script, and the script is
+gets instantiated by a new rule. This involves more indirection and Starlark
+logic, but leads to cleaner BUILD files. As a side-benefit, any argument
+preprocessing can be done in Starlark instead of the script, and the script is
 slightly more self-documenting since it uses symbolic placeholders (for
 substitutions) instead of numeric ones (for arguments).
 
@@ -392,7 +394,7 @@ inlined the template into the .bzl file as a string and expanded it during the
 analysis phase using the `str.format` method or `%`-formatting.
 
 
-## For testing Skylark utilities
+## For testing Starlark utilities
 
 The same framework that was used to test rules can also be used to test utility
 functions (i.e., functions that are neither macros nor rule implementations).
@@ -418,6 +420,7 @@ def myhelper():
 
 `//mypkg/myhelpers_test.bzl`:
 
+
 ```python
 load("@bazel_skylib//:lib.bzl", "asserts", "unittest")
 load(":myhelpers.bzl", "myhelper")
@@ -439,7 +442,7 @@ def myhelpers_test_suite():
     myhelper_test,
     # ...
   )
-````
+```
 
 For more examples, see Skylib’s own [tests](https://github.com/bazelbuild/bazel-skylib/blob/master/tests/BUILD).
 

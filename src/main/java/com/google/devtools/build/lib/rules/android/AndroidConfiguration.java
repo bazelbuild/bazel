@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -28,16 +27,17 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.whitelisting.Whitelist;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion.AndroidRobolectricTestDeprecationLevel;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -49,13 +49,10 @@ import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @AutoCodec
-@SkylarkModule(
-  name = "android",
-  doc = "A configuration fragment for Android.",
-  category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment {
+public class AndroidConfiguration extends BuildConfiguration.Fragment
+    implements AndroidConfigurationApi {
+
   /**
    * Converter for {@link
    * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
@@ -224,7 +221,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       }
     }
 
-    // TODO(corysmith): Move to ApplicationManifest when no longer needed as a public function.
+    // TODO(corysmith): Move to an appropriate place when no longer needed as a public function.
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(RuleContext ruleContext)
         throws RuleErrorException {
@@ -234,10 +231,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         if (ruleContext.getRule().isAttrDefined("aapt_version", STRING)) {
           // On rules that can choose a version, test attribute then flag choose the aapt version
           // target.
-          return chooseTargetAaptVersion(
-              ruleContext,
-              ruleContext.getFragment(AndroidConfiguration.class),
-              ruleContext.attributes().get("aapt_version", STRING));
+          AndroidAaptVersion flag =
+              AndroidCommon.getAndroidConfig(ruleContext).getAndroidAaptVersion();
+
+          AndroidAaptVersion version =
+              fromString(ruleContext.attributes().get("aapt_version", STRING));
+          // version is null if the value is "auto"
+          version = version == AndroidAaptVersion.AUTO ? flag : version;
+
+          if (version == AAPT2 && !hasAapt2) {
+            ruleContext.throwWithRuleError(
+                "aapt2 processing requested but not available on the android_sdk");
+            return null;
+          }
+          return version == AndroidAaptVersion.AUTO ? AAPT : version;
         } else {
           // On rules can't choose, assume aapt2 if aapt2 is present in the sdk.
           return hasAapt2 ? AAPT2 : AAPT;
@@ -248,18 +255,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Nullable
     public static AndroidAaptVersion chooseTargetAaptVersion(
-        RuleContext ruleContext, AndroidConfiguration androidConfig, @Nullable String versionString)
+        AndroidDataContext dataContext,
+        RuleErrorConsumer errorConsumer,
+        @Nullable String versionString)
         throws RuleErrorException {
 
-      boolean hasAapt2 = AndroidSdkProvider.fromRuleContext(ruleContext).getAapt2() != null;
-      AndroidAaptVersion flag = androidConfig.getAndroidAaptVersion();
+      boolean hasAapt2 = dataContext.getSdk().getAapt2() != null;
+      AndroidAaptVersion flag = dataContext.getAndroidConfig().getAndroidAaptVersion();
 
       AndroidAaptVersion version = fromString(versionString);
       // version is null if the value is "auto"
       version = version == AndroidAaptVersion.AUTO ? flag : version;
 
       if (version == AAPT2 && !hasAapt2) {
-        ruleContext.throwWithRuleError(
+        errorConsumer.throwWithRuleError(
             "aapt2 processing requested but not available on the android_sdk");
         return null;
       }
@@ -268,17 +277,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Android configuration options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
-    @Option(
-        name = "experimental_enable_android_cpu_make_variable",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        defaultValue = "true",
-        help = "Flag to roll out the removal of the ANDROID_CPU Make variable.")
-    public boolean enableAndroidCpuMakeVariable;
-
     @Option(
       name = "Android configuration distinguisher",
       defaultValue = "MAIN",
@@ -362,21 +361,20 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public Label androidLibcTopLabel;
 
     @Option(
-      name = "android_dynamic_mode",
-      defaultValue = "off",
-      converter = DynamicModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "Determines whether C++ deps of Android rules will be linked dynamically when a "
-              + "cc_binary does not explicitly create a shared library. "
-              + "'default' means blaze will choose whether to link dynamically.  "
-              + "'fully' means all libraries will be linked dynamically. "
-              + "'off' means that all libraries will be linked in mostly static mode."
-    )
+        name = "android_dynamic_mode",
+        defaultValue = "off",
+        converter = DynamicModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help =
+            "Determines whether C++ deps of Android rules will be linked dynamically when a "
+                + "cc_binary does not explicitly create a shared library. "
+                + "'default' means bazel will choose whether to link dynamically.  "
+                + "'fully' means all libraries will be linked dynamically. "
+                + "'off' means that all libraries will be linked in mostly static mode.")
     public DynamicMode dynamicMode;
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
@@ -732,6 +730,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean compressJavaResources;
 
     @Option(
+        name = "experimental_android_databinding_v2",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Use android databinding v2")
+    public boolean dataBindingV2;
+
+    @Option(
       name = "experimental_android_library_exports_manifest_default",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -805,19 +816,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
 
     @Option(
-        name = "android_decouple_data_processing",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.ACTION_COMMAND_LINES
-        },
-        help =
-            "If true, Android data (assets, resources, and manifests) will be processed seperately "
-                + "when possible. Otherwise, they will all be processed together.")
-    public boolean decoupleDataProcessing;
-
-    @Option(
       name = "android_migration_tag_check",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -843,6 +841,57 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
+    @Option(
+        name = "persistent_android_resource_processor",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+            OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+            OptionEffectTag.EXECUTION,
+        },
+        help = "Enable the persistent Android resource processor by using workers.",
+        expansion = {
+            "--internal_persistent_busybox_tools",
+            // This implementation uses unique workers for each tool in the busybox.
+            "--strategy=AaptPackage=worker",
+            "--strategy=AndroidResourceParser=worker",
+            "--strategy=AndroidResourceValidator=worker",
+            "--strategy=AndroidResourceCompiler=worker",
+            "--strategy=RClassGenerator=worker",
+            "--strategy=AndroidResourceLink=worker",
+            "--strategy=AndroidAapt2=worker",
+            "--strategy=AndroidAssetMerger=worker",
+            "--strategy=AndroidResourceMerger=worker",
+            "--strategy=AndroidCompiledResourceMerger=worker",
+            // TODO(jingwen): ManifestMerger prints to stdout when there's a manifest merge
+            // conflict. The worker protocol does not like this because it uses std i/o to
+            // for communication. To get around this, re-configure manifest merger to *not*
+            // use stdout for merge conflict warnings.
+            // "--strategy=ManifestMerger=worker",
+        })
+    public Void persistentResourceProcessor;
+
+    /**
+     * We use this option to decide when to enable workers for busybox tools. This flag is also a
+     * guard against enabling workers using nothing but --persistent_android_resource_processor.
+     *
+     * Consequently, we use this option to decide between param files or regular command
+     * line parameters. If we're not using workers or on Windows, there's no need to always use
+     * param files for I/O performance reasons.
+     */
+    @Option(
+        name = "internal_persistent_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+            OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+            OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help =
+            "Tracking flag for when busybox workers are enabled."
+    )
+    public boolean persistentBusyboxTools;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -867,6 +916,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+      host.persistentBusyboxTools = persistentBusyboxTools;
       return host;
     }
   }
@@ -890,7 +940,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  private final boolean enableAndroidCpuMakeVariable;
   private final Label sdk;
   private final String cpu;
   private final boolean useIncrementalNativeLibs;
@@ -923,12 +972,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean skipParsingAction;
   private final boolean fixedResourceNeverlinking;
   private final AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel;
-  private final boolean decoupleDataProcessing;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+  private final boolean dataBindingV2;
+  private final boolean persistentBusyboxTools;
 
   AndroidConfiguration(Options options) throws InvalidConfigurationException {
-    this.enableAndroidCpuMakeVariable = options.enableAndroidCpuMakeVariable;
     this.sdk = options.sdk;
     this.useIncrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -964,10 +1013,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.skipParsingAction = options.skipParsingAction;
     this.fixedResourceNeverlinking = options.fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = options.robolectricTestDeprecationLevel;
-    this.decoupleDataProcessing = options.decoupleDataProcessing;
     this.checkForMigrationTag = options.checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.dataBindingV2 = options.dataBindingV2;
+    this.persistentBusyboxTools = options.persistentBusyboxTools;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -986,7 +1036,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   @AutoCodec.Instantiator
   AndroidConfiguration(
-      boolean enableAndroidCpuMakeVariable,
       Label sdk,
       String cpu,
       boolean useIncrementalNativeLibs,
@@ -1019,10 +1068,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       boolean skipParsingAction,
       boolean fixedResourceNeverlinking,
       AndroidRobolectricTestDeprecationLevel robolectricTestDeprecationLevel,
-      boolean decoupleDataProcessing,
       boolean checkForMigrationTag,
-      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest) {
-    this.enableAndroidCpuMakeVariable = enableAndroidCpuMakeVariable;
+      boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest,
+      boolean dataBindingV2,
+      boolean persistentBusyboxTools) {
     this.sdk = sdk;
     this.cpu = cpu;
     this.useIncrementalNativeLibs = useIncrementalNativeLibs;
@@ -1055,10 +1104,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.skipParsingAction = skipParsingAction;
     this.fixedResourceNeverlinking = fixedResourceNeverlinking;
     this.robolectricTestDeprecationLevel = robolectricTestDeprecationLevel;
-    this.decoupleDataProcessing = decoupleDataProcessing;
     this.checkForMigrationTag = checkForMigrationTag;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+    this.dataBindingV2 = dataBindingV2;
+    this.persistentBusyboxTools = persistentBusyboxTools;
   }
 
   public String getCpu() {
@@ -1066,11 +1116,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   @SkylarkConfigurationField(
-    name = "android_sdk_label",
-    doc = "Returns the target denoted by the value of the --android_sdk flag",
-    defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
-    defaultInToolRepository = true
-  )
+      name = "android_sdk_label",
+      doc = "Returns the target denoted by the value of the --android_sdk flag",
+      defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
+      defaultInToolRepository = true)
   public Label getSdk() {
     return sdk;
   }
@@ -1146,8 +1195,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useRexToCompressDexFiles;
   }
 
-  public boolean allowSrcsLessAndroidLibraryDeps() {
-    return allowAndroidLibraryDepsWithoutSrcs;
+  public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
+    return allowAndroidLibraryDepsWithoutSrcs
+        && Whitelist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   public boolean useAndroidResourceShrinking() {
@@ -1206,10 +1256,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return robolectricTestDeprecationLevel;
   }
 
-  public boolean decoupleDataProcessing() {
-    return decoupleDataProcessing;
-  }
-
   public boolean checkForMigrationTag() {
     return checkForMigrationTag;
   }
@@ -1218,13 +1264,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   }
 
-  @Override
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (!enableAndroidCpuMakeVariable) {
-      return;
-    }
+  public boolean useDataBindingV2() {
+    return dataBindingV2;
+  }
 
-    globalMakeEnvBuilder.put("ANDROID_CPU", cpu);
+  public boolean persistentBusyboxTools() { 
+    return persistentBusyboxTools; 
   }
 
   @Override

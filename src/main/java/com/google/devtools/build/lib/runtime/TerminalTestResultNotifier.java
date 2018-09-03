@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
+
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -26,7 +29,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +49,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     int noStatusCount;
     int numberOfExecutedTargets;
     boolean wasUnreportedWrongSize;
+
+    int totalTestCases;
+    int totalFailedTestCases;
   }
 
   /**
@@ -76,13 +82,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private final AnsiTerminalPrinter printer;
-  private final OptionsProvider options;
+  private final OptionsParsingResult options;
   private final TestSummaryOptions summaryOptions;
 
   /**
    * @param printer The terminal to print to
    */
-  public TerminalTestResultNotifier(AnsiTerminalPrinter printer, OptionsProvider options) {
+  public TerminalTestResultNotifier(AnsiTerminalPrinter printer, OptionsParsingResult options) {
     this.printer = printer;
     this.options = options;
     this.summaryOptions = options.getOptions(TestSummaryOptions.class);
@@ -175,6 +181,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       if (summary.wasUnreportedWrongSize()) {
         stats.wasUnreportedWrongSize = true;
       }
+
+      stats.totalFailedTestCases += summary.getFailedTestCases().size();
+      stats.totalTestCases += summary.getTotalTestCases();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
@@ -193,6 +202,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         printShortSummary(summaries, /* showPassingTests= */ false);
         break;
 
+      case TESTCASE:
       case NONE:
         break;
     }
@@ -213,6 +223,21 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private void printStats(TestResultStats stats) {
+    TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
+    if ((testSummaryFormat == DETAILED) || (testSummaryFormat == TESTCASE)) {
+      Integer passCount = stats.totalTestCases - stats.totalFailedTestCases;
+      printer.printLn(
+          String.format(
+              "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
+              passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
+              passCount,
+              AnsiTerminalPrinter.Mode.DEFAULT,
+              stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
+              stats.totalFailedTestCases,
+              AnsiTerminalPrinter.Mode.DEFAULT,
+              stats.totalTestCases));
+    }
+
     if (!optionCheckTestsUpToDate()) {
       List<String> results = new ArrayList<>();
       if (stats.passCount == 1) {

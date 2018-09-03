@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 /** Provider that contains the profile used for FDO. */
 @Immutable
 public final class FdoProfileProvider extends NativeInfo {
+
   public static final NativeProvider<FdoProfileProvider> PROVIDER =
       new NativeProvider<FdoProfileProvider>(FdoProfileProvider.class, "FdoProfileInfo") {};
 

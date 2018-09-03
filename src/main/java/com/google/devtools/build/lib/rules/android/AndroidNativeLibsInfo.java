@@ -13,50 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
  * APK.
  */
-@SkylarkModule(name = "AndroidNativeLibsInfo", doc = "", documented = false)
 @Immutable
-public final class AndroidNativeLibsInfo extends NativeInfo {
+public final class AndroidNativeLibsInfo extends NativeInfo
+    implements AndroidNativeLibsInfoApi<Artifact> {
 
   private static final String SKYLARK_NAME = "AndroidNativeLibsInfo";
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 0,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly=*/ 1,
-              /*starArg=*/ false,
-              /*kwArg=*/ false,
-              "native_libs"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.of(SkylarkType.of(SkylarkNestedSet.class)));
-  public static final NativeProvider<AndroidNativeLibsInfo> PROVIDER =
-      new NativeProvider<AndroidNativeLibsInfo>(
-          AndroidNativeLibsInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        protected AndroidNativeLibsInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
-          return new AndroidNativeLibsInfo(
-              /*nativeLibs=*/ ((SkylarkNestedSet) args[0]).getSet(Artifact.class));
-        }
-      };
+
+  public static final AndroidNativeLibsInfoProvider PROVIDER =
+      new AndroidNativeLibsInfoProvider();
 
   private final NestedSet<Artifact> nativeLibs;
 
@@ -65,12 +42,23 @@ public final class AndroidNativeLibsInfo extends NativeInfo {
     this.nativeLibs = nativeLibs;
   }
 
-  @SkylarkCallable(
-    name = "native_libs",
-    doc = "Returns the native libraries produced by the rule.",
-    structField = true
-  )
+  @Override
   public NestedSet<Artifact> getNativeLibs() {
     return nativeLibs;
+  }
+
+  /** Provider for {@link AndroidNativeLibsInfo}. */
+  public static class AndroidNativeLibsInfoProvider extends BuiltinProvider<AndroidNativeLibsInfo>
+      implements AndroidNativeLibsInfoApiProvider {
+
+    private AndroidNativeLibsInfoProvider() {
+      super(SKYLARK_NAME, AndroidNativeLibsInfo.class);
+    }
+
+    @Override
+    public AndroidNativeLibsInfo createInfo(SkylarkNestedSet nativeLibs)
+        throws EvalException {
+      return new AndroidNativeLibsInfo(nativeLibs.getSet(Artifact.class));
+    }
   }
 }

@@ -16,16 +16,54 @@
 #
 # This test exercises action progress reporting.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-set -eu
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+  declare -r WORKSPACE_STATUS="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
+  touch "$WORKSPACE_STATUS"
+else
+  declare -r WORKSPACE_STATUS="$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.sh"
+  echo "#!$(which true)" > "$WORKSPACE_STATUS"
+  chmod +x "$WORKSPACE_STATUS"
+fi
 
 # TODO(b/37617303): make tests UI-independent
 add_to_bazelrc "build --noexperimental_ui"
-add_to_bazelrc "build --workspace_status_command=$(which true) --nostamp"
+add_to_bazelrc "build --workspace_status_command=\"$WORKSPACE_STATUS\" --nostamp"
 add_to_bazelrc "build --show_progress_rate_limit=-1"
 add_to_bazelrc "build --genrule_strategy=local"
 
@@ -149,15 +187,19 @@ EOF
   # waiting" message. Do not modify the workspace status writer action
   # implementation to have a progress message, because it breaks all kinds of
   # things.
-  cat >"${pkg}/workspace_status.sh" <<EOF
-#!/bin/sh
-sleep 5
-EOF
-
-  chmod +x "${pkg}/workspace_status.sh"
+  if "$is_windows"; then
+    local -r wsc="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
+    # Wait for an event that never comes, give up after 5 seconds (exits with
+    # nonzero), then "cd ." to reset %ERRORLEVEL%.
+    echo "%SYSTEMROOT%\\system32\\waitfor.exe DummyEventToWaitFor /T 5 2>NUL & cd ." > "$wsc"
+  else
+    local -r wsc="$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.sh"
+    echo -e "#!$(which sh)\nsleep 5" > "$wsc"
+    chmod +x "$wsc"
+  fi
 
   bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
-      --workspace_status_command="${pkg}/workspace_status.sh" \
+      --workspace_status_command="$wsc" \
       --progress_report_interval=1 \
       >& "$TEST_log" || fail "build failed"
 
@@ -176,12 +218,12 @@ EOF
   # It may happen that Skyframe does not discover (enque) the workspace status
   # writer action immediately, so the counter may initially report 3 total
   # actions instead of 4.
-  expect_log "\[0 / [34]\] Executing genrule //${pkg}:z$"
-  expect_log "\[1 / [34]\] Executing genrule //${pkg}:z DONE$"
-  expect_log "\[1 / [34]\] Executing genrule //${pkg}:y$"
-  expect_log "\[2 / [34]\] Executing genrule //${pkg}:y DONE$"
-  expect_log "\[2 / 4\] Executing genrule //${pkg}:x$"
-  expect_log "\[3 / 4\] Executing genrule //${pkg}:x DONE$"
+  expect_log "\[0 / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "\[1 / [34]\] Executing genrule //${pkg}:z DONE\s*$"
+  expect_log "\[1 / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "\[2 / [34]\] Executing genrule //${pkg}:y DONE\s*$"
+  expect_log "\[2 / 4\] Executing genrule //${pkg}:x\s*$"
+  expect_log "\[3 / 4\] Executing genrule //${pkg}:x DONE\s*$"
   expect_log "\[3 / 4\] Still waiting for 1 job to complete:"
 
   # Open-source Bazel calls this file stable-status.txt, Google internal version
@@ -234,13 +276,13 @@ EOF
   # last one might be the workspace status writer action).
 
   echo "input-clean" > "${pkg}/input"
-  bazel --nobatch build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "\[[89] / 9\] Executing genrule //${pkg}:x DONE"
   expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 8
 
   echo "input-incremental" > "${pkg}/input"
-  bazel --nobatch build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "\[[89] / 9\] Executing genrule //${pkg}:x DONE"
   expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 2
@@ -328,13 +370,13 @@ EOF
   # The last action should again be target "x", its completion index 8 or 9 (the
   # last one might be the workspace status writer action).
   echo "input-clean" > "${pkg}/input"
-  bazel --nobatch build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "\[[89] / 9\] Executing genrule //${pkg}:x DONE"
   expect_log_n "\[[1-9] / 9\] Executing genrule //${pkg}:.* DONE" 8
 
   echo "input-incremental" > "${pkg}/input"
-  bazel --nobatch build "//${pkg}:x" --show_task_finish --color=no --curses=no \
+  bazel build "//${pkg}:x" --show_task_finish --color=no --curses=no \
       >& "$TEST_log" || fail "build failed"
   expect_log_once "\[[12] / 9\] Executing genrule //${pkg}:dep1 DONE"
   expect_log_once "Executing genrule .* DONE"

@@ -15,26 +15,14 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.util.OS;
 import java.util.Iterator;
 import java.util.Map;
 
 /** Builder for creating manifest merger actions. */
 public class ManifestMergerActionBuilder {
-  private final RuleContext ruleContext;
-  private final SpawnAction.Builder spawnActionBuilder;
 
   private Artifact manifest;
   private Map<Artifact, Label> mergeeManifests;
@@ -43,11 +31,6 @@ public class ManifestMergerActionBuilder {
   private String customPackage;
   private Artifact manifestOutput;
   private Artifact logOut;
-
-  public ManifestMergerActionBuilder(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-    this.spawnActionBuilder = new SpawnAction.Builder();
-  }
 
   public ManifestMergerActionBuilder setManifest(Artifact manifest) {
     this.manifest = manifest;
@@ -84,75 +67,27 @@ public class ManifestMergerActionBuilder {
     return this;
   }
 
-  public void build(ActionConstructionContext context) {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
-    CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+  public void build(AndroidDataContext dataContext) {
+    BusyBoxActionBuilder builder =
+        BusyBoxActionBuilder.create(dataContext, "MERGE_MANIFEST")
+            .maybeAddInput("--manifest", manifest);
 
-    // Set the busybox tool.
-    builder.add("--tool").add("MERGE_MANIFEST").add("--");
-
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifacts());
-
-    if (manifest != null) {
-      builder.addExecPath("--manifest", manifest);
-      inputs.add(manifest);
-    }
-
-    if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
-      builder.add(
+    if (mergeeManifests != null) {
+      builder.maybeAddInput(
           "--mergeeManifests",
           mapToDictionaryString(
-              mergeeManifests, Artifact::getExecPathString, /* valueConverter= */ null));
-      inputs.addAll(mergeeManifests.keySet());
+              mergeeManifests, Artifact::getExecPathString, /* valueConverter = */ null),
+          mergeeManifests.keySet());
     }
 
-    if (isLibrary) {
-      builder.add("--mergeType").add("LIBRARY");
-    }
-
-    if (manifestValues != null && !manifestValues.isEmpty()) {
-      builder.add("--manifestValues", mapToDictionaryString(manifestValues));
-    }
-
-    if (customPackage != null && !customPackage.isEmpty()) {
-      builder.add("--customPackage", customPackage);
-    }
-
-    builder.addExecPath("--manifestOutput", manifestOutput);
-    outputs.add(manifestOutput);
-
-    if (logOut != null) {
-      builder.addExecPath("--log", logOut);
-      outputs.add(logOut);
-    }
-
-    ParamFileInfo.Builder paramFileInfo = ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED);
-    // Some flags (e.g. --mainData) may specify lists (or lists of lists) separated by special
-    // characters (colon, semicolon, hashmark, ampersand) that don't work on Windows, and quoting
-    // semantics are very complicated (more so than in Bash), so let's just always use a parameter
-    // file.
-    // TODO(laszlocsomor), TODO(corysmith): restructure the Android BusyBux's flags by deprecating
-    // list-type and list-of-list-type flags that use such problematic separators in favor of
-    // multi-value flags (to remove one level of listing) and by changing all list separators to a
-    // platform-safe character (= comma).
-    paramFileInfo.setUseAlways(OS.getCurrent() == OS.WINDOWS);
-
-    ruleContext.registerAction(
-        this.spawnActionBuilder
-            .useDefaultShellEnvironment()
-            .addTransitiveInputs(inputs.build())
-            .addOutputs(outputs.build())
-            .addCommandLine(builder.build(), paramFileInfo.build())
-            .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
-            .setProgressMessage("Merging manifest for %s", ruleContext.getLabel())
-            .setMnemonic("ManifestMerger")
-            .build(context));
+    builder
+        .maybeAddFlag("--mergeType", isLibrary)
+        .maybeAddFlag("LIBRARY", isLibrary)
+        .maybeAddFlag("--manifestValues", mapToDictionaryString(manifestValues))
+        .maybeAddFlag("--customPackage", customPackage)
+        .addOutput("--manifestOutput", manifestOutput)
+        .maybeAddOutput("--log", logOut)
+        .buildAndRegister("Merging manifest", "ManifestMerger");
   }
 
   private static final Function<String, String> ESCAPER =
@@ -166,6 +101,9 @@ public class ManifestMergerActionBuilder {
       Map<K, V> map,
       Function<? super K, String> keyConverter,
       Function<? super V, String> valueConverter) {
+    if (map == null) {
+      return null;
+    }
     if (keyConverter == null) {
       keyConverter = Functions.toStringFunction();
     }

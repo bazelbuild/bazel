@@ -110,6 +110,10 @@ class StartupOptions {
                                        bool *is_space_separated,
                                        std::string *error);
 
+  // Processes the --server_javabase flag, or its deprecated alias
+  // --host_javabase.
+  void ProcessServerJavabase(const char *value, const std::string &rcfile);
+
   // Process an ordered list of RcStartupFlags using ProcessArg.
   blaze_exit_code::ExitCode ProcessArgs(
       const std::vector<RcStartupFlag>& rcstartup_flags,
@@ -167,7 +171,7 @@ class StartupOptions {
   // Returns the exit code after this operation. "error" will be set to a
   // descriptive string for any value other than blaze_exit_code::SUCCESS.
   blaze_exit_code::ExitCode AddJVMArguments(
-      const std::string &host_javabase, std::vector<std::string> *result,
+      const std::string &server_javabase, std::vector<std::string> *result,
       const std::vector<std::string> &user_options, std::string *error) const;
 
   // Adds JVM logging-related flags for Bazel.
@@ -181,8 +185,8 @@ class StartupOptions {
   // This is called by StartupOptions::AddJVMArguments and is a separate method
   // so that subclasses of StartupOptions can override it.
   virtual blaze_exit_code::ExitCode AddJVMMemoryArguments(
-        const std::string &host_javabase, std::vector<std::string> *result,
-        const std::vector<std::string> &user_options, std::string *error) const;
+      const std::string &server_javabase, std::vector<std::string> *result,
+      const std::vector<std::string> &user_options, std::string *error) const;
 
   // Checks whether the argument is a valid nullary option.
   // E.g. --master_bazelrc, --nomaster_bazelrc.
@@ -266,13 +270,16 @@ class StartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<std::string, std::string> option_sources;
 
-  // Returns the GetHostJavabase. This should be called after parsing
-  // the --host_javabase option.
-  std::string GetHostJavabase();
+  // Returns the embedded JDK, or an empty string.
+  std::string GetEmbeddedJavabase();
 
-  // Returns the explicit value of the --host_javabase startup option or the
+  // Returns the GetHostJavabase. This should be called after parsing
+  // the --server_javabase option.
+  std::string GetServerJavabase();
+
+  // Returns the explicit value of the --server_javabase startup option or the
   // empty string if it was not specified on the command line.
-  std::string GetExplicitHostJavabase() const;
+  std::string GetExplicitServerJavabase() const;
 
   // Port to start up the gRPC command server on. If 0, let the kernel choose.
   int command_port;
@@ -291,9 +298,17 @@ class StartupOptions {
 
   bool expand_configs_in_place;
 
+  // The hash function to use when computing file digests.
+  std::string digest_function;
+
+  bool idle_server_tasks;
+
   // The startup options as received from the user and rc files, tagged with
   // their origin. This is populated by ProcessArgs.
   std::vector<RcStartupFlag> original_startup_options_;
+
+  // Whether to raise the soft coredump limit to the hard one or not.
+  bool unlimit_coredumps;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
@@ -307,12 +322,12 @@ class StartupOptions {
   void RegisterNullaryStartupFlag(const std::string& flag_name);
 
  private:
-  std::string host_javabase;
-  std::string default_host_javabase;
+  std::string server_javabase_;
+  std::string default_server_javabase_;
   // Contains the collection of startup flags that Bazel accepts.
   std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__)
   static std::string WindowsUnixRoot(const std::string &bazel_sh);
 #endif
 };

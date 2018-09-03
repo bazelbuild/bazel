@@ -49,9 +49,8 @@ public class PlatformRule implements RuleDefinition {
                 .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id())))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
-        A text proto (the Platform message from
-        https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
-        that will be sent to a remote execution platform.
+        A string used to configure a remote execution platform. Actual builds make no attempt to
+        interpret this, it is treated as opaque data that can be used by a specific SpawnRunner.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING))
 
@@ -105,10 +104,10 @@ public class PlatformRule implements RuleDefinition {
 constraint_setting(name="cpu")
 constraint_value(
     name="arm64",
-    constraint=":cpu")
+    constraint_setting=":cpu")
 constraint_value(
     name="k8",
-    constraint=":cpu")
+    constraint_setting=":cpu")
 platform(
     name="mobile_device",
     constraint_values = [

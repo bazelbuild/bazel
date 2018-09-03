@@ -5,6 +5,15 @@ Missing member 'I' in class com.google.devtools.build.importdeps.testdata.Librar
 Missing member 'field' in class com.google.devtools.build.importdeps.testdata.Library$Class3 : name=field, descriptor=Lcom/google/devtools/build/importdeps/testdata/Library$Class4;
 Missing member 'createClass5' in class com.google.devtools.build.importdeps.testdata.Library$Class4 : name=createClass5, descriptor=()Lcom/google/devtools/build/importdeps/testdata/Library$Class5;
 Missing member 'create' in class com.google.devtools.build.importdeps.testdata.Library$Class5 : name=create, descriptor=(Lcom/google/devtools/build/importdeps/testdata/Library$Class7;)Lcom/google/devtools/build/importdeps/testdata/Library$Class6;
+The class hierarchies of the classes with missing members:
+    com.google.devtools.build.importdeps.testdata.Library$Class1 (in testdata:testdata_lib_Library_no_members)
+        java.lang.Object
+    com.google.devtools.build.importdeps.testdata.Library$Class3 (in testdata:testdata_lib_Library_no_members)
+        java.lang.Object
+    com.google.devtools.build.importdeps.testdata.Library$Class4 (in testdata:testdata_lib_Library_no_members)
+        java.lang.Object
+    com.google.devtools.build.importdeps.testdata.Library$Class5 (in testdata:testdata_lib_Library_no_members)
+        java.lang.Object
 ===Total===
 missing=0
 incomplete=0

@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
-import com.google.devtools.build.lib.query2.engine.VariableContext;
 import java.util.List;
 
 /**
@@ -64,7 +64,7 @@ public final class ConfigFunction implements QueryFunction {
   @SuppressWarnings("unchecked")
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
-      VariableContext<T> context,
+      QueryExpressionContext<T> context,
       QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {

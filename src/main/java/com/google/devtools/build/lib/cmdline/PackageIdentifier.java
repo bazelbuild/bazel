@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -46,6 +47,7 @@ public final class PackageIdentifier
 
   @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
+    // Note: We rely on these being interned to fast-path Label#equals.
     return INTERNER.intern(new PackageIdentifier(repository, pkgName));
   }
 
@@ -118,10 +120,17 @@ public final class PackageIdentifier
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
-    String repo;
+    return parse(input, /* repo= */ null, /* repositoryMapping= */ null);
+  }
+
+  public static PackageIdentifier parse(
+      String input, String repo, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
     String packageName;
     int packageStartPos = input.indexOf("//");
-    if (input.startsWith("@") && packageStartPos > 0) {
+    if (repo != null) {
+      packageName = input;
+    } else if (input.startsWith("@") && packageStartPos > 0) {
       repo = input.substring(0, packageStartPos);
       packageName = input.substring(packageStartPos + 2);
     } else if (input.startsWith("@")) {
@@ -144,7 +153,13 @@ public final class PackageIdentifier
       throw new LabelSyntaxException(error);
     }
 
-    return create(repo, PathFragment.create(packageName));
+    if (repositoryMapping != null) {
+      RepositoryName repositoryName = RepositoryName.create(repo);
+      repositoryName = repositoryMapping.getOrDefault(repositoryName, repositoryName);
+      return create(repositoryName, PathFragment.create(packageName));
+    } else {
+      return create(repo, PathFragment.create(packageName));
+    }
   }
 
   public RepositoryName getRepository() {

@@ -40,7 +40,7 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
   private final Multimap<String, SkylarkJavaMethodDoc> javaMethods;
   private TreeMap<String, SkylarkMethodDoc> methodMap;
   private final String title;
-  @Nullable private SkylarkJavaMethodDoc javaConstructor;
+  @Nullable private SkylarkConstructorMethodDoc javaConstructor;
 
   public SkylarkModuleDoc(SkylarkModule module, Class<?> classObject) {
     this.module = Preconditions.checkNotNull(
@@ -78,10 +78,9 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     return classObject;
   }
 
-  public void setConstructor(SkylarkJavaMethodDoc method) {
+  public void setConstructor(SkylarkConstructorMethodDoc method) {
     Preconditions.checkState(javaConstructor == null);
     javaConstructor = method;
-    methodMap.put(method.getName(), method);
   }
 
   public void addMethod(SkylarkBuiltinMethodDoc method) {
@@ -123,8 +122,8 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
     return builtinMethodMap;
   }
 
-  public Collection<SkylarkJavaMethodDoc> getJavaMethods() {
-    ImmutableList.Builder<SkylarkJavaMethodDoc> returnedMethods = ImmutableList.builder();
+  public Collection<SkylarkMethodDoc> getJavaMethods() {
+    ImmutableList.Builder<SkylarkMethodDoc> returnedMethods = ImmutableList.builder();
     if (javaConstructor != null) {
       returnedMethods.add(javaConstructor);
     }
@@ -132,6 +131,10 @@ public final class SkylarkModuleDoc extends SkylarkDoc {
   }
 
   public Collection<SkylarkMethodDoc> getMethods() {
-    return methodMap.values();
+    ImmutableList.Builder<SkylarkMethodDoc> methods = ImmutableList.builder();
+    if (javaConstructor != null) {
+      methods.add(javaConstructor);
+    }
+    return methods.addAll(methodMap.values()).build();
   }
 }

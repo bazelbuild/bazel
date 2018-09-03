@@ -244,17 +244,15 @@ Use the following flags to:
 * disable sandboxing
 
 ```
-build --spawn_strategy=remote --genrule_strategy=remote
-build --strategy=Javac=remote --strategy=Closure=remote
 build --remote_http_cache=http://replace-with-your.host:port
+build --spawn_strategy=standalone
 ```
 
-Using the remote cache with sandboxing enabled is experimental. Use the
+Using the remote cache with sandboxing enabled is the default. Use the
 following flags to read and write from the remote cache with sandboxing
 enabled:
 
 ```
-build --experimental_remote_spawn_cache
 build --remote_http_cache=http://replace-with-your.host:port
 ```
 
@@ -264,17 +262,15 @@ Use the following flags to: read from the remote cache with sandboxing
 disabled.
 
 ```
-build --spawn_strategy=remote --genrule_strategy=remote
-build --strategy=Javac=remote --strategy=Closure=remote
 build --remote_http_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
+build --spawn_strategy=standalone
 ```
 
 Using the remote cache with sandboxing enabled is experimental. Use the
 following flags to read from the remote cache with sandboxing enabled:
 
 ```
-build --experimental_remote_spawn_cache
 build --remote_http_cache=http://replace-with-your.host:port
 build --remote_upload_local_results=false
 ```
@@ -307,6 +303,19 @@ You may want to delete content from the cache to:
 * Create a clean cache after a cache was poisoned
 * Reduce the amount of storage used by deleting old outputs
 
+### Unix sockets
+
+The remote HTTP cache supports connecting over unix domain sockets. The behavior
+is similar to curl's `--unix-socket` flag. Use the following to configure unix
+domain socket:
+
+```
+build --remote_http_cache=http://replace-with-your.host:port
+build --remote_cache_proxy=unix:/replace/with/socket/path
+```
+
+This feature is unsupported on Windows.
+
 ## Disk cache
 
 Bazel can use a directory on the file system as a remote cache. This is
@@ -335,8 +344,11 @@ build --experimental_strict_action_env
 **Input file modification during a build**
 
 When an input file is modified during a build, Bazel might upload invalid
-results to the remote cache. We are working on a solution for this problem.
-See [issue #3360] for updates. Avoid modifying source files during a build.
+results to the remote cache. We implemented a change detection that can be
+enabled via the `--experimental_guard_against_concurrent_changes` flag. There
+are no known issues and we expect to enable it by default in a future release.
+See [issue #3360] for updates. Generally, avoid modifying source files during a
+build.
 
 
 **Environment variables leaking into an action**
@@ -374,6 +386,8 @@ separate platform, such as a datacenter.  You can try remote execution with
 [Buildfarm], an open source project that aims to provide a distributed remote
 execution platform.
 
+[Adapting Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
+[Troubleshooting Remote Execution](https://docs.bazel.build/versions/master/remote-execution-sandbox.html)
 [WebDAV module]: http://nginx.org/en/docs/http/ngx_http_dav_module.html
 [docker image]: https://hub.docker.com/r/buchgr/bazel-remote-cache/
 [GitHub]: https://github.com/buchgr/bazel-remote/
@@ -390,4 +404,3 @@ execution platform.
 [gRPC protocol]: https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto
 [Buildfarm]: https://github.com/bazelbuild/bazel-buildfarm
 [issue #4558]: https://github.com/bazelbuild/bazel/issues/4558
-

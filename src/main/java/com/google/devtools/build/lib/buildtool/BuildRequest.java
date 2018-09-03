@@ -20,7 +20,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -34,10 +34,11 @@ import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -47,9 +48,10 @@ import java.util.concurrent.ExecutionException;
  * configuration, a pair of output/error streams, and additional options such
  * as --keep_going, --jobs, etc.
  */
-public class BuildRequest implements OptionsClassProvider {
+public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
+  private final Map<String, Object> skylarkOptions;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -75,14 +77,14 @@ public class BuildRequest implements OptionsClassProvider {
           PackageCacheOptions.class,
           SkylarkSemanticsOptions.class,
           LoadingOptions.class,
-          BuildView.Options.class,
+          AnalysisOptions.class,
           ExecutionOptions.class,
           KeepGoingOption.class,
           LoadingPhaseThreadsOption.class);
 
   private BuildRequest(String commandName,
-                       final OptionsProvider options,
-                       final OptionsProvider startupOptions,
+                       final OptionsParsingResult options,
+                       final OptionsParsingResult startupOptions,
                        List<String> targets,
                        OutErr outErr,
                        UUID id,
@@ -105,10 +107,17 @@ public class BuildRequest implements OptionsClassProvider {
             return Optional.fromNullable(result);
           }
         });
+    this.skylarkOptions = options.getSkylarkOptions();
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
     }
+  }
+
+
+  @Override
+  public Map<String, Object> getSkylarkOptions() {
+    return skylarkOptions;
   }
 
   /**
@@ -177,6 +186,7 @@ public class BuildRequest implements OptionsClassProvider {
     }
   }
 
+
   /**
    * Returns the set of command-line options specified for this request.
    */
@@ -202,8 +212,8 @@ public class BuildRequest implements OptionsClassProvider {
    * Returns the set of command-line options related to the view specified for
    * this request.
    */
-  public BuildView.Options getViewOptions() {
-    return getOptions(BuildView.Options.class);
+  public AnalysisOptions getViewOptions() {
+    return getOptions(AnalysisOptions.class);
   }
 
   /** Returns the value of the --keep_going option. */
@@ -293,8 +303,8 @@ public class BuildRequest implements OptionsClassProvider {
     return ImmutableList.copyOf(getBuildOptions().aspects);
   }
 
-  public static BuildRequest create(String commandName, OptionsProvider options,
-      OptionsProvider startupOptions,
+  public static BuildRequest create(String commandName, OptionsParsingResult options,
+      OptionsParsingResult startupOptions,
       List<String> targets, OutErr outErr, UUID commandId, long commandStartTime) {
 
     BuildRequest request = new BuildRequest(commandName, options, startupOptions, targets, outErr,

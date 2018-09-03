@@ -72,12 +72,12 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     ImmutableList<Label> toolchainLabels;
     try {
       toolchainLabels =
-          ToolchainUtil.expandTargetPatterns(
+          TargetPatternUtil.expandTargetPatterns(
               env, targetPatterns.build(), FilteringPolicies.ruleType("toolchain", true));
       if (env.valuesMissing()) {
         return null;
       }
-    } catch (ToolchainUtil.InvalidTargetPatternException e) {
+    } catch (TargetPatternUtil.InvalidTargetPatternException e) {
       throw new RegisteredToolchainsFunctionException(
           new InvalidToolchainLabelException(e), Transience.PERSISTENT);
     }
@@ -172,29 +172,29 @@ public class RegisteredToolchainsFunction implements SkyFunction {
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link DeclaredToolchainInfo} provider.
    */
-  public static final class InvalidToolchainLabelException extends Exception {
+  public static final class InvalidToolchainLabelException extends ToolchainException {
 
     public InvalidToolchainLabelException(Label invalidLabel) {
       super(
-          String.format(
-              "invalid registered toolchain '%s': "
-                  + "target does not provide the DeclaredToolchainInfo provider",
-              invalidLabel));
+          formatMessage(
+              invalidLabel.getCanonicalForm(),
+              "target does not provide the DeclaredToolchainInfo provider"));
     }
 
-    public InvalidToolchainLabelException(ToolchainUtil.InvalidTargetPatternException e) {
+    public InvalidToolchainLabelException(TargetPatternUtil.InvalidTargetPatternException e) {
       this(e.getInvalidPattern(), e.getTpe());
     }
 
     public InvalidToolchainLabelException(String invalidPattern, TargetParsingException e) {
-      super(
-          String.format("invalid registered toolchain '%s': %s", invalidPattern, e.getMessage()),
-          e);
+      super(formatMessage(invalidPattern, e.getMessage()), e);
     }
 
     public InvalidToolchainLabelException(Label invalidLabel, ConfiguredValueCreationException e) {
-      super(
-          String.format("invalid registered toolchain '%s': %s", invalidLabel, e.getMessage()), e);
+      super(formatMessage(invalidLabel.getCanonicalForm(), e.getMessage()), e);
+    }
+
+    private static String formatMessage(String invalidPattern, String reason) {
+      return String.format("invalid registered toolchain '%s': %s", invalidPattern, reason);
     }
   }
 

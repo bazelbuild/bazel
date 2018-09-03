@@ -356,7 +356,7 @@ Method internalCompare
     INVOKESTATIC java/lang/Long.valueOf (J)Ljava/lang/Long;
         |__STACK: [Ljava/util/function/BinaryOperator;, Ljava/lang/Long;, Ljava/lang/Long;]
         |__LOCAL: [J, TOP, J, TOP, Ljava/util/function/BinaryOperator;]
-    INVOKEINTERFACE java/util/function/BinaryOperator.apply (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    INVOKEINTERFACE java/util/function/BinaryOperator.apply (Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object; (itf)
         |__STACK: [Ljava/lang/Object;]
         |__LOCAL: [J, TOP, J, TOP, Ljava/util/function/BinaryOperator;]
     CHECKCAST java/lang/Long
@@ -568,7 +568,7 @@ Method closeResourceArrayList
     ALOAD 1
         |__STACK: [Ljava/util/List;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/util/List;]
-    INVOKEINTERFACE java/util/List.iterator ()Ljava/util/Iterator;
+    INVOKEINTERFACE java/util/List.iterator ()Ljava/util/Iterator; (itf)
         |__STACK: [Ljava/util/Iterator;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/util/List;]
     ASTORE 2
@@ -579,7 +579,7 @@ Method closeResourceArrayList
     ALOAD 2
         |__STACK: [Ljava/util/Iterator;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/util/List;, Ljava/util/Iterator;]
-    INVOKEINTERFACE java/util/Iterator.hasNext ()Z
+    INVOKEINTERFACE java/util/Iterator.hasNext ()Z (itf)
         |__STACK: [I]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/util/List;, Ljava/util/Iterator;]
     IFEQ L2
@@ -588,7 +588,7 @@ Method closeResourceArrayList
     ALOAD 2
         |__STACK: [Ljava/util/Iterator;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/util/List;, Ljava/util/Iterator;]
-    INVOKEINTERFACE java/util/Iterator.next ()Ljava/lang/Object;
+    INVOKEINTERFACE java/util/Iterator.next ()Ljava/lang/Object; (itf)
         |__STACK: [Ljava/lang/Object;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/util/List;, Ljava/util/Iterator;]
     CHECKCAST java/sql/Statement
@@ -631,7 +631,7 @@ Method closeSqlStmt
     ALOAD 1
         |__STACK: [Ljava/sql/Connection;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/sql/Connection;, NULL]
-    INVOKEINTERFACE java/sql/Connection.createStatement ()Ljava/sql/Statement;
+    INVOKEINTERFACE java/sql/Connection.createStatement ()Ljava/sql/Statement; (itf)
         |__STACK: [Ljava/sql/Statement;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/sql/Connection;, NULL]
     ASTORE 2
@@ -694,7 +694,7 @@ Method closeResource
     ALOAD 1
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
    L3
@@ -1170,7 +1170,7 @@ Method readFile
     ALOAD 8
         |__STACK: [Ljava/io/BufferedReader;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/io/BufferedReader;, NULL, Ljava/io/BufferedReader;, NULL, Ljava/io/BufferedReader;, NULL, Ljava/io/BufferedReader;, NULL]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/io/BufferedReader;, NULL, Ljava/io/BufferedReader;, NULL, Ljava/io/BufferedReader;, NULL, Ljava/io/BufferedReader;, NULL]
    L11
@@ -1199,7 +1199,7 @@ Method readFile
     ALOAD 8
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
    L8
@@ -1220,7 +1220,7 @@ Method readFile
     ALOAD 6
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
    L16
@@ -1249,7 +1249,7 @@ Method readFile
     ALOAD 6
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
     GOTO L13
@@ -1294,7 +1294,7 @@ Method readFile
     ALOAD 6
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, Ljava/lang/Throwable;]
    L24
@@ -1323,7 +1323,7 @@ Method readFile
     ALOAD 6
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, Ljava/lang/Throwable;]
    L21
@@ -1352,7 +1352,7 @@ Method readFile
     ALOAD 4
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
    L29
@@ -1381,7 +1381,7 @@ Method readFile
     ALOAD 4
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
     GOTO L26
@@ -1426,7 +1426,7 @@ Method readFile
     ALOAD 4
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
    L37
@@ -1455,7 +1455,7 @@ Method readFile
     ALOAD 4
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
    L34
@@ -1484,7 +1484,7 @@ Method readFile
     ALOAD 2
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
    L42
@@ -1513,7 +1513,7 @@ Method readFile
     ALOAD 2
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;]
     GOTO L39
@@ -1558,7 +1558,7 @@ Method readFile
     ALOAD 2
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
    L50
@@ -1587,7 +1587,7 @@ Method readFile
     ALOAD 2
         |__STACK: [Ljava/lang/AutoCloseable;]
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
-    INVOKEINTERFACE java/lang/AutoCloseable.close ()V
+    INVOKEINTERFACE java/lang/AutoCloseable.close ()V (itf)
         |__STACK: []
         |__LOCAL: [Ltestsubjects/TestSubject;, Ljava/io/File;, Ljava/lang/AutoCloseable;, Ljava/lang/Throwable;, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, TOP, Ljava/lang/Throwable;]
    L47

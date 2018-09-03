@@ -20,6 +20,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 test_result_recorded() {
+  mkdir result_recorded && cd result_recorded
+  rm -rf fetchrepo
   mkdir fetchrepo
   cd fetchrepo
   cat > rule.bzl <<'EOF'
@@ -52,10 +54,14 @@ EOF
   bazel clean --expunge
   bazel build --experimental_repository_resolved_file=../repo.bzl @ext//... \
       || fail "Expected success"
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
 
   # Verify that bazel can read the generated repo.bzl file and that it contains
   # the expected information
   cd ..
+  echo; cat repo.bzl; echo; echo
   mkdir analysisrepo
   mv repo.bzl analysisrepo
   cd analysisrepo
@@ -69,12 +75,545 @@ load("//:repo.bzl", "resolved")
     cmd = "echo %s > $@" % entry["repositories"][0]["attributes"]["extra_arg"],
   ) for entry in resolved if entry["original_rule_class"] == "//:rule.bzl%trivial_rule"
 ]
+
+[ genrule(
+    name = "origcount",
+    outs = ["origcount.txt"],
+    cmd = "echo %s > $@" % len(entry["original_attributes"])
+  ) for entry in resolved if entry["original_rule_class"] == "//:rule.bzl%trivial_rule"
+]
 EOF
-  cat BUILD
-  bazel build //:out || fail "Expected success"
+  bazel build :out :origcount || fail "Expected success"
   grep "foobar" `bazel info bazel-genfiles`/out.txt \
       || fail "Did not find the expected value"
+  [ $(cat `bazel info bazel-genfiles`/origcount.txt) -eq 2 ] \
+      || fail "Not the correct number of original attributes"
+}
 
+test_git_return_value() {
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  mkdir extgit
+  (cd extgit && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello World > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit'
+   git tag mytag)
+
+  # Check out the external git repository at the given tag, and record
+  # the return value of the git rule.
+  mkdir tagcheckout
+  cd tagcheckout
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/extgit/.git",
+  tag="mytag",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+
+  # Now add an additional commit to the upstream repository and
+  # force update the tag
+  echo CHANGED > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'change hello.txt'
+   git tag -f mytag)
+
+  # Verify that the recorded resolved information is what we expect. In
+  # particular, verify that we don't get the new upstream commit.
+  mkdir analysisrepo
+  cd analysisrepo
+  cp ../repo.bzl .
+  cat > workspace.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("//:repo.bzl", "resolved")
+
+def repo():
+    for entry in resolved:
+        if entry["original_attributes"]["name"] == "ext":
+            new_git_repository(**(entry["repositories"][0]["attributes"]))
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:workspace.bzl", "repo")
+repo()
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:out
+  grep "Hello World" `bazel info bazel-genfiles`/out.txt \
+       || fail "ext not taken at the right commit"
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       && fail "not taking the frozen commit" || :
+}
+
+test_git_follow_branch() {
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  mkdir extgit
+  (cd extgit && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello World > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit')
+  # Check out the external git repository at the given branch, and record
+  # the return value of the git rule.
+  mkdir branchcheckout
+  cd branchcheckout
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/extgit/.git",
+  branch="master",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  bazel build :out
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       && fail "Unexpected content in out.txt" || :
+  cd ..
+  echo; cat repo.bzl; echo
+
+  # Now add an additional commit to the upstream repository
+  echo CHANGED > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'change hello.txt')
+
+
+  # First verify that `bazel sync` sees the new commit (we don't record it).
+  cd branchcheckout
+  bazel sync
+  bazel build :out
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       || fail "sync did not update the external repository"
+  bazel shutdown; sync; sleep 10
+  cd ..
+  echo
+
+  # Verify that the recorded resolved information is what we expect. In
+  # particular, verify that we don't get the new upstream commit.
+  mkdir analysisrepo
+  cd analysisrepo
+  cp ../repo.bzl .
+  cat > workspace.bzl <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("//:repo.bzl", "resolved")
+
+def repo():
+    for entry in resolved:
+        if entry["original_attributes"]["name"] == "ext":
+            new_git_repository(**(entry["repositories"][0]["attributes"]))
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:workspace.bzl", "repo")
+repo()
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel build //:out
+  grep "Hello World" `bazel info bazel-genfiles`/out.txt \
+       || fail "ext not taken at the right commit"
+  grep "CHANGED" `bazel info bazel-genfiles`/out.txt  \
+       && fail "not taking the frozen commit" || :
+}
+
+test_sync_follows_git_branch() {
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  rm -f gitdir
+  mkdir gitdir
+  (cd gitdir && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello World > gitdir/hello.txt
+  (cd gitdir
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit')
+  echo Hello Stable World > gitdir/hello.txt
+  (cd gitdir
+   git checkout -b stable
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'stable commit')
+
+  # Follow the stable branch of the git repository
+  mkdir followbranch
+  cat > followbranch/WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/gitdir/.git",
+  branch="stable",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  cat > followbranch/BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  (cd followbranch && bazel build :out \
+       && cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}")
+  expect_log 'Hello Stable World'
+
+  # New upstream commits on the branch followed
+  echo CHANGED > gitdir/hello.txt
+  (cd gitdir
+   git checkout stable
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'stable commit')
+
+  # Verify that sync followed by build gets the correct version
+  (cd followbranch && bazel sync && bazel build :out \
+       && cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}")
+  expect_log 'CHANGED'
+  expect_not_log 'Hello Stable World'
+}
+
+
+test_sync_calls_all() {
+  mkdir sync_calls_all && cd sync_calls_all
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  rm -f repo.bzl
+  cd fetchrepo
+  cat > rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  ctx.file("foo.bzl", """
+it = "foo"
+other = "bar"
+""")
+  ctx.file("BUILD", "")
+  return {"comment" : ctx.attr.comment }
+
+trivial_rule = repository_rule(
+  implementation = _rule_impl,
+  attrs = { "comment" : attr.string() },
+)
+EOF
+  touch BUILD
+  cat  > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+trivial_rule(name = "a", comment = "bootstrap")
+load("@a//:foo.bzl", "it")
+trivial_rule(name = "b", comment = it)
+trivial_rule(name = "c", comment = it)
+load("@c//:foo.bzl", "other")
+trivial_rule(name = "d", comment = other)
+EOF
+
+  bazel clean --expunge
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+names = [entry["original_attributes"]["name"] for entry in resolved]
+
+[
+  genrule(
+   name = name,
+   outs = [ "%s.txt" % (name,) ],
+   cmd = "echo %s > $@" % (name,),
+  ) for name in names
+]
+EOF
+  bazel build :a :b :c :d || fail "Expected all 4 repositories to be present"
+}
+
+test_sync_call_invalidates() {
+  mkdir sync_call_invalidates && cd sync_call_invalidates
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  rm -f repo.bzl
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _rule_impl(ctx):
+  ctx.file("BUILD", """
+genrule(
+  name = "it",
+  outs = ["it.txt"],
+  cmd = "echo hello world > $@",
+)
+""")
+  ctx.file("WORKSPACE", "")
+
+trivial_rule = repository_rule(
+  implementation = _rule_impl,
+  attrs = {},
+)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+
+trivial_rule(name = "a")
+trivial_rule(name = "b")
+EOF
+
+  bazel build @a//... @b//...
+  echo; echo sync run; echo
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  # some of the file systems on our test machines are really slow to
+  # notice the creation of a file---even after the call to sync(1).
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+names = [entry["original_attributes"]["name"] for entry in resolved]
+
+[
+  genrule(
+   name = name,
+   outs = [ "%s.txt" % (name,) ],
+   cmd = "echo %s > $@" % (name,),
+  ) for name in names
+]
+EOF
+  bazel build :a :b || fail "Expected both repositories to be present"
+}
+
+test_sync_load_errors_reported() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  cat > WORKSPACE <<'EOF'
+load("//does/not:exist.bzl", "randomfunction")
+
+radomfunction(name="foo")
+EOF
+  bazel sync > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  expect_log '//does/not:exist.bzl'
+}
+
+test_sync_debug_and_errors_printed() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  cat > rule.bzl <<'EOF'
+def _broken_rule_impl(ctx):
+  print("DEBUG-message")
+  fail("Failure-message")
+
+broken_rule = repository_rule(
+  implementation = _broken_rule_impl,
+  attrs = {},
+)
+EOF
+  touch BUILD
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "broken_rule")
+
+broken_rule(name = "broken")
+EOF
+  bazel sync > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  expect_log "DEBUG-message"
+  expect_log "Failure-message"
+}
+
+test_indirect_call() {
+  rm -rf fetchrepo
+  mkdir fetchrepo
+  cd fetchrepo
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _trivial_rule_impl(ctx):
+  ctx.file("BUILD","genrule(name='hello', outs=['hello.txt'], cmd=' echo hello world > $@')")
+
+trivial_rule = repository_rule(
+  implementation = _trivial_rule_impl,
+  attrs = {},
+)
+EOF
+  cat > indirect.bzl <<'EOF'
+def call(fn_name, **args):
+  fn_name(**args)
+EOF
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+load("//:indirect.bzl", "call")
+
+call(trivial_rule, name="foo")
+EOF
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+
+ruleclass = "".join([entry["original_rule_class"] for entry in resolved if entry["original_attributes"]["name"]=="foo"])
+
+genrule(
+  name = "ruleclass",
+  outs = ["ruleclass.txt"],
+  cmd = "echo %s > $@" % (ruleclass,)
+)
+EOF
+  bazel build //:ruleclass
+  cat `bazel info bazel-genfiles`/ruleclass.txt > ${TEST_log}
+  expect_log '//:rule.bzl%trivial_rule'
+  expect_not_log 'fn_name'
+}
+
+create_sample_repository() {
+  # Create, in the current direcotry, a repository that creates an external
+  # repository `foo` containing
+  # - file with fixed data, generated by ctx.file,
+  # - a BUILD file linked from the main repository
+  # - a symlink to ., and
+  # - danling absolute and reproducible symlink.
+  touch BUILD
+  cat > rule.bzl <<'EOF'
+def _trivial_rule_impl(ctx):
+  ctx.symlink(ctx.attr.build_file, "BUILD")
+  ctx.file("data.txt", "some data")
+  ctx.execute(["ln", "-s", ".", "self_link"])
+  ctx.execute(["ln", "-s", "/does/not/exist", "dangling"])
+
+trivial_rule = repository_rule(
+  implementation = _trivial_rule_impl,
+  attrs = { "build_file" : attr.label() },
+)
+EOF
+  echo '# fixed contents' > BUILD.remote
+  cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "trivial_rule")
+
+trivial_rule(name="foo", build_file="@//:BUILD.remote")
+EOF
+}
+
+test_hash_included_and_reproducible() {
+  # Verify that a hash of the output directory is included, that
+  # the hash is invariant under
+  # - change of the working directory, and
+  # - and current time.
+
+  rm -rf fetchrepoA
+  mkdir fetchrepoA
+  cd fetchrepoA
+  create_sample_repository
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+load("//:repo.bzl", "resolved")
+hashes = [entry["repositories"][0]["output_tree_hash"]
+         for entry in resolved if entry["original_attributes"]["name"]=="foo"]
+
+[genrule(
+  name="hash",
+  outs=["hash.txt"],
+  cmd="echo '%s' > $@" % (hash,),
+) for hash in hashes]
+EOF
+  bazel build //:hash
+  cp `bazel info bazel-genfiles`/hash.txt hashA.txt
+  cat hashA.txt > "${TEST_log}"
+  [ `cat hashA.txt | wc -c` -gt 2 ] \
+      || fail "A hash of reasonable length expected"
+  bazel clean --expunge
+  rm repo.bzl
+
+
+  rm -rf fetchrepoB
+  mkdir fetchrepoB
+  cd fetchrepoB
+  create_sample_repository
+  bazel sync --experimental_repository_resolved_file=../repo.bzl
+  bazel shutdown; sync; sleep 10
+
+  cd ..
+  echo; cat repo.bzl; echo
+  bazel build //:hash
+  cp `bazel info bazel-genfiles`/hash.txt hashB.txt
+  cat hashB.txt > "${TEST_log}"
+  diff hashA.txt hashB.txt || fail "Expected hash to be reproducible"
+}
+
+test_non_reproducibility_detected() {
+    # Verify that a non-reproducible rule is detected by hash verification
+    mkdir repo
+    cd repo
+    touch BUILD
+    cat > rule.bzl <<'EOF'
+def _time_rule_impl(ctx):
+  ctx.execute(["bash", "-c", "date +%s > timestamp"])
+
+time_rule = repository_rule(
+  implementation = _time_rule_impl,
+  attrs = {},
+)
+EOF
+    cat > WORKSPACE <<'EOF'
+load("//:rule.bzl", "time_rule")
+
+time_rule(name="timestamprepo")
+EOF
+
+    bazel sync --experimental_repository_resolved_file=resolved.bzl
+    sync; sleep 10
+    bazel sync --experimental_repository_hash_file=`pwd`/resolved.bzl \
+          --experimental_verify_repository_rules='//:rule.bzl%time_rule' \
+          > "${TEST_log}" 2>&1 && fail "expected failure" || :
+    expect_log "timestamprepo.*hash"
 }
 
 run_suite "workspace_resolved_test tests"

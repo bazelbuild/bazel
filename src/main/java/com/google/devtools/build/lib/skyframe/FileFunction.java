@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateType;
+import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -135,7 +137,7 @@ public class FileFunction implements SkyFunction {
               parentRealRootedPath.getRoot(),
               parentRealRootedPath.getRootRelativePath().getRelative(baseName));
 
-      if (!parentFileValue.exists()) {
+      if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
         return Pair.<RootedPath, FileStateValue>of(
             realRootedPath, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
       }
@@ -146,14 +148,6 @@ public class FileFunction implements SkyFunction {
 
     if (realFileStateValue == null) {
       return null;
-    }
-    if (realFileStateValue.getType() != FileStateType.NONEXISTENT
-        && parentFileValue != null && !parentFileValue.isDirectory()) {
-      String type = realFileStateValue.getType().toString().toLowerCase();
-      String message = type + " " + rootedPath.asPath() + " exists but its parent "
-          + "path " + parentFileValue.realRootedPath().asPath() + " isn't an existing directory.";
-      throw new FileFunctionException(new InconsistentFilesystemException(message),
-          Transience.TRANSIENT);
     }
     return Pair.of(realRootedPath, realFileStateValue);
   }

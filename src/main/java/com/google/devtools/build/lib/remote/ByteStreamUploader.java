@@ -18,23 +18,22 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableScheduledFuture;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.remoteexecution.v1test.Digest;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -42,16 +41,18 @@ import io.grpc.ClientCall;
 import io.grpc.Context;
 import io.grpc.Metadata;
 import io.grpc.Status;
-import io.grpc.StatusException;
+import io.netty.util.AbstractReferenceCounted;
+import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -60,20 +61,26 @@ import javax.annotation.concurrent.GuardedBy;
 /**
  * A client implementing the {@code Write} method of the {@code ByteStream} gRPC service.
  *
- * <p>Users must call {@link #shutdown()} before exiting.
+ * <p>The uploader supports reference counting to easily be shared between components with
+ * different lifecyles. After instantiation the reference coune is {@code 1}.
+ *
+ * See {@link ReferenceCounted} for more information on reference counting.
  */
-final class ByteStreamUploader {
+class ByteStreamUploader extends AbstractReferenceCounted {
 
   private static final Logger logger = Logger.getLogger(ByteStreamUploader.class.getName());
 
   private final String instanceName;
-  private final Channel channel;
+  private final ReferenceCountedChannel channel;
   private final CallCredentials callCredentials;
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
-  private final ListeningScheduledExecutorService retryService;
 
   private final Object lock = new Object();
+
+  /** Contains the hash codes of already uploaded blobs. **/
+  @GuardedBy("lock")
+  private final Set<HashCode> uploadedBlobs = new HashSet<>();
 
   @GuardedBy("lock")
   private final Map<Digest, ListenableFuture<Void>> uploadsInProgress = new HashMap<>();
@@ -92,17 +99,13 @@ final class ByteStreamUploader {
    * @param callTimeoutSecs the timeout in seconds after which a {@code Write} gRPC call must be
    *     complete. The timeout resets between retries
    * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
-   * @param retryService the executor service to schedule retries on. It's the responsibility of the
-   *     caller to properly shutdown the service after use. Users should avoid shutting down the
-   *     service before {@link #shutdown()} has been called
    */
   public ByteStreamUploader(
       @Nullable String instanceName,
-      Channel channel,
+      ReferenceCountedChannel channel,
       @Nullable CallCredentials callCredentials,
       long callTimeoutSecs,
-      RemoteRetrier retrier,
-      ListeningScheduledExecutorService retryService) {
+      RemoteRetrier retrier) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
 
     this.instanceName = instanceName;
@@ -110,7 +113,6 @@ final class ByteStreamUploader {
     this.callCredentials = callCredentials;
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.retryService = retryService;
   }
 
   /**
@@ -123,11 +125,15 @@ final class ByteStreamUploader {
    * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
    * performed. This is transparent to the user of this API.
    *
+   * @param chunker the data to upload.
+   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
+   *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public void uploadBlob(Chunker chunker) throws IOException, InterruptedException {
-    uploadBlobs(singletonList(chunker));
+  public void uploadBlob(Chunker chunker, boolean forceUpload) throws IOException,
+      InterruptedException {
+    uploadBlobs(singletonList(chunker), forceUpload);
   }
 
   /**
@@ -142,14 +148,18 @@ final class ByteStreamUploader {
    * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
    * performed. This is transparent to the user of this API.
    *
+   * @param chunkers the data to upload.
+   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
+   *        uploaded, if {@code true} the blob is uploaded.
    * @throws IOException when reading of the {@link Chunker}s input source fails
    * @throws RetryException when the upload failed after a retry
    */
-  public void uploadBlobs(Iterable<Chunker> chunkers) throws IOException, InterruptedException {
+  public void uploadBlobs(Iterable<Chunker> chunkers, boolean forceUpload) throws IOException,
+      InterruptedException {
     List<ListenableFuture<Void>> uploads = new ArrayList<>();
 
     for (Chunker chunker : chunkers) {
-      uploads.add(uploadBlobAsync(chunker));
+      uploads.add(uploadBlobAsync(chunker, forceUpload));
     }
 
     try {
@@ -173,9 +183,11 @@ final class ByteStreamUploader {
    * Cancels all running uploads. The method returns immediately and does NOT wait for the uploads
    * to be cancelled.
    *
-   * <p>This method must be the last method called.
+   * <p>This method should not be called directly, but will be called implicitly when the
+   * reference count reaches {@code 0}.
    */
-  public void shutdown() {
+  @VisibleForTesting
+  void shutdown() {
     synchronized (lock) {
       if (isShutdown) {
         return;
@@ -191,28 +203,51 @@ final class ByteStreamUploader {
     }
   }
 
-  @VisibleForTesting
-  ListenableFuture<Void> uploadBlobAsync(Chunker chunker)
-      throws IOException {
+  /**
+   * Uploads a BLOB asynchronously to the remote {@code ByteStream} service. The call returns
+   * immediately and one can listen to the returned future for the success/failure of the upload.
+   *
+   * <p>Uploads are retried according to the specified {@link RemoteRetrier}. Retrying is
+   * transparent to the user of this API.
+   *
+   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
+   * performed. This is transparent to the user of this API.
+   *
+   * @param chunker the data to upload.
+   * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
+   *        uploaded, if {@code true} the blob is uploaded.
+   * @throws IOException when reading of the {@link Chunker}s input source fails
+   * @throws RetryException when the upload failed after a retry
+   */
+  public ListenableFuture<Void> uploadBlobAsync(Chunker chunker, boolean forceUpload) {
     Digest digest = checkNotNull(chunker.digest());
+    HashCode hash = HashCode.fromString(digest.getHash());
 
     synchronized (lock) {
       checkState(!isShutdown, "Must not call uploadBlobs after shutdown.");
 
-      ListenableFuture<Void> uploadResult = uploadsInProgress.get(digest);
-      if (uploadResult == null) {
-        uploadResult = SettableFuture.create();
-        uploadResult.addListener(
-            () -> {
-              synchronized (lock) {
-                uploadsInProgress.remove(digest);
-              }
-            },
-            MoreExecutors.directExecutor());
-        startAsyncUploadWithRetry(
-            chunker, retrier.newBackoff(), (SettableFuture<Void>) uploadResult);
-        uploadsInProgress.put(digest, uploadResult);
+      if (!forceUpload && uploadedBlobs.contains(hash)) {
+        return Futures.immediateFuture(null);
       }
+
+      ListenableFuture<Void> inProgress = uploadsInProgress.get(digest);
+      if (inProgress != null) {
+        return inProgress;
+      }
+
+      final SettableFuture<Void> uploadResult = SettableFuture.create();
+      uploadResult.addListener(
+          () -> {
+            synchronized (lock) {
+              uploadsInProgress.remove(digest);
+              uploadedBlobs.add(hash);
+            }
+          },
+          MoreExecutors.directExecutor());
+      Context ctx = Context.current();
+      retrier.executeAsync(
+          () -> ctx.call(() -> startAsyncUpload(chunker, uploadResult)), uploadResult);
+      uploadsInProgress.put(digest, uploadResult);
       return uploadResult;
     }
   }
@@ -224,77 +259,23 @@ final class ByteStreamUploader {
     }
   }
 
-  private void startAsyncUploadWithRetry(
-      Chunker chunker, Retrier.Backoff backoffTimes, SettableFuture<Void> overallUploadResult) {
-
-    AsyncUpload.Listener listener =
-        new AsyncUpload.Listener() {
-          @Override
-          public void success() {
-            overallUploadResult.set(null);
-          }
-
-          @Override
-          public void failure(Status status) {
-            StatusException cause = status.asException();
-            long nextDelayMillis = backoffTimes.nextDelayMillis();
-            if (nextDelayMillis < 0 || !retrier.isRetriable(cause)) {
-              // Out of retries or status not retriable.
-              RetryException error =
-                  new RetryException(
-                      "Out of retries or status not retriable.",
-                      backoffTimes.getRetryAttempts(),
-                      cause);
-              overallUploadResult.setException(error);
-            } else {
-              retryAsyncUpload(nextDelayMillis, chunker, backoffTimes, overallUploadResult);
-            }
-          }
-
-          private void retryAsyncUpload(
-              long nextDelayMillis,
-              Chunker chunker,
-              Retrier.Backoff backoffTimes,
-              SettableFuture<Void> overallUploadResult) {
-            try {
-              ListenableScheduledFuture<?> schedulingResult =
-                  retryService.schedule(
-                      Context.current()
-                          .wrap(
-                              () ->
-                                  startAsyncUploadWithRetry(
-                                      chunker, backoffTimes, overallUploadResult)),
-                      nextDelayMillis,
-                      MILLISECONDS);
-              // In case the scheduled execution errors, we need to notify the overallUploadResult.
-              schedulingResult.addListener(
-                  () -> {
-                    try {
-                      schedulingResult.get();
-                    } catch (Exception e) {
-                      overallUploadResult.setException(
-                          new RetryException(
-                              "Scheduled execution errored.", backoffTimes.getRetryAttempts(), e));
-                    }
-                  },
-                  MoreExecutors.directExecutor());
-            } catch (RejectedExecutionException e) {
-              // May be thrown by .schedule(...) if i.e. the executor is shutdown.
-              overallUploadResult.setException(
-                  new RetryException("Rejected by executor.", backoffTimes.getRetryAttempts(), e));
-            }
-          }
-        };
-
+  /**
+   * Starts a file upload an returns a future representing the upload. The {@code
+   * overallUploadResult} future propagates cancellations from the caller to the upload.
+   */
+  private ListenableFuture<Void> startAsyncUpload(
+      Chunker chunker, ListenableFuture<Void> overallUploadResult) {
+    SettableFuture<Void> currUpload = SettableFuture.create();
     try {
       chunker.reset();
     } catch (IOException e) {
-      overallUploadResult.setException(e);
-      return;
+      currUpload.setException(e);
+      return currUpload;
     }
 
     AsyncUpload newUpload =
-        new AsyncUpload(channel, callCredentials, callTimeoutSecs, instanceName, chunker, listener);
+        new AsyncUpload(
+            channel, callCredentials, callTimeoutSecs, instanceName, chunker, currUpload);
     overallUploadResult.addListener(
         () -> {
           if (overallUploadResult.isCancelled()) {
@@ -303,22 +284,38 @@ final class ByteStreamUploader {
         },
         MoreExecutors.directExecutor());
     newUpload.start();
+    return currUpload;
+  }
+
+  @Override
+  public ByteStreamUploader retain() {
+    return (ByteStreamUploader) super.retain();
+  }
+
+  @Override
+  public ByteStreamUploader retain(int increment) {
+    return (ByteStreamUploader) super.retain(increment);
+  }
+
+  @Override
+  protected void deallocate() {
+    shutdown();
+    channel.release();
+  }
+
+  @Override
+  public ReferenceCounted touch(Object o) {
+    return this;
   }
 
   private static class AsyncUpload {
-
-    interface Listener {
-      void success();
-
-      void failure(Status status);
-    }
 
     private final Channel channel;
     private final CallCredentials callCredentials;
     private final long callTimeoutSecs;
     private final String instanceName;
     private final Chunker chunker;
-    private final Listener listener;
+    private final SettableFuture<Void> uploadResult;
 
     private ClientCall<WriteRequest, WriteResponse> call;
 
@@ -328,13 +325,13 @@ final class ByteStreamUploader {
         long callTimeoutSecs,
         String instanceName,
         Chunker chunker,
-        Listener listener) {
+        SettableFuture<Void> uploadResult) {
       this.channel = channel;
       this.callCredentials = callCredentials;
       this.callTimeoutSecs = callTimeoutSecs;
       this.instanceName = instanceName;
       this.chunker = chunker;
-      this.listener = listener;
+      this.uploadResult = uploadResult;
     }
 
     void start() {
@@ -358,9 +355,9 @@ final class ByteStreamUploader {
             @Override
             public void onClose(Status status, Metadata trailers) {
               if (status.isOk()) {
-                listener.success();
+                uploadResult.set(null);
               } else {
-                listener.failure(status);
+                uploadResult.setException(status.asRuntimeException());
               }
             }
 

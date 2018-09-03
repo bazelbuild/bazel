@@ -273,15 +273,29 @@ public class FilesetManifestTest {
     ArtifactRoot outputRoot =
         ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
     Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
-    try {
-      FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
-      fail();
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat()
-          .isEqualTo(
-              "runfiles target 'foo' is not absolute, and could not be resolved in the same "
-              + "Fileset");
-    }
+    FilesetManifest filesetManifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(filesetManifest.getEntries()).isEmpty();
+    assertThat(filesetManifest.getArtifactValues()).isEmpty();
+  }
+
+  @Test
+  public void testManifestWithUnresolvableRelativeSymlinkToRelativeSymlink() throws Exception {
+    // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
+    scratchFile(
+        "/root/out/_foo/MANIFEST",
+        "workspace/bar foo",
+        "<some digest>",
+        "workspace/foo baz",
+        "<some digest>");
+
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"));
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
+    FilesetManifest manifest =
+        FilesetManifest.parseManifestFile(artifact.getExecPath(), execRoot, "workspace", RESOLVE);
+    assertThat(manifest.getEntries()).isEmpty();
+    assertThat(manifest.getArtifactValues()).isEmpty();
   }
 
   /** Current behavior is first one wins. */

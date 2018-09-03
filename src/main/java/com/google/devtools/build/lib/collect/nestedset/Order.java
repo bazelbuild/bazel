@@ -107,6 +107,7 @@ public enum Order {
   NAIVE_LINK_ORDER("preorder");
 
   private static final ImmutableMap<String, Order> VALUES;
+  private static final Order[] ORDINALS;
 
   private final String skylarkName;
   private final NestedSet<?> emptySet;
@@ -180,14 +181,17 @@ public enum Order {
    * Indexes all possible values by name and stores the results in a {@code ImmutableMap}
    */
   static {
-    Order[] tmpValues = Order.values();
+    ORDINALS = values();
+    HashMap<String, Order> entries = Maps.newHashMapWithExpectedSize(ORDINALS.length);
 
-    HashMap<String, Order> entries = Maps.newHashMapWithExpectedSize(tmpValues.length);
-
-    for (Order current : tmpValues) {
+    for (Order current : ORDINALS) {
       entries.put(current.getSkylarkName(), current);
     }
 
     VALUES = ImmutableMap.copyOf(entries);
+  }
+
+  static Order getOrder(int ordinal) {
+    return ORDINALS[ordinal];
   }
 }

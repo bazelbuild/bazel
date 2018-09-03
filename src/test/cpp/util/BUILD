@@ -31,11 +31,36 @@ cc_test(
     }),
     deps = [
         ":test_util",
-        "//src/main/cpp/util:file",
+        "//src/main/cpp/util:filesystem",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [
             ":windows_test_util",
+            "//src/main/native/windows:lib-file",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "path_test",
+    size = "small",
+    srcs = select({
+        "//src/conditions:windows": [
+            "path_windows_test.cc",
+        ],
+        "//conditions:default": [
+            "path_posix_test.cc",
+        ],
+    }),
+    deps = [
+        ":test_util",
+        "//src/main/cpp/util:filesystem",
+        "@com_google_googletest//:gtest_main",
+    ] + select({
+        "//src/conditions:windows": [
+            ":windows_test_util",
+            "//src/main/cpp:blaze_util",
             "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
@@ -48,7 +73,7 @@ cc_test(
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util:bazel_log_handler",
-        "//src/main/cpp/util:file",
+        "//src/main/cpp/util:filesystem",
         "//src/main/cpp/util:logging",
         "@com_google_googletest//:gtest_main",
     ],
@@ -104,6 +129,15 @@ cc_test(
         ],
         "//conditions:default": [],
     }),
+)
+
+cc_test(
+    name = "profiler_test",
+    srcs = ["profiler_test.cc"],
+    deps = [
+        "//src/main/cpp/util:profiler",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_library(

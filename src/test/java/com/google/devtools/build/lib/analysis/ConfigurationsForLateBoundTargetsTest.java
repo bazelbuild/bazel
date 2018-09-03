@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -92,9 +93,10 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'latebound_dep')");
     update("//foo:foo");
     assertThat(getConfiguredTarget("//foo:foo", getTargetConfiguration())).isNotNull();
-    ConfiguredTarget dep = Iterables.getOnlyElement(
-        SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-            skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            SkyframeExecutorTestUtils.getExistingConfiguredTargets(
+                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
     assertThat(getConfiguration(dep)).isNotEqualTo(getTargetConfiguration());
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEqualTo("PATCHED!");
   }
@@ -114,9 +116,10 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'latebound_dep')");
     update("//foo:gen");
     assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
-    ConfiguredTarget dep = Iterables.getOnlyElement(
-        SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-            skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            SkyframeExecutorTestUtils.getExistingConfiguredTargets(
+                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
     assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
     // This is technically redundant, but slightly stronger in sanity checking that the host
     // configuration doesn't happen to match what the patch would have done.
@@ -132,8 +135,9 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'latebound_dep')");
     // if the target fails to analyze, this iterable will be empty
     assertThat(update("//foo:foo").getTargetsToBuild()).isNotEmpty();
-    Iterable<ConfiguredTarget> deps = SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-        skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep"));
+    Iterable<ConfiguredTarget> deps =
+        SkyframeExecutorTestUtils.getExistingConfiguredTargets(
+            skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of()));
     assertThat(deps).hasSize(2);
     assertThat(
             ImmutableList.of(
@@ -157,9 +161,10 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'latebound_dep')");
     update("//foo:gen");
     assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
-    ConfiguredTarget dep = Iterables.getOnlyElement(
-        SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-            skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            SkyframeExecutorTestUtils.getExistingConfiguredTargets(
+                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
     assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
     // This is technically redundant, but slightly stronger in sanity checking that the host
     // configuration doesn't happen to match what the split would have done.

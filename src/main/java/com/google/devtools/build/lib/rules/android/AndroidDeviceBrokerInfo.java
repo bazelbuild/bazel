@@ -13,42 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
-@SkylarkModule(name = "AndroidDeviceBrokerInfo", doc = "", documented = false)
 @Immutable
-public final class AndroidDeviceBrokerInfo extends NativeInfo {
+public final class AndroidDeviceBrokerInfo extends NativeInfo
+    implements AndroidDeviceBrokerInfoApi {
 
   private static final String SKYLARK_NAME = "AndroidDeviceBrokerInfo";
-  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
-      FunctionSignature.WithValues.create(
-          FunctionSignature.of(
-              /*numMandatoryPositionals=*/ 0,
-              /*numOptionalPositionals=*/ 0,
-              /*numMandatoryNamedOnly=*/ 1,
-              /*starArg=*/ false,
-              /*kwArg=*/ false,
-              "type"),
-          /*defaultValues=*/ null,
-          /*types=*/ ImmutableList.of(SkylarkType.of(String.class))); // instrumentation_apk
-  public static final NativeProvider<AndroidDeviceBrokerInfo> PROVIDER =
-      new NativeProvider<AndroidDeviceBrokerInfo>(
-          AndroidDeviceBrokerInfo.class, SKYLARK_NAME, SIGNATURE) {
-        @Override
-        protected AndroidDeviceBrokerInfo createInstanceFromSkylark(
-            Object[] args, Environment env, Location loc) {
-          return new AndroidDeviceBrokerInfo(/*deviceBrokerType=*/ (String) args[0]);
-        }
-      };
+
+  /**
+   * Provider instance for {@link AndroidDeviceBrokerInfo}.
+   */
+  public static final AndroidDeviceBrokerInfoProvider PROVIDER =
+      new AndroidDeviceBrokerInfoProvider();
 
   private final String deviceBrokerType;
 
@@ -63,5 +45,21 @@ public final class AndroidDeviceBrokerInfo extends NativeInfo {
    */
   public String getDeviceBrokerType() {
     return deviceBrokerType;
+  }
+
+  /** Provider for {@link AndroidDeviceBrokerInfo}. */
+  public static class AndroidDeviceBrokerInfoProvider
+      extends BuiltinProvider<AndroidDeviceBrokerInfo>
+      implements AndroidDeviceBrokerInfoApiProvider {
+
+    private AndroidDeviceBrokerInfoProvider() {
+      super(SKYLARK_NAME, AndroidDeviceBrokerInfo.class);
+    }
+
+    @Override
+    public AndroidDeviceBrokerInfo createInfo(String type)
+        throws EvalException {
+      return new AndroidDeviceBrokerInfo(type);
+    }
   }
 }

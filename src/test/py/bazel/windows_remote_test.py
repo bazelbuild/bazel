@@ -179,12 +179,8 @@ class WindowsRemoteTest(test_base.TestBase):
         '  use_testrunner = 0,',
         '  data = ["//bar:bar.txt"],',
         ')',
-        'java_runtime_suite(',
-        '    name = "jdk8",',
-        '    default = ":jdk8-default",',
-        ')',
         'java_runtime(',
-        '    name = "jdk8-default",',
+        '    name = "jdk8",',
         '    srcs = [],',
         '    java_home = "' + java_home + '",',
         ')',
@@ -203,8 +199,7 @@ class WindowsRemoteTest(test_base.TestBase):
 
     # Test.
     exit_code, stdout, stderr = self._RunRemoteBazel([
-        'test', '--test_output=all', '--host_javabase=//foo:jdk8',
-        '--javabase=//foo:jdk8', '//foo:foo_test'
+        'test', '--test_output=all', '--javabase=//foo:jdk8', '//foo:foo_test'
     ])
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 

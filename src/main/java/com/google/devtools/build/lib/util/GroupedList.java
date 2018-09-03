@@ -153,7 +153,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   }
 
   /**
-   * Returns the number of individual elements of type {@link T} in this list, as opposed to the
+   * Returns the number of individual elements of type {@code T} in this list, as opposed to the
    * number of groups -- equivalent to adding up the sizes of each group in this list.
    */
   public int numElements() {
@@ -172,7 +172,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   public boolean expensiveContains(T needle) {
     for (Object obj : elements) {
       if (obj instanceof List) {
-        if (((List) obj).contains(needle)) {
+        if (((List<?>) obj).contains(needle)) {
           return true;
         }
       } else if (obj.equals(needle)) {
@@ -418,24 +418,24 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   }
 
   /**
-   * If {@param item} is empty, this function does nothing.
+   * If {@code item} is empty, this function does nothing.
    *
    * <p>If it contains a single element, then that element must not be {@code null}, and that
-   * element is added to {@param elements}.
+   * element is added to {@code elements}.
    *
-   * <p>If it contains more than one element, then an {@link ImmutableList} copy of {@param item} is
-   * added as the next element of {@param elements}. (This means {@param elements} may contain both
+   * <p>If it contains more than one element, then an {@link ImmutableList} copy of {@code item} is
+   * added as the next element of {@code elements}. (This means {@code elements} may contain both
    * raw objects and {@link ImmutableList}s.)
    *
    * <p>Use with caution as there are no checks in place for the integrity of the resulting object
    * (no de-duping or verifying there are no nested lists).
    */
-  private static void addItem(Collection<?> item, List<Object> elements) {
+  private static void addItem(List<?> item, List<Object> elements) {
     switch (item.size()) {
       case 0:
         return;
       case 1:
-        elements.add(Preconditions.checkNotNull(Iterables.getOnlyElement(item), elements));
+        elements.add(Preconditions.checkNotNull(item.get(0), elements));
         return;
       default:
         elements.add(ImmutableList.copyOf(item));
@@ -460,7 +460,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
       elements = new ArrayList<>(1);
     }
 
-    /** Create with a copy of the contents of {@param elements} as the initial group. */
+    /** Create with a copy of the contents of {@code elements} as the initial group. */
     private GroupedListHelper(E element) {
       // Optimize for short lists.
       groupedList = new ArrayList<>(1);

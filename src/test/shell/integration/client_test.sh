@@ -19,7 +19,14 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-add_to_bazelrc "startup --nobatch"
+
+function set_up() {
+  write_default_bazelrc
+  # Print client log statements to stderr so they get picked up by the test log
+  # in the event of a failure.
+  add_to_bazelrc "startup --client_debug"
+  add_to_bazelrc "startup --nobatch"
+}
 
 function tear_down() {
   bazel --nobatch shutdown
@@ -34,10 +41,16 @@ function test_client_debug() {
   bazel --client_debug --batch version >&$TEST_log || fail "'bazel version' failed"
   expect_log "Debug logging requested"
 
-  # Test that --client_debug is off by default.
-  bazel version >&$TEST_log || fail "'bazel version' failed"
+  # Test that --client_debug can be disabled
+  bazel --noclient_debug version >&$TEST_log || fail "'bazel version' failed"
   expect_not_log "Debug logging requested"
-  bazel --batch version >&$TEST_log || fail "'bazel version' failed"
+  bazel --noclient_debug --batch version >&$TEST_log || fail "'bazel version' failed"
+  expect_not_log "Debug logging requested"
+
+  # Test that --client_debug is off by default.
+  bazel --ignore_all_rc_files version >&$TEST_log || fail "'bazel version' failed"
+  expect_not_log "Debug logging requested"
+  bazel  --ignore_all_rc_files --batch version >&$TEST_log || fail "'bazel version' failed"
   expect_not_log "Debug logging requested"
 }
 
@@ -45,21 +58,21 @@ function test_client_debug_change_does_not_restart_server() {
   local server_pid1=$(bazel --client_debug info server_pid 2>$TEST_log)
   local server_pid2=$(bazel info server_pid 2>$TEST_log)
   assert_equals "$server_pid1" "$server_pid2"
-  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_server_restart_due_to_startup_options() {
   local server_pid1=$(bazel --write_command_log info server_pid 2>$TEST_log)
   local server_pid2=$(bazel --nowrite_command_log info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
-  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_multiple_requests_same_server() {
   local server_pid1=$(bazel info server_pid 2>$TEST_log)
   local server_pid2=$(bazel info server_pid 2>$TEST_log)
   assert_equals "$server_pid1" "$server_pid2"
-  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_shutdown() {
@@ -67,7 +80,7 @@ function test_shutdown() {
   bazel shutdown >& $TEST_log || fail "Expected success"
   local server_pid2=$(bazel info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2"
-  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
 function test_server_restart_due_to_startup_options_with_client_debug_information() {
@@ -77,7 +90,10 @@ function test_server_restart_due_to_startup_options_with_client_debug_informatio
   local server_pid2=$(bazel --client_debug --nowrite_command_log info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "\\[bazel WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
-  expect_log "\\[bazel INFO .*\\] .* the running server has option --write_command_log, and requested option is: --nowrite_command_log"
+  expect_log "\\[bazel INFO .*\\] Args from the running server that are not included in the current request:"
+  expect_log "\\[bazel INFO .*\\]   --write_command_log"
+  expect_log "\\[bazel INFO .*\\] Args from the current request that were not included when creating the server:"
+  expect_log "\\[bazel INFO .*\\]   --nowrite_command_log"
 }
 
 function test_exit_code() {
@@ -93,17 +109,17 @@ function test_output_base() {
 
 function test_output_base_is_file() {
   bazel --output_base=/dev/null &>$TEST_log && fail "Expected non-zero exit"
-  expect_log "FATAL: Output base directory '/dev/null' could not be created.*exists"
+  expect_log "FATAL.* Output base directory '/dev/null' could not be created.*exists"
 }
 
 function test_cannot_create_output_base() {
   bazel --output_base=/foo &>$TEST_log && fail "Expected non-zero exit"
-  expect_log "FATAL: Output base directory '/foo' could not be created"
+  expect_log "FATAL.* Output base directory '/foo' could not be created"
 }
 
 function test_nonwritable_output_base() {
   bazel --output_base=/ &>$TEST_log && fail "Expected non-zero exit"
-  expect_log "FATAL: Output base directory '/' must be readable and writable."
+  expect_log "FATAL.* Output base directory '/' must be readable and writable."
 }
 
 function test_no_arguments() {
@@ -135,7 +151,8 @@ function test_nobatch() {
   local pid1=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
   local pid2=$(bazel --batch --nobatch info server_pid 2> $TEST_log)
   assert_equals "$pid1" "$pid2"
-  expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_not_log "WARNING.* --batch mode is deprecated."
 }
 
 # Regression test for #1875189, "bazel client should pass through '--help' like
@@ -159,6 +176,14 @@ function test_bazel_dash_h() {
 function test_bazel_dash_s_is_not_parsed() {
   bazel -s --help >&$TEST_log && fail "Expected failure"
   expect_log "Unknown startup option: '-s'."
+}
+
+function test_batch() {
+  local pid1=$(bazel info server_pid 2> $TEST_log)
+  local pid2=$(bazel --batch info server_pid 2> $TEST_log)
+  assert_not_equals "$pid1" "$pid2"
+  expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "WARNING.* --batch mode is deprecated."
 }
 
 function test_cmdline_not_written_in_batch_mode() {

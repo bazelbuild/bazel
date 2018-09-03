@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,7 +34,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * An action writing the workspace status files.
@@ -55,7 +52,6 @@ import java.util.UUID;
 public abstract class WorkspaceStatusAction extends AbstractAction {
 
   /** Options controlling the workspace status command. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends OptionsBase {
     @Option(
       name = "embed_label",
@@ -88,16 +84,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   public enum KeyType {
     INTEGER,
     STRING,
-    VERBATIM,
   }
-
-  /**
-   * Language for keys that should be present in the build info for every language.
-   */
-  // TODO(bazel-team): Once this is released, migrate the only place in the depot to use
-  // the BUILD_USERNAME, BUILD_HOSTNAME and BUILD_DIRECTORY keys instead of BUILD_INFO. Then
-  // language-specific build info keys can be removed.
-  public static final String ALL_LANGUAGES = "*";
 
   /**
    * Action context required by the actions that write language-specific workspace status artifacts.
@@ -113,27 +100,17 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   public static class Key {
     private final KeyType type;
 
-    /**
-     * Should be set to ALL_LANGUAGES if the key should be present in the build info of every
-     * language.
-     */
-    private final String language;
     private final String defaultValue;
     private final String redactedValue;
 
-    private Key(KeyType type, String language, String defaultValue, String redactedValue) {
+    private Key(KeyType type, String defaultValue, String redactedValue) {
       this.type = type;
-      this.language = language;
       this.defaultValue = defaultValue;
       this.redactedValue = redactedValue;
     }
 
     public KeyType getType() {
       return type;
-    }
-
-    public boolean isInLanguage(String language) {
-      return this.language.equals(ALL_LANGUAGES) || this.language.equals(language);
     }
 
     public String getDefaultValue() {
@@ -144,13 +121,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
       return redactedValue;
     }
 
-    public static Key forLanguage(
-        String language, KeyType type, String defaultValue, String redactedValue) {
-      return new Key(type, language, defaultValue, redactedValue);
-    }
-
     public static Key of(KeyType type, String defaultValue, String redactedValue) {
-      return new Key(type, ALL_LANGUAGES, defaultValue, redactedValue);
+      return new Key(type, defaultValue, redactedValue);
     }
   }
 
@@ -184,13 +156,12 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     /**
      * Creates the workspace status action.
      *
-     * <p>If the objects returned for two builds are equals, the workspace status action can be
-     * be reused between them. Note that this only applies to the action object itself (the action
-     * will be unconditionally re-executed on every build)
+     * <p>The action will have a supplier inside it allowing it to access data that may change on
+     * every build. Since the action is unconditionally executed on each build, we don't recreate
+     * the action on every build, just re-executing and letting it read the updated data each time.
      */
     WorkspaceStatusAction createWorkspaceStatusAction(
-        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
-        String workspaceName);
+        ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, String workspaceName);
 
     /**
      * Creates a dummy workspace status map. Used in cases where the build failed, so that part of

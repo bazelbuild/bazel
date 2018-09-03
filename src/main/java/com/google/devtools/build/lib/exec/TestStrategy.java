@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
@@ -102,7 +102,9 @@ public abstract class TestStrategy implements TestActionContext {
     SHORT, // Print information only about tests.
     TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
     DETAILED, // Print information only about failed test cases.
-    NONE; // Do not print summary.
+    NONE, // Do not print summary.
+    TESTCASE; // Print summary in test case resolution, do not print detailed information about
+    // failed test cases.
 
     /** Converts to {@link TestSummaryFormat}. */
     public static class Converter extends EnumConverter<TestSummaryFormat> {
@@ -136,14 +138,17 @@ public abstract class TestStrategy implements TestActionContext {
    *
    * @param testAction The test action.
    * @return the command line as string list.
-   * @throws ExecException 
+   * @throws ExecException
    */
   public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
     List<String> args = Lists.newArrayList();
-    // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
-    // configuration, not the machine Bazel happens to run on. Change this to something like:
-    // testAction.getConfiguration().getTargetOS() == OS.WINDOWS
-    if (OS.getCurrent() == OS.WINDOWS) {
+    // TODO(ulfjack): `executedOnWindows` is incorrect for remote execution, where we need to
+    // consider the target configuration, not the machine Bazel happens to run on. Change this to
+    // something like: testAction.getConfiguration().getTargetOS() == OS.WINDOWS
+    final boolean executedOnWindows = (OS.getCurrent() == OS.WINDOWS);
+    final boolean useTestWrapper = testAction.isUsingTestWrapperInsteadOfTestSetupScript();
+
+    if (executedOnWindows && !useTestWrapper) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
       args.add("$0 $*");
@@ -160,7 +165,7 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option, if any.
     if (execSettings.getRunUnder() != null) {
-      addRunUnderArgs(testAction, args);
+      addRunUnderArgs(testAction, args, executedOnWindows);
     }
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
@@ -173,7 +178,8 @@ public abstract class TestStrategy implements TestActionContext {
     return ImmutableList.copyOf(args);
   }
 
-  private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
+  private static void addRunUnderArgs(
+      TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
       args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
@@ -182,12 +188,14 @@ public abstract class TestStrategy implements TestActionContext {
       // --run_under commands that do not contain '/' are either shell built-ins or need to be
       // located on the PATH env, so we wrap them in a shell invocation. Note that we shell tokenize
       // the --run_under parameter and getCommand only returns the first such token.
-      boolean needsShell = !command.contains("/");
+      boolean needsShell =
+          !command.contains("/") && (!executedOnWindows || !command.contains("\\"));
       if (needsShell) {
-        args.add(testAction.getShExecutable().getPathString());
+        String shellExecutable = testAction.getShExecutable().getPathString();
+        args.add(shellExecutable);
         args.add("-c");
         args.add("\"$@\"");
-        args.add("/bin/sh"); // Sets $0.
+        args.add(shellExecutable); // Sets $0.
       }
       args.add(command);
     }
@@ -238,7 +246,10 @@ public abstract class TestStrategy implements TestActionContext {
    */
   protected final Duration getTimeout(TestRunnerAction testAction) {
     BuildConfiguration configuration = testAction.getConfiguration();
-    return configuration.getTestTimeout().get(testAction.getTestProperties().getTimeout());
+    return configuration
+        .getFragment(TestConfiguration.class)
+        .getTestTimeout()
+        .get(testAction.getTestProperties().getTimeout());
   }
 
   /*
@@ -246,7 +257,7 @@ public abstract class TestStrategy implements TestActionContext {
    */
   protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
       throws IOException {
-    result.getTestAction().saveCacheStatus(result.getData());
+    result.getTestAction().saveCacheStatus(actionExecutionContext, result.getData());
     actionExecutionContext.getEventBus().post(result);
   }
 
@@ -281,7 +292,8 @@ public abstract class TestStrategy implements TestActionContext {
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
+    if ((executionOptions.testSummary != TestSummaryFormat.DETAILED)
+        && (executionOptions.testSummary != TestSummaryFormat.TESTCASE)) {
       return null;
     }
 
@@ -418,21 +430,18 @@ public abstract class TestStrategy implements TestActionContext {
   /** In rare cases, we might write something to stderr. Append it to the real test.log. */
   protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
     FileStatus stat = stdErr.statNullable();
-    OutputStream out = null;
-    InputStream in = null;
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {
           if (stdOut.exists()) {
             stdOut.setWritable(true);
           }
-          out = stdOut.getOutputStream(true);
-          in = stdErr.getInputStream();
-          ByteStreams.copy(in, out);
+          try (OutputStream out = stdOut.getOutputStream(true);
+              InputStream in = stdErr.getInputStream()) {
+            ByteStreams.copy(in, out);
+          }
         }
       } finally {
-        Closeables.close(out, true);
-        Closeables.close(in, true);
         stdErr.delete();
       }
     }

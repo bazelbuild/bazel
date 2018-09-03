@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,7 +28,9 @@ import com.google.devtools.build.lib.util.BazelCrashUtils;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
@@ -42,6 +45,7 @@ public class SerializationContext {
   private final ObjectCodecRegistry registry;
   private final ImmutableMap<Class<?>, Object> dependencies;
   @Nullable private final Memoizer.Serializer serializer;
+  private final Set<Class<?>> explicitlyAllowedClasses;
   /** Initialized lazily. */
   @Nullable private List<ListenableFuture<Void>> futuresToBlockWritingOn;
 
@@ -56,6 +60,7 @@ public class SerializationContext {
     this.dependencies = dependencies;
     this.serializer = serializer;
     this.allowFuturesToBlockWritingOn = allowFuturesToBlockWritingOn;
+    explicitlyAllowedClasses = serializer != null ? new HashSet<>() : ImmutableSet.of();
   }
 
   @VisibleForTesting
@@ -102,7 +107,7 @@ public class SerializationContext {
    * context.
    */
   @CheckReturnValue
-  SerializationContext getMemoizingContext() {
+  public SerializationContext getMemoizingContext() {
     if (serializer != null) {
       return this;
     }
@@ -173,6 +178,54 @@ public class SerializationContext {
         ? Futures.whenAllSucceed(futuresToBlockWritingOn)
             .call(() -> null, MoreExecutors.directExecutor())
         : null;
+  }
+
+  /**
+   * Asserts during serialization that the encoded class of this codec has been explicitly
+   * whitelisted for serialization (using {@link #addExplicitlyAllowedClass}). Codecs for objects
+   * that are expensive to serialize and that should only be encountered in a limited number of
+   * types of {@link com.google.devtools.build.skyframe.SkyValue}s should call this method to check
+   * that the object is being serialized as part of an expected {@link
+   * com.google.devtools.build.skyframe.SkyValue}, like {@link
+   * com.google.devtools.build.lib.packages.Package} inside {@link
+   * com.google.devtools.build.lib.skyframe.PackageValue}.
+   */
+  public void checkClassExplicitlyAllowed(Class<?> allowedClass) throws SerializationException {
+    if (serializer == null) {
+      throw new SerializationException(
+          "Cannot check explicitly allowed class " + allowedClass + " without memoization");
+    }
+    if (!explicitlyAllowedClasses.contains(allowedClass)) {
+      throw new SerializationException(
+          allowedClass
+              + " not explicitly allowed (allowed classes were: "
+              + explicitlyAllowedClasses
+              + ")");
+    }
+  }
+
+  /**
+   * Adds an explicitly allowed class for this serialization context, which must be a memoizing
+   * context. Must be called by any codec that transitively serializes an object whose codec calls
+   * {@link #checkClassExplicitlyAllowed}.
+   *
+   * <p>Normally called by codecs for {@link com.google.devtools.build.skyframe.SkyValue} subclasses
+   * that know they may encounter an object that is expensive to serialize, like {@link
+   * com.google.devtools.build.lib.skyframe.PackageValue} and {@link
+   * com.google.devtools.build.lib.packages.Package} or {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetValue} and {@link
+   * com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget}.
+   *
+   * <p>In case of an unexpected failure from {@link #checkClassExplicitlyAllowed}, it should first
+   * be determined if the inclusion of the expensive object is legitimate, before it is whitelisted
+   * using this method.
+   */
+  public void addExplicitlyAllowedClass(Class<?> allowedClass) throws SerializationException {
+    if (serializer == null) {
+      throw new SerializationException(
+          "Cannot add explicitly allowed class %s without memoization: " + allowedClass);
+    }
+    explicitlyAllowedClasses.add(allowedClass);
   }
 
   private boolean writeNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)

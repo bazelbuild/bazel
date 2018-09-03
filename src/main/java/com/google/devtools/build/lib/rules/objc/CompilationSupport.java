@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -110,7 +109,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -149,7 +148,7 @@ public class CompilationSupport {
 
   @VisibleForTesting
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  
+
   @VisibleForTesting
   static final String MODULES_CACHE_PATH_WARNING =
       "setting '-fmodules-cache-path' manually in copts is unsupported";
@@ -212,6 +211,9 @@ public class CompilationSupport {
   /** Enabled if this target generates debug symbols in a dSYM file. */
   private static final String GENERATE_DSYM_FILE_FEATURE_NAME = "generate_dsym_file";
 
+  /** Always enabled to simplify dSYMs handling for newer Bazel versions. */
+  private static final String NO_DSYM_ZIPS_FEATURE_NAME = "no_dsym_create_zip";
+
   /**
    * Enabled if this target does not generate debug symbols.
    *
@@ -222,6 +224,8 @@ public class CompilationSupport {
   private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
+
+  private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
 
   /** Enabled if this target has objc sources in its transitive closure. */
   private static final String CONTAINS_OBJC = "contains_objc_sources";
@@ -296,7 +300,7 @@ public class CompilationSupport {
       VariablesExtension extension,
       ExtraCompileArgs extraCompileArgs,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       Iterable<PathFragment> priorityHeaders,
       PrecompiledFiles precompiledFiles,
       Collection<Artifact> sources,
@@ -315,10 +319,10 @@ public class CompilationSupport {
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
                 CcCompilationHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
-                fdoSupport,
+                fdoProvider,
                 buildConfiguration)
             .addSources(sources)
-            .addSources(privateHdrs)
+            .addPrivateHeaders(privateHdrs)
             .addDefines(objcProvider.get(DEFINE))
             .enableCompileProviders()
             .addPublicHeaders(publicHdrs)
@@ -365,7 +369,7 @@ public class CompilationSupport {
           ObjcVariablesExtension.Builder extensionBuilder,
           ExtraCompileArgs extraCompileArgs,
           CcToolchainProvider ccToolchain,
-          FdoSupportProvider fdoSupport,
+          FdoProvider fdoProvider,
           Iterable<PathFragment> priorityHeaders,
           LinkTargetType linkType,
           Artifact linkActionInput)
@@ -394,7 +398,7 @@ public class CompilationSupport {
             extensionBuilder.build(),
             extraCompileArgs,
             ccToolchain,
-            fdoSupport,
+            fdoProvider,
             priorityHeaders,
             precompiledFiles,
             arcSources,
@@ -413,7 +417,7 @@ public class CompilationSupport {
             extensionBuilder.build(),
             extraCompileArgs,
             ccToolchain,
-            fdoSupport,
+            fdoProvider,
             priorityHeaders,
             precompiledFiles,
             nonArcSources,
@@ -430,7 +434,7 @@ public class CompilationSupport {
                 semantics,
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
                 ccToolchain,
-                fdoSupport,
+                fdoProvider,
                 buildConfiguration)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
             .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())
@@ -544,6 +548,16 @@ public class CompilationSupport {
     if (toolchain.useFission()) {
       activatedCrosstoolSelectables.add(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
     }
+
+    // TODO(b/111205462): Remove this feature from here, CROSSTOOL, and wrapped_clang after the
+    // next release.
+    activatedCrosstoolSelectables.add(NO_DSYM_ZIPS_FEATURE_NAME);
+
+    // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
+    // particular versions of Xcode. To ensure consistency across platforms, use exactly two
+    // components in the version number.
+    activatedCrosstoolSelectables.add(XCODE_VERSION_FEATURE_NAME_PREFIX
+        + XcodeConfig.getXcodeVersion(ruleContext).toStringWithComponents(2));
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
 
@@ -946,7 +960,7 @@ public class CompilationSupport {
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of(),
         toolchain,
-        maybeGetFdoSupport());
+        maybeGetFdoProvider());
   }
 
   /**
@@ -984,7 +998,7 @@ public class CompilationSupport {
    * @param extraCompileArgs args to be added to compile actions
    * @param priorityHeaders priority headers to be included before the dependency headers
    * @param ccToolchain the cpp toolchain provider, may be null
-   * @param fdoSupport the cpp FDO support provider, may be null
+   * @param fdoProvider the cpp FDO support provider, may be null
    * @return this compilation support
    * @throws RuleErrorException for invalid crosstool files
    */
@@ -994,10 +1008,10 @@ public class CompilationSupport {
       ExtraCompileArgs extraCompileArgs,
       Iterable<PathFragment> priorityHeaders,
       @Nullable CcToolchainProvider ccToolchain,
-      @Nullable FdoSupportProvider fdoSupport)
+      @Nullable FdoProvider fdoProvider)
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccToolchain);
-    Preconditions.checkNotNull(fdoSupport);
+    Preconditions.checkNotNull(fdoProvider);
     ObjcVariablesExtension.Builder extension =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
@@ -1020,7 +1034,7 @@ public class CompilationSupport {
               extension,
               extraCompileArgs,
               ccToolchain,
-              fdoSupport,
+              fdoProvider,
               priorityHeaders,
               LinkTargetType.OBJC_ARCHIVE,
               objList);
@@ -1036,7 +1050,7 @@ public class CompilationSupport {
               extension,
               extraCompileArgs,
               ccToolchain,
-              fdoSupport,
+              fdoProvider,
               priorityHeaders,
               /* linkType */ null,
               /* linkActionInput */ null);
@@ -1069,7 +1083,7 @@ public class CompilationSupport {
           extraCompileArgs,
           priorityHeaders,
           toolchain,
-          maybeGetFdoSupport());
+          maybeGetFdoProvider());
     }
     return this;
   }
@@ -1097,7 +1111,6 @@ public class CompilationSupport {
    * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
    * @param extraLinkInputs any additional input artifacts to pass to the link action
-   * @param dsymOutputType the file type of the dSYM bundle to be generated
    * @return this compilation support
    */
   CompilationSupport registerLinkActions(
@@ -1106,7 +1119,6 @@ public class CompilationSupport {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
-      DsymOutputType dsymOutputType,
       CcToolchainProvider toolchain)
       throws InterruptedException {
     Iterable<Artifact> prunedJ2ObjcArchives =
@@ -1147,14 +1159,14 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FdoSupportProvider fdoSupport =
-        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider =
+        CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
                 binaryToLink,
                 toolchain,
-                fdoSupport,
+                fdoProvider,
                 getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
@@ -1170,16 +1182,18 @@ public class CompilationSupport {
             .addActionInputs(extraLinkInputs)
             .addActionInput(inputFileList)
             .setLinkType(linkType)
-            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
-      Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
+      Artifact dsymSymbol =
+          objcConfiguration.shouldStripBinary()
+              ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
+              : intermediateArtifacts.dsymSymbolForStrippedBinary();
       extensionBuilder
-          .setDsymBundleZip(dsymBundleZip)
+          .setDsymSymbol(dsymSymbol)
           .addVariableCategory(VariableCategory.DSYM_VARIABLES);
-      registerDsymActions(dsymOutputType);
-      executableLinkAction.addActionOutput(dsymBundleZip);
+      executableLinkAction.addActionOutput(dsymSymbol);
     }
 
     if (objcConfiguration.generateLinkmap()) {
@@ -1280,7 +1294,7 @@ public class CompilationSupport {
    */
   public CompilationSupport registerFullyLinkAction(
       ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
-    return registerFullyLinkAction(objcProvider, outputArchive, toolchain, maybeGetFdoSupport());
+    return registerFullyLinkAction(objcProvider, outputArchive, toolchain, maybeGetFdoProvider());
   }
 
   /**
@@ -1290,17 +1304,17 @@ public class CompilationSupport {
    * @param objcProvider provides all compiling and linking information to create this artifact
    * @param outputArchive the output artifact for this action
    * @param ccToolchain the cpp toolchain provider, may be null
-   * @param fdoSupport the cpp FDO support provider, may be null
+   * @param fdoProvider the cpp FDO support provider, may be null
    * @return this {@link CompilationSupport} instance
    */
   CompilationSupport registerFullyLinkAction(
       ObjcProvider objcProvider,
       Artifact outputArchive,
       @Nullable CcToolchainProvider ccToolchain,
-      @Nullable FdoSupportProvider fdoSupport)
+      @Nullable FdoProvider fdoProvider)
       throws InterruptedException {
     Preconditions.checkNotNull(ccToolchain);
-    Preconditions.checkNotNull(fdoSupport);
+    Preconditions.checkNotNull(fdoProvider);
     PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier =
         ruleContext
@@ -1321,7 +1335,7 @@ public class CompilationSupport {
                 ruleContext,
                 outputArchive,
                 ccToolchain,
-                fdoSupport,
+                fdoProvider,
                 getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, objcProvider),
                 createObjcCppSemantics(
                     objcProvider, /* privateHdrs= */ ImmutableList.of(), /* pchHdr= */ null))
@@ -1330,63 +1344,11 @@ public class CompilationSupport {
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
             .setCrosstoolInputs(ccToolchain.getLink())
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-            .setLinkingMode(LinkingMode.LEGACY_FULLY_STATIC)
+            .setLinkingMode(LinkingMode.STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
             .build();
     ruleContext.registerAction(fullyLinkAction);
-
-    return this;
-  }
-
-  private PathFragment removeSuffix(PathFragment path, String suffix) {
-    String name = path.getBaseName();
-    Preconditions.checkArgument(
-        name.endsWith(suffix), "expected %s to end with %s, but it does not", name, suffix);
-    return path.replaceName(name.substring(0, name.length() - suffix.length()));
-  }
-
-  private CompilationSupport registerDsymActions(DsymOutputType dsymOutputType) {
-    Artifact tempDsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
-    Artifact linkedBinary =
-        objcConfiguration.shouldStripBinary()
-            ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
-            : intermediateArtifacts.strippedSingleArchitectureBinary();
-    Artifact debugSymbolFile = intermediateArtifacts.dsymSymbol(dsymOutputType);
-    Artifact dsymPlist = intermediateArtifacts.dsymPlist(dsymOutputType);
-
-    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".temp.zip");
-    PathFragment dsymPlistZipEntry = dsymPlist.getExecPath().relativeTo(dsymOutputDir);
-    PathFragment debugSymbolFileZipEntry =
-        debugSymbolFile
-            .getExecPath()
-            .replaceName(linkedBinary.getFilename())
-            .relativeTo(dsymOutputDir);
-
-    StringBuilder unzipDsymCommand =
-        new StringBuilder()
-            .append(
-                String.format(
-                    "unzip -p %s %s > %s",
-                    tempDsymBundleZip.getExecPathString(),
-                    dsymPlistZipEntry,
-                    dsymPlist.getExecPathString()))
-            .append(
-                String.format(
-                    " && unzip -p %s %s > %s",
-                    tempDsymBundleZip.getExecPathString(),
-                    debugSymbolFileZipEntry,
-                    debugSymbolFile.getExecPathString()));
-
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .setMnemonic("UnzipDsym")
-            .setShellCommand(shExecutable, unzipDsymCommand.toString())
-            .addInput(tempDsymBundleZip)
-            .addOutput(dsymPlist)
-            .addOutput(debugSymbolFile)
-            .build(ruleContext));
 
     return this;
   }
@@ -1570,7 +1532,7 @@ public class CompilationSupport {
     // the symbol table from the unstripped binary.
     return objcConfiguration.shouldStripBinary()
         ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
-        : intermediateArtifacts.strippedSingleArchitectureBinary();    
+        : intermediateArtifacts.strippedSingleArchitectureBinary();
   }
 
   private static CommandLine symbolStripCommandLine(
@@ -1627,7 +1589,7 @@ public class CompilationSupport {
             umbrellaHeader,
             publicHeaders,
             ImmutableList.<PathFragment>of()));
- 
+
     return this;
   }
 
@@ -1687,7 +1649,7 @@ public class CompilationSupport {
 
     return this;
   }
-    
+
   /**
    * Collector that, given a list of output artifacts, finds and registers coverage notes metadata
    * for any compilation action.
@@ -1901,12 +1863,12 @@ public class CompilationSupport {
   }
 
   @Nullable
-  private FdoSupportProvider maybeGetFdoSupport() {
+  private FdoProvider maybeGetFdoProvider() {
     // TODO(rduan): Remove this check once all rules are using the crosstool support.
     if (ruleContext
         .attributes()
         .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
-      return CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+      return CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
     } else {
       return null;
     }

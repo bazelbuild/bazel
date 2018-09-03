@@ -35,6 +35,8 @@ bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
 
 const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
+const char *KOTLIN_MODULE_EXTENSION = ".kotlin_module";
+const size_t KOTLIN_MODULE_EXTENSION_LENGTH = strlen(KOTLIN_MODULE_EXTENSION);
 
 const char *MANIFEST_DIR_PATH = "META-INF/";
 const size_t MANIFEST_DIR_PATH_LENGTH = strlen(MANIFEST_DIR_PATH);
@@ -81,8 +83,29 @@ class JarStripperProcessor : public JarExtractorProcessor {
                              const char *injecting_rule_kind);
 };
 
+static bool StartsWith(const char *str, const size_t str_len,
+                       const char *prefix, const size_t prefix_len) {
+  return str_len >= prefix_len && strncmp(str, prefix, prefix_len) == 0;
+}
+
+static bool EndsWith(const char *str, const size_t str_len, const char *suffix,
+                     const size_t suffix_len) {
+  return str_len >= suffix_len &&
+         strcmp(str + str_len - suffix_len, suffix) == 0;
+}
+
+static bool IsKotlinModule(const char *filename, const size_t filename_len) {
+  return StartsWith(filename, filename_len, MANIFEST_DIR_PATH,
+                    MANIFEST_DIR_PATH_LENGTH) &&
+         EndsWith(filename, filename_len, KOTLIN_MODULE_EXTENSION,
+                  KOTLIN_MODULE_EXTENSION_LENGTH);
+}
+
 bool JarStripperProcessor::Accept(const char *filename, const u4 /*attr*/) {
   const size_t filename_len = strlen(filename);
+  if (IsKotlinModule(filename, filename_len)) {
+    return true;
+  }
   if (filename_len < CLASS_EXTENSION_LENGTH ||
       strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
              CLASS_EXTENSION) != 0) {
@@ -106,7 +129,7 @@ void JarStripperProcessor::Process(const char *filename, const u4 /*attr*/,
   if (verbose) {
     fprintf(stderr, "INFO: StripClass: %s\n", filename);
   }
-  if (IsModuleInfo(filename)) {
+  if (IsModuleInfo(filename) || IsKotlinModule(filename, strlen(filename))) {
     u1 *q = builder_->NewFile(filename, 0);
     memcpy(q, data, size);
     builder_->FinishFile(size, /* compress: */ false, /* compute_crc: */ true);

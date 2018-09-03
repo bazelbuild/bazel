@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import java.util.ArrayList;
 import java.util.Objects;
 
 /**
@@ -38,22 +38,18 @@ import java.util.Objects;
 public class BuildInfoCollectionValue extends BasicActionLookupValue {
   private final BuildInfoCollection collection;
 
-  BuildInfoCollectionValue(
-      BuildInfoCollection collection,
-      GeneratingActions generatingActions,
-      boolean removeActionsAfterEvaluation) {
-    super(generatingActions, removeActionsAfterEvaluation);
+  BuildInfoCollectionValue(BuildInfoCollection collection, GeneratingActions generatingActions) {
+    super(generatingActions);
     this.collection = collection;
   }
 
   @AutoCodec.Instantiator
   @AutoCodec.VisibleForSerialization
   BuildInfoCollectionValue(
-      ArrayList<ActionAnalysisMetadata> actions,
+      ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex,
-      BuildInfoCollection collection,
-      boolean removeActionsAfterEvaluation) {
-    super(actions, generatingActionIndex, removeActionsAfterEvaluation);
+      BuildInfoCollection collection) {
+    super(actions, generatingActionIndex);
     this.collection = collection;
   }
 

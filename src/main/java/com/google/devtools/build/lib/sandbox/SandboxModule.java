@@ -17,25 +17,40 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.apple.XcodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
+import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
+import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import javax.annotation.Nullable;
 
 /**
@@ -71,8 +86,11 @@ public final class SandboxModule extends BlazeModule {
     if (options.sandboxBase.isEmpty()) {
       return env.getOutputBase().getRelative("sandbox");
     } else {
-      String dirName = String.format("%s-sandbox.%s", env.getRuntime().getProductName(),
-          Fingerprint.md5Digest(env.getOutputBase().toString()));
+      String dirName =
+          String.format(
+              "%s-sandbox.%s",
+              env.getRuntime().getProductName(),
+              Fingerprint.getHexDigest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
       Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
       return resolvedSandboxBase.getRelative(dirName);
@@ -95,49 +113,188 @@ public final class SandboxModule extends BlazeModule {
   public void executorInit(CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder)
       throws ExecutorInitException {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
-
-    SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
-    checkNotNull(options, "We were told to initialize the executor but the SandboxOptions are "
-        + "not present; were they registered for all build commands?");
-
     try {
-      sandboxBase = computeSandboxBase(options, env);
-    } catch (IOException e) {
-      throw new ExecutorInitException(
-          "--experimental_sandbox_base points to an invalid directory", e);
-    }
-
-    ActionContextProvider provider;
-    try {
-      // Ensure that each build starts with a clean sandbox base directory. Otherwise using the `id`
-      // that is provided by SpawnExecutionPolicy#getId to compute a base directory for a sandbox
-      // might result in an already existing directory.
-      if (sandboxBase.exists()) {
-        FileSystemUtils.deleteTree(sandboxBase);
-      }
-
-      sandboxBase.createDirectoryAndParents();
-      if (options.useSandboxfs) {
-        Path mountPoint = sandboxBase.getRelative("sandboxfs");
-        mountPoint.createDirectory();
-        Path logFile = sandboxBase.getRelative("sandboxfs.log");
-
-        env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
-        sandboxfsProcess = RealSandboxfsProcess.mount(
-            PathFragment.create(options.sandboxfsPath), mountPoint, logFile);
-        provider = SandboxActionContextProvider.create(cmdEnv, sandboxBase, sandboxfsProcess);
-      } else {
-        provider = SandboxActionContextProvider.create(cmdEnv, sandboxBase, null);
-      }
+      setup(cmdEnv, builder);
     } catch (IOException e) {
       throw new ExecutorInitException("Failed to initialize sandbox", e);
     }
-    builder.addActionContextProvider(provider);
-    builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));
+  }
+
+  private void setup(CommandEnvironment cmdEnv, ExecutorBuilder builder)
+      throws IOException {
+    SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
+    sandboxBase = computeSandboxBase(options, env);
+
+    // Ensure that each build starts with a clean sandbox base directory. Otherwise using the `id`
+    // that is provided by SpawnExecutionPolicy#getId to compute a base directory for a sandbox
+    // might result in an already existing directory.
+    if (sandboxBase.exists()) {
+      FileSystemUtils.deleteTree(sandboxBase);
+    }
+
+    sandboxBase.createDirectoryAndParents();
+    if (options.useSandboxfs) {
+      Path mountPoint = sandboxBase.getRelative("sandboxfs");
+      mountPoint.createDirectory();
+      Path logFile = sandboxBase.getRelative("sandboxfs.log");
+
+      env.getReporter().handle(Event.info("Mounting sandboxfs instance on " + mountPoint));
+      sandboxfsProcess = RealSandboxfsProcess.mount(
+          PathFragment.create(options.sandboxfsPath), mountPoint, logFile);
+    }
+
+    Duration timeoutKillDelay =
+        cmdEnv.getOptions().getOptions(LocalExecutionOptions.class).getLocalSigkillGraceSeconds();
+
+    boolean processWrapperSupported = ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv);
+    boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
+    boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
+
+    // This works on most platforms, but isn't the best choice, so we put it first and let later
+    // platform-specific sandboxing strategies become the default.
+    if (processWrapperSupported) {
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv,
+              new ProcessWrapperSandboxedSpawnRunner(
+                  cmdEnv, sandboxBase, cmdEnv.getRuntime().getProductName(), timeoutKillDelay));
+      builder.addActionContext(
+          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+    }
+
+    if (options.enableDockerSandbox) {
+      // This strategy uses Docker to execute spawns. It should work on all platforms that support
+      // Docker.
+      Path pathToDocker = getPathToDockerClient(cmdEnv);
+      // DockerSandboxedSpawnRunner.isSupported is expensive! It runs docker as a subprocess, and
+      // docker hangs sometimes.
+      if (pathToDocker != null && DockerSandboxedSpawnRunner.isSupported(cmdEnv, pathToDocker)) {
+        String defaultImage = options.dockerImage;
+        boolean useCustomizedImages = options.dockerUseCustomizedImages;
+        SpawnRunner spawnRunner =
+            withFallback(
+                cmdEnv,
+                new DockerSandboxedSpawnRunner(
+                    cmdEnv,
+                    pathToDocker,
+                    sandboxBase,
+                    defaultImage,
+                    timeoutKillDelay,
+                    useCustomizedImages));
+        builder.addActionContext(
+            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+      }
+    } else if (options.dockerVerbose) {
+      cmdEnv.getReporter().handle(Event.info(
+          "Docker sandboxing disabled. Use the '--experimental_enable_docker_sandbox' command "
+          + "line option to enable it"));
+    }
+
+    // This is the preferred sandboxing strategy on Linux.
+    if (linuxSandboxSupported) {
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv,
+              LinuxSandboxedStrategy.create(
+                  cmdEnv, sandboxBase, timeoutKillDelay, sandboxfsProcess));
+      builder.addActionContext(new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+    }
+
+    // This is the preferred sandboxing strategy on macOS.
+    if (darwinSandboxSupported) {
+      SpawnRunner spawnRunner =
+          withFallback(
+              cmdEnv,
+              new DarwinSandboxedSpawnRunner(
+                  cmdEnv, sandboxBase, timeoutKillDelay, sandboxfsProcess));
+      builder.addActionContext(new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner));
+    }
+
+    if (processWrapperSupported || linuxSandboxSupported || darwinSandboxSupported) {
+      // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
+      // but it is not necessarily the default.
+      builder.addStrategyByContext(SpawnActionContext.class, "sandboxed");
+
+      // This makes the "sandboxed" strategy the default Spawn strategy, unless it is
+      // overridden by a later BlazeModule.
+      builder.addStrategyByMnemonic("", "sandboxed");
+    }
 
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.
     shouldCleanupSandboxBase = !options.sandboxDebug;
+  }
+
+  private static Path getPathToDockerClient(CommandEnvironment cmdEnv) {
+    String path = cmdEnv.getClientEnv().getOrDefault("PATH", "");
+
+    // TODO(philwo): Does this return the correct result if one of the elements intentionally ends
+    // in white space?
+    Splitter pathSplitter =
+        Splitter.on(OS.getCurrent() == OS.WINDOWS ? ';' : ':').trimResults().omitEmptyStrings();
+
+    FileSystem fs = cmdEnv.getRuntime().getFileSystem();
+
+    for (String pathElement : pathSplitter.split(path)) {
+      // Sometimes the PATH contains the non-absolute entry "." - this resolves it against the
+      // current working directory.
+      pathElement = new File(pathElement).getAbsolutePath();
+      try {
+        for (Path dentry : fs.getPath(pathElement).getDirectoryEntries()) {
+          if (dentry.getBaseName().replace(".exe", "").equals("docker")) {
+            return dentry;
+          }
+        }
+      } catch (IOException e) {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  private static SpawnRunner withFallback(CommandEnvironment env, SpawnRunner sandboxSpawnRunner) {
+    return new SandboxFallbackSpawnRunner(sandboxSpawnRunner, createFallbackRunner(env));
+  }
+
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider =
+        OS.getCurrent() == OS.DARWIN
+            ? new XcodeLocalEnvProvider(env.getClientEnv())
+            : new PosixLocalEnvProvider(env.getClientEnv());
+    return
+        new LocalSpawnRunner(
+            env.getExecRoot(),
+            localExecutionOptions,
+            ResourceManager.instance(),
+            localEnvProvider);
+  }
+
+  private static final class SandboxFallbackSpawnRunner implements SpawnRunner {
+    private final SpawnRunner sandboxSpawnRunner;
+    private final SpawnRunner fallbackSpawnRunner;
+
+    SandboxFallbackSpawnRunner(SpawnRunner sandboxSpawnRunner, SpawnRunner fallbackSpawnRunner) {
+      this.sandboxSpawnRunner = sandboxSpawnRunner;
+      this.fallbackSpawnRunner = fallbackSpawnRunner;
+    }
+
+    @Override
+    public String getName() {
+      return "sandbox-fallback";
+    }
+
+    @Override
+    public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
+        throws InterruptedException, IOException, ExecException {
+      if (!Spawns.mayBeSandboxed(spawn)) {
+        return fallbackSpawnRunner.exec(spawn, context);
+      } else {
+        return sandboxSpawnRunner.exec(spawn, context);
+      }
+    }
   }
 
   private void unmountSandboxfs(String reason) {
@@ -151,12 +308,12 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Subscribe
-  public void buildComplete(BuildCompleteEvent event) {
+  public void buildComplete(@SuppressWarnings("unused") BuildCompleteEvent event) {
     unmountSandboxfs("Build complete; unmounting sandboxfs...");
   }
 
   @Subscribe
-  public void buildInterrupted(BuildInterruptedEvent event) {
+  public void buildInterrupted(@SuppressWarnings("unused") BuildInterruptedEvent event) {
     unmountSandboxfs("Build interrupted; unmounting sandboxfs...");
   }
 

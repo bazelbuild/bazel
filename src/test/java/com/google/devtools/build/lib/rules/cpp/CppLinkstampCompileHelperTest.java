@@ -72,7 +72,6 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
       List<String> arguments, String platform, String targetName, String buildTargetNameSuffix) {
     assertThat(arguments).contains("--sysroot=/usr/local/custom-sysroot");
     assertThat(arguments).contains("-include");
-    assertThat(arguments).contains("-DG3_VERSION_INFO=\"" + targetName + "\"");
     assertThat(arguments).contains("-DG3_TARGET_NAME=\"" + targetName + "\"");
     assertThat(arguments).contains("-DGPLATFORM=\"" + platform + "\"");
     assertThat(arguments).contains("-I.");

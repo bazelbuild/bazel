@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
+import com.google.devtools.build.lib.syntax.MethodDescriptor;
 import java.util.Map;
 
-/** Base class for native implementations of {@link Info}. */
+/** Base class for native implementations of {@link StructImpl}. */
 // todo(vladmos,dslomov): make abstract once DefaultInfo stops instantiating it.
-public class NativeInfo extends Info {
+public class NativeInfo extends StructImpl {
   protected final ImmutableMap<String, Object> values;
 
   // Initialized lazily.
@@ -75,7 +75,7 @@ public class NativeInfo extends Info {
     this(provider, ImmutableMap.of(), loc);
   }
 
-  // TODO(cparsons): Remove this constructor once DefaultInfo and ToolchainInfo stop using it.
+  // TODO(cparsons): Remove this constructor once ToolchainInfo stops using it.
   @Deprecated
   public NativeInfo(Provider provider, Map<String, Object> values, Location loc) {
     super(provider, loc);

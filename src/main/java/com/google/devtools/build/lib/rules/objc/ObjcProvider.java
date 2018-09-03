@@ -30,17 +30,16 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
@@ -54,12 +53,7 @@ import java.util.Map;
  * deps that are needed for building Objective-C rules.
  */
 @Immutable
-@SkylarkModule(
-  name = "ObjcProvider",
-  category = SkylarkModuleCategory.PROVIDER,
-  doc = "A provider for compilation and linking of objc."
-)
-public final class ObjcProvider extends NativeInfo {
+public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact> {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
@@ -270,18 +264,6 @@ public final class ObjcProvider extends NativeInfo {
       new Key<>(STABLE_ORDER, "nested_bundle", Bundling.class);
 
   /**
-   * Artifact containing information on debug symbols.
-   */
-  public static final Key<Artifact> DEBUG_SYMBOLS =
-      new Key<>(STABLE_ORDER, "debug_symbols", Artifact.class);
-
-  /**
-   * Artifact containing the plist of the debug symbols.
-   */
-  public static final Key<Artifact> DEBUG_SYMBOLS_PLIST =
-      new Key<>(STABLE_ORDER, "debug_symbols_plist", Artifact.class);
-
-  /**
    * Debug artifacts that should be exported by the top-level target.
    */
   public static final Key<Artifact> EXPORTED_DEBUG_ARTIFACTS =
@@ -379,8 +361,6 @@ public final class ObjcProvider extends NativeInfo {
           DEFINE,
           DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
-          DEBUG_SYMBOLS,
-          DEBUG_SYMBOLS_PLIST,
           EXPORTED_DEBUG_ARTIFACTS,
           FRAMEWORK_SEARCH_PATH_ONLY,
           FORCE_LOAD_LIBRARY,
@@ -427,341 +407,191 @@ public final class ObjcProvider extends NativeInfo {
           XCDATAMODEL,
           XIB);
 
-  @SkylarkCallable(name = "asset_catalog",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Asset catalog resource files."
-  )
+  @Override
   public NestedSet<Artifact> assetCatalog() {
     return get(ASSET_CATALOG);
   }
 
-  @SkylarkCallable(name = "bundle_file",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Files that are plopped into the final bundle at some arbitrary bundle path."
-  )
+  @Override
   public SkylarkNestedSet bundleFile() {
     return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(
         BUNDLE_FILE, get(BUNDLE_FILE));
   }
 
-  @SkylarkCallable(name = "define",
-      structField = true,
-      doc = "A set of strings from 'defines' attributes. These are to be passed as '-D' flags to "
-          + "all invocations of the compiler for this target and all depending targets."
-  )
+  @Override
   public NestedSet<String> define() {
     return get(DEFINE);
   }
 
-  @SkylarkCallable(name = "dynamic_framework_dir",
-      structField = true,
-      doc = "Exec paths of .framework directories corresponding to dynamic frameworks to link."
-  )
+  @Override
   public SkylarkNestedSet dynamicFrameworkDir() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(DYNAMIC_FRAMEWORK_DIR));
   }
 
-  @SkylarkCallable(name = "dynamic_framework_file",
-      structField = true,
-      doc = "Files in .framework directories belonging to a dynamically linked framework."
-  )
+  @Override
   public NestedSet<Artifact> dynamicFrameworkFile() {
     return get(DYNAMIC_FRAMEWORK_FILE);
   }
 
-  @SkylarkCallable(name = "debug_symbols",
-      structField = true,
-      doc = "Files containing information on debug symbols."
-  )
-  public NestedSet<Artifact> debugSymbols() {
-    return get(DEBUG_SYMBOLS);
-  }
-
-  @SkylarkCallable(name = "debug_symbols_plist",
-      structField = true,
-      doc = "Files containing the plist of the debug symbols."
-  )
-  public NestedSet<Artifact> debugSymbolsPlist() {
-    return get(DEBUG_SYMBOLS_PLIST);
-  }
-
-  @SkylarkCallable(name = "exported_debug_artifacts",
-      structField = true,
-      doc = "Debug files that should be exported by the top-level target."
-  )
+  @Override
   public NestedSet<Artifact> exportedDebugArtifacts() {
     return get(EXPORTED_DEBUG_ARTIFACTS);
   }
 
-  @SkylarkCallable(name = "framework_search_path_only",
-      structField = true,
-      doc = "Exec paths of .framework directories corresponding to frameworks to include "
-          + "in search paths, but not to link."
-  )
+  @Override
   public SkylarkNestedSet frameworkSearchPathOnly() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(
         get(FRAMEWORK_SEARCH_PATH_ONLY));
   }
 
-  @SkylarkCallable(name = "force_load_library",
-      structField = true,
-      doc = "Libraries to load with -force_load."
-  )
+  @Override
   public NestedSet<Artifact> forceLoadLibrary() {
     return get(FORCE_LOAD_LIBRARY);
   }
 
-  @SkylarkCallable(name = "header",
-      structField = true,
-      doc = "All header files. These may be either public or private headers."
-  )
+  @Override
   public NestedSet<Artifact> header() {
     return get(HEADER);
   }
 
-  @SkylarkCallable(name = "imported_library",
-      structField = true,
-      doc = "Imported precompiled static libraries (.a files) to be linked into the binary."
-  )
+  @Override
   public NestedSet<Artifact> importedLibrary() {
     return get(IMPORTED_LIBRARY);
   }
 
-  @SkylarkCallable(name = "include",
-      structField = true,
-      doc = "Include search paths specified with '-I' on the command line. Also known as "
-          + "header search paths (and distinct from <em>user</em> header search paths)."
-  )
+  @Override
   public SkylarkNestedSet include() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(INCLUDE));
   }
 
-  @SkylarkCallable(name = "include_system",
-      structField = true,
-      doc = "System include search paths (typically specified with -isystem)."
-  )
+  @Override
   public SkylarkNestedSet includeSystem() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(INCLUDE_SYSTEM));
   }
 
-  @SkylarkCallable(name = "iquote",
-      structField = true,
-      doc = "User header search paths (typically specified with -iquote)."
-  )
+  @Override
   public SkylarkNestedSet iquote() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(IQUOTE));
   }
 
-  @SkylarkCallable(name = "j2objc_library",
-      structField = true,
-      doc = "Static libraries that are built from J2ObjC-translated Java code."
-  )
+  @Override
   public NestedSet<Artifact> j2objcLibrary() {
     return get(J2OBJC_LIBRARY);
   }
 
-  @SkylarkCallable(name = "jre_library",
-      structField = true,
-      doc = "J2ObjC JRE emulation libraries and their dependencies."
-  )
+  @Override
   public NestedSet<Artifact> jreLibrary() {
     return get(JRE_LIBRARY);
   }
 
-  @SkylarkCallable(name = "library",
-      structField = true,
-      doc = "Library (.a) files compiled by dependencies of the current target."
-  )
+  @Override
   public NestedSet<Artifact> library() {
     return get(LIBRARY);
   }
 
-  @SkylarkCallable(name = "link_inputs",
-      structField = true,
-      doc = "Link time artifacts from dependencies that do not fall into any other category such "
-          + "as libraries or archives. This catch-all provides a way to add arbitrary data (e.g. "
-          + "Swift AST files) to the linker. The rule that adds these is also responsible to "
-          + "add the necessary linker flags to 'linkopt'."
-  )
+  @Override
   public NestedSet<Artifact> linkInputs() {
     return get(LINK_INPUTS);
   }
 
-  @SkylarkCallable(name = "linked_binary",
-      structField = true,
-      doc = "Single-architecture linked binaries to be combined for the final multi-architecture "
-          + "binary."
-  )
+  @Override
   public NestedSet<Artifact> linkedBinary() {
     return get(LINKED_BINARY);
   }
 
-  @SkylarkCallable(name = "linkmap_file",
-      structField = true,
-      doc = "Single-architecture link map for a binary."
-  )
+  @Override
   public NestedSet<Artifact> linkmapFile() {
     return get(LINKMAP_FILE);
   }
 
-  @SkylarkCallable(name = "linkopt",
-      structField = true,
-      doc = "Linking options."
-  )
+  @Override
   public NestedSet<String> linkopt() {
     return get(LINKOPT);
   }
 
-  @SkylarkCallable(name = "merge_zip",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Merge zips to include in the bundle. The entries of these zip files are included in "
-          + "the final bundle with the same path. The entries in the merge zips should not include "
-          + "the bundle root path (e.g. 'Foo.app')."
-  )
+  @Override
   public NestedSet<Artifact> mergeZip() {
     return get(MERGE_ZIP);
   }
 
-  @SkylarkCallable(name = "module_map",
-      structField = true,
-      doc = "Clang module maps, used to enforce proper use of private header files."
-  )
+  @Override
   public NestedSet<Artifact> moduleMap() {
     return get(MODULE_MAP);
   }
 
-  @SkylarkCallable(name = "multi_arch_dynamic_libraries",
-      structField = true,
-      doc = "Combined-architecture dynamic libraries to include in the final bundle."
-  )
+  @Override
   public NestedSet<Artifact> multiArchDynamicLibraries() {
     return get(MULTI_ARCH_DYNAMIC_LIBRARIES);
   }
 
-  @SkylarkCallable(name = "multi_arch_linked_archives",
-      structField = true,
-      doc = "Combined-architecture archives to include in the final bundle."
-  )
+  @Override
   public NestedSet<Artifact> multiArchLinkedArchives() {
     return get(MULTI_ARCH_LINKED_ARCHIVES);
   }
 
-  @SkylarkCallable(name = "multi_arch_linked_binaries",
-      structField = true,
-      doc = "Combined-architecture binaries to include in the final bundle."
-  )
+  @Override
   public NestedSet<Artifact> multiArchLinkedBinaries() {
     return get(MULTI_ARCH_LINKED_BINARIES);
   }
 
-  @SkylarkCallable(name = "root_merge_zip",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Merge zips to include in the ipa and outside the bundle root."
-  )
+  @Override
   public NestedSet<Artifact> rootMergeZip() {
     return get(ROOT_MERGE_ZIP);
   }
 
-  @SkylarkCallable(name = "sdk_dylib",
-      structField = true,
-      doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'."
-  )
+  @Override
   public NestedSet<String> sdkDylib() {
     return get(SDK_DYLIB);
   }
 
-  @SkylarkCallable(name = "sdk_framework",
-      structField = true,
-      doc = "Names of SDK frameworks to link with (e.g. 'AddressBook', 'QuartzCore')."
-  )
+  @Override
   public SkylarkNestedSet sdkFramework() {
     return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(SDK_FRAMEWORK,
         get(SDK_FRAMEWORK));
   }
 
-  @SkylarkCallable(name = "source",
-      structField = true,
-      doc = "All transitive source files."
-  )
+  @Override
   public NestedSet<Artifact> source() {
     return get(SOURCE);
   }
 
-  @SkylarkCallable(name = "static_framework_file",
-      structField = true,
-      doc = "Files in .framework directories that should be statically included as inputs "
-          + "when compiling and linking."
-  )
+  @Override
   public NestedSet<Artifact> staticFrameworkFile() {
     return get(STATIC_FRAMEWORK_FILE);
   }
 
-  @SkylarkCallable(name = "storyboard",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Files for storyboard sources."
-  )
+  @Override
   public NestedSet<Artifact> storyboard() {
     return get(STORYBOARD);
   }
 
-  @SkylarkCallable(name = "strings",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Files for strings source files."
-  )
+  @Override
   public NestedSet<Artifact> strings() {
     return get(STRINGS);
   }
 
-  @SkylarkCallable(name = "umbrella_header",
-      structField = true,
-      doc = "Clang umbrella header. Public headers are #included in umbrella headers to be "
-          + "compatible with J2ObjC segmented headers."
-  )
+  @Override
   public NestedSet<Artifact> umbrellaHeader() {
     return get(UMBRELLA_HEADER);
   }
 
-  @SkylarkCallable(name = "weak_sdk_framework",
-      structField = true,
-      doc = "Names of SDK frameworks to weakly link with. For instance, 'MediaAccessibility'. "
-           + "In difference to regularly linked SDK frameworks, symbols from weakly linked "
-           + "frameworks do not cause an error if they are not present at runtime."
-  )
+  @Override
   public SkylarkNestedSet weakSdkFramework() {
     return (SkylarkNestedSet) ObjcProviderSkylarkConverters.convertToSkylark(WEAK_SDK_FRAMEWORK,
         get(WEAK_SDK_FRAMEWORK));
   }
 
-  @SkylarkCallable(name = "xcassets_dir",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "The set of all unique asset catalog directories (*.xcassets) containing files "
-          + "in 'asset_catalogs'."
-  )
+  @Override
   public SkylarkNestedSet xcassetsDir() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(get(XCASSETS_DIR));
   }
 
-  @SkylarkCallable(name = "xcdatamodel",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + "Files that comprise the data models of the final linked binary."
-  )
+  @Override
   public NestedSet<Artifact> xcdatamodel() {
     return get(XCDATAMODEL);
   }
 
-  @SkylarkCallable(name = "xib",
-      structField = true,
-      doc = "<b>Deprecated. Resource-related fields will be migrated to another provider.</b> "
-          + ".xib resource files"
-  )
+  @Override
   public NestedSet<Artifact> xib() {
     return get(XIB);
   }
@@ -832,14 +662,14 @@ public final class ObjcProvider extends NativeInfo {
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
   /** Skylark constructor and identifier for ObjcProvider. */
-  public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
       SkylarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
@@ -1073,12 +903,7 @@ public final class ObjcProvider extends NativeInfo {
    * Returns all unique static framework directories (directories ending in '.framework') for all
    * static framework files in this provider.
    */
-  @SkylarkCallable(
-      name = "framework_dir",
-      structField = true,
-      doc = "Returns all unique static framework directories (directories ending in '.framework') "
-          + "for all static framework files in this provider."
-  )
+  @Override
   public SkylarkNestedSet getStaticFrameworkDirsForSkylark() {
     return ObjcProviderSkylarkConverters.convertPathFragmentsToSkylark(getStaticFrameworkDirs());
   }
@@ -1138,7 +963,7 @@ public final class ObjcProvider extends NativeInfo {
       }
       return this;
     }
-   
+
     /**
      * Add all keys and values from the given provider, but propagate any normally-propagated items
      * only to direct dependers of this ObjcProvider.
@@ -1175,58 +1000,6 @@ public final class ObjcProvider extends NativeInfo {
      */
     public <E> Builder addTransitiveAndPropagate(Key<E> key, NestedSet<E> items) {
       uncheckedAddTransitive(key, items, this.items);
-      return this;
-    }
-
-    /**
-     * Add elements from providers, but don't propagate them to any dependers on this ObjcProvider.
-     * These elements will be exposed to {@link #get(Key)} calls, but not to any ObjcProviders
-     * which add this provider to themselves.
-     */
-    public Builder addTransitiveWithoutPropagating(Iterable<ObjcProvider> providers) {
-      for (ObjcProvider provider : providers) {
-        addTransitiveWithoutPropagating(provider);
-      }
-      return this;
-    }
-
-    /**
-     * Add all keys and values from provider, without propagating them to any (transitive) dependers
-     * on this ObjcProvider. These elements will be exposed to {@link #get(Key)} calls, but not to
-     * any ObjcProviders which add this provider to themselves.
-     */
-    public Builder addTransitiveWithoutPropagating(ObjcProvider provider) {
-      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
-        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
-      }
-      for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.strictDependencyItems.entrySet()) {
-        uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue(), this.nonPropagatedItems);
-      }
-      return this;
-    }
-
-    /**
-     * Add a single key from provider, without propagating them to any (transitive) dependers
-     * on this ObjcProvider. These elements will be exposed to {@link #get(Key)} calls, but not to
-     * any ObjcProviders which add this provider to themselves.
-     */
-    public Builder addTransitiveWithoutPropagating(Key key, ObjcProvider provider) {
-      if (provider.items.containsKey(key)) {
-        uncheckedAddTransitive(key, provider.items.get(key), this.nonPropagatedItems);
-      }
-      if (provider.strictDependencyItems.containsKey(key)) {
-        uncheckedAddTransitive(
-            key, provider.strictDependencyItems.get(key), this.nonPropagatedItems);
-      }
-      return this;
-    }
-
-    /**
-     * Adds elements in items, without propagating them to any (transitive) dependers on this
-     * ObjcProvider.
-     */
-    public <E> Builder addTransitiveWithoutPropagating(Key<E> key, NestedSet<E> items) {
-      uncheckedAddTransitive(key, items, this.nonPropagatedItems);
       return this;
     }
 
@@ -1352,10 +1125,10 @@ public final class ObjcProvider extends NativeInfo {
     }
   }
 
-  private static class Constructor extends NativeProvider<ObjcProvider>
+  private static class Constructor extends BuiltinProvider<ObjcProvider>
       implements WithLegacySkylarkName {
     public Constructor() {
-      super(ObjcProvider.class, ObjcProvider.SKYLARK_NAME);
+      super(ObjcProvider.SKYLARK_NAME, ObjcProvider.class);
     }
 
     @Override

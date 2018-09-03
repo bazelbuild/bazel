@@ -105,15 +105,6 @@ public class CommonCommandOptions extends OptionsBase {
   )
   public boolean alwaysProfileSlowOperations;
 
-  @Option(
-    name = "allow_undefined_configs",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
-    help = "Do not throw an error when the config is not defined."
-  )
-  public boolean allowUndefinedConfigs;
-
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter implements Converter<UUID> {
 
@@ -194,28 +185,61 @@ public class CommonCommandOptions extends OptionsBase {
   public String buildRequestId;
 
   @Option(
-    name = "profile",
-    defaultValue = "null",
+    name = "experimental_generate_json_trace_profile",
+    defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    converter = OptionsUtils.PathFragmentConverter.class,
     help =
-        "If set, profile Blaze and write data to the specified "
-            + "file. Use blaze analyze-profile to analyze the profile."
+        "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in the "
+            + "output base."
   )
+  public boolean enableTracer;
+
+  @Option(
+      name = "experimental_json_trace_compression",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, Bazel compresses the JSON-format profile with gzip.")
+  public boolean enableTracerCompression;
+
+  @Option(
+      name = "experimental_post_profile_started_event",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If set, Bazel will post the ProfilerStartedEvent including the path to the profile.")
+  public boolean postProfileStartedEvent;
+
+  @Option(
+      name = "experimental_profile_cpu_usage",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
+  public boolean enableCpuUsageProfiling;
+
+  @Option(
+      name = "profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "If set, profile Bazel and write data to the specified "
+              + "file. Use bazel analyze-profile to analyze the profile.")
   public PathFragment profilePath;
 
   @Option(
-    name = "record_full_profiler_data",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    help =
-        "By default, Blaze profiler will record only aggregated data for fast but numerous "
-            + "events (such as statting the file). If this option is enabled, profiler will record "
-            + "each event - resulting in more precise profiling data but LARGE performance "
-            + "hit. Option only has effect if --profile used as well."
-  )
+      name = "record_full_profiler_data",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "By default, Bazel profiler will record only aggregated data for fast but numerous "
+              + "events (such as statting the file). If this option is enabled, profiler will "
+              + "record each event - resulting in more precise profiling data but LARGE "
+              + "performance hit. Option only has effect if --profile used as well.")
   public boolean recordFullProfilerData;
 
   @Option(
@@ -244,53 +268,48 @@ public class CommonCommandOptions extends OptionsBase {
   public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
   @Option(
-    name = "experimental_oom_more_eagerly_threshold",
-    defaultValue = "100",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-    help =
-        "If this flag is set to a value less than 100, Blaze will OOM if, after two full GC's, more"
-            + "than this percentage of the (old gen) heap is still occupied."
-  )
+      name = "experimental_oom_more_eagerly_threshold",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
+              + "more than this percentage of the (old gen) heap is still occupied.")
   public int oomMoreEagerlyThreshold;
 
   @Option(
-    name = "startup_time",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "The time in ms the launcher spends before sending the request to the blaze server."
-  )
+      name = "startup_time",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "The time in ms the launcher spends before sending the request to the bazel server.")
   public long startupTime;
 
   @Option(
-    name = "extract_data_time",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "The time in ms spent on extracting the new blaze version."
-  )
+      name = "extract_data_time",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "The time in ms spent on extracting the new bazel version.")
   public long extractDataTime;
 
   @Option(
-    name = "command_wait_time",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "The time in ms a command had to wait on a busy Blaze server process."
-  )
+      name = "command_wait_time",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "The time in ms a command had to wait on a busy Bazel server process.")
   public long waitTime;
 
   @Option(
-    name = "tool_tag",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    help = "A tool name to attribute this Blaze invocation to."
-  )
+      name = "tool_tag",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "A tool name to attribute this Bazel invocation to.")
   public String toolTag;
 
   @Option(
@@ -304,13 +323,12 @@ public class CommonCommandOptions extends OptionsBase {
   public String restartReason;
 
   @Option(
-    name = "binary_path",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "The absolute path of the blaze binary."
-  )
+      name = "binary_path",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "The absolute path of the bazel binary.")
   public String binaryPath;
 
   @Option(

@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
@@ -68,6 +69,12 @@ DECLARE_STREAM_OPERATOR(float)
 DECLARE_STREAM_OPERATOR(double)
 DECLARE_STREAM_OPERATOR(long double)
 DECLARE_STREAM_OPERATOR(void*)
+
+LogMessage& LogMessage::operator<<(const std::wstring& wstr) {
+  message_ << WstringToString(wstr);
+  return *this;
+}
+
 #undef DECLARE_STREAM_OPERATOR
 
 void LogMessage::Finish() {

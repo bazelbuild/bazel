@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -63,12 +64,12 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
   }
 
   private SkyKey skyKey(String labelName) throws Exception {
-    return TargetMarkerValue.key(Label.parseAbsolute(labelName));
+    return TargetMarkerValue.key(Label.parseAbsolute(labelName, ImmutableMap.of()));
   }
 
   private Throwable getErrorFromTargetValue(String labelName) throws Exception {
     reporter.removeHandler(failFastHandler);
-    SkyKey targetKey = TargetMarkerValue.key(Label.parseAbsolute(labelName));
+    SkyKey targetKey = TargetMarkerValue.key(Label.parseAbsolute(labelName, ImmutableMap.of()));
     EvaluationResult<TargetMarkerValue> evaluationResult =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, targetKey, /*keepGoing=*/ false, reporter);

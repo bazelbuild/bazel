@@ -45,7 +45,6 @@ import org.junit.runners.JUnit4;
 public class ConfigSettingTest extends BuildViewTestCase {
 
   /** Test option that has its null default overridden by its fragment. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class LateBoundTestOptions extends FragmentOptions {
     public LateBoundTestOptions() {}
 
@@ -84,7 +83,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /** Test option which is private. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class InternalTestOptions extends FragmentOptions {
     public InternalTestOptions() {}
 
@@ -177,7 +175,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void labelGetter() throws Exception {
     writeSimpleExample();
     assertThat(getConfigMatchingProvider("//pkg:foo").label())
-        .isEqualTo(Label.parseAbsolute("//pkg:foo"));
+        .isEqualTo(Label.parseAbsolute("//pkg:foo", ImmutableMap.of()));
   }
 
   /**
@@ -275,6 +273,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
   }
 
+  /** Tests disallowing {@link BuildConfiguration.Fragment#lateBoundOptionDefaults} */
+  @Test
+  public void disallowLateBoundOptionDefaultsIncompatible() throws Exception {
+    useConfiguration("--incompatible_enable_late_bound_option_defaults=false");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = { 'opt_with_default': 'overridden' }",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
   /**
    * Tests matching on multi-value attributes with key=value entries (e.g. --define).
    */

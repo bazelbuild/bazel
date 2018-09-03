@@ -32,18 +32,6 @@ import java.util.Set;
 public class CommonQueryOptions extends OptionsBase {
 
   @Option(
-      name = "output",
-      defaultValue = "label",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "The format in which the query results should be printed. Allowed values for query are: "
-              + "build, graph, label, label_kind, locations, maxrank, minrank, package, proto, xml."
-              + "Currently you should never explicitly set this flag for cquery."
-  )
-  public String outputFormat;
-
-  @Option(
     name = "universe_scope",
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.QUERY,
@@ -82,15 +70,14 @@ public class CommonQueryOptions extends OptionsBase {
   public boolean includeHostDeps;
 
   @Option(
-    name = "implicit_deps",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "If enabled, implicit dependencies will be included in the dependency graph over "
-            + "which the query operates. An implicit dependency is one that is not explicitly "
-            + "specified in the BUILD file but added by blaze."
-  )
+      name = "implicit_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "If enabled, implicit dependencies will be included in the dependency graph over "
+              + "which the query operates. An implicit dependency is one that is not explicitly "
+              + "specified in the BUILD file but added by bazel.")
   public boolean includeImplicitDeps;
 
   /** Return the current options as a set of QueryEnvironment settings. */
@@ -168,21 +155,20 @@ public class CommonQueryOptions extends OptionsBase {
   }
 
   @Option(
-    name = "aspect_deps",
-    converter = AspectResolutionModeConverter.class,
-    defaultValue = "conservative",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "How to resolve aspect dependencies when the output format is one of {xml,proto,record}. "
-            + "'off' means no aspect dependencies are resolved, 'conservative' (the default) means "
-            + "all declared aspect dependencies are added regardless of whether they are viable "
-            + "given the rule class of direct dependencies, 'precise' means that only those "
-            + "aspects are added that are possibly active given the rule class of the direct "
-            + "dependencies. Note that precise mode requires loading other packages to evaluate "
-            + "a single target thus making it slower than the other modes. Also note that even "
-            + "precise mode is not completely precise: the decision whether to compute an aspect "
-            + "is decided in the analysis phase, which is not run during 'blaze query'."
-  )
+      name = "aspect_deps",
+      converter = AspectResolutionModeConverter.class,
+      defaultValue = "conservative",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "How to resolve aspect dependencies when the output format is one of {xml,proto,record}. "
+              + "'off' means no aspect dependencies are resolved, 'conservative' (the default) "
+              + "means all declared aspect dependencies are added regardless of whether they are "
+              + "given the rule class of direct dependencies, 'precise' means that only those "
+              + "aspects are added that are possibly active given the rule class of the direct "
+              + "dependencies. Note that precise mode requires loading other packages to evaluate "
+              + "a single target thus making it slower than the other modes. Also note that even "
+              + "precise mode is not completely precise: the decision whether to compute an aspect "
+              + "is decided in the analysis phase, which is not run during 'bazel query'.")
   public AspectResolver.Mode aspectDeps;
 }

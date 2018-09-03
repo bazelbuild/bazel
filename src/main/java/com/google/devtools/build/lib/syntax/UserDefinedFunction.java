@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
 
@@ -64,19 +65,17 @@ public class UserDefinedFunction extends BaseFunction {
     }
 
     ImmutableList<String> names = signature.getSignature().getNames();
-    LexicalFrame lexicalFrame =
-        LexicalFrame.createForUserDefinedFunctionCall(env.mutability(), /*numArgs=*/ names.size());
-    try {
-      Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_FN, getName());
+    LexicalFrame lexicalFrame = LexicalFrame.create(env.mutability(), /*numArgs=*/ names.size());
+    try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.SKYLARK_USER_FN, getName())) {
       env.enterScope(this, lexicalFrame, ast, definitionGlobals);
 
       // Registering the functions's arguments as variables in the local Environment
-      int i = 0;
-      for (String name : names) {
-        env.update(name, arguments[i++]);
+      // foreach loop is not used to avoid iterator overhead
+      for (int i = 0; i < names.size(); ++i) {
+        env.update(names.get(i), arguments[i]);
       }
 
-      Eval eval = new Eval(env);
+      Eval eval = Eval.fromEnvironment(env);
       try {
         for (Statement stmt : statements) {
           if (stmt instanceof ReturnStatement) {
@@ -96,7 +95,6 @@ public class UserDefinedFunction extends BaseFunction {
       }
       return Runtime.NONE;
     } finally {
-      Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_FN);
       env.exitScope();
     }
   }

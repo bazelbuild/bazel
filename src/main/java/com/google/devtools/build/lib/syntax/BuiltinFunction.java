@@ -18,6 +18,7 @@ import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.Environment.LexicalFrame;
@@ -137,8 +138,7 @@ public class BuiltinFunction extends BaseFunction {
 
   @Override
   @Nullable
-  public Object call(Object[] args,
-      FuncallExpression ast, Environment env)
+  public Object call(Object[] args, @Nullable FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(env);
 
@@ -166,9 +166,9 @@ public class BuiltinFunction extends BaseFunction {
       }
     }
 
-    Profiler.instance().startTask(ProfilerTask.SKYLARK_BUILTIN_FN, getName());
     // Last but not least, actually make an inner call to the function with the resolved arguments.
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.SKYLARK_BUILTIN_FN, getName())) {
       env.enterScope(this, SHARED_LEXICAL_FRAME_FOR_BUILTIN_FUNCTION_CALLS, ast, env.getGlobals());
       return invokeMethod.invoke(this, args);
     } catch (InvocationTargetException x) {
@@ -179,10 +179,8 @@ public class BuiltinFunction extends BaseFunction {
       } else if (e instanceof IllegalArgumentException) {
         throw new EvalException(loc, "illegal argument in call to " + getName(), e);
       }
-      // TODO(bazel-team): replace with Throwables.throwIfInstanceOf once Guava 20 is released.
-      Throwables.propagateIfInstanceOf(e, InterruptedException.class);
-      // TODO(bazel-team): replace with Throwables.throwIfUnchecked once Guava 20 is released.
-      Throwables.propagateIfPossible(e);
+      Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      Throwables.throwIfUnchecked(e);
       throw badCallException(loc, e, args);
     } catch (IllegalArgumentException e) {
       // Either this was thrown by Java itself, or it's a bug
@@ -208,7 +206,6 @@ public class BuiltinFunction extends BaseFunction {
     } catch (IllegalAccessException e) {
       throw badCallException(loc, e, args);
     } finally {
-      Profiler.instance().completeTask(ProfilerTask.SKYLARK_BUILTIN_FN);
       env.exitScope();
     }
   }

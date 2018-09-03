@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.protobuf.ByteString;
@@ -28,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -39,24 +42,30 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class NestedSet<E> implements Iterable<E> {
 
-  private final Order order;
+  /**
+   * Order and size of set packed into one int.
+   *
+   * <p>Bits 31-2: size, bits 1-0: order enum ordinal. The order is assigned on construction time,
+   * the size is computed on the first expansion and set afterwards so it's available for {@link
+   * #replay}.
+   */
+  private int orderAndSize;
+
   private final Object children;
   private byte[] memo;
 
   private static final byte[] LEAF_MEMO = {};
   @AutoCodec static final Object[] EMPTY_CHILDREN = {};
 
-  /**
-   * Construct an empty NestedSet.  Should only be called by Order's class initializer.
-   */
+  /** Construct an empty NestedSet. Should only be called by Order's class initializer. */
   NestedSet(Order order) {
-    this.order = order;
+    this.orderAndSize = order.ordinal();
     this.children = EMPTY_CHILDREN;
     this.memo = LEAF_MEMO;
   }
 
   NestedSet(Order order, Set<E> direct, Set<NestedSet<E>> transitive) {
-    this.order = order;
+    this.orderAndSize = order.ordinal();
 
     // The iteration order of these collections is the order in which we add the items.
     Collection<E> directOrder = direct;
@@ -107,7 +116,8 @@ public final class NestedSet<E> implements Iterable<E> {
       } else if ((pass == 1) == preorder && !transitive.isEmpty()) {
         CompactHashSet<E> hoisted = CompactHashSet.create();
         for (NestedSet<E> subset : transitiveOrder) {
-          Object c = subset.children;
+          // If this is a deserialization future, this call blocks.
+          Object c = subset.getChildren();
           if (c instanceof Object[]) {
             Object[] a = (Object[]) c;
             if (a.length < 2) {
@@ -140,74 +150,104 @@ public final class NestedSet<E> implements Iterable<E> {
     }
   }
 
+  private NestedSet(Order order, Object children, byte[] memo) {
+    this.orderAndSize = order.ordinal();
+    this.children = children;
+    this.memo = memo;
+  }
+
+  /**
+   * Constructs a NestedSet that is currently being deserialized. The provided future, when
+   * complete, gives the contents of the NestedSet.
+   */
+  static <E> NestedSet<E> withFuture(
+      Order order, ListenableFuture<Object[]> deserializationFuture) {
+    return new NestedSet<>(order, deserializationFuture, /*memo=*/ null);
+  }
+
   // Only used by deserialization
   @AutoCodec.Instantiator
-  NestedSet(Order order, Object children) {
-    this.order = order;
-    this.children = children;
+  static <E> NestedSet<E> forDeserialization(Order order, Object children) {
+    Preconditions.checkState(!(children instanceof ListenableFuture));
     boolean hasChildren =
         children instanceof Object[]
             && (Arrays.stream((Object[]) children).anyMatch(child -> child instanceof Object[]));
-    this.memo = hasChildren ? null : LEAF_MEMO;
+    byte[] memo = hasChildren ? null : LEAF_MEMO;
+    return new NestedSet<>(order, children, memo);
   }
 
-  /**
-   * Returns the ordering of this nested set.
-   */
+  /** Returns the ordering of this nested set. */
   public Order getOrder() {
-    return order;
+    return Order.getOrder(orderAndSize & 3);
   }
 
   /**
-   * Returns the internal item or array. For use by NestedSetVisitor and NestedSetView. Those two
-   * classes also have knowledge of the internal implementation of NestedSet.
+   * Returns the internal item or array. If the internal item is a deserialization future, blocks on
+   * completion. For external use only by NestedSetVisitor and NestedSetView. Those two classes also
+   * have knowledge of the internal implementation of NestedSet.
    */
+  Object getChildren() {
+    if (children instanceof ListenableFuture) {
+      try {
+        return ((ListenableFuture<Object[]>) children).get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IllegalStateException(e);
+      }
+    } else {
+      return children;
+    }
+  }
+
+  /** Returns the internal item, array, or future. */
   Object rawChildren() {
     return children;
   }
 
-  /**
-   * Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set).
-   */
+  /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */
   public boolean isEmpty() {
+    // We don't check for future members here, since empty sets are special-cased in serialization
+    // and do not make requests against storage.
     return children == EMPTY_CHILDREN;
   }
 
   /** Returns true if the set has exactly one element. */
   public boolean isSingleton() {
-    return !(children instanceof Object[]);
+    // Singleton sets are special cased in serialization, and make no calls to storage.  Therefore,
+    // we know that any NestedSet with a ListenableFuture member is not a singleton.
+    return !(children instanceof Object[] || children instanceof ListenableFuture);
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets)
-   * in an implementation-specified order as a {@code Collection}.
+   * Returns a collection of all unique elements of this set (including subsets) in an
+   * implementation-specified order as a {@code Collection}.
    *
-   * <p>If you do not need a Collection and an Iterable is enough, use the
-   * nested set itself as an Iterable.
+   * <p>If you do not need a Collection and an Iterable is enough, use the nested set itself as an
+   * Iterable.
    */
   public Collection<E> toCollection() {
     return toList();
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets)
-   * in an implementation-specified order as a {code List}.
+   * Returns a collection of all unique elements of this set (including subsets) in an
+   * implementation-specified order as a {code List}.
    *
    * <p>Use {@link #toCollection} when possible for better efficiency.
    */
   public List<E> toList() {
     if (isSingleton()) {
+      // No need to check for ListenableFuture members - singletons can't have them.
       return ImmutableList.of((E) children);
     }
     if (isEmpty()) {
       return ImmutableList.of();
     }
-    return order == Order.LINK_ORDER ? expand().reverse() : expand();
+    return getOrder() == Order.LINK_ORDER ? expand().reverse() : expand();
   }
 
   /**
-   * Returns a collection of all unique elements of this set (including subsets)
-   * in an implementation-specified order as a {@code Set}.
+   * Returns a collection of all unique elements of this set (including subsets) in an
+   * implementation-specified order as a {@code Set}.
    *
    * <p>Use {@link #toCollection} when possible for better efficiency.
    */
@@ -216,11 +256,13 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns true if this set is equal to {@code other} based on the top-level
-   * elements and object identity (==) of direct subsets.  As such, this function
-   * can fail to equate {@code this} with another {@code NestedSet} that holds
-   * the same elements.  It will never fail to detect that two {@code NestedSet}s
-   * are different, however.
+   * Returns true if this set is equal to {@code other} based on the top-level elements and object
+   * identity (==) of direct subsets. As such, this function can fail to equate {@code this} with
+   * another {@code NestedSet} that holds the same elements. It will never fail to detect that two
+   * {@code NestedSet}s are different, however.
+   *
+   * <p>If one of the sets is in the process of deserialization, returns true iff both sets depend
+   * on the same future.
    *
    * @param other the {@code NestedSet} to compare against.
    */
@@ -228,26 +270,30 @@ public final class NestedSet<E> implements Iterable<E> {
     if (this == other) {
       return true;
     }
+
     return other != null
-        && order == other.order
-        && (children.equals(other.children)
-            || (!isSingleton() && !other.isSingleton()
+        && getOrder() == other.getOrder()
+        && (rawChildren().equals(other.rawChildren())
+            || (!isSingleton()
+                && !other.isSingleton()
+                && rawChildren() instanceof Object[]
+                && other.rawChildren() instanceof Object[]
                 && Arrays.equals((Object[]) children, (Object[]) other.children)));
   }
 
   /**
-   * Returns a hash code that produces a notion of identity that is consistent with
-   * {@link #shallowEquals}. In other words, if two {@code NestedSet}s are equal according
-   * to {@code #shallowEquals}, then they return the same {@code shallowHashCode}.
+   * Returns a hash code that produces a notion of identity that is consistent with {@link
+   * #shallowEquals}. In other words, if two {@code NestedSet}s are equal according to {@code
+   * #shallowEquals}, then they return the same {@code shallowHashCode}.
    *
-   * <p>The main reason for having these separate functions instead of reusing
-   * the standard equals/hashCode is to minimize accidental use, since they are
-   * different from both standard Java objects and collection-like objects.
+   * <p>The main reason for having these separate functions instead of reusing the standard
+   * equals/hashCode is to minimize accidental use, since they are different from both standard Java
+   * objects and collection-like objects.
    */
   public int shallowHashCode() {
-    return isSingleton()
-        ? Objects.hash(order, children)
-        : Objects.hash(order, Arrays.hashCode((Object[]) children));
+    return isSingleton() || children instanceof ListenableFuture
+        ? Objects.hash(getOrder(), children)
+        : Objects.hash(getOrder(), Arrays.hashCode((Object[]) children));
   }
 
   @Override
@@ -268,7 +314,9 @@ public final class NestedSet<E> implements Iterable<E> {
 
   private enum Stringer implements Function<Object, String> {
     INSTANCE;
-    @Override public String apply(Object o) {
+
+    @Override
+    public String apply(Object o) {
       return childrenToString(o);
     }
   }
@@ -280,9 +328,9 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Implementation of {@link #toList}.  Uses one of three strategies based on the value of
-   * {@code this.memo}: wrap our direct items in a list, call {@link #lockedExpand} to perform
-   * the initial {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
+   * Implementation of {@link #toList}. Uses one of three strategies based on the value of {@code
+   * this.memo}: wrap our direct items in a list, call {@link #lockedExpand} to perform the initial
+   * {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
    */
   private ImmutableList<E> expand() {
     // This value is only set in the constructor, so safe to test here with no lock.
@@ -293,11 +341,8 @@ public final class NestedSet<E> implements Iterable<E> {
     if (members != null) {
       return ImmutableList.copyOf(members);
     }
-    Object[] children = (Object[]) this.children;
-    // TODO:  We could record the exact size (inside memo, or by making order an int with two bits
-    // for Order.ordinal()) and avoid an array copy here.  It's not directly visible in profiles but
-    // it would reduce garbage generated.
-    ImmutableList.Builder<E> output = ImmutableList.builder();
+    Object[] children = (Object[]) this.getChildren();
+    ImmutableList.Builder<E> output = ImmutableList.builderWithExpectedSize(orderAndSize >> 2);
     replay(output, children, memo, 0);
     return output.build();
   }
@@ -309,26 +354,32 @@ public final class NestedSet<E> implements Iterable<E> {
     ArraySharingCollection(Object[] array) {
       this.array = array;
     }
-    @Override public Object[] toArray() {
+
+    @Override
+    public Object[] toArray() {
       return array;
     }
-    @Override public int size() {
+
+    @Override
+    public int size() {
       return array.length;
     }
-    @Override public Iterator<E> iterator() {
+
+    @Override
+    public Iterator<E> iterator() {
       throw new UnsupportedOperationException();
     }
   }
 
   /**
    * If this is the first call for this object, fills {@code this.memo} and returns a set from
-   * {@link #walk}.  Otherwise returns null; the caller should use {@link #replay} instead.
+   * {@link #walk}. Otherwise returns null; the caller should use {@link #replay} instead.
    */
   private synchronized CompactHashSet<E> lockedExpand() {
     if (memo != null) {
       return null;
     }
-    Object[] children = (Object[]) this.children;
+    Object[] children = (Object[]) this.getChildren();
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
@@ -338,18 +389,20 @@ public final class NestedSet<E> implements Iterable<E> {
     if (bytes <= memo.length - 16) {
       memo = Arrays.copyOf(memo, bytes);
     }
+    Preconditions.checkState(members.size() < (Integer.MAX_VALUE >> 2));
+    orderAndSize |= (members.size()) << 2;
     return members;
   }
 
   /**
-   * Perform a depth-first traversal of {@code children}, tracking visited
-   * arrays in {@code sets} and visited leaves in {@code members}.  We also
-   * record which edges were taken in {@code this.memo} starting at {@code pos}.
+   * Perform a depth-first traversal of {@code children}, tracking visited arrays in {@code sets}
+   * and visited leaves in {@code members}. We also record which edges were taken in {@code
+   * this.memo} starting at {@code pos}.
    *
-   * Returns the final value of {@code pos}.
+   * <p>Returns the final value of {@code pos}.
    */
-  private int walk(CompactHashSet<Object> sets, CompactHashSet<E> members,
-                   Object[] children, int pos) {
+  private int walk(
+      CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children, int pos) {
     for (Object child : children) {
       if ((pos >> 3) >= memo.length) {
         memo = Arrays.copyOf(memo, memo.length * 2);
@@ -381,11 +434,11 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Repeat a previous traversal of {@code children} performed by {@link #walk}
-   * and recorded in {@code memo}, appending leaves to {@code output}.
+   * Repeat a previous traversal of {@code children} performed by {@link #walk} and recorded in
+   * {@code memo}, appending leaves to {@code output}.
    */
-  private static <E> int replay(ImmutableList.Builder<E> output, Object[] children,
-                                byte[] memo, int pos) {
+  private static <E> int replay(
+      ImmutableList.Builder<E> output, Object[] children, byte[] memo, int pos) {
     for (Object child : children) {
       if ((memo[pos >> 3] & (1 << (pos & 7))) != 0) {
         if (child instanceof Object[]) {

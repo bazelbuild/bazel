@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -43,10 +44,11 @@ public final class BazelCcTestRule implements RuleDefinition {
         // to decorate data symbols imported from DLL.
         .override(attr("linkstatic", BOOLEAN).value(OS.getCurrent() == OS.WINDOWS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
-        // Oh weary adventurer, endeavour not to remove this attribute, enticing as that may be,
-        // given that no code referenceth it. Should ye be on the verge of yielding to the
-        // temptation, lay your eyes on the Javadoc of {@link FdoSupport} to find out why.
-        .add(attr(":lipo_context", LABEL).value(BazelCppRuleClasses.LIPO_CONTEXT))
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();
   }
 

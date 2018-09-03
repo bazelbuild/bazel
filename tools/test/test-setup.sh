@@ -32,6 +32,11 @@ function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
 }
 
+# The original execution root. Usually this script changes directory into the
+# runfiles directory, so using $PWD is not a reliable way to find the execution
+# root.
+EXEC_ROOT="$PWD"
+
 # Bazel sets some environment vars to relative paths to improve caching and
 # support remote execution, where the absolute path may not be known to Bazel.
 # Convert them to absolute paths here before running the actual test.
@@ -121,10 +126,10 @@ function rlocation() {
 
 export -f rlocation
 export -f is_absolute
-export RUNFILES_MANIFEST_FILE
-# If the runfiles manifest exist, then test programs should use it to find
+# If the runfiles manifest exists, then test programs should use it to find
 # runfiles.
 if [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+  export RUNFILES_MANIFEST_FILE
   export RUNFILES_MANIFEST_ONLY=1
 fi
 
@@ -147,6 +152,7 @@ if [[ -z "$no_echo" ]]; then
   echo "-----------------------------------------------------------------------------"
 fi
 
+# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
 function encode_output_file {
   if [ -f "$1" ]; then
     # Replace invalid XML characters and invalid sequence in CDATA
@@ -156,6 +162,8 @@ function encode_output_file {
   fi
 }
 
+# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
+# Keep this in sync with generate-xml.sh!
 function write_xml_output_file {
   local duration=$(expr $(date +%s) - $start)
   local errors=0
@@ -213,6 +221,30 @@ else
   TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
 fi
 
+# TODO(jsharpe): Use --test_env=TEST_SHORT_EXEC_PATH=true to activate this code
+# path to workaround a bug with long executable paths when executing remote
+# tests on Windows.
+if [ ! -z "$TEST_SHORT_EXEC_PATH" ]; then
+  QUALIFIER=0
+  BASE="${EXEC_ROOT}/t${QUALIFIER}"
+  while [[ -e "${BASE}" || -e "${BASE}.exe" || -e "${BASE}.zip" ]]; do
+    ((QUALIFIER++))
+    BASE="${EXEC_ROOT}/t${QUALIFIER}"
+  done
+
+  # Note for the commands below: "ln -s" is equivalent to "cp" on Windows.
+
+  # Needs to be in the same directory for sh_test. Ignore the error when it
+  # doesn't exist.
+  ln -s "${TEST_PATH%.*}" "${BASE}" 2>/dev/null
+  # Needs to be in the same directory for py_test. Ignore the error when it
+  # doesn't exist.
+  ln -s "${TEST_PATH%.*}.zip" "${BASE}.zip" 2>/dev/null
+  # Needed for all tests.
+  ln -s "${TEST_PATH}" "${BASE}.exe"
+  TEST_PATH="${BASE}.exe"
+fi
+
 exitCode=0
 signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
 for signal in $signals; do
@@ -239,17 +271,27 @@ if [ "$has_tail" == true ] && [  -z "$no_echo" ]; then
   wait $pid
   exitCode=$?
 else
-  if [ -z "$COVERAGE_DIR" ]; then
-    "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+  if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
+    if [ -z "$COVERAGE_DIR" ]; then
+      "${TEST_PATH}" "$@" 2>&1 || exitCode=$?
+    else
+      "$1" "$TEST_PATH" "${@:3}" 2>&1 || exitCode=$?
+    fi
   else
-    "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+    if [ -z "$COVERAGE_DIR" ]; then
+      "${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+    else
+      "$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1 || exitCode=$?
+    fi
   fi
 fi
 
 for signal in $signals; do
   trap - ${signal}
 done
-write_xml_output_file
+if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
+  write_xml_output_file
+fi
 
 # Add all of the files from the undeclared outputs directory to the manifest.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then

@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -29,32 +30,132 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Static utilities for managing output directory symlinks.
  */
 public class OutputDirectoryLinksUtils {
-  // Used in getPrettyPath() method below.
-  private static final String[] LINKS = { "bin", "genfiles", "includes" };
+  private static interface SymlinkDefinition {
+    String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName);
+
+    Optional<Path> getLinkPath(
+        Set<BuildConfiguration> targetConfigs,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot);
+  }
+
+  private static final class ConfigSymlink implements SymlinkDefinition {
+    @FunctionalInterface
+    private static interface ConfigPathGetter {
+      ArtifactRoot apply(BuildConfiguration configuration, RepositoryName repositoryName);
+    }
+
+    private final String suffix;
+    private final ConfigPathGetter configToRoot;
+
+    public ConfigSymlink(String suffix, ConfigPathGetter configToRoot) {
+      this.suffix = suffix;
+      this.configToRoot = configToRoot;
+    }
+
+    @Override
+    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+      return symlinkPrefix + suffix;
+    }
+
+    @Override
+    public Optional<Path> getLinkPath(
+        Set<BuildConfiguration> targetConfigs,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot) {
+      Set<Path> paths =
+          targetConfigs
+              .stream()
+              .map(config -> configToRoot.apply(config, repositoryName))
+              .map(ArtifactRoot::getRoot)
+              .map(Root::asPath)
+              .distinct()
+              .collect(toImmutableSet());
+      if (paths.size() == 1) {
+        return Optional.of(Iterables.getOnlyElement(paths));
+      } else {
+        return Optional.empty();
+      }
+    }
+  }
+
+  private static enum ExecRootSymlink implements SymlinkDefinition {
+    INSTANCE;
+
+    @Override
+    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+      return symlinkPrefix + workspaceBaseName;
+    }
+
+    @Override
+    public Optional<Path> getLinkPath(
+        Set<BuildConfiguration> targetConfigs,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot) {
+      return Optional.of(execRoot);
+    }
+  }
+
+  private static enum OutputSymlink implements SymlinkDefinition {
+    PRODUCT_NAME {
+      @Override
+      public String getLinkName(
+          String symlinkPrefix, String productName, String workspaceBaseName) {
+        // TODO(b/35234395): This symlink is created for backwards compatiblity, remove it once
+        // we're sure it won't cause any other issues.
+        return productName + "-out";
+      }
+    },
+    SYMLINK_PREFIX {
+      @Override
+      public String getLinkName(
+          String symlinkPrefix, String productName, String workspaceBaseName) {
+        return symlinkPrefix + "out";
+      }
+    };
+
+    @Override
+    public Optional<Path> getLinkPath(
+        Set<BuildConfiguration> targetConfigs,
+        RepositoryName repositoryName,
+        Path outputPath,
+        Path execRoot) {
+      return Optional.of(outputPath);
+    }
+  }
+
+  // Links to create, delete, and use for pretty-printing.
+  // Note that the order in which items appear in this list controls priority for getPrettyPath.
+  // It will try each link as a prefix from first to last.
+  private static final ImmutableList<SymlinkDefinition> LINK_DEFINITIONS =
+      ImmutableList.of(
+          new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
+          new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
+          new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory),
+          OutputSymlink.PRODUCT_NAME,
+          OutputSymlink.SYMLINK_PREFIX,
+          ExecRootSymlink.INSTANCE);
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
-  public static ImmutableList<String> getOutputSymlinkNames(String productName,
-      String symlinkPrefix) {
-    ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
-    // TODO(b/35234395): This symlink is created for backwards compatiblity, remove it once
-    // we're sure it won't cause any other issues.
-    builder.add(productName + "-out");
-    if (!productName.equals(symlinkPrefix)) {
-      builder.add(symlinkPrefix + "out");
+  public static Iterable<String> getOutputSymlinkNames(String productName, String symlinkPrefix) {
+    ImmutableSet.Builder<String> builder = ImmutableSet.<String>builder();
+    for (OutputSymlink definition : OutputSymlink.values()) {
+      builder.add(definition.getLinkName(symlinkPrefix, productName, null));
     }
     return builder.build();
-  }
-
-  private static String execRootSymlink(String symlinkPrefix, String workspaceName) {
-    return symlinkPrefix + workspaceName;
   }
 
   /**
@@ -80,65 +181,27 @@ public class OutputDirectoryLinksUtils {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
+
     List<String> failures = new ArrayList<>();
-
-    // Make the two non-specific links from the workspace to the output area,
-    // and the configuration-specific links in both the workspace and the execution root dirs.
-    // IMPORTANT: Keep in sync with removeOutputDirectoryLinks below.
-    for (String outputSymlinkName : getOutputSymlinkNames(productName, symlinkPrefix)) {
-      createLink(workspace, outputSymlinkName, outputPath, failures);
-    }
-
-    // Points to execroot
-    createLink(workspace, execRootSymlink(
-        symlinkPrefix, workspace.getBaseName()), execRoot, failures);
+    List<String> missingLinks = new ArrayList<>();
+    Set<String> createdLinks = new LinkedHashSet<>();
+    String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
 
-    // Set up convenience symlinks iff there's only one useful target for them to point to;
-    // otherwise, remove stale symlinks from previous invocations at that path to avoid confusion
-    Set<Path> binPaths =
-        targetConfigs
-            .stream()
-            .map(targetConfig -> targetConfig.getBinDirectory(repositoryName).getRoot())
-            .map(Root::asPath)
-            .distinct()
-            .collect(toImmutableSet());
-    if (binPaths.size() == 1) {
-      createLink(workspace, symlinkPrefix + "bin", Iterables.getOnlyElement(binPaths), failures);
-    } else {
-      removeLink(workspace, symlinkPrefix + "bin", failures);
-    }
-    Set<Path> testLogsPaths =
-        targetConfigs
-            .stream()
-            .map(targetConfig -> targetConfig.getTestLogsDirectory(repositoryName).getRoot())
-            .map(Root::asPath)
-            .distinct()
-            .collect(toImmutableSet());
-    if (testLogsPaths.size() == 1) {
-      createLink(
-          workspace,
-          symlinkPrefix + "testlogs",
-          Iterables.getOnlyElement(testLogsPaths),
-          failures);
-    } else {
-      removeLink(workspace, symlinkPrefix + "testlogs", failures);
-    }
-    Set<Path> genfilesPaths =
-        targetConfigs
-            .stream()
-            .map(targetConfig -> targetConfig.getGenfilesDirectory(repositoryName).getRoot())
-            .map(Root::asPath)
-            .distinct()
-            .collect(toImmutableSet());
-    if (genfilesPaths.size() == 1) {
-      createLink(
-          workspace,
-          symlinkPrefix + "genfiles",
-          Iterables.getOnlyElement(genfilesPaths),
-          failures);
-    } else {
-      removeLink(workspace, symlinkPrefix + "genfiles", failures);
+    for (SymlinkDefinition definition : LINK_DEFINITIONS) {
+      String symlinkName = definition.getLinkName(symlinkPrefix, productName, workspaceBaseName);
+      if (!createdLinks.add(symlinkName)) {
+        // already created a link by this name
+        continue;
+      }
+      Optional<Path> result =
+          definition.getLinkPath(targetConfigs, repositoryName, outputPath, execRoot);
+      if (result.isPresent()) {
+        createLink(workspace, symlinkName, result.get(), failures);
+      } else {
+        removeLink(workspace, symlinkName, failures);
+        missingLinks.add(symlinkName);
+      }
     }
 
     if (!failures.isEmpty()) {
@@ -146,40 +209,44 @@ public class OutputDirectoryLinksUtils {
           "failed to create one or more convenience symlinks for prefix '%s':\n  %s",
           symlinkPrefix, Joiner.on("\n  ").join(failures))));
     }
+    if (!missingLinks.isEmpty()) {
+      eventHandler.handle(
+          Event.warn(
+              String.format(
+                  "cleared convenience symlink(s) %s because their destinations would be ambiguous",
+                  Joiner.on(", ").join(missingLinks))));
+    }
   }
 
   /**
    * Returns a convenient path to the specified file, relativizing it and using output-dir symlinks
-   * if possible.  Otherwise, return a path relative to the workspace directory if possible.
-   * Otherwise, return the absolute path.
+   * if possible. Otherwise, return the absolute path.
    *
    * <p>This method must be called after the symlinks are created at the end of a build. If called
    * before, the pretty path may be incorrect if the symlinks end up pointing somewhere new.
    */
-  public static PathFragment getPrettyPath(Path file, String workspaceName,
-      Path workspaceDirectory, String symlinkPrefix, String productName) {
+  public static PathFragment getPrettyPath(
+      Path file,
+      String workspaceName,
+      Path workspaceDirectory,
+      Path workingDirectory,
+      String symlinkPrefix,
+      String productName) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return file.asFragment();
     }
 
-    for (String link : LINKS) {
-      PathFragment result = relativize(file, workspaceDirectory, symlinkPrefix + link);
+    String workspaceBaseName = workspaceDirectory.getBaseName();
+    for (SymlinkDefinition link : LINK_DEFINITIONS) {
+      PathFragment result =
+          relativize(
+              file,
+              workspaceDirectory,
+              workingDirectory,
+              link.getLinkName(symlinkPrefix, productName, workspaceBaseName));
       if (result != null) {
         return result;
       }
-    }
-
-    PathFragment result = relativize(file, workspaceDirectory,
-        execRootSymlink(symlinkPrefix, workspaceName));
-    if (result != null) {
-      return result;
-    }
-
-    ImmutableList<String> outputSymlinkNames = getOutputSymlinkNames(productName, symlinkPrefix);
-    checkArgument(!outputSymlinkNames.isEmpty());
-    result = relativize(file, workspaceDirectory, outputSymlinkNames.get(0));
-    if (result != null) {
-      return result;
     }
 
     return file.asFragment();
@@ -187,14 +254,19 @@ public class OutputDirectoryLinksUtils {
 
   // Helper to getPrettyPath.  Returns file, relativized w.r.t. the referent of
   // "linkname", or null if it was a not a child.
-  private static PathFragment relativize(Path file, Path workspaceDirectory, String linkname) {
+  private static PathFragment relativize(
+      Path file, Path workspaceDirectory, Path workingDirectory, String linkname) {
     PathFragment link = PathFragment.create(linkname);
     try {
       Path dir = workspaceDirectory.getRelative(link);
       PathFragment levelOneLinkTarget = dir.readSymbolicLink();
       if (levelOneLinkTarget.isAbsolute() &&
           file.startsWith(dir = file.getRelative(levelOneLinkTarget))) {
-        return link.getRelative(file.relativeTo(dir));
+        PathFragment outputLink =
+            workingDirectory.equals(workspaceDirectory)
+                ? link
+                : workspaceDirectory.getRelative(link).asFragment();
+        return outputLink.getRelative(file.relativeTo(dir));
       }
     } catch (IOException e) {
       /* ignore */
@@ -220,14 +292,12 @@ public class OutputDirectoryLinksUtils {
     }
     List<String> failures = new ArrayList<>();
 
-    for (String outputSymlinkName : getOutputSymlinkNames(productName, symlinkPrefix)) {
-      removeLink(workspace, outputSymlinkName, failures);
+    String workspaceBaseName = workspace.getBaseName();
+    for (SymlinkDefinition link : LINK_DEFINITIONS) {
+      removeLink(
+          workspace, link.getLinkName(symlinkPrefix, productName, workspaceBaseName), failures);
     }
-    removeLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), failures);
-    removeLink(workspace, execRootSymlink(symlinkPrefix, workspace.getBaseName()), failures);
-    removeLink(workspace, symlinkPrefix + "bin", failures);
-    removeLink(workspace, symlinkPrefix + "testlogs", failures);
-    removeLink(workspace, symlinkPrefix + "genfiles", failures);
+
     FileSystemUtils.removeDirectoryAndParents(workspace, PathFragment.create(symlinkPrefix));
     if (!failures.isEmpty()) {
       eventHandler.handle(Event.warn(String.format(

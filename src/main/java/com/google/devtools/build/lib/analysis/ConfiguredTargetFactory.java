@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -29,14 +30,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.FilesetOutputConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -66,12 +63,11 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -167,21 +163,13 @@ public final class ConfiguredTargetFactory {
    * Returns the output artifact for the given file, or null if Skyframe deps are missing.
    */
   private Artifact getOutputArtifact(AnalysisEnvironment analysisEnvironment, OutputFile outputFile,
-      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory)
-      throws InterruptedException {
+      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory) {
     Rule rule = outputFile.getAssociatedRule();
     ArtifactRoot root =
         rule.hasBinaryOutput()
             ? configuration.getBinDirectory(rule.getRepository())
             : configuration.getGenfilesDirectory(rule.getRepository());
-    ArtifactOwner owner =
-        ConfiguredTargetKey.of(
-            rule.getLabel(),
-            getArtifactOwnerConfiguration(
-                analysisEnvironment.getSkyframeEnv(), configuration, defaultBuildOptions));
-    if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
-      return null;
-    }
+    ArtifactOwner owner = ConfiguredTargetKey.of(rule.getLabel(), configuration);
     PathFragment rootRelativePath =
         outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
             outputFile.getLabel().getName());
@@ -191,39 +179,6 @@ public final class ConfiguredTargetFactory {
     // The associated rule should have created the artifact.
     Preconditions.checkNotNull(result, "no artifact for %s", rootRelativePath);
     return result;
-  }
-
-  /**
-   * Returns the configuration's artifact owner (which may be null). Also returns null if the owning
-   * configuration isn't yet available from Skyframe.
-   */
-  public static BuildConfiguration getArtifactOwnerConfiguration(
-      SkyFunction.Environment env, BuildConfiguration fromConfig, BuildOptions defaultBuildOptions)
-      throws InterruptedException {
-    if (fromConfig == null) {
-      return null;
-    }
-    PatchTransition ownerTransition = fromConfig.getArtifactOwnerTransition();
-    if (ownerTransition == null) {
-      return fromConfig;
-    }
-    try {
-      BuildConfigurationValue ownerConfig =
-          (BuildConfigurationValue)
-              env.getValueOrThrow(
-                  BuildConfigurationValue.key(
-                      fromConfig.fragmentClasses(),
-                      BuildOptions.diffForReconstruction(
-                          defaultBuildOptions, ownerTransition.apply(fromConfig.getOptions()))),
-                  InvalidConfigurationException.class);
-      return ownerConfig == null ? null : ownerConfig.getConfiguration();
-    } catch (InvalidConfigurationException e) {
-      // We don't expect to have to handle an invalid configuration because in practice the owning
-      // configuration should already exist. For example, the main user of this feature, the LIPO
-      // context collector, expects the owning configuration to be the top-level target config.
-      throw new IllegalStateException(
-          "this method should only return a pre-existing valid configuration");
-    }
   }
 
   /**
@@ -275,24 +230,14 @@ public final class ConfiguredTargetFactory {
       }
       TransitiveInfoCollection rule = targetContext.findDirectPrerequisite(
           outputFile.getGeneratingRule().getLabel(), config);
-      if (isFileset) {
-        return new FilesetOutputConfiguredTarget(
-            targetContext,
-            outputFile,
-            rule,
-            artifact,
-            rule.getProvider(FilesetProvider.class).getTraversals());
-      } else {
         return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
-      }
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
-      Artifact artifact =
+      SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(),
               inputFile.getPackage().getSourceRoot(),
               ConfiguredTargetKey.of(target.getLabel(), config));
-
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
@@ -319,11 +264,6 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
 
-    // Load the requested toolchains into the ToolchainContext.
-    if (toolchainContext != null) {
-      toolchainContext.resolveToolchains(prerequisiteMap);
-    }
-
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
@@ -332,7 +272,6 @@ public final class ConfiguredTargetFactory {
                 ImmutableList.of(),
                 configuration,
                 hostConfiguration,
-                ruleClassProvider.getLipoDataTransition(),
                 ruleClassProvider.getPrerequisiteValidator(),
                 rule.getRuleClassObject().getConfigurationFragmentPolicy())
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
@@ -340,6 +279,7 @@ public final class ConfiguredTargetFactory {
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
+            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -434,21 +374,15 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
-      throws InterruptedException {
-
-    // Load the requested toolchains into the ToolchainContext.
-    if (toolchainContext != null) {
-      toolchainContext.resolveToolchains(prerequisiteMap);
-    }
+      throws AspectFunctionException, InterruptedException {
 
     RuleContext.Builder builder =
         new RuleContext.Builder(
             env,
-            associatedTarget.getTarget().getAssociatedRule(),
+            associatedTarget.getTarget(),
             aspectPath,
             aspectConfiguration,
             hostConfiguration,
-            ruleClassProvider.getLipoDataTransition(),
             ruleClassProvider.getPrerequisiteValidator(),
             aspect.getDefinition().getConfigurationFragmentPolicy());
 
@@ -464,13 +398,19 @@ public final class ConfiguredTargetFactory {
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
+            .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .build();
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    ConfiguredAspect configuredAspect =
-        aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
+    ConfiguredAspect configuredAspect;
+    try {
+      configuredAspect =
+          aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
+    } catch (ActionConflictException e) {
+      throw new AspectFunctionException(e);
+    }
     if (configuredAspect != null) {
       validateAdvertisedProviders(
           configuredAspect, aspect.getDefinition().getAdvertisedProviders(),

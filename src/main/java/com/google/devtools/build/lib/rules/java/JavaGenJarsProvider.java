@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
@@ -41,6 +42,36 @@ public final class JavaGenJarsProvider
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
 
+  static JavaGenJarsProvider create(
+      boolean usesAnnotationProcessing,
+      @Nullable Artifact genClassJar,
+      @Nullable Artifact genSourceJar,
+      JavaPluginInfoProvider plugins,
+      Iterable<JavaGenJarsProvider> transitiveJavaGenJars) {
+    NestedSetBuilder<Artifact> classJarsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> sourceJarsBuilder = NestedSetBuilder.stableOrder();
+
+    if (genClassJar != null) {
+      classJarsBuilder.add(genClassJar);
+    }
+    if (genSourceJar != null) {
+      sourceJarsBuilder.add(genSourceJar);
+    }
+    for (JavaGenJarsProvider dep : transitiveJavaGenJars) {
+      classJarsBuilder.addTransitive(dep.getTransitiveGenClassJars());
+      sourceJarsBuilder.addTransitive(dep.getTransitiveGenSourceJars());
+    }
+    return new JavaGenJarsProvider(
+        usesAnnotationProcessing,
+        genClassJar,
+        genSourceJar,
+        plugins.plugins().processorClasspath(),
+        ImmutableList.copyOf(plugins.plugins().processorClasses().toList()),
+        classJarsBuilder.build(),
+        sourceJarsBuilder.build());
+  }
+
+  // Package-private for @AutoCodec
   JavaGenJarsProvider(
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,

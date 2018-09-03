@@ -1,13 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
-# TODO(lberki): Remove this once java_toolchain_alias and java_runtime_alias are
-# in a Bazel release
-load("//tools/jdk:alias_rules.bzl", "java_host_runtime_alias")
 load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
-    "JDK8_JVM_OPTS",
-    "JDK9_JVM_OPTS",
+    "java_runtime_files",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -23,24 +19,9 @@ java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
 
-config_setting(
-    name = "jdk7",
-    values = {"define": "JAVA_VERSION=1.7"},
-)
-
-genrule(
-    name = "BUILD-jdk7",
-    srcs = [":BUILD"],
-    outs = ["BUILD.jdk7"],
-    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' -e 's/forcibly_disable_header_compilation = 0/forcibly_disable_header_compilation = 1/g' -e 's/:JavaBuilder_deploy/:VanillaJavaBuilder_deploy/' $< > $@",
-)
-
 filegroup(
     name = "BUILD-jdk",
-    srcs = select({
-        ":jdk7": [":BUILD-jdk7"],
-        "//conditions:default": [":BUILD"],
-    }),
+    srcs = [":BUILD"],
 )
 
 # This is necessary to get the *host* Java runtime. Depending on
@@ -49,32 +30,32 @@ filegroup(
 # *before* the transition.
 alias(
     name = "java_runtime_alias",
-    actual = "//tools/jdk:current_java_runtime",
+    actual = "@bazel_tools//tools/jdk:current_java_runtime",
 )
 
-alias(
+java_runtime_files(
     name = "jni_header",
-    actual = "@local_jdk//:jni_header",
+    srcs = ["include/jni.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-darwin",
-    actual = "@local_jdk//:jni_md_header-darwin",
+    srcs = ["include/darwin/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-linux",
-    actual = "@local_jdk//:jni_md_header-linux",
+    srcs = ["include/linux/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-windows",
-    actual = "@local_jdk//:jni_md_header-windows",
+    srcs = ["include/win32/jni_md.h"],
 )
 
-alias(
+java_runtime_files(
     name = "jni_md_header-freebsd",
-    actual = "@local_jdk//:jni_md_header-freebsd",
+    srcs = ["include/freebsd/jni_md.h"],
 )
 
 alias(
@@ -112,8 +93,20 @@ filegroup(
 filegroup(
     name = "singlejar",
     srcs = select({
-        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
+        "//src/conditions:remote": [":singlejar_remote"],
         "//conditions:default": glob(["singlejar/*"]),
+    }),
+)
+
+# This is a separate filegroup from :singlejar above since Bazel doesn't
+# support nested selects (we need a logical "remote AND windows" condition).
+filegroup(
+    name = "singlejar_remote",
+    srcs = select({
+        # TODO(jsharpe): Switch to //src/tools/singlejar:singlejar once
+        # native singlejar works on Windows.
+        "//src/conditions:windows": glob(["singlejar/*"]),
+        "//conditions:default": ["//src/tools/singlejar:singlejar"],
     }),
 )
 
@@ -188,68 +181,65 @@ alias(
     actual = "@embedded_jdk//:jdk",
 )
 
-genrule(
-    name = "gen_platformclasspath",
-    srcs = ["DumpPlatformClassPath.java"],
-    outs = ["platformclasspath-impl.jar"],
-    cmd = """
+RELEASES = (8, 9, 10)
+
+# Create jars containing compile-time bootclasspaths for each Java version
+# in RELEASES, using javac to read those APIs via the infrastructure added
+# for the --release flag (see http://openjdk.java.net/jeps/247).
+[
+    genrule(
+        name = "platformclasspath%d" % release,
+        srcs = ["DumpPlatformClassPath.java"],
+        outs = ["platformclasspath%d.jar" % release],
+        cmd = """
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
-$(JAVABASE)/bin/javac $< -d $$TMPDIR
-$(JAVA) -cp $$TMPDIR DumpPlatformClassPath 8 $@
+$(JAVABASE)/bin/javac -source 8 -target 8 \
+    -cp $(JAVABASE)/lib/tools.jar \
+    -d $$TMPDIR $<
+$(JAVA) -XX:+IgnoreUnrecognizedVMOptions \
+    --add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED \
+    -cp $$TMPDIR DumpPlatformClassPath %d $@
 rm -rf $$TMPDIR
-""",
-    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-)
-
-# run ijar separately so we can skip it for bootstrapping
-genrule(
-    name = "platformclasspath",
-    srcs = ["platformclasspath-impl.jar"],
-    outs = ["platformclasspath.jar"],
-    cmd = "$(location @bazel_tools//tools/jdk:ijar) $< $@",
-    tools = ["@bazel_tools//tools/jdk:ijar"],
-)
+""" % release,
+        toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+        tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    )
+    for release in RELEASES
+]
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
-    jvm_opts = JDK8_JVM_OPTS,
+    bootclasspath = [":platformclasspath8"],
+    forcibly_disable_header_compilation = True,
+    javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
     source_version = "8",
     target_version = "8",
 )
 
-default_java_toolchain(
-    name = "toolchain_hostjdk9",
-    bootclasspath = [":bootclasspath"],
-    extclasspath = [":extclasspath"],
-    jvm_opts = JDK9_JVM_OPTS,
-    source_version = "8",
-    target_version = "8",
-)
-
-default_java_toolchain(
-    name = "toolchain_java9",
-    jvm_opts = JDK9_JVM_OPTS,
-    misc = DEFAULT_JAVACOPTS + [
-        "--release",
-        "9",
-    ],
-)
-
+# Default to the Java 8 language level.
+# TODO(cushon): consider if/when we should increment this?
 alias(
     name = "toolchain",
-    actual = "//external:java_toolchain",
+    actual = "toolchain_java8",
 )
+
+[
+    default_java_toolchain(
+        name = "toolchain_java%d" % release,
+        bootclasspath = [":platformclasspath%d" % release],
+        source_version = "%s" % release,
+        target_version = "%s" % release,
+    )
+    for release in RELEASES
+]
 
 filegroup(
     name = "srcs",
     srcs = [
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "DumpPlatformClassPath.java",
-        "alias_rules.bzl",
         "default_java_toolchain.bzl",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
@@ -290,4 +280,19 @@ alias(
 java_import(
     name = "JacocoCoverage",
     jars = [":JacocoCoverage_deploy.jar"],
+)
+
+test_suite(
+    name = "windows_tests",
+    tags = [
+        "-no_windows",
+        "-slow",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+test_suite(
+    name = "all_windows_tests",
+    tests = [":windows_tests"],
+    visibility = ["//tools:__pkg__"],
 )

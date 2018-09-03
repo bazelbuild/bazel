@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import static junit.framework.TestCase.fail;
 
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -34,7 +35,7 @@ public class RealSandboxfsProcessTest extends BaseSandboxfsProcessTest {
       fail("Test requires TEST_TMPDIR to be defined in the environment");
     }
 
-    FileSystem fileSystem = new JavaIoFileSystem();
+    FileSystem fileSystem = new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     Path tmpDir = fileSystem.getPath(rawTmpDir);
     if (!tmpDir.isDirectory()) {
       fail("TEST_TMPDIR must point to a directory");
@@ -49,11 +50,12 @@ public class RealSandboxfsProcessTest extends BaseSandboxfsProcessTest {
       fail("Test requires SANDBOXFS to be defined in the environment");
     }
 
-    FileSystem fileSystem = new JavaIoFileSystem();
+    FileSystem fileSystem = new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     Path sandboxfs = fileSystem.getPath(rawSandboxfs);
     if (!sandboxfs.isExecutable()) {
       fail("SANDBOXFS must point to an executable binary");
     }
-    return RealSandboxfsProcess.mount(sandboxfs, mountPoint, fileSystem.getPath("/dev/stderr"));
+    return RealSandboxfsProcess.mount(
+        sandboxfs.asFragment(), mountPoint, fileSystem.getPath("/dev/stderr"));
   }
 }

@@ -28,8 +28,19 @@ public class BazelSkyframeExecutorConstants {
   public static final ImmutableSet<PathFragment> HARDCODED_BLACKLISTED_PACKAGE_PREFIXES =
       ImmutableSet.of();
 
+  /**
+   * The file .bazelignore can be used to specify directories to be ignored by bazel
+   *
+   * <p>This is intended for directories containing non-bazel sources (either generated,
+   * or versioned sources built by other tools) that happen to contain a file called BUILD.</p>
+   *
+   * <p>For the time being, this ignore functionality is limited by the fact that it is
+   * applied only after pattern expansion. So if a pattern expansion fails (e.g., due to
+   * symlink-cycles) and therefore fails the build, this ignore functionality currently
+   * has no chance to kick in.</p>
+   */
   public static final PathFragment ADDITIONAL_BLACKLISTED_PACKAGE_PREFIXES_FILE =
-      PathFragment.EMPTY_FRAGMENT;
+      PathFragment.create(".bazelignore");
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs.inmemoryfs;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -47,7 +48,11 @@ public abstract class FileInfo extends InMemoryContentInfo {
     return false;
   }
 
-  protected abstract byte[] readContent() throws IOException;
+  public abstract OutputStream getOutputStream(boolean append) throws IOException;
 
-  protected abstract OutputStream getOutputStream(boolean append) throws IOException;
+  public abstract InputStream getInputStream() throws IOException;
+
+  public abstract byte[] getxattr(String name) throws IOException;
+
+  public abstract byte[] getFastDigest() throws IOException;
 }

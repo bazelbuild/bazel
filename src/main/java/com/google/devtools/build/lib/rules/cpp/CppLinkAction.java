@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -111,7 +112,7 @@ public final class CppLinkAction extends AbstractAction
   private final Artifact linkOutput;
   private final LibraryToLink interfaceOutputLibrary;
   private final ImmutableMap<String, String> toolchainEnv;
-  private final ImmutableSet<String> executionRequirements;
+  private final ImmutableMap<String, String> executionRequirements;
   private final ImmutableList<Artifact> linkstampObjects;
 
   private final LinkCommandLine linkCommandLine;
@@ -167,16 +168,12 @@ public final class CppLinkAction extends AbstractAction
       LinkCommandLine linkCommandLine,
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
-      ImmutableSet<String> executionRequirements,
+      ImmutableMap<String, String> executionRequirements,
       PathFragment ldExecutable,
       String hostSystemName,
       String targetCpu) {
     super(owner, inputs, outputs, env);
-    if (mnemonic == null) {
-      this.mnemonic = (isLtoIndexing) ? "CppLTOIndexing" : "CppLink";
-    } else {
-      this.mnemonic = mnemonic;
-    }
+    this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
     this.mandatoryInputs = inputs;
     this.outputLibrary = outputLibrary;
     this.linkOutput = linkOutput;
@@ -220,7 +217,7 @@ public final class CppLinkAction extends AbstractAction
 
     result.putAll(toolchainEnv);
 
-    if (!executionRequirements.contains(ExecutionRequirements.REQUIRES_DARWIN)) {
+    if (!executionRequirements.containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {
       // This prevents gcc from writing the unpredictable (and often irrelevant)
       // value of getcwd() into the debug info.
       result.put("PWD", "/proc/self/cwd");
@@ -265,11 +262,7 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
-    for (String requirement : executionRequirements) {
-      result.put(requirement, "");
-    }
-    return result.build();
+    return executionRequirements;
   }
 
   @Override
@@ -318,7 +311,7 @@ public final class CppLinkAction extends AbstractAction
                 estimateResourceConsumptionLocal());
         return ActionResult.create(
             actionExecutionContext
-                .getSpawnActionContext(spawn)
+                .getContext(SpawnActionContext.class)
                 .exec(spawn, actionExecutionContext));
       } catch (ExecException e) {
         throw e.toActionExecutionException(
@@ -483,6 +476,13 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
+    return mnemonic;
+  }
+
+  static String getMnemonic(String mnemonic, boolean isLtoIndexing) {
+    if (mnemonic == null) {
+      return isLtoIndexing ? "CppLTOIndexing" : "CppLink";
+    }
     return mnemonic;
   }
 
