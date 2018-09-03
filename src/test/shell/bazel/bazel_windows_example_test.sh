@@ -196,6 +196,31 @@ function test_native_python() {
   assert_test_fails //examples/py_native:fail
 }
 
+function test_native_python_with_runfiles() {
+  BUILD_FLAGS="--experimental_enable_runfiles --build_python_zip=0"
+  bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \
+    || fail "Failed to build //examples/py_native:bin with runfiles support"
+  (
+    # Clear runfiles related envs
+    unset RUNFILES_MANIFEST_FILE
+    unset RUNFILES_MANIFEST_ONLY
+    unset RUNFILES_DIR
+    # Run the python package directly
+    ./bazel-bin/examples/py_native/bin >& $TEST_log \
+      || fail "//examples/py_native:bin execution failed"
+    expect_log "Fib(5) == 8"
+    # Use python <python file> to run the python package
+    python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+      || fail "//examples/py_native:bin execution failed"
+    expect_log "Fib(5) == 8"
+  )
+  bazel test --test_output=errors $BUILD_FLAGS //examples/py_native:test >> $TEST_log 2>&1 \
+    || fail "Test //examples/py_native:test failed while expecting success"
+  bazel test --test_output=errors $BUILD_FLAGS //examples/py_native:fail >> $TEST_log 2>&1 \
+    && fail "Test //examples/py_native:fail succeed while expecting failure" \
+    || true
+}
+
 function test_native_python_with_python3() {
   PYTHON3_PATH=${PYTHON3_PATH:-/c/Program Files/Anaconda3}
   if [ ! -x "${PYTHON3_PATH}/python.exe" ]; then

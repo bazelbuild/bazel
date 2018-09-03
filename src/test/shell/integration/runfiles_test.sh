@@ -179,14 +179,15 @@ EOF
 
   # that accounts for everything
   cd ../..
-  # For shell binary, we build both `bin` and `bin.exe`, but on Linux we only build `bin`
-  # That's why we have one more symlink on Windows.
+  # For shell binary and python binary, we build both `bin` and `bin.exe`,
+  # but on Linux we only build `bin`.
+  # That's why we have two more symlinks on Windows.
   if "$is_windows"; then
-    assert_equals 10 $(find ${WORKSPACE_NAME} -type l | wc -l)
+    assert_equals 11 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals 23 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals 14 $(wc -l < MANIFEST)
+    assert_equals 24 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals 15 $(wc -l < MANIFEST)
   else
     assert_equals  9 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
