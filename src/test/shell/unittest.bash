@@ -576,25 +576,6 @@ function assert_contains() {
     return 1
 }
 
-# Usage: assert_contains_n <regexp> <file> <nr_occurrences> [error-message]
-# Asserts that the given file contains the given regexp a given number of
-# times. Prints the contents of file and the specified (optional) error
-# message otherwise, and returns non-zero.
-function assert_contains_n() {
-    local pattern="$1"
-    local file="$2"
-    local nr_occurrences="$3"
-    local message=${4:-Expected regexp "$pattern" not found in "$file"}
-
-    # -m stops after the given number of findings
-    [[ $( grep -m $nr_occurrences "$pattern" "$file" | wc -l ) \
-        == $nr_occurrences ]] && return 0
-
-    cat "$file" >&2
-    fail "$message"
-    return 1
-}
-
 # Usage: assert_not_contains <regexp> <file> [error-message]
 # Asserts that file does not match regexp.  Prints the contents of
 # file and the specified (optional) error message otherwise, and
