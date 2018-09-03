@@ -320,36 +320,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
             + "Values: 'none', 'embedded_markers', 'embedded'."
   )
   public AppleBitcodeMode appleBitcodeMode;
-
-  @Option(
-    name = "apple_crosstool_transition",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If true, the apple crosstool is used for all apple rules."
-  )
-  public boolean enableAppleCrosstoolTransition;
-
-  @Option(
-      name = "apple_crosstool_in_output_directory_name",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags =  {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, all Apple configurations have a different output directory than non-Apple "
-          + "ones")
-  public boolean appleCrosstoolInOutputDirectoryName;
-
-  @Option(
-    name = "target_uses_apple_crosstool",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "If true, this target uses the apple crosstool.  Do not set this flag manually."
-  )
-  public boolean targetUsesAppleCrosstool;
-
+  
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
     switch (applePlatformType) {
