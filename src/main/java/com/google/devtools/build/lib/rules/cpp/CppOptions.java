@@ -756,10 +756,25 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES},
-      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Do not use this flag. Use --incompatible_disable_legacy_cpp_toolchain_skylark_api "
+              + "instead.")
   public boolean enableLegacyToolchainSkylarkApi;
+
+  @Option(
+      name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+  public boolean disableLegacyToolchainSkylarkApi;
 
   @Option(
       name = "experimental_disable_legacy_cc_linking_api",
