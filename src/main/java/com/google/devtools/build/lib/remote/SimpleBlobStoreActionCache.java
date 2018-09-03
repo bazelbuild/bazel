@@ -46,12 +46,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A RemoteActionCache implementation that uses a concurrent map as a distributed storage for files
- * and action output.
+ * A RemoteActionCache implementation that uses a simple blob store for files and action output.
  *
- * <p>The thread safety is guaranteed by the underlying map.
+ * <p>The thread safety is guaranteed by the underlying simple blob store.
  *
  * <p>Note that this class is used from src/tools/remote.
  */
@@ -61,10 +61,13 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   private final SimpleBlobStore blobStore;
 
+  private final ConcurrentHashMap<String, Boolean> storedBlobs;
+
   public SimpleBlobStoreActionCache(
       RemoteOptions options, SimpleBlobStore blobStore, Retrier retrier, DigestUtil digestUtil) {
     super(options, digestUtil, retrier);
     this.blobStore = blobStore;
+    this.storedBlobs = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -77,7 +80,6 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
     for (Directory directory : repository.treeToDirectories(root)) {
       uploadBlob(directory.toByteArray());
     }
-    // TODO(ulfjack): Only upload files that aren't in the CAS yet?
     for (TreeNode leaf : repository.leaves(root)) {
       uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
     }
@@ -193,7 +195,17 @@ public final class SimpleBlobStoreActionCache extends AbstractRemoteActionCache 
 
   public Digest uploadStream(Digest digest, InputStream in)
       throws IOException, InterruptedException {
-    blobStore.put(digest.getHash(), digest.getSizeBytes(), in);
+    final String hash = digest.getHash();
+
+    if (storedBlobs.putIfAbsent(hash, true) == null) {
+      try {
+        blobStore.put(hash, digest.getSizeBytes(), in);
+      } catch (Exception e) {
+        storedBlobs.remove(hash);
+        throw e;
+      }
+    }
+
     return digest;
   }
 
