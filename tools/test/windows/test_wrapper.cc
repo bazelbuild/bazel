@@ -50,18 +50,31 @@ void LogErrorWithValue(const int line, const char* msg, DWORD error_code) {
           line, error_code, error_code, msg);
 }
 
+void LogErrorWithArgAndValue(const int line, const char* msg,
+                             const char* arg, DWORD error_code) {
+  fprintf(stderr,
+          "ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %s: %s\n",
+          line, error_code, error_code, arg, msg);
+}
+
 bool GetEnv(const char* name, std::string* result) {
-  char value[MAX_PATH];
-  DWORD size = GetEnvironmentVariableA(name, value, MAX_PATH);
-  if (size < MAX_PATH) {
+  static constexpr size_t kSmallBuf = MAX_PATH;
+  char value[kSmallBuf];
+  DWORD size = GetEnvironmentVariableA(name, value, kSmallBuf);
+  DWORD err = GetLastError();
+  if (size == 0 && err == ERROR_ENVVAR_NOT_FOUND) {
+    result->clear();
+    return true;
+  } else if (0 < size && size < kSmallBuf) {
     *result = value;
     return true;
-  } else if (size >= MAX_PATH) {
+  } else if (size >= kSmallBuf) {
     std::unique_ptr<char[]> value_big(new char[size]);
     GetEnvironmentVariableA(name, value_big.get(), size);
     *result = value_big.get();
     return true;
   } else {
+    LogErrorWithArgAndValue(__LINE__, "Failed to read envvar", name, err);
     return false;
   }
 }
@@ -175,7 +188,6 @@ int main(int argc, char** argv) {
   } else {
     std::string test_target;
     if (!GetEnv("TEST_TARGET", &test_target)) {
-      LogError(__LINE__, "Failed to read %TEST_TARGET%");
       return 1;
     }
     printf("Executing tests from %s\n", test_target.c_str());
