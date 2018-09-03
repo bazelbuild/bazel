@@ -45,6 +45,13 @@ cc_binary(
         "//conditions:default": ["empty_test_wrapper.cc"],
     }),
     visibility = ["//visibility:private"],
+    deps = select({
+        "@bazel_tools//src/conditions:windows": [
+            "//src/main/cpp/util:filesystem",
+            "@bazel_tools//tools/cpp/runfiles",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 filegroup(

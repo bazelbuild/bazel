@@ -220,7 +220,23 @@ workspace(name = 'bazel_tools')
 EOF
   link_dir ${PWD}/src ${BAZEL_TOOLS_REPO}/src
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
-  link_dir ${PWD}/tools ${BAZEL_TOOLS_REPO}/tools
+
+  # Create @bazel_tools//tools/cpp/runfiles
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
+  link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
+      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.h"
+  # Transform //tools/cpp/runfiles:runfiles_src.cc to
+  # @bazel_tools//tools/cpp/runfiles:runfiles.cc
+  # Keep this transformation logic in sync with the
+  # //tools/cpp/runfiles:srcs_for_embedded_tools genrule.
+  sed 's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' \
+      "${PWD}/tools/cpp/runfiles/runfiles_src.cc" > \
+      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.cc"
+  link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
+  # Create the rest of @bazel_tools//tools/...
+  link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
+  link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
