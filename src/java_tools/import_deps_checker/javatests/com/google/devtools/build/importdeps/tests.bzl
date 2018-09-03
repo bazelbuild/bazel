@@ -54,6 +54,7 @@ def create_golden_test(
         golden_stderr_file,
         import_deps_checker,
         rt_jar,
+        ":DumpProto",
     ] + [testdata_pkg + ":" + x for x in all_dep_jars]
     if (replacing_jar):
         data.append(testdata_pkg + ":" + replacing_jar)
@@ -63,6 +64,7 @@ def create_golden_test(
         "$(location %s)" % golden_stderr_file,
         # The exit code 199 means the checker emits errors on dependency issues.
         "199" if expect_errors else "0",
+        "$(location :DumpProto)",
         "$(location %s)" % import_deps_checker,
         "--checking_mode=%s" % checking_mode,
     ]

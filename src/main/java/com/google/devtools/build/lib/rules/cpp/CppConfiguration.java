@@ -1110,7 +1110,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (!cppOptions.enableMakeVariables) {
+    if (cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables) {
       return;
     }
 
@@ -1192,7 +1192,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   private void checkForToolchainSkylarkApiAvailability() throws EvalException {
-    if (!cppOptions.enableLegacyToolchainSkylarkApi) {
+    if (cppOptions.disableLegacyToolchainSkylarkApi
+        || !cppOptions.enableLegacyToolchainSkylarkApi) {
       throw new EvalException(null, "Information about the C++ toolchain API is not accessible "
           + "anymore through ctx.fragments.cpp . Use CcToolchainInfo instead.");
     }

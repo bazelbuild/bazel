@@ -187,8 +187,7 @@ Let's visualize our sample project's dependencies. First, generate a text
 representation of the dependency graph (run the command at the workspace root):
 
 ```
-bazel query  --nohost_deps --noimplicit_deps 'deps(//:ProjectRunner)' \
-  --output graph
+bazel query  --nohost_deps --noimplicit_deps "deps(//:ProjectRunner)" --output graph
 ```
 
 The above command tells Bazel to look for all dependencies for the target

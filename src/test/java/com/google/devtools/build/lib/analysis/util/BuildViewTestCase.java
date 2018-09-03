@@ -541,8 +541,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /*isSystemEnv=*/ true, /*extendedSanityChecks*/
         false,
         reporter,
-        /* env= */ null,
-        /*sourceDependencyListener=*/ unused -> {});
+        /* env= */ null);
   }
 
   /**

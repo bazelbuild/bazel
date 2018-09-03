@@ -240,8 +240,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,
-            null,
-            /*sourceDependencyListener=*/ unused -> {}),
+            null),
         new BuildConfigurationCollection(
             ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
   }

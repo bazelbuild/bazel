@@ -1161,16 +1161,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "load(':foo.bzl', 'foo_rule')",
         "foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Provider 'files' should be specified in DefaultInfo "
-                  + "if it's provided explicitly.");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Provider 'files' should be specified in DefaultInfo "
+                + "if it's provided explicitly.");
   }
 
   @Test
@@ -1290,13 +1287,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "load(':foo.bzl', 'foo_rule')",
         "foo_rule(name = 'my_rule')"
     );
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected).hasMessageThat()
-          .contains("unexpected keyword 'foo' in call to DefaultInfo");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("unexpected keyword 'foo' in call to DefaultInfo");
   }
 
   @Test
@@ -1592,15 +1587,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "foo_rule(name = 'dep_rule')",
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("<target //test:dep_rule> (rule 'foo_rule') doesn't contain "
-              + "declared provider 'unused_provider'");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "<target //test:dep_rule> (rule 'foo_rule') doesn't contain "
+                + "declared provider 'unused_provider'");
   }
 
   @Test
@@ -1638,15 +1631,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "foo_rule(name = 'dep_rule')",
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Type Target only supports indexing by object constructors, got string instead");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Type Target only supports indexing by object constructors, got string instead");
   }
 
   @Test
@@ -1669,15 +1658,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "load(':bar.bzl', 'bar_rule')",
         "bar_rule(name = 'my_rule', srcs = ['input.txt'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("<input file target //test:input.txt> doesn't contain "
-              + "declared provider 'unused_provider'");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "<input file target //test:input.txt> doesn't contain "
+                + "declared provider 'unused_provider'");
   }
 
   @Test
@@ -1752,15 +1739,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inner_rule(name = 'dep_rule')",
         "outer_rule(name = 'my_rule', deps = [':dep_rule'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Type Target only supports querying by object constructors, got string instead");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Type Target only supports querying by object constructors, got string instead");
   }
 
   @Test
@@ -2626,12 +2609,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  args = ctx.actions.args()",
         "  return struct(dep_arg = args)",
         "dep_rule = rule(implementation = _dep_impl)");
-    try {
-      getConfiguredTarget("//test:main");
-      fail("Should have been unable to mutate frozen args object");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains("cannot modify frozen value");
-    }
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
+    assertThat(e).hasMessageThat().contains("cannot modify frozen value");
   }
 
   @Test

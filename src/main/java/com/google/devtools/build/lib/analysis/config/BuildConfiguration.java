@@ -835,13 +835,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help =
-            "Allow using late bound option defaults. The purpose of this option is to help with "
-                + "removal of late bound option defaults.")
+            "Do not use this flag. Use --incompatible_disable_late_bound_option_defaults instead.")
     public boolean useLateBoundOptionDefaults;
 
     @Option(
-        name = "incompatible_enable_late_bound_option_defaults",
-        defaultValue = "true",
+        name = "incompatible_disable_late_bound_option_defaults",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         metadataTags = {
@@ -849,12 +848,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
           OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
         },
         help =
-            "When false, Bazel will not allow late bound values read from the CROSSTOOL file "
+            "When true, Bazel will not allow late bound values read from the CROSSTOOL file "
                 + "to be used in config_settings. The CROSSTOOL field used in this manner is "
                 + "'compiler'. Instead of config_setting(values = {'compiler': 'x'}), "
                 + "config_setting(flag_values = {'@bazel_tools/tools/cpp:compiler': 'x'}) should "
                 + "be used.")
-    public boolean incompatibleEnableLateBoundOptionDefaults;
+    public boolean incompatibleDisableLateBoundOptionDefaults;
 
     /**
      * Converter for --experimental_dynamic_configs.
@@ -1279,7 +1278,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
             buildOptions,
             fragments.values(),
             (options.useLateBoundOptionDefaults
-                && options.incompatibleEnableLateBoundOptionDefaults));
+                && !options.incompatibleDisableLateBoundOptionDefaults));
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {

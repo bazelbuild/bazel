@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
  */
 @AutoCodec
 public final class InputFileConfiguredTarget extends FileConfiguredTarget implements SkylarkValue {
+  private final SourceArtifact artifact;
   private final NestedSet<TargetLicense> licenses;
 
   @Instantiator
@@ -45,14 +47,15 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
   InputFileConfiguredTarget(
       Label label,
       NestedSet<PackageGroupContents> visibility,
-      Artifact artifact,
+      SourceArtifact artifact,
       NestedSet<TargetLicense> licenses) {
     super(label, null, visibility, artifact);
+    this.artifact = artifact;
     this.licenses = licenses;
   }
 
   public InputFileConfiguredTarget(
-      TargetContext targetContext, InputFile inputFile, Artifact artifact) {
+      TargetContext targetContext, InputFile inputFile, SourceArtifact artifact) {
     this(inputFile.getLabel(), targetContext.getVisibility(), artifact, makeLicenses(inputFile));
     Preconditions.checkArgument(getConfigurationKey() == null, getLabel());
     Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
@@ -64,6 +67,11 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
         ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
         : NestedSetBuilder.create(
             Order.LINK_ORDER, new TargetLicense(inputFile.getLabel(), license));
+  }
+
+  @Override
+  public final Artifact getArtifact() {
+    return artifact;
   }
 
   @Override
@@ -89,5 +97,10 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget implem
   @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<input file target " + getLabel() + ">");
+  }
+
+  @Override
+  public SourceArtifact getSourceArtifact() {
+    return artifact;
   }
 }

@@ -103,14 +103,13 @@ public class Main {
     public List<Path> bootclasspath;
 
     @Option(
-      name = "output",
-      defaultValue = "null",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = PathConverter.class,
-      help = "Output path to save the result."
-    )
+        name = "output",
+        defaultValue = "null",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = PathConverter.class,
+        help = "Output path to save the result.")
     public Path output;
 
     @Option(
@@ -214,10 +213,10 @@ public class Main {
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(!options.bootclasspath.isEmpty(), "--bootclasspath_entry is required");
-    checkArgument(
-        options.jdepsOutput == null || !Files.isDirectory(options.jdepsOutput),
-        "Invalid value of --jdeps_output: '%s'",
-        options.jdepsOutput);
+    // TODO(cushon): make --jdeps_output mandatory
+    // checkArgument(
+    //     options.jdepsOutput != null, "Invalid value of --jdeps_output: '%s'",
+    //     options.jdepsOutput);
     if (!options.fullClasspath.containsAll(options.directClasspath)) {
       ArrayList<Path> missing = Lists.newArrayList(options.directClasspath);
       missing.removeAll(options.fullClasspath);

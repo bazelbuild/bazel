@@ -169,7 +169,6 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
-    --apple_crosstool_transition \
     --ios_multi_cpus=i386,x86_64 \
     --xcode_version=$XCODE_VERSION \
     || fail "should build apple_binary and obtain info via lipo"
@@ -244,7 +243,6 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
-      --apple_crosstool_transition \
       --watchos_cpus=armv7k \
       --xcode_version=$XCODE_VERSION \
       || fail "should build watch binary"
@@ -253,7 +251,6 @@ EOF
       || fail "expected output binary to be for armv7k architecture"
 
   bazel build --verbose_failures //package:lipo_out \
-      --apple_crosstool_transition \
       --watchos_cpus=i386 \
       --xcode_version=$XCODE_VERSION \
       || fail "should build watch binary"
@@ -378,7 +375,6 @@ int main() {
 EOF
 
   bazel build --verbose_failures //package:main_binary \
-      --apple_crosstool_transition \
       --ios_multi_cpus=i386,x86_64 \
       --xcode_version=$XCODE_VERSION \
       --apple_generate_dsym=true \
@@ -407,7 +403,6 @@ int main() {
 EOF
 
   bazel build --verbose_failures //package:main_binary \
-      --apple_crosstool_transition \
       --ios_multi_cpus=i386,x86_64 \
       --xcode_version=$XCODE_VERSION \
       --apple_generate_dsym=true \
@@ -433,7 +428,6 @@ static int dummy __attribute__((unused,used)) = 0;
 EOF
 
   bazel build --verbose_failures //package:static_lib \
-      --apple_crosstool_transition \
       --ios_multi_cpus=i386,x86_64 \
       --ios_minimum_os=8.0 \
       --xcode_version=$XCODE_VERSION \

@@ -75,7 +75,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> macosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
-  private final boolean enableAppleCrosstool;
   private final AppleCommandLineOptions options;
   @Nullable private final Label defaultProvisioningProfileLabel;
   private final boolean mandatoryMinimumVersion;
@@ -103,7 +102,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
     this.bitcodeMode = options.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
-    this.enableAppleCrosstool = options.enableAppleCrosstoolTransition;
     this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     this.objcProviderFromLinked = options.objcProviderFromLinked;
@@ -383,21 +381,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
     return xcodeConfigLabel;
   }
 
-  private boolean shouldDistinguishOutputDirectory() {
-    if (options.appleCrosstoolInOutputDirectoryName) {
-      return configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN;
-    } else {
-      if (configurationDistinguisher == ConfigurationDistinguisher.UNKNOWN) {
-        return false;
-      } else if (configurationDistinguisher == ConfigurationDistinguisher.APPLE_CROSSTOOL
-          && enableAppleCrosstool) {
-        return false;
-      } else {
-        return true;
-      }
-    }
-  }
-
   @Nullable
   @Override
   public String getOutputDirectoryName() {
@@ -410,7 +393,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
         components.add("min" + options.getMinimumOsVersion());
       }
     }
-    if (shouldDistinguishOutputDirectory()) {
+    if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
       components.add(configurationDistinguisher.getFileSystemName());
     }
 

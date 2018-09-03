@@ -722,17 +722,31 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean strictSystemIncludes;
 
- @Option(
+  @Option(
       name = "experimental_enable_cc_configuration_make_variables",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If enabled, the C++ configuration fragment supplies Make variables. This option "
-          + "is used in the migration to remove them in favor of requiring an explicit "
-          + "dependency on the C++ toolchain for rules that use them."
-  )
+      help =
+          "Do not use this flag. Use the --incompatible_disable_cc_configuration_make_variables "
+              + "instead.")
   public boolean enableMakeVariables;
+
+  @Option(
+      name = "incompatible_disable_cc_configuration_make_variables",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, the C++ configuration fragment supplies Make variables. This option "
+              + "is used in the migration to remove them in favor of requiring an explicit "
+              + "dependency on the C++ toolchain for rules that use them.")
+  public boolean disableMakeVariables;
 
   @Option(
     name = "experimental_use_llvm_covmap",
@@ -756,10 +770,25 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES},
-      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Do not use this flag. Use --incompatible_disable_legacy_cpp_toolchain_skylark_api "
+              + "instead.")
   public boolean enableLegacyToolchainSkylarkApi;
+
+  @Option(
+      name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+  public boolean disableLegacyToolchainSkylarkApi;
 
   @Option(
       name = "experimental_disable_legacy_cc_linking_api",
@@ -883,6 +912,7 @@ public class CppOptions extends FragmentOptions {
     }
 
     host.enableMakeVariables = enableMakeVariables;
+    host.disableMakeVariables = disableMakeVariables;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.

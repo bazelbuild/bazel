@@ -461,7 +461,7 @@ public class ObjcProtoLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationAction() throws Exception {
-    useConfiguration("--cpu=ios_i386", "--apple_crosstool_in_output_directory_name");
+    useConfiguration("--cpu=ios_i386");
     ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
 
     // Because protos are linked/compiled within the apple_binary context, we need to traverse the

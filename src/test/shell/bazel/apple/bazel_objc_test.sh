@@ -49,7 +49,7 @@ function test_build_app() {
   setup_objc_test_support
   make_lib
 
-  bazel build --verbose_failures --apple_crosstool_in_output_directory_name \
+  bazel build --verbose_failures \
       --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:lib >$TEST_log 2>&1 || fail "should pass"
   ls bazel-out/apl-ios_x86_64-fastbuild/bin/ios/liblib.a \
@@ -102,7 +102,7 @@ int aFunction() {
 }
 EOF
 
-  bazel build --verbose_failures --apple_crosstool_in_output_directory_name \
+  bazel build --verbose_failures \
       --ios_sdk_version=$IOS_SDK_VERSION //objclib:objclib >"$TEST_log" 2>&1 \
       || fail "Should build objc_library"
 
