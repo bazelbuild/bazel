@@ -192,30 +192,34 @@ function assert_coverage_result() {
     # The expected result can be constructed manually by following the lcov
     # documentation and manually checking what lines of code are covered when
     # running the test.
-    declare -a expected_result_a_cc=("SF:coverage_srcs/a.cc" \
-    "FN:3,_Z1ab" \
-    "FNDA:1,_Z1ab" \
-    "FNF:1" \
-    "FNH:1" \
-    "DA:3,1" \
-    "DA:4,1" \
-    "DA:5,1" \
-    "DA:7,0" \
-    "LF:4" \
-    "LH:3" \
-    "end_of_record")
+    # The newlines are replaced with commas to facilitate comparing the
+    # expected values with the actual results.
+    local expected_result_a_cc="TN:,\
+SF:coverage_srcs/a.cc,\
+FN:3,_Z1ab,\
+FNDA:1,_Z1ab,\
+FNF:1,\
+FNH:1,\
+DA:3,1,\
+DA:4,1,\
+DA:5,1,\
+DA:7,0,\
+LF:4,\
+LH:3,\
+end_of_record"
 
-    declare -a expected_result_t_cc=("SF:coverage_srcs/t.cc" \
-    "FN:4,main" \
-    "FNDA:1,main" \
-    "FNF:1" \
-    "FNH:1" \
-    "DA:4,1" \
-    "DA:5,1" \
-    "DA:6,1" \
-    "LF:3" \
-    "LH:3" \
-    "end_of_record")
+    local expected_result_t_cc="TN:,\
+SF:coverage_srcs/t.cc,\
+FN:4,main,\
+FNDA:1,main,\
+FNF:1,\
+FNH:1,\
+DA:4,1,\
+DA:5,1,\
+DA:6,1,\
+LF:3,\
+LH:3,\
+end_of_record"
 
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
@@ -223,13 +227,14 @@ function assert_coverage_result() {
     # coverage tools (e.g. lcov, gcov) do not guarantee any particular order.
     # The order can differ for example based on OS or version. The source files
     # order in the coverage report is not relevant.
-    assert_consecutive_lines_in_file "$COVERAGE_OUTPUT_FILE_VAR" "${expected_result_a_cc[@]}"
-    assert_consecutive_lines_in_file "$COVERAGE_OUTPUT_FILE_VAR" "${expected_result_t_cc[@]}"
-
-    # Assert that the coverage output file contains the line "TN:" twice
-    # (once for every source).
-    cat $COVERAGE_OUTPUT_FILE_VAR > "$TEST_log"
-    expect_log_n "TN:" 2
+    #
+    # tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" replaces each newline of the coverage
+    # output file with a comma and outputs the result to standard output.
+    # | grep -o "$var" matches the pipeline output with $var.
+    tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" | grep "$expected_result_a_cc" \
+        || fail "Wrong coverage results for coverage_srcs/a.cc"
+    tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" | grep "$expected_result_t_cc" \
+        || fail "Wrong coverage results for coverage_srcs/t.cc"
 }
 
 run_suite "Testing tools/test/collect_cc_coverage.sh"

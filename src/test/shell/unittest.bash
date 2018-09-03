@@ -597,37 +597,6 @@ function assert_not_contains() {
     return 1
 }
 
-# Usage: assert_consecutive_lines_in_file <file> <line_1> <line_2> ... <line_n>
-# Asserts that file contains the given lines in the given order and returns zero
-# or non-zero accordingly.
-# It assumes the first line is unique in the given file. If the first line is
-# not unique it may return a wrong answer.
-function assert_consecutive_lines_in_file() {
-    local file="${1}"; shift
-    declare -a lines=("$@")
-
-    declare -i lines_index=0
-    declare -i nr_of_lines="${#lines[@]}"
-    local started_comparing=false
-
-    while IFS= read -r line
-    do
-        if (( lines_index == nr_of_lines )); then
-            # All the given lines were found in the file, return success.
-            return 0
-        fi
-        if [ "$started_comparing" = true ]; then
-          assert_equals "$line" "${lines[$lines_index]}"
-          ((++lines_index))
-        elif [[ "$line" == "${lines[0]}" ]]; then
-            started_comparing=true
-            lines_index=1
-        fi
-    done < "$file"
-
-   return $( assert_equals $nr_of_lines $lines_index )
-}
-
 # Updates the global variables TESTS if
 # sharding is enabled, i.e. ($TEST_TOTAL_SHARDS > 0).
 function __update_shards() {
