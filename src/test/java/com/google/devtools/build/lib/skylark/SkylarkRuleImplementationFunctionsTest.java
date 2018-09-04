@@ -2859,6 +2859,15 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testPrintArgs() throws Exception {
+    Args args =
+        (Args)
+            evalRuleContextCode(
+                "args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])", "args");
+    assertThat(Printer.debugPrint(args)).isEqualTo("--foo --bar");
+  }
+
+  @Test
   public void testDirectoryInArgs() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_expand_directories");
     SkylarkList<?> result =

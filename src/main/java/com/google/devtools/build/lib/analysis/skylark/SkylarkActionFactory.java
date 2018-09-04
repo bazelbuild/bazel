@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -891,6 +892,15 @@ public class SkylarkActionFactory implements SkylarkActionFactoryApi {
     @Override
     public void repr(SkylarkPrinter printer) {
       printer.append("context.args() object");
+    }
+
+    @Override
+    public void debugPrint(SkylarkPrinter printer) {
+      try {
+        printer.append(Joiner.on(" ").join(commandLine.build().arguments()));
+      } catch (CommandLineExpansionException e) {
+        printer.append("Cannot expand command line: " + e.getMessage());
+      }
     }
 
     ImmutableSet<Artifact> getTreeArtifacts() {
