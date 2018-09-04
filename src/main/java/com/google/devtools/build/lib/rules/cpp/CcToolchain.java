@@ -388,10 +388,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    SkyKey fdoKey = FdoSupportValue.key(fdoZip);
+    SkyKey fdoKey = CcSkyframeSupportValue.key(fdoZip);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    FdoSupportValue fdoSupport = (FdoSupportValue) skyframeEnv.getValue(fdoKey);
+    CcSkyframeSupportValue fdoSupport = (CcSkyframeSupportValue) skyframeEnv.getValue(fdoKey);
     if (skyframeEnv.valuesMissing()) {
      return null;
     }
@@ -529,12 +529,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (fdoMode == FdoMode.LLVM_FDO) {
       profileArtifact =
           convertLLVMRawProfileToIndexed(
-              fdoSupport.getFdoProfile().asFragment(), toolchainInfo, ruleContext);
+              fdoSupport.getFilePath().asFragment(), toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
         return null;
       }
     } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
-      Path fdoProfile = fdoSupport.getFdoProfile();
+      Path fdoProfile = fdoSupport.getFilePath();
       profileArtifact = ruleContext.getUniqueDirectoryArtifact(
               "fdo",
               fdoProfile.getBaseName(),
@@ -597,9 +597,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .addProvider(new FdoProvider(
-                fdoSupport.getFdoProfile(), fdoMode, cppConfiguration.getFdoInstrument(),
-                profileArtifact, prefetchHintsArtifact))
+            .addProvider(
+                new FdoProvider(
+                    fdoSupport.getFilePath(),
+                    fdoMode,
+                    cppConfiguration.getFdoInstrument(),
+                    profileArtifact,
+                    prefetchHintsArtifact))
             .setFilesToBuild(crosstool)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
