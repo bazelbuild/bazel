@@ -421,6 +421,8 @@ public class BazelJavaSemantics implements JavaSemantics {
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Java")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair("symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("java_bin_path", javaExecutable)
             .addKeyValuePair(
                 "jar_bin_path",

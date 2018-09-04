@@ -122,6 +122,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Bash")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair("symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("bash_bin_path", shExecutable.getPathString())
             .build();
 
