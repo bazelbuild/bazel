@@ -28,36 +28,37 @@ import java.util.Objects;
 /**
  * A container for the path to the FDO profile.
  *
- * <p>{@link FdoSupportValue} is created from {@link FdoSupportFunction} (a {@link SkyFunction}),
- * which is requested from Skyframe by the {@code cc_toolchain} rule. It's done this way because
- * the path depends on both a command line argument and the location of the workspace and the latter
- * is not available either during configuration creation or during the analysis phase.
+ * <p>{@link CcSkyframeSupportValue} is created from {@link CcSupportFunction} (a {@link
+ * SkyFunction}), which is requested from Skyframe by the {@code cc_toolchain}/{@code
+ * cc_toolchain_suite} rule. It's done this way because the path depends on both a command line
+ * argument and the location of the workspace and the latter is not available either during
+ * configuration creation or during the analysis phase.
  */
 @AutoCodec
 @Immutable
-public class FdoSupportValue implements SkyValue {
+public class CcSkyframeSupportValue implements SkyValue {
   public static final SkyFunctionName SKYFUNCTION = SkyFunctionName.createHermetic("FDO_SUPPORT");
 
-  /** {@link SkyKey} for {@link FdoSupportValue}. */
+  /** {@link SkyKey} for {@link CcSkyframeSupportValue}. */
   @Immutable
   @AutoCodec
   public static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private final PathFragment fdoProfileArgument;
+    private final PathFragment filePath;
 
-    private Key(PathFragment fdoProfileArgument) {
-      this.fdoProfileArgument = fdoProfileArgument;
+    private Key(PathFragment filePath) {
+      this.filePath = filePath;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(PathFragment fdoProfileArgument) {
-      return interner.intern(new Key(fdoProfileArgument));
+    static Key of(PathFragment filePath) {
+      return interner.intern(new Key(filePath));
     }
 
-    public PathFragment getFdoProfileArgument() {
-      return fdoProfileArgument;
+    public PathFragment getFilePath() {
+      return filePath;
     }
 
     @Override
@@ -71,12 +72,12 @@ public class FdoSupportValue implements SkyValue {
       }
 
       Key that = (Key) o;
-      return Objects.equals(this.fdoProfileArgument, that.fdoProfileArgument);
+      return Objects.equals(this.filePath, that.filePath);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(fdoProfileArgument);
+      return Objects.hash(filePath);
     }
 
     @Override
@@ -85,20 +86,18 @@ public class FdoSupportValue implements SkyValue {
     }
   }
 
-  /**
-   * Path of the profile file passed to {@code --fdo_optimize}
-   */
+  /** Path of the profile file passed to {@code --fdo_optimize} */
   // TODO(lberki): This should be a PathFragment.
   // Except that CcProtoProfileProvider#getProfile() calls #exists() on it, which is ridiculously
   // incorrect.
-  private final Path fdoProfile;
+  private final Path filePath;
 
-  FdoSupportValue(Path fdoProfile) {
-    this.fdoProfile = fdoProfile;
+  CcSkyframeSupportValue(Path filePath) {
+    this.filePath = filePath;
   }
 
-  public Path getFdoProfile() {
-    return fdoProfile;
+  public Path getFilePath() {
+    return filePath;
   }
 
   public static SkyKey key(PathFragment fdoProfileArgument) {

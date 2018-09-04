@@ -48,6 +48,7 @@ guarded behind flags in the current release:
 *   [Expand directories in Args](#expand-directories-in-args)
 *   [Static Name Resolution](#static-name-resolution)
 *   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
+*   [Disable late bound option defaults](#disable-late-bound-option-defaults)
 
 
 ### Dictionary concatenation
@@ -479,5 +480,41 @@ Please replace all occurrences:
 These targets will not be supported any more:
 *   `//tools/defaults:coverage_report_generator`
 *   `//tools/defaults:coverage_support`
+
+### Disable late bound option defaults
+
+If true, Bazel will stop retrieving the value of `compiler` from the cpp configuration when
+`--compiler` is not specified. This will cause a `config_setting` that have
+`values = {"compiler": "x"}` to not work properly when `--compiler` is not specified at command
+line.
+
+The former behavior can be achieved by changing the `config_setting` to use
+`flag_values = {"@bazel_tools/tools/cpp:compiler": "x"}` instead:
+
+```python
+# Before
+config_setting(
+    name = "cpu_x_compiler_y",
+    values = {
+        "cpu": "x",
+        "compiler": "y",
+    },
+)
+
+# After
+config_setting(
+    name = "cpu_x_compiler_y",
+    values = {
+        "cpu": "x",
+    },
+    flag_values = {
+        "@bazel_tools/tools/cpp:compiler": "y",
+    },
+)
+```
+
+*   Flag: `--incompatible_disable_late_bound_option_defaults`
+*   Default: `false`
+*   Introduced in: `0.18.0`
 
 <!-- Add new options here -->

@@ -29,28 +29,30 @@ import javax.annotation.Nullable;
  * and thus we need to depend on {@link BlazeDirectories} somehow, which neither the configuration
  * nor the analysis phase can "officially" do.
  *
- * <p>The fix is probably to make it possible for
- * {@link com.google.devtools.build.lib.analysis.actions.SymlinkAction} to create workspace-relative
+ * <p>The fix is probably to make it possible for {@link
+ * com.google.devtools.build.lib.analysis.actions.SymlinkAction} to create workspace-relative
  * symlinks because action execution can hopefully depend on {@link BlazeDirectories}.
  *
- * <p>There is also the awful and incorrect {@link Path#exists()} call in
- * {@link com.google.devtools.build.lib.view.proto.CcProtoProfileProvider#getProfile(
+ * <p>There is also the awful and incorrect {@link Path#exists()} call in {@link
+ * com.google.devtools.build.lib.view.proto.CcProtoProfileProvider#getProfile(
  * com.google.devtools.build.lib.analysis.RuleContext)} which needs a {@link Path}.
  */
-public class FdoSupportFunction implements SkyFunction {
+public class CcSupportFunction implements SkyFunction {
   private final BlazeDirectories directories;
 
-  public FdoSupportFunction(BlazeDirectories directories) {
+  public CcSupportFunction(BlazeDirectories directories) {
     this.directories = Preconditions.checkNotNull(directories);
   }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
-    Path resolvedFdoProfile = key.getFdoProfileArgument() == null
-        ? null : directories.getWorkspace().getRelative(key.getFdoProfileArgument());
-    return new FdoSupportValue(resolvedFdoProfile);
+    CcSkyframeSupportValue.Key key = (CcSkyframeSupportValue.Key) skyKey.argument();
+    Path resolvedPath =
+        key.getFilePath() == null
+            ? null
+            : directories.getWorkspace().getRelative(key.getFilePath());
+    return new CcSkyframeSupportValue(resolvedPath);
   }
 
   @Nullable
