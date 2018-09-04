@@ -1111,6 +1111,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.persistentBusyboxTools = persistentBusyboxTools;
   }
 
+  @Override
   public String getCpu() {
     return cpu;
   }
@@ -1124,26 +1125,31 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return sdk;
   }
 
+  @Override
   public boolean useIncrementalNativeLibs() {
     return useIncrementalNativeLibs;
   }
 
   /** Returns whether to use incremental dexing. */
+  @Override
   public boolean useIncrementalDexing() {
     return incrementalDexing;
   }
 
   /** Returns whether to process proguarded Android binaries with incremental dexing tools. */
+  @Override
   public int incrementalDexingShardsAfterProguard() {
     return incrementalDexingShardsAfterProguard;
   }
 
   /** Whether to use a separate tool to shard classes before merging them into final dex files. */
+  @Override
   public boolean incrementalDexingUseDexSharder() {
     return incrementalDexingUseDexSharder;
   }
 
   /** Whether to use incremental dexing to build proguarded binaries by default. */
+  @Override
   public boolean incrementalDexingAfterProguardByDefault() {
     return incrementalDexingAfterProguardByDefault;
   }
@@ -1152,16 +1158,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
    * Returns true if an -assumevalues should be generated for Proguard based on the minSdkVersion of
    * the merged AndroidManifest.
    */
+  @Override
   public boolean assumeMinSdkVersion() {
     return assumeMinSdkVersion;
   }
 
   /** dx flags supported in incremental dexing actions. */
+  @Override
   public ImmutableList<String> getDexoptsSupportedInIncrementalDexing() {
     return dexoptsSupportedInIncrementalDexing;
   }
 
   /** dx flags supported in dexmerger actions. */
+  @Override
   public ImmutableList<String> getDexoptsSupportedInDexMerger() {
     return dexoptsSupportedInDexMerger;
   }
@@ -1170,27 +1179,33 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
    * Incremental dexing must not be used for binaries that list any of these flags in their {@code
    * dexopts} attribute.
    */
+  @Override
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
   }
 
   /** Whether to assume the dexbuilder tool supports local worker mode. */
+  @Override
   public boolean useWorkersWithDexbuilder() {
     return useWorkersWithDexbuilder;
   }
 
+  @Override
   public boolean desugarJava8() {
     return desugarJava8;
   }
 
+  @Override
   public boolean desugarJava8Libs() {
     return desugarJava8Libs;
   }
 
+  @Override
   public boolean checkDesugarDeps() {
     return checkDesugarDeps;
   }
 
+  @Override
   public boolean useRexToCompressDexFiles() {
     return useRexToCompressDexFiles;
   }
@@ -1200,10 +1215,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         && Whitelist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
+  @Override
   public boolean useAndroidResourceShrinking() {
     return useAndroidResourceShrinking;
   }
 
+  @Override
   public boolean useAndroidResourceCycleShrinking() {
     return useAndroidResourceCycleShrinking;
   }
@@ -1220,34 +1237,42 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return apkSigningMethod;
   }
 
+  @Override
   public boolean useSingleJarApkBuilder() {
     return useSingleJarApkBuilder;
   }
 
+  @Override
   public boolean useParallelDex2Oat() {
     return useParallelDex2Oat;
   }
 
-  boolean compressJavaResources() {
+  @Override
+  public boolean compressJavaResources() {
     return compressJavaResources;
   }
 
-  boolean getExportsManifestDefault() {
+  @Override
+  public boolean getExportsManifestDefault() {
     return exportsManifestDefault;
   }
 
+  @Override
   public boolean useAapt2ForRobolectric() {
     return useAapt2ForRobolectric;
   }
 
-  boolean throwOnResourceConflict() {
+  @Override
+  public boolean throwOnResourceConflict() {
     return throwOnResourceConflict;
   }
 
+  @Override
   public boolean skipParsingAction() {
     return this.skipParsingAction;
   }
 
+  @Override
   public boolean fixedResourceNeverlinking() {
     return this.fixedResourceNeverlinking;
   }
@@ -1256,20 +1281,24 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return robolectricTestDeprecationLevel;
   }
 
+  @Override
   public boolean checkForMigrationTag() {
     return checkForMigrationTag;
   }
 
+  @Override
   public boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest() {
     return oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
   }
 
+  @Override
   public boolean useDataBindingV2() {
     return dataBindingV2;
   }
 
-  public boolean persistentBusyboxTools() { 
-    return persistentBusyboxTools; 
+  @Override
+  public boolean persistentBusyboxTools() {
+    return persistentBusyboxTools;
   }
 
   @Override
