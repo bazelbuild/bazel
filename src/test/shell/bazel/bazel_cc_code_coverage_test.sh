@@ -165,35 +165,28 @@ function run_coverage() {
 }
 
 function test_cc_test_coverage() {
-  run_coverage > "$TEST_log"
-  assert_coverage_result
-}
+    run_coverage > "$TEST_log"
 
-# Asserts that the C++ coverage output is correct.
-#
-# The C++ coverage script places the final coverage result in
-# $COVERAGE_OUTPUT_FILE.
-#
-# The covered files are coverage_srcs/a.cc and coverage_srcs/t.cc.
-function assert_coverage_result() {
+    # Assert that the C++ coverage output is correct.
+    # The covered files are coverage_srcs/a.cc and coverage_srcs/t.cc.
+
    # The expected total number of lines of COVERAGE_OUTPUT_FILE
    # is 25. This number can be computed by counting the number
    # of lines in the variables declared below $expected_result_a_cc
-   # and $expected_result_t_cc, adding 2 lines of empty "TN:" that
-   # is generated for each of the source files.
+   # and $expected_result_t_cc.
    local nr_of_lines=$(wc -l < "$COVERAGE_OUTPUT_FILE_VAR")
    [[ "$nr_of_lines" == 25 ]] || \
       fail "Number of lines $nr_of_lines is different than 25"
 
-    # After running the test in coverage_srcs/t.cc, the sources covered are the
-    # test itself and the source file a.cc.
-    # For more details about the lcov format see
-    # http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php
     # The expected result can be constructed manually by following the lcov
     # documentation and manually checking what lines of code are covered when
     # running the test.
+    # For details about the lcov format see
+    # http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php
     # The newlines are replaced with commas to facilitate comparing the
     # expected values with the actual results.
+
+    # The expected coverage result for coverage_srcs/a.cc.
     local expected_result_a_cc="TN:,\
 SF:coverage_srcs/a.cc,\
 FN:3,_Z1ab,\
@@ -208,6 +201,7 @@ LF:4,\
 LH:3,\
 end_of_record"
 
+    # The expected coverage result for coverage_srcs/t.cc.
     local expected_result_t_cc="TN:,\
 SF:coverage_srcs/t.cc,\
 FN:4,main,\
@@ -223,6 +217,9 @@ end_of_record"
 
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
+    # The C++ coverage script places the final coverage result in
+    # $COVERAGE_OUTPUT_FILE.
+    #
     # The result for each source file must be asserted separately because the
     # coverage tools (e.g. lcov, gcov) do not guarantee any particular order.
     # The order can differ for example based on OS or version. The source files
