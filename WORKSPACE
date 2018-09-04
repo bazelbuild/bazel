@@ -69,20 +69,20 @@ bind(
 
 new_local_repository(
     name = "com_google_protobuf",
-    build_file = "./third_party/protobuf/3.6.0/BUILD",
-    path = "./third_party/protobuf/3.6.0/",
+    build_file = "./third_party/protobuf/3.6.1/BUILD",
+    path = "./third_party/protobuf/3.6.1/",
 )
 
 new_local_repository(
     name = "com_google_protobuf_cc",
-    build_file = "./third_party/protobuf/3.6.0/BUILD",
-    path = "./third_party/protobuf/3.6.0/",
+    build_file = "./third_party/protobuf/3.6.1/BUILD",
+    path = "./third_party/protobuf/3.6.1/",
 )
 
 new_local_repository(
     name = "com_google_protobuf_java",
-    build_file = "./third_party/protobuf/3.6.0/com_google_protobuf_java.BUILD",
-    path = "./third_party/protobuf/3.6.0/",
+    build_file = "./third_party/protobuf/3.6.1/com_google_protobuf_java.BUILD",
+    path = "./third_party/protobuf/3.6.1/",
 )
 
 new_local_repository(

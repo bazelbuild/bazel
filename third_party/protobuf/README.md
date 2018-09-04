@@ -38,4 +38,4 @@ the new version.
 
 # Current protobuf version
 
-The current version of protobuf is [3.6.0](https://github.com/google/protobuf/releases/tag/v3.6.0).
+The current version of protobuf is [3.6.1](https://github.com/google/protobuf/releases/tag/v3.6.1).
