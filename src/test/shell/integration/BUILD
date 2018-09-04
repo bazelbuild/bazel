@@ -227,7 +227,10 @@ sh_test(
 sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(
