@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoAp
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 
 /** Information describing C++ toolchain derived from CROSSTOOL file. */
@@ -172,7 +171,7 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.hasDynamicLinkingModeFlags = hasDynamicLinkingModeFlags;
   }
 
-  public static CcToolchainConfigInfo fromToolchain(CrosstoolRelease file, CToolchain toolchain)
+  public static CcToolchainConfigInfo fromToolchain(CToolchain toolchain)
       throws InvalidConfigurationException {
 
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
