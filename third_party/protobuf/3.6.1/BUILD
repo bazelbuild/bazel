@@ -20,6 +20,7 @@ config_setting(
 ################################################################################
 
 load(":protobuf.bzl", "py_proto_library")
+load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 filegroup(
     name = "srcs",
@@ -60,6 +61,11 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+create_compiler_config_setting(
+    name = "msvc",
+    value = "msvc-cl",
+)
+
 ################################################################################
 # The below build rules are a copy of the upstream protobuf BUILD file without
 # the "Java support" section, as advised by Step 3 in the "Updating protobuf"
@@ -90,11 +96,6 @@ COPTS = select({
         "-Wno-writable-strings",
     ],
 })
-
-config_setting(
-    name = "msvc",
-    values = { "compiler": "msvc-cl" },
-)
 
 config_setting(
     name = "android",
