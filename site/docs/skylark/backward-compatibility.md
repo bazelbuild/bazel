@@ -483,13 +483,13 @@ These targets will not be supported any more:
 
 ### Disable late bound option defaults
 
-If true, Bazel will stop retrieving the value of 'compiler' from the cpp configuration when
---compiler is not specified. This will cause config_settings that have
-values = {"compiler": "x"} to not work properly when --compiler is not specified at command
+If true, Bazel will stop retrieving the value of `compiler` from the cpp configuration when
+`--compiler` is not specified. This will cause a `config_setting` that have
+`values = {"compiler": "x"}` to not work properly when `--compiler` is not specified at command
 line.
 
-The former behavior can be achieved by changing the config_settings to use
-flag_values = {"@bazel_tools/tools/cpp:compiler": "x"} instead:
+The former behavior can be achieved by changing the `config_setting` to use
+`flag_values = {"@bazel_tools/tools/cpp:compiler": "x"}` instead:
 
 ```python
 # Before
