@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.A
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -215,7 +216,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(FileStateValue.FILE_STATE, new FileStateFunction(tsgmRef, externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
-                .put(Artifact.ARTIFACT, new ArtifactFunction())
+                .put(Artifact.ARTIFACT, new ArtifactFunction(Suppliers.ofInstance(false)))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(skyframeActionExecutor, directories, tsgmRef))

@@ -225,7 +225,6 @@ public class ExecutionTool {
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
-
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
     if (outputService != null) {
@@ -241,8 +240,10 @@ public class ExecutionTool {
       }
     }
 
-    // Must be created after the output path is created above.
-    createActionLogDirectory();
+   if (outputService == null || !outputService.supportsActionFileSystem()) {
+     // Must be created after the output path is created above.
+     createActionLogDirectory();
+   }
 
     // Create convenience symlinks from the configurations actually used by the requested targets.
     // Symlinks will be created if all such configurations would point the symlink to the same path;
