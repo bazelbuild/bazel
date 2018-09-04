@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "ConstraintValueInfo",
     doc =
         "A value for a constraint setting that can be used to define a platform. "
-            + "Note: This API is experimental and may change at any time.",
+            + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = SkylarkModuleCategory.PROVIDER)
 public interface ConstraintValueInfoApi extends StructApi {
 

@@ -25,10 +25,13 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
     name = "PlatformInfo",
     doc =
         "Provides access to data about a specific platform. "
-            + "Note: This API is experimental and may change at any time.",
+            + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = SkylarkModuleCategory.PROVIDER)
 public interface PlatformInfoApi<ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StructApi {
+
+  static final String EXPERIMENTAL_WARNING =
+      "<i>Note: This API is experimental and may change at any time.</i>";
 
   @SkylarkCallable(
       name = "label",
