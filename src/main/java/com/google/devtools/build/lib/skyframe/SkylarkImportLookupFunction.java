@@ -509,7 +509,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
     ImmutableSet<Identifier> boundIdentifiers = assignmentStatement.getLValue().boundIdentifiers();
     for (Identifier ident : boundIdentifiers) {
-      Object lookup = extensionEnv.lookup(ident.getName());
+      Object lookup = extensionEnv.moduleLookup(ident.getName());
       if (lookup instanceof SkylarkExportable) {
         try {
           SkylarkExportable exportable = (SkylarkExportable) lookup;

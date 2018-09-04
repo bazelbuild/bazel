@@ -176,12 +176,12 @@ public class EnvironmentTest extends EvaluationTestCase {
               .setEventHandler(Environment.FAIL_FAST_HANDLER)
               .build();
       env.update("x", 1);
-      assertThat(env.lookup("x")).isEqualTo(1);
+      assertThat(env.moduleLookup("x")).isEqualTo(1);
       env.update("y", 2);
-      assertThat(env.lookup("y")).isEqualTo(2);
-      assertThat(env.lookup("x")).isEqualTo(1);
+      assertThat(env.moduleLookup("y")).isEqualTo(2);
+      assertThat(env.moduleLookup("x")).isEqualTo(1);
       env.update("x", 3);
-      assertThat(env.lookup("x")).isEqualTo(3);
+      assertThat(env.moduleLookup("x")).isEqualTo(3);
     }
     try {
       // This update to an existing variable should fail because the environment was frozen.
@@ -205,7 +205,7 @@ public class EnvironmentTest extends EvaluationTestCase {
         newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true")
             .setup("special_var", 42);
     BuildFileAST.eval(env, "special_var = 41");
-    assertThat(env.lookup("special_var")).isEqualTo(41);
+    assertThat(env.moduleLookup("special_var")).isEqualTo(41);
   }
 
   @Test

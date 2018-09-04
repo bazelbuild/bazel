@@ -1123,7 +1123,7 @@ public final class Environment implements Freezable, Debuggable {
    * <p>TODO(laurentlb): Remove this method. Callers should know where the value is defined and use
    * the corresponding method (e.g. localLookup or moduleLookup).
    */
-  public Object lookup(String varname) {
+  Object lookup(String varname) {
     // Lexical frame takes precedence, then globals, then dynamics.
     Object lexicalValue = lexicalFrame.get(varname);
     if (lexicalValue != null) {
