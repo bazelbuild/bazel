@@ -14,6 +14,9 @@
 
 #include "src/main/cpp/util/path_platform.h"
 
+#include <sstream>
+#include <vector>
+
 #include <limits.h>  // PATH_MAX
 
 #include <string.h>  // strncmp
@@ -72,3 +75,93 @@ std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path) {
 }
 
 }  // namespace blaze_util
+
+namespace path {
+
+static bool IsNormalized(const Path::string_type& path) {
+  if (path.empty()) {
+    return true;
+  }
+  Path::char_type prev = 0;
+  int dots = 0;
+  for (const auto& c : path) {
+    if (c == '/') {
+      if (prev == '/' || dots == 1 || dots == 2) {
+        return false;
+      }
+      dots = 0;
+    } else if (c == '.' && (prev == 0 || prev == '/' || prev == '.') &&
+               (dots == 0 || dots == 1)) {
+      dots++;
+    } else {
+      dots = -1;
+    }
+    prev = c;
+  }
+  return (path.size() == 1 && prev != '.') ||
+         (path.size() > 1 && prev != '/' && dots != 1 && dots != 2);
+}
+
+static Path::string_type Normalize(const Path::string_type& path) {
+  if (IsNormalized(path)) {
+    return path;
+  }
+
+  static const Path::string_type dot(1, '.');
+  static const Path::string_type dotdot(2, '.');
+
+  const bool is_absolute = path[0] == '/';
+  bool seg_started = false;
+  Path::string_type::size_type seg_start;
+  std::vector<Path::string_type> segments;
+  for (Path::string_type::size_type i = 0; i <= path.size(); ++i) {
+    if (i == path.size() || path[i] == '/') {
+      if (seg_started && i > seg_start) {
+        Path::string_type segment = path.substr(seg_start, i - seg_start);
+        seg_started = false;
+        if (segment == dotdot) {
+          if (!segments.empty()) {
+            segments.pop_back();
+          }
+        } else if (segment != dot) {
+          segments.push_back(segment);
+        }
+      }
+    } else if (!seg_started) {
+      seg_started = true;
+      seg_start = i;
+    }
+  }
+
+  if (segments.empty()) {
+    return is_absolute ? Path::string_type(1, '/') : Path::string_type();
+  }
+
+  bool first = true;
+  std::basic_ostringstream<Path::char_type> result;
+  if (is_absolute) {
+    result << '/';
+  }
+  for (const auto& s : segments) {
+    if (!first) {
+      result << '/';
+    }
+    first = false;
+    result << s;
+  }
+  return result.str();
+}
+
+namespace testing {
+
+bool TestOnly_IsNormalized(const Path::string_type& path) {
+  return IsNormalized(path);
+}
+
+Path::string_type TestOnly_Normalize(const Path::string_type& path) {
+  return Normalize(path);
+}
+
+}  // namespace testing
+
+}  // namespace path
