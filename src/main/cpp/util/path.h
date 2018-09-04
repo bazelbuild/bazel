@@ -16,6 +16,8 @@
 
 #include <string>
 
+#include "src/main/cpp/util/path_platform.h"
+
 namespace blaze_util {
 
 // Returns the part of the path before the final "/".  If there is a single

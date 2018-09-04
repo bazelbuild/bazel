@@ -168,4 +168,31 @@ bool HasDriveSpecifierPrefix(const char_type *ch);
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 }  // namespace blaze_util
 
+namespace path {
+
+// Abstraction for a path on the host operating system.
+//
+// TODO(laszlocsomor): implement this class to resolve
+// https://github.com/bazelbuild/bazel/issues/6071. The class should wrap a
+// Path::string_type, holding a normalized path that follows the host OS' path
+// semantics.
+struct Path {
+ public:
+#if defined(_WIN32) || defined(__CYGWIN__)
+  typedef wchar_t char_type;
+#else
+  typedef char char_type;
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
+
+  typedef std::basic_string<char_type> string_type;
+};
+
+namespace testing {
+
+bool TestOnly_IsNormalized(const Path::string_type& path);
+Path::string_type TestOnly_Normalize(const Path::string_type& path);
+
+}  // namespace testing
+}  // namespace path
+
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PATH_PLATFORM_H_

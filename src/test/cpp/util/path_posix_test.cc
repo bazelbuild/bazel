@@ -19,13 +19,91 @@
 
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
-#include "src/main/cpp/util/path_platform.h"
 #include "src/test/cpp/util/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze_util {
 
+using path::testing::TestOnly_IsNormalized;
+using path::testing::TestOnly_Normalize;
 using std::string;
+
+TEST(PathPosixTest, TestIsNormalized) {
+  ASSERT_TRUE(TestOnly_IsNormalized(""));
+  ASSERT_TRUE(TestOnly_IsNormalized(" "));
+  ASSERT_TRUE(TestOnly_IsNormalized("/"));
+  ASSERT_FALSE(TestOnly_IsNormalized("//"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a"));
+  ASSERT_TRUE(TestOnly_IsNormalized("/a"));
+  ASSERT_FALSE(TestOnly_IsNormalized("a/"));
+  ASSERT_FALSE(TestOnly_IsNormalized("/a/"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a/b"));
+  ASSERT_FALSE(TestOnly_IsNormalized("a//b"));
+  ASSERT_FALSE(TestOnly_IsNormalized("."));
+  ASSERT_FALSE(TestOnly_IsNormalized(".."));
+  ASSERT_TRUE(TestOnly_IsNormalized("..."));
+  ASSERT_FALSE(TestOnly_IsNormalized("/."));
+  ASSERT_FALSE(TestOnly_IsNormalized("/.."));
+  ASSERT_TRUE(TestOnly_IsNormalized("/..."));
+  ASSERT_FALSE(TestOnly_IsNormalized("./a"));
+  ASSERT_FALSE(TestOnly_IsNormalized("../a"));
+  ASSERT_TRUE(TestOnly_IsNormalized(".../a"));
+  ASSERT_TRUE(TestOnly_IsNormalized(".../.a"));
+  ASSERT_TRUE(TestOnly_IsNormalized(".../..a"));
+  ASSERT_FALSE(TestOnly_IsNormalized("a/."));
+  ASSERT_FALSE(TestOnly_IsNormalized("a/.."));
+  ASSERT_TRUE(TestOnly_IsNormalized("a/..."));
+  ASSERT_TRUE(TestOnly_IsNormalized("a/..."));
+  ASSERT_FALSE(TestOnly_IsNormalized("a/./b"));
+  ASSERT_FALSE(TestOnly_IsNormalized("a/../b"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a/.../b"));
+  ASSERT_TRUE(TestOnly_IsNormalized(".a"));
+  ASSERT_TRUE(TestOnly_IsNormalized("..a"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a."));
+  ASSERT_TRUE(TestOnly_IsNormalized("a.."));
+  ASSERT_TRUE(TestOnly_IsNormalized("a./b"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a../b"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a/.b"));
+  ASSERT_TRUE(TestOnly_IsNormalized("a/..b"));
+}
+
+TEST(PathPosixTest, TestNormalizePath) {
+  ASSERT_EQ(TestOnly_Normalize(""), "");
+  ASSERT_EQ(TestOnly_Normalize(" "), " ");
+  ASSERT_EQ(TestOnly_Normalize("/"), "/");
+  ASSERT_EQ(TestOnly_Normalize("//"), "/");
+  ASSERT_EQ(TestOnly_Normalize("a"), "a");
+  ASSERT_EQ(TestOnly_Normalize("/a"), "/a");
+  ASSERT_EQ(TestOnly_Normalize("a/"), "a");
+  ASSERT_EQ(TestOnly_Normalize("/a/"), "/a");
+  ASSERT_EQ(TestOnly_Normalize("a/b"), "a/b");
+  ASSERT_EQ(TestOnly_Normalize("a//b"), "a/b");
+  ASSERT_EQ(TestOnly_Normalize("."), "");
+  ASSERT_EQ(TestOnly_Normalize(".."), "");
+  ASSERT_EQ(TestOnly_Normalize("..."), "...");
+  ASSERT_EQ(TestOnly_Normalize(".a"), ".a");
+  ASSERT_EQ(TestOnly_Normalize("..a"), "..a");
+  ASSERT_EQ(TestOnly_Normalize("/."), "/");
+  ASSERT_EQ(TestOnly_Normalize("/.."), "/");
+  ASSERT_EQ(TestOnly_Normalize("/..."), "/...");
+  ASSERT_EQ(TestOnly_Normalize("./a"), "a");
+  ASSERT_EQ(TestOnly_Normalize("../a"), "a");
+  ASSERT_EQ(TestOnly_Normalize(".../a"), ".../a");
+  ASSERT_EQ(TestOnly_Normalize("a/."), "a");
+  ASSERT_EQ(TestOnly_Normalize("a/.."), "");
+  ASSERT_EQ(TestOnly_Normalize("a/..."), "a/...");
+  ASSERT_EQ(TestOnly_Normalize("a/./b"), "a/b");
+  ASSERT_EQ(TestOnly_Normalize("a/../b"), "b");
+  ASSERT_EQ(TestOnly_Normalize("a/.../b"), "a/.../b");
+  ASSERT_EQ(TestOnly_Normalize(".a"), ".a");
+  ASSERT_EQ(TestOnly_Normalize("..a"), "..a");
+  ASSERT_EQ(TestOnly_Normalize("a."), "a.");
+  ASSERT_EQ(TestOnly_Normalize("a.."), "a..");
+  ASSERT_EQ(TestOnly_Normalize("a./b"), "a./b");
+  ASSERT_EQ(TestOnly_Normalize("a../b"), "a../b");
+  ASSERT_EQ(TestOnly_Normalize("a/.b"), "a/.b");
+  ASSERT_EQ(TestOnly_Normalize("a/..b"), "a/..b");
+}
 
 TEST(PathPosixTest, TestDirname) {
   // The Posix version of SplitPath (thus Dirname too, which is implemented on
