@@ -165,6 +165,9 @@ function run_coverage() {
 }
 
 function test_cc_test_coverage() {
+    # Run the C++ coverage script with the environment setup accordingly.
+    # This will get coverage results for coverage_srcs/a.cc and
+    # coverage_srcs/t.cc.
     run_coverage > "$TEST_log"
 
     # Assert that the C++ coverage output is correct.
@@ -174,8 +177,7 @@ function test_cc_test_coverage() {
    # is 25. This number can be computed by counting the number
    # of lines in the variables declared below $expected_result_a_cc
    # and $expected_result_t_cc.
-   local nr_of_lines=$(wc -l < "$COVERAGE_OUTPUT_FILE_VAR")
-   [[ "$nr_of_lines" == 25 ]] || \
+   [[ $(wc -l < "$COVERAGE_OUTPUT_FILE_VAR") == 25 ]] || \
       fail "Number of lines $nr_of_lines is different than 25"
 
     # The expected result can be constructed manually by following the lcov
