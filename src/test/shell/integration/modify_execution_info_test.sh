@@ -133,14 +133,14 @@ EOF
 Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
     > output 2> "$TEST_log" || fail "Expected success"
   assert_contains "ExecutionInfo: {requires-a: '', requires-z: ''}" output
-  assert_contains "ExecutionInfo: {requires-b: '', requires-c: ''}" output
+  assert_contains "ExecutionInfo: {requires-b: '', requires-c: ''" output
 
   # negative lookahead
   bazel aquery --output=text "//$pkg:all" \
    --modify_execution_info='(?!Genrule).*=+requires-a,(?!CppCompile).*=+requires-z' \
     > output 2> "$TEST_log" || fail "Expected success"
   assert_contains "ExecutionInfo: {requires-x: '', requires-z: ''}" output
-  assert_contains "ExecutionInfo: {requires-a: ''}" output
+  assert_contains "ExecutionInfo: {requires-a: ''" output
 }
 
 function test_modify_execution_info_various_types() {
