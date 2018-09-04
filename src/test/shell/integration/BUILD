@@ -225,6 +225,12 @@ sh_test(
 )
 
 sh_test(
+    name = "modify_execution_info_test",
+    srcs = ["modify_execution_info_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "force_delete_output_test",
     size = "medium",
     srcs = ["force_delete_output_test.sh"],

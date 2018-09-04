@@ -109,6 +109,15 @@ Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
 }
 
 function test_modify_execution_info_various_types() {
+    # proto_library requires this external workspace.
+    cat >> WORKSPACE << EOF
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "cef7f1b5a7c5fba672bec2a319246e8feba471f04dcebfe362d55930ee7c1c30",
+    strip_prefix = "protobuf-3.5.0",
+    urls = ["https://github.com/google/protobuf/archive/v3.5.0.zip"],
+)
+EOF
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'skylark_shell')" > "$pkg/BUILD"
@@ -127,7 +136,8 @@ java_library(name = "javalib", srcs = ["HelloWorld.java"])
 action_listener(
   name = "al",
   extra_actions = [":echo-filename"],
-  mnemonics = ["Javac"]
+  mnemonics = ["Javac"],
+  visibility = ["//visibility:public"],
 )
 
 extra_action(name = "echo-filename", cmd = "echo Hi \$(EXTRA_ACTION_FILE)")
@@ -189,9 +199,11 @@ SkylarkAction=+requires-skylark-action \
   assert_contains "requires-turbine: ''" output
   assert_contains "requires-java-source-jar: ''" output
   assert_contains "requires-proto: ''" output  # GenProtoDescriptorSet should match
-  # Python rules generate some cpp actions and local actions, but py-tinypar
-  # is the main unique-to-python rule which runs remotely for a py_binary.
-  assert_contains "requires-py-tinypar: ''" output
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    # Python rules generate some cpp actions and local actions, but py-tinypar
+    # is the main unique-to-python rule which runs remotely for a py_binary.
+    assert_contains "requires-py-tinypar: ''" output
+  fi
 }
 
 run_suite "Integration tests of the --modify_execution_info option."
