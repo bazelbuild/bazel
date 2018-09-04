@@ -227,6 +227,8 @@ public class BazelPythonSemantics implements PythonSemantics {
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Python")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair("symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("python_bin_path", pythonBinary)
             .addKeyValuePair("use_zip_file", useZipFile ? "1" : "0")
             .build();
