@@ -156,6 +156,11 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
   }
 
   @Override
+  public boolean isShareable() {
+    return true;
+  }
+
+  @Override
   public final String getMnemonic() {
     return mnemonic;
   }
