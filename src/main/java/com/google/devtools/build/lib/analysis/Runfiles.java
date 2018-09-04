@@ -360,12 +360,22 @@ public final class Runfiles implements RunfilesApi {
         .build();
   }
 
+  /** Returns the symlinks as a map from path fragment to artifact. */
+  public Map<PathFragment, Artifact> getSymlinksAsMap() {
+    try {
+      return entriesToMap(symlinks, null);
+    } catch (IOException e) {
+      throw new IllegalStateException("unexpected since we passed a null conflict checker", e);
+    }
+  }
+
   /**
    * Returns the symlinks as a map from path fragment to artifact.
    *
    * @param checker If not null, check for conflicts using this checker.
    */
-  public Map<PathFragment, Artifact> getSymlinksAsMap(@Nullable ConflictChecker checker) {
+  public Map<PathFragment, Artifact> getSymlinksAsMap(@Nullable ConflictChecker checker)
+      throws IOException {
     return entriesToMap(symlinks, checker);
   }
 
@@ -502,11 +512,9 @@ public final class Runfiles implements RunfilesApi {
       this.sawWorkspaceName = legacyExternalRunfiles;
     }
 
-    /**
-     * Adds a map under the workspaceName.
-     */
+    /** Adds a map under the workspaceName. */
     public void addUnderWorkspace(
-        Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
+        Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) throws IOException {
       for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
         PathFragment path = entry.getKey();
         if (isUnderWorkspace(path)) {
@@ -522,10 +530,9 @@ public final class Runfiles implements RunfilesApi {
       }
     }
 
-    /**
-     * Adds a map to the root directory.
-     */
-    public void add(Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
+    /** Adds a map to the root directory. */
+    public void add(Map<PathFragment, Artifact> inputManifest, ConflictChecker checker)
+        throws IOException {
       for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
         checker.put(manifest, checkForWorkspace(entry.getKey()), entry.getValue());
       }
@@ -571,12 +578,22 @@ public final class Runfiles implements RunfilesApi {
     return rootSymlinks;
   }
 
+  /** Returns the root symlinks as a map from path fragment to artifact. */
+  public Map<PathFragment, Artifact> getRootSymlinksAsMap() {
+    try {
+      return entriesToMap(rootSymlinks, null);
+    } catch (IOException e) {
+      throw new IllegalStateException("unexpected since we passed a null conflict checker", e);
+    }
+  }
+
   /**
    * Returns the root symlinks as a map from path fragment to artifact.
    *
    * @param checker If not null, check for conflicts using this checker.
    */
-  public Map<PathFragment, Artifact> getRootSymlinksAsMap(@Nullable ConflictChecker checker) {
+  public Map<PathFragment, Artifact> getRootSymlinksAsMap(@Nullable ConflictChecker checker)
+      throws IOException {
     return entriesToMap(rootSymlinks, checker);
   }
 
@@ -585,7 +602,12 @@ public final class Runfiles implements RunfilesApi {
    * account.
    */
   public Map<PathFragment, Artifact> asMapWithoutRootSymlinks() {
-    Map<PathFragment, Artifact> result = entriesToMap(symlinks, null);
+    Map<PathFragment, Artifact> result;
+    try {
+      result = entriesToMap(symlinks, null);
+    } catch (IOException e) {
+      throw new IllegalStateException("unexpected since we passed a null conflict checker", e);
+    }
     // If multiple artifacts have the same root-relative path, the last one in the list will win.
     // That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses root-relative paths.
@@ -645,11 +667,11 @@ public final class Runfiles implements RunfilesApi {
    *
    * @param entrySet Sequence of entries to add.
    * @param checker If not null, check for conflicts with this checker, otherwise silently allow
-   *    entries to overwrite previous entries.
+   *     entries to overwrite previous entries.
    * @return Map<PathFragment, Artifact> Map of runfile entries.
    */
   private static Map<PathFragment, Artifact> entriesToMap(
-      Iterable<SymlinkEntry> entrySet, @Nullable ConflictChecker checker) {
+      Iterable<SymlinkEntry> entrySet, @Nullable ConflictChecker checker) throws IOException {
     checker = (checker != null) ? checker : ConflictChecker.IGNORE_CHECKER;
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
     for (SymlinkEntry entry : entrySet) {
@@ -686,9 +708,6 @@ public final class Runfiles implements RunfilesApi {
     /** Location for eventHandler warnings. Ignored if eventHandler is null. */
     private final Location location;
 
-    /** Type of event to emit */
-    private final EventKind eventKind;
-
     /** Construct a ConflictChecker for the given reporter with the given behavior */
     public ConflictChecker(ConflictPolicy policy, EventHandler eventHandler, Location location) {
       if (eventHandler == null) {
@@ -698,7 +717,6 @@ public final class Runfiles implements RunfilesApi {
       }
       this.eventHandler = eventHandler;
       this.location = location;
-      this.eventKind = (policy == ConflictPolicy.ERROR) ? EventKind.ERROR : EventKind.WARNING;
     }
 
     /**
@@ -708,7 +726,8 @@ public final class Runfiles implements RunfilesApi {
      * @param path Path fragment to use as key in map.
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
-    public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
+    public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact)
+        throws IOException {
       Preconditions.checkArgument(
           artifact == null || !artifact.isMiddlemanArtifact(), "%s", artifact);
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
@@ -719,13 +738,18 @@ public final class Runfiles implements RunfilesApi {
               (previous == null) ? "empty file" : previous.getExecPath().toString();
           String artifactStr =
               (artifact == null) ? "empty file" : artifact.getExecPath().toString();
-          String message =
-              String.format(
-                  "overwrote runfile %s, was symlink to %s, now symlink to %s",
-                  path.getSafePathString(),
-                  previousStr,
-                  artifactStr);
-          eventHandler.handle(Event.of(eventKind, location, message));
+          if (policy == ConflictPolicy.WARN) {
+            String message =
+                String.format(
+                    "overwrote runfile %s, was symlink to %s, now symlink to %s",
+                    path.getSafePathString(), previousStr, artifactStr);
+            eventHandler.handle(Event.of(EventKind.WARNING, location, message));
+          } else {
+            throw new IOException(
+                String.format(
+                    "runfile %s mapped to both %s and %s",
+                    path.getSafePathString(), previousStr, artifactStr));
+          }
         }
       }
       map.put(path, artifact);
@@ -1169,13 +1193,13 @@ public final class Runfiles implements RunfilesApi {
   public void fingerprint(Fingerprint fp) {
     fp.addBoolean(getLegacyExternalRunfiles());
     fp.addPath(getSuffix());
-    Map<PathFragment, Artifact> symlinks = getSymlinksAsMap(null);
+    Map<PathFragment, Artifact> symlinks = getSymlinksAsMap();
     fp.addInt(symlinks.size());
     for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
       fp.addPath(symlink.getKey());
       fp.addPath(symlink.getValue().getExecPath());
     }
-    Map<PathFragment, Artifact> rootSymlinks = getRootSymlinksAsMap(null);
+    Map<PathFragment, Artifact> rootSymlinks = getRootSymlinksAsMap();
     fp.addInt(rootSymlinks.size());
     for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
       fp.addPath(rootSymlink.getKey());
