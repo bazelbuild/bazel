@@ -48,9 +48,16 @@ public final class SandboxHelpers {
    * @throws IOException If any files could not be written.
    */
   public static Map<PathFragment, Path> processInputFiles(
-      Spawn spawn, SpawnExecutionContext context, Path execRoot) throws IOException {
+      Spawn spawn,
+      SpawnExecutionContext context,
+      Path execRoot,
+      boolean expandTreeArtifactsInRunfiles)
+      throws IOException {
     return processInputFiles(
-        context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
+        context.getInputMapping(expandTreeArtifactsInRunfiles),
+        spawn,
+        context.getArtifactExpander(),
+        execRoot);
   }
 
   /**

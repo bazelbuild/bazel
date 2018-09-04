@@ -76,18 +76,21 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final Multimap<String, String> extraFlags;
   private final EventHandler reporter;
   private final SpawnRunner fallbackRunner;
+  private final boolean sandboxUsesExpandedTreeArtifactsInRunfiles;
 
   public WorkerSpawnRunner(
       Path execRoot,
       WorkerPool workers,
       Multimap<String, String> extraFlags,
       EventHandler reporter,
-      SpawnRunner fallbackRunner) {
+      SpawnRunner fallbackRunner,
+      boolean sandboxUsesExpandedTreeArtifactsInRunfiles) {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.extraFlags = extraFlags;
     this.reporter = reporter;
     this.fallbackRunner = fallbackRunner;
+    this.sandboxUsesExpandedTreeArtifactsInRunfiles = sandboxUsesExpandedTreeArtifactsInRunfiles;
   }
 
   @Override
@@ -135,7 +138,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    Map<PathFragment, Path> inputFiles = SandboxHelpers.processInputFiles(spawn, context, execRoot);
+    Map<PathFragment, Path> inputFiles =
+        SandboxHelpers.processInputFiles(
+            spawn, context, execRoot, sandboxUsesExpandedTreeArtifactsInRunfiles);
     Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
 
     WorkerKey key =

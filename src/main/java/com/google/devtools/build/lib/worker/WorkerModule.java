@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -145,7 +146,10 @@ public class WorkerModule extends BlazeModule {
             workerPool,
             extraFlags,
             env.getReporter(),
-            createFallbackRunner(env));
+            createFallbackRunner(env),
+            env.getOptions()
+                .getOptions(SandboxOptions.class)
+                .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
     builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
 
     builder.addStrategyByContext(SpawnActionContext.class, "standalone");

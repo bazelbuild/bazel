@@ -263,7 +263,11 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             sandboxExecRoot,
             cmdLine.build(),
             cmdEnv.getClientEnv(),
-            SandboxHelpers.processInputFiles(spawn, context, execRoot),
+            SandboxHelpers.processInputFiles(
+                spawn,
+                context,
+                execRoot,
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
             outputs,
             ImmutableSet.of());
 
