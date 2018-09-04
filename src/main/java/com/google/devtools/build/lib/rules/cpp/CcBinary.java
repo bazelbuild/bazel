@@ -382,7 +382,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               ruleContext.getConfiguration(),
               LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
           linkActionBuilder.setInterfaceOutput(interfaceLibrary);
-          linkActionBuilder.addActionOutput(interfaceLibrary);
         }
       }
     }
