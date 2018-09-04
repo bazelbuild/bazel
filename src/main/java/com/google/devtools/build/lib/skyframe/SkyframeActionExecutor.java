@@ -164,6 +164,7 @@ public final class SkyframeActionExecutor {
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
+  private boolean finalizeActions;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   SkyframeActionExecutor(
@@ -357,6 +358,8 @@ public final class SkyframeActionExecutor {
     this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
+    // Cache the finalizeActions value for performance, since we consult it on every action.
+    this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.outputService = outputService;
   }
 
@@ -1022,7 +1025,7 @@ public final class SkyframeActionExecutor {
         }
       }
 
-      if (outputService != null) {
+      if (outputService != null && finalizeActions) {
         try {
           outputService.finalizeAction(action, metadataHandler);
         } catch (EnvironmentalExecException | IOException e) {

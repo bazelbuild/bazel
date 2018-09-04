@@ -1314,7 +1314,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           executor,
           options,
           actionCacheChecker,
-          options.getOptions(BuildRequestOptions.class).finalizeActions ? outputService : null);
+          outputService);
     }
 
     resourceManager.resetResourceUsage();
