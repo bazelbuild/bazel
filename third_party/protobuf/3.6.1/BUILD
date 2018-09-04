@@ -33,6 +33,7 @@ filegroup(
     ) + [
         "//third_party/protobuf/3.6.1/examples:srcs",
         "//third_party/protobuf/3.6.1/util/python:srcs",
+        "//third_party/protobuf/3.6.1/third_party/googletest:srcs",
     ],
     visibility = ["//visibility:public"],
 )
