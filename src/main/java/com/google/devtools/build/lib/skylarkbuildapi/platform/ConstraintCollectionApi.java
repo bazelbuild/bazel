@@ -26,7 +26,8 @@ import javax.annotation.Nullable;
 /** Info object representing data about a specific platform. */
 @SkylarkModule(
     name = "ConstraintCollection",
-    doc = "Provides access to data about a collection of ConstraintValueInfo providers.",
+    doc = "Provides access to data about a collection of ConstraintValueInfo providers. "
+        + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = SkylarkModuleCategory.PROVIDER)
 public interface ConstraintCollectionApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
