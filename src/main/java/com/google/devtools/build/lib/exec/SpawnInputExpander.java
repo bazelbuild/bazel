@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -107,10 +108,11 @@ public class SpawnInputExpander {
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
+      ArtifactPathResolver pathResolver,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings();
+        runfilesSupplier.getMappings(pathResolver);
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
@@ -213,6 +215,7 @@ public class SpawnInputExpander {
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn,
       ArtifactExpander artifactExpander,
+      ArtifactPathResolver pathResolver,
       MetadataProvider actionInputFileCache,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
@@ -223,6 +226,7 @@ public class SpawnInputExpander {
         spawn.getRunfilesSupplier(),
         actionInputFileCache,
         artifactExpander,
+        pathResolver,
         expandTreeArtifactsInRunfiles);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap);
     return inputMap;

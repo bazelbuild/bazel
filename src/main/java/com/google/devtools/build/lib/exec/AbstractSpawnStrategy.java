@@ -238,6 +238,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
             spawnInputExpander.getInputMapping(
                 spawn,
                 actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getPathResolver(),
                 actionExecutionContext.getMetadataProvider(),
                 expandTreeArtifactsInRunfiles);
       }

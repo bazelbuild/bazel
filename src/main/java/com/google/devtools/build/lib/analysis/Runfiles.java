@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -438,11 +439,12 @@ public final class Runfiles implements RunfilesApi {
    *     normal source tree entries, or runfile conflicts. May be null, in which case obscuring
    *     symlinks are silently discarded, and conflicts are overwritten.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
+   * @param resolver The {@link ArtifactPathResolver} to use for the pruning manifest, if present.
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
-  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler, Location location)
-      throws IOException {
+  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler, Location location,
+      ArtifactPathResolver resolver) throws IOException {
     ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
@@ -458,7 +460,7 @@ public final class Runfiles implements RunfilesApi {
         allowedRunfiles.put(artifact.getRootRelativePath().getPathString(), artifact);
       }
       try (BufferedReader reader = new BufferedReader(
-          new InputStreamReader(pruningManifest.getManifestFile().getPath().getInputStream()))) {
+          new InputStreamReader(resolver.toPath(pruningManifest.getManifestFile()).getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
           Artifact artifact = allowedRunfiles.get(line);

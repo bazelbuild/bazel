@@ -42,6 +42,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -1097,7 +1098,8 @@ public class RemoteSpawnRunnerTest {
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         boolean expandTreeArtifactsInRunfiles) throws IOException {
       return new SpawnInputExpander(execRoot, /*strict*/ false)
-          .getInputMapping(spawn, artifactExpander, fakeFileCache, true);
+          .getInputMapping(spawn, artifactExpander, ArtifactPathResolver.IDENTITY, fakeFileCache,
+              true);
     }
 
     @Override

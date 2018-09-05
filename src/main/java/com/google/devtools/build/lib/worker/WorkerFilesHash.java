@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -53,7 +54,8 @@ class WorkerFilesHash {
    * artifact of the given spawn.
    */
   static SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes(
-      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
+      Spawn spawn, ArtifactExpander artifactExpander, ArtifactPathResolver pathResolver,
+      MetadataProvider actionInputFileCache)
       throws IOException {
     TreeMap<PathFragment, HashCode> workerFilesMap = new TreeMap<>();
 
@@ -66,7 +68,7 @@ class WorkerFilesHash {
     }
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
-        spawn.getRunfilesSupplier().getMappings().entrySet()) {
+        spawn.getRunfilesSupplier().getMappings(pathResolver).entrySet()) {
       PathFragment root = rootAndMappings.getKey();
       Preconditions.checkState(!root.isAbsolute(), root);
       for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
