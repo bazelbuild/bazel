@@ -837,17 +837,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableLegacyCrosstoolFields;
 
   @Option(
-      name = "experimental_enable_cc_dynlibs_for_runtime",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If false, Blaze will not propagate runtime libs through CcDynamicLibrariesForRuntime "
-              + "field of CcLinkingInfo. See b/111289526.")
-  public boolean enableCcDynamicLibrariesForRuntime;
-
-  @Option(
       name = "experimental_linkopts_in_user_link_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

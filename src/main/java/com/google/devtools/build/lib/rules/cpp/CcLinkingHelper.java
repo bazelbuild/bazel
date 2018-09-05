@@ -531,12 +531,6 @@ public final class CcLinkingHelper {
       providers.add(new CcNativeLibraryProvider(collectNativeCcLibraries(ccLinkingOutputs)));
     }
 
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    if (cppConfiguration.enableCcDynamicLibrariesForRuntime()) {
-      ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
-          collectDynamicLibrariesForRuntimeArtifacts(
-              ccLinkingOutputs.getDynamicLibrariesForRuntime()));
-    }
 
     final CcLinkingOutputs ccLinkingOutputsFinalized = ccLinkingOutputs;
     BiFunction<Boolean, Boolean, CcLinkParams> createParams =
@@ -567,15 +561,16 @@ public final class CcLinkingHelper {
           return builder.build();
         };
 
-    ccLinkingInfoBuilder
-        .setStaticModeParamsForDynamicLibrary(
-            createParams.apply(/* staticMode= */ true, /* forDynamicLibrary= */ true))
-        .setStaticModeParamsForExecutable(
-            createParams.apply(/* staticMode= */ true, /* forDynamicLibrary= */ false))
-        .setDynamicModeParamsForDynamicLibrary(
-            createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ true))
-        .setDynamicModeParamsForExecutable(
-            createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ false));
+    CcLinkingInfo.Builder ccLinkingInfoBuilder =
+        CcLinkingInfo.Builder.create()
+            .setStaticModeParamsForDynamicLibrary(
+                createParams.apply(/* staticMode= */ true, /* forDynamicLibrary= */ true))
+            .setStaticModeParamsForExecutable(
+                createParams.apply(/* staticMode= */ true, /* forDynamicLibrary= */ false))
+            .setDynamicModeParamsForDynamicLibrary(
+                createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ true))
+            .setDynamicModeParamsForExecutable(
+                createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ false));
     providers.put(ccLinkingInfoBuilder.build());
     return new LinkingInfo(
         providers.build(), outputGroups, ccLinkingOutputs, originalLinkingOutputs);
@@ -655,27 +650,6 @@ public final class CcLinkingHelper {
     }
 
     return result.build();
-  }
-
-  private CcDynamicLibrariesForRuntime collectDynamicLibrariesForRuntimeArtifacts(
-      List<LibraryToLink> dynamicLibrariesForRuntime) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(dynamicLibrariesForRuntime);
-    if (!Iterables.isEmpty(artifacts)) {
-      return new CcDynamicLibrariesForRuntime(NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
-    }
-
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (CcLinkingInfo dep : ccLinkingInfos) {
-      CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime =
-          dep.getCcDynamicLibrariesForRuntime();
-      if (ccDynamicLibrariesForRuntime != null) {
-        builder.addTransitive(
-            ccDynamicLibrariesForRuntime.getDynamicLibrariesForRuntimeArtifacts());
-      }
-    }
-    return builder.isEmpty()
-        ? CcDynamicLibrariesForRuntime.EMPTY
-        : new CcDynamicLibrariesForRuntime(builder.build());
   }
 
   /**
