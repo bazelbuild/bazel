@@ -61,9 +61,11 @@ You will create and merge the following Pull Requests.
          ],
         ```
 
-1.  Create a PR of these changes and merge them.
+1.  Create a PR of these changes and merge it directly to
+    https://bazel.googlesource.com/bazel/+/master (without the usual process of importing it to
+    the Google-internal version control).
 
-## 2nd PR: update references in the Bazel tree
+## 2nd and 3rd PRs: update references in the Bazel tree
 
 1.  In `third_party/protobuf/BUILD`:
 
@@ -77,17 +79,22 @@ You will create and merge the following Pull Requests.
 
 1.  Update the current version in this file.
 
-1.  Update this file if you found these instructions to be wrong or incomplete.
+1.  Create a PR of these changes and get it imported. Some files won't be imported (those that are
+    only hosted on GitHub); this is expected.
 
-1.  Create a PR of these changes and merge them.
+2.  Wait for the imported PR to be pushed back to GitHub. Rebase the PR from the previous step, and
+    merge it to https://bazel.googlesource.com/bazel/+/master .
 
-## 3rd PR: remove the old directory
+## 4th PR: remove the old directory
 
 1.  Delete the `third_party/protobuf/<old_proto>` directory.
 
 1.  Remove `_OLD_PROTOBUF_VERSION` from `third_party/protobuf/BUILD`.
 
-1.  Create a PR of these changes and merge them.
+1.  Create a PR of these changes and merge it directly to
+    https://bazel.googlesource.com/bazel/+/master .
+
+**Update this file if you found these instructions to be wrong or incomplete.**
 
 # Current protobuf version
 
