@@ -604,6 +604,10 @@ public class CompilationSupport {
   static final String FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT =
       "File '%s' is present in both srcs and non_arc_srcs which is forbidden.";
 
+  @VisibleForTesting
+  static final String BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED =
+      "Specifying both module_name and module_map is invalid, please remove one of them.";
+
   static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
 
   static final ImmutableList<String> DEFAULT_LINKER_FLAGS = ImmutableList.of("-ObjC");
@@ -934,6 +938,11 @@ public class CompilationSupport {
         ruleContext.attributeError(
             "srcs", String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, path));
       }
+    }
+
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("module_name")
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("module_map")) {
+      ruleContext.attributeError("module_name", BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED);
     }
 
     ruleContext.assertNoErrors();
