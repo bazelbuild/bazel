@@ -960,7 +960,7 @@ public class CompilationSupport {
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of(),
         toolchain,
-        maybeGetFdoProvider());
+        toolchain.getFdoProvider());
   }
 
   /**
@@ -1083,7 +1083,7 @@ public class CompilationSupport {
           extraCompileArgs,
           priorityHeaders,
           toolchain,
-          maybeGetFdoProvider());
+          toolchain.getFdoProvider());
     }
     return this;
   }
@@ -1159,8 +1159,7 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FdoProvider fdoProvider =
-        CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = toolchain.getFdoProvider();
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(
                 ruleContext,
@@ -1294,7 +1293,8 @@ public class CompilationSupport {
    */
   public CompilationSupport registerFullyLinkAction(
       ObjcProvider objcProvider, Artifact outputArchive) throws InterruptedException {
-    return registerFullyLinkAction(objcProvider, outputArchive, toolchain, maybeGetFdoProvider());
+    return registerFullyLinkAction(
+        objcProvider, outputArchive, toolchain, toolchain.getFdoProvider());
   }
 
   /**
@@ -1860,18 +1860,6 @@ public class CompilationSupport {
       objcHeaderThinningInfoByCommandLine.put(filteredArgumentsBuilder.build(), info);
     }
     return objcHeaderThinningInfoByCommandLine;
-  }
-
-  @Nullable
-  private FdoProvider maybeGetFdoProvider() {
-    // TODO(rduan): Remove this check once all rules are using the crosstool support.
-    if (ruleContext
-        .attributes()
-        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
-      return CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
-    } else {
-      return null;
-    }
   }
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {

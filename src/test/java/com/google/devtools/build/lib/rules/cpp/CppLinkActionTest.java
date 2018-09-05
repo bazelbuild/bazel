@@ -309,14 +309,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
           @Override
           public Action generate(ImmutableSet<NonStaticAttributes> attributesToFlip)
               throws InterruptedException {
+            CcToolchainProvider toolchain =
+                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
             CppLinkActionBuilder builder =
                 new CppLinkActionBuilder(
                     ruleContext,
                     attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)
                         ? dynamicOutputFile
                         : staticOutputFile,
-                    CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-                    CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
+                    toolchain,
+                    toolchain.getFdoProvider(),
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             if (attributesToFlip.contains(NonStaticAttributes.OUTPUT_FILE)) {
@@ -365,14 +367,16 @@ public class CppLinkActionTest extends BuildViewTestCase {
           @Override
           public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
               throws InterruptedException {
+            CcToolchainProvider toolchain =
+                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
             CppLinkActionBuilder builder =
                 new CppLinkActionBuilder(
                     ruleContext,
                     attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
                         ? staticOutputFile
                         : dynamicOutputFile,
-                    CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-                    CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
+                    toolchain,
+                    toolchain.getFdoProvider(),
                     featureConfiguration,
                     MockCppSemantics.INSTANCE) {};
             builder.setLinkType(
@@ -397,12 +401,14 @@ public class CppLinkActionTest extends BuildViewTestCase {
         PathFragment.create("output/path.ifso"), getTargetConfiguration().getBinDirectory(
             RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
             output,
-            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-            CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
+            toolchain,
+            toolchain.getFdoProvider(),
             FeatureConfiguration.EMPTY,
             MockCppSemantics.INSTANCE);
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
@@ -487,6 +493,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
       FeatureConfiguration featureConfiguration)
       throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
                 ruleContext,
@@ -495,8 +503,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     getTargetConfiguration()
                         .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
-                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
-                CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext),
+                toolchain,
+                toolchain.getFdoProvider(),
                 featureConfiguration,
                 MockCppSemantics.INSTANCE)
             .addObjectFiles(nonLibraryInputs)

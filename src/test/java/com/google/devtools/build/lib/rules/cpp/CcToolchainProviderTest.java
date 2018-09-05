@@ -77,6 +77,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
             /* sysroot= */ null,
             FdoMode.OFF,
+            /* fdoProvider= */ null,
             /* useLLVMCoverageMapFormat= */ false,
             /* codeCoverageEnabled= */ false,
             /* isHostConfiguration= */ false);
@@ -114,6 +115,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
             /* sysroot= */ null,
             FdoMode.OFF,
+            /* fdoProvider= */ null,
             /* useLLVMCoverageMapFormat= */ false,
             /* codeCoverageEnabled= */ false,
             /* isHostConfiguration= */ false);

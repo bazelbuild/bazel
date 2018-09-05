@@ -418,8 +418,7 @@ public class CcModule
         convertFromNoneable(skylarkFeatureConfiguration, null);
     Pair<List<Artifact>, List<Artifact>> separatedHeadersAndSources =
         separateSourcesFromHeaders(sources);
-    FdoProvider fdoProvider =
-        CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = ccToolchainProvider.getFdoProvider();
     // TODO(plf): Need to flatten the nested set to convert the Strings to PathFragment. This could
     // be avoided if path fragments are ever added to Skylark or in the C++ code we take Strings
     // instead of PathFragments.
@@ -497,8 +496,7 @@ public class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfiguration featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    FdoProvider fdoProvider =
-        CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = ccToolchainProvider.getFdoProvider();
     NestedSet<String> linkopts =
         convertSkylarkListOrNestedSetToNestedSet(skylarkLinkopts, String.class);
     CcLinkingHelper helper =
