@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -370,15 +371,20 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    String moduleName =
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("@", "")
-            .replace("-", "_")
-            .replace("/", "_")
-            .replace(":", "_");
+    String moduleName;
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("module_name")) {
+      moduleName = ruleContext.attributes().get("module_name", Type.STRING);
+    } else {
+      moduleName =
+          ruleContext
+              .getLabel()
+              .toString()
+              .replace("//", "")
+              .replace("@", "")
+              .replace("-", "_")
+              .replace("/", "_")
+              .replace(":", "_");
+    }
     Optional<Artifact> customModuleMap = CompilationSupport.getCustomModuleMap(ruleContext);
     if (customModuleMap.isPresent()) {
       return new CppModuleMap(customModuleMap.get(), moduleName);
