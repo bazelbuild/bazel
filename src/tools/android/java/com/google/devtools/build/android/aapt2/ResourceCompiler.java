@@ -172,8 +172,20 @@ public class ResourceCompiler {
     }
 
     static String interpolateAapt2Filename(Qualifiers qualifiers, String filename) {
+      // For values, extract the filename by looking for the last index of '.', so:
+      // 1) res/values/foo -> foo.arsc
+      // 2) res/values/foo.xml -> foo.asrc
+      // 3) res/values/foo.bar.xml -> foo.bar.arsc
+
+      // This is consistent with aapt2 compilation:
+      // $ aapt2 compile -v --legacy -o $(pwd) <path>/res/values/Style.Cell.xml
+      // # produces `values_Style.Cell.arsc.flat`
+
+      // For non-values, return the filename as it is:
+      // 1) res/<not values>/foo.bar.baz -> foo.bar.baz
+
       return qualifiers.asFolderType().equals(ResourceFolderType.VALUES)
-          ? (filename.indexOf('.') != -1 ? filename.substring(0, filename.indexOf('.')) : filename)
+          ? (filename.lastIndexOf('.') != -1 ? filename.substring(0, filename.lastIndexOf('.')) : filename)
               + ".arsc"
           : filename;
     }
