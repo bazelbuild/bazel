@@ -174,7 +174,7 @@ public class ResourceCompiler {
     static String interpolateAapt2Filename(Qualifiers qualifiers, String filename) {
       // For values, extract the filename by looking for the last index of '.', so:
       // 1) res/values/foo -> foo.arsc
-      // 2) res/values/foo.xml -> foo.src
+      // 2) res/values/foo.xml -> foo.asrc
       // 3) res/values/foo.bar.xml -> foo.bar.arsc
 
       // For non-values, return the filename as it is:
