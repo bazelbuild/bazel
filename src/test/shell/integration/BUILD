@@ -230,6 +230,7 @@ sh_test(
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
+        "//third_party/protobuf/3.6.1:srcs",
     ],
 )
 

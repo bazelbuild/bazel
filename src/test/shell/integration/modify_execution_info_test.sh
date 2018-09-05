@@ -144,13 +144,12 @@ Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
 }
 
 function test_modify_execution_info_various_types() {
-    # proto_library requires this external workspace.
-    cat >> WORKSPACE << EOF
-http_archive(
+  # proto_library requires this external workspace.
+  cat >> WORKSPACE << EOF
+new_local_repository(
     name = "com_google_protobuf",
-    sha256 = "cef7f1b5a7c5fba672bec2a319246e8feba471f04dcebfe362d55930ee7c1c30",
-    strip_prefix = "protobuf-3.5.0",
-    urls = ["https://github.com/google/protobuf/archive/v3.5.0.zip"],
+    path = "$(dirname $(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD))",
+    build_file = "$(rlocation io_bazel/third_party/protobuf/3.6.1/BUILD)",
 )
 EOF
   local pkg="${FUNCNAME[0]}"
