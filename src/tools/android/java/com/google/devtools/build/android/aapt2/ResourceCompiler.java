@@ -177,6 +177,10 @@ public class ResourceCompiler {
       // 2) res/values/foo.xml -> foo.asrc
       // 3) res/values/foo.bar.xml -> foo.bar.arsc
 
+      // This is consistent with aapt2 compilation:
+      // $ aapt2 compile -v --legacy -o $(pwd) <path>/res/values/Style.Cell.xml
+      // # produces `values_Style.Cell.arsc.flat`
+
       // For non-values, return the filename as it is:
       // 1) res/<not values>/foo.bar.baz -> foo.bar.baz
 
