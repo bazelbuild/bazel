@@ -2113,6 +2113,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void checkCustomModuleMap(RuleType ruleType, boolean targetUnderTestShouldPropagate)
       throws Exception {
     useConfiguration(
+        "--apple_crosstool_in_output_directory_name",
         "--experimental_objc_enable_module_maps",
         "--incompatible_strict_objc_module_maps");
     ruleType.scratchTarget(scratch, "deps", "['//z:a']");

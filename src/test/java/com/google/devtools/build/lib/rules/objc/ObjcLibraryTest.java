@@ -98,6 +98,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration(
+        "--apple_crosstool_in_output_directory_name",
         "--cpu=ios_x86_64",
         "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
 
