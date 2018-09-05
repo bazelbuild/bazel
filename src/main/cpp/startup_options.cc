@@ -144,8 +144,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
-  // TODO(b/5568649): remove this deprecated alias for server_javabase
-  RegisterUnaryStartupFlag("host_javabase");
   RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
@@ -234,12 +232,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    ProcessServerJavabase(value, rcfile);
-  } else if ((value = GetUnaryOption(arg, next_arg, "--host_javabase")) !=
-             NULL) {
-    ProcessServerJavabase(value, rcfile);
-    BAZEL_LOG(WARNING) << "The startup option --host_javabase is "
-                          "deprecated; prefer --server_javabase.";
+    server_javabase_ = blaze::AbsolutePathFromFlag(value);
+    option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
     host_jvm_args.push_back(value);
@@ -405,12 +399,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
 
   *is_space_separated = ((value == next_arg) && (value != NULL));
   return blaze_exit_code::SUCCESS;
-}
-
-void StartupOptions::ProcessServerJavabase(const char *value,
-                                           const string &rcfile) {
-  server_javabase_ = blaze::AbsolutePathFromFlag(value);
-  option_sources["server_javabase"] = rcfile;
 }
 
 blaze_exit_code::ExitCode StartupOptions::ProcessArgs(

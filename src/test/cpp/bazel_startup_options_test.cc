@@ -98,7 +98,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "connect_timeout_secs");
   ExpectIsUnaryOption(options, "digest_function");
   ExpectIsUnaryOption(options, "experimental_oom_more_eagerly_threshold");
-  ExpectIsUnaryOption(options, "host_javabase");
   ExpectIsUnaryOption(options, "server_javabase");
   ExpectIsUnaryOption(options, "host_jvm_args");
   ExpectIsUnaryOption(options, "host_jvm_profile");

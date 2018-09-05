@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests that our --host_javabase startup selection algorithm works.
+# Tests that our --server_javabase startup selection algorithm works.
 
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
@@ -76,7 +76,7 @@ function test_fallback_depot_javabase() {
   else
     local -r path=/$FUNCNAME/does/not/exist
   fi
-  if ! bazel --batch --host_javabase=$path version >& $TEST_log; then
+  if ! bazel --batch --server_javabase=$path version >& $TEST_log; then
     expect_log "Couldn't find java at"
     expect_not_log "Problem with java installation"
   fi
