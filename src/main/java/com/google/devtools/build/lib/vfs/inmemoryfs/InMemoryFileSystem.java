@@ -50,7 +50,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class InMemoryFileSystem extends FileSystem {
 
-  private final PathFragment scopeRoot;
   protected final Clock clock;
 
   // The root inode (a directory).
@@ -60,8 +59,7 @@ public class InMemoryFileSystem extends FileSystem {
   private static final int MAX_TRAVERSALS = 256;
 
   /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
-   * within scope) and a default clock.
+   * Creates a new InMemoryFileSystem with default clock and given hash function.
    *
    * @param hashFunction the function to use for calculating digests.
    */
@@ -70,19 +68,16 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
-   * within scope).
+   * Creates a new InMemoryFileSystem with the given clock and hash function.
    */
   public InMemoryFileSystem(Clock clock, DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = clock;
     this.rootInode = newRootInode(clock);
-    this.scopeRoot = null;
   }
 
   /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all paths are considered to be
-   * within scope) and a default clock.
+   * Creates a new InMemoryFileSystem with default clock and hash function.
    */
   @VisibleForTesting
   public InMemoryFileSystem() {
@@ -90,24 +85,11 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   /**
-   * Creates a new InMemoryFileSystem with scope checking disabled (all
-   * paths are considered to be within scope).
+   * Creates a new InMemoryFileSystem.
    */
   @VisibleForTesting
   public InMemoryFileSystem(Clock clock) {
-    this(clock, (PathFragment) null);
-  }
-
-  /**
-   * Creates a new InMemoryFileSystem with scope checking bound to scopeRoot, i.e. any path that's
-   * not below scopeRoot is considered to be out of scope.
-   */
-  @VisibleForTesting
-  public InMemoryFileSystem(Clock clock, PathFragment scopeRoot) {
-    super(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
-    this.scopeRoot = scopeRoot;
-    this.clock = clock;
-    this.rootInode = newRootInode(clock);
+    this(clock, DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
   }
 
   private static InMemoryDirectoryInfo newRootInode(Clock clock) {
@@ -115,29 +97,6 @@ public class InMemoryFileSystem extends FileSystem {
     rootInode.addChild(".", rootInode);
     rootInode.addChild("..", rootInode);
     return rootInode;
-  }
-
-  /**
-   * Returns true if the given path is within this file system's scope, false otherwise.
-   *
-   * @param parentDepth the number of segments in the path's parent directory (only meaningful for
-   *     paths that begin with ".."). The parent directory itself is assumed to be in scope.
-   * @param normalizedPath input path, expected to be normalized such that all ".." and "." segments
-   *     are removed (with the exception of a possible prefix sequence of contiguous ".." segments)
-   */
-  private boolean inScope(int parentDepth, PathFragment normalizedPath) {
-    if (scopeRoot == null) {
-      return true;
-    } else if (normalizedPath.isAbsolute()) {
-      return normalizedPath.startsWith(scopeRoot);
-    } else {
-      // Efficiency note: we're not accounting for "/scope/root/../root" paths here, i.e. paths
-      // that appear to go out of scope but ultimately stay within scope. This may result in
-      // unnecessary re-delegation back into the same FS. we're choosing to forgo that
-      // optimization under the assumption that such scenarios are rare and unimportant to
-      // overall performance. We can always enhance this if needed.
-      return parentDepth - leadingParentReferences(normalizedPath) >= scopeRoot.segmentCount();
-    }
   }
 
   /**
@@ -352,21 +311,10 @@ public class InMemoryFileSystem extends FileSystem {
    * <p>If 'create' is false, the inode must exist; otherwise, it will be created and added to its
    * parent directory, which must exist.
    *
-   * <p>Iff the given path escapes this file system's scope, a Error.ENOENT exception is thrown.
    *
    * <p>May fail with ENOTDIR, ENOENT, EACCES, ELOOP.
    */
   private synchronized InMemoryContentInfo pathWalk(Path path, boolean create) throws IOException {
-    // Implementation note: This is where we check for out-of-scope symlinks and
-    // trigger re-delegation to another file system accordingly. This code handles
-    // both absolute and relative symlinks. Some assumptions we make: First, only
-    // symlink targets as read from getNormalizedLinkContent() can escape our scope.
-    // This is because Path objects are all canonicalized (see {@link Path#getRelative},
-    // etc.) and symlink target segments that get added to the stack are in-scope by
-    // definition. Second, symlink targets with relative segments must have the form
-    // [".."]*[standard segment]+, i.e. only the ".." non-standard segment is allowed
-    // and it may only appear as part of a contiguous prefix sequence.
-
     Stack<String> stack = new Stack<>();
     for (Path p = path; !isRootDirectory(p); p = p.getParentDirectory()) {
       String name = baseNameOrWindowsDrive(p);
@@ -374,25 +322,19 @@ public class InMemoryFileSystem extends FileSystem {
     }
 
     InMemoryContentInfo inode = rootInode;
-    int parentDepth = -1;
     int traversals = 0;
 
     while (!stack.isEmpty()) {
       traversals++;
 
       String name = stack.pop();
-      parentDepth += name.equals("..") ? -1 : 1;
 
       // ENOENT on last segment with 'create' => create a new file.
       InMemoryContentInfo child = directoryLookup(inode, name, create && stack.isEmpty(), path);
       if (child.isSymbolicLink()) {
         PathFragment linkTarget = ((InMemoryLinkInfo) child).getNormalizedLinkContent();
-        if (!inScope(parentDepth, linkTarget)) {
-          throw Error.ENOENT.exception(path);
-        }
         if (linkTarget.isAbsolute()) {
           inode = rootInode;
-          parentDepth = -1;
         }
         if (traversals > MAX_TRAVERSALS) {
           throw Error.ELOOP.exception(path);
@@ -431,12 +373,9 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   /**
-   * Helper method for stat, scopeLimitedStat: lock the internal state and return the
-   * path's (no symlink-followed) stat if the path's parent directory is within scope,
-   * else return an "out of scope" reference to the path's parent directory (which will
-   * presumably be re-delegated to another FS).
+   * Helper method for stat and inodeStat: return the path's (no symlink-followed) stat.
    */
-  private synchronized InMemoryContentInfo getNoFollowStatOrOutOfScopeParent(Path path)
+  private synchronized InMemoryContentInfo noFollowStat(Path path)
       throws IOException  {
     InMemoryDirectoryInfo dirInfo = getDirectory(path.getParentDirectory());
     return directoryLookup(dirInfo, baseNameOrWindowsDrive(path), /*create=*/ false, path);
@@ -449,15 +388,7 @@ public class InMemoryFileSystem extends FileSystem {
    */
   @Override
   public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
-    if (followSymlinks) {
-      return scopeLimitedStat(path, true);
-    } else {
-      if (isRootDirectory(path)) {
-        return rootInode;
-      } else {
-        return getNoFollowStatOrOutOfScopeParent(path);
-      }
-    }
+    return inodeStat(path, followSymlinks);
   }
 
   @Override
@@ -477,19 +408,14 @@ public class InMemoryFileSystem extends FileSystem {
   }
 
   /**
-   * Version of stat that returns an inode if the input path stays entirely within this file
-   * system's scope, otherwise throws.
+   * Version of stat that returns an inode of the input path.
    */
-  protected InMemoryContentInfo scopeLimitedStat(Path path, boolean followSymlinks)
+  protected InMemoryContentInfo inodeStat(Path path, boolean followSymlinks)
       throws IOException {
     if (followSymlinks) {
       return pathWalk(path, false);
     } else {
-      if (isRootDirectory(path)) {
-        return rootInode;
-      } else {
-        return getNoFollowStatOrOutOfScopeParent(path);
-      }
+      return isRootDirectory(path) ? rootInode : noFollowStat(path);
     }
   }
 
@@ -510,7 +436,7 @@ public class InMemoryFileSystem extends FileSystem {
   protected PathFragment resolveOneLink(Path path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
-    InMemoryContentInfo status = scopeLimitedStat(path, false);
+    InMemoryContentInfo status = inodeStat(path, false);
     return status.isSymbolicLink() ? ((InMemoryLinkInfo) status).getLinkContent() : null;
   }
 
@@ -562,21 +488,21 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   protected boolean isReadable(Path path) throws IOException {
-    InMemoryContentInfo status = scopeLimitedStat(path, true);
+    InMemoryContentInfo status = inodeStat(path, true);
     return status.isReadable();
   }
 
   @Override
   protected void setReadable(Path path, boolean readable) throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, true);
       status.setReadable(readable);
     }
   }
 
   @Override
   protected boolean isWritable(Path path) throws IOException {
-    InMemoryContentInfo status = scopeLimitedStat(path, true);
+    InMemoryContentInfo status = inodeStat(path, true);
     return status.isWritable();
   }
 
@@ -584,14 +510,14 @@ public class InMemoryFileSystem extends FileSystem {
   public void setWritable(Path path, boolean writable) throws IOException {
     InMemoryContentInfo status;
     synchronized (this) {
-      status = scopeLimitedStat(path, true);
+      status = inodeStat(path, true);
       status.setWritable(writable);
     }
   }
 
   @Override
   protected boolean isExecutable(Path path) throws IOException {
-    InMemoryContentInfo status = scopeLimitedStat(path, true);
+    InMemoryContentInfo status = inodeStat(path, true);
     return status.isExecutable();
   }
 
@@ -599,7 +525,7 @@ public class InMemoryFileSystem extends FileSystem {
   protected void setExecutable(Path path, boolean executable)
       throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, true);
       status.setExecutable(executable);
     }
   }
@@ -686,7 +612,7 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   protected PathFragment readSymbolicLink(Path path) throws IOException {
-    InMemoryContentInfo status = scopeLimitedStat(path, false);
+    InMemoryContentInfo status = inodeStat(path, false);
     if (status.isSymbolicLink()) {
       Preconditions.checkState(status instanceof InMemoryLinkInfo);
       return ((InMemoryLinkInfo) status).getLinkContent();
@@ -749,7 +675,7 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   public void setLastModifiedTime(Path path, long newTime) throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, true);
       status.setLastModifiedTime(newTime == -1L ? clock.currentTimeMillis() : newTime);
     }
   }
@@ -757,7 +683,7 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   protected InputStream getInputStream(Path path) throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, true);
       if (status.isDirectory()) {
         throw Error.EISDIR.exception(path);
       }
@@ -772,7 +698,7 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   public byte[] getxattr(Path path, String name) throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, true);
       if (status.isDirectory()) {
         throw Error.EISDIR.exception(path);
       }
@@ -787,7 +713,7 @@ public class InMemoryFileSystem extends FileSystem {
   @Override
   protected byte[] getFastDigest(Path path) throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = scopeLimitedStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, true);
       if (status.isDirectory()) {
         throw Error.EISDIR.exception(path);
       }
