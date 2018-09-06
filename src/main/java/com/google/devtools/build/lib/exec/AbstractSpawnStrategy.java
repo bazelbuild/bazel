@@ -81,7 +81,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-
     actionExecutionContext.maybeReportSubcommand(spawn);
 
     final Duration timeout = Spawns.getTimeout(spawn);
@@ -249,6 +248,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     public void report(ProgressStatus state, String name) {
       ActionExecutionMetadata action = spawn.getResourceOwner();
       if (action.getOwner() == null) {
+        return;
+      }
+
+      // TODO(djasper): This should not happen as per the contract of ActionExecutionMetadata, but
+      // there are implementations that violate the contract. Remove when those are gone.
+      if (action.getPrimaryOutput() == null) {
         return;
       }
 
