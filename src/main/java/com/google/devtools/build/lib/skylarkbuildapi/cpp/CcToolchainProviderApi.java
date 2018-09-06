@@ -27,6 +27,19 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 public interface CcToolchainProviderApi extends ToolchainInfoApi {
 
   @SkylarkCallable(
+      name = "use_pic_for_dynamic_libraries",
+      doc =
+          "Returns true if this rule's compilations should apply -fPIC, false otherwise. "
+              + "Determines if we should apply -fPIC for this rule's C++ compilations. This "
+              + "determination is generally made by the global C++ configuration settings "
+              + "<code>needsPic</code> and <code>usePicForBinaries</code>. However, an individual "
+              + "rule may override these settings by applying <code>-fPIC</code> to its "
+              + "<code>nocopts</code> attribute. This allows incompatible rules to opt out of "
+              + "global PIC settings.",
+      structField = true)
+  boolean usePicForDynamicLibraries();
+
+  @SkylarkCallable(
       name = "built_in_include_directories",
       doc = "Returns the list of built-in directories of the compiler.",
       structField = true)

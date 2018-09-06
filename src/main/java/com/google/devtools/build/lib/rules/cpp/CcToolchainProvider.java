@@ -273,8 +273,9 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    *
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
+  @Override
   public boolean usePicForDynamicLibraries() {
-    return getCppConfiguration().forcePic() || toolchainNeedsPic();
+    return forcePic || toolchainNeedsPic();
   }
 
   /**
