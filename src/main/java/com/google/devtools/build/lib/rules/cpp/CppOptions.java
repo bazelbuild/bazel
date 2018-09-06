@@ -859,13 +859,17 @@ public class CppOptions extends FragmentOptions {
   public boolean disableEmittingStaticLibgcc;
 
   @Option(
-      name = "experimental_enable_cc_toolchain_label_from_crosstool_proto",
-      defaultValue = "true",
+      name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If false, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
-  public boolean enableCcToolchainFromCrosstool;
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
+  public boolean disableCcToolchainFromCrosstool;
 
   @Option(
       name = "experimental_enable_cc_toolchain_config_info",
