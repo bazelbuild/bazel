@@ -70,8 +70,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
   private final CppModuleMap cppModuleMap;
   private final CppModuleMap verificationModuleMap;
 
-  private final boolean propagateModuleMapAsActionInput;
-
   // Derived from depsContexts.
   private final ImmutableSet<Artifact> compilationPrerequisites;
 
@@ -92,7 +90,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       ImmutableList<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
-      boolean propagateModuleMapAsActionInput,
       CppConfiguration.HeadersCheckingMode headersCheckingMode) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
@@ -107,7 +104,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.nonCodeInputs = nonCodeInputs;
     this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
-    this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.headersCheckingMode = headersCheckingMode;
   }
 
@@ -252,7 +248,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     builder.addAll(directModuleMaps);
     builder.addTransitive(nonCodeInputs);
-    if (cppModuleMap != null && propagateModuleMapAsActionInput) {
+    if (cppModuleMap != null) {
       builder.add(cppModuleMap.getArtifact());
     }
     return builder.build();
@@ -302,7 +298,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.directModuleMaps,
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.verificationModuleMap,
-        ccCompilationContext.propagateModuleMapAsActionInput,
         ccCompilationContext.headersCheckingMode);
   }
 
@@ -366,7 +361,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private CppModuleMap verificationModuleMap;
-    private boolean propagateModuleMapAsActionInput = true;
     private CppConfiguration.HeadersCheckingMode headersCheckingMode =
         CppConfiguration.HeadersCheckingMode.STRICT;
 
@@ -554,14 +548,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     }
 
     /**
-     * Causes the module map to be passed as an action input to dependant compilations.
-     */
-    public Builder setPropagateCppModuleMapAsActionInput(boolean propagateModuleMap) {
-      this.propagateModuleMapAsActionInput = propagateModuleMap;
-      return this;
-    }
-
-    /**
      * Sets the C++ header module in non-pic mode.
      *
      * @param headerModule The .pcm file generated for this library.
@@ -621,7 +607,6 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           ImmutableList.copyOf(directModuleMaps),
           cppModuleMap,
           verificationModuleMap,
-          propagateModuleMapAsActionInput,
           headersCheckingMode);
     }
 

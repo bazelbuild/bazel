@@ -289,7 +289,6 @@ public final class CcCompilationHelper {
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
   @Nullable private CppModuleMap cppModuleMap;
-  private boolean propagateModuleMapToCompileAction = true;
 
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainProvider ccToolchain;
@@ -481,7 +480,7 @@ public final class CcCompilationHelper {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
-    
+
     this.privateHeaders.add(privateHeader);
     return this;
   }
@@ -692,12 +691,6 @@ public final class CcCompilationHelper {
   public CcCompilationHelper setCppModuleMap(CppModuleMap cppModuleMap) {
     Preconditions.checkNotNull(cppModuleMap);
     this.cppModuleMap = cppModuleMap;
-    return this;
-  }
-
-  /** Signals that this target's module map should not be an input to c++ compile actions. */
-  public CcCompilationHelper setPropagateModuleMapToCompileAction(boolean propagatesModuleMap) {
-    this.propagateModuleMapToCompileAction = propagatesModuleMap;
     return this;
   }
 
@@ -1062,8 +1055,6 @@ public final class CcCompilationHelper {
         cppModuleMap = CppHelper.createDefaultCppModuleMap(ruleContext, /*suffix=*/ "");
       }
 
-      ccCompilationContextBuilder.setPropagateCppModuleMapAsActionInput(
-          propagateModuleMapToCompileAction);
       ccCompilationContextBuilder.setCppModuleMap(cppModuleMap);
       // There are different modes for module compilation:
       // 1. We create the module map and compile the module so that libraries depending on us can
