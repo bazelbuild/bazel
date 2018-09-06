@@ -15,14 +15,12 @@
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.java.bazel.BazelJavaCompiler;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,6 +50,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,9 +58,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 
-/**
- * JUnit tests for ijar tool.
- */
+/** JUnit tests for ijar tool. */
 @RunWith(JUnit4.class)
 public class IjarTests {
 
@@ -80,27 +77,26 @@ public class IjarTests {
   DiagnosticCollector<JavaFileObject> diagnostics;
 
   private JavaCompiler.CompilationTask makeCompilationTask(String... files) throws IOException {
-    JavaCompiler compiler = BazelJavaCompiler.newInstance();
+    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-    fileManager.setLocation(StandardLocation.CLASS_PATH,
-                            Arrays.asList(new File("third_party/ijar/test/interface_ijar_testlib.jar")));
-    fileManager.setLocation(StandardLocation.CLASS_OUTPUT,
-                            Arrays.asList(getTmpDir()));
+    fileManager.setLocation(
+        StandardLocation.CLASS_PATH,
+        Arrays.asList(new File("third_party/ijar/test/interface_ijar_testlib.jar")));
+    fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(getTmpDir()));
     diagnostics = new DiagnosticCollector<JavaFileObject>();
-    return compiler.getTask(null,
-                            fileManager,
-                            diagnostics,
-                            Arrays.asList("-Xlint:deprecation"), // used for deprecation tests
-                            null,
-                            fileManager.getJavaFileObjects(files));
+    return compiler.getTask(
+        null,
+        fileManager,
+        diagnostics,
+        Arrays.asList("-Xlint:deprecation"), // used for deprecation tests
+        null,
+        fileManager.getJavaFileObjects(files));
   }
 
   /**
-   * Test that the ijar tool preserves private nested classes as they
-   * may be exposed through public API. This test relies on an
-   * interface jar provided through the build rule
-   * :interface_ijar_testlib and the Java source file
-   * PrivateNestedClass.java.
+   * Test that the ijar tool preserves private nested classes as they may be exposed through public
+   * API. This test relies on an interface jar provided through the build rule
+   * :interface_ijar_testlib and the Java source file PrivateNestedClass.java.
    */
   @Test
   public void testPrivateNestedClass() throws IOException {
@@ -109,21 +105,16 @@ public class IjarTests {
     }
   }
 
-  /**
-   * Test that the ijar tool preserves annotations, especially @Target
-   * meta-annotation.
-   */
+  /** Test that the ijar tool preserves annotations, especially @Target meta-annotation. */
   @Test
   public void testRestrictedAnnotations() throws IOException {
     assertFalse(makeCompilationTask("third_party/ijar/test/UseRestrictedAnnotation.java").call());
   }
 
   /**
-   * Test that the ijar tool preserves private nested classes as they
-   * may be exposed through public API. This test relies on an
-   * interface jar provided through the build rule
-   * :interface_ijar_testlib and the Java source file
-   * PrivateNestedClass.java.
+   * Test that the ijar tool preserves private nested classes as they may be exposed through public
+   * API. This test relies on an interface jar provided through the build rule
+   * :interface_ijar_testlib and the Java source file PrivateNestedClass.java.
    */
   @Test
   public void testDeprecatedParts() throws IOException {
@@ -132,36 +123,42 @@ public class IjarTests {
     }
     int deprecatedWarningCount = 0;
     for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-      if ((diagnostic.getKind() == Diagnostic.Kind.MANDATORY_WARNING) &&
+      if ((diagnostic.getKind() == Diagnostic.Kind.MANDATORY_WARNING)
+          &&
           // Java 6:
-          (diagnostic.getMessage(Locale.ENGLISH).startsWith("[deprecation]") ||
-           // Java 7:
-           diagnostic.getMessage(Locale.ENGLISH).contains("has been deprecated"))) {
+          (diagnostic.getMessage(Locale.ENGLISH).startsWith("[deprecation]")
+              ||
+              // Java 7:
+              diagnostic.getMessage(Locale.ENGLISH).contains("has been deprecated"))) {
         deprecatedWarningCount++;
       }
     }
-    assertEquals(16, deprecatedWarningCount);
+    assertThat(deprecatedWarningCount).isAtLeast(16);
   }
 
   /**
-   * Test that the ijar tool preserves EnclosingMethod attributes and doesn't
-   * prevent annotation processors from accessing all the elements in a package.
+   * Test that the ijar tool preserves EnclosingMethod attributes and doesn't prevent annotation
+   * processors from accessing all the elements in a package.
    */
   @Test
   public void testEnclosingMethod() throws IOException {
-    JavaCompiler.CompilationTask task = makeCompilationTask("third_party/ijar/test/package-info.java");
-    task.setProcessors(Arrays.asList(new AbstractProcessor() {
-      @Override
-      public Set<String> getSupportedAnnotationTypes() {
-        return Collections.singleton("*");
-      }
+    JavaCompiler.CompilationTask task =
+        makeCompilationTask("third_party/ijar/test/package-info.java");
+    task.setProcessors(
+        Arrays.asList(
+            new AbstractProcessor() {
+              @Override
+              public Set<String> getSupportedAnnotationTypes() {
+                return Collections.singleton("*");
+              }
 
-      @Override
-      public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        roundEnv.getElementsAnnotatedWith(java.lang.Override.class);
-        return true;
-      }
-    }));
+              @Override
+              public boolean process(
+                  Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+                roundEnv.getElementsAnnotatedWith(java.lang.Override.class);
+                return true;
+              }
+            }));
     if (!task.call()) {
       fail(getFailedCompilationMessage());
     }
@@ -196,12 +193,13 @@ public class IjarTests {
     StringBuilder builder = new StringBuilder();
     builder.append("Build failed unexpectedly");
     for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-      builder.append(String.format(
-          "\t%s line %d column %d: %s",
-          diagnostic.getKind().toString(),
-          diagnostic.getLineNumber(),
-          diagnostic.getColumnNumber(),
-          diagnostic.getMessage(Locale.ENGLISH)));
+      builder.append(
+          String.format(
+              "\t%s line %d column %d: %s",
+              diagnostic.getKind().toString(),
+              diagnostic.getLineNumber(),
+              diagnostic.getColumnNumber(),
+              diagnostic.getMessage(Locale.ENGLISH)));
     }
     return builder.toString();
   }
@@ -406,8 +404,7 @@ public class IjarTests {
       throws IOException {
     // Make sure that all other files came across bitwise equal
     for (String classEntry :
-        original
-            .stream()
+        original.stream()
             .map(JarEntry::getName)
             .filter(name -> !name.equals("META-INF/MANIFEST.MF"))
             .collect(toImmutableList())) {
