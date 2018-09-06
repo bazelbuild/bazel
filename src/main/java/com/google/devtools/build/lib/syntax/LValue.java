@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -73,7 +72,7 @@ public final class LValue extends ASTNode {
   private static void assign(Expression expr, Object value, Environment env, Location loc)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
-      assignIdentifier((Identifier) expr, value, env, loc);
+      assignIdentifier((Identifier) expr, value, env);
     } else if (expr instanceof IndexExpression) {
       Object object = ((IndexExpression) expr).getObject().eval(env);
       Object key = ((IndexExpression) expr).getKey().eval(env);
@@ -87,25 +86,9 @@ public final class LValue extends ASTNode {
     }
   }
 
-  /**
-   * Binds a variable to the given value in the environment.
-   *
-   * @throws EvalException if we're currently in a function's scope, and the identifier has
-   * previously resolved to a global variable in the same function
-   */
-  private static void assignIdentifier(
-      Identifier ident, Object value, Environment env, Location loc)
+  /** Binds a variable to the given value in the environment. */
+  private static void assignIdentifier(Identifier ident, Object value, Environment env)
       throws EvalException {
-    Preconditions.checkNotNull(value, "trying to assign null to %s", ident);
-
-    if (env.isKnownGlobalVariable(ident.getName())) {
-      throw new EvalException(
-          loc,
-          String.format(
-              "Variable '%s' is referenced before assignment. "
-                  + "The variable is defined in the global scope.",
-              ident.getName()));
-    }
     env.update(ident.getName(), value);
   }
 
@@ -178,7 +161,7 @@ public final class LValue extends ASTNode {
       Object result =
           BinaryOperatorExpression.evaluateAugmented(
               operator, expr.eval(env), rhs.eval(env), env, loc);
-      assignIdentifier((Identifier) expr, result, env, loc);
+      assignIdentifier((Identifier) expr, result, env);
     } else if (expr instanceof IndexExpression) {
       IndexExpression indexExpression = (IndexExpression) expr;
       // The object and key should be evaluated only once, so we don't use expr.eval().

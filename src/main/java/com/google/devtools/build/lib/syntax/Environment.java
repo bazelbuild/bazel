@@ -478,7 +478,11 @@ public final class Environment implements Freezable, Debuggable {
     /** The global Frame of the caller. */
     final GlobalFrame globalFrame;
 
-    /** The set of known global variables of the caller. */
+    /**
+     * The set of known global variables of the caller.
+     *
+     * <p>TODO(laurentlb): Remove this when we use static name resolution.
+     */
     @Nullable final LinkedHashSet<String> knownGlobalVariables;
 
     Continuation(
@@ -1034,18 +1038,17 @@ public final class Environment implements Freezable, Debuggable {
    * @return this Environment, in fluid style
    */
   public Environment update(String varname, Object value) throws EvalException {
-    Preconditions.checkNotNull(value, "update(value == null)");
-    // prevents clashes between static and dynamic variables.
-    if (dynamicFrame.get(varname) != null) {
-      throw new EvalException(
-          null, String.format("Trying to update special read-only global variable '%s'", varname));
-    }
+    Preconditions.checkNotNull(value, "trying to assign null to '%s'", varname);
     if (isKnownGlobalVariable(varname)) {
       throw new EvalException(
-          null, String.format("Trying to update read-only global variable '%s'", varname));
+          null,
+          String.format(
+              "Variable '%s' is referenced before assignment. "
+                  + "The variable is defined in the global scope.",
+              varname));
     }
     try {
-      lexicalFrame.put(this, varname, Preconditions.checkNotNull(value));
+      lexicalFrame.put(this, varname, value);
     } catch (MutabilityException e) {
       // Note that since at this time we don't accept the global keyword, and don't have closures,
       // end users should never be able to mutate a frozen Environment, and a MutabilityException
@@ -1148,7 +1151,9 @@ public final class Environment implements Freezable, Debuggable {
    * the current function).
    */
   boolean isKnownGlobalVariable(String varname) {
-    return knownGlobalVariables != null && knownGlobalVariables.contains(varname);
+    return !semantics.incompatibleStaticNameResolution()
+        && knownGlobalVariables != null
+        && knownGlobalVariables.contains(varname);
   }
 
   public SkylarkSemantics getSemantics() {
