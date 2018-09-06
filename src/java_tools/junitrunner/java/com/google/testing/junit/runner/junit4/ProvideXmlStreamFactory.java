@@ -16,6 +16,8 @@ package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.util.Factory;
 import com.google.testing.junit.runner.util.Supplier;
+
+import java.io.IOException;
 import java.io.OutputStream;
 
 /**
@@ -31,12 +33,48 @@ public final class ProvideXmlStreamFactory implements Factory<OutputStream> {
 
   @Override
   public OutputStream get() {
-    OutputStream outputStream = JUnit4RunnerModule.provideXmlStream(configSupplier.get());
-    assert outputStream != null;
+    OutputStream outputStream = new LazyOutputStream(
+            () -> JUnit4RunnerModule.provideXmlStream(configSupplier.get()));
     return outputStream;
   }
 
   public static Factory<OutputStream> create(Supplier<JUnit4Config> configSupplier) {
     return new ProvideXmlStreamFactory(configSupplier);
+  }
+
+  private static class LazyOutputStream extends OutputStream {
+    private Supplier<OutputStream> supplier;
+    private OutputStream underlying;
+
+    public LazyOutputStream(Supplier<OutputStream> supplier) {
+      this.supplier = supplier;
+    }
+
+    public void write(int b) throws IOException {
+      if (underlying == null) {
+        synchronized (this) {
+          if (underlying == null) {
+            underlying = supplier.get();
+            supplier = null;
+          }
+        }
+      }
+
+      underlying.write(b);
+    }
+
+    @Override
+    public void close() throws IOException {
+      if (underlying != null) {
+        underlying.close();
+      }
+    }
+
+    @Override
+    public void flush() throws IOException {
+      if (underlying != null) {
+        underlying.flush();
+      }
+    }
   }
 }
