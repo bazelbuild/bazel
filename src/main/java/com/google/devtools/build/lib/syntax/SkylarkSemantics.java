@@ -127,7 +127,7 @@ public abstract class SkylarkSemantics {
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
-          .incompatiblePackageNameIsAFunction(false)
+          .incompatiblePackageNameIsAFunction(true)
           .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)

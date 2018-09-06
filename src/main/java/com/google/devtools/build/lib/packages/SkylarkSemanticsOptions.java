@@ -316,7 +316,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
 
   @Option(
       name = "incompatible_package_name_is_a_function",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -325,8 +325,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       },
       help =
           "If set to true, the values PACKAGE_NAME and REPOSITORY_NAME are not available. "
-              + "Use the package_name() or repository_name() functions instead."
-  )
+              + "Use the package_name() or repository_name() functions instead.")
   public boolean incompatiblePackageNameIsAFunction;
 
   @Option(
