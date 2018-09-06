@@ -110,10 +110,6 @@ class StartupOptions {
                                        bool *is_space_separated,
                                        std::string *error);
 
-  // Processes the --server_javabase flag, or its deprecated alias
-  // --host_javabase.
-  void ProcessServerJavabase(const char *value, const std::string &rcfile);
-
   // Process an ordered list of RcStartupFlags using ProcessArg.
   blaze_exit_code::ExitCode ProcessArgs(
       const std::vector<RcStartupFlag>& rcstartup_flags,

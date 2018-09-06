@@ -684,6 +684,11 @@ public class ObjcRuleClasses {
           provided module map to the compiler.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("module_map", LABEL).allowedFileTypes(FileType.of(".modulemap")))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(module_name) -->
+          Sets the module name for this target. By default the module name is the target path with
+          all special symbols replaced by _, e.g. //foo/baz:bar can be imported as foo_baz_bar.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("module_name", STRING))
           /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
           sources and provide a list of required headers via a .header_list file.
 

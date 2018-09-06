@@ -143,8 +143,10 @@ public interface OutputService {
    * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
-      FileSystem actionFileSystem, Environment env, MetadataConsumer consumer,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets)
+      FileSystem actionFileSystem,
+      Environment env,
+      MetadataConsumer consumer,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
       throws IOException {}
 
   default boolean supportsPathResolverForArtifactValues() {

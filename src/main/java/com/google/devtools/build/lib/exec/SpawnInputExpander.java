@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -107,10 +108,11 @@ public class SpawnInputExpander {
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
+      ArtifactPathResolver pathResolver,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings();
+        runfilesSupplier.getMappings(pathResolver);
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
@@ -173,14 +175,14 @@ public class SpawnInputExpander {
 
   @VisibleForTesting
   void addFilesetManifests(
-      Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       Map<PathFragment, ActionInput> inputMappings)
       throws IOException {
-    for (PathFragment manifestExecpath : filesetMappings.keySet()) {
-      ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(manifestExecpath);
+    for (Artifact fileset : filesetMappings.keySet()) {
+      ImmutableList<FilesetOutputSymlink> outputSymlinks = filesetMappings.get(fileset);
       FilesetManifest filesetManifest =
           FilesetManifest.constructFilesetManifest(
-              outputSymlinks, manifestExecpath, relSymlinkBehavior);
+              outputSymlinks, fileset.getExecPath(), relSymlinkBehavior);
 
       for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
         String value = mapping.getValue();
@@ -213,6 +215,7 @@ public class SpawnInputExpander {
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn,
       ArtifactExpander artifactExpander,
+      ArtifactPathResolver pathResolver,
       MetadataProvider actionInputFileCache,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
@@ -223,6 +226,7 @@ public class SpawnInputExpander {
         spawn.getRunfilesSupplier(),
         actionInputFileCache,
         artifactExpander,
+        pathResolver,
         expandTreeArtifactsInRunfiles);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap);
     return inputMap;

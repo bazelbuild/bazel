@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -79,7 +78,6 @@ import javax.annotation.Nullable;
  *       --compiler values, and construct the key as follows: <toolchain.cpu>|<toolchain.compiler>.
  * </ul>
  */
-@AutoCodec
 @Immutable
 public final class CppConfiguration extends BuildConfiguration.Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
@@ -299,8 +297,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         cppToolchainInfo);
   }
 
-  @AutoCodec.Instantiator
-  CppConfiguration(
+  private CppConfiguration(
       Label crosstoolTop,
       CrosstoolFile crosstoolFile,
       String desiredCpu,
@@ -1166,17 +1163,16 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLinkingModeFlags;
   }
 
+  public boolean disableMakeVariables() {
+    return cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables;
+  }
+
   public boolean enableLinkoptsInUserLinkFlags() {
     return cppOptions.enableLinkoptsInUserLinkFlags;
   }
 
   public boolean disableEmittingStaticLibgcc() {
     return cppOptions.disableEmittingStaticLibgcc;
-  }
-
-  /** Returns true if the deprecated CcDynamicLibrariesForRuntime class should be used */
-  public boolean enableCcDynamicLibrariesForRuntime() {
-    return cppOptions.enableCcDynamicLibrariesForRuntime;
   }
 
   private void checkForToolchainSkylarkApiAvailability() throws EvalException {

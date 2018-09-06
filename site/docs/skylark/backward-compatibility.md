@@ -180,7 +180,7 @@ Likewise, the magic `REPOSITORY_NAME` variable is replaced by
 same flag.
 
 *   Flag: `--incompatible_package_name_is_a_function`
-*   Default: `false`
+*   Default: `true`
 
 
 ### FileType is deprecated

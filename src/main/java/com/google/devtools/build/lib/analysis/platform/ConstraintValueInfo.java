@@ -32,7 +32,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<ConstraintValueInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<ConstraintValueInfo> PROVIDER =
       new NativeProvider<ConstraintValueInfo>(ConstraintValueInfo.class, SKYLARK_NAME) {};
 
   private final ConstraintSettingInfo constraint;
@@ -40,9 +40,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @VisibleForSerialization
   ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
-    super(
-        SKYLARK_CONSTRUCTOR,
-        location);
+    super(PROVIDER, location);
 
     this.constraint = constraint;
     this.label = label;

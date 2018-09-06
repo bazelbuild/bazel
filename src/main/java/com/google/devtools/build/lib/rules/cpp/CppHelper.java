@@ -247,25 +247,6 @@ public class CppHelper {
     }
   }
 
-  /**
-   * Return {@link FdoProvider} using default cc_toolchain attribute name.
-   *
-   * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
-   * the default name.
-   */
-  @Nullable
-  public static FdoProvider getFdoProviderUsingDefaultCcToolchainAttribute(
-      RuleContext ruleContext) {
-    return getFdoProvider(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
-  }
-
-  @Nullable public static FdoProvider getFdoProvider(RuleContext ruleContext,
-      String ccToolchainAttribute) {
-    return ruleContext
-        .getPrerequisite(ccToolchainAttribute, Mode.TARGET)
-        .getProvider(FdoProvider.class);
-  }
-
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
@@ -416,26 +397,22 @@ public class CppHelper {
     final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingDynamically =
         input -> {
           CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-          CcLinkParamsStore ccLinkParamsStore =
-              provider == null ? null : provider.getCcLinkParamsStore();
-          return ccLinkParamsStore == null
+          return provider == null
               ? Runfiles.EMPTY
               : new Runfiles.Builder(ruleContext.getWorkspaceName())
                   .addTransitiveArtifacts(
-                      ccLinkParamsStore.get(false, false).getDynamicLibrariesForRuntime())
+                      provider.getDynamicModeParamsForExecutable().getDynamicLibrariesForRuntime())
                   .build();
         };
 
     final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingStatically =
         input -> {
           CcLinkingInfo provider = input.get(CcLinkingInfo.PROVIDER);
-          CcLinkParamsStore ccLinkParamsStore =
-              provider == null ? null : provider.getCcLinkParamsStore();
-          return ccLinkParamsStore == null
+          return provider == null
               ? Runfiles.EMPTY
               : new Runfiles.Builder(ruleContext.getWorkspaceName())
                   .addTransitiveArtifacts(
-                      ccLinkParamsStore.get(true, false).getDynamicLibrariesForRuntime())
+                      provider.getStaticModeParamsForExecutable().getDynamicLibrariesForRuntime())
                   .build();
         };
     return linkingStatically ? runfilesForLinkingStatically : runfilesForLinkingDynamically;

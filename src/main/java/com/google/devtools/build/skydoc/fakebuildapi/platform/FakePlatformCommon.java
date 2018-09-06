@@ -32,4 +32,19 @@ public class FakePlatformCommon implements PlatformCommonApi {
   public ProviderApi getToolchainInfoConstructor() {
     return new FakeProviderApi();
   }
+
+  @Override
+  public ProviderApi getPlatformInfoConstructor() {
+    return new FakeProviderApi();
+  }
+
+  @Override
+  public ProviderApi getConstraintSettingInfoConstructor() {
+    return new FakeProviderApi();
+  }
+
+  @Override
+  public ProviderApi getConstraintValueInfoConstructor() {
+    return new FakeProviderApi();
+  }
 }

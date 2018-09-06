@@ -38,8 +38,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor) {
     super(reporter, options, out, skyframeExecutor, accessor);
-    // TODO(twerth): Allow users to include action command lines.
-    actionGraphDump = new ActionGraphDump(/* includeActionCmdLine */ false);
+    actionGraphDump = new ActionGraphDump(options.includeCommandline);
   }
 
   @Override

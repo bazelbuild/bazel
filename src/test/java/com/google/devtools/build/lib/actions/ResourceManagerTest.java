@@ -484,11 +484,6 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public boolean isShareable() {
-      throw new IllegalStateException();
-    }
-
-    @Override
     public String prettyPrint() {
       throw new IllegalStateException();
     }

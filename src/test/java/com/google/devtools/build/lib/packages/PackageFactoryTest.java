@@ -239,7 +239,9 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Path buildFile =
         scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
 
-    Package pkg = packages.createPackage("pina", buildFile);
+    Package pkg =
+        packages.createPackage(
+            "pina", buildFile, "--incompatible_package_name_is_a_function=false");
     events.assertNoWarningsOrErrors();
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("pina-colada")).isNotNull();
@@ -275,7 +277,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME + ' ' + PACKAGE_NAME)");
     Package pkg =
         packages.createPackage(
-            PackageIdentifier.create("@a", PathFragment.create("b")), buildFile, events.reporter());
+            PackageIdentifier.create("@a", PathFragment.create("b")),
+            buildFile,
+            events.reporter(),
+            "--incompatible_package_name_is_a_function=false");
     Rule c = pkg.getRule("c");
     assertThat(AggregatingAttributeMapper.of(c).get("cmd", Type.STRING)).isEqualTo("@a b");
   }

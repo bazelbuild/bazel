@@ -79,7 +79,8 @@ public class AppleCrosstoolTransition implements PatchTransition {
       // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
       // Objective-C dependencies work if the top-level configuration is already an Apple one.
       // Removing the configuration distinguisher (which can't be set from the command line) and
-      // putting the platform type in the output directory name would remove the need for this hack.
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
       // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
       return;
     }

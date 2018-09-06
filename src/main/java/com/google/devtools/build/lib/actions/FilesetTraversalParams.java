@@ -311,7 +311,8 @@ public interface FilesetTraversalParams {
    * Fileset.
    */
   interface LinkSupplier {
-    ImmutableList<FilesetOutputSymlink> getLinks(EventHandler handler, Location location)
+    ImmutableList<FilesetOutputSymlink> getLinks(EventHandler handler, Location location,
+        ArtifactPathResolver pathResolver)
         throws IOException;
 
     void fingerprint(Fingerprint fp);

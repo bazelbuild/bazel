@@ -161,26 +161,23 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .build());
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
-    Artifact depsCheckerResult =
-        createAarArtifact(ruleContext, "aar_import_deps_checker_result.txt");
     ImportDepsCheckActionBuilder.newBuilder()
         .bootclasspath(getBootclasspath(ruleContext))
         .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
         .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
         .checkJars(NestedSetBuilder.<Artifact>stableOrder().add(mergedJar).build())
-        .outputArtifact(depsCheckerResult)
         .importDepsCheckingLevel(javaConfig.getImportDepsCheckingLevel())
         .jdepsOutputArtifact(jdepsArtifact)
         .ruleLabel(ruleContext.getLabel())
         .buildAndRegister(ruleContext);
 
-    // We pass depsCheckerResult to create the action of extracting ANDROID_MANIFEST. Note that
-    // this action does not need depsCheckerResult. The only reason is that we need to check the
+    // We pass jdepsArtifact to create the action of extracting ANDROID_MANIFEST. Note that
+    // this action does not need jdepsArtifact. The only reason is that we need to check the
     // dependencies of this aar_import, and we need to put its result on the build graph so that the
     // dependency checking action is called.
     ruleContext.registerAction(
         createSingleFileExtractorActions(
-            ruleContext, aar, ANDROID_MANIFEST, depsCheckerResult, androidManifestArtifact));
+            ruleContext, aar, ANDROID_MANIFEST, jdepsArtifact, androidManifestArtifact));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         common.collectJavaCompilationArgs(
@@ -213,9 +210,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
         .addNativeDeclaredProvider(javaInfoBuilder.build());
-    if (depsCheckerResult != null) {
+    if (jdepsArtifact != null) {
       // Add the deps check result so that we can unit test it.
-      ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, depsCheckerResult);
+      ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, jdepsArtifact);
     }
     return ruleBuilder.build();
   }
@@ -245,7 +242,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
   /**
    * Create an action to extract a file (specified by the parameter filename) from an AAR file. Note
-   * that the parameter depsCheckerResult is not necessary for this action. Conversely, the action
+   * that the parameter jdepsOutputArtifact is not necessary for this action. Conversely, the action
    * of checking dependencies for aar_import needs this action instead. Therefore we add the output
    * artifact of import_deps_checker to this extraction action as input. Therefore, the dependency
    * checking will run each time.
@@ -254,7 +251,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       Artifact aar,
       String filename,
-      Artifact depsCheckerResult,
+      Artifact jdepsOutputArtifact,
       Artifact outputArtifact) {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
@@ -271,8 +268,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
                     .addPath("-d", outputArtifact.getExecPath().getParentDirectory())
                     .addDynamicString(filename)
                     .build());
-    if (depsCheckerResult != null) {
-      builder.addInput(depsCheckerResult);
+    if (jdepsOutputArtifact != null) {
+      builder.addInput(jdepsOutputArtifact);
     }
     return builder.build(ruleContext);
   }

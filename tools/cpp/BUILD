@@ -97,6 +97,18 @@ cc_toolchain_suite(
         "x64_windows|compiler": ":cc-compiler-x64_windows",
         "x64_windows_msvc|compiler": ":cc-compiler-x64_windows_msvc",
         "ppc|compiler": ":cc-compiler-ppc",
+        "k8": ":cc-compiler-local",
+        "piii": ":cc-compiler-local",
+        "arm": ":cc-compiler-local",
+        "aarch64": ":cc-compiler-local",
+        "s390x": ":cc-compiler-local",
+        "ppc": ":cc-compiler-local",
+        "ppc64": ":cc-compiler-local",
+        "darwin": ":cc-compiler-darwin",
+        "freebsd": ":cc-compiler-freebsd",
+        "armeabi-v7a": ":cc-compiler-armeabi-v7a",
+        "x64_windows": ":cc-compiler-x64_windows",
+        "x64_windows_msvc": ":cc-compiler-x64_windows_msvc",
     },
 )
 

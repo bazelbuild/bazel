@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -169,7 +168,7 @@ public final class ObjcCommon {
     private Optional<Artifact> linkedBinary = Optional.absent();
     private Optional<Artifact> linkmapFile = Optional.absent();
     private Iterable<CcCompilationContext> depCcHeaderProviders = ImmutableList.of();
-    private Iterable<CcLinkParamsStore> depCcLinkProviders = ImmutableList.of();
+    private Iterable<CcLinkingInfo> depCcLinkProviders = ImmutableList.of();
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from
@@ -258,15 +257,14 @@ public final class ObjcCommon {
       ImmutableList.Builder<ObjcProvider> propagatedObjcDeps =
           ImmutableList.<ObjcProvider>builder();
       ImmutableList.Builder<CcCompilationInfo> cppDeps = ImmutableList.builder();
-      ImmutableList.Builder<CcLinkParamsStore> cppDepLinkParams =
-          ImmutableList.<CcLinkParamsStore>builder();
+      ImmutableList.Builder<CcLinkingInfo> cppDepLinkParams = ImmutableList.builder();
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
         addAnyProviders(cppDeps, depCT, CcCompilationInfo.PROVIDER);
         if (isCcLibrary(dep)) {
-          cppDepLinkParams.add(depCT.get(CcLinkingInfo.PROVIDER).getCcLinkParamsStore());
+          cppDepLinkParams.add(depCT.get(CcLinkingInfo.PROVIDER));
           CcCompilationContext ccCompilationContext =
               depCT.get(CcCompilationInfo.PROVIDER).getCcCompilationContext();
           addDefines(ccCompilationContext.getDefines());
@@ -452,8 +450,8 @@ public final class ObjcCommon {
         objcProvider.addAll(DEFINE, headerProvider.getDefines());
         textualHeaders.addAll(headerProvider.getTextualHdrs());
       }
-      for (CcLinkParamsStore linkProvider : depCcLinkProviders) {
-        CcLinkParams params = linkProvider.getCcLinkParams(true, false);
+      for (CcLinkingInfo linkProvider : depCcLinkProviders) {
+        CcLinkParams params = linkProvider.getStaticModeParamsForExecutable();
         ImmutableList<String> linkOpts = params.flattenedLinkopts();
         ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
         ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();

@@ -3971,7 +3971,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_late_bound_option_defaults",
+        "--incompatible_disable_cc_configuration_make_variables");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -3981,5 +3984,109 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
     useConfiguration();
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("Creating a CcToolchainConfigInfo is not enabled.");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredToolchainIdentifier() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("toolchain_identifier");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("parameter 'toolchain_identifier' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredHostSystemName() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("host_system_name");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'host_system_name' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredTargetSystemName() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("target_system_name");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'target_system_name' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredTargetCpu() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("target_cpu");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'target_cpu' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredTargetLibc() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("target_libc");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'target_libc' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredCompiler() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("compiler");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'compiler' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredAbiVersion() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("abi_version");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'abi_version' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkRequiredAbiLibcVersion() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("abi_libc_version");
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
+    assertThat(e).hasMessageThat().contains("parameter 'abi_libc_version' has no default value");
+  }
+
+  @Test
+  public void testCcToolchainInfoFromSkylarkAllRequiredStringsPresent() throws Exception {
+    setupSkylarkRuleForStringFieldsTesting("");
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_late_bound_option_defaults",
+        "--incompatible_disable_cc_configuration_make_variables");
+    ConfiguredTarget target = getConfiguredTarget("//foo:r");
+    assertThat(target).isNotNull();
+    CcToolchainConfigInfo ccToolchainConfigInfo =
+        (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
+    assertThat(ccToolchainConfigInfo).isNotNull();
+  }
+
+  private void setupSkylarkRuleForStringFieldsTesting(String fieldToExclude) throws Exception {
+    ImmutableList<String> fields =
+        ImmutableList.of(
+            "toolchain_identifier = 'identifier'",
+            "host_system_name = 'host_system_name'",
+            "target_system_name = 'target_system_name'",
+            "target_cpu = 'target_cpu'",
+            "target_libc = 'target_libc'",
+            "compiler = 'compiler'",
+            "abi_version = 'abi'",
+            "abi_libc_version = 'abi_libc'");
+
+    scratch.file(
+        "foo/crosstool.bzl",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "    ctx = ctx,",
+        Joiner.on(",\n")
+            .join(fields.stream().filter(el -> !el.startsWith(fieldToExclude + " =")).toArray()),
+        ")",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo], ",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "cc_toolchain_config_rule(name='r')");
   }
 }

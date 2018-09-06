@@ -875,27 +875,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
     ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    // TODO(b/111289526): Remove CcLinkingInfo provider from cc_binary as soon as the flag
-    // --noexperimental_enable_cc_dynlibs_for_runtime is flipped. An empty CcLinkParamsStore is not
-    // needed, but here we set it to avoid a null pointer exception in places where we're expecting
-    // it. In the future CcLinkParamsStore will be obligatory.
-    ccLinkingInfoBuilder
-        .setStaticModeParamsForDynamicLibrary(CcLinkParams.EMPTY)
-        .setStaticModeParamsForExecutable(CcLinkParams.EMPTY)
-        .setDynamicModeParamsForDynamicLibrary(CcLinkParams.EMPTY)
-        .setDynamicModeParamsForExecutable(CcLinkParams.EMPTY);
-    if (cppConfiguration.enableCcDynamicLibrariesForRuntime()) {
-      ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
-          new CcDynamicLibrariesForRuntime(
-              collectDynamicLibrariesForRuntimeArtifacts(
-                  ruleContext, linkingOutputs.getDynamicLibrariesForRuntime())));
-    }
-
     builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(ccCompilationInfoBuilder.build())
-        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .addProvider(
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(
@@ -917,27 +899,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
 
     CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);
-  }
-
-  private static NestedSet<Artifact> collectDynamicLibrariesForRuntimeArtifacts(
-      RuleContext ruleContext, List<LibraryToLink> dynamicLibrariesForRuntime) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(dynamicLibrariesForRuntime);
-    if (!Iterables.isEmpty(artifacts)) {
-      return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
-    }
-
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (CcLinkingInfo ccLinkingInfo :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkingInfo.PROVIDER)) {
-      CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime =
-          ccLinkingInfo.getCcDynamicLibrariesForRuntime();
-      if (ccDynamicLibrariesForRuntime != null) {
-        builder.addTransitive(
-            ccDynamicLibrariesForRuntime.getDynamicLibrariesForRuntimeArtifacts());
-      }
-    }
-
-    return builder.build();
   }
 
   private static NestedSet<LinkerInput> collectTransitiveCcNativeLibraries(

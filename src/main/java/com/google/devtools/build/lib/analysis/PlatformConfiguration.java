@@ -18,12 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
 import java.util.List;
 
 /** A configuration fragment describing the current platform configuration. */
-@AutoCodec
 @ThreadSafety.Immutable
 public class PlatformConfiguration extends BuildConfiguration.Fragment
     implements PlatformConfigurationApi {
@@ -33,7 +31,6 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> extraToolchains;
   private final ImmutableList<Label> enabledToolchainTypes;
 
-  @AutoCodec.Instantiator
   PlatformConfiguration(
       Label hostPlatform,
       ImmutableList<String> extraExecutionPlatforms,

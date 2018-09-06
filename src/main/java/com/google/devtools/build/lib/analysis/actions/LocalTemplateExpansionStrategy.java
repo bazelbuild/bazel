@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -42,7 +43,7 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
       TemplateExpansionAction action, ActionExecutionContext ctx)
       throws ExecException, InterruptedException {
     try {
-      final String expandedTemplate = getExpandedTemplateUnsafe(action);
+      final String expandedTemplate = getExpandedTemplateUnsafe(action, ctx.getPathResolver());
       DeterministicWriter deterministicWriter =
           new DeterministicWriter() {
             @Override
@@ -64,9 +65,10 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
    * TODO(b/110418949): Stop public access to this method as it's unhealthy to evaluate the
    * action result without the action being executed.
    */
-  public String getExpandedTemplateUnsafe(TemplateExpansionAction action) throws IOException {
+  public String getExpandedTemplateUnsafe(TemplateExpansionAction action,
+      ArtifactPathResolver resolver) throws IOException {
     String templateString;
-    templateString = action.getTemplate().getContent();
+    templateString = action.getTemplate().getContent(resolver);
     for (Substitution entry : action.getSubstitutions()) {
       templateString =
           StringUtilities.replaceAllLiteral(templateString, entry.getKey(), entry.getValue());

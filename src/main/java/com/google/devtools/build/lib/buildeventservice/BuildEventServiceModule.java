@@ -25,11 +25,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.BuildEventLogger;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceTransport.ExitFunction;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventTransportFactory;
 import com.google.devtools.build.lib.clock.Clock;
@@ -104,7 +108,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
             commandEnvironment.getRuntime().getClock(),
             commandEnvironment.getRuntime().getBuildEventArtifactUploaderFactoryMap(),
             commandEnvironment.getReporter(),
-            commandEnvironment.getBuildRequestId().toString(),
+            commandEnvironment.getBuildRequestId(),
             commandEnvironment.getCommandId().toString(),
             commandEnvironment.getCommandName(),
             commandEnvironment.getEventBus());
@@ -159,7 +163,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       String buildRequestId,
       String invocationId,
       String commandName,
-      EventBus internalEventBus) {
+      EventBus eventbus) {
     Preconditions.checkNotNull(buildEventArtifactUploaderFactoryMap);
 
     try {
@@ -176,7 +180,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
                 commandLineReporter,
                 startupOptionsProvider,
                 optionsProvider,
-                internalEventBus);
+                eventbus);
       } catch (Exception e) {
         reportError(
             commandLineReporter,
@@ -222,7 +226,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
       EventHandler commandLineReporter,
       OptionsParsingResult startupOptionsProvider,
       OptionsParsingResult optionsProvider,
-      EventBus internalEventBus)
+      EventBus eventbus)
       throws IOException, OptionsParsingException {
     T besOptions =
         checkNotNull(
@@ -268,24 +272,36 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
               .select(protocolOptions.buildEventUploadStrategy)
               .create(optionsProvider);
 
-      BuildEventTransport besTransport =
-          new BuildEventServiceTransport(
-              client,
-              besOptions.besTimeout,
-              besOptions.besLifecycleEvents,
+      BuildEventLogger buildEventLogger =
+          (BuildEventStreamProtos.BuildEvent bepEvent) -> {
+            if (bepEvent.getSerializedSize()
+                > LargeBuildEventSerializedEvent.SIZE_OF_LARGE_BUILD_EVENTS_IN_BYTES) {
+              eventbus.post(
+                  new LargeBuildEventSerializedEvent(
+                      bepEvent.getId().toString(), bepEvent.getSerializedSize()));
+            }
+          };
+
+      BuildEventServiceProtoUtil besProtoUtil =
+          new BuildEventServiceProtoUtil(
               buildRequestId,
               invocationId,
-              commandName,
-              moduleEnvironment,
-              clock,
-              protocolOptions,
-              commandLineReporter,
               besOptions.projectId,
-              keywords(besOptions, startupOptionsProvider),
-              besResultsUrl,
-              artifactUploader,
-              errorsShouldFailTheBuild(),
-              internalEventBus);
+              commandName,
+              keywords(besOptions, startupOptionsProvider));
+
+      BuildEventTransport besTransport =
+          new BuildEventServiceTransport.Builder()
+              .closeTimeout(besOptions.besTimeout)
+              .publishLifecycleEvents(besOptions.besLifecycleEvents)
+              .buildEventLogger(buildEventLogger)
+              .build(
+                  client,
+                  artifactUploader,
+                  protocolOptions,
+                  besProtoUtil,
+                  clock,
+                  bazelExitFunction(commandLineReporter, moduleEnvironment, besResultsUrl));
       logger.fine("BuildEventServiceTransport was created successfully");
       return besTransport;
     }
@@ -308,10 +324,35 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   protected Set<String> keywords(
       T besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
-    return besOptions
-        .besKeywords
-        .stream()
+    return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());
+  }
+
+  private ExitFunction bazelExitFunction(
+      EventHandler commandLineReporter, ModuleEnvironment moduleEnvironment, String besResultsUrl) {
+    return (String message, Exception cause) -> {
+      if (cause == null) {
+        commandLineReporter.handle(Event.info("Build Event Protocol upload finished successfully"));
+        if (besResultsUrl != null) {
+          commandLineReporter.handle(
+              Event.info("Build Event Protocol results available at " + besResultsUrl));
+        }
+      } else {
+        if (errorsShouldFailTheBuild()) {
+          commandLineReporter.handle(Event.error(message));
+          moduleEnvironment.exit(new AbruptExitException(ExitCode.PUBLISH_ERROR, cause));
+        } else {
+          commandLineReporter.handle(Event.warn(message));
+        }
+        if (besResultsUrl != null) {
+          if (!Strings.isNullOrEmpty(besResultsUrl)) {
+            commandLineReporter.handle(
+                Event.info(
+                    "Partial Build Event Protocol results may be available at " + besResultsUrl));
+          }
+        }
+      }
+    };
   }
 }

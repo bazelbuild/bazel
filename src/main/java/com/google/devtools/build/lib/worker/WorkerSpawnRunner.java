@@ -134,7 +134,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     SortedMap<PathFragment, HashCode> workerFiles =
         WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn, context.getArtifactExpander(), context.getMetadataProvider());
+            spawn, context.getArtifactExpander(), context.getPathResolver(),
+            context.getMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 

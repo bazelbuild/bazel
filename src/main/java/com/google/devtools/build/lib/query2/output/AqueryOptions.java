@@ -27,4 +27,12 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "The format in which the aquery results should be printed.")
   public String outputFormat;
+
+  @Option(
+      name = "include_commandline",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Includes the content of the action command lines in the output (potentially large).")
+  public boolean includeCommandline;
 }

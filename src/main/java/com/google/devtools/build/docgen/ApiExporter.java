@@ -14,6 +14,7 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.builtin.BuiltinProtos.ApiContext;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Builtins;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
 import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
@@ -47,48 +48,88 @@ public class ApiExporter {
       throws BuildEncyclopediaDocException {
 
     for (Entry<String, SkylarkModuleDoc> modEntry : types.entrySet()) {
-        SkylarkModuleDoc mod = modEntry.getValue();
+      SkylarkModuleDoc mod = modEntry.getValue();
 
-        Type.Builder type = Type.newBuilder();
-        type.setName(mod.getName());
-        type.setDoc(mod.getDocumentation());
-        for (SkylarkMethodDoc meth : mod.getJavaMethods()) {
+      Type.Builder type = Type.newBuilder();
+      type.setName(mod.getName());
+      type.setDoc(mod.getDocumentation());
+      for (SkylarkMethodDoc meth : mod.getJavaMethods()) {
         // Constructors are exported as global symbols.
         if (!(meth instanceof SkylarkConstructorMethodDoc)) {
-          type.addField(collectMethodInfo(meth));
+          Value.Builder value = collectMethodInfo(meth);
+          // Methods from the native package are available as top level functions in BUILD files.
+          if (mod.getName().equals("native")) {
+            value.setApiContext(ApiContext.BUILD);
+            builtins.addGlobal(value);
+
+            value.setApiContext(ApiContext.BZL);
+            type.addField(value);
+          } else {
+            value.setApiContext(ApiContext.ALL);
+            type.addField(value);
           }
         }
-        // Add native rules to the native type.
-        if (mod.getName().equals("native")) {
+      }
+      // Native rules are available in BZL file as methods of the native package.
+      if (mod.getName().equals("native")) {
         for (RuleDocumentation rule : nativeRules) {
-          type.addField(collectRuleInfo(rule));
-          }
+          Value.Builder field = collectRuleInfo(rule);
+          field.setApiContext(ApiContext.BZL);
+          type.addField(field);
         }
-        builtins.addType(type);
+      }
+      builtins.addType(type);
     }
   }
 
-  private static void appendGlobals(Builtins.Builder builtins, Map<String, Object> globals) {
-    for (Entry<String, Object> entry : globals.entrySet()) {
+  // Globals are available for both BUILD and BZL files.
+  private static void appendGlobals(Builtins.Builder builtins, Map<String, Object> globalMethods) {
+    for (Entry<String, Object> entry : globalMethods.entrySet()) {
       Object obj = entry.getValue();
+      Value.Builder value = Value.newBuilder();
+      if (obj instanceof BaseFunction) {
+        value = collectFunctionInfo((BaseFunction) obj);
+      } else {
+        value.setName(entry.getKey());
+      }
+      value.setApiContext(ApiContext.ALL);
+      builtins.addGlobal(value);
+    }
+  }
+
+  private static void appendBzlGlobals(
+      Builtins.Builder builtins, Map<String, Object> starlarkGlobals) {
+    for (Entry<String, Object> entry : starlarkGlobals.entrySet()) {
+      Object obj = entry.getValue();
+      Value.Builder value = Value.newBuilder();
 
       if (obj instanceof BaseFunction) {
-        builtins.addGlobal(collectFunctionInfo((BaseFunction) obj));
+        value = collectFunctionInfo((BaseFunction) obj);
       } else {
-        Value.Builder value = Value.newBuilder();
-        value.setName(entry.getKey());
-
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
           if (FuncallExpression.hasSelfCallMethod(obj.getClass())) {
-            builtins.addGlobal(collectFunctionInfo(FuncallExpression.getSelfCallMethod(obj)));
-            continue;
+            value = collectFunctionInfo(FuncallExpression.getSelfCallMethod(obj));
+          } else {
+            value.setName(entry.getKey());
+            value.setType(entry.getKey());
+            value.setDoc(typeModule.doc());
           }
-          value.setType(entry.getKey());
-          value.setDoc(typeModule.doc());
         }
-        builtins.addGlobal(value);
       }
+      value.setApiContext(ApiContext.BZL);
+      builtins.addGlobal(value);
+    }
+  }
+
+  // Native rules are available as top level functions in BUILD files.
+  private static void appendNativeRules(
+      Builtins.Builder builtins, List<RuleDocumentation> nativeRules)
+      throws BuildEncyclopediaDocException {
+    for (RuleDocumentation rule : nativeRules) {
+      Value.Builder global = collectRuleInfo(rule);
+      global.setApiContext(ApiContext.BUILD);
+      builtins.addGlobal(global);
     }
   }
 
@@ -191,7 +232,9 @@ public class ApiExporter {
       Builtins.Builder builtins = Builtins.newBuilder();
 
       appendTypes(builtins, symbols.getTypes(), symbols.getNativeRules());
-      appendGlobals(builtins, symbols.getGlobalSymbols());
+      appendGlobals(builtins, symbols.getGlobals());
+      appendBzlGlobals(builtins, symbols.getBzlGlobals());
+      appendNativeRules(builtins, symbols.getNativeRules());
       writeBuiltins(options.outputFile, builtins);
 
     } catch (Throwable e) {
@@ -200,4 +243,3 @@ public class ApiExporter {
     }
   }
 }
-

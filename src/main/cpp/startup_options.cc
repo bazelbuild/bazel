@@ -144,8 +144,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
-  // TODO(b/5568649): remove this deprecated alias for server_javabase
-  RegisterUnaryStartupFlag("host_javabase");
   RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
@@ -234,12 +232,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
-    ProcessServerJavabase(value, rcfile);
-  } else if ((value = GetUnaryOption(arg, next_arg, "--host_javabase")) !=
-             NULL) {
-    ProcessServerJavabase(value, rcfile);
-    BAZEL_LOG(WARNING) << "The startup option --host_javabase is "
-                          "deprecated; prefer --server_javabase.";
+    server_javabase_ = blaze::AbsolutePathFromFlag(value);
+    option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
     host_jvm_args.push_back(value);
@@ -407,12 +401,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   return blaze_exit_code::SUCCESS;
 }
 
-void StartupOptions::ProcessServerJavabase(const char *value,
-                                           const string &rcfile) {
-  server_javabase_ = blaze::AbsolutePathFromFlag(value);
-  option_sources["server_javabase"] = rcfile;
-}
-
 blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
     const std::vector<RcStartupFlag>& rcstartup_flags,
     std::string *error) {
@@ -566,6 +554,9 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);
+    result->push_back(
+        "-Dcom.google.devtools.build.lib.util.LogHandlerQuerier.class="
+        "com.google.devtools.build.lib.util.FileHandlerQuerier");
   }
 }
 

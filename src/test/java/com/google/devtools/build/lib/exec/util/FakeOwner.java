@@ -60,11 +60,6 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public boolean isShareable() {
-    return false;
-  }
-
-  @Override
   public String getMnemonic() {
     return mnemonic;
   }

@@ -463,7 +463,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     // Make sure this is a regular HashMap rather than ImmutableMapBuilder so that we are safe
     // in case of collisions.
-    Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings = new HashMap<>();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = new HashMap<>();
     for (Artifact actionInput : action.getInputs()) {
       if (!actionInput.isFileset()) {
         continue;
@@ -474,16 +474,15 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (mapping == null) {
         return null;
       }
-      filesetMappings.put(actionInput.getExecPath(), mapping);
+      filesetMappings.put(actionInput, mapping);
     }
 
-    ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
+    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
         ImmutableMap.copyOf(filesetMappings);
 
     // Aggregate top-level Filesets with Filesets nested in Runfiles. Both should be used to update
     // the FileSystem context.
-    state.expandedFilesets
-        .forEach((artifact, links) -> filesetMappings.put(artifact.getExecPath(), links));
+    state.expandedFilesets.forEach(filesetMappings::put);
     try {
       state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler,
           ImmutableMap.copyOf(filesetMappings));
@@ -836,7 +835,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         SkyframeActionExecutor executor,
         Environment env,
         ActionMetadataHandler metadataHandler,
-        ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> filesets)
+        ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
         throws IOException {
       if (actionFileSystem != null) {
         executor.updateActionFileSystemContext(

@@ -44,6 +44,7 @@ public final class CcToolchainRule implements RuleDefinition {
   public static final String LIBC_TOP_ATTR = ":libc_top";
   public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";
+  public static final String TOOLCHAIN_CONFIG_ATTR = "toolchain_config";
 
   /**
    * Determines if the given target is a cc_toolchain or one of its subclasses. New subclasses
@@ -191,6 +192,10 @@ public final class CcToolchainRule implements RuleDefinition {
             attr("toolchain_identifier", Type.STRING)
                 .nonconfigurable("Used in configuration creation")
                 .value(""))
+        .add(
+            attr(TOOLCHAIN_CONFIG_ATTR, LABEL)
+                .allowedFileTypes()
+                .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id()))
         .build();
   }
 

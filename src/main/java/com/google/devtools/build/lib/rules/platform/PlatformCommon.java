@@ -15,12 +15,30 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformCommonApi;
 
 /** Skylark namespace used to interact with the platform APIs. */
 public class PlatformCommon implements PlatformCommonApi {
+
+  @Override
+  public Provider getPlatformInfoConstructor() {
+    return PlatformInfo.PROVIDER;
+  }
+
+  @Override
+  public Provider getConstraintSettingInfoConstructor() {
+    return ConstraintSettingInfo.PROVIDER;
+  }
+
+  @Override
+  public Provider getConstraintValueInfoConstructor() {
+    return ConstraintValueInfo.PROVIDER;
+  }
 
   @Override
   public Provider getMakeVariableProvider() {

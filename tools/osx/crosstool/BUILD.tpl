@@ -5,7 +5,15 @@ load(":osx_archs.bzl", "OSX_TOOLS_ARCHS")
 CC_TOOLCHAINS = [(
     cpu + "|compiler",
     ":cc-compiler-" + cpu,
-) for cpu in OSX_TOOLS_ARCHS]
+) for cpu in OSX_TOOLS_ARCHS] + [(
+    cpu,
+    ":cc-compiler-" + cpu,
+) for cpu in OSX_TOOLS_ARCHS] + [
+    ("k8|compiler", ":cc-compiler-darwin_x86_64", ),
+    ("darwin|compiler", ":cc-compiler-darwin_x86_64", ),
+    ("k8", ":cc-compiler-darwin_x86_64", ),
+    ("darwin", ":cc-compiler-darwin_x86_64", ),
+]
 
 cc_library(
     name = "malloc",

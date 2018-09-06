@@ -161,7 +161,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       update("some_name", null);
       fail();
     } catch (NullPointerException e) {
-      assertThat(e).hasMessage("update(value == null)");
+      assertThat(e).hasMessage("trying to assign null to 'some_name'");
     }
   }
 
