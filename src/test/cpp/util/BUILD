@@ -90,7 +90,10 @@ cc_test(
 
 cc_test(
     name = "strings_test",
-    srcs = ["strings_test.cc"],
+    srcs = ["strings_test.cc"] + select({
+        "//src/conditions:windows": ["strings_windows_test.cc"],
+        "//conditions:default": [],
+    }),
     shard_count = 2,
     deps = [
         "//src/main/cpp/util:strings",
