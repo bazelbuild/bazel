@@ -22,7 +22,7 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link PlatformInfo} provider from the given target. */
   public static PlatformInfo platform(SkylarkProviderCollection target) {
-    return target.get(PlatformInfo.SKYLARK_CONSTRUCTOR);
+    return target.get(PlatformInfo.PROVIDER);
   }
 
   /** Retrieves and casts {@link PlatformInfo} providers from the given targets. */
@@ -44,7 +44,7 @@ public class PlatformProviderUtils {
 
   /** Retrieves and casts the {@link ConstraintValueInfo} provider from the given target. */
   public static ConstraintValueInfo constraintValue(SkylarkProviderCollection target) {
-    return target.get(ConstraintValueInfo.SKYLARK_CONSTRUCTOR);
+    return target.get(ConstraintValueInfo.PROVIDER);
   }
 
   /** Retrieves and casts {@link ConstraintValueInfo} providers from the given targets. */

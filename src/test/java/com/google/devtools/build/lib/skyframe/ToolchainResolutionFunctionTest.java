@@ -64,9 +64,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   private EvaluationResult<ToolchainResolutionValue> invokeToolchainResolution(SkyKey key)
       throws InterruptedException {
     ConfiguredTarget mockLinuxTarget = mock(ConfiguredTarget.class);
-    when(mockLinuxTarget.get(PlatformInfo.SKYLARK_CONSTRUCTOR)).thenReturn(linuxPlatform);
+    when(mockLinuxTarget.get(PlatformInfo.PROVIDER)).thenReturn(linuxPlatform);
     ConfiguredTarget mockMacTarget = mock(ConfiguredTarget.class);
-    when(mockMacTarget.get(PlatformInfo.SKYLARK_CONSTRUCTOR)).thenReturn(macPlatform);
+    when(mockMacTarget.get(PlatformInfo.PROVIDER)).thenReturn(macPlatform);
     getSkyframeExecutor()
         .getDifferencerForTesting()
         .inject(

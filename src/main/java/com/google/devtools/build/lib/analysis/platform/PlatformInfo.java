@@ -47,7 +47,7 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
   public static final String SKYLARK_NAME = "PlatformInfo";
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<PlatformInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<PlatformInfo> PROVIDER =
       new NativeProvider<PlatformInfo>(PlatformInfo.class, SKYLARK_NAME) {};
 
   private final Label label;
@@ -62,7 +62,7 @@ public class PlatformInfo extends NativeInfo implements PlatformInfoApi<Constrai
       String remoteExecutionProperties,
       Location location) {
     super(
-        SKYLARK_CONSTRUCTOR,
+        PROVIDER,
         location);
 
     this.label = label;
