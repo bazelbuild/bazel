@@ -92,26 +92,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
 
-  public boolean disableLegacyCrosstoolFields() {
-    return cppOptions.disableLegacyCrosstoolFields;
-  }
-
-  public boolean disableCompilationModeFlags() {
-    return cppOptions.disableCompilationModeFlags;
-  }
-
-  public boolean disableLinkingModeFlags() {
-    return cppOptions.disableLinkingModeFlags;
-  }
-
-  public boolean enableLinkoptsInUserLinkFlags() {
-    return cppOptions.enableLinkoptsInUserLinkFlags;
-  }
-
-  public boolean disableEmittingStaticLibgcc() {
-    return cppOptions.disableEmittingStaticLibgcc;
-  }
-
   /**
    * An enumeration of all the tools that comprise a toolchain.
    */
@@ -473,17 +453,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public String getTargetCpu() throws EvalException {
     checkForToolchainSkylarkApiAvailability();
     return cppToolchainInfo.getTargetCpu();
-  }
-
-  /**
-   * Unused, for compatibility with things internal to Google.
-   *
-   * <p>Deprecated: Use platforms.
-   */
-  // TODO(b/64384912): Remove once c++ platforms are in use.
-  @Deprecated
-  public String getTargetOS() {
-    return cppToolchainInfo.getTargetOS();
   }
 
   /**
@@ -1110,7 +1079,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (!cppOptions.enableMakeVariables) {
+    if (cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables) {
       return;
     }
 
@@ -1154,8 +1123,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public Map<String, Object> lateBoundOptionDefaults() {
     // --compiler initially defaults to null because its *actual* default isn't known
     // until it's read from the CROSSTOOL. Feed the CROSSTOOL defaults in here.
-    return ImmutableMap.<String, Object>of(
-        "compiler", cppToolchainInfo.getCompiler());
+    return ImmutableMap.of("compiler", cppToolchainInfo.getCompiler());
   }
 
   public String getFdoInstrument() {
@@ -1186,13 +1154,29 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
-  /** Returns true if the deprecated CcDynamicLibrariesForRuntime class should be used */
-  public boolean enableCcDynamicLibrariesForRuntime() {
-    return cppOptions.enableCcDynamicLibrariesForRuntime;
+  public boolean disableLegacyCrosstoolFields() {
+    return cppOptions.disableLegacyCrosstoolFields;
+  }
+
+  public boolean disableCompilationModeFlags() {
+    return cppOptions.disableCompilationModeFlags;
+  }
+
+  public boolean disableLinkingModeFlags() {
+    return cppOptions.disableLinkingModeFlags;
+  }
+
+  public boolean enableLinkoptsInUserLinkFlags() {
+    return cppOptions.enableLinkoptsInUserLinkFlags;
+  }
+
+  public boolean disableEmittingStaticLibgcc() {
+    return cppOptions.disableEmittingStaticLibgcc;
   }
 
   private void checkForToolchainSkylarkApiAvailability() throws EvalException {
-    if (!cppOptions.enableLegacyToolchainSkylarkApi) {
+    if (cppOptions.disableLegacyToolchainSkylarkApi
+        || !cppOptions.enableLegacyToolchainSkylarkApi) {
       throw new EvalException(null, "Information about the C++ toolchain API is not accessible "
           + "anymore through ctx.fragments.cpp . Use CcToolchainInfo instead.");
     }

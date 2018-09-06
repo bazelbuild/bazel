@@ -30,7 +30,7 @@ import java.util.logging.Logger;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
-  private static final boolean IN_INTEGRATION_TEST = System.getenv("BAZEL_SHELL_TEST") != null;
+  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
 
   private static final Logger logger = Logger.getLogger(ExternalFilesHelper.class.getName());
 
@@ -60,7 +60,7 @@ public class ExternalFilesHelper {
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories) {
-    return IN_INTEGRATION_TEST
+    return IN_TEST
         ? createForTesting(pkgLocator, externalFileAction, directories)
         : new ExternalFilesHelper(
             pkgLocator,

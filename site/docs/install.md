@@ -19,7 +19,7 @@ See the instructions for installing Bazel on:
 *   [Scoop](https://github.com/lukesampson/scoop/blob/master/bucket/bazel.json)
 *   [Nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/build-managers/bazel/default.nix)
 *   [Parabola](https://www.parabola.nu/packages/?q=bazel)
-*   [FreeBSD](Ports: https://www.freshports.org/devel/bazel)
+*   [FreeBSD](https://www.freshports.org/devel/bazel)
 
 
 For other platforms, you can try to [compile from source](install-compile-source.md).

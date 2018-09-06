@@ -1,25 +1,14 @@
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceBar
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceFoo
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$One
-Missing com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
-Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface. Referenced by:
-    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
-Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceBar. Referenced by:
-    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
-Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceFoo. Referenced by:
-    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
-Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$One. Referenced by:
-    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
-Indirectly missing class com.google.devtools.build.importdeps.testdata.LibraryInterface$Two. Referenced by:
-    com.google.devtools.build.importdeps.testdata.Client (in testdata:testdata_client)
-Missing member 'bar' in class com.google.devtools.build.importdeps.testdata.Library$Class11 : name=bar, descriptor=()V
-Missing member 'foo' in class com.google.devtools.build.importdeps.testdata.Library$Class11 : name=foo, descriptor=()V
-The class hierarchies of the classes with missing members:
-    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
-        java.lang.Object
-===Total===
-missing=6
-incomplete=2
-missing_members=2
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_Library.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryAnnotations.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryException.jar"
+  kind: EXPLICIT
+}
+rule_label: ":library_interface_missing_golden_test"
+success: true

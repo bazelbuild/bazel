@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -112,5 +113,10 @@ public final class NonRuleConfiguredTargetValue extends BasicActionLookupValue
   @Override
   public String toString() {
     return getStringHelper().add("configuredTarget", configuredTarget).toString();
+  }
+
+  @Override
+  public SourceArtifact getSourceArtifact() {
+    return configuredTarget == null ? null : configuredTarget.getSourceArtifact();
   }
 }

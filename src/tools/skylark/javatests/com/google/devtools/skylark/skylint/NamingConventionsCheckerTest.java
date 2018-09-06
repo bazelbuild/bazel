@@ -40,13 +40,22 @@ public class NamingConventionsCheckerTest {
     String errorMessage =
         findIssues(
                 "badGlobalVariableName = 0",
+                "BadProviderWithoutInfoSuffix = _BadProviderWithoutInfoSuffix",
                 "def BAD_FUNCTION_NAME(BadParameterName):",
                 "  badLocalVariableName = 1")
             .toString();
     Truth.assertThat(errorMessage)
         .contains(
             "'badGlobalVariableName' should be lower_snake_case (for variables)"
-                + " or UPPER_SNAKE_CASE (for constants) [name-with-wrong-case]");
+                + " or UPPER_SNAKE_CASE (for constants)"
+                + " or UpperCamelCase and end in \"Info\" (for providers; example: FizzBuzzInfo)"
+                + " [name-with-wrong-case]");
+    Truth.assertThat(errorMessage)
+        .contains(
+            "'BadProviderWithoutInfoSuffix' should be lower_snake_case (for variables)"
+                + " or UPPER_SNAKE_CASE (for constants)"
+                + " or UpperCamelCase and end in \"Info\" (for providers; example: FizzBuzzInfo)"
+                + " [name-with-wrong-case]");
     Truth.assertThat(errorMessage)
         .contains("'BAD_FUNCTION_NAME' should be lower_snake_case [name-with-wrong-case]");
     Truth.assertThat(errorMessage)
@@ -54,7 +63,9 @@ public class NamingConventionsCheckerTest {
     Truth.assertThat(errorMessage)
         .contains(
             "'badLocalVariableName' should be lower_snake_case (for variables)"
-                + " or UPPER_SNAKE_CASE (for constants) [name-with-wrong-case]");
+                + " or UPPER_SNAKE_CASE (for constants)"
+                + " or UpperCamelCase and end in \"Info\" (for providers; example: FizzBuzzInfo)"
+                + " [name-with-wrong-case]");
   }
 
   @Test
@@ -99,6 +110,7 @@ public class NamingConventionsCheckerTest {
     Truth.assertThat(
             findIssues(
                 "GOOD_GLOBAL_VARIABLE_NAME = 0",
+                "GoodAliasedProviderInfo = _GoodAliasedProviderInfo",
                 "def good_function_name(good_parameter_name):",
                 "  GOOD_LOCAL_CONSTANT_NAME = 1"))
         .isEmpty();

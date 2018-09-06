@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -683,7 +685,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     @SuppressWarnings("unchecked")
     CompositeRunfilesSupplier runfilesSupplier =
         new CompositeRunfilesSupplier((List<RunfilesSupplier>) lookup("input_manifests"));
-    assertThat(runfilesSupplier.getMappings()).hasSize(1);
+    assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
   }
 
   @Test
@@ -915,7 +917,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testRunfilesSymlinkConflict() throws Exception {
-    // Two different artifacts mapped to same path in runfiles
+    // Two different artifacts mapped to same path in runfiles.
     Object result =
         evalRuleContextCode(
             "artifacts = ruleContext.files.srcs",
@@ -924,9 +926,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
             "root_symlinks = {prefix + 'sym1': artifacts[0]},",
             "symlinks = {'sym1': artifacts[1]})");
     Runfiles runfiles = (Runfiles) result;
-    reporter.removeHandler(failFastHandler); // So it doesn't throw exception
-    runfiles.getRunfilesInputs(reporter, null);
-    assertContainsEvent("ERROR <no location>: overwrote runfile");
+    reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
+    assertThat(assertThrows(IOException.class,
+        () -> runfiles.getRunfilesInputs(reporter, null, ArtifactPathResolver.IDENTITY)))
+        .hasMessageThat()
+        .matches("runfile [\\w_]+/sym1 mapped to both foo/b.img and foo/a.txt");
   }
 
   private Iterable<Artifact> getRunfileArtifacts(Object runfiles) {
@@ -1161,16 +1165,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "load(':foo.bzl', 'foo_rule')",
         "foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Provider 'files' should be specified in DefaultInfo "
-                  + "if it's provided explicitly.");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Provider 'files' should be specified in DefaultInfo "
+                + "if it's provided explicitly.");
   }
 
   @Test
@@ -1290,13 +1291,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "load(':foo.bzl', 'foo_rule')",
         "foo_rule(name = 'my_rule')"
     );
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected).hasMessageThat()
-          .contains("unexpected keyword 'foo' in call to DefaultInfo");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("unexpected keyword 'foo' in call to DefaultInfo");
   }
 
   @Test
@@ -1592,15 +1591,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "foo_rule(name = 'dep_rule')",
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("<target //test:dep_rule> (rule 'foo_rule') doesn't contain "
-              + "declared provider 'unused_provider'");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "<target //test:dep_rule> (rule 'foo_rule') doesn't contain "
+                + "declared provider 'unused_provider'");
   }
 
   @Test
@@ -1638,15 +1635,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "foo_rule(name = 'dep_rule')",
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Type Target only supports indexing by object constructors, got string instead");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Type Target only supports indexing by object constructors, got string instead");
   }
 
   @Test
@@ -1669,15 +1662,13 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "load(':bar.bzl', 'bar_rule')",
         "bar_rule(name = 'my_rule', srcs = ['input.txt'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains("<input file target //test:input.txt> doesn't contain "
-              + "declared provider 'unused_provider'");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "<input file target //test:input.txt> doesn't contain "
+                + "declared provider 'unused_provider'");
   }
 
   @Test
@@ -1752,15 +1743,11 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inner_rule(name = 'dep_rule')",
         "outer_rule(name = 'my_rule', deps = [':dep_rule'])");
 
-    try {
-      getConfiguredTarget("//test:my_rule");
-      fail();
-    } catch (AssertionError expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .contains(
-              "Type Target only supports querying by object constructors, got string instead");
-    }
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Type Target only supports querying by object constructors, got string instead");
   }
 
   @Test
@@ -2626,12 +2613,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  args = ctx.actions.args()",
         "  return struct(dep_arg = args)",
         "dep_rule = rule(implementation = _dep_impl)");
-    try {
-      getConfiguredTarget("//test:main");
-      fail("Should have been unable to mutate frozen args object");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains("cannot modify frozen value");
-    }
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
+    assertThat(e).hasMessageThat().contains("cannot modify frozen value");
   }
 
   @Test
@@ -2875,6 +2858,15 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   private SkylarkCustomCommandLine getCommandLine(String... lines) throws Exception {
     return ((SkylarkActionFactory.Args) evalRuleContextCode(lines)).build();
+  }
+
+  @Test
+  public void testPrintArgs() throws Exception {
+    Args args =
+        (Args)
+            evalRuleContextCode(
+                "args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])", "args");
+    assertThat(Printer.debugPrint(args)).isEqualTo("--foo --bar");
   }
 
   @Test

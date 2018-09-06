@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -240,6 +241,7 @@ public class ResourceProcessorBusyBox {
       logSuppressed(e);
       return 1;
     } catch (Exception e) {
+      logger.log(Level.SEVERE, "Error during prcessing", e);
       return 1;
     }
     return 0;

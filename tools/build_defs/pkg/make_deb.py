@@ -170,7 +170,7 @@ def CreateDeb(output,
   if postrm:
     extrafiles['postrm'] = (postrm, 0o755)
   if conffiles:
-    extrafiles['conffiles'] = ('\n'.join(conffiles), 0o644)
+    extrafiles['conffiles'] = ('\n'.join(conffiles) + '\n', 0o644)
   control = CreateDebControl(extrafiles=extrafiles, **kwargs)
 
   # Write the final AR archive (the deb package)

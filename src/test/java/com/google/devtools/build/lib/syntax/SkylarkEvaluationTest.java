@@ -1822,6 +1822,13 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testLegacyGlobalIsNotInitialized() throws Exception {
+    new SkylarkTest("--incompatible_static_name_resolution=false")
+        .setUp("a = len")
+        .testIfErrorContains("Variable len is read only", "len = 2");
+  }
+
+  @Test
   public void testFunctionCallRecursion() throws Exception {
     new SkylarkTest().testIfErrorContains("Recursion was detected when calling 'f' from 'g'",
         "def main():",

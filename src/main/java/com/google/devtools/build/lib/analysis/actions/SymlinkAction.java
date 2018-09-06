@@ -63,6 +63,9 @@ public class SymlinkAction extends AbstractAction {
    * artifact's path. This is only useful when dealing with runfiles trees where link target is a
    * directory.
    *
+   * NB: Only use in special cases where the target of the symlink differs from the input
+   * {@link Artifact}.
+   *
    * @param owner the action owner.
    * @param inputPath the Path that will be the src of the symbolic link.
    * @param primaryInput the Artifact that is required to build the inputPath.

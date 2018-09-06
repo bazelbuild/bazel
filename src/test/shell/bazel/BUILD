@@ -654,6 +654,14 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "bazel_strategy_test",
+    size = "small",
+    srcs = ["bazel_strategy_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

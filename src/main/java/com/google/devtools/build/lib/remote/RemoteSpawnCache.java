@@ -99,7 +99,7 @@ final class RemoteSpawnCache implements SpawnCache {
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     TreeNodeRepository repository =
         new TreeNodeRepository(execRoot, context.getMetadataProvider(), digestUtil);
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
+    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
     Command command =

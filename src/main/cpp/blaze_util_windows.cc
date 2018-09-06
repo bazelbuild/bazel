@@ -1280,6 +1280,10 @@ bool UnlimitResources() {
   return true;  // Nothing to do so assume success.
 }
 
+bool UnlimitCoredumps() {
+  return true;  // Nothing to do so assume success.
+}
+
 static const int MAX_KEY_LENGTH = 255;
 // We do not care about registry values longer than MAX_PATH
 static const int REG_VALUE_BUFFER_SIZE = MAX_PATH;

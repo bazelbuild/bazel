@@ -25,6 +25,7 @@ using std::vector;
 using std::wstring;
 
 static constexpr const char* PYTHON_BIN_PATH = "python_bin_path";
+static constexpr const char* USE_ZIP_FILE = "use_zip_file";
 
 ExitCode PythonBinaryLauncher::Launch() {
   wstring python_binary = this->GetLaunchInfoByKey(PYTHON_BIN_PATH);
@@ -35,10 +36,16 @@ ExitCode PythonBinaryLauncher::Launch() {
   }
 
   vector<wstring> args = this->GetCommandlineArguments();
-  wstring python_zip_file = GetBinaryPathWithoutExtension(args[0]) + L".zip";
+  wstring use_zip_file = this->GetLaunchInfoByKey(USE_ZIP_FILE);
+  wstring python_file;
+  if (use_zip_file == L"1") {
+    python_file = GetBinaryPathWithoutExtension(args[0]) + L".zip";
+  } else {
+    python_file = GetBinaryPathWithoutExtension(args[0]);
+  }
 
-  // Replace the first argument with python zip file path
-  args[0] = python_zip_file;
+  // Replace the first argument with python file path
+  args[0] = python_file;
 
   // Escape arguments that has spaces
   for (int i = 1; i < args.size(); i++) {

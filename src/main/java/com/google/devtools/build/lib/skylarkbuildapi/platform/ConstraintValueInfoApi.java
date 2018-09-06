@@ -25,24 +25,23 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  */
 @SkylarkModule(
     name = "ConstraintValueInfo",
-    doc = "A value for a constraint setting that can be used to define a platform.",
-    category = SkylarkModuleCategory.PROVIDER
-)
+    doc =
+        "A value for a constraint setting that can be used to define a platform. "
+            + PlatformInfoApi.EXPERIMENTAL_WARNING,
+    category = SkylarkModuleCategory.PROVIDER)
 public interface ConstraintValueInfoApi extends StructApi {
 
   @SkylarkCallable(
-    name = "constraint",
-    doc =
-        "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
-            + "applied to.",
-    structField = true
-  )
-  public ConstraintSettingInfoApi constraint();
+      name = "constraint",
+      doc =
+          "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
+              + "applied to.",
+      structField = true)
+  ConstraintSettingInfoApi constraint();
 
   @SkylarkCallable(
-    name = "label",
-    doc = "The label of the target that created this constraint value.",
-    structField = true
-  )
-  public Label label();
+      name = "label",
+      doc = "The label of the target that created this constraint value.",
+      structField = true)
+  Label label();
 }

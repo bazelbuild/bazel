@@ -31,13 +31,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public interface CcLinkingInfoApi extends StructApi {
 
   @SkylarkCallable(
-      name = "cc_runfiles",
-      documented = false,
-      allowReturnNones = true,
-      structField = true)
-  public CcRunfilesApi getCcRunfiles();
-
-  @SkylarkCallable(
       name = "static_mode_params_for_dynamic_library",
       documented = false,
       allowReturnNones = true,

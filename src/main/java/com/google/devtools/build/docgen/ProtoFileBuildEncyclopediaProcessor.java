@@ -14,25 +14,25 @@
 
 package com.google.devtools.build.docgen;
 
-import com.google.devtools.build.docgen.builtin.BuiltinProtos.Callable;
-import com.google.devtools.build.docgen.builtin.BuiltinProtos.Param;
-import com.google.devtools.build.docgen.builtin.BuiltinProtos.Value;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /** Assembles a list of native rules that can be exported to a builtin.proto file. */
 public class ProtoFileBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
-  private List<Value.Builder> nativeRules = null;
+  private ImmutableList<RuleDocumentation> nativeRules = null;
 
   public ProtoFileBuildEncyclopediaProcessor(
       String productName, ConfiguredRuleClassProvider ruleClassProvider) {
     super(productName, ruleClassProvider);
-    nativeRules = new ArrayList<>();
   }
 
+  /*
+   * Collects and processes all rule and attribute documentation in inputDirs and generates a list
+   * of RuleDocumentation objects.
+   */
   @Override
   public void generateDocumentation(List<String> inputDirs, String outputFile, String blackList)
       throws BuildEncyclopediaDocException, IOException {
@@ -41,25 +41,17 @@ public class ProtoFileBuildEncyclopediaProcessor extends BuildEncyclopediaProces
     Map<String, RuleDocumentation> ruleDocEntries =
         collector.collect(inputDirs, blackList, expander);
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());
+    ImmutableList.Builder<RuleDocumentation> ruleDocsBuilder = new ImmutableList.Builder<>();
 
     for (RuleFamily entry : ruleFamilies.all) {
       for (RuleDocumentation doc : entry.getRules()) {
-        Value.Builder rule = Value.newBuilder();
-        rule.setName(doc.getRuleName());
-        rule.setDoc(doc.getHtmlDocumentation());
-        Callable.Builder callable = Callable.newBuilder();
-        for (RuleDocumentationAttribute attr : doc.getAttributes()) {
-          Param.Builder param = Param.newBuilder();
-          param.setName(attr.getAttributeName());
-          callable.addParam(param);
-        }
-        rule.setCallable(callable);
-        nativeRules.add(rule);
+        ruleDocsBuilder.add(doc);
       }
     }
+    nativeRules = ruleDocsBuilder.build();
   }
 
-  public List<Value.Builder> getNativeRules() {
+  public ImmutableList<RuleDocumentation> getNativeRules() {
     return nativeRules;
   }
 }

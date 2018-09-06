@@ -599,7 +599,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
-        PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
+        PackageContext pkgContext = (PackageContext) env.dynamicLookup(PackageFactory.PKG_CONTEXT);
         if (pkgContext == null) {
           throw new EvalException(ast.getLocation(),
               "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "

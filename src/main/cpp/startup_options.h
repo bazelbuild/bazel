@@ -110,10 +110,6 @@ class StartupOptions {
                                        bool *is_space_separated,
                                        std::string *error);
 
-  // Processes the --server_javabase flag, or its deprecated alias
-  // --host_javabase.
-  void ProcessServerJavabase(const char *value, const std::string &rcfile);
-
   // Process an ordered list of RcStartupFlags using ProcessArg.
   blaze_exit_code::ExitCode ProcessArgs(
       const std::vector<RcStartupFlag>& rcstartup_flags,
@@ -306,6 +302,9 @@ class StartupOptions {
   // The startup options as received from the user and rc files, tagged with
   // their origin. This is populated by ProcessArgs.
   std::vector<RcStartupFlag> original_startup_options_;
+
+  // Whether to raise the soft coredump limit to the hard one or not.
+  bool unlimit_coredumps;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

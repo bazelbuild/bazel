@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsIn
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -408,6 +409,10 @@ public final class TargetCompleteEvent
     BuildConfiguration configuration = targetAndData.getConfiguration();
     Rule associatedRule = targetAndData.getTarget().getAssociatedRule();
     TestTimeout categoricalTimeout = TestTimeout.getTestTimeout(associatedRule);
-    return configuration.getTestTimeout().get(categoricalTimeout).getSeconds();
+    return configuration
+        .getFragment(TestConfiguration.class)
+        .getTestTimeout()
+        .get(categoricalTimeout)
+        .getSeconds();
   }
 }

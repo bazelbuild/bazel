@@ -188,9 +188,8 @@ In detail, the rules are the following:
     *   **Constants** that are **immutable**. The variable must not be rebound
         and also its deep contents must not be changed.
 *   Use **`UpperCamelCase`** for:
-    *   **Providers**. Currently, the analyzer only allows assignments of the
-        form `FooBarInfo = provider(...)`. In addition provider names have to
-        end in the **suffix `Info`**.
+    *   **Providers**. In addition, provider names have to end in the
+        **suffix `Info`**.
 *   **Never** use:
     *   **Builtin names** like `print`, `True`. Rebinding these is too
         confusing.

@@ -189,6 +189,11 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   }
 
   @Override
+  public boolean isShareable() {
+    return false;
+  }
+
+  @Override
   public final String getMnemonic() {
     return "CppCompileActionTemplate";
   }

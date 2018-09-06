@@ -247,6 +247,7 @@ public class AarImportTest extends BuildViewTestCase {
             "--output",
             "--checking_mode=error",
             "--rule_label",
+            "//a:last",
             "--jdeps_output");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");

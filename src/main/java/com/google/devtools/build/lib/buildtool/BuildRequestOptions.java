@@ -62,6 +62,10 @@ public class BuildRequestOptions extends OptionsBase {
   )
   public int jobs;
 
+  public int getJobs() {
+    return jobs == 0 ? 1 : jobs; // Treat 0 jobs as a single task.
+  }
+
   @Option(
     name = "progress_report_interval",
     defaultValue = "0",

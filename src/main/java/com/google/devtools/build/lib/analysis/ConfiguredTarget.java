@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -68,4 +69,10 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   @Nullable
   @Override
   Object getValue(String name);
+
+  /** Returns a source artifact if this is an input file. */
+  @Nullable
+  default SourceArtifact getSourceArtifact() {
+    return null;
+  }
 }

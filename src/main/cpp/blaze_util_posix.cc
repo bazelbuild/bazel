@@ -773,13 +773,13 @@ int GetTerminalColumns() {
 // Raises a resource limit to the maximum allowed value.
 //
 // This function raises the limit of the resource given in "resource" from its
-// soft limit to its hard limit. If the hard limit is unlimited, uses the
-// kernel-level limit fetched from the sysctl property given in "sysctl_name"
-// because setting the soft limit to unlimited may not work.
+// soft limit to its hard limit. If the hard limit is unlimited and
+// allow_infinity is false, uses the kernel-level limit because setting the
+// soft limit to unlimited may not work.
 //
 // Note that this is a best-effort operation. Any failure during this process
 // will result in a warning but execution will continue.
-static bool UnlimitResource(const int resource) {
+static bool UnlimitResource(const int resource, const bool allow_infinity) {
   struct rlimit rl;
   if (getrlimit(resource, &rl) == -1) {
     BAZEL_LOG(WARNING) << "failed to get resource limit " << resource << ": "
@@ -795,7 +795,7 @@ static bool UnlimitResource(const int resource) {
   }
 
   rl.rlim_cur = rl.rlim_max;
-  if (rl.rlim_cur == RLIM_INFINITY) {
+  if (rl.rlim_cur == RLIM_INFINITY && !allow_infinity) {
     const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
     if (explicit_limit <= 0) {
       // If not implemented (-1) or on an error (0), do nothing and try to
@@ -819,9 +819,13 @@ static bool UnlimitResource(const int resource) {
 
 bool UnlimitResources() {
   bool success = true;
-  success &= UnlimitResource(RLIMIT_NOFILE);
-  success &= UnlimitResource(RLIMIT_NPROC);
+  success &= UnlimitResource(RLIMIT_NOFILE, false);
+  success &= UnlimitResource(RLIMIT_NPROC, false);
   return success;
+}
+
+bool UnlimitCoredumps() {
+  return UnlimitResource(RLIMIT_CORE, true);
 }
 
 void DetectBashOrDie() {

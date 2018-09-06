@@ -456,7 +456,7 @@ def dependent_rule_implementation(ctx):
   ...
 ```
 
-All targets have a [`DefaultInfo`](lib/globals.html#DefaultInfo) provider that can be used to access
+All targets have a [`DefaultInfo`](lib/DefaultInfo.html) provider that can be used to access
 some information relevant to all targets.
 
 Providers are only available during the analysis phase. Examples of usage:
@@ -504,7 +504,7 @@ provider).
 
 * The fields `files`, `runfiles`, `data_runfiles`, `default_runfiles`, and
   `executable` correspond to the same-named fields of
-  [`DefaultInfo`](lib/globals.html#DefaultInfo). It is not allowed to specify
+  [`DefaultInfo`](lib/DefaultInfo.html). It is not allowed to specify
   any of these fields while also returning a `DefaultInfo` modern provider.
 
 * The field `output_groups` takes a struct value and corresponds to an
@@ -710,7 +710,8 @@ Test rules (but not necessarily their targets) must have names that end in
 Both kinds of rules must produce an executable output file (which may or may not
 be predeclared) that will be invoked by the `run` or `test` commands. To tell
 Bazel which of a rule's outputs to use as this executable, pass it as the
-`executable` argument of a returned `DefaultInfo` provider.
+`executable` argument of a returned [`DefaultInfo`](lib/DefaultInfo.html)
+provider.
 
 The action that generates this file must set the executable bit on the file. For
 a `ctx.actions.run()` or `ctx.actions.run_shell()` action this should be done by

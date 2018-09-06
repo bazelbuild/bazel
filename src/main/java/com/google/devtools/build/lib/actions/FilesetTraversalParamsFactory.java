@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
+import com.google.devtools.build.lib.actions.FilesetTraversalParams.LinkSupplier;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
@@ -123,9 +124,29 @@ public final class FilesetTraversalParamsFactory {
       Artifact artifact,
       PathFragment destPath,
       @Nullable Set<String> excludes) {
-    // When srcdir is another Fileset, then files must be null so strip_prefix must also be null.
     return NestedTraversalParams.getNestedTraversal(ownerLabel, artifact, destPath, excludes);
   }
+
+  /**
+   * Creates traversal request parameters for a FilesetEntry returning a customized list of links.
+   *
+   * @param ownerLabel the rule that created this object
+   * @param linkSupplier the {@link LinkSupplier} returning a custom list of links.
+   * @param destPath path in the Fileset's output directory that will be the root of files coming
+   *     from the nested Fileset
+   * @param excludes optional; set of files directly below (not in a subdirectory of) the nested
+   *     Fileset that should be excluded from the outer Fileset
+   */
+  public static FilesetTraversalParams knownTraversal(
+      Label ownerLabel,
+      LinkSupplier linkSupplier,
+      PathFragment destPath,
+      @Nullable Set<String> excludes) {
+    return KnownLinksTraversalParams.getKnownLinksTraversal(ownerLabel, linkSupplier, destPath,
+        excludes);
+  }
+
+
 
   private static ImmutableSortedSet<String> getOrderedExcludes(@Nullable Set<String> excludes) {
     // Order the set for the sake of deterministic fingerprinting.
@@ -139,6 +160,11 @@ public final class FilesetTraversalParamsFactory {
   abstract static class DirectoryTraversalParams implements FilesetTraversalParams {
     @Override
     public Artifact getNestedArtifact() {
+      return null;
+    }
+
+    @Override
+    public LinkSupplier additionalLinks() {
       return null;
     }
 
@@ -198,6 +224,11 @@ public final class FilesetTraversalParamsFactory {
       return Optional.absent();
     }
 
+    @Override
+    public LinkSupplier additionalLinks() {
+      return null;
+    }
+
     @Memoized
     @Override
     public abstract int hashCode();
@@ -235,6 +266,59 @@ public final class FilesetTraversalParamsFactory {
         Artifact nestedArtifact) {
       return new AutoValue_FilesetTraversalParamsFactory_NestedTraversalParams(
           ownerLabelForErrorMessages, destPath, excludedFiles, nestedArtifact);
+    }
+  }
+
+  @AutoCodec
+  @AutoValue
+  abstract static class KnownLinksTraversalParams implements FilesetTraversalParams {
+    @Override
+    public Optional<DirectTraversal> getDirectTraversal() {
+      return Optional.absent();
+    }
+
+    @Override
+    public Artifact getNestedArtifact() {
+      return null;
+    }
+
+    @Memoized
+    @Override
+    public abstract int hashCode();
+
+    @Memoized
+    protected byte[] getFingerprint() {
+      Fingerprint fp = new Fingerprint();
+      fp.addPath(getDestPath());
+      if (!getExcludedFiles().isEmpty()) {
+        fp.addStrings(getExcludedFiles());
+      }
+      additionalLinks().fingerprint(fp);
+      return fp.digestAndReset();
+    }
+
+    @Override
+    public void fingerprint(Fingerprint fp) {
+      fp.addBytes(getFingerprint());
+    }
+
+    static KnownLinksTraversalParams getKnownLinksTraversal(
+        Label ownerLabel,
+        LinkSupplier additionalLinks,
+        PathFragment destPath,
+        @Nullable Set<String> excludes) {
+      return create(ownerLabel, destPath, getOrderedExcludes(excludes), additionalLinks);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static KnownLinksTraversalParams create(
+        Label ownerLabelForErrorMessages,
+        PathFragment destPath,
+        ImmutableSortedSet<String> excludedFiles,
+        LinkSupplier additionalLinks) {
+      return new AutoValue_FilesetTraversalParamsFactory_KnownLinksTraversalParams(
+          ownerLabelForErrorMessages, destPath, excludedFiles, additionalLinks);
     }
   }
 }

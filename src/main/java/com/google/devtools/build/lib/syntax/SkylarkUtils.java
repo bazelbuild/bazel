@@ -47,7 +47,7 @@ public final class SkylarkUtils {
   private static final String BAZEL_INFO_KEY = "$bazel";
 
   private static BazelInfo getInfo(Environment env) {
-    Object info = env.lookup(BAZEL_INFO_KEY);
+    Object info = env.moduleLookup(BAZEL_INFO_KEY);
     if (info != null) {
       return (BazelInfo) info;
     }

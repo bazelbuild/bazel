@@ -1,13 +1,14 @@
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation
-Missing com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation
-===Total===
-missing=9
-incomplete=0
-missing_members=0
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_Library.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryException.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryInterface.jar"
+  kind: EXPLICIT
+}
+rule_label: ":library_annotation_missing_golden_test"
+success: true

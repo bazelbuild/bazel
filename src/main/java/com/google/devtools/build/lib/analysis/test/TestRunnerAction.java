@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -65,13 +66,15 @@ import javax.annotation.Nullable;
  * and test status artifacts.
  */
 // Not final so that we can mock it in tests.
-public class TestRunnerAction extends AbstractAction implements NotifyOnActionCacheHit {
+public class TestRunnerAction extends AbstractAction
+    implements NotifyOnActionCacheHit, ExecutionInfoSpecifier {
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
+  public static final String MNEMONIC = "TestRunner";
 
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
@@ -692,6 +695,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return testProperties;
   }
 
+  @Override
+  public Map<String, String> getExecutionInfo() {
+    return testProperties.getExecutionInfo();
+  }
+
   public TestTargetExecutionSettings getExecutionSettings() {
     return executionSettings;
   }
@@ -738,7 +746,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   @Override
   public String getMnemonic() {
-    return "TestRunner";
+    return MNEMONIC;
   }
 
   @Override

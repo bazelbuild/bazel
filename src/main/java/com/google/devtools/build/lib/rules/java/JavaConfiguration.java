@@ -174,6 +174,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean explicitJavaTestDeps;
   private final boolean experimentalTestRunner;
   private final boolean jplPropagateCcLinkParamsStore;
+  private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
@@ -211,6 +212,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
     this.experimentalTestRunner = javaOptions.experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
+    this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -266,6 +268,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       boolean explicitJavaTestDeps,
       boolean experimentalTestRunner,
       boolean jplPropagateCcLinkParamsStore,
+      boolean addTestSupportToCompileTimeDeps,
       ImmutableList<Label> pluginList,
       boolean useLegacyBazelJavaTest) {
     this.commandLineJavacFlags = commandLineJavacFlags;
@@ -296,6 +299,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.explicitJavaTestDeps = explicitJavaTestDeps;
     this.experimentalTestRunner = experimentalTestRunner;
     this.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+    this.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
     this.pluginList = pluginList;
     this.useLegacyBazelJavaTest = useLegacyBazelJavaTest;
   }
@@ -510,6 +514,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean jplPropagateCcLinkParamsStore() {
     return jplPropagateCcLinkParamsStore;
+  }
+
+  public boolean addTestSupportToCompileTimeDeps() {
+    return addTestSupportToCompileTimeDeps;
   }
 
   public List<Label> getPlugins() {

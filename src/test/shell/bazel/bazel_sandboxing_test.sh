@@ -608,7 +608,6 @@ EOF
 }
 
 function test_sandbox_mount_customized_path () {
-
   if ! [ "${PLATFORM-}" = "linux" -a \
     "$(cat /dev/null /etc/*release | grep 'DISTRIB_CODENAME=' | sed 's/^.*=//')" = "trusty" ]; then
     echo "Skipping test: the toolchain used in this test is only supported on trusty."
@@ -702,6 +701,64 @@ EOF
 
   # Remove the mount target folder as sandbox binary does not do the cleanup
   rm -rf ${target_root}/x86_64-unknown-linux-gnu
+}
+
+function test_experimental_symlinked_sandbox_uses_expanded_tree_artifacts_in_runfiles_tree() {
+  touch WORKSPACE
+
+  cat > def.bzl <<'EOF'
+def _mkdata_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name + ".d")
+    script = "mkdir -p {out}; touch {out}/file; ln -s file {out}/link".format(out = out.path)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = script,
+    )
+    runfiles = ctx.runfiles(files = [out])
+    return [DefaultInfo(
+        files = depset([out]),
+        runfiles = runfiles,
+    )]
+
+mkdata = rule(
+    _mkdata_impl,
+)
+EOF
+
+  cat > mkdata_test.sh <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+test_dir="$1"
+cd "$test_dir"
+ls -l | cut -f1,9 -d' ' >&2
+
+if [ ! -f file -o -L file ]; then
+  echo "'file' is not a regular file" >&2
+  exit 1
+fi
+EOF
+  chmod +x mkdata_test.sh
+
+  cat > BUILD <<'EOF'
+load("//:def.bzl", "mkdata")
+
+mkdata(name = "mkdata")
+
+sh_test(
+    name = "mkdata_test",
+    srcs = ["mkdata_test.sh"],
+    args = ["$(location :mkdata)"],
+    data = [":mkdata"],
+)
+EOF
+
+  bazel test --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
+      --test_output=streamed :mkdata_test &>$TEST_log && fail "expected test to fail" || true
+
+  bazel test --noincompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
+      --test_output=streamed :mkdata_test &>$TEST_log || fail "expected test to pass"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

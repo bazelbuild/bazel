@@ -146,7 +146,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     MetadataProvider inputFileCache = context.getMetadataProvider();
     TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
+    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
     maybeWriteParamFilesLocally(spawn);

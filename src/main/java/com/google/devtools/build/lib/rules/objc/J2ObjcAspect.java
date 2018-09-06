@@ -257,8 +257,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       try {
         CcToolchainProvider ccToolchain =
             CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
-        FdoProvider fdoProvider =
-            CppHelper.getFdoProvider(ruleContext, ":j2objc_cc_toolchain");
+        FdoProvider fdoProvider = ccToolchain.getFdoProvider();
         CompilationSupport compilationSupport =
             new CompilationSupport.Builder()
                 .setRuleContext(ruleContext)

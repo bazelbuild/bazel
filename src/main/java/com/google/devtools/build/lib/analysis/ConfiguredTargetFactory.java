@@ -238,7 +238,6 @@ public final class ConfiguredTargetFactory {
               inputFile.getExecPath(),
               inputFile.getPackage().getSourceRoot(),
               ConfiguredTargetKey.of(target.getLabel(), config));
-      analysisEnvironment.registerSourceDependency(artifact);
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;

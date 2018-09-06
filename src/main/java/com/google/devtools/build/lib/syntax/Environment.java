@@ -102,6 +102,9 @@ public final class Environment implements Freezable, Debuggable {
    *
    * <p>A {@link Frame} can have an associated "parent" {@link Frame}, which is used in {@link #get}
    * and {@link #getTransitiveBindings()}
+   *
+   * <p>TODO(laurentlb): "parent" should be named "universe" since it contains only the builtins.
+   * The "get" method shouldn't look at the universe (so that "moduleLookup" works as expected)
    */
   public interface Frame extends Freezable {
     /**
@@ -288,6 +291,7 @@ public final class Environment implements Freezable, Debuggable {
         @Nullable GlobalFrame parent,
         @Nullable Label label,
         @Nullable Map<String, Object> bindings) {
+      Preconditions.checkState(parent == null || parent.parent == null); // no more than 1 parent
       this.mutability = Preconditions.checkNotNull(mutability);
       this.parent = parent;
       this.label = label;
@@ -333,12 +337,12 @@ public final class Environment implements Freezable, Debuggable {
     }
 
     /**
-     * Returns a new {@link GlobalFrame} that is a descendant of this one with {@link #label} set to
+     * Returns a new {@link GlobalFrame} with the same fields, except that {@link #label} is set to
      * the given value.
      */
     public GlobalFrame withLabel(Label label) {
       checkInitialized();
-      return new GlobalFrame(mutability, this, label);
+      return new GlobalFrame(mutability, /*parent*/ null, label, bindings);
     }
 
     /**
@@ -898,6 +902,8 @@ public final class Environment implements Freezable, Debuggable {
     /** Inherits global bindings from the given parent Frame. */
     public Builder setGlobals(GlobalFrame parent) {
       Preconditions.checkState(this.parent == null);
+      // Make sure that the global frame does at most two lookups: one for the module definitions
+      // and one for the builtins.
       this.parent = parent;
       return this;
     }
@@ -937,6 +943,16 @@ public final class Environment implements Freezable, Debuggable {
       Preconditions.checkArgument(!mutability.isFrozen());
       if (parent != null) {
         Preconditions.checkArgument(parent.mutability().isFrozen(), "parent frame must be frozen");
+        if (parent.parent != null) { // This code path doesn't happen in Bazel.
+
+          // Flatten the frame, ensure all builtins are in the same frame.
+          parent =
+              new GlobalFrame(
+                  parent.mutability(),
+                  null /* parent */,
+                  parent.label,
+                  parent.getTransitiveBindings());
+        }
       }
       GlobalFrame globalFrame = new GlobalFrame(mutability, parent);
       LexicalFrame dynamicFrame = LexicalFrame.create(mutability);
@@ -1082,8 +1098,9 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   /**
-   * Returns the value of a variable defined in the Module scope (e.g. global variables,
-   * functions).
+   * Returns the value of a variable defined in the Module scope (e.g. global variables, functions).
+   *
+   * <p>TODO(laurentlb): This method may also return values from the universe. We should fix that.
    */
   public Object moduleLookup(String varname) {
     return globalFrame.get(varname);
@@ -1091,8 +1108,7 @@ public final class Environment implements Freezable, Debuggable {
 
   /** Returns the value of a variable defined in the Universe scope (builtins). */
   public Object universeLookup(String varname) {
-    // TODO(laurentlb): We should distinguish between Module and Universe. Values in Module can
-    // shadow those in Universe.
+    // TODO(laurentlb): look only at globalFrame.parent.
     return globalFrame.get(varname);
   }
 
@@ -1107,7 +1123,7 @@ public final class Environment implements Freezable, Debuggable {
    * <p>TODO(laurentlb): Remove this method. Callers should know where the value is defined and use
    * the corresponding method (e.g. localLookup or moduleLookup).
    */
-  public Object lookup(String varname) {
+  Object lookup(String varname) {
     // Lexical frame takes precedence, then globals, then dynamics.
     Object lexicalValue = lexicalFrame.get(varname);
     if (lexicalValue != null) {

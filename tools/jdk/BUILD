@@ -19,6 +19,16 @@ java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
 
+# Used to set --host_javabase or --javabase to a local JDK without having to define
+# a custom java_runtime rule.
+# E.g.:
+# bazel build --host_javabase=@bazel_tools//tools/jdk:absolute_javabase \
+#   --define=ABSOLUTE_JAVABASE=<path to JDK> ...
+java_runtime(
+    name = "absolute_javabase",
+    java_home = "$(ABSOLUTE_JAVABASE)",
+)
+
 filegroup(
     name = "BUILD-jdk",
     srcs = [":BUILD"],

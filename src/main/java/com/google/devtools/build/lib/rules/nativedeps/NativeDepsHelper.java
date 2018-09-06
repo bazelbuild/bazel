@@ -216,8 +216,7 @@ public abstract class NativeDepsHelper {
     } else {
       sharedLibrary = nativeDeps;
     }
-    FdoProvider fdoProvider =
-        CppHelper.getFdoProviderUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = toolchain.getFdoProvider();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,

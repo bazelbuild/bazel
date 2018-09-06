@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSupportFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -132,8 +132,8 @@ public abstract class AnalysisMock extends LoadingMock {
             repositoryHandlers, null, new AtomicBoolean(true), ImmutableMap::of, directories),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
-        FdoSupportValue.SKYFUNCTION,
-        new FdoSupportFunction(directories));
+        CcSkyframeSupportValue.SKYFUNCTION,
+        new CcSupportFunction(directories));
   }
 
   public static class Delegate extends AnalysisMock {

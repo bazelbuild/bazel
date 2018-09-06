@@ -117,7 +117,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
         Labels of tools available for label-expansion in jvm_opts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("tools", LABEL_LIST).cfg(HostTransition.INSTANCE).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(
+            attr("tools", LABEL_LIST)
+                .cfg(HostTransition.INSTANCE)
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder) -->
         Label of the JavaBuilder deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -182,6 +185,17 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("header_compiler", LABEL_LIST)
                 .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(header_compiler_direct) -->
+        Optional label of the header compiler to use for direct classpath actions that do not
+        include any API-generating annotation processors.
+
+        <p>This tool does not support annotation processing.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("header_compiler_direct", LABEL_LIST)
+                .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->

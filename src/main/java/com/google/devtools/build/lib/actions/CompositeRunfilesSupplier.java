@@ -64,10 +64,11 @@ public class CompositeRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() throws IOException {
+  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings(
+      ArtifactPathResolver resolver) throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> result = Maps.newHashMap();
     for (RunfilesSupplier supplier : suppliers) {
-      Map<PathFragment, Map<PathFragment, Artifact>> mappings = supplier.getMappings();
+      Map<PathFragment, Map<PathFragment, Artifact>> mappings = supplier.getMappings(resolver);
       for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry : mappings.entrySet()) {
         result.putIfAbsent(entry.getKey(), entry.getValue());
       }

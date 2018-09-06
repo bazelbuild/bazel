@@ -242,7 +242,6 @@ public class JavaHeaderCompileActionBuilder {
     builder.addOutput(outputJar);
     builder.addOutput(outputDepsProto);
 
-    builder.addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman());
     builder.addTransitiveInputs(additionalInputs);
     builder.addInputs(bootclasspathEntries);
     builder.addInputs(sourceJars);
@@ -251,9 +250,12 @@ public class JavaHeaderCompileActionBuilder {
     // The header compiler is either a jar file that needs to be executed using
     // `java -jar <path>`, or an executable that can be run directly.
     FilesToRunProvider headerCompiler = javaToolchain.getHeaderCompiler();
-    if (!headerCompiler.getExecutable().getExtension().equals("jar")) {
+    if (!requiresAnnotationProcessing && javaToolchain.getHeaderCompilerDirect() != null) {
+      builder.setExecutable(javaToolchain.getHeaderCompilerDirect());
+    } else if (!headerCompiler.getExecutable().getExtension().equals("jar")) {
       builder.setExecutable(headerCompiler);
     } else {
+      builder.addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman());
       builder.setJarExecutable(
           hostJavabase.javaBinaryExecPath(),
           headerCompiler.getExecutable(),

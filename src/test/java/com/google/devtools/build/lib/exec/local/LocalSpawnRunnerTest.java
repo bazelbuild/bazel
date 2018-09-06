@@ -243,7 +243,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping() {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        boolean expandTreeArtifactsInRunfiles) {
       return inputMapping;
     }
 

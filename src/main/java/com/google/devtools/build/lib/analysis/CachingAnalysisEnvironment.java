@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -84,8 +83,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   final List<ActionAnalysisMetadata> actions = new ArrayList<>();
 
-  private Consumer<Artifact.SourceArtifact> sourceDependencyListener;
-
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
@@ -93,8 +90,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
       boolean isSystemEnv,
       boolean extendedSanityChecks,
       ExtendedEventHandler errorEventListener,
-      SkyFunction.Environment env,
-      Consumer<Artifact.SourceArtifact> sourceDependencyListener) {
+      SkyFunction.Environment env) {
     this.artifactFactory = artifactFactory;
     this.actionKeyContext = actionKeyContext;
     this.owner = Preconditions.checkNotNull(owner);
@@ -104,7 +100,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.skyframeEnv = env;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
     artifacts = new HashMap<>();
-    this.sourceDependencyListener = sourceDependencyListener;
   }
 
   public void disable(Target target) {
@@ -357,10 +352,5 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public ArtifactOwner getOwner() {
     return owner;
-  }
-
-  @Override
-  public void registerSourceDependency(Artifact.SourceArtifact source) {
-    sourceDependencyListener.accept(source);
   }
 }

@@ -144,10 +144,19 @@ public class BazelPythonSemantics implements PythonSemantics {
     String pythonBinary = getPythonBinary(ruleContext, config);
 
     if (!ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
+      Artifact stubOutput = executable;
+      if (OS.getCurrent() == OS.WINDOWS
+          && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+        // On Windows, use a Windows native binary to launch the python launcher script (stub file).
+        stubOutput = common.getPythonLauncherArtifact(executable);
+        executable =
+            createWindowsExeLauncher(ruleContext, pythonBinary, executable, /*useZipFile*/ false);
+      }
+
       ruleContext.registerAction(
           new TemplateExpansionAction(
               ruleContext.getActionOwner(),
-              executable,
+              stubOutput,
               STUB_TEMPLATE,
               ImmutableList.of(
                   Substitution.of("%main%", main),
@@ -155,8 +164,8 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "False"),
-                  Substitution.of("%import_all%",
-                      config.getImportAllRepositories() ? "True" : "False")),
+                  Substitution.of(
+                      "%import_all%", config.getImportAllRepositories() ? "True" : "False")),
               true));
     } else {
       Artifact zipFile = common.getPythonZipArtifact(executable);
@@ -194,7 +203,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                 .build(ruleContext));
       } else {
         if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
-          return createWindowsExeLauncher(ruleContext, pythonBinary, executable);
+          return createWindowsExeLauncher(ruleContext, pythonBinary, executable, true);
         }
 
         ruleContext.registerAction(
@@ -212,13 +221,17 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static Artifact createWindowsExeLauncher(
-      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher)
+      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher, boolean useZipFile)
       throws InterruptedException {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Python")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair(
+                "symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("python_bin_path", pythonBinary)
+            .addKeyValuePair("use_zip_file", useZipFile ? "1" : "0")
             .build();
     LauncherFileWriteAction.createAndRegister(ruleContext, pythonLauncher, launchInfo);
     return pythonLauncher;

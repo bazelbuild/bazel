@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -80,7 +82,10 @@ public class HeaderThinning implements IncludeProcessing {
     if (headersListFile == null) {
       return null;
     }
-    return findRequiredHeaderInputs(action.getSourceFile(), headersListFile, getAllowedInputsMap());
+    return findRequiredHeaderInputs(action.getSourceFile(), headersListFile, getAllowedInputsMap(),
+        actionExecutionContext == null
+            ? ArtifactPathResolver.IDENTITY
+            : actionExecutionContext.getPathResolver());
   }
 
   /**
@@ -89,17 +94,20 @@ public class HeaderThinning implements IncludeProcessing {
    * @param sourceFile the source that requires these headers
    * @param headersListFile .headers_list file output from header_scanner tool to be read
    * @param inputArtifactsMap map of PathFragment to Artifact of possible headers
+   * @param pathResolver used to read the headersListFile
    * @return collection of header artifacts that are required for {@code action} to compile
    * @throws ExecException on environmental (IO) or user errors
    */
-  public static Iterable<Artifact> findRequiredHeaderInputs(
-      Artifact sourceFile, Artifact headersListFile, Map<PathFragment, Artifact> inputArtifactsMap)
+  @VisibleForTesting
+  static Iterable<Artifact> findRequiredHeaderInputs(
+      Artifact sourceFile, Artifact headersListFile, Map<PathFragment, Artifact> inputArtifactsMap,
+      ArtifactPathResolver pathResolver)
       throws ExecException {
     try {
       ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
       List<PathFragment> missing = new ArrayList<>();
       for (String line :
-          FileSystemUtils.readLines(headersListFile.getPath(), StandardCharsets.UTF_8)) {
+          FileSystemUtils.readLines(pathResolver.toPath(headersListFile), StandardCharsets.UTF_8)) {
         if (line.isEmpty()) {
           continue;
         }

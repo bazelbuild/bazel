@@ -1077,11 +1077,15 @@ public class CppLinkActionBuilder {
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-    ImmutableSet.Builder<String> executionRequirements = ImmutableSet.builder();
+    Map<String, String> executionRequirements = new HashMap<>();
+
     if (featureConfiguration.actionIsConfigured(getActionName())) {
-      executionRequirements.addAll(
-          featureConfiguration.getToolRequirementsForAction(getActionName()));
+      for (String req : featureConfiguration.getToolRequirementsForAction(getActionName())) {
+        executionRequirements.put(req, "");
+      }
     }
+    configuration.modifyExecutionInfo(
+        executionRequirements, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
 
     if (!isLtoIndexing) {
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
@@ -1133,15 +1137,13 @@ public class CppLinkActionBuilder {
         fake,
         fakeLinkerInputArtifacts,
         isLtoIndexing,
-        linkstampMap
-            .keySet()
-            .stream()
+        linkstampMap.keySet().stream()
             .map(Linkstamp::getArtifact)
             .collect(ImmutableList.toImmutableList()),
         linkCommandLine,
         configuration.getActionEnvironment(),
         toolchainEnv,
-        executionRequirements.build(),
+        ImmutableMap.copyOf(executionRequirements),
         toolchain.getToolPathFragment(Tool.LD),
         toolchain.getHostSystemName(),
         toolchain.getTargetCpu());

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -97,7 +98,7 @@ abstract class ArtifactFunctionTestCase {
                     new FileStateFunction(
                         new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
-                .put(Artifact.ARTIFACT, new ArtifactFunction())
+                .put(Artifact.ARTIFACT, new ArtifactFunction(Suppliers.ofInstance(false)))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(
                     SkyFunctions.PACKAGE,

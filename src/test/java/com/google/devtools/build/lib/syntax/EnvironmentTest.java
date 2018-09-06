@@ -101,10 +101,9 @@ public class EnvironmentTest extends EvaluationTestCase {
 
   @Test
   public void testGetVariableNames() throws Exception {
-    Environment outerEnv;
-    Environment innerEnv;
+    Environment env;
     try (Mutability mut = Mutability.create("outer")) {
-      outerEnv =
+      env =
           Environment.builder(mut)
               .useDefaultSemantics()
               .setGlobals(Environment.DEFAULT_GLOBALS)
@@ -112,56 +111,12 @@ public class EnvironmentTest extends EvaluationTestCase {
               .update("foo", "bar")
               .update("wiz", 3);
     }
-    try (Mutability mut = Mutability.create("inner")) {
-      innerEnv =
-          Environment.builder(mut)
-              .useDefaultSemantics()
-              .setGlobals(outerEnv.getGlobals())
-              .build()
-              .update("foo", "bat")
-              .update("quux", 42);
-    }
 
-    assertThat(outerEnv.getVariableNames())
+    assertThat(env.getVariableNames())
         .isEqualTo(
             Sets.newHashSet(
                 "foo",
                 "wiz",
-                "False",
-                "None",
-                "True",
-                "all",
-                "any",
-                "bool",
-                "depset",
-                "dict",
-                "dir",
-                "enumerate",
-                "fail",
-                "getattr",
-                "hasattr",
-                "hash",
-                "int",
-                "len",
-                "list",
-                "max",
-                "min",
-                "print",
-                "range",
-                "repr",
-                "reversed",
-                "select",
-                "sorted",
-                "str",
-                "tuple",
-                "type",
-                "zip"));
-    assertThat(innerEnv.getVariableNames())
-        .isEqualTo(
-            Sets.newHashSet(
-                "foo",
-                "wiz",
-                "quux",
                 "False",
                 "None",
                 "True",
@@ -221,12 +176,12 @@ public class EnvironmentTest extends EvaluationTestCase {
               .setEventHandler(Environment.FAIL_FAST_HANDLER)
               .build();
       env.update("x", 1);
-      assertThat(env.lookup("x")).isEqualTo(1);
+      assertThat(env.moduleLookup("x")).isEqualTo(1);
       env.update("y", 2);
-      assertThat(env.lookup("y")).isEqualTo(2);
-      assertThat(env.lookup("x")).isEqualTo(1);
+      assertThat(env.moduleLookup("y")).isEqualTo(2);
+      assertThat(env.moduleLookup("x")).isEqualTo(1);
       env.update("x", 3);
-      assertThat(env.lookup("x")).isEqualTo(3);
+      assertThat(env.moduleLookup("x")).isEqualTo(3);
     }
     try {
       // This update to an existing variable should fail because the environment was frozen.
@@ -250,7 +205,7 @@ public class EnvironmentTest extends EvaluationTestCase {
         newEnvironmentWithSkylarkOptions("--incompatible_static_name_resolution=true")
             .setup("special_var", 42);
     BuildFileAST.eval(env, "special_var = 41");
-    assertThat(env.lookup("special_var")).isEqualTo(41);
+    assertThat(env.moduleLookup("special_var")).isEqualTo(41);
   }
 
   @Test

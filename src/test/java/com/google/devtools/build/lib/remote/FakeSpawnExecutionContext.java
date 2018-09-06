@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -27,13 +29,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Set;
 import java.util.SortedMap;
 
 class FakeSpawnExecutionContext implements SpawnExecutionContext {
-
-  private final ArtifactExpander artifactExpander =
-      (artifact, output) -> output.add(artifact);
+  private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
+      new ArtifactExpander() {
+        @Override
+        public void expand(Artifact artifact, Collection<? super Artifact> output) {
+          output.add(artifact);
+        }
+      };
 
   private final Spawn spawn;
   private final MetadataProvider fileCache;
@@ -92,9 +99,11 @@ class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+  public SortedMap<PathFragment, ActionInput> getInputMapping(
+      boolean expandTreeArtifactsInRunfiles) throws IOException {
     return new SpawnInputExpander(execRoot, /*strict*/ false)
-        .getInputMapping(spawn, artifactExpander, fileCache);
+        .getInputMapping(spawn, SIMPLE_ARTIFACT_EXPANDER, ArtifactPathResolver.IDENTITY,
+            fileCache, true);
   }
 
   @Override

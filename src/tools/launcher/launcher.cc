@@ -53,7 +53,9 @@ BinaryLauncherBase::BinaryLauncherBase(
     : launch_info(_launch_info),
       manifest_file(FindManifestFile(argv[0])),
       runfiles_dir(GetRunfilesDir(argv[0])),
-      workspace_name(GetLaunchInfoByKey(WORKSPACE_NAME)) {
+      workspace_name(GetLaunchInfoByKey(WORKSPACE_NAME)),
+      symlink_runfiles_enabled(GetLaunchInfoByKey(SYMLINK_RUNFILES_ENABLED) ==
+                               L"1") {
   for (int i = 0; i < argc; i++) {
     commandline_arguments.push_back(argv[i]);
   }
@@ -226,11 +228,16 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
   if (PrintLauncherCommandLine(executable, arguments)) {
     return 0;
   }
-  if (!manifest_file.empty()) {
+  // Set RUNFILES_DIR if:
+  //   1. Symlink runfiles tree is enabled, or
+  //   2. We couldn't find manifest file (which probably means we are running
+  //   remotely).
+  // Otherwise, set RUNFILES_MANIFEST_ONLY and RUNFILES_MANIFEST_FILE
+  if (symlink_runfiles_enabled || manifest_file.empty()) {
+    SetEnv(L"RUNFILES_DIR", runfiles_dir);
+  } else {
     SetEnv(L"RUNFILES_MANIFEST_ONLY", L"1");
     SetEnv(L"RUNFILES_MANIFEST_FILE", manifest_file);
-  } else {
-    SetEnv(L"RUNFILES_DIR", runfiles_dir);
   }
   CmdLine cmdline;
   CreateCommandLine(&cmdline, executable, arguments);
