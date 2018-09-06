@@ -144,17 +144,18 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
             .append("]\n");
       }
 
-      // TODO(twerth): Add option to only optionally include the command line.
-      stringBuilder
-          .append("  Command Line: ")
-          .append(
-              CommandFailureUtils.describeCommand(
-                  CommandDescriptionForm.COMPLETE,
-                  /* prettyPrintArgs= */ true,
-                  spawnAction.getArguments(),
-                  /* environment= */ null,
-                  /* cwd= */ null))
-          .append("\n");
+      if (options.includeCommandline) {
+        stringBuilder
+            .append("  Command Line: ")
+            .append(
+                CommandFailureUtils.describeCommand(
+                    CommandDescriptionForm.COMPLETE,
+                    /* prettyPrintArgs= */ true,
+                    spawnAction.getArguments(),
+                    /* environment= */ null,
+                    /* cwd= */ null))
+            .append("\n");
+      }
     }
 
     if (action instanceof ExecutionInfoSpecifier) {

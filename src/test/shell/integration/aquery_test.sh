@@ -115,6 +115,11 @@ EOF
   else
     assert_contains "Command Line: (" output
   fi
+
+  assert_contains "echo unused" output
+  bazel aquery --noinclude_commandline "//$pkg:bar" > output \
+    2> "$TEST_log" || fail "Expected success"
+  assert_not_contains "echo unused" output
 }
 
 function test_aquery_skylark_env() {
