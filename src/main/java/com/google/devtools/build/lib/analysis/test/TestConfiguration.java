@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -47,7 +46,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Test-related options. */
-@AutoCodec
 public class TestConfiguration extends Fragment {
   public static final OptionsDiffPredicate HAVE_OPTIONS_AFFECTING_NON_TEST_TARGETS_CHANGED =
       (diff, options) -> {
@@ -292,7 +290,7 @@ public class TestConfiguration extends Fragment {
   private final TestOptions options;
   private final ImmutableMap<TestTimeout, Duration> testTimeout;
 
-  TestConfiguration(TestOptions options) {
+  private TestConfiguration(TestOptions options) {
     this.options = options;
     this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
   }

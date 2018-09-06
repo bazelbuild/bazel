@@ -22,14 +22,12 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import javax.annotation.Nullable;
 
 /** Configuration fragment for android_local_test. */
-@AutoCodec
 @Immutable
 public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
   /** android_local_test specific options */
@@ -81,13 +79,8 @@ public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
 
   private final boolean androidLocalTestBinaryResources;
 
-  AndroidLocalTestConfiguration(Options options) {
+  private AndroidLocalTestConfiguration(Options options) {
     this.androidLocalTestBinaryResources = options.androidLocalTestBinaryResources;
-  }
-
-  @AutoCodec.Instantiator
-  AndroidLocalTestConfiguration(boolean androidLocalTestBinaryResources) {
-    this.androidLocalTestBinaryResources = androidLocalTestBinaryResources;
   }
 
   public boolean useAndroidLocalTestBinaryResources() {

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,7 +31,6 @@ import java.io.Serializable;
 import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
-@AutoCodec
 public class ShellConfiguration extends BuildConfiguration.Fragment {
   private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
       ImmutableMap.<OS, PathFragment>builder()
@@ -43,7 +41,7 @@ public class ShellConfiguration extends BuildConfiguration.Fragment {
   private final PathFragment shellExecutable;
   private final boolean useShBinaryStubScript;
 
-  public ShellConfiguration(PathFragment shellExecutable, boolean useShBinaryStubScript) {
+  private ShellConfiguration(PathFragment shellExecutable, boolean useShBinaryStubScript) {
     this.shellExecutable = shellExecutable;
     this.useShBinaryStubScript = useShBinaryStubScript;
   }

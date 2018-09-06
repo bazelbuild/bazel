@@ -31,14 +31,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleConfigurationApi;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
-@AutoCodec
 @Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment
     implements AppleConfigurationApi<PlatformType> {
@@ -80,8 +78,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
-  @AutoCodec.Instantiator
-  AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
+  private AppleConfiguration(AppleCommandLineOptions options, String iosCpu) {
     this.options = options;
     this.iosCpu = iosCpu;
     this.appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
