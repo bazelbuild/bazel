@@ -16,9 +16,14 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
@@ -58,6 +63,44 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
     ConstraintValueInfoApi value = constraintCollection.get(setting);
     assertThat(value).isNotNull();
     assertThat(value.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+  }
+
+  @Test
+  public void testGet_starlark() throws Exception {
+    platformBuilder().addConstraint("s1", "value1").addConstraint("s2", "value2").build();
+
+    scratch.file("verify/verify.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  platform = ctx.attr.platform[platform_common.PlatformInfo]",
+        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
+        "  constraint_value = platform.constraints[constraint_setting]",
+        "  return [result(constraint_value = constraint_value)]",
+        "verify = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'platform': attr.label(providers = [platform_common.PlatformInfo]),",
+        "    'constraint_setting': attr.label(providers = [platform_common.ConstraintSettingInfo]),",
+        "  },",
+        ")");
+    scratch.file("verify/BUILD",
+        "load(':verify.bzl', 'verify')",
+        "verify(name = 'verify',",
+        "  platform = '//foo:my_platform',",
+        "  constraint_setting = '//foo:s1',",
+        ")");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
+    StructImpl info =
+        (StructImpl) myRuleTarget.get(
+            new SkylarkKey(
+                Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+
+    @SuppressWarnings("unchecked")
+    ConstraintValueInfo constraintValue = (ConstraintValueInfo) info.getValue("constraint_value");
+
+    assertThat(constraintValue).isNotNull();
+    assertThat(constraintValue.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
   }
 
   private Set<Label> collectLabels(ImmutableSet<ConstraintSettingInfoApi> settings) {
