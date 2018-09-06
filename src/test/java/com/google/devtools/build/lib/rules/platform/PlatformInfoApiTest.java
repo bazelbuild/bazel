@@ -57,20 +57,19 @@ public class PlatformInfoApiTest extends BuildViewTestCase {
         "foo",
         "my_platform",
         "Duplicate constraint_values detected: "
-            + "constraint_setting //foo:basic has "
-            + "[//foo:value1, //foo:value2]",
+            + "constraint_setting //foo:basic has [//foo:value1, //foo:value2]",
         "constraint_setting(name = 'basic')",
         "constraint_value(name = 'value1',",
         "    constraint_setting = ':basic',",
-        "    )",
+        ")",
         "constraint_value(name = 'value2',",
         "    constraint_setting = ':basic',",
-        "    )",
+        ")",
         "platform(name = 'my_platform',",
         "    constraint_values = [",
         "       ':value1',",
         "       ':value2',",
-        "    ])");
+        "])");
   }
 
   @Test
