@@ -554,6 +554,9 @@ void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);
+    result->push_back(
+        "-Dcom.google.devtools.build.lib.util.LogHandlerQuerier.class="
+        "com.google.devtools.build.lib.util.FileHandlerQuerier");
   }
 }
 
