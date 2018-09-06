@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
+import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkingInfo;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.constructJcapFromAspectDeps;
 
 import com.google.common.collect.ImmutableList;
@@ -95,7 +95,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addNativeDeclaredProvider(javaInfo)
-        .addProvider(createCcLinkParamsStore(ruleContext, ImmutableList.of()))
+        .addProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()))
         .build();
   }
 

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -780,16 +779,12 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
     // three possible locations (and may be duplicated!):
     // 1. ObjcProvider.LIBRARY
     // 2. ObjcProvider.CC_LIBRARY
-    // 3. CcLinkParamsStore->LibraryToLink->getArtifact()
+    // 3. CcLinkingInfo->LibraryToLink->getArtifact()
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
     for (CcLinkingInfo linkProvider : avoidCcProviders) {
-      CcLinkParamsStore ccLinkParamsStore = linkProvider.getCcLinkParamsStore();
-      if (ccLinkParamsStore == null) {
-        continue;
-      }
       NestedSet<LibraryToLink> librariesToLink =
-          ccLinkParamsStore.getCcLinkParams(true, false).getLibraries();
+          linkProvider.getStaticModeParamsForExecutable().getLibraries();
       for (LibraryToLink libraryToLink : librariesToLink.toList()) {
         avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
       }

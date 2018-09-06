@@ -117,11 +117,7 @@ public final class CcLinkingInfo extends NativeInfo implements CcLinkingInfoApi 
     super(PROVIDER);
     this.ccLinkParamsStore = ccLinkParamsStore;
   }
-
-  public CcLinkParamsStore getCcLinkParamsStore() {
-    return ccLinkParamsStore;
-  }
-
+  
   @Override
   public CcLinkParams getStaticModeParamsForDynamicLibrary() {
     return ccLinkParamsStore.get(/* linkingStatically= */ true, /* linkShared= */ true);

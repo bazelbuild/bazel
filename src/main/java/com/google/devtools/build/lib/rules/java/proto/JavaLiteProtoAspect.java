@@ -19,7 +19,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.cmdline.Label.parseAbsoluteUnchecked;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkParamsStore;
+import static com.google.devtools.build.lib.rules.java.proto.JplCcLinkParams.createCcLinkingInfo;
 import static com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils.createNonStrictCompilationArgsProvider;
 
 import com.google.common.collect.ImmutableList;
@@ -254,8 +254,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       }
 
       javaProvidersBuilder.add(generatedCompilationArgsProvider);
-      javaProvidersBuilder.add(createCcLinkParamsStore(
-          ruleContext, aspectCommon.getProtoRuntimeDeps()));
+      javaProvidersBuilder.add(
+          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
       TransitiveInfoProviderMap javaProviders = javaProvidersBuilder.build();
 
       aspect

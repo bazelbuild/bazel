@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Function;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
@@ -37,10 +34,4 @@ public final class JavaCcLinkParamsProvider implements TransitiveInfoProvider {
   public CcLinkingInfo getCcLinkingInfo() {
     return ccLinkingInfo;
   }
-
-  public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
-      input -> {
-        JavaCcLinkParamsProvider provider = input.getProvider(JavaCcLinkParamsProvider.class);
-        return provider == null ? null : provider.getCcLinkingInfo().getCcLinkParamsStore();
-      };
 }
