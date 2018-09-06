@@ -39,6 +39,7 @@ public class PlatformCommon implements PlatformCommonApi {
   public Provider getConstraintValueInfoConstructor() {
     return ConstraintValueInfo.PROVIDER;
   }
+  
   @Override
   public Provider getMakeVariableProvider() {
     return TemplateVariableInfo.PROVIDER;
