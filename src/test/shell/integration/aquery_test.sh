@@ -115,8 +115,47 @@ EOF
   else
     assert_contains "Command Line: (" output
   fi
-  assert_contains "Environment: \[" output
+}
 
+function test_aquery_skylark_env() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+    output = ctx.outputs.out
+    input = ctx.file.source
+    env = {}
+    env["foo"] = "bar"
+
+    ctx.actions.run_shell(
+        inputs = [input],
+        outputs = [output],
+        command = "cat '%s' > '%s'" % (input.path, output.path),
+        env = env,
+    )
+
+copy = rule(
+    implementation = _impl,
+    attrs = {"source": attr.label(mandatory = True, allow_single_file = True)},
+    outputs = {"out": "%{name}.copy"},
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "copy")
+copy(
+    name = "goo",
+    source = "dummy.txt",
+)
+EOF
+  echo "hello aquery" > "$pkg/dummy.txt"
+
+  bazel aquery --output=text "//$pkg:goo" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Mnemonic: SkylarkAction" output
+  assert_contains "Owner: //$pkg:goo" output
+  assert_contains "Environment: \[.*foo=bar" output
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

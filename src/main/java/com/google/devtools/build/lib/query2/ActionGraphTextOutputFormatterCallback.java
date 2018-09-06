@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -39,6 +39,8 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Output callback for aquery, prints human readable output. */
@@ -127,19 +129,23 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
       SpawnAction spawnAction = (SpawnAction) action;
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv();
-      stringBuilder
-          .append("  Environment: [")
-          .append(
-              Streams.stream(fixedEnvironment.entrySet())
-                  .map(
-                      environmentVariable ->
-                          environmentVariable.getKey() + "=" + environmentVariable.getValue())
-                  .sorted()
-                  .collect(Collectors.joining(", ")))
-          .append("]\n")
+      ImmutableSet<Entry<String, String>> fixedEnvironment =
+          spawnAction.getEnvironment().getFixedEnv().entrySet();
+      if (!fixedEnvironment.isEmpty()) {
+        stringBuilder
+            .append("  Environment: [")
+            .append(
+                fixedEnvironment.stream()
+                    .map(
+                        environmentVariable ->
+                            environmentVariable.getKey() + "=" + environmentVariable.getValue())
+                    .sorted()
+                    .collect(Collectors.joining(", ")))
+            .append("]\n");
+      }
 
-          // TODO(twerth): Add option to only optionally include the command line.
+      // TODO(twerth): Add option to only optionally include the command line.
+      stringBuilder
           .append("  Command Line: ")
           .append(
               CommandFailureUtils.describeCommand(
@@ -152,20 +158,23 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
     }
 
     if (action instanceof ExecutionInfoSpecifier) {
-      ExecutionInfoSpecifier executionInfoSpecifier = (ExecutionInfoSpecifier) action;
-      stringBuilder
-          .append("  ExecutionInfo: {")
-          .append(
-              executionInfoSpecifier.getExecutionInfo().entrySet().stream()
-                  .sorted(Map.Entry.comparingByKey())
-                  .map(
-                      e ->
-                          String.format(
-                              "%s: %s",
-                              ShellEscaper.escapeString(e.getKey()),
-                              ShellEscaper.escapeString(e.getValue())))
-                  .collect(Collectors.joining(", ")))
-          .append("}\n");
+      Set<Entry<String, String>> executionInfoSpecifiers =
+          ((ExecutionInfoSpecifier) action).getExecutionInfo().entrySet();
+      if (!executionInfoSpecifiers.isEmpty()) {
+        stringBuilder
+            .append("  ExecutionInfo: {")
+            .append(
+                executionInfoSpecifiers.stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(
+                        e ->
+                            String.format(
+                                "%s: %s",
+                                ShellEscaper.escapeString(e.getKey()),
+                                ShellEscaper.escapeString(e.getValue())))
+                    .collect(Collectors.joining(", ")))
+            .append("}\n");
+      }
     }
 
     stringBuilder.append('\n');
