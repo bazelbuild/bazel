@@ -131,7 +131,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
         PathFragment.create(workspacePath.getBaseName()));
   }
 
-  // Dummy harmcrest matcher that match the function name of a skykey
+  // Dummy hamcrest matcher that match the function name of a skykey
   static class SkyKeyMatchers extends BaseMatcher<SkyKey> {
     private final SkyFunctionName functionName;
 
