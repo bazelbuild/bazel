@@ -109,13 +109,41 @@ std::string AsLower(const std::string &str);
 
 // Convert a wchar_t string to a char string. Useful when consuming results of
 // widechar Windows API functions.
+// TODO(laszlocsomor): audit usages of WstringToCstring and replace with
+// WcsToAcp or WcsToUtf8 appropriately. WstringToCstring does not specify the
+// output encoding.
+//
+// Deprecated. Use WcsToAcp or WcsToUtf8.
 std::unique_ptr<char[]> WstringToCstring(const wchar_t *input);
+
+// Deprecated. Use WcsToAcp or WcsToUtf8.
 std::string WstringToString(const std::wstring &input);
 
 // Convert a char string to a wchar_t string. Useful when passing arguments to
 // widechar Windows API functions.
+// TODO(laszlocsomor): audit usages of CstringToWstring and replace with
+// AcpToWcs or Utf8ToWcs appropriately. CstringToWstring does not specify the
+// input encoding.
+//
+// Deprecated. Use AcpToWcs or Utf8ToWcs.
 std::unique_ptr<wchar_t[]> CstringToWstring(const char *input);
+
+// Deprecated. Use AcpToWcs or Utf8ToWcs.
 std::wstring CstringToWstring(const std::string &input);
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+// Convert UTF-16 string to ASCII (using the Active Code Page).
+bool WcsToAcp(const std::wstring& input, std::string* output, uint32_t* error);
+
+// Convert UTF-16 string to UTF-8.
+bool WcsToUtf8(const std::wstring& input, std::string* output, uint32_t* error);
+
+// Convert ASCII string (using the Active Code Page) to UTF-16 string.
+bool AcpToWcs(const std::string& input, std::wstring* output, uint32_t* error);
+
+// Convert UTF-8 string to UTF-16.
+bool Utf8ToWcs(const std::string& input, std::wstring* output, uint32_t* error);
+#endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util
 

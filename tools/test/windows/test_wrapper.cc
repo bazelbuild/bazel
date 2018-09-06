@@ -27,7 +27,9 @@
 #include <memory>
 #include <string>
 
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
+#include "src/main/cpp/util/strings.h"
 #include "tools/cpp/runfiles/runfiles.h"
 
 namespace {
@@ -57,10 +59,17 @@ void LogErrorWithArgAndValue(const int line, const char* msg, const char* arg,
           line, error_code, error_code, arg, msg);
 }
 
-bool GetEnv(const char* name, std::string* result) {
+void LogErrorWithArgAndValue(const int line, const char* msg,
+                             const wchar_t* arg, DWORD error_code) {
+  fprintf(stderr,
+          "ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %ls: %s\n",
+          line, error_code, error_code, arg, msg);
+}
+
+bool GetEnv(const wchar_t* name, std::wstring* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
-  char value[kSmallBuf];
-  DWORD size = GetEnvironmentVariableA(name, value, kSmallBuf);
+  WCHAR value[kSmallBuf];
+  DWORD size = GetEnvironmentVariableW(name, value, kSmallBuf);
   DWORD err = GetLastError();
   if (size == 0 && err == ERROR_ENVVAR_NOT_FOUND) {
     result->clear();
@@ -69,8 +78,8 @@ bool GetEnv(const char* name, std::string* result) {
     *result = value;
     return true;
   } else if (size >= kSmallBuf) {
-    std::unique_ptr<char[]> value_big(new char[size]);
-    GetEnvironmentVariableA(name, value_big.get(), size);
+    std::unique_ptr<WCHAR[]> value_big(new WCHAR[size]);
+    GetEnvironmentVariableW(name, value_big.get(), size);
     *result = value_big.get();
     return true;
   } else {
@@ -86,35 +95,56 @@ inline void PrintTestLogStartMarker() {
       "-----\n");
 }
 
-inline bool GetWorkspaceName(std::string* result) {
-  return GetEnv("TEST_WORKSPACE", result) && !result->empty();
+inline bool GetWorkspaceName(std::wstring* result) {
+  return GetEnv(L"TEST_WORKSPACE", result) && !result->empty();
 }
 
-inline void StripLeadingDotSlash(std::string* s) {
-  if (s->size() >= 2 && (*s)[0] == '.' && (*s)[1] == '/') {
-    *s = s->substr(2);
+inline void StripLeadingDotSlash(std::wstring* s) {
+  if (s->size() >= 2 && (*s)[0] == L'.' && (*s)[1] == L'/') {
+    s->erase(0, 2);
   }
 }
 
-bool FindTestBinary(const std::string& argv0, std::string test_path,
+bool FindTestBinary(const std::wstring& argv0, std::wstring test_path,
                     std::wstring* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
+    std::string argv0_acp;
+    uint32_t err;
+    if (!blaze_util::WcsToAcp(argv0, &argv0_acp, &err)) {
+      LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
+                              argv0.c_str(), err);
+      return false;
+    }
+
     std::string error;
     std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles(
-        bazel::tools::cpp::runfiles::Runfiles::Create(argv0, &error));
+        bazel::tools::cpp::runfiles::Runfiles::Create(argv0_acp, &error));
     if (runfiles == nullptr) {
       LogError(__LINE__, "Failed to load runfiles");
       return false;
     }
 
-    std::string workspace;
+    std::wstring workspace;
     if (!GetWorkspaceName(&workspace)) {
       LogError(__LINE__, "Failed to read %TEST_WORKSPACE%");
       return false;
     }
 
     StripLeadingDotSlash(&test_path);
-    test_path = runfiles->Rlocation(workspace + "/" + test_path);
+    test_path = workspace + L"/" + test_path;
+
+    std::string utf8_test_path;
+    if (!blaze_util::WcsToUtf8(test_path, &utf8_test_path, &err)) {
+      LogErrorWithArgAndValue(__LINE__, "Failed to convert string to UTF-8",
+                              test_path.c_str(), err);
+      return false;
+    }
+
+    std::string rloc = runfiles->Rlocation(utf8_test_path);
+    if (!blaze_util::Utf8ToWcs(rloc, &test_path, &err)) {
+      LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
+                              utf8_test_path.c_str(), err);
+    }
   }
 
   std::string error;
@@ -171,26 +201,26 @@ int WaitForSubprocess(HANDLE process) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int wmain(int argc, wchar_t** argv) {
   // TODO(laszlocsomor): Implement the functionality described in
   // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
 
-  const char* argv0 = argv[0];
+  const wchar_t* argv0 = argv[0];
   argc--;
   argv++;
   bool suppress_output = false;
-  if (argc > 0 && strcmp(argv[0], "--no_echo") == 0) {
+  if (argc > 0 && wcscmp(argv[0], L"--no_echo") == 0) {
     // Don't print anything to stdout in this special case.
     // Currently needed for persistent test runner.
     suppress_output = true;
     argc--;
     argv++;
   } else {
-    std::string test_target;
-    if (!GetEnv("TEST_TARGET", &test_target)) {
+    std::wstring test_target;
+    if (!GetEnv(L"TEST_TARGET", &test_target)) {
       return 1;
     }
-    printf("Executing tests from %s\n", test_target.c_str());
+    printf("Executing tests from %ls\n", test_target.c_str());
   }
 
   if (argc < 1) {
@@ -202,7 +232,7 @@ int main(int argc, char** argv) {
     PrintTestLogStartMarker();
   }
 
-  const char* test_path_arg = argv[0];
+  const wchar_t* test_path_arg = argv[0];
   std::wstring test_path;
   if (!FindTestBinary(argv0, test_path_arg, &test_path)) {
     return 1;
