@@ -48,7 +48,9 @@ cc_toolchain_suite(
     name = "toolchain",
     toolchains = {
         "%{name}|%{compiler}": ":cc-compiler-%{name}",
+        "%{name}": ":cc-compiler-%{name}",
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
+        "armeabi-v7a": ":cc-compiler-armeabi-v7a",
     },
 )
 
