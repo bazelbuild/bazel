@@ -474,8 +474,6 @@ public class Artifact
   /**
    * Returns true iff this is a TreeArtifact representing a directory tree containing Artifacts.
    */
-  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
-  @Override
   public boolean isTreeArtifact() {
     return false;
   }
@@ -485,6 +483,11 @@ public class Artifact
    */
   public boolean isFileset() {
     return false;
+  }
+
+  @Override
+  public boolean isDirectory() {
+    return isTreeArtifact() || isFileset();
   }
 
   /**

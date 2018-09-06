@@ -26,11 +26,16 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.exec.FilesetManifest;
+import com.google.devtools.build.lib.exec.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -41,6 +46,8 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IllegalFormatException;
@@ -194,8 +201,8 @@ public class SkylarkCustomCommandLine extends CommandLine {
       }
       List<Object> expandedValues = originalValues;
       if (artifactExpander != null && (features & EXPAND_DIRECTORIES) != 0) {
-        if (hasTreeArtifact(originalValues)) {
-          expandedValues = expandTreeArtifacts(artifactExpander, originalValues);
+        if (hasDirectory(originalValues)) {
+          expandedValues = expandDirectories(artifactExpander, originalValues);
         }
       }
       List<String> stringValues;
@@ -304,31 +311,60 @@ public class SkylarkCustomCommandLine extends CommandLine {
       return argi;
     }
 
-    private static boolean hasTreeArtifact(List<Object> originalValues) {
+    private static boolean hasDirectory(List<Object> originalValues) {
       int n = originalValues.size();
       for (int i = 0; i < n; ++i) {
         Object object = originalValues.get(i);
-        if ((object instanceof Artifact) && ((Artifact) object).isTreeArtifact()) {
+        if (isDirectory(object)) {
           return true;
         }
       }
       return false;
     }
 
-    private static List<Object> expandTreeArtifacts(
-        Artifact.ArtifactExpander artifactExpander, List<Object> originalValues) {
+    private static boolean isDirectory(Object object) {
+      return ((object instanceof Artifact) && ((Artifact) object).isDirectory());
+    }
+
+    private static List<Object> expandDirectories(
+        Artifact.ArtifactExpander artifactExpander, List<Object> originalValues)
+        throws CommandLineExpansionException {
       List<Object> expandedValues;
       int n = originalValues.size();
       expandedValues = new ArrayList<>(n);
       for (int i = 0; i < n; ++i) {
         Object object = originalValues.get(i);
-        if (object instanceof Artifact && ((Artifact) object).isTreeArtifact()) {
-          artifactExpander.expand((Artifact) object, expandedValues);
+        if (isDirectory(object)) {
+          Artifact artifact = (Artifact) object;
+          if (artifact.isTreeArtifact()) {
+            artifactExpander.expand((Artifact) object, expandedValues);
+          } else if (artifact.isFileset()) {
+            expandFileset(artifactExpander, artifact, expandedValues);
+          } else {
+            throw new AssertionError("Unknown artifact type.");
+          }
         } else {
           expandedValues.add(object);
         }
       }
       return expandedValues;
+    }
+
+    private static void expandFileset(
+        Artifact.ArtifactExpander artifactExpander, Artifact fileset, List<Object> expandedValues)
+        throws CommandLineExpansionException {
+      try {
+        FilesetManifest filesetManifest =
+            FilesetManifest.constructFilesetManifest(
+                artifactExpander.getFileset(fileset),
+                fileset.getExecPath(),
+                RelativeSymlinkBehavior.IGNORE);
+        for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
+          expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
+        }
+      } catch (IOException e) {
+        throw new CommandLineExpansionException("Could not expand fileset: " + e.getMessage());
+      }
     }
 
     private int addToFingerprint(
@@ -929,6 +965,87 @@ public class SkylarkCustomCommandLine extends CommandLine {
 
     UncheckedCommandLineExpansionException(CommandLineExpansionException cause) {
       this.cause = cause;
+    }
+  }
+
+  /**
+   * When we expand filesets the user might still expect a File object (since the results may be fed
+   * into map_each. Therefore we synthesize a File object from the fileset symlink.
+   */
+  static class FilesetSymlinkFile implements FileApi, CommandLineItem {
+    private final Artifact fileset;
+    private final PathFragment execPath;
+
+    public FilesetSymlinkFile(Artifact fileset, PathFragment execPath) {
+      this.fileset = fileset;
+      this.execPath = execPath;
+    }
+
+    private PathFragment getExecPath() {
+      return execPath;
+    }
+
+    @Override
+    public String getDirname() {
+      PathFragment parent = getExecPath().getParentDirectory();
+      return (parent == null) ? "/" : parent.getSafePathString();
+    }
+
+    @Override
+    public String getFilename() {
+      return getExecPath().getBaseName();
+    }
+
+    @Override
+    public String getExtension() {
+      return getExecPath().getFileExtension();
+    }
+
+    @Override
+    public Label getOwnerLabel() {
+      return fileset.getOwnerLabel();
+    }
+
+    @Override
+    public FileRootApi getRoot() {
+      return fileset.getRoot();
+    }
+
+    @Override
+    public boolean isSourceArtifact() {
+      // This information is lost to us.
+      // Since the symlinks are always in the output tree, settle for saying "no"
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
+    public String getRunfilesPathString() {
+      PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
+      return fileset.getRunfilesPath().getRelative(relativePath).getPathString();
+    }
+
+    @Override
+    public String getExecPathString() {
+      return getExecPath().getPathString();
+    }
+
+    @Override
+    public String expandToCommandLine() {
+      return getExecPathString();
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      if (isSourceArtifact()) {
+        printer.append("<source file " + getRunfilesPathString() + ">");
+      } else {
+        printer.append("<generated file " + getRunfilesPathString() + ">");
+      }
     }
   }
 }
