@@ -322,11 +322,6 @@ public abstract class AbstractAction implements Action, ActionApi {
   }
 
   @Override
-  public boolean isShareable() {
-    return true;
-  }
-
-  @Override
   public boolean showsOutputUnconditionally() {
     return false;
   }

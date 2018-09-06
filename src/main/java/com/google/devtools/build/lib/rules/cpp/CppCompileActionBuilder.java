@@ -50,7 +50,6 @@ public class CppCompileActionBuilder {
   public static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
   private final ActionOwner owner;
-  private boolean shareable;
   private final BuildConfiguration configuration;
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
   private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
@@ -113,7 +112,6 @@ public class CppCompileActionBuilder {
       CcToolchainProvider ccToolchain,
       @Nullable Artifact grepIncludes) {
     this.owner = actionOwner;
-    this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
@@ -130,7 +128,6 @@ public class CppCompileActionBuilder {
    */
   public CppCompileActionBuilder(CppCompileActionBuilder other) {
     this.owner = other.owner;
-    this.shareable = other.shareable;
     this.featureConfiguration = other.featureConfiguration;
     this.sourceFile = other.sourceFile;
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
@@ -307,7 +304,6 @@ public class CppCompileActionBuilder {
               variables,
               sourceFile,
               cppConfiguration,
-              shareable,
               shouldScanIncludes,
               shouldPruneModules(),
               usePic,
@@ -335,7 +331,6 @@ public class CppCompileActionBuilder {
               variables,
               sourceFile,
               cppConfiguration,
-              shareable,
               shouldScanIncludes,
               shouldPruneModules(),
               usePic,
@@ -599,11 +594,6 @@ public class CppCompileActionBuilder {
   /** Sets the CppSemantics for this compile. */
   public CppCompileActionBuilder setSemantics(CppSemantics semantics) {
     this.cppSemantics = semantics;
-    return this;
-  }
-
-  public CppCompileActionBuilder setShareable(boolean shareable) {
-    this.shareable = shareable;
     return this;
   }
 
