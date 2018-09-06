@@ -25,6 +25,17 @@ import java.util.function.Function;
 /** Interface used to abstract the Stubby and gRPC client implementations. */
 public interface BuildEventServiceClient {
 
+  /** Callback for ACKed build events. */
+  @FunctionalInterface
+  interface AckCallback {
+
+    /**
+     * Called whenever an ACK from the BES server is received. ACKs are expected to be received in
+     * sequence. Implementations need to be thread-safe.
+     */
+    void apply(PublishBuildToolEventStreamResponse ack);
+  }
+
   /** Makes a blocking RPC call that publishes a {@code lifecycleEvent}. */
   void publish(PublishLifecycleEventRequest lifecycleEvent)
       throws StatusException, InterruptedException;
@@ -34,22 +45,23 @@ public interface BuildEventServiceClient {
    * future in order to guarantee that all callback calls have been received. The returned future
    * will never fail, but in case of error will contain a corresponding status.
    */
-  ListenableFuture<Status> openStream(
-      Function<PublishBuildToolEventStreamResponse, Void> ackCallback)
-      throws StatusException, InterruptedException;
+  ListenableFuture<Status> openStream(AckCallback callback) throws InterruptedException;
 
   /**
-   * Sends an event over the currently open stream. This method may block due to flow control.
+   * Sends an event over the currently open stream. In case of error, this method will fail silently
+   * and report the error via the {@link ListenableFuture} returned by {@link
+   * #openStream(AckCallback)}.
+   *
+   * <p>This method may block due to flow control.
    */
-  void sendOverStream(PublishBuildToolEventStreamRequest buildEvent)
-      throws StatusException, InterruptedException;
+  void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws InterruptedException;
 
   /**
-   * Closes the currently opened stream. This method does not block. Callers should block on
-   * the future returned by {@link #openStream(Function)} in order to make sure that all
-   * {@code ackCallback} calls have been received.
+   * Half closes the currently opened stream. This method does not block. Callers should block on
+   * the future returned by {@link #openStream(Function)} in order to make sure that all {@code
+   * ackCallback} calls have been received.
    */
-  void closeStream();
+  void halfCloseStream();
 
   /**
    * Closes the currently opened stream with error. This method does not block. Callers should block
@@ -59,19 +71,10 @@ public interface BuildEventServiceClient {
   void abortStream(Status status);
 
   /**
-   * Checks if there is a currently an active stream.
-   *
-   * @return {@code true} if the current stream is active, false otherwise.
-   */
-  boolean isStreamActive();
-
-  /**
    * Called once to dispose resources that this client might be holding (such as thread pools). This
    * should be the last method called on this object.
-   *
-   * @throws InterruptedException
    */
-  void shutdown() throws InterruptedException;
+  void shutdown();
 
   /**
    * If possible, returns a user readable error message for a given {@link Throwable}.
