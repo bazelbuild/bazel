@@ -66,8 +66,11 @@ import java.util.Map;
  */
 public class SymbolFamilies {
   private final ImmutableList<RuleDocumentation> nativeRules;
-  private final ImmutableMap<String, Object> globalSymbols;
   private final ImmutableMap<String, SkylarkModuleDoc> types;
+
+  // Mappings between Starlark names and Starlark entities generated from the fakebuildapi.
+  private final ImmutableMap<String, Object> globals;
+  private final ImmutableMap<String, Object> bzlGlobals;
 
   public SymbolFamilies(
       String productName, String provider, List<String> inputDirs, String blackList)
@@ -76,7 +79,8 @@ public class SymbolFamilies {
           IOException {
     this.nativeRules =
         ImmutableList.copyOf(collectNativeRules(productName, provider, inputDirs, blackList));
-    this.globalSymbols = ImmutableMap.copyOf(collectGlobalSymbols());
+    this.globals = ImmutableMap.copyOf(collectGlobals());
+    this.bzlGlobals = ImmutableMap.copyOf(collectBzlGlobals());
     this.types = ImmutableMap.copyOf(collectTypes());
   }
 
@@ -88,11 +92,19 @@ public class SymbolFamilies {
   }
 
   /*
-   * Returns a mapping between Starlark module names and Starkark entities generated from the
-   * fakebuildapi.
+   * Returns a mapping between Starlark names and Starkark entities that are available both in BZL
+   * and BUILD files.
    */
-  public Map<String, Object> getGlobalSymbols() {
-    return globalSymbols;
+  public Map<String, Object> getGlobals() {
+    return globals;
+  }
+
+  /*
+   * Returns a mapping between Starlark names and Starkark entities that are available only in BZL
+   * files.
+   */
+  public Map<String, Object> getBzlGlobals() {
+    return bzlGlobals;
   }
 
   // Returns a mapping between type names and module/type documentation.
@@ -100,10 +112,18 @@ public class SymbolFamilies {
     return types;
   }
 
+  /*
+   * Collects a mapping between type names and module/type documentation that are available both
+   * in BZL and BUILD files.
+   */
   private Map<String, SkylarkModuleDoc> collectTypes() throws ClassPathException {
     return SkylarkDocumentationCollector.collectModules();
   }
 
+  /*
+   * Collects a list of native rules that are available in BUILD files as top level functions
+   * and in BZL files as methods of the native package.
+   */
   private List<RuleDocumentation> collectNativeRules(
       String productName, String provider, List<String> inputDirs, String blackList)
       throws NoSuchMethodException, InvocationTargetException, IllegalAccessException,
@@ -114,7 +134,21 @@ public class SymbolFamilies {
     return processor.getNativeRules();
   }
 
-  private Map<String, Object> collectGlobalSymbols() {
+  /*
+   * Collects a mapping between names and Starlark entities that are available both in BZL and
+   * BUILD files.
+   */
+  private Map<String, Object> collectGlobals() {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    MethodLibrary.addBindingsToBuilder(envBuilder);
+    Runtime.addConstantsToBuilder(envBuilder);
+    return envBuilder.build();
+  }
+
+  /*
+   * Collects a mapping between names and Starlark entities that are available only in BZL files
+   */
+  private Map<String, Object> collectBzlGlobals() {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
     TopLevelBootstrap topLevelBootstrap =
         new TopLevelBootstrap(
@@ -145,8 +179,6 @@ public class SymbolFamilies {
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
     TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule());
 
-    Runtime.addConstantsToBuilder(envBuilder);
-    MethodLibrary.addBindingsToBuilder(envBuilder);
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
     androidBootstrap.addBindingsToBuilder(envBuilder);
     appleBootstrap.addBindingsToBuilder(envBuilder);

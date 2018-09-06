@@ -50,6 +50,15 @@ message Type {
   string doc = 3;
 }
 
+// ApiContext specifies the context(s) in which a symbol is available. For
+// example, a symbol may be available as a builtin only in .bzl files, but
+// not in BUILD files.
+enum ApiContext {
+  ALL = 0;
+  BZL = 1;
+  BUILD = 2;
+}
+
 // Generic representation for a Skylark object. If the object is callable
 // (can act as a function), then callable will be set.
 message Value {
@@ -63,6 +72,9 @@ message Value {
 
   // Value documentation.
   string doc = 4;
+
+  // The context(s) in which the symbol is recognized.
+  ApiContext api_context = 5;
 }
 
 message Callable {
