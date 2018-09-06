@@ -151,7 +151,7 @@ public abstract class TestStrategy implements TestActionContext {
     if (executedOnWindows && !useTestWrapper) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
-      args.add("$0 $*");
+      args.add("$0 \"$@\"");
     }
 
     Artifact testSetup = testAction.getTestSetupScript();
