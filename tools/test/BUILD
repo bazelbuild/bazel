@@ -48,6 +48,7 @@ cc_binary(
     deps = select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/cpp/util:filesystem",
+            "//src/main/cpp/util:strings",
             "@bazel_tools//tools/cpp/runfiles",
         ],
         "//conditions:default": [],
