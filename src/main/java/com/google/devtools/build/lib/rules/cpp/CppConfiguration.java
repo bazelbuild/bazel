@@ -1166,6 +1166,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableLinkingModeFlags;
   }
 
+  public boolean disableMakeVariables() {
+    return cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables;
+  }
+
   public boolean enableLinkoptsInUserLinkFlags() {
     return cppOptions.enableLinkoptsInUserLinkFlags;
   }

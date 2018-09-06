@@ -847,6 +847,13 @@ public class CcModule
     if (!config.enableCcToolchainConfigInfoFromSkylark()) {
       throw new InvalidConfigurationException("Creating a CcToolchainConfigInfo is not enabled.");
     }
+    if (!skylarkRuleContext.getConfiguration().disableLateBoundOptionDefaults()
+        || !config.disableMakeVariables()) {
+      throw new InvalidConfigurationException(
+          "--incompatible_disable_late_bound_option_defaults and "
+              + "--incompatible_disable_cc_configuration_make_variables must be set to true in "
+              + "order to configure the C++ toolchain from Starlark.");
+    }
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
     for (Object feature : features) {

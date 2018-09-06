@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
@@ -629,6 +630,36 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private CppToolchainInfo getCppToolchainInfo(
       RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
+
+    if (cppConfiguration.enableCcToolchainConfigInfoFromSkylark()) {
+      // Attempt to obtain CppToolchainInfo from the 'toolchain_config' attribute of cc_toolchain.
+      CcToolchainConfigInfo configInfo =
+          ruleContext.getPrerequisite(
+              CcToolchainRule.TOOLCHAIN_CONFIG_ATTR, Mode.TARGET, CcToolchainConfigInfo.PROVIDER);
+      if (configInfo != null) {
+        try {
+          return CppToolchainInfo.create(
+              ruleContext.getRepository().getPathUnderExecRoot(),
+              ruleContext.getLabel(),
+              configInfo,
+              cppConfiguration.disableLegacyCrosstoolFields(),
+              cppConfiguration.disableCompilationModeFlags(),
+              cppConfiguration.disableLinkingModeFlags());
+        } catch (InvalidConfigurationException e) {
+          throw ruleContext.throwWithRuleError(e.getMessage());
+        }
+      } else {
+        ruleContext.attributeError(
+            CcToolchainRule.TOOLCHAIN_CONFIG_ATTR,
+            String.format(
+                "The target '%s' from '%s' attribute does not provide "
+                    + "a CcToolchainConfigInfo provider",
+                CcToolchainRule.TOOLCHAIN_CONFIG_ATTR,
+                ruleContext
+                    .attributes()
+                    .get(CcToolchainRule.TOOLCHAIN_CONFIG_ATTR, BuildType.LABEL)));
+      }
+    }
 
     // Attempt to find a toolchain based on the target attributes, not the configuration.
     CToolchain toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);

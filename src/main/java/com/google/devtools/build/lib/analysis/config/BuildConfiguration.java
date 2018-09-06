@@ -1918,4 +1918,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }
+
+  public boolean disableLateBoundOptionDefaults() {
+    return options.incompatibleDisableLateBoundOptionDefaults
+        || !options.useLateBoundOptionDefaults;
+  }
 }

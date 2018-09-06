@@ -3971,7 +3971,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
         "load(':crosstool.bzl', 'cc_toolchain_config_rule')",
         "cc_toolchain_alias(name='alias')",
         "cc_toolchain_config_rule(name='r')");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_late_bound_option_defaults",
+        "--incompatible_disable_cc_configuration_make_variables");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4044,7 +4047,10 @@ public class SkylarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testCcToolchainInfoFromSkylarkAllRequiredStringsPresent() throws Exception {
     setupSkylarkRuleForStringFieldsTesting("");
-    useConfiguration("--experimental_enable_cc_toolchain_config_info");
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_late_bound_option_defaults",
+        "--incompatible_disable_cc_configuration_make_variables");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
