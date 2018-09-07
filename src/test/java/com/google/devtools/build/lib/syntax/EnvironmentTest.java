@@ -217,7 +217,7 @@ public class EnvironmentTest extends EvaluationTestCase {
     } catch (EvalExceptionWithStackTrace e) {
       assertThat(e)
           .hasMessageThat()
-          .contains("Variable 'global_var' is referenced before assignment.");
+          .contains("local variable 'global_var' is referenced before assignment.");
     }
   }
 
