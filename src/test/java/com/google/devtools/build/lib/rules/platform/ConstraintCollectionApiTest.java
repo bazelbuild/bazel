@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollecti
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -74,8 +76,15 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
         "def _impl(ctx):",
         "  platform = ctx.attr.platform[platform_common.PlatformInfo]",
         "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
-        "  constraint_value = platform.constraints[constraint_setting]",
-        "  return [result(constraint_value = constraint_value)]",
+        "  constraint_collection = platform.constraints",
+        "  value_from_index = constraint_collection[constraint_setting]",
+        "  value_from_get = constraint_collection.get(constraint_setting)",
+        "  used_constraints = constraint_collection.constraint_settings",
+        "  return [result(",
+        "    value_from_index = value_from_index,",
+        "    value_from_get = value_from_get,",
+        "    used_constraints = used_constraints,",
+        "  )]",
         "verify = rule(",
         "  implementation = _impl,",
         "  attrs = {",
@@ -97,13 +106,22 @@ public class ConstraintCollectionApiTest extends PlatformInfoApiTest {
                 Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
     @SuppressWarnings("unchecked")
-    ConstraintValueInfo constraintValue = (ConstraintValueInfo) info.getValue("constraint_value");
+    ConstraintValueInfo constraintValueFromIndex = (ConstraintValueInfo) info.getValue("value_from_index");
+    assertThat(constraintValueFromIndex).isNotNull();
+    assertThat(constraintValueFromIndex.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
 
-    assertThat(constraintValue).isNotNull();
-    assertThat(constraintValue.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+    @SuppressWarnings("unchecked")
+    ConstraintValueInfo constraintValueFromGet = (ConstraintValueInfo) info.getValue("value_from_get");
+    assertThat(constraintValueFromGet).isNotNull();
+    assertThat(constraintValueFromGet.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+
+    @SuppressWarnings("unchecked")
+    SkylarkList<ConstraintSettingInfo> usedConstraints = (SkylarkList<ConstraintSettingInfo>) info.getValue("used_constraints");
+    assertThat(usedConstraints).isNotNull();
+    assertThat(usedConstraints).containsExactly(ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1")), ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2")));
   }
 
-  private Set<Label> collectLabels(ImmutableSet<ConstraintSettingInfoApi> settings) {
+  private Set<Label> collectLabels(Collection<ConstraintSettingInfoApi> settings) {
     return settings.stream().map(ConstraintSettingInfoApi::label).collect(Collectors.toSet());
   }
 
