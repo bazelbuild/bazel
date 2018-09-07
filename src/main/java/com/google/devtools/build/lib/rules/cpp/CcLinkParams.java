@@ -185,7 +185,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
 
     // TODO(plf): Ideally the two booleans above are removed from this Builder. We would pass the
     // specific instances of CcLinkParams that are needed from transitive dependencies instead of
-    // calling the convenience methods that dig them out from the CcLinkParamsStore using these
+    // calling the convenience methods that dig them out from the CcLinkingInfo using these
     // booleans.
     private boolean linkingStaticallyLinkSharedSet;
 
@@ -270,8 +270,8 @@ public final class CcLinkParams implements CcLinkParamsApi {
     /**
      * Includes link parameters from a dependency target.
      *
-     * <p>The target should implement {@link CcLinkParamsStore}. If it does not, the method does not
-     * do anything.
+     * <p>The target should implement {@link CcLinkingInfo}. If it does not, the method does not do
+     * anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
       CcLinkingInfo ccLinkingInfo = target.get(CcLinkingInfo.PROVIDER);
@@ -409,7 +409,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
     /** Processes typical dependencies of a C/C++ library. */
     public Builder addCcLibrary(RuleContext context) {
       addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET), CcLinkParamsStore.TO_LINK_PARAMS);
+          context.getPrerequisites("deps", Mode.TARGET), x -> x.get(CcLinkingInfo.PROVIDER));
       return this;
     }
   }
