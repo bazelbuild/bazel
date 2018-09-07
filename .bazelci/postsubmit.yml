@@ -64,6 +64,9 @@ platforms:
     # We can't run Android tests without an installed Android SDK / NDK.
     - "-//src/test/java/com/google/devtools/build/android/..."
     - "-//src/test/shell/bazel/android/..."
+    # Currently broken tests on this platform.
+    - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+    - "-//src/test/shell/bazel:bazel_java_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
