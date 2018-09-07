@@ -357,15 +357,8 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionDefinitionOrder() throws Exception {
-    new BuildTest()
-        .testIfErrorContains("name 'y' is not defined", "[x for x in (1, 2) if y for y in (3, 4)]");
-
-    // We provide a better error message when we use the ValidationEnvironment. It should be used
-    // for BUILD files too in the future.
-    new SkylarkTest()
-        .testIfErrorContains(
-            "local variable 'y' is referenced before assignment",
-            "[x for x in (1, 2) if y for y in (3, 4)]");
+    newTest().testIfErrorContains("name 'y' is not defined",
+        "[x for x in (1, 2) if y for y in (3, 4)]");
   }
 
   @Test

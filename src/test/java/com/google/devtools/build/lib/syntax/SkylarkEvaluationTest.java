@@ -1789,17 +1789,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testFunctionCallBadOrdering() throws Exception {
-    new SkylarkTest()
-        .testIfErrorContains(
-            "global variable 'foo' is referenced before assignment",
-            "def func(): return foo() * 2",
-            "x = func()",
-            "def foo(): return 2");
+    new SkylarkTest().testIfErrorContains("name 'foo' is not defined",
+         "def func(): return foo() * 2",
+         "x = func()",
+         "def foo(): return 2");
   }
 
   @Test
   public void testLocalVariableDefinedBelow() throws Exception {
-    new SkylarkTest()
+    new SkylarkTest("--incompatible_static_name_resolution=true")
         .setUp(
             "def beforeEven(li):", // returns the value before the first even number
             "    for i in li:",
@@ -1824,11 +1822,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testShadowBuiltin() throws Exception {
-    // TODO(laurentlb): Forbid this.
+  public void testLegacyGlobalIsNotInitialized() throws Exception {
     new SkylarkTest("--incompatible_static_name_resolution=false")
-        .setUp("x = len('abc')", "len = 2", "y = x + len")
-        .testLookup("y", 5);
+        .setUp("a = len")
+        .testIfErrorContains("Variable len is read only", "len = 2");
   }
 
   @Test
@@ -2197,7 +2194,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testListComprehensionsDoNotLeakVariables() throws Exception {
     checkEvalErrorContains(
-        "local variable 'a' is referenced before assignment",
+        "name 'a' is not defined",
         "def foo():",
         "  a = 10",
         "  b = [a for a in range(3)]",

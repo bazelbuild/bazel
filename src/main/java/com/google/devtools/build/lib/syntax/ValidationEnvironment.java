@@ -26,12 +26,17 @@ import javax.annotation.Nullable;
 /**
  * A class for doing static checks on files, before evaluating them.
  *
- * <p>We implement the semantics discussed in
+ * <p>The behavior is affected by semantics.incompatibleStaticNameResolution(). When it is set to
+ * true, we implement the semantics discussed in
  * https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md
  *
  * <p>When a variable is defined, it is visible in the entire block. For example, a global variable
  * is visible in the entire file; a variable in a function is visible in the entire function block
  * (even on the lines before its first assignment).
+ *
+ * <p>The legacy behavior is kept during the transition and will be removed in the future. In the
+ * legacy behavior, there is no clear separation between the first pass (collect all definitions)
+ * and the second pass (ensure the symbols can be resolved).
  */
 public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
@@ -56,6 +61,7 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   private static class Block {
     private final Set<String> variables = new HashSet<>();
+    private final Set<String> readOnlyVariables = new HashSet<>();
     private final Scope scope;
     @Nullable private final Block parent;
 
@@ -96,12 +102,18 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
     block = new Block(Scope.Universe, null);
     Set<String> builtinVariables = env.getVariableNames();
     block.variables.addAll(builtinVariables);
+    if (!semantics.incompatibleStaticNameResolution()) {
+      block.readOnlyVariables.addAll(builtinVariables);
+    }
   }
 
   /**
    * First pass: add all definitions to the current block. This is done because symbols are
    * sometimes used before their definition point (e.g. a functions are not necessarily declared in
    * order).
+   *
+   * <p>The old behavior (when incompatibleStaticNameResolution is false) doesn't have this first
+   * pass.
    */
   private void collectDefinitions(Iterable<Statement> stmts) {
     for (Statement stmt : stmts) {
@@ -154,22 +166,40 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   }
 
   @Override
+  public void visit(LoadStatement node) {
+    if (semantics.incompatibleStaticNameResolution()) {
+      return;
+    }
+
+    for (Identifier symbol : node.getSymbols()) {
+      declare(symbol.getName(), node.getLocation());
+    }
+  }
+
+  @Override
   public void visit(Identifier node) {
     @Nullable Block b = blockThatDefines(node.getName());
     if (b == null) {
       throw new ValidationException(node.createInvalidIdentifierException(getAllSymbols()));
     }
-    node.setScope(b.scope);
+    if (semantics.incompatibleStaticNameResolution()) {
+      // The scoping information is reliable only with the new behavior.
+      node.setScope(b.scope);
+    }
   }
 
   private void validateLValue(Location loc, Expression expr) {
-    if (expr instanceof IndexExpression) {
+    if (expr instanceof Identifier) {
+      if (!semantics.incompatibleStaticNameResolution()) {
+        declare(((Identifier) expr).getName(), loc);
+      }
+    } else if (expr instanceof IndexExpression) {
       visit(expr);
     } else if (expr instanceof ListLiteral) {
       for (Expression e : ((ListLiteral) expr).getElements()) {
         validateLValue(loc, e);
       }
-    } else if (!(expr instanceof Identifier)) {
+    } else {
       throw new ValidationException(loc, "cannot assign to '" + expr + "'");
     }
   }
@@ -214,9 +244,11 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
   @Override
   public void visit(AbstractComprehension node) {
     openBlock(Scope.Local);
-    for (AbstractComprehension.Clause clause : node.getClauses()) {
-      if (clause.getLValue() != null) {
-        collectDefinitions(clause.getLValue());
+    if (semantics.incompatibleStaticNameResolution()) {
+      for (AbstractComprehension.Clause clause : node.getClauses()) {
+        if (clause.getLValue() != null) {
+          collectDefinitions(clause.getLValue());
+        }
       }
     }
     super.visit(node);
@@ -236,7 +268,9 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
         declare(param.getName(), param.getLocation());
       }
     }
-    collectDefinitions(node.getStatements());
+    if (semantics.incompatibleStaticNameResolution()) {
+      collectDefinitions(node.getStatements());
+    }
     visitAll(node.getStatements());
     closeBlock();
   }
@@ -264,12 +298,24 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
   /** Declare a variable and add it to the environment. */
   private void declare(String varname, Location location) {
-    if (block.scope == Scope.Module && block.variables.contains(varname)) {
-      // Symbols defined in the module scope cannot be reassigned.
+    boolean readOnlyViolation = false;
+    if (block.readOnlyVariables.contains(varname)) {
+      readOnlyViolation = true;
+    }
+    if (block.scope == Scope.Module && block.parent.readOnlyVariables.contains(varname)) {
+      // TODO(laurentlb): This behavior is buggy. Symbols in the module scope should shadow symbols
+      // from the universe. https://github.com/bazelbuild/bazel/issues/5637
+      readOnlyViolation = true;
+    }
+    if (readOnlyViolation) {
       throw new ValidationException(
           location,
           String.format("Variable %s is read only", varname),
           "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html");
+    }
+    if (block.scope == Scope.Module) {
+      // Symbols defined in the module scope cannot be reassigned.
+      block.readOnlyVariables.add(varname);
     }
     block.variables.add(varname);
   }
@@ -332,9 +378,20 @@ public final class ValidationEnvironment extends SyntaxTreeVisitor {
 
     openBlock(Scope.Module);
 
-    // Add each variable defined by statements, not including definitions that appear in
-    // sub-scopes of the given statements (function bodies and comprehensions).
-    collectDefinitions(statements);
+    if (semantics.incompatibleStaticNameResolution()) {
+      // Add each variable defined by statements, not including definitions that appear in
+      // sub-scopes of the given statements (function bodies and comprehensions).
+      collectDefinitions(statements);
+    } else {
+      // Legacy behavior, to be removed. Add only the functions in the environment before
+      // validating.
+      for (Statement statement : statements) {
+        if (statement instanceof FunctionDefStatement) {
+          FunctionDefStatement fct = (FunctionDefStatement) statement;
+          declare(fct.getIdentifier().getName(), fct.getLocation());
+        }
+      }
+    }
 
     // Second pass: ensure that all symbols have been defined.
     visitAll(statements);

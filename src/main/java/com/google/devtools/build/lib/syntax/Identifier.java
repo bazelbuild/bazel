@@ -107,12 +107,9 @@ public final class Identifier extends Expression {
     if (result == null) {
       // Since Scope was set, we know that the variable is defined in the scope.
       // However, the assignment was not yet executed.
-      EvalException e = getSpecialException();
-      throw e != null
-          ? e
-          : new EvalException(
-              getLocation(),
-              scope.getQualifier() + " variable '" + name + "' is referenced before assignment.");
+      throw new EvalException(
+          getLocation(),
+          scope.getQualifier() + " variable '" + name + "' is referenced before assignment.");
     }
 
     return result;
@@ -128,8 +125,11 @@ public final class Identifier extends Expression {
     return Kind.IDENTIFIER;
   }
 
-  /** Exception to provide a better error message for using PACKAGE_NAME or REPOSITORY_NAME. */
-  private EvalException getSpecialException() {
+  EvalException createInvalidIdentifierException(Set<String> symbols) {
+    if (name.equals("$error$")) {
+      return new EvalException(getLocation(), "contains syntax error(s)", true);
+    }
+
     if (name.equals("PACKAGE_NAME")) {
       return new EvalException(
           getLocation(),
@@ -147,18 +147,6 @@ public final class Identifier extends Expression {
               + "https://docs.bazel.build/versions/master/skylark/lib/native.html#repository_name)."
               + " You can temporarily allow the old name "
               + "by using --incompatible_package_name_is_a_function=false");
-    }
-    return null;
-  }
-
-  EvalException createInvalidIdentifierException(Set<String> symbols) {
-    if (name.equals("$error$")) {
-      return new EvalException(getLocation(), "contains syntax error(s)", true);
-    }
-
-    EvalException e = getSpecialException();
-    if (e != null) {
-      return e;
     }
 
     String suggestion = SpellChecker.didYouMean(name, symbols);
