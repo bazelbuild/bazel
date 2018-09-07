@@ -40,7 +40,10 @@ filegroup(
 
 filegroup(
     name = "workspace-file",
-    srcs = [":WORKSPACE", ":distdir.bzl"],
+    srcs = [
+        ":WORKSPACE",
+        ":distdir.bzl",
+    ],
     visibility = [
         "//src/test/shell/bazel:__subpackages__",
     ],

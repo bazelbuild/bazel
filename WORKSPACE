@@ -35,14 +35,15 @@ bind(
 
 http_archive(
     name = "bazel_j2objc",
-    url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
     # Computed using "shasum -a 256 j2objc-2.0.3.zip"
     sha256 = "a36bac432d0dbd8c98249e484b2b69dd5720afa4abb58711a3c3def1c0bfa21d",
     strip_prefix = "j2objc-2.0.3",
+    url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
 )
 
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
+
 list_source_repository(name = "local_bazel_source_list")
 
 # To run the Android integration tests in //src/test/shell/bazel/android:all or
@@ -87,44 +88,41 @@ new_local_repository(
 
 new_local_repository(
     name = "googleapis",
-    path = "./third_party/googleapis/",
     build_file = "./third_party/googleapis/BUILD",
+    path = "./third_party/googleapis/",
 )
 
 new_local_repository(
     name = "remoteapis",
-    path = "./third_party/remoteapis/",
     build_file = "./third_party/remoteapis/BUILD.bazel",
+    path = "./third_party/remoteapis/",
 )
 
 http_archive(
     name = "desugar_jdk_libs",
-    url = "https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
     # Computed using "shasum -a 256 <zip>"
     sha256 = "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
     strip_prefix = "desugar_jdk_libs-fd937f4180c1b557805219af4482f1a27eb0ff2b",
+    url = "https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
 )
 
 load("//:distdir.bzl", "distdir_tar")
+
 distdir_tar(
     name = "additional_distfiles",
-    dirname = "derived/distdir",
     archives = [
         "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
-        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
     ],
-    urls = {
-        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip" :
-        ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
-        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz" :
-        ["https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"],
-    },
+    dirname = "derived/distdir",
     sha256 = {
-        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip" :
-        "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
-        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz" :
-        "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14"
-  },
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz": "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
+    },
+    urls = {
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"],
+    },
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
@@ -159,52 +157,52 @@ http_file(
     sha256 = "b7098b7aaf6ee1ffd4a2d0371a0be26c5a5c87f6aebbe46fe9a92c90583a84be",
     urls = [
         # When you update this, also update the link to the source-code above.
-       "http://openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz",
+        "http://openjdk.linaro.org/releases/jdk10-server-release-1804.tar.xz",
     ],
 )
 
 http_archive(
     name = "bazel_toolchains",
+    sha256 = "cefb6ccf86ca592baaa029bcef04148593c0efe8f734542f10293ea58f170715",
+    strip_prefix = "bazel-toolchains-cdea5b8675914d0a354d89f108de5d28e54e0edc",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/cdea5b8675914d0a354d89f108de5d28e54e0edc.tar.gz",
         "https://github.com/bazelbuild/bazel-toolchains/archive/cdea5b8675914d0a354d89f108de5d28e54e0edc.tar.gz",
     ],
-    strip_prefix = "bazel-toolchains-cdea5b8675914d0a354d89f108de5d28e54e0edc",
-    sha256 = "cefb6ccf86ca592baaa029bcef04148593c0efe8f734542f10293ea58f170715",
 )
 
 # We're pinning to a commit because this project does not have a recent release.
 # Nothing special about this commit, though.
 http_archive(
     name = "com_google_googletest",
+    sha256 = "313a16fba8f0be8ee20ba9883e044556044cbd1ae6cea532473d163a843ef991",
+    strip_prefix = "googletest-dfa853b63d17c787914b663b50c2095a0c5b706e",
     urls = [
         "https://github.com/google/googletest/archive/dfa853b63d17c787914b663b50c2095a0c5b706e.tar.gz",
     ],
-    strip_prefix = "googletest-dfa853b63d17c787914b663b50c2095a0c5b706e",
-    sha256 = "313a16fba8f0be8ee20ba9883e044556044cbd1ae6cea532473d163a843ef991",
 )
 
 # For src/test/shell/bazel:bazel_sandboxing_test
 http_file(
-  name = 'mount_path_toolchain',
-  url = 'https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz',
-  sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
+    name = "mount_path_toolchain",
+    sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
+    url = "https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz",
 )
 
 http_archive(
     name = "bazel_skylib",
+    sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
+    strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c",
     urls = [
         "https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
     ],
-    sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
-    strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c"
 )
 
 http_archive(
     name = "skydoc",
+    sha256 = "cfbfcc107f5c9853dc5b2b81f1fe90fc326bd1c61f76c9aac2b4201dff75b91d",
+    strip_prefix = "skydoc-d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8",
     urls = [
         "https://github.com/bazelbuild/skydoc/archive/d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8.tar.gz",
     ],
-    sha256 = "cfbfcc107f5c9853dc5b2b81f1fe90fc326bd1c61f76c9aac2b4201dff75b91d",
-    strip_prefix = "skydoc-d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8"
 )
