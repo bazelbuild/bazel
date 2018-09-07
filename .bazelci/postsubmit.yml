@@ -63,6 +63,7 @@ platforms:
     - "//third_party/ijar/..."
     # We can't run Android tests without an installed Android SDK / NDK.
     - "-//src/test/java/com/google/devtools/build/android/..."
+    - "-//src/test/shell/bazel/android/..."
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
