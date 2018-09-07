@@ -105,9 +105,6 @@ function assert_cache_stats() {
 #### TESTS #############################################################
 
 function test_cache_computed_file_digests_behavior() {
-  # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
-  return
-
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -168,9 +165,8 @@ EOF
   assert_cache_stats "miss count" 1  # volatile-status.txt
 }
 
-function test_cache_computed_file_digests_uncaught_changes() {
-  return
-
+function DISABLED_test_cache_computed_file_digests_uncaught_changes() {
+  # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
   local timestamp=201703151112.13  # Fixed timestamp to mark our file with.
 
   mkdir -p package || fail "mkdir failed"
@@ -230,9 +226,6 @@ EOF
 }
 
 function test_cache_computed_file_digests_ui() {
-  # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
-  return
-
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -257,8 +250,6 @@ function test_cache_computed_file_digests_ui() {
 }
 
 function test_jobs_default_auto() {
-  return
-
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -279,8 +270,6 @@ function test_jobs_default_auto() {
 }
 
 function test_analysis_warning_cached() {
-  return
-
   mkdir -p "foo" "bar" || fail "Could not create directories"
   cat > foo/BUILD <<'EOF' || fail "foo/BUILD"
 cc_library(
