@@ -4,6 +4,8 @@ load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
     "java_runtime_files",
+    "JDK8_JVM_OPTS",
+    "JDK9_JVM_OPTS",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -191,7 +193,7 @@ alias(
     actual = "@embedded_jdk//:jdk",
 )
 
-RELEASES = (8, 9, 10)
+RELEASES = (8, 9)
 
 # Create jars containing compile-time bootclasspaths for each Java version
 # in RELEASES, using javac to read those APIs via the infrastructure added
@@ -221,9 +223,7 @@ rm -rf $$TMPDIR
 default_java_toolchain(
     name = "toolchain_hostjdk8",
     bootclasspath = [":platformclasspath8"],
-    forcibly_disable_header_compilation = True,
-    javabuilder = [":vanillajavabuilder"],
-    jvm_opts = [],
+    jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
@@ -231,7 +231,7 @@ default_java_toolchain(
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 alias(
-    name = "toolchain",
+    name = "toolchain_hostjdk9",
     actual = "toolchain_java8",
 )
 
@@ -239,11 +239,17 @@ alias(
     default_java_toolchain(
         name = "toolchain_java%d" % release,
         bootclasspath = [":platformclasspath%d" % release],
+        jvm_opts = JDK9_JVM_OPTS,
         source_version = "%s" % release,
         target_version = "%s" % release,
     )
     for release in RELEASES
 ]
+
+alias(
+    name = "toolchain",
+    actual = "//external:java_toolchain",
+)
 
 filegroup(
     name = "srcs",
