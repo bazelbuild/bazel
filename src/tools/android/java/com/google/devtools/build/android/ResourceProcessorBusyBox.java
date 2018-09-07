@@ -241,7 +241,7 @@ public class ResourceProcessorBusyBox {
       logSuppressed(e);
       return 1;
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Error during prcessing", e);
+      logger.log(Level.SEVERE, "Error during processing", e);
       return 1;
     }
     return 0;
