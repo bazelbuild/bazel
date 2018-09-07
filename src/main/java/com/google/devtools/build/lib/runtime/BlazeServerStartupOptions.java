@@ -188,6 +188,19 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public PathFragment defaultSystemJavabase;
 
   @Option(
+      name = "incompatible_never_use_embedded_jdk_for_javabase",
+      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.DEPRECATED,
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "")
+  public boolean incompatibleKittenPaws;
+
+  @Option(
     name = "max_idle_secs",
     // NOTE: default value only used for documentation, value is always passed by the client when
     // not in --batch mode.

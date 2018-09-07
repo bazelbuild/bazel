@@ -44,11 +44,11 @@ EOF
   expect_log "java-home: .*/_embedded_binaries/embedded_tools/jdk"
 }
 
-function test_rhs_host_javabase() {
+function test_host_javabase() {
   mkdir -p foobar/bin
   cat << EOF > BUILD
 java_runtime(
-    name = "rhs_host_javabase",
+    name = "host_javabase",
     java_home = "$PWD/foobar",
     visibility = ["//visibility:public"],
 )
@@ -65,7 +65,7 @@ EOF
 
   # We expect the given host_javabase to appear in the command line of
   # java_library actions.
-  bazel aquery --output=text --host_javabase=//:rhs_host_javabase //java:javalib >& $TEST_log
+  bazel aquery --output=text --host_javabase=//:host_javabase //java:javalib >& $TEST_log
   expect_log "exec .*foobar/bin/java"
 
   # If we don't specify anything, we expect the embedded JDK to be used.
@@ -74,11 +74,11 @@ EOF
   expect_log "exec external/embedded_jdk/bin/java"
 }
 
-function test_rhs_javabase() {
+function test_javabase() {
   mkdir -p zoo/bin
   cat << EOF > BUILD
 java_runtime(
-    name = "rhs_javabase",
+    name = "javabase",
     java_home = "$PWD/zoo",
     visibility = ["//visibility:public"],
 )
@@ -96,7 +96,7 @@ public class HelloWorld {}
 EOF
 
   # Check that the RHS javabase appears in the launcher.
-  bazel build --javabase=//:rhs_javabase //java:javabin
+  bazel build --javabase=//:javabase //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
   expect_log "JAVABIN=.*/zoo/bin/java"
 
@@ -106,5 +106,73 @@ EOF
   expect_log "JAVABIN=.*/local_jdk/bin/java"
 }
 
+function test_no_javabase() {
+  mkdir -p no_javabase
+  cat << EOF > no_javabase/BUILD
+java_binary(
+    name = "a",
+    srcs = ["A.java"],
+    main_class = "A",
+)
+EOF
+
+  cat << EOF > no_javabase/A.java
+class A {
+  public static void main(String[] args) {
+    System.err.println("hello");
+  }
+}
+EOF
+
+  (
+    TMPDIR=$(mktemp -d)
+    TOOLS=(mktemp rm cat bazel touch)
+    for tool in ${TOOLS[@]}; do
+      ln -s $(which $tool) $TMPDIR/$tool
+    done
+    export PATH=$TMPDIR
+    unset JAVA_HOME
+
+    bazel --batch --incompatible_never_use_embedded_jdk_for_javabase build //no_javabase:a
+  )
+  ($(bazel-bin/no_javabase/a --print_javabin) -version || true) >& $TEST_log
+  expect_log "bazel-bin/no_javabase/a.runfiles/local_jdk/bin/java: No such file or directory"
+}
+
+function test_no_javabase_default_embedded() {
+  mkdir -p embedded_javabase
+  cat << EOF > embedded_javabase/BUILD
+java_binary(
+    name = "a",
+    srcs = ["A.java"],
+    main_class = "A",
+)
+EOF
+
+  cat << EOF > embedded_javabase/A.java
+class A {
+  public static void main(String[] args) {
+    System.err.println("hello");
+  }
+}
+EOF
+
+  which bazel
+  (
+    TMPDIR=$(mktemp -d)
+    TOOLS=(mktemp rm cat bazel touch basename date)
+    for tool in ${TOOLS[@]}; do
+      ln -s $(which $tool) $TMPDIR/$tool
+    done
+    export PATH=$TMPDIR
+    unset JAVA_HOME
+
+    bazel --batch build //embedded_javabase:a
+  )
+  echo $(bazel-bin/embedded_javabase/a --print_javabin) >& $TEST_log
+  expect_log "bazel-bin/embedded_javabase/a.runfiles/local_jdk/bin/java"
+  $(bazel-bin/embedded_javabase/a --print_javabin) -version >& $TEST_log
+  expect_log "Zulu"
+}
 
 run_suite "Tests of specifying custom server_javabase/host_javabase and javabase."

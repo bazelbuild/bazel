@@ -201,6 +201,8 @@ class StartupOptions {
   // Otherwise a default path in the output base is used.
   std::string server_jvm_out;
 
+  bool incompatible_never_use_embedded_jdk_for_javabase;
+
   // Blaze's output base.  Everything is relative to this.  See
   // the BlazeDirectories Java class for details.
   std::string output_base;

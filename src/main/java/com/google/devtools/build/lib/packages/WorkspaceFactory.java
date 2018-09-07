@@ -598,9 +598,7 @@ public class WorkspaceFactory {
       workspaceEnv.update("DEFAULT_SERVER_JAVABASE", javaHome.toString());
       workspaceEnv.update(
           "DEFAULT_SYSTEM_JAVABASE",
-          defaultSystemJavabaseDir != null
-              ? defaultSystemJavabaseDir.toString()
-              : javaHome.toString());
+          defaultSystemJavabaseDir != null ? defaultSystemJavabaseDir.toString() : "");
 
       for (EnvironmentExtension extension : environmentExtensions) {
         extension.updateWorkspace(workspaceEnv);

@@ -520,7 +520,13 @@ static vector<string> GetArgumentArray(
                    blaze_util::ConvertPath(globals->options->output_base));
   result.push_back("--workspace_directory=" +
                    blaze_util::ConvertPath(globals->workspace));
-  result.push_back("--default_system_javabase=" + GetSystemJavabase());
+  std::string default_system_javabase = GetSystemJavabase();
+  if (globals->options->incompatible_never_use_embedded_jdk_for_javabase) {
+    result.push_back("--incompatible_never_use_embedded_jdk_for_javabase");
+  } else if (default_system_javabase.empty()) {
+    default_system_javabase = globals->options->GetServerJavabase();
+  }
+  result.push_back("--default_system_javabase=" + default_system_javabase);
 
   if (!globals->options->server_jvm_out.empty()) {
     result.push_back("--server_jvm_out=" + globals->options->server_jvm_out);

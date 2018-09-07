@@ -95,7 +95,8 @@ StartupOptions::StartupOptions(const string &product_name,
       digest_function(),
       idle_server_tasks(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
-      unlimit_coredumps(false) {
+      unlimit_coredumps(false),
+      incompatible_never_use_embedded_jdk_for_javabase(false) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = blaze_util::MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -145,6 +146,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("digest_function");
   RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
   RegisterUnaryStartupFlag("server_javabase");
+  RegisterNullaryStartupFlag("incompatible_never_use_embedded_jdk_for_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
   RegisterUnaryStartupFlag("invocation_policy");
@@ -234,6 +236,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     // of architecture mismatch.
     server_javabase_ = blaze::AbsolutePathFromFlag(value);
     option_sources["server_javabase"] = rcfile;
+  } else if (GetNullaryOption(arg, "--incompatible_never_use_embedded_jdk_for_javabase")) {
+    incompatible_never_use_embedded_jdk_for_javabase = true;
+    option_sources["incompatible_never_use_embedded_jdk_for_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              NULL) {
     host_jvm_args.push_back(value);
