@@ -91,6 +91,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       }
     }
     WorkspaceFactory parser;
+    WorkspaceFileValue prevValue = null;
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
       parser =
           new WorkspaceFactory(
@@ -103,7 +104,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               directories.getWorkspace(),
               directories.getLocalJavabase());
       if (key.getIndex() > 0) {
-        WorkspaceFileValue prevValue = (WorkspaceFileValue) env.getValue(
+        prevValue = (WorkspaceFileValue) env.getValue(
             WorkspaceFileValue.key(key.getPath(), key.getIndex() - 1));
         if (prevValue == null) {
           return null;
@@ -130,7 +131,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       return new WorkspaceFileValue(
           builder.build(),
           parser.getImportMap(),
-          parser.getImportToChunkMap(),
+          createImportToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
           workspaceRoot,
           key.getIndex(),
@@ -138,6 +139,19 @@ public class WorkspaceFileFunction implements SkyFunction {
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  private ImmutableMap<String, Integer> createImportToChunkMap(WorkspaceFileValue prevValue, WorkspaceFactory parser, WorkspaceFileKey key) {
+    ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<String, Integer>();
+    if (prevValue != null) {
+      builder.putAll(prevValue.getImportToChunkMap());
+    }
+    for (String label : parser.getImportMap().keySet()) {
+      if (!prevValue.getImportToChunkMap().containsKey(label)) {
+        builder.put(label, key.getIndex());
+      }
+    }
+    return builder.build();
   }
 
   @Override

@@ -95,16 +95,12 @@ public class WorkspaceFactory {
   private ImmutableMap<String, Extension> parentImportMap = ImmutableMap.of();
   // List of top level variable bindings
   private ImmutableMap<String, Object> parentVariableBindings = ImmutableMap.of();
-  // Map of load statement to chunk it initially originated from
-  private ImmutableMap<String, Integer> parentImportToChunkMap = ImmutableMap.of();
 
   // Values accumulated up to the currently parsed workspace file part.
   // List of load statements
   private ImmutableMap<String, Extension> importMap = ImmutableMap.of();
   // List of top level variable bindings
   private ImmutableMap<String, Object> variableBindings = ImmutableMap.of();
-  // Map of load statement to chunk it initially originated from
-  private ImmutableMap<String, Integer> importToChunkMap = ImmutableMap.of();
 
   /**
    * @param builder a builder for the Workspace
@@ -275,7 +271,6 @@ public class WorkspaceFactory {
       throws NameConflictException, InterruptedException {
     this.parentVariableBindings = bindings;
     this.parentImportMap = importMap;
-    this.parentImportToChunkMap = importToChunkMap;
     builder.setWorkspaceName(aPackage.getWorkspaceName());
     // Transmit the content of the parent package to the new package builder.
     builder.addPosts(aPackage.getPosts());
@@ -647,10 +642,6 @@ public class WorkspaceFactory {
 
   public Map<String, Extension> getImportMap() {
     return importMap;
-  }
-
-  public Map<String, Integer> getImportToChunkMap() {
-    return importToChunkMap;
   }
 
   public Map<String, Object> getVariableBindings() {

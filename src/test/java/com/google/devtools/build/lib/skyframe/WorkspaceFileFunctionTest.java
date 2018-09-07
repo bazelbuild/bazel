@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,13 +29,17 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -186,6 +191,61 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
               }
             });
     return env;
+  }
+
+  private EvaluationResult<WorkspaceFileValue> eval(SkyKey key) throws InterruptedException {
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
+            Root.fromPath(rootDirectory));
+    return SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+  }
+
+  @Test
+  public void testImportToChunkMapSimple() throws Exception {
+    scratch.file("a.bzl", "a = 'a'");
+    scratch.file("b.bzl", "b = 'b'");
+    scratch.file("BUILD", "");
+    RootedPath workspace = createWorkspaceFile(
+        "WORKSPACE",
+        "workspace(name = 'good')",
+        "load('//:a.bzl', 'a')",
+        "x = 1  #for chunk break",
+        "load('//:b.bzl', 'b')");
+    SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
+    EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
+    WorkspaceFileValue value1 = result1.get(key1);
+    assertThat(value1.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
+
+    SkyKey key2 = WorkspaceFileValue.key(workspace, 2);
+    EvaluationResult<WorkspaceFileValue> result2 = eval(key2);
+    WorkspaceFileValue value2 = result2.get(key2);
+    assertThat(value2.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
+    assertThat(value2.getImportToChunkMap()).containsEntry("//:b.bzl", 3);
+  }
+
+  @Test
+  public void testImportToChunkMapDoesNotOverrideDuplicate() throws Exception {
+    scratch.file("a.bzl", "a = 'a'");
+    scratch.file("BUILD", "");
+    RootedPath workspace = createWorkspaceFile(
+        "WORKSPACE",
+        "workspace(name = 'good')",
+        "load('//:a.bzl', 'a')",
+        "x = 1  #for chunk break",
+        "load('//:a.bzl', 'a')");
+    SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
+    EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
+    WorkspaceFileValue value1 = result1.get(key1);
+    assertThat(value1.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
+
+    SkyKey key2 = WorkspaceFileValue.key(workspace, 2);
+    EvaluationResult<WorkspaceFileValue> result2 = eval(key2);
+    WorkspaceFileValue value2 = result2.get(key2);
+    assertThat(value2.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
+    assertThat(value2.getImportToChunkMap()).doesNotContainEntry("//:a.bzl", 2);
   }
 
   @Test
