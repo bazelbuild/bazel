@@ -131,16 +131,26 @@ std::string PathAsJvmFlag(const std::string& path) {
   // misinterpret them.
   // See https://github.com/bazelbuild/bazel/issues/2576 and
   // https://github.com/bazelbuild/bazel/issues/6098
-  std::string::size_type pos = 0;
-  while (true) {
-    pos = cpath.find_first_of("/\\", pos);
-    if (pos == std::string::npos) {
-      break;
+  size_t separators = 0;
+  for (const auto& c : cpath) {
+    if (c == '/' || c == '\\') {
+      separators++;
     }
-    cpath = cpath.substr(0, pos) + "\\\\" + cpath.substr(pos + 1);
-    pos += 2;
   }
-  return cpath;
+  // In the result we replace each '/' and '\' with "\\", i.e. the total size
+  // *increases* by `separators`.
+  // Create a string of that size, filled with zeroes.
+  std::string result(/* count */ cpath.size() + separators, '\0');
+  std::string::size_type i = 0;
+  for (const auto& c : cpath) {
+    if (c == '/' || c == '\\') {
+      result[i++] = '\\';
+      result[i++] = '\\';
+    } else {
+      result[i++] = c;
+    }
+  }
+  return result;
 }
 
 void AddUncPrefixMaybe(std::wstring* path) {
