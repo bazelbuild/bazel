@@ -26,11 +26,13 @@ shift 2
 # unfortunately subtly different. The "local_jdk" rewrite is for Bazel, and
 # the "third_party" rewrite is for Google.
 # TODO(ulfjack): Find a way to unify this.
+
 BOOTCLASSPATH=$(echo "$*" | \
   tr " " "\n" | \
   sed "s|^${GENDIR}/||" | \
   sed "s|^.*local_jdk|local_jdk|" | \
   sed "s|^third_party|${PWD##*/}/third_party|" | \
+  sed "s|^tools/jdk|${PWD##*/}/tools/jdk|" | \
   tr "\n" ":" | \
   sed "s/:$//"
 )

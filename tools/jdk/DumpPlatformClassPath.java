@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -41,8 +42,10 @@ import java.util.jar.JarOutputStream;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import javax.tools.JavaFileManager;
+import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
+import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 
 /**
@@ -113,18 +116,39 @@ public class DumpPlatformClassPath {
               /* classes = */ null,
               /* compilationUnits = */ null,
               context);
-      JavaFileManager fileManager = context.get(JavaFileManager.class);
+      StandardJavaFileManager fileManager =
+          (StandardJavaFileManager) context.get(JavaFileManager.class);
 
-      for (JavaFileObject fileObject :
-          fileManager.list(
-              StandardLocation.PLATFORM_CLASS_PATH,
-              "",
-              EnumSet.of(Kind.CLASS),
-              /* recurse= */ true)) {
-        String binaryName =
-            fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
-        entries.put(
-            binaryName.replace('.', '/') + ".class", toByteArray(fileObject.openInputStream()));
+      if (isJdk9OrEarlier()) {
+        for (Path path : getLocationAsPaths(fileManager)) {
+          Files.walkFileTree(
+              path,
+              new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                    throws IOException {
+                  if (file.getFileName().toString().endsWith(".sig")) {
+                    String outputPath = path.relativize(file).toString();
+                    outputPath =
+                        outputPath.substring(0, outputPath.length() - ".sig".length()) + ".class";
+                    entries.put(outputPath, Files.readAllBytes(file));
+                  }
+                  return FileVisitResult.CONTINUE;
+                }
+              });
+        }
+      } else {
+        for (JavaFileObject fileObject :
+            fileManager.list(
+                StandardLocation.PLATFORM_CLASS_PATH,
+                "",
+                EnumSet.of(Kind.CLASS),
+                /* recurse= */ true)) {
+          String binaryName =
+              fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
+          entries.put(
+              binaryName.replace('.', '/') + ".class", toByteArray(fileObject.openInputStream()));
+        }
       }
 
       // Include the jdk.unsupported module for compatibility with JDK 8.
@@ -190,5 +214,28 @@ public class DumpPlatformClassPath {
       boas.write(buffer, 0, r);
     }
     return boas.toByteArray();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Iterable<Path> getLocationAsPaths(StandardJavaFileManager fileManager) {
+    try {
+      return (Iterable<Path>)
+          StandardJavaFileManager.class
+              .getMethod("getLocationAsPaths", Location.class)
+              .invoke(fileManager, StandardLocation.PLATFORM_CLASS_PATH);
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage(), e);
+    }
+  }
+
+  static boolean isJdk9OrEarlier() {
+    try {
+      Method versionMethod = Runtime.class.getMethod("version");
+      Object version = versionMethod.invoke(null);
+      int majorVersion = (int) version.getClass().getMethod("major").invoke(version);
+      return majorVersion <= 9;
+    } catch (ReflectiveOperationException e) {
+      return true;
+    }
   }
 }
