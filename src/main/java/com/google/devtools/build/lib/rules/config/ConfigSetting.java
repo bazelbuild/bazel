@@ -312,17 +312,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return true;
     }
 
-    // config_setting DID specify constraint_value(s) but no target platforms are set
-    // in the configuration.
-    if (Iterables.isEmpty(targetPlatform.constraints())) {
-      return false;
-    }
-
     // For every constraint in the attr check if it is (1)set aka non-null and
     // (2)set correctly in the platform.
     for (ConstraintValueInfo constraint : expected) {
       ConstraintSettingInfo setting = constraint.constraint();
-      ConstraintValueInfo targetValue = targetPlatform.getConstraint(setting);
+      ConstraintValueInfo targetValue = targetPlatform.constraints().get(setting);
       if (targetValue == null || !constraint.equals(targetValue)) {
         return false;
       }

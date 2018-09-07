@@ -280,7 +280,7 @@ public class ToolchainResolver {
   private boolean filterPlatform(PlatformInfo platformInfo, List<ConstraintValueInfo> constraints) {
     for (ConstraintValueInfo filterConstraint : constraints) {
       ConstraintValueInfo platformInfoConstraint =
-          platformInfo.getConstraint(filterConstraint.constraint());
+          platformInfo.constraints().get(filterConstraint.constraint());
       if (platformInfoConstraint == null || !platformInfoConstraint.equals(filterConstraint)) {
         // The value for this setting is not present in the platform, or doesn't match the expected
         // value.
