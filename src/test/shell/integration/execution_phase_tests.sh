@@ -105,9 +105,6 @@ function assert_cache_stats() {
 #### TESTS #############################################################
 
 function test_cache_computed_file_digests_behavior() {
-  # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
-  return
-
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 

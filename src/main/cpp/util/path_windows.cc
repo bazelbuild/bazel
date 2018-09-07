@@ -119,18 +119,28 @@ bool CompareAbsolutePaths(const std::string& a, const std::string& b) {
 }
 
 std::string PathAsJvmFlag(const std::string& path) {
-  std::string spath;
+  std::string cpath;
   std::string error;
-  if (!AsShortWindowsPath(path, &spath, &error)) {
+  if (!AsWindowsPath(path, &cpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "PathAsJvmFlag(" << path
-        << "): AsShortWindowsPath failed: " << error;
+        << "): AsWindowsPath failed: " << error;
   }
-  // Convert backslashes to forward slashes, in order to avoid the JVM parsing
-  // Windows paths as if they contained escaped characters.
-  // See https://github.com/bazelbuild/bazel/issues/2576
-  std::replace(spath.begin(), spath.end(), '\\', '/');
-  return spath;
+  // Convert forward slashes and backslashes to double (escaped) backslashes, so
+  // they are safe to pass on the command line to the JVM and the JVM won't
+  // misinterpret them.
+  // See https://github.com/bazelbuild/bazel/issues/2576 and
+  // https://github.com/bazelbuild/bazel/issues/6098
+  std::string::size_type pos = 0;
+  while (true) {
+    pos = cpath.find_first_of("/\\", pos);
+    if (pos == std::string::npos) {
+      break;
+    }
+    cpath = cpath.substr(0, pos) + "\\\\" + cpath.substr(pos + 1);
+    pos += 2;
+  }
+  return cpath;
 }
 
 void AddUncPrefixMaybe(std::wstring* path) {
