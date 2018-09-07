@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -81,6 +82,11 @@ public class PlatformInfo extends NativeInfo
   @Override
   public String remoteExecutionProperties() {
     return remoteExecutionProperties;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.format("PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
