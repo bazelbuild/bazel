@@ -7,36 +7,30 @@ DEPRECATION_MESSAGE = ("Don't depend on targets in the JDK workspace;" +
 filegroup(
     name = "jni_header",
     srcs = ["include/jni.h"],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
     name = "jni_md_header-darwin",
     srcs = ["include/darwin/jni_md.h"],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
     name = "jni_md_header-linux",
     srcs = ["include/linux/jni_md.h"],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
     name = "jni_md_header-freebsd",
     srcs = ["include/freebsd/jni_md.h"],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
     name = "jni_md_header-windows",
     srcs = ["include/win32/jni_md.h"],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
     name = "java",
-    deprecation = DEPRECATION_MESSAGE,
     srcs = select({
         ":windows": ["bin/java.exe"],
         "//conditions:default": ["bin/java"],
@@ -46,7 +40,6 @@ filegroup(
 
 filegroup(
     name = "jar",
-    deprecation = DEPRECATION_MESSAGE,
     srcs = select({
         ":windows": ["bin/jar.exe"],
         "//conditions:default": ["bin/jar"],
@@ -55,7 +48,6 @@ filegroup(
 )
 
 filegroup(
-    deprecation = DEPRECATION_MESSAGE,
     name = "javac",
     srcs = select({
         ":windows": ["bin/javac.exe"],
@@ -65,13 +57,11 @@ filegroup(
 )
 
 filegroup(
-    deprecation = DEPRECATION_MESSAGE,
     name = "xjc",
     srcs = ["bin/xjc"],
 )
 
 filegroup(
-    deprecation = DEPRECATION_MESSAGE,
     name = "wsimport",
     srcs = ["bin/wsimport"],
 )
@@ -86,7 +76,6 @@ BOOTCLASS_JARS = [
 
 # TODO(cushon): this isn't compatible with JDK 9
 filegroup(
-    deprecation = DEPRECATION_MESSAGE,
     name = "bootclasspath",
     srcs = ["jre/lib/%s" % jar for jar in BOOTCLASS_JARS],
 )
@@ -94,13 +83,11 @@ filegroup(
 # TODO(cushon): migrate to extclasspath and delete
 filegroup(
     name = "extdir",
-    deprecation = DEPRECATION_MESSAGE,
     srcs = glob(["jre/lib/ext/*.jar"]),
 )
 
 filegroup(
     name = "extclasspath",
-    deprecation = DEPRECATION_MESSAGE,
     srcs = glob(["jre/lib/ext/*.jar"]),
 )
 
@@ -113,7 +100,6 @@ filegroup(
         ":windows": glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
         "//conditions:default": glob(["jre/bin/**"]),
     }),
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
@@ -132,7 +118,6 @@ filegroup(
         ":jre-bin",
         ":jre-lib",
     ],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 filegroup(
@@ -174,14 +159,12 @@ java_runtime(
 filegroup(
     name = "langtools",
     srcs = ["lib/tools.jar"],
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 java_import(
     name = "langtools-neverlink",
     jars = ["lib/tools.jar"],
     neverlink = 1,
-    deprecation = DEPRECATION_MESSAGE,
 )
 
 config_setting(
