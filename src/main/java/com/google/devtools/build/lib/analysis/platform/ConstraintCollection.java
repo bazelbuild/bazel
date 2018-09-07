@@ -20,7 +20,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -77,8 +77,8 @@ public final class ConstraintCollection
   }
 
   @Override
-  public ImmutableSet<ConstraintSettingInfo> constraintSettings() {
-    return constraints.keySet();
+  public SkylarkList<ConstraintSettingInfo> constraintSettings() {
+    return SkylarkList.createImmutable(constraints.keySet());
   }
 
   @Override

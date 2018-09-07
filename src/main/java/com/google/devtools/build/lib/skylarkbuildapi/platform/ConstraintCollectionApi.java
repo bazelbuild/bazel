@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import javax.annotation.Nullable;
 
 /** Info object representing data about a specific platform. */
@@ -38,7 +38,7 @@ public interface ConstraintCollectionApi<
       name = "constraint_settings",
       doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true)
-  ImmutableSet<ConstraintSettingInfoT> constraintSettings();
+  SkylarkList<ConstraintSettingInfoT> constraintSettings();
 
   @SkylarkCallable(
       name = "get",

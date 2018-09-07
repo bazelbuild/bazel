@@ -18,7 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -212,9 +212,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
       PlatformInfo platform) {
 
     // Check every constraint_setting in either the toolchain or the platform.
-    Set<ConstraintSettingInfo> constraints =
-        Sets.union(
-            toolchainConstraints.constraintSettings(), platform.constraints().constraintSettings());
+    ImmutableSet<ConstraintSettingInfo> constraints =
+        new ImmutableSet.Builder<ConstraintSettingInfo>()
+            .addAll(toolchainConstraints.constraintSettings())
+            .addAll(platform.constraints().constraintSettings())
+            .build();
     for (ConstraintSettingInfo constraintSetting : constraints) {
       ConstraintValueInfo toolchainConstraint = toolchainConstraints.get(constraintSetting);
       ConstraintValueInfo found = platform.constraints().get(constraintSetting);
