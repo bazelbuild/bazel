@@ -173,12 +173,12 @@ function test_cc_test_coverage() {
     # Assert that the C++ coverage output is correct.
     # The covered files are coverage_srcs/a.cc and coverage_srcs/t.cc.
 
-   # The expected total number of lines of COVERAGE_OUTPUT_FILE
-   # is 25. This number can be computed by counting the number
-   # of lines in the variables declared below $expected_result_a_cc
-   # and $expected_result_t_cc.
-   [[ $(wc -l < "$COVERAGE_OUTPUT_FILE_VAR") == 25 ]] || \
-      fail "Number of lines $nr_of_lines is different than 25"
+    # The expected total number of lines of COVERAGE_OUTPUT_FILE
+    # is 25. This number can be computed by counting the number
+    # of lines in the variables declared below $expected_result_a_cc
+    # and $expected_result_t_cc.
+    [[ $(wc -l < "$COVERAGE_OUTPUT_FILE_VAR") == 25 ]] || \
+        fail "Number of lines $nr_of_lines is different than 25"
 
     # The expected result can be constructed manually by following the lcov
     # documentation and manually checking what lines of code are covered when
@@ -226,10 +226,6 @@ end_of_record"
     # coverage tools (e.g. lcov, gcov) do not guarantee any particular order.
     # The order can differ for example based on OS or version. The source files
     # order in the coverage report is not relevant.
-    #
-    # tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" replaces each newline of the coverage
-    # output file with a comma and outputs the result to standard output.
-    # | grep -o "$var" matches the pipeline output with $var.
     tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" | grep "$expected_result_a_cc" \
         || fail "Wrong coverage results for coverage_srcs/a.cc"
     tr '\n' , < "$COVERAGE_OUTPUT_FILE_VAR" | grep "$expected_result_t_cc" \
