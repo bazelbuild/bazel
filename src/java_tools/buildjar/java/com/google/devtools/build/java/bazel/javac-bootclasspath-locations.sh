@@ -31,6 +31,7 @@ BOOTCLASSPATH=$(echo "$*" | \
   sed "s|^${GENDIR}/||" | \
   sed "s|^.*local_jdk|local_jdk|" | \
   sed "s|^third_party|${PWD##*/}/third_party|" | \
+  sed "s|^tools/jdk|${PWD##*/}/tools/jdk|" | \
   tr "\n" ":" | \
   sed "s/:$//"
 )
