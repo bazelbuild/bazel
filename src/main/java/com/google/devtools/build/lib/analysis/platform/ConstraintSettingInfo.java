@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintSettingInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
@@ -47,6 +48,11 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
   @Override
   public Label label() {
     return label;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.format("ConstraintSettingInfo(%s)", label.toString());
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */

@@ -27,7 +27,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
         "Provides access to data about a specific platform. "
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = SkylarkModuleCategory.PROVIDER)
-public interface PlatformInfoApi<ConstraintValueInfoT extends ConstraintValueInfoApi>
+public interface PlatformInfoApi<
+        ConstraintSettingInfoT extends ConstraintSettingInfoApi,
+        ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StructApi {
 
   static final String EXPERIMENTAL_WARNING =
@@ -45,7 +47,7 @@ public interface PlatformInfoApi<ConstraintValueInfoT extends ConstraintValueInf
           "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
               + "this platform.",
       structField = true)
-  Iterable<ConstraintValueInfoT> constraints();
+  ConstraintCollectionApi<ConstraintSettingInfoT, ConstraintValueInfoT> constraints();
 
   @SkylarkCallable(
       name = "remoteExecutionProperties",
