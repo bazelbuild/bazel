@@ -41,8 +41,7 @@ filegroup(
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
-        "@local_jdk//:bootclasspath",
-        "@local_jdk//:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ] + select({
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
         # is resolved, use cc implementation of singlejar on windows

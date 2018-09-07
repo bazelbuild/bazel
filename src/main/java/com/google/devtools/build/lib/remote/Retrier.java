@@ -345,7 +345,11 @@ public class Retrier {
       try {
         ListenableScheduledFuture<?> sf =
             retryService.schedule(
-                () -> executeAsync(call, outerF, backoff), waitMillis, TimeUnit.MILLISECONDS);
+                () -> {
+                  executeAsync(call, outerF, backoff);
+                },
+                waitMillis,
+                TimeUnit.MILLISECONDS);
         Futures.addCallback(
             sf,
             new FutureCallback<Object>() {

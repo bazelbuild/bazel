@@ -30,6 +30,15 @@ filegroup(
 
 java_binary(
     name = "skydoc",
+    jvm_flags = [
+        # quiet warnings from com.google.protobuf.UnsafeUtil,
+        # see: https://github.com/google/protobuf/issues/3781
+        # and: https://github.com/bazelbuild/bazel/issues/5599
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        # ... but only on JDK >= 9
+        "-XX:+IgnoreUnrecognizedVMOptions",
+    ],
     main_class = "com.google.devtools.build.skydoc.SkydocMain",
     visibility = ["//visibility:public"],
     runtime_deps = [
