@@ -9,10 +9,10 @@ sh_test(
     size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
-        "../local_jdk/bin/javac",
-        "../local_jdk/bin/java",
-        "../local_jdk/bin/jar",
-        "../local_jdk/bin/javap",
+        "$(JAVABASE)/bin/javac",
+        "$(JAVABASE)/bin/java",
+        "$(JAVABASE)/bin/jar",
+        "$(JAVABASE)/bin/javap",
         "$(location //third_party/ijar)",
         "$(location //tools/jdk:langtools)",
         # We assume unzip and zip to be on the path
@@ -46,6 +46,9 @@ sh_test(
     ],
     shard_count = 5,
     tags = ["zip"],
+    toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
 )
 
 sh_test(
@@ -270,11 +273,6 @@ java_test(
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
         ":module_info-interface.jar",
-        "//third_party/java/jdk/langtools:javac_jar",
-    ],
-    jvm_flags = [
-        # Simulates how Bazel invokes javac
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     tags = ["zip"],
     test_class = "IjarTests",
