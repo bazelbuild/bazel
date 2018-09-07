@@ -119,18 +119,38 @@ bool CompareAbsolutePaths(const std::string& a, const std::string& b) {
 }
 
 std::string PathAsJvmFlag(const std::string& path) {
-  std::string spath;
+  std::string cpath;
   std::string error;
-  if (!AsShortWindowsPath(path, &spath, &error)) {
+  if (!AsWindowsPath(path, &cpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "PathAsJvmFlag(" << path
-        << "): AsShortWindowsPath failed: " << error;
+        << "): AsWindowsPath failed: " << error;
   }
-  // Convert backslashes to forward slashes, in order to avoid the JVM parsing
-  // Windows paths as if they contained escaped characters.
-  // See https://github.com/bazelbuild/bazel/issues/2576
-  std::replace(spath.begin(), spath.end(), '\\', '/');
-  return spath;
+  // Convert forward slashes and backslashes to double (escaped) backslashes, so
+  // they are safe to pass on the command line to the JVM and the JVM won't
+  // misinterpret them.
+  // See https://github.com/bazelbuild/bazel/issues/2576 and
+  // https://github.com/bazelbuild/bazel/issues/6098
+  size_t separators = 0;
+  for (const auto& c : cpath) {
+    if (c == '/' || c == '\\') {
+      separators++;
+    }
+  }
+  // In the result we replace each '/' and '\' with "\\", i.e. the total size
+  // *increases* by `separators`.
+  // Create a string of that size, filled with zeroes.
+  std::string result(/* count */ cpath.size() + separators, '\0');
+  std::string::size_type i = 0;
+  for (const auto& c : cpath) {
+    if (c == '/' || c == '\\') {
+      result[i++] = '\\';
+      result[i++] = '\\';
+    } else {
+      result[i++] = c;
+    }
+  }
+  return result;
 }
 
 void AddUncPrefixMaybe(std::wstring* path) {

@@ -537,8 +537,9 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
 void StartupOptions::AddJVMLoggingArguments(std::vector<string> *result) const {
   // Configure logging
   const string propFile =
-      blaze_util::JoinPath(output_base, "javalog.properties");
-  string java_log(
+      blaze_util::PathAsJvmFlag(
+          blaze_util::JoinPath(output_base, "javalog.properties"));
+  const string java_log(
       blaze_util::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
   if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
                              ".level=INFO\n"
