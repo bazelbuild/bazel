@@ -97,8 +97,10 @@ See [documentation on depsets](depsets.md) for background and examples of use.
 
 <a name="missing-module-docstring"></a>
 <a name="missing-function-docstring"></a>
+<a name="missing-rule-docstring"></a>
+<a name="missing-attribute-documentation"><a>
 <a name="bad-docstring-format"></a>
-Categories: [missing-module-docstring] [missing-function-docstring] [bad-docstring-format]
+Categories: [missing-module-docstring] [missing-function-docstring] [missing-rule-docstring] [missing-attribute-documentation] [bad-docstring-format]
 
 The Starlark conventions for docstrings are similar to the [the Python
 conventions](https://google.github.io/styleguide/pyguide.html?showone=Comments#Comments).
@@ -106,12 +108,15 @@ Docstrings are triple-quoted string literals and the closing quotes have to
 appear on their own line unless the docstring is only one line long.
 
 A file-level docstring is the first statement of a file, even before the
-`load()` statements. A function docstring is the first statement in the function
-body.
+`load()` statements. 
 
+A function docstring is the first statement in the function
+body.
 Sections in the docstring (such as `Args:` and `Returns:`) are separated by a
 blank line. Their contents are indented by two spaces.
 Example:
+
+A Rule docstring uses the parameter `doc` of `rule()`. Attributes of rules are also documented by the `doc` parameter of `attr.*()`.
 
 ```
 """This module contains some docstrings examples."""
@@ -149,7 +154,7 @@ new_rule = rule(
     "foo": attr.label(
       doc = """documentation of the first attribute.
 
-with multiline description
+with multi-line description
 """),
     "bar": attr.string(
       doc = "documentation of the second attribute"
@@ -180,7 +185,7 @@ The analyzer **requires docstrings** for:
 *   each **module** (.bzl file)
 *   each **public function** (i.e. a function not starting with an underscore)
     that contains at least 5 statements
-*   each **public rule definition**
+*   each **public rule definition** and its **public attributes** (not starting with an underscore)
 
 If a **function has a multi-line docstring**, you also have to document (in
 order):

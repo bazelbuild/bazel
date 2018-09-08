@@ -166,7 +166,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
             }
           }
 
-          if (doc == null || !(doc.getValue() instanceof StringLiteral)) {
+          if (doc == null) {
             issues.add(Issue.create(
               MISSING_RULE_DOCUMENTATION,
               functionName
@@ -197,7 +197,7 @@ public class DocstringChecker extends SyntaxTreeVisitor {
           boolean isDocumented = false;
 
           for (Argument.Passed passed: attr.getArguments()) {
-            if (Objects.equals(passed.getName(), "doc") && passed.getValue() instanceof StringLiteral)
+            if (Objects.equals(passed.getName(), "doc"))
               isDocumented = true;
           }
 
