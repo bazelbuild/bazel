@@ -101,6 +101,7 @@ public class WorkspaceFileValue implements SkyValue {
   // type in the Environment class (that would ease the serialization of this object).
   private final ImmutableMap<String, Object> bindings;
   private final ImmutableMap<String, Extension> importMap;
+  private final ImmutableMap<String, Integer> importToChunkMap;
 
   /**
    * Create a WorkspaceFileValue containing the various values necessary to compute the split
@@ -119,6 +120,7 @@ public class WorkspaceFileValue implements SkyValue {
   public WorkspaceFileValue(
       Package pkg,
       Map<String, Extension> importMap,
+      Map<String, Integer> importToChunkMap,
       Map<String, Object> bindings,
       RootedPath path,
       int idx,
@@ -129,6 +131,7 @@ public class WorkspaceFileValue implements SkyValue {
     this.hasNext = hasNext;
     this.bindings = ImmutableMap.copyOf(bindings);
     this.importMap = ImmutableMap.copyOf(importMap);
+    this.importToChunkMap = ImmutableMap.copyOf(importToChunkMap);
   }
 
   /**
@@ -200,5 +203,9 @@ public class WorkspaceFileValue implements SkyValue {
 
   public ImmutableMap<String, Extension> getImportMap() {
     return importMap;
+  }
+
+  public ImmutableMap<String, Integer> getImportToChunkMap() {
+    return importToChunkMap;
   }
 }

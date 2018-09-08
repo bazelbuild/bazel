@@ -266,6 +266,7 @@ public class WorkspaceFactory {
   public void setParent(
       Package aPackage,
       ImmutableMap<String, Extension> importMap,
+      ImmutableMap<String, Integer> importToChunkMap,
       ImmutableMap<String, Object> bindings)
       throws NameConflictException, InterruptedException {
     this.parentVariableBindings = bindings;
