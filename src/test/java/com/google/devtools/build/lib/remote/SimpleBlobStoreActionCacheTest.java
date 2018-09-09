@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -160,7 +161,7 @@ public class SimpleBlobStoreActionCacheTest {
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, ImmutableMap.builder(), ImmutableMap.builder(), null);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -192,7 +193,7 @@ public class SimpleBlobStoreActionCacheTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, ImmutableMap.builder(), ImmutableMap.builder(), null);
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
@@ -210,7 +211,7 @@ public class SimpleBlobStoreActionCacheTest {
 
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, ImmutableMap.builder(), ImmutableMap.builder(), null);
 
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
   }
@@ -248,7 +249,7 @@ public class SimpleBlobStoreActionCacheTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, ImmutableMap.builder(), ImmutableMap.builder(), null);
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
@@ -292,7 +293,7 @@ public class SimpleBlobStoreActionCacheTest {
     SimpleBlobStoreActionCache client = newClient(map);
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("a/").setTreeDigest(treeDigest);
-    client.download(result.build(), execRoot, null);
+    client.download(result.build(), execRoot, ImmutableMap.builder(), ImmutableMap.builder(), null);
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/foo/file"))).isEqualTo(fileDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo/file"))).isEqualTo(fileDigest);

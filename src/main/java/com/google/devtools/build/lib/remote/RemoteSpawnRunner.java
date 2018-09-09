@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.LogFile;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
@@ -183,25 +185,33 @@ class RemoteSpawnRunner implements SpawnRunner {
                     + " served a failed action. Hash of the action: "
                     + actionKey.getDigest());
           }
-          Set<String> outputFiles =
-              Sets.newHashSet(Iterables.transform(cachedResult.getOutputFilesList(), (file) -> file.getPath()));
-          if (context.areOutputsValid(outputFiles)) {
-            try {
-              return downloadRemoteResults(cachedResult, context.getFileOutErr())
+          try {
+            ImmutableMap.Builder<String, Directory> outputDirectories = ImmutableMap.builder();
+            ImmutableMap.Builder<Digest, Directory> directories = ImmutableMap.builder();
+            SpawnResult.Builder spawnResult = downloadRemoteResults(
+                cachedResult, outputDirectories, directories, context.getFileOutErr());
+
+            FileSystem outputFileSystem = new OutputFileSystem(
+                digestUtil.getDigestFunction(),
+                Iterables.transform(cachedResult.getOutputFilesList(), (file) -> file.getPath()),
+                outputDirectories.build(),
+                directories.build());
+            if (context.areOutputsValid(outputFileSystem.getPath("/"))) {
+              return spawnResult
                   .setCacheHit(true)
                   .setRunnerName("remote cache hit")
                   .build();
-            } catch (RetryException e) {
-              if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
-                throw e;
-              }
-              // No cache hit, so we fall through to local or remote execution.
-              // We set acceptCachedResult to false in order to force the action re-execution.
+            } else {
+              report(Event.warn(String.format(
+                  "A cachedResult entry contained invalid outputs: %s => %s", actionKey, cachedResult)));
               acceptCachedResult = false;
             }
-          } else {
-            report(Event.warn(String.format(
-                "A cachedResult entry contained invalid outputs: %s => %s", actionKey, cachedResult)));
+          } catch (RetryException e) {
+            if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
+              throw e;
+            }
+            // No cache hit, so we fall through to local or remote execution.
+            // We set acceptCachedResult to false in order to force the action re-execution.
             acceptCachedResult = false;
           }
         }
@@ -226,12 +236,33 @@ class RemoteSpawnRunner implements SpawnRunner {
         return retrier.execute(
             () -> {
               // Upload the command and all the inputs into the remote cache.
-             remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, action, command);
+              remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, action, command);
               ExecuteResponse reply = remoteExecutor.executeRemotely(request);
               maybeDownloadServerLogs(reply, actionKey);
 
-              return downloadRemoteResults(reply.getResult(), context.getFileOutErr())
-                  .setRunnerName(reply.getCachedResult() ? "remote cache hit" : getName())
+              ImmutableMap.Builder<String, Directory> outputDirectories = ImmutableMap.builder();
+              ImmutableMap.Builder<Digest, Directory> directories = ImmutableMap.builder();
+              ActionResult result = reply.getResult();
+              SpawnResult.Builder spawnResult =
+                  downloadRemoteResults(
+                      result, outputDirectories, directories, context.getFileOutErr())
+                      .setRunnerName(reply.getCachedResult() ? "remote cache hit" : getName());
+
+              FileSystem outputFileSystem = new OutputFileSystem(
+                  digestUtil.getDigestFunction(),
+                  Iterables.transform(result.getOutputFilesList(), (file) -> file.getPath()),
+                  outputDirectories.build(),
+                  directories.build());
+              if (!context.areOutputsValid(outputFileSystem.getPath("/"))) {
+                throw new SpawnExecException(
+                    String.format("A cachedResult entry contained invalid outputs: %s => %s", actionKey, reply.getCachedResult()),
+                    new SpawnResult.Builder()
+                        .setStatus(Status.REMOTE_CACHE_FAILED)
+                        .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
+                        .build(),
+                    /* forciblyRunRemotely= */ false);
+              }
+              return spawnResult
                   .setCacheHit(reply.getCachedResult())
                   .build();
             });
@@ -290,9 +321,13 @@ class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult.Builder downloadRemoteResults(ActionResult result, FileOutErr outErr)
+  private SpawnResult.Builder downloadRemoteResults(
+      ActionResult result,
+      ImmutableMap.Builder<String, Directory> outputDirectories,
+      ImmutableMap.Builder<Digest, Directory> directories,
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    remoteCache.download(result, execRoot, outErr);
+    remoteCache.download(result, execRoot, outputDirectories, directories, outErr);
     int exitCode = result.getExitCode();
     return new SpawnResult.Builder()
         .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
@@ -338,7 +373,7 @@ class RemoteSpawnRunner implements SpawnRunner {
         maybeDownloadServerLogs(resp, actionKey);
         if (resp.hasResult()) {
           // We try to download all (partial) results even on server error, for debuggability.
-          remoteCache.download(resp.getResult(), execRoot, outErr);
+          remoteCache.download(resp.getResult(), execRoot, ImmutableMap.builder(), ImmutableMap.builder(), outErr);
         }
       }
       if (e.isExecutionTimeout()) {

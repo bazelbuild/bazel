@@ -269,9 +269,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
 
     @Override
-    public boolean areOutputsValid(Set<String> outputFiles) {
+    public boolean areOutputsValid(Path root) {
       ActionExecutionMetadata action = spawn.getResourceOwner();
-      return action.areOutputsValid(outputFiles);
+      return action.areOutputsValid(root);
     }
   }
 }

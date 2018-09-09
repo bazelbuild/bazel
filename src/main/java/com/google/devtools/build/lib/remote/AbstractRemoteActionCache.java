@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -175,7 +176,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * @throws ExecException in case clean up after a failed download failed.
    */
   // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
-  public void download(ActionResult result, Path execRoot, FileOutErr outErr)
+  public void download(
+      ActionResult result,
+      Path execRoot,
+      ImmutableMap.Builder<String, Directory> outputDirectories,
+      ImmutableMap.Builder<Digest, Directory> directories,
+      FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
     Context ctx = Context.current();
     List<FuturePathBooleanTuple> fileDownloads =
@@ -201,9 +207,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
             public void onSuccess(byte[] b) {
               try {
                 Tree tree = Tree.parseFrom(b);
+                outputDirectories.put(dir.getPath(), tree.getRoot());
                 Map<Digest, Directory> childrenMap = new HashMap<>();
                 for (Directory child : tree.getChildrenList()) {
-                  childrenMap.put(digestUtil.compute(child), child);
+                  Digest digest = digestUtil.compute(child);
+                  directories.put(digest, child);
+                  childrenMap.put(digest, child);
                 }
                 Path path = execRoot.getRelative(dir.getPath());
                 fileDownloads.addAll(downloadDirectory(path, tree.getRoot(), childrenMap, ctx));

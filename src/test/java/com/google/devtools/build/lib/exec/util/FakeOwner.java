@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -173,8 +174,7 @@ public final class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public boolean areOutputsValid(Set<String> outputFiles) {
+  public boolean areOutputsValid(Path root) {
     throw new UnsupportedOperationException();
   }
-
 }

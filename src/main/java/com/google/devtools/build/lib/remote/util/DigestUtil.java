@@ -58,6 +58,10 @@ public class DigestUtil {
     this.hashFn = hashFn;
   }
 
+  public DigestHashFunction getDigestFunction() {
+    return hashFn;
+  }
+
   public Digest compute(byte[] blob) {
     return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
   }

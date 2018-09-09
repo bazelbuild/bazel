@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.OutputFile;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -200,7 +201,7 @@ public class AbstractRemoteActionCacheTests {
         .addOutputFiles(OutputFile.newBuilder().setPath(file3.getPathString()).setDigest(digest3))
         .build();
     try {
-      cache.download(result, execRoot, new FileOutErr(stdout, stderr));
+      cache.download(result, execRoot, ImmutableMap.builder(), ImmutableMap.builder(), new FileOutErr(stdout, stderr));
       fail("Expected IOException");
     } catch (IOException e) {
       assertThat(numSuccess.get()).isEqualTo(2);

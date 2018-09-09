@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 
@@ -201,8 +203,7 @@ public interface SpawnRunner {
     void report(ProgressStatus state, String name);
 
     /** Evaluates whether a set of outputs sufficiently represents a completed execution */
-    // FIXME this needs to be done for output directories
-    boolean areOutputsValid(Set<String> outputFiles);
+    boolean areOutputsValid(Path root);
   }
 
   /**

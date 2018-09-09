@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -110,8 +113,18 @@ class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public void report(ProgressStatus state, String name) {
   }
 
+
+  private Set<String> getRequiredOutputs() {
+    return spawn.getOutputFiles()
+        .stream()
+        .map((inp) -> inp.getExecPath().getPathString())
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
   @Override
-  public boolean areOutputsValid(Set<String> outputFiles) {
-    return true;
+  public boolean areOutputsValid(Path root) {
+    return Iterables.all(
+        getRequiredOutputs(),
+        (path) -> root.getRelative(path).isFile());
   }
 }

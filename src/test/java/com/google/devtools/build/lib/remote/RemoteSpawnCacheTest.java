@@ -24,6 +24,11 @@ import static org.mockito.Mockito.when;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.OutputDirectory;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,7 +90,7 @@ public class RemoteSpawnCacheTest {
   private FileOutErr outErr;
   private final List<Pair<ProgressStatus, String>> progressUpdates = new ArrayList();
 
-  private StoredEventHandler eventHandler = new StoredEventHandler();
+  private StoredEventHandler eventHandler;
 
   private SpawnExecutionContext simpleContext;
 
@@ -132,7 +137,9 @@ public class RemoteSpawnCacheTest {
   @SuppressWarnings("unchecked")
   @Test
   public void cacheHit() throws Exception {
-    ActionResult actionResult = ActionResult.getDefaultInstance();
+    ActionResult actionResult = ActionResult.newBuilder()
+        .addOutputFiles(OutputFile.newBuilder().setPath("random/file"))
+        .build();
     when(remoteCache.getCachedActionResult(any(ActionKey.class)))
         .thenAnswer(
             new Answer<ActionResult>() {
@@ -155,13 +162,13 @@ public class RemoteSpawnCacheTest {
               }
             })
         .when(remoteCache)
-        .download(actionResult, execRoot, outErr);
+        .download(eq(actionResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), eq(outErr));
 
     CacheHandle entry = cache.lookup(simpleSpawn, simpleContext);
     assertThat(entry.hasResult()).isTrue();
     SpawnResult result = entry.getResult();
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
-    verify(remoteCache).download(actionResult, execRoot, outErr);
+    verify(remoteCache).download(eq(actionResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), eq(outErr));
     verify(remoteCache, never())
         .ensureInputsPresent(
             any(TreeNodeRepository.class),
@@ -233,11 +240,77 @@ public class RemoteSpawnCacheTest {
   }
 
   @Test
+  public void outputDirectoryContentsValidateResults() throws Exception {
+    ActionResult actionResult = ActionResult.newBuilder()
+        .addOutputDirectories(OutputDirectory.newBuilder()
+            .setPath("random"))
+        .build();
+    when(remoteCache.getCachedActionResult(any(ActionKey.class)))
+        .thenAnswer(
+            new Answer<ActionResult>() {
+              @Override
+              public ActionResult answer(InvocationOnMock invocation) {
+                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                return actionResult;
+              }
+            });
+    Mockito.doAnswer(
+            new Answer<Void>() {
+              @Override
+              public Void answer(InvocationOnMock invocation) {
+                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                ImmutableMap.Builder<String, Directory> outputDirectories = invocation.getArgumentAt(2, ImmutableMap.Builder.class);
+                outputDirectories.put("random", Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder()
+                        .setName("file"))
+                    .build());
+                return null;
+              }
+            })
+        .when(remoteCache)
+        .download(eq(actionResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), eq(outErr));
+    CacheHandle entry = cache.lookup(simpleSpawn, simpleContext);
+    assertThat(entry.hasResult()).isTrue();
+    SpawnResult result = entry.getResult();
+    // All other methods on RemoteActionCache have side effects, so we verify all of them.
+    verify(remoteCache).download(eq(actionResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), eq(outErr));
+    verify(remoteCache, never())
+        .ensureInputsPresent(
+            any(TreeNodeRepository.class),
+            any(Path.class),
+            any(TreeNode.class),
+            any(Action.class),
+            any(Command.class));
+    // do we need to verify this?
+    verify(remoteCache, never())
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            any(Collection.class),
+            any(FileOutErr.class),
+            any(Boolean.class));
+    assertThat(result.setupSuccess()).isTrue();
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.isCacheHit()).isTrue();
+    // We expect the CachedLocalSpawnRunner to _not_ write to outErr at all.
+    assertThat(outErr.hasRecordedOutput()).isFalse();
+    assertThat(outErr.hasRecordedStderr()).isFalse();
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+  }
+
+  @Test
   public void cacheInvalid() throws Exception {
     SpawnExecutionContext invalidOutputsContext =
         new TestSpawnExecutionContext(simpleSpawn) {
           @Override
-          public boolean areOutputsValid(Set<String> outputFiles) {
+          public boolean areOutputsValid(Path root) {
             return false;
           }
         };

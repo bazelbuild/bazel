@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -593,9 +592,9 @@ public abstract class AbstractAction implements Action, ActionApi {
   }
 
   @Override
-  public boolean areOutputsValid(Set<String> outputFiles) {
-    return Sets.difference(
+  public boolean areOutputsValid(Path root) {
+    return Iterables.all(
         getRequiredOutputs(),
-        outputFiles).isEmpty();
+        (path) -> root.getRelative(path).isFile());
   }
 }

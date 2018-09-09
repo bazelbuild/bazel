@@ -366,7 +366,7 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
-  public void cacheResultInvalidTriggersRemoteExecution() throws Exception {
+  public void cacheResultInvalidExecutesRemotely() throws Exception {
     // If a cached action result is invalid, remote execution should be tried.
 
     RemoteSpawnRunner runner =
@@ -390,15 +390,21 @@ public class RemoteSpawnRunnerTest {
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(execResult).build();
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
-    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class));
+    doNothing().when(cache).download(eq(execResult), any(Path.class), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
 
     Spawn spawn = newSimpleSpawn();
 
     SpawnExecutionContext invalidOutputsContext =
         new TestSpawnExecutionContext(spawn) {
+          boolean cachedTest = true;
+
           @Override
-          public boolean areOutputsValid(Set<String> outputFiles) {
-            return false;
+          public boolean areOutputsValid(Path root) {
+            if (cachedTest) {
+              cachedTest = false;
+              return false;
+            }
+            return true;
           }
         };
 
@@ -718,7 +724,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(result), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
     verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
   }
 
@@ -758,7 +764,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(result), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
     verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
   }
 
@@ -789,11 +795,11 @@ public class RemoteSpawnRunnerTest {
             "", 1, new CacheNotFoundException(Digest.getDefaultInstance(), digestUtil));
     doThrow(downloadFailure)
         .when(cache)
-        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class));
+        .download(eq(cachedResult), any(Path.class), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(execResult).build();
     when(executor.executeRemotely(any(ExecuteRequest.class))).thenReturn(succeeded);
-    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class));
+    doNothing().when(cache).download(eq(execResult), any(Path.class), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
 
     Spawn spawn = newSimpleSpawn();
 
@@ -851,7 +857,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(cachedResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
   }
 
   @Test
@@ -900,7 +906,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache).download(eq(cachedResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
     verify(localRunner, never()).exec(eq(spawn), eq(context));
   }
 
@@ -939,7 +945,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.exitCode()).isEqualTo(33);
 
     verify(executor).executeRemotely(any(ExecuteRequest.class));
-    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class));
+    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(ImmutableMap.Builder.class), any(ImmutableMap.Builder.class), any(FileOutErr.class));
     verify(localRunner, never()).exec(eq(spawn), eq(context));
   }
 

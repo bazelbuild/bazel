@@ -195,7 +195,7 @@ public class GrpcRemoteExecutionClientTest {
         }
 
         @Override
-        public boolean areOutputsValid(Set<String> outputFiles) {
+        public boolean areOutputsValid(Path root) {
           return true;
         }
       };

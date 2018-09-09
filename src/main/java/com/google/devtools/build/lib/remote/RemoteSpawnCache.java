@@ -18,6 +18,9 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.grpc.Context;
@@ -127,25 +131,29 @@ final class RemoteSpawnCache implements SpawnCache {
       try {
         ActionResult result = remoteCache.getCachedActionResult(actionKey);
         if (result != null) {
-          Set<String> outputFiles =
-              Sets.newHashSet(Iterables.transform(result.getOutputFilesList(), (file) -> file.getPath()));
-          if (context.areOutputsValid(outputFiles)) {
-            // We don't cache failed actions, so we know the outputs exist.
-            // For now, download all outputs locally; in the future, we can reuse the digests to
-            // just update the TreeNodeRepository and continue the build.
-            remoteCache.download(result, execRoot, context.getFileOutErr());
-            SpawnResult spawnResult =
-                new SpawnResult.Builder()
-                    .setStatus(Status.SUCCESS)
-                    .setExitCode(result.getExitCode())
-                    .setCacheHit(true)
-                    .setRunnerName("remote cache hit")
-                    .build();
+          ImmutableMap.Builder<String, Directory> outputDirectories = ImmutableMap.builder();
+          ImmutableMap.Builder<Digest, Directory> directories = ImmutableMap.builder();
+          // We don't cache failed actions, so we know the outputs exist.
+          // For now, download all outputs locally; in the future, we can reuse the digests to
+          // just update the TreeNodeRepository and continue the build.
+          remoteCache.download(result, execRoot, outputDirectories, directories, context.getFileOutErr());
+          SpawnResult spawnResult =
+              new SpawnResult.Builder()
+                  .setStatus(Status.SUCCESS)
+                  .setExitCode(result.getExitCode())
+                  .setCacheHit(true)
+                  .setRunnerName("remote cache hit")
+                  .build();
+          FileSystem outputFileSystem = new OutputFileSystem(
+              digestUtil.getDigestFunction(),
+              Iterables.transform(result.getOutputFilesList(), (file) -> file.getPath()),
+              outputDirectories.build(),
+              directories.build());
+          if (context.areOutputsValid(outputFileSystem.getPath("/"))) {
             return SpawnCache.success(spawnResult);
-          } else {
-            report(Event.warn(String.format(
-                "A cachedResult entry contained invalid outputs: %s => %s", actionKey, result)));
           }
+          report(Event.warn(String.format(
+              "A cachedResult entry contained invalid outputs: %s => %s", actionKey, result)));
         }
       } catch (RetryException e) {
         if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
