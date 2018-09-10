@@ -150,7 +150,7 @@ public class SkylarkCustomCommandLine extends CommandLine {
       if (arg.nestedSet != null) {
         arguments.add(arg.nestedSet);
       } else {
-        ImmutableList<?> list = arg.list.getImmutableList();
+        List<?> list = arg.list;
         int count = list.size();
         arguments.add(count);
         for (int i = 0; i < count; ++i) {
