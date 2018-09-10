@@ -28,6 +28,7 @@ import com.google.devtools.build.singlejar.ZipEntryFilter.StrategyCallback;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
@@ -119,7 +120,7 @@ public class ZipFilterActionTest {
 
   private Path createZip(Entry... entries) throws IOException {
     File zip = tmp.newFile();
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(zip))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(zip.toPath()))) {
       for (Entry entry : entries) {
         ZipEntry e = new ZipEntry(entry.getName());
         zout.putNextEntry(e);

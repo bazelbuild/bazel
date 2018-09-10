@@ -22,9 +22,10 @@ import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import com.google.testing.junit.runner.util.Supplier;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.file.Files;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -127,7 +128,7 @@ public class JUnit4Runner {
 
   private static void exitFileActive(@Nullable File file) {
     if (file != null) {
-      try (FileOutputStream outputStream = new FileOutputStream(file, false)) {
+      try (OutputStream outputStream = Files.newOutputStream(file.toPath())) {
         // Overwrite file content.
         outputStream.write(new byte[0]);
         outputStream.close();

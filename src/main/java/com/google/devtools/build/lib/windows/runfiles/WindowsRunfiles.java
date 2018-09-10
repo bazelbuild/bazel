@@ -17,9 +17,10 @@ package com.google.devtools.build.lib.windows.runfiles;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,9 +45,12 @@ public final class WindowsRunfiles {
     }
 
     runfiles = new HashMap<>();
-    InputStream fis = new FileInputStream(System.getenv("RUNFILES_MANIFEST_FILE"));
-    InputStreamReader isr = new InputStreamReader(fis, Charset.forName("UTF-8"));
-    try (BufferedReader br = new BufferedReader(isr)) {
+    try (BufferedReader br =
+        new BufferedReader(
+            new InputStreamReader(
+                Files.newInputStream(Paths.get(System.getenv("RUNFILES_MANIFEST_FILE"))),
+                // TODO(laszlocsomor): Fix charset: Bazel writes a Latin-1 manifest file, not UTF-8.
+                StandardCharsets.UTF_8))) {
       String line;
       while ((line = br.readLine()) != null) {
         line = line.trim();

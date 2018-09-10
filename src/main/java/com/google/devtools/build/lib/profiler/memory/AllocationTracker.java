@@ -36,6 +36,8 @@ import com.google.perftools.profiles.ProfileProto.Sample;
 import com.google.perftools.profiles.ProfileProto.ValueType;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -225,7 +227,8 @@ public class AllocationTracker implements Sampler {
     enabled = false;
     System.gc();
     Profile profile = buildMemoryProfile();
-    try (GZIPOutputStream outputStream = new GZIPOutputStream(new FileOutputStream(path))) {
+    try (GZIPOutputStream outputStream =
+        new GZIPOutputStream(Files.newOutputStream(Paths.get(path)))) {
       profile.writeTo(outputStream);
       outputStream.finish();
     }

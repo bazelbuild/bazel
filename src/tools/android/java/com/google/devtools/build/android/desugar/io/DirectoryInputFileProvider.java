@@ -43,7 +43,7 @@ class DirectoryInputFileProvider implements InputFileProvider {
 
   @Override
   public InputStream getInputStream(String filename) throws IOException {
-    return new FileInputStream(root.resolve(filename).toFile());
+    return Files.newInputStream(root.resolve(filename));
   }
 
   @Override

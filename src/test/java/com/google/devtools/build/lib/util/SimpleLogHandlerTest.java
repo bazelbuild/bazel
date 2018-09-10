@@ -324,7 +324,7 @@ public final class SimpleLogHandlerTest {
   private Path newFileWithContent(String name, String content) throws IOException {
     File file = tmp.newFile(name);
     try (OutputStreamWriter writer =
-        new OutputStreamWriter(new FileOutputStream(file.getPath()), UTF_8)) {
+        new OutputStreamWriter(Files.newOutputStream(file.toPath()), UTF_8)) {
       writer.write(content);
     }
     return file.toPath();
@@ -353,7 +353,7 @@ public final class SimpleLogHandlerTest {
     assertThat(handler.getCurrentLogFilePath().get().toString()).isEqualTo(logPath.toString());
     handler.close();
     try (BufferedReader logReader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(logPath.toFile()), UTF_8))) {
+        new BufferedReader(new InputStreamReader(Files.newInputStream(logPath.toFile()), UTF_8))) {
       assertThat(logReader.readLine()).isEqualTo("Previous logs");
       assertThat(logReader.readLine()).isEqualTo("New logs");
     }

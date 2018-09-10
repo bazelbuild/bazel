@@ -22,9 +22,10 @@ import com.google.testing.junit.runner.internal.junit4.JUnit4TestXmlListener;
 import com.google.testing.junit.runner.internal.junit4.SettableCurrentRunningTest;
 import com.google.testing.junit.runner.util.TestNameProvider;
 import com.google.testing.junit.runner.util.Ticker;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.annotation.Nullable;
 import javax.inject.Singleton;
@@ -62,8 +63,8 @@ public final class JUnit4RunnerModule {
     if (path != null) {
       try {
         // TODO(bazel-team): Change the provider method to return ByteSink or CharSink
-        return new FileOutputStream(path.toFile());
-      } catch (FileNotFoundException e) {
+        return Files.newOutputStream(path);
+      } catch (IOException e) {
         /*
          * We try to avoid throwing exceptions in the runner code. There is no
          * way to induce a test failure here, so the only thing we can do is

@@ -199,16 +199,14 @@ public class AarGeneratorActionTest {
       }
 
       private void writeClassesJar() throws IOException {
-        final ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(classes.toFile()));
-
-        for (Map.Entry<String, String> file : classesToWrite.entrySet()) {
-          ZipEntry entry = new ZipEntry(file.getKey());
-          zout.putNextEntry(entry);
-          zout.write(file.getValue().getBytes(UTF_8));
-          zout.closeEntry();
+        try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(classes))) {
+          for (Map.Entry<String, String> file : classesToWrite.entrySet()) {
+            ZipEntry entry = new ZipEntry(file.getKey());
+            zout.putNextEntry(entry);
+            zout.write(file.getValue().getBytes(UTF_8));
+            zout.closeEntry();
+          }
         }
-
-        zout.close();
 
         classes.toFile().setLastModified(AarGeneratorAction.DEFAULT_TIMESTAMP);
       }

@@ -31,6 +31,8 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -452,25 +454,13 @@ public class StubApplication extends Application {
 
   private static void copy(File src, File dst) throws IOException {
     Log.v("StubApplication", "Copying " + src + " -> " + dst);
-    InputStream in = null;
-    OutputStream out = null;
-    try {
-      in = new FileInputStream(src);
-      out = new FileOutputStream(dst);
-
+    try (InputStream in = Files.newInputStream(src.toPath());
+      OutputStream out = Files.newOutputStream(dst.toPath())) {
       // Transfer bytes from in to out
       byte[] buf = new byte[1048576];
       int len;
       while ((len = in.read(buf)) > 0) {
         out.write(buf, 0, len);
-      }
-    } finally {
-      if (in != null) {
-        in.close();
-      }
-
-      if (out != null) {
-        out.close();
       }
     }
   }

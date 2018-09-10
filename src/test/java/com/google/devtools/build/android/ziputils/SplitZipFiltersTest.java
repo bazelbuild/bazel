@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -51,7 +52,7 @@ public class SplitZipFiltersTest {
   private File createZip(String... entries) throws FileNotFoundException, IOException {
     File zip = tmp.newFile();
     int count = 0;
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(zip))) {
+    try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(zip.toPath()))) {
       for (String entry : entries) {
         zout.putNextEntry(new ZipEntry(entry));
         zout.write(("contents" + count++).getBytes(UTF_8)); // unique content

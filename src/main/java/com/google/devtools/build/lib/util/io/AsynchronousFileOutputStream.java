@@ -28,9 +28,10 @@ import com.google.protobuf.MessageLite;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -54,7 +55,7 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
     this(
         filename,
         new BufferedOutputStream( // Use a buffer of 100 kByte, scientifically chosen at random.
-            new FileOutputStream(new File(filename), /*append=*/ false), 100000));
+            Files.newOutputStream(Paths.get(filename)), 100000));
   }
 
   @VisibleForTesting

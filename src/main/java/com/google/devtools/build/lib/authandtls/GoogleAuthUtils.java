@@ -32,6 +32,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -127,7 +129,7 @@ public final class GoogleAuthUtils {
       return null;
     } else if (options.googleCredentials != null) {
       // Credentials from file
-      try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
+      try (InputStream authFile = Files.newInputStream(Paths.get(options.googleCredentials))) {
         return newCredentials(authFile, options.googleAuthScopes);
       } catch (FileNotFoundException e) {
         String message =

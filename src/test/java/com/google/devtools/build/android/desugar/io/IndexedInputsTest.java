@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.After;
@@ -50,7 +51,7 @@ public final class IndexedInputsTest {
   public static void setUpClass() throws Exception {
     lib1 = File.createTempFile("lib1", ".jar");
     lib1Name = lib1.getName();
-    try (ZipOutputStream zos1 = new ZipOutputStream(new FileOutputStream(lib1))) {
+    try (ZipOutputStream zos1 = new ZipOutputStream(Files.newOutputStream(lib1.toPath()))) {
       zos1.putNextEntry(new ZipEntry("a/b/C.class"));
       zos1.putNextEntry(new ZipEntry("a/b/D.class"));
       zos1.closeEntry();
@@ -58,7 +59,7 @@ public final class IndexedInputsTest {
 
     lib2 = File.createTempFile("lib2", ".jar");
     lib2Name = lib2.getName();
-    try (ZipOutputStream zos2 = new ZipOutputStream(new FileOutputStream(lib2))) {
+    try (ZipOutputStream zos2 = new ZipOutputStream(Files.newOutputStream(lib2.toPath()))) {
       zos2.putNextEntry(new ZipEntry("a/b/C.class"));
       zos2.putNextEntry(new ZipEntry("a/b/E.class"));
       zos2.closeEntry();

@@ -43,9 +43,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -303,9 +305,9 @@ public class DumpCommand implements BlazeCommand {
     out.println("Dumping action graph to '" + path + "'");
     ActionGraphContainer actionGraphContainer =
         executor.getActionGraphContainer(actionGraphTargets, includeActionCmdLine);
-    FileOutputStream protoOutputStream = new FileOutputStream(path);
-    actionGraphContainer.writeTo(protoOutputStream);
-    protoOutputStream.close();
+    try (OutputStream protoOutputStream = Files.newOutputStream(Paths.get(path))) {
+      actionGraphContainer.writeTo(protoOutputStream);
+    }
     return true;
   }
 

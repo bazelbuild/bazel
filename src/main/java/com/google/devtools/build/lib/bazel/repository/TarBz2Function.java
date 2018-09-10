@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 
 /**
@@ -36,6 +37,6 @@ public class TarBz2Function extends CompressedTarFunction {
       throws IOException {
     return new BZip2CompressorInputStream(
         new BufferedInputStream(
-            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE));
+            Files.newInputStream(descriptor.archivePath().getPathFile().toPath()), BUFFER_SIZE));
   }
 }

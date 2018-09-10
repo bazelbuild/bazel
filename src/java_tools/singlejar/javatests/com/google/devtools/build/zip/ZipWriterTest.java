@@ -23,6 +23,7 @@ import com.google.devtools.build.zip.ZipFileEntry.Compression;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Calendar;
 import java.util.Random;
 import java.util.zip.CRC32;
@@ -66,7 +67,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testEmpty() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
     }
 
     try (ZipFile zipFile = new ZipFile(test)) {
@@ -75,7 +76,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testComment() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.setComment("test comment");
     }
 
@@ -86,7 +87,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testFileDataBeforeEntry() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.write(new byte[] { 0xf, 0xa, 0xb });
       fail("Expected ZipException");
     } catch (ZipException e) {
@@ -104,7 +105,7 @@ public class ZipWriterTest {
 
   @Test public void testSingleEntry() throws IOException {
     byte[] content = "content".getBytes(UTF_8);
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       crc.update(content);
       ZipFileEntry entry = new ZipFileEntry("foo");
       entry.setSize(content.length);
@@ -136,7 +137,7 @@ public class ZipWriterTest {
     long fooCrc = -1;
     long barCrc = -1;
     int deflatedSize = -1;
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.setComment("file comment");
 
       crc.update(fooContent);
@@ -198,7 +199,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testWrongSizeContent() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       byte[] content = "content".getBytes(UTF_8);
       crc.update(content);
       ZipFileEntry entry = new ZipFileEntry("foo");
@@ -217,7 +218,7 @@ public class ZipWriterTest {
 
   @Test public void testRawZipEntry() throws IOException {
     byte[] content = "content".getBytes(UTF_8);
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       crc.update(content);
       ZipFileEntry entry = new ZipFileEntry("foo");
       entry.setVersion((short) 1);
@@ -261,7 +262,7 @@ public class ZipWriterTest {
 
   @Test public void testPrefixFile() throws IOException, InterruptedException {
     byte[] content = "content".getBytes(UTF_8);
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.startPrefixFile();
       writer.write("#!/bin/bash\necho 'hello world'\n".getBytes(UTF_8));
       writer.endPrefixFile();
@@ -299,7 +300,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testPrefixFileAfterZip() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       byte[] content = "content".getBytes(UTF_8);
       crc.update(content);
       ZipFileEntry entry = new ZipFileEntry("foo");
@@ -318,7 +319,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testPrefixAfterFinish() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.finish();
       thrown.expect(IllegalStateException.class);
       writer.startPrefixFile();
@@ -328,7 +329,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testPutEntryAfterFinish() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.finish();
       thrown.expect(IllegalStateException.class);
       writer.putNextEntry(new ZipFileEntry("foo"));
@@ -336,7 +337,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testCloseEntryAfterFinish() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       byte[] content = "content".getBytes(UTF_8);
       crc.update(content);
       ZipFileEntry entry = new ZipFileEntry("foo");
@@ -354,7 +355,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testFinishAfterFinish() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.finish();
       thrown.expect(IllegalStateException.class);
       writer.finish();
@@ -362,7 +363,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testWriteAfterFinish() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8)) {
       writer.finish();
       thrown.expect(IllegalStateException.class);
       writer.write("content".getBytes(UTF_8));
@@ -370,7 +371,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testZip64_FileCount_32BitMax() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry template = new ZipFileEntry("template");
       template.setSize(0);
       template.setCompressedSize(0);
@@ -391,7 +392,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testZip64_FileCount_Zip64Range() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry template = new ZipFileEntry("template");
       template.setSize(0);
       template.setCompressedSize(0);
@@ -412,7 +413,7 @@ public class ZipWriterTest {
   }
 
   @Test public void testZip64_FileCount_Zip64Range_ForceZip32() throws IOException {
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, false)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, false)) {
       ZipFileEntry template = new ZipFileEntry("template");
       template.setSize(0);
       template.setCompressedSize(0);
@@ -434,7 +435,7 @@ public class ZipWriterTest {
 
   @Test public void testZip64_FileSize_32BitMax() throws IOException {
     long size = 0xffffffffL;
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry entry = new ZipFileEntry("big");
       entry.setCompressedSize(size);
       entry.setSize(size);
@@ -457,7 +458,7 @@ public class ZipWriterTest {
 
   @Test public void testZip64_FileSize_Zip64Range() throws IOException {
     long size = 0x1000000ffL;
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, true)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, true)) {
       ZipFileEntry entry = new ZipFileEntry("big");
       entry.setCompressedSize(size);
       entry.setSize(size);
@@ -480,7 +481,7 @@ public class ZipWriterTest {
 
   @Test public void testZip64_FileSize_Zip64Range_ForceZip32() throws IOException {
     long size = 0x1000000ffL;
-    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8, false)) {
+    try (ZipWriter writer = new ZipWriter(Files.newOutputStream(test.toPath()), UTF_8, false)) {
       ZipFileEntry entry = new ZipFileEntry("big");
       entry.setCompressedSize(size);
       entry.setSize(size);

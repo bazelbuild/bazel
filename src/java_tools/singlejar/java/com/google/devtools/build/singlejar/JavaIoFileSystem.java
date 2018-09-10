@@ -20,6 +20,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * An implementation based on java.io.
@@ -28,12 +30,12 @@ public final class JavaIoFileSystem implements SimpleFileSystem {
 
   @Override
   public InputStream getInputStream(String filename) throws IOException {
-    return new FileInputStream(filename);
+    return Files.newInputStream(Paths.get(filename));
   }
 
   @Override
   public OutputStream getOutputStream(String filename) throws IOException {
-    return new FileOutputStream(filename);
+    return Files.newOutputStream(Paths.get(filename));
   }
 
   @Override
