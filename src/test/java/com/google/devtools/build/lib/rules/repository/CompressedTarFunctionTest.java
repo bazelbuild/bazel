@@ -142,7 +142,7 @@ public class CompressedTarFunctionTest {
           protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
               throws IOException {
             return new GZIPInputStream(
-                Files.newInputStream(descriptor.archivePath().getPathFile().toFile()));
+                Files.newInputStream(descriptor.archivePath().getPathFile().toPath()));
           }
         }.decompress(descriptorBuilder.build());
 

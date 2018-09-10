@@ -353,7 +353,7 @@ public final class SimpleLogHandlerTest {
     assertThat(handler.getCurrentLogFilePath().get().toString()).isEqualTo(logPath.toString());
     handler.close();
     try (BufferedReader logReader =
-        new BufferedReader(new InputStreamReader(Files.newInputStream(logPath.toFile()), UTF_8))) {
+        new BufferedReader(new InputStreamReader(Files.newInputStream(logPath), UTF_8))) {
       assertThat(logReader.readLine()).isEqualTo("Previous logs");
       assertThat(logReader.readLine()).isEqualTo("New logs");
     }
