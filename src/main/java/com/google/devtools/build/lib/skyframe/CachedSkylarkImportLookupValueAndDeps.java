@@ -15,23 +15,27 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 class CachedSkylarkImportLookupValueAndDeps {
   private final SkylarkImportLookupValue value;
   // We store the deps separately so that we can let go of the value when the cache drops it.
-  final CachedSkylarkImportLookupFunctionDeps deps;
+  private final CachedSkylarkImportLookupFunctionDeps deps;
 
   private CachedSkylarkImportLookupValueAndDeps(
       SkylarkImportLookupValue value, CachedSkylarkImportLookupFunctionDeps deps) {
     this.value = value;
     this.deps = deps;
+  }
+
+  void traverse(DepGroupConsumer depGroupConsumer) throws InterruptedException {
+    deps.traverse(depGroupConsumer, new HashSet<>());
   }
 
   SkylarkImportLookupValue getValue() {
@@ -78,54 +82,52 @@ class CachedSkylarkImportLookupValueAndDeps {
     }
 
     CachedSkylarkImportLookupValueAndDeps build() {
+      Preconditions.checkNotNull(
+          value, "Expected value to be set. directDeps: %s", depsBuilder.directDeps);
       return new CachedSkylarkImportLookupValueAndDeps(value, depsBuilder.build());
     }
   }
 
-  static class CachedSkylarkImportLookupFunctionDeps implements Iterable<Iterable<SkyKey>> {
-    private final ImmutableList<Iterable<SkyKey>> deps;
+  private static class CachedSkylarkImportLookupFunctionDeps {
+    private final ImmutableList<Iterable<SkyKey>> directDeps;
+    private final ImmutableList<CachedSkylarkImportLookupFunctionDeps> transitiveDeps;
 
-    private CachedSkylarkImportLookupFunctionDeps(ImmutableList<Iterable<SkyKey>> deps) {
-      this.deps = deps;
+    private CachedSkylarkImportLookupFunctionDeps(
+        ImmutableList<Iterable<SkyKey>> directDeps,
+        ImmutableList<CachedSkylarkImportLookupFunctionDeps> transitiveDeps) {
+      this.directDeps = directDeps;
+      this.transitiveDeps = transitiveDeps;
     }
 
-    static CachedSkylarkImportLookupFunctionDeps.Builder newBuilder() {
+    private static CachedSkylarkImportLookupFunctionDeps.Builder newBuilder() {
       return new CachedSkylarkImportLookupFunctionDeps.Builder();
     }
 
-    @Override
-    public Iterator<Iterable<SkyKey>> iterator() {
-      return deps.iterator();
-    }
-
-    static class Builder {
-      private final List<Iterable<SkyKey>> deps = new ArrayList<>();
+    private static class Builder {
+      private final List<Iterable<SkyKey>> directDeps = new ArrayList<>();
+      private final List<CachedSkylarkImportLookupFunctionDeps> transitiveDeps = new ArrayList<>();
       private final AtomicReference<Exception> exceptionSeen = new AtomicReference<>(null);
 
       // We only add the ASTFileLookupFunction through this so we don't need to worry about memory
       // optimizations by adding it raw.
-      @CanIgnoreReturnValue
-      Builder addDep(SkyKey key) {
-        deps.add(ImmutableList.of(key));
-        return this;
+      private void addDep(SkyKey key) {
+        Preconditions.checkState(transitiveDeps.isEmpty(),
+            "Expected transitive deps to be loaded last. directDeps: %s", directDeps);
+        directDeps.add(ImmutableList.of(key));
       }
 
-      @CanIgnoreReturnValue
-      Builder addDeps(Iterable<SkyKey> keys) {
-        deps.add(keys);
-        return this;
+      private void addDeps(Iterable<SkyKey> keys) {
+        Preconditions.checkState(transitiveDeps.isEmpty(),
+            "Expected transitive deps to be loaded last. directDeps: %s", directDeps);
+        directDeps.add(keys);
       }
 
-      @CanIgnoreReturnValue
-      Builder noteException(Exception e) {
+      private void noteException(Exception e) {
         exceptionSeen.set(e);
-        return this;
       }
 
-      @CanIgnoreReturnValue
-      Builder addTransitiveDeps(CachedSkylarkImportLookupFunctionDeps transitiveDeps) {
-        Iterables.addAll(deps, transitiveDeps);
-        return this;
+      private void addTransitiveDeps(CachedSkylarkImportLookupFunctionDeps transitiveDeps) {
+        this.transitiveDeps.add(transitiveDeps);
       }
 
       CachedSkylarkImportLookupFunctionDeps build() {
@@ -133,10 +135,29 @@ class CachedSkylarkImportLookupValueAndDeps {
         Preconditions.checkState(
             exceptionSeen.get() == null,
             "Caching a value in error?: %s %s",
-            deps,
+            directDeps,
             exceptionSeen.get());
-        return new CachedSkylarkImportLookupFunctionDeps(ImmutableList.copyOf(deps));
+        return new CachedSkylarkImportLookupFunctionDeps(
+            ImmutableList.copyOf(directDeps), ImmutableList.copyOf(transitiveDeps));
       }
     }
+
+    private void traverse(
+        DepGroupConsumer depGroupConsumer, Set<CachedSkylarkImportLookupFunctionDeps> visitedDeps)
+        throws InterruptedException {
+      for (Iterable<SkyKey> directDepGroup : directDeps) {
+        depGroupConsumer.accept(directDepGroup);
+      }
+      for (CachedSkylarkImportLookupFunctionDeps indirectDeps : transitiveDeps) {
+        if (visitedDeps.add(indirectDeps)) {
+          indirectDeps.traverse(depGroupConsumer, visitedDeps);
+        }
+      }
+    }
+  }
+
+  /** A consumer of dependency groups that can be interrupted. */
+  interface DepGroupConsumer {
+    void accept(Iterable<SkyKey> keys) throws InterruptedException;
   }
 }

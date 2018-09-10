@@ -120,12 +120,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (cachedSkylarkImportLookupValueAndDeps == null) {
       return null;
     }
-    for (Iterable<SkyKey> depGroup : cachedSkylarkImportLookupValueAndDeps.deps) {
-      // Because we automatically filter out deps we've seen before and we don't expect this to be
-      // a super large DAG of dependencies, we iterate through without checking for already visited
-      // deps.
-      env.registerDependencies(depGroup);
-    }
+    cachedSkylarkImportLookupValueAndDeps.traverse(env::registerDependencies);
     return cachedSkylarkImportLookupValueAndDeps.getValue();
   }
 
