@@ -22,6 +22,7 @@ import static com.google.devtools.lcovmerger.LcovMergerTestUtils.createLinesExec
 import static com.google.devtools.lcovmerger.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.lcovmerger.LcovMergerTestUtils.createSourceFile2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.HashSet;
