@@ -122,6 +122,10 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HostTransition.INSTANCE)
                 .mandatory())
         .add(
+            attr("compiler_files_without_includes", LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HostTransition.INSTANCE))
+        .add(
             attr("strip_files", LABEL)
                 .legacyAllowAnyFileType()
                 .cfg(HostTransition.INSTANCE)

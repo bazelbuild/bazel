@@ -402,6 +402,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         .getProvider(FileProvider.class).getFilesToBuild();
     final NestedSet<Artifact> crosstoolMiddleman = getFiles(ruleContext, "all_files");
     final NestedSet<Artifact> compile = getFiles(ruleContext, "compiler_files");
+    final NestedSet<Artifact> compileWithoutIncludes =
+        getOptionalFiles(ruleContext, "compiler_files_without_includes");
     final NestedSet<Artifact> strip = getFiles(ruleContext, "strip_files");
     final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
     final NestedSet<Artifact> as = getOptionalFiles(ruleContext, "as_files");
@@ -560,6 +562,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             crosstool,
             fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
             compile,
+            compileWithoutIncludes,
             strip,
             objcopy,
             as,
