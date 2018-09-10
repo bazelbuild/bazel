@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
@@ -25,14 +27,13 @@ import java.io.IOException;
  * <p>Provides a layer of indirection for breaking circular dependencies.
  */
 public interface PackageSerializerInterface {
-  /**
-   * Serialize a package to {@code codedOut}. The inverse of {@link
-   * PackageDeserializer#deserialize}.
-   *
-   * @param pkg the {@link Package} to be serialized
-   * @param codedOut the stream to write {@code pkg}'s serialized representation to
-   * @throws IOException on failure writing to {@code codedOut}
-   */
+
+  /** Serializes a package. */
   void serialize(SerializationContext context, Package pkg, CodedOutputStream codedOut)
       throws SerializationException, IOException;
+
+  /** Deserializes a package. */
+  Package deserialize(DeserializationContext context, CodedInputStream codedIn)
+      throws IOException, InterruptedException, SerializationException;
+
 }

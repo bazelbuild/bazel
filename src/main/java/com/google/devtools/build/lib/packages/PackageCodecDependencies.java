@@ -14,33 +14,22 @@
 
 package com.google.devtools.build.lib.packages;
 
-/** Dependencies of {@value Package#Codec}. */
+/** Dependencies of {@link Package} serialization. */
 public interface PackageCodecDependencies {
 
   PackageSerializerInterface getPackageSerializer();
 
-  PackageDeserializerInterface getPackageDeserializer();
-
   /** Simplest implementation of PackageCodecDependencies. */
   public static class SimplePackageCodecDependencies implements PackageCodecDependencies {
     private final PackageSerializerInterface packageSerializer;
-    private final PackageDeserializerInterface packageDeserializer;
 
-    public SimplePackageCodecDependencies(
-        PackageSerializerInterface packageSerializer,
-        PackageDeserializerInterface packageDeserializer) {
+    public SimplePackageCodecDependencies(PackageSerializerInterface packageSerializer) {
       this.packageSerializer = packageSerializer;
-      this.packageDeserializer = packageDeserializer;
     }
 
     @Override
     public PackageSerializerInterface getPackageSerializer() {
       return packageSerializer;
-    }
-
-    @Override
-    public PackageDeserializerInterface getPackageDeserializer() {
-      return packageDeserializer;
     }
   }
 }
