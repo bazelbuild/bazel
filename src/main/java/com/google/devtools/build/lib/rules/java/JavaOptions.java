@@ -127,6 +127,17 @@ public class JavaOptions extends FragmentOptions {
   public List<String> javacOpts;
 
   @Option(
+      name = "host_javacopt",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Additional options to pass to javac when building tools that are executed during a"
+              + " build.")
+  public List<String> hostJavacOpts;
+
+  @Option(
     name = "jvmopt",
     allowMultiple = true,
     defaultValue = "",
@@ -579,7 +590,7 @@ public class JavaOptions extends FragmentOptions {
     host.javaBase = hostJavaBase;
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
-    host.javacOpts = javacOpts;
+    host.javacOpts = hostJavacOpts;
     host.javaToolchain = hostJavaToolchain;
 
     host.javaLauncher = hostJavaLauncher;
