@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -39,12 +41,15 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public BuildOptions patch(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
 
-    if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
-      return buildOptions;
-    }
-
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
     BuildConfiguration.Options configOptions = buildOptions.get(BuildConfiguration.Options.class);
+
+    if (appleOptions.configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
+      // The configuration distinguisher is only set by AppleCrosstoolTransition and
+      // AppleBinaryTransition, both of which also set the Crosstool and the CPU to Apple ones.
+      // So we are fine not doing anything.
+      return buildOptions;
+    }
 
     String cpu =
         ApplePlatform.cpuStringForTarget(
@@ -65,10 +70,25 @@ public class AppleCrosstoolTransition implements PatchTransition {
    */
   public static void setAppleCrosstoolTransitionConfiguration(BuildOptions from,
       BuildOptions to, String cpu) {
-    to.get(BuildConfiguration.Options.class).cpu = cpu;
-    to.get(CppOptions.class).crosstoolTop =
-        from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
-    to.get(AppleCommandLineOptions.class).targetUsesAppleCrosstool = true;
+    Label crosstoolTop = from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+
+    BuildConfiguration.Options toOptions = to.get(BuildConfiguration.Options.class);
+    CppOptions toCppOptions = to.get(CppOptions.class);
+
+    if (toOptions.cpu.equals(cpu) && toCppOptions.crosstoolTop.equals(crosstoolTop)) {
+      // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
+      // Objective-C dependencies work if the top-level configuration is already an Apple one.
+      // Removing the configuration distinguisher (which can't be set from the command line) and
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
+      // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
+      return;
+    }
+
+    toOptions.cpu = cpu;
+    toCppOptions.crosstoolTop = crosstoolTop;
+    to.get(AppleCommandLineOptions.class).configurationDistinguisher =
+        ConfigurationDistinguisher.APPLE_CROSSTOOL;
 
     // --compiler = "compiler" for all OSX toolchains.  We do not support asan/tsan, cfi, etc. on
     // darwin.
@@ -80,13 +100,6 @@ public class AppleCrosstoolTransition implements PatchTransition {
 
     // OSX toolchains do not support fission.
     to.get(CppOptions.class).fissionModes = ImmutableList.of();
-  }
-
-  /**
-   * Returns true if the given options imply use of AppleCrosstoolTransition for all apple targets.
-   */
-  public static boolean appleCrosstoolTransitionIsAppliedForAllObjc(BuildOptions options) {
-    return options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition;
   }
 
   /**

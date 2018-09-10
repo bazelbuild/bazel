@@ -17,58 +17,64 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
  * Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}.
  */
 public final class AnalysisResult {
+  private final BuildConfigurationCollection configurations;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
   @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final String error;
   private final ActionGraph actionGraph;
-  private final ImmutableSet<Artifact> artifactsToBuild;
+  private final ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
   private final ImmutableSet<AspectValue> aspects;
   private final PackageRoots packageRoots;
   private final String workspaceName;
-  private final List<TargetAndConfiguration> topLevelTargetsWithConfigs;
+  private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
   AnalysisResult(
+      BuildConfigurationCollection configurations,
       Collection<ConfiguredTarget> targetsToBuild,
       ImmutableSet<AspectValue> aspects,
       Collection<ConfiguredTarget> targetsToTest,
       Collection<ConfiguredTarget> targetsToSkip,
       @Nullable String error,
       ActionGraph actionGraph,
-      Collection<Artifact> artifactsToBuild,
+      ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
       Collection<ConfiguredTarget> parallelTests,
       Collection<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      List<TargetAndConfiguration> topLevelTargetsWithConfigs) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
+    this.configurations = configurations;
     this.targetsToBuild = ImmutableSet.copyOf(targetsToBuild);
     this.aspects = aspects;
     this.targetsToTest = targetsToTest == null ? null : ImmutableList.copyOf(targetsToTest);
     this.targetsToSkip = ImmutableSet.copyOf(targetsToSkip);
     this.error = error;
     this.actionGraph = actionGraph;
-    this.artifactsToBuild = ImmutableSet.copyOf(artifactsToBuild);
+    this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
     this.parallelTests = ImmutableSet.copyOf(parallelTests);
     this.exclusiveTests = ImmutableSet.copyOf(exclusiveTests);
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
+  }
+
+  public BuildConfigurationCollection getConfigurationCollection() {
+    return configurations;
   }
 
   /**
@@ -112,8 +118,8 @@ public final class AnalysisResult {
     return targetsToSkip;
   }
 
-  public ImmutableSet<Artifact> getAdditionalArtifactsToBuild() {
-    return artifactsToBuild;
+  public ArtifactsToOwnerLabels getTopLevelArtifactsToOwnerLabels() {
+    return topLevelArtifactsToOwnerLabels;
   }
 
   public ImmutableSet<ConfiguredTarget> getExclusiveTests() {
@@ -150,7 +156,7 @@ public final class AnalysisResult {
     return workspaceName;
   }
 
-  public List<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
+  public Collection<TargetAndConfiguration> getTopLevelTargetsWithConfigs() {
     return topLevelTargetsWithConfigs;
   }
 }

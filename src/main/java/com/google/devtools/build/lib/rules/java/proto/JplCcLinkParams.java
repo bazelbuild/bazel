@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +30,8 @@ import java.util.List;
 public class JplCcLinkParams {
 
   /**
-   * Creates a CcLinkParamsStore based on 'deps' and an explicit list of proto runtimes, in the
-   * context of a java_xxx_proto_library and its aspects.
+   * Creates a CcLinkingInfo based on 'deps' and an explicit list of proto runtimes, in the context
+   * of a java_xxx_proto_library and its aspects.
    *
    * @param ruleContext used to extract 'deps'. the 'deps' are expected to provide
    *     JavaProtoLibraryAspectProvider, which is the case when a java_xxx_proto_library rule
@@ -39,26 +39,26 @@ public class JplCcLinkParams {
    *     dependency's aspect node.
    * @param protoRuntimes a list of java_library.
    */
-  public static JavaCcLinkParamsProvider createCcLinkParamsStore(
+  public static JavaCcLinkParamsProvider createCcLinkingInfo(
       final RuleContext ruleContext, final ImmutableList<TransitiveInfoCollection> protoRuntimes) {
-    List<AbstractCcLinkParamsStore> stores = new ArrayList<>();
+    List<JavaCcLinkParamsProvider> providers = new ArrayList<>();
     for (TransitiveInfoCollection t :
         ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET)) {
-      stores.add(t.getProvider(JavaProtoLibraryAspectProvider.class)
-          .getTransitiveInfoProviderMap()
-          .getProvider(JavaCcLinkParamsProvider.class)
-          .getLinkParams());
+      providers.add(
+          t.getProvider(JavaProtoLibraryAspectProvider.class)
+              .getTransitiveInfoProviderMap()
+              .getProvider(JavaCcLinkParamsProvider.class));
     }
-    return new JavaCcLinkParamsProvider(
-        new AbstractCcLinkParamsStore() {
-          @Override
-          protected void collect(
-              CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-            for (AbstractCcLinkParamsStore store : stores) {
-              builder.add(store);
-            }
-            builder.addTransitiveTargets(protoRuntimes);
-          }
-        });
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .addAll(
+                providers
+                    .stream()
+                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .addAll(AnalysisUtils.getProviders(protoRuntimes, CcLinkingInfo.PROVIDER))
+            .build();
+
+    return new JavaCcLinkParamsProvider(CcLinkingInfo.merge(ccLinkingInfos));
   }
 }

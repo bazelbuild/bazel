@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -100,7 +101,7 @@ public class MultiArchBinarySupport {
      * dylib symbols should be subtracted from this provider.
      */
     abstract ObjcProvider objcLinkProvider();
-    
+
     /**
      * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have dylib
      * symbols subtracted, thus signaling that this target is still responsible for those symbols.
@@ -184,7 +185,6 @@ public class MultiArchBinarySupport {
               j2ObjcEntryClassProvider,
               extraLinkArgs,
               extraLinkInputs,
-              DsymOutputType.APP,
               dependencySpecificConfiguration.toolchain())
           .validateAttributes();
       ruleContext.assertNoErrors();
@@ -309,9 +309,6 @@ public class MultiArchBinarySupport {
             .setAlwayslink(false)
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDsym()) {
-      commonBuilder.addDebugArtifacts(DsymOutputType.APP);
-    }
     return commonBuilder.build();
   }
 
@@ -330,9 +327,19 @@ public class MultiArchBinarySupport {
     return avoidArtifacts.build();
   }
 
+  @Deprecated // Use BuiltinProvider instead.
   private static <T extends Info> Iterable<T> getTypedProviders(
       Iterable<TransitiveInfoCollection> infoCollections,
       NativeProvider<T> providerClass) {
+    return Streams.stream(infoCollections)
+        .filter(infoCollection -> infoCollection.get(providerClass) != null)
+        .map(infoCollection -> infoCollection.get(providerClass))
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  private static <T extends Info> Iterable<T> getTypedProviders(
+      Iterable<TransitiveInfoCollection> infoCollections,
+      BuiltinProvider<T> providerClass) {
     return Streams.stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))

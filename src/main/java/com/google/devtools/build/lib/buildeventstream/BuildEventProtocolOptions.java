@@ -28,7 +28,16 @@ public class BuildEventProtocolOptions extends OptionsBase {
     documentationCategory = OptionDocumentationCategory.LOGGING,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Use this to suppress generation of the legacy important_outputs field in the "
-        + "TargetComplete event"
+        + "TargetComplete event."
   )
   public boolean legacyImportantOutputs;
+
+  @Option(
+    name = "experimental_build_event_upload_strategy",
+    defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "Selects how to upload artifacts referenced in the build event protocol."
+  )
+  public String buildEventUploadStrategy;
 }

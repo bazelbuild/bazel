@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -35,13 +34,11 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /** Configuration for Protocol Buffer Libraries. */
-@AutoCodec
 @Immutable
 // This module needs to be exported to Skylark so it can be passed as a mandatory host/target
 // configuration fragment in aspect definitions.
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
   /** Command line options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class Options extends FragmentOptions {
     @Option(
       name = "protocopt",
@@ -147,6 +144,15 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     )
     public List<String> ccProtoLibrarySourceSuffixes;
 
+    @Option(
+        name = "experimental_java_proto_add_allowed_public_imports",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "If true, add --allowed_public_imports to the java compile actions.")
+    public boolean experimentalJavaProtoAddAllowedPublicImports;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -161,6 +167,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.strictProtoDeps = strictProtoDeps;
       host.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
+      host.experimentalJavaProtoAddAllowedPublicImports =
+          experimentalJavaProtoAddAllowedPublicImports;
       return host;
     }
   }
@@ -191,8 +199,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   private final ImmutableList<String> ccProtoLibrarySourceSuffixes;
   private final Options options;
 
-  @AutoCodec.Instantiator
-  public ProtoConfiguration(Options options) {
+  private ProtoConfiguration(Options options) {
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
     this.ccProtoLibrarySourceSuffixes = ImmutableList.copyOf(options.ccProtoLibrarySourceSuffixes);
@@ -242,5 +249,9 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
+  }
+
+  public boolean strictPublicImports() {
+    return options.experimentalJavaProtoAddAllowedPublicImports;
   }
 }

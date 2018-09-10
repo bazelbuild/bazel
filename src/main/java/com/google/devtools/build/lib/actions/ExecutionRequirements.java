@@ -174,6 +174,12 @@ public class ExecutionRequirements {
   public static final String NO_REMOTE = "no-remote";
 
   /**
+   * Enables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
+   * supports it).
+   */
+  public static final String REQUIRES_NETWORK = "requires-network";
+
+  /**
    * Disables networking for a spawn if possible (only if sandboxing is enabled and if the sandbox
    * supports it).
    */
@@ -184,4 +190,10 @@ public class ExecutionRequirements {
    * effect otherwise.
    */
   public static final String REQUIRES_FAKEROOT = "requires-fakeroot";
+
+  /** Suppress CLI reporting for this spawn - it's part of another action. */
+  public static final String DO_NOT_REPORT = "internal-do-not-report";
+
+  /** Use this to request eager fetching of a single remote output into local memory. */
+  public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
 }

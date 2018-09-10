@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayDeque;
@@ -90,7 +89,7 @@ final class SkylarkDocumentationCollector {
   private static SkylarkModuleDoc getTopLevelModuleDoc(Map<String, SkylarkModuleDoc> modules) {
     SkylarkModule annotation = getTopLevelModule();
     modules.computeIfAbsent(
-        annotation.name(), (String k) -> new SkylarkModuleDoc(annotation, Object.class));
+        annotation.name(), (String k) -> new SkylarkModuleDoc(annotation, TopLevelModule.class));
     return modules.get(annotation.name());
   }
 
@@ -102,8 +101,29 @@ final class SkylarkDocumentationCollector {
 
     SkylarkModule annotation = Preconditions.checkNotNull(
         Runtime.getSkylarkNamespace(moduleClass).getAnnotation(SkylarkModule.class));
-    modules.computeIfAbsent(
-        annotation.name(), (String k) -> new SkylarkModuleDoc(annotation, moduleClass));
+    SkylarkModuleDoc previousModuleDoc = modules.get(annotation.name());
+    if (previousModuleDoc == null || !previousModuleDoc.getAnnotation().documented()) {
+      // There is no registered module doc by that name, or the current candidate is "undocumented".
+      modules.put(annotation.name(), new SkylarkModuleDoc(annotation, moduleClass));
+    } else if (previousModuleDoc.getClassObject() != moduleClass && annotation.documented()) {
+      // Both modules generate documentation for the same name. This is fine if one is a
+      // subclass of the other, in which case the subclass documentation takes precedence.
+      // (This is useful if one module is a "common" stable module, and its subclass is
+      // an experimental module that also supports all stable methods.)
+      if (previousModuleDoc.getClassObject().isAssignableFrom(moduleClass)) {
+        modules.put(annotation.name(), new SkylarkModuleDoc(annotation, moduleClass));
+      } else if (moduleClass.isAssignableFrom(previousModuleDoc.getClassObject())) {
+        // This case means the subclass was processed first, so discard the superclass.
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "%s and %s are both modules with the same documentation for '%s'",
+                moduleClass,
+                previousModuleDoc.getClassObject(),
+                previousModuleDoc.getAnnotation().name()));
+      }
+    }
+
     return modules.get(annotation.name());
   }
 
@@ -226,19 +246,16 @@ final class SkylarkDocumentationCollector {
     if (!constructorAnnotation.receiverNameForDoc().isEmpty()) {
       fullyQualifiedName = constructorAnnotation.receiverNameForDoc();
     } else {
-      fullyQualifiedName = getFullyQualifiedName(originatingModuleName, method, callable);
+      fullyQualifiedName = getFullyQualifiedName(originatingModuleName, callable);
     }
 
     module.setConstructor(new SkylarkConstructorMethodDoc(fullyQualifiedName, method, callable));
   }
 
   private static String getFullyQualifiedName(
-      String objectName, Method method, SkylarkCallable callable) {
-    String objectDotExpressionPrefix =
-      objectName.isEmpty() ? "" : objectName + ".";
-    String methodName = callable.name().isEmpty()
-        ? StringUtilities.toPythonStyleFunctionName(method.getName())
-        : callable.name();
+      String objectName, SkylarkCallable callable) {
+    String objectDotExpressionPrefix = objectName.isEmpty() ? "" : objectName + ".";
+    String methodName = callable.name();
     return objectDotExpressionPrefix + methodName;
   }
 }

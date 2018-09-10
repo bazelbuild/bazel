@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -47,8 +49,26 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link com.google.devtools.build.lib.rules.android.AarImport}. */
 @RunWith(JUnit4.class)
 public class AarImportTest extends BuildViewTestCase {
+
   @Before
   public void setup() throws Exception {
+    scratch.file(
+        "aapt2/sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign')");
     scratch.file(
         "a/BUILD",
         "aar_import(",
@@ -74,8 +94,17 @@ public class AarImportTest extends BuildViewTestCase {
         "    name = 'last',",
         "    aar = 'last.aar',",
         "    deps = [':intermediate'],",
+        ")",
+        "android_library(",
+        "    name = 'library',",
+        "    manifest = 'AndroidManifest.xml',",
+        "    custom_package = 'com.google.arrimport',",
+        "    resource_files = ['res/values/values.xml'],",
+        "    srcs = ['App.java'],",
+        "    deps = [':foo'],",
         ")");
-    scratch.file("java/BUILD",
+    scratch.file(
+        "java/BUILD",
         "android_binary(",
         "    name = 'app',",
         "    manifest = 'AndroidManifest.xml',",
@@ -94,40 +123,45 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testResourcesProvided_NotDecoupled() throws Exception {
-    useConfiguration("--noandroid_decouple_data_processing");
+  public void aapt2RTxtProvided() throws Exception {
+    useConfiguration(
+        "--android_sdk=//aapt2/sdk:sdk",
+        "--experimental_skip_parsing_action",
+        "--android_aapt=aapt2");
 
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
+    ConfiguredTarget libTarget = getConfiguredTarget("//a:library");
 
-    NestedSet<ValidatedAndroidData> directResources =
-        aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
+    NestedSet<Artifact> transitiveCompiledSymbols =
+        libTarget.get(AndroidResourcesInfo.PROVIDER).getTransitiveCompiledSymbols();
+
+    assertThat(transitiveCompiledSymbols).hasSize(2);
+
+    assertThat(
+            transitiveCompiledSymbols
+                .toSet()
+                .stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toSet()))
+        .containsExactly("a/foo_symbols/symbols.zip", "a/library_symbols/symbols.zip");
+
+    NestedSet<ValidatedAndroidResources> directResources =
+        libTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
+
     assertThat(directResources).hasSize(1);
 
-    ValidatedAndroidData resourceContainer = directResources.iterator().next();
-    assertThat(resourceContainer.getManifest()).isNotNull();
-
-    Artifact resourceTreeArtifact =
-        Iterables.getOnlyElement(resourceContainer.getResources());
-    assertThat(resourceTreeArtifact.isTreeArtifact()).isTrue();
-    assertThat(resourceTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/resources/foo");
-
-    Artifact assetsTreeArtifact =
-        Iterables.getOnlyElement(resourceContainer.getAssets());
-    assertThat(assetsTreeArtifact.isTreeArtifact()).isTrue();
-    assertThat(assetsTreeArtifact.getExecPathString()).endsWith("_aar/unzipped/assets/foo");
+    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
+    Truth.assertThat(resourceContainer.getAapt2RTxt()).isNotNull();
   }
 
   @Test
   public void testResourcesProvided() throws Exception {
-    useConfiguration("--android_decouple_data_processing");
-
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    NestedSet<ValidatedAndroidData> directResources =
+    NestedSet<ValidatedAndroidResources> directResources =
         aarImportTarget.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources();
     assertThat(directResources).hasSize(1);
 
-    ValidatedAndroidData resourceContainer = directResources.iterator().next();
+    ValidatedAndroidResources resourceContainer = directResources.iterator().next();
     assertThat(resourceContainer.getManifest()).isNotNull();
 
     Artifact resourceTreeArtifact = Iterables.getOnlyElement(resourceContainer.getResources());
@@ -147,38 +181,8 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testResourcesExtractor_NotDecoupled() throws Exception {
-    useConfiguration("--noandroid_decouple_data_processing");
-    ValidatedAndroidData resourceContainer =
-        getConfiguredTarget("//a:foo")
-            .get(AndroidResourcesInfo.PROVIDER)
-            .getDirectAndroidResources()
-            .toList()
-            .get(0);
-
-    Artifact resourceTreeArtifact = resourceContainer.getResources().get(0);
-    Artifact assetsTreeArtifact = resourceContainer.getAssets().get(0);
-    Artifact aarResourcesExtractor =
-        getHostConfiguredTarget(
-                ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
-            .getProvider(FilesToRunProvider.class)
-            .getExecutable();
-
-    assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
-        .containsExactly(
-            aarResourcesExtractor.getExecPathString(),
-            "--input_aar",
-            "a/foo.aar",
-            "--output_res_dir",
-            resourceTreeArtifact.getExecPathString(),
-            "--output_assets_dir",
-            assetsTreeArtifact.getExecPathString());
-  }
-
-  @Test
   public void testResourcesExtractor() throws Exception {
-    useConfiguration("--android_decouple_data_processing");
-    ValidatedAndroidData resourceContainer =
+    ValidatedAndroidResources resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
@@ -212,39 +216,8 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDepsCheckerActionExistsForLevelErrorNotDecoupled() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=ERROR", "--noandroid_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    Artifact artifact = Iterables.getOnlyElement(outputGroup);
-    assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
-
-    SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
-    List<String> arguments = checkerAction.getArguments();
-    assertThat(arguments)
-        .containsAllOf(
-            "--bootclasspath_entry",
-            "--classpath_entry",
-            "--input",
-            "--output",
-            "--checking_mode=error",
-            "--rule_label",
-            "--jdeps_output");
-    ensureArgumentsHaveClassEntryOptionWithSuffix(
-        arguments, "/intermediate/classes_and_libs_merged.jar");
-    assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(1);
-  }
-
-  @Test
   public void testDepsCheckerActionExistsForLevelError() throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=ERROR", "--android_decouple_data_processing");
+    useConfiguration("--experimental_import_deps_checking=ERROR");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
@@ -257,11 +230,10 @@ public class AarImportTest extends BuildViewTestCase {
     assertThat(outputGroup).contains(mergedAssetsZip);
 
     // Get the other artifact from the output group
-    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, ".txt");
+    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, "jdeps.proto");
 
     assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/last/aar_import_deps_checker_result.txt");
+    assertThat(artifact.getExecPathString()).endsWith("_aar/last/jdeps.proto");
 
     SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
     List<String> arguments = checkerAction.getArguments();
@@ -269,20 +241,18 @@ public class AarImportTest extends BuildViewTestCase {
         .containsAllOf(
             "--bootclasspath_entry",
             "--classpath_entry",
+            "--directdep",
             "--input",
-            "--output",
             "--checking_mode=error",
             "--rule_label",
+            "//a:last",
             "--jdeps_output");
     ensureArgumentsHaveClassEntryOptionWithSuffix(
         arguments, "/intermediate/classes_and_libs_merged.jar");
     assertThat(arguments.stream().filter(arg -> "--classpath_entry".equals(arg)).count())
-        .isEqualTo(1);
-  }
-
-  @Test
-  public void testDepsCheckerActionExistsForLevelWarning_NotDecoupled() throws Exception {
-    checkDepsCheckerActionExistsForLevel_NotDecoupled(ImportDepsCheckingLevel.WARNING, "warning");
+        .isEqualTo(5); // transitive classpath
+    assertThat(arguments.stream().filter(arg -> "--directdep".equals(arg)).count())
+        .isEqualTo(1); // 1 declared dep
   }
 
   @Test
@@ -291,33 +261,13 @@ public class AarImportTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDepsCheckerActionExistsForLevelOff_NotDecoupled() throws Exception {
-    checkDepsCheckerActionExistsForLevel_NotDecoupled(ImportDepsCheckingLevel.OFF, "silence");
-  }
-
-  @Test
   public void testDepsCheckerActionExistsForLevelOff() throws Exception {
     checkDepsCheckerActionExistsForLevel(ImportDepsCheckingLevel.OFF, "silence");
   }
 
-  private void checkDepsCheckerActionExistsForLevel_NotDecoupled(
-      ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=" + level.name(),
-        "--noandroid_decouple_data_processing");
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-    NestedSet<Artifact> outputGroup =
-        outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    Artifact artifact = Iterables.getOnlyElement(outputGroup);
-    checkDepsCheckerOutputArtifact(artifact, expectedCheckingMode);
-  }
-
   private void checkDepsCheckerActionExistsForLevel(
       ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
-    useConfiguration(
-        "--experimental_import_deps_checking=" + level.name(),
-        "--android_decouple_data_processing");
+    useConfiguration("--experimental_import_deps_checking=" + level.name());
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
     OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
@@ -330,15 +280,14 @@ public class AarImportTest extends BuildViewTestCase {
     assertThat(outputGroup).contains(mergedAssetsZip);
 
     // Get the other artifact from the output group
-    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, ".txt");
+    Artifact artifact = ActionsTestUtil.getFirstArtifactEndingWith(outputGroup, "jdeps.proto");
     checkDepsCheckerOutputArtifact(artifact, expectedCheckingMode);
   }
 
   private void checkDepsCheckerOutputArtifact(Artifact artifact, String expectedCheckingMode)
       throws CommandLineExpansionException {
     assertThat(artifact.isTreeArtifact()).isFalse();
-    assertThat(artifact.getExecPathString())
-        .endsWith("_aar/bar/aar_import_deps_checker_result.txt");
+    assertThat(artifact.getExecPathString()).endsWith("_aar/bar/jdeps.proto");
 
     SpawnAction checkerAction = getGeneratingSpawnAction(artifact);
     List<String> arguments = checkerAction.getArguments();
@@ -347,7 +296,6 @@ public class AarImportTest extends BuildViewTestCase {
             "--bootclasspath_entry",
             "--classpath_entry",
             "--input",
-            "--output",
             "--rule_label",
             "--jdeps_output",
             "--checking_mode=" + expectedCheckingMode);
@@ -383,15 +331,17 @@ public class AarImportTest extends BuildViewTestCase {
 
     NestedSet<Artifact> nativeLibs =
         androidLibraryTarget.get(AndroidNativeLibsInfo.PROVIDER).getNativeLibs();
-    assertThat(nativeLibs).containsExactly(
-        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
-        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
-        ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "baz/native_libs.zip"));
+    assertThat(nativeLibs)
+        .containsExactly(
+            ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "foo/native_libs.zip"),
+            ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "bar/native_libs.zip"),
+            ActionsTestUtil.getFirstArtifactEndingWith(nativeLibs, "baz/native_libs.zip"));
   }
 
   @Test
   public void testNativeLibsMakesItIntoApk() throws Exception {
-    scratch.file("java/com/google/android/hello/BUILD",
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
         "aar_import(",
         "    name = 'my_aar',",
         "    aar = 'my_aar.aar',",
@@ -403,15 +353,16 @@ public class AarImportTest extends BuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:my_app");
-    SpawnAction apkBuilderAction = (SpawnAction) actionsTestUtil()
-        .getActionForArtifactEndingWith(getFilesToBuild(binary), "my_app_unsigned.apk");
+    SpawnAction apkBuilderAction =
+        (SpawnAction)
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(getFilesToBuild(binary), "my_app_unsigned.apk");
     assertThat(
             Iterables.find(
                 apkBuilderAction.getArguments(),
                 Predicates.containsPattern("_aar/my_aar/native_libs.zip$")))
         .isNotEmpty();
   }
-
 
   @Test
   public void testClassesJarProvided() throws Exception {
@@ -430,7 +381,7 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testNoCustomJavaPackage() throws Exception {
-    ValidatedAndroidData resourceContainer =
+    ValidatedAndroidResources resourceContainer =
         getConfiguredTarget("//a:foo")
             .get(AndroidResourcesInfo.PROVIDER)
             .getDirectAndroidResources()
@@ -447,8 +398,8 @@ public class AarImportTest extends BuildViewTestCase {
     Action appCompileAction =
         getGeneratingAction(
             ActionsTestUtil.getFirstArtifactEndingWith(
-                actionsTestUtil().artifactClosureOf(
-                    getFileConfiguredTarget("//java:app.apk").getArtifact()),
+                actionsTestUtil()
+                    .artifactClosureOf(getFileConfiguredTarget("//java:app.apk").getArtifact()),
                 "libapp.jar"));
     assertThat(appCompileAction).isNotNull();
     assertThat(ActionsTestUtil.prettyArtifactNames(appCompileAction.getInputs()))
@@ -478,8 +429,7 @@ public class AarImportTest extends BuildViewTestCase {
     assertThat(fooClassesJar.getArtifactOwner().getLabel()).isEqualTo(foo.getLabel());
 
     ConfiguredTarget baz = getConfiguredTarget("//java:baz.jar");
-    Artifact bazJar =
-        ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "baz.jar");
+    Artifact bazJar = ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "baz.jar");
     // Verify that baz.jar was in the artifact closure
     assertThat(bazJar).isNotNull();
     assertThat(bazJar.getArtifactOwner().getLabel()).isEqualTo(baz.getLabel());
@@ -507,8 +457,8 @@ public class AarImportTest extends BuildViewTestCase {
   public void testJavaCompilationArgsProvider() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
 
-    JavaCompilationArgsProvider provider = JavaInfo
-        .getProvider(JavaCompilationArgsProvider.class, aarImportTarget);
+    JavaCompilationArgsProvider provider =
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, aarImportTarget);
     assertThat(provider).isNotNull();
     assertThat(artifactsToStrings(provider.getRuntimeJars()))
         .containsExactly(
@@ -535,13 +485,11 @@ public class AarImportTest extends BuildViewTestCase {
 
   @Test
   public void testFailsWithoutAndroidSdk() throws Exception {
-    scratch.file("sdk/BUILD",
-        "alias(",
-        "    name = 'sdk',",
-        "    actual = 'doesnotexist',",
-        ")");
+    scratch.file("sdk/BUILD", "alias(", "    name = 'sdk',", "    actual = 'doesnotexist',", ")");
     useConfiguration("--android_sdk=//sdk");
-    checkError("aar", "aar",
+    checkError(
+        "aar",
+        "aar",
         "No Android SDK found. Use the --android_sdk command line option to specify one.",
         "aar_import(",
         "    name = 'aar',",
@@ -556,9 +504,9 @@ public class AarImportTest extends BuildViewTestCase {
     // Compare root relative path strings instead of artifacts due to difference in configuration
     // caused by the Android split transition.
     assertThat(
-        Iterables.transform(
-            getGeneratingAction(binaryMergedManifest).getInputs(),
-            Artifact::getRootRelativePathString))
+            Iterables.transform(
+                getGeneratingAction(binaryMergedManifest).getInputs(),
+                Artifact::getRootRelativePathString))
         .containsAllOf(getAndroidManifest("//a:foo"), getAndroidManifest("//a:bar"));
   }
 
@@ -575,6 +523,8 @@ public class AarImportTest extends BuildViewTestCase {
   @Test
   public void testTransitiveExports() throws Exception {
     assertThat(getConfiguredTarget("//a:bar").get(JavaInfo.PROVIDER).getTransitiveExports())
-        .containsExactly(Label.parseAbsolute("//a:foo"), Label.parseAbsolute("//java:baz"));
+        .containsExactly(
+            Label.parseAbsolute("//a:foo", ImmutableMap.of()),
+            Label.parseAbsolute("//java:baz", ImmutableMap.of()));
   }
 }

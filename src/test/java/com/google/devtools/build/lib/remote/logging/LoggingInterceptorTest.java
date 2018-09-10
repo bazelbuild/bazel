@@ -22,6 +22,22 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import build.bazel.remote.execution.v2.ActionCacheGrpc;
+import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
+import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ExecuteRequest;
+import build.bazel.remote.execution.v2.ExecutionGrpc;
+import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
+import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
+import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
+import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamBlockingStub;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -36,37 +52,15 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.GetAction
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.ReadDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RpcCallDetails;
-import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WatchDetails;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WaitExecutionDetails;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
-import com.google.devtools.remoteexecution.v1test.Action;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheBlockingStub;
-import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
-import com.google.devtools.remoteexecution.v1test.ExecutionGrpc;
-import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionBlockingStub;
-import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
-import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
-import com.google.devtools.remoteexecution.v1test.OutputFile;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
-import com.google.watcher.v1.Change;
-import com.google.watcher.v1.ChangeBatch;
-import com.google.watcher.v1.Request;
-import com.google.watcher.v1.WatcherGrpc;
-import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.MethodDescriptor;
@@ -357,32 +351,50 @@ public class LoggingInterceptorTest {
     ExecuteRequest request =
         ExecuteRequest.newBuilder()
             .setInstanceName("test-instance")
-            .setAction(Action.newBuilder().addOutputFiles("somefile"))
+            .setActionDigest(DigestUtil.buildDigest("test", 8))
             .build();
-    Operation response = Operation.newBuilder().setName("test-operation").build();
+    Operation response1 = Operation.newBuilder().setName("test-name").build();
+    Operation response2 =
+        Operation.newBuilder()
+            .setName("test-name")
+            .setDone(true)
+            .setResponse(Any.pack(request))
+            .build();
+
     serviceRegistry.addService(
         new ExecutionImplBase() {
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
-            responseObserver.onNext(response);
-            clock.advanceMillis(100);
+            responseObserver.onNext(response1);
+            clock.advanceMillis(2200);
+            responseObserver.onNext(response2);
+            clock.advanceMillis(1100);
             responseObserver.onCompleted();
           }
         });
 
-    ExecutionBlockingStub stub = ExecutionGrpc.newBlockingStub(loggedChannel);
-    clock.advanceMillis(15000);
-    stub.execute(request);
+    clock.advanceMillis(50000);
+    Iterator<Operation> replies =
+        ExecutionGrpc.newBlockingStub(loggedChannel).execute(request);
+
+    // Read both responses.
+    while (replies.hasNext()) {
+      replies.next();
+    }
+
     LogEntry expectedEntry =
         LogEntry.newBuilder()
             .setMethodName(ExecutionGrpc.getExecuteMethod().getFullMethodName())
             .setDetails(
                 RpcCallDetails.newBuilder()
                     .setExecute(
-                        ExecuteDetails.newBuilder().setRequest(request).setResponse(response)))
+                        ExecuteDetails.newBuilder()
+                            .setRequest(request)
+                            .addResponses(response1)
+                            .addResponses(response2)))
             .setStatus(com.google.rpc.Status.getDefaultInstance())
-            .setStartTime(Timestamp.newBuilder().setSeconds(15))
-            .setEndTime(Timestamp.newBuilder().setSeconds(15).setNanos(100000000))
+            .setStartTime(Timestamp.newBuilder().setSeconds(50))
+            .setEndTime(Timestamp.newBuilder().setSeconds(53).setNanos(300000000))
             .build();
     verify(logStream).write(expectedEntry);
   }
@@ -392,7 +404,7 @@ public class LoggingInterceptorTest {
     ExecuteRequest request =
         ExecuteRequest.newBuilder()
             .setInstanceName("test-instance")
-            .setAction(Action.newBuilder().addOutputFiles("somefile"))
+            .setActionDigest(DigestUtil.buildDigest("test", 8))
             .build();
     Status error = Status.NOT_FOUND.withDescription("not found");
     serviceRegistry.addService(
@@ -403,9 +415,15 @@ public class LoggingInterceptorTest {
             responseObserver.onError(error.asRuntimeException());
           }
         });
-    ExecutionBlockingStub stub = ExecutionGrpc.newBlockingStub(loggedChannel);
     clock.advanceMillis(20000000000001L);
-    assertThrows(StatusRuntimeException.class, () -> stub.execute(request));
+    Iterator<Operation> replies = ExecutionGrpc.newBlockingStub(loggedChannel).execute(request);
+    assertThrows(
+        StatusRuntimeException.class,
+        () -> {
+          while (replies.hasNext()) {
+            replies.next();
+          }
+        });
     LogEntry expectedEntry =
         LogEntry.newBuilder()
             .setMethodName(ExecutionGrpc.getExecuteMethod().getFullMethodName())
@@ -511,22 +529,21 @@ public class LoggingInterceptorTest {
   }
 
   @Test
-  public void testWatchCallOk() {
-    Request request = Request.newBuilder().setTarget("test-target").build();
-    ChangeBatch response1 =
-        ChangeBatch.newBuilder()
-            .addChanges(Change.newBuilder().setState(Change.State.INITIAL_STATE_SKIPPED))
-            .build();
-    ChangeBatch response2 =
-        ChangeBatch.newBuilder()
-            .addChanges(
-                Change.newBuilder().setState(Change.State.EXISTS).setData(Any.pack(request)))
+  public void testWaitExecutionCallOk() {
+    WaitExecutionRequest request = WaitExecutionRequest.newBuilder().setName("test-name").build();
+    Operation response1 = Operation.newBuilder().setName("test-name").build();
+    Operation response2 =
+        Operation.newBuilder()
+            .setName("test-name")
+            .setDone(true)
+            .setResponse(Any.pack(request))
             .build();
 
     serviceRegistry.addService(
-        new WatcherImplBase() {
+        new ExecutionImplBase() {
           @Override
-          public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
+          public void waitExecution(
+              WaitExecutionRequest request, StreamObserver<Operation> responseObserver) {
             responseObserver.onNext(response1);
             clock.advanceMillis(2200);
             responseObserver.onNext(response2);
@@ -536,7 +553,8 @@ public class LoggingInterceptorTest {
         });
 
     clock.advanceMillis(50000);
-    Iterator<ChangeBatch> replies = WatcherGrpc.newBlockingStub(loggedChannel).watch(request);
+    Iterator<Operation> replies =
+        ExecutionGrpc.newBlockingStub(loggedChannel).waitExecution(request);
 
     // Read both responses.
     while (replies.hasNext()) {
@@ -545,11 +563,11 @@ public class LoggingInterceptorTest {
 
     LogEntry expectedEntry =
         LogEntry.newBuilder()
-            .setMethodName(WatcherGrpc.getWatchMethod().getFullMethodName())
+            .setMethodName(ExecutionGrpc.getWaitExecutionMethod().getFullMethodName())
             .setDetails(
                 RpcCallDetails.newBuilder()
-                    .setWatch(
-                        WatchDetails.newBuilder()
+                    .setWaitExecution(
+                        WaitExecutionDetails.newBuilder()
                             .setRequest(request)
                             .addResponses(response1)
                             .addResponses(response2)))
@@ -561,18 +579,16 @@ public class LoggingInterceptorTest {
   }
 
   @Test
-  public void testWatchCallFail() {
-    Request request = Request.newBuilder().setTarget("test-target").build();
-    ChangeBatch response =
-        ChangeBatch.newBuilder()
-            .addChanges(Change.newBuilder().setState(Change.State.INITIAL_STATE_SKIPPED))
-            .build();
+  public void testWaitExecutionCallFail() {
+    WaitExecutionRequest request = WaitExecutionRequest.newBuilder().setName("test-name").build();
+    Operation response = Operation.newBuilder().setName("test-name").build();
     Status error = Status.DEADLINE_EXCEEDED.withDescription("timed out");
 
     serviceRegistry.addService(
-        new WatcherImplBase() {
+        new ExecutionImplBase() {
           @Override
-          public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
+          public void waitExecution(
+              WaitExecutionRequest request, StreamObserver<Operation> responseObserver) {
             clock.advanceMillis(100);
             responseObserver.onNext(response);
             clock.advanceMillis(100);
@@ -581,7 +597,8 @@ public class LoggingInterceptorTest {
         });
 
     clock.advanceMillis(2000);
-    Iterator<ChangeBatch> replies = WatcherGrpc.newBlockingStub(loggedChannel).watch(request);
+    Iterator<Operation> replies =
+        ExecutionGrpc.newBlockingStub(loggedChannel).waitExecution(request);
     assertThrows(
         StatusRuntimeException.class,
         () -> {
@@ -592,10 +609,13 @@ public class LoggingInterceptorTest {
 
     LogEntry expectedEntry =
         LogEntry.newBuilder()
-            .setMethodName(WatcherGrpc.getWatchMethod().getFullMethodName())
+            .setMethodName(ExecutionGrpc.getWaitExecutionMethod().getFullMethodName())
             .setDetails(
                 RpcCallDetails.newBuilder()
-                    .setWatch(WatchDetails.newBuilder().setRequest(request).addResponses(response)))
+                    .setWaitExecution(
+                        WaitExecutionDetails.newBuilder()
+                            .setRequest(request)
+                            .addResponses(response)))
             .setStatus(
                 com.google.rpc.Status.newBuilder()
                     .setCode(error.getCode().value())

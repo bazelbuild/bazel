@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
@@ -58,6 +59,8 @@ import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -127,10 +130,11 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
       BuildOptions fromOptions = config.getOptions();
       try {
-        // Note: Being able to pull the $toolchain attr unconditionally from the mapper relies on
-        // the fact that {@link PlatformSemantics.TOOLCHAIN_ATTRS} exists in every rule.
-        // Also, we don't actually use fromOptions in our implementation of DependencyResolver but
-        // passing to avoid passing a null and since we have the information anyway.
+        // Note: Being able to pull the $resolved_toolchain_internal attr unconditionally from the
+        // mapper relies on the fact that {@link PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR} exists
+        // in every rule. Also, we don't actually use fromOptions in our implementation of
+        // DependencyResolver but passing to avoid passing a null and since we have the information
+        // anyway.
         deps =
             new FormatterDependencyResolver(configuredTarget, reporter)
                 .dependentNodeMap(
@@ -140,7 +144,7 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
                     configConditions,
                     ImmutableSet.copyOf(
                         ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions)
-                            .get(PlatformSemantics.TOOLCHAINS_ATTR, BuildType.LABEL_LIST)),
+                            .get(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, BuildType.LABEL_LIST)),
                     fromOptions,
                     trimmingTransitionFactory);
       } catch (EvalException | InvalidConfigurationException | InconsistentAspectOrderException e) {
@@ -241,9 +245,16 @@ public class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback
     }
 
     @Override
-    protected Target getTarget(Target from, Label label, NestedSetBuilder<Cause> rootCauses)
-        throws InterruptedException {
-      return partialResultMap.get(label);
+    protected Map<Label, Target> getTargets(
+        Iterable<Label> labels,
+        Target fromTarget,
+        NestedSetBuilder<Cause> rootCauses,
+        int labelsSizeHint) {
+      return Streams.stream(labels)
+          .distinct()
+          .filter(Objects::nonNull)
+          .filter(partialResultMap::containsKey)
+          .collect(Collectors.toMap(Function.identity(), partialResultMap::get));
     }
 
     @Override

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -281,7 +282,8 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testBadDynamicRuntimeLib() throws Exception {
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
         "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
         "cc_toolchain(",
@@ -300,56 +302,17 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    dynamic_runtime_libs = [':dynamic'],",
         "    static_runtime_libs = [':static'])");
 
-    getAnalysisMock().ccSupport().setupCrosstool(mockToolsConfig,
-        CrosstoolConfig.CToolchain.newBuilder()
-            .setSupportsEmbeddedRuntimes(true)
-            .buildPartial());
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder()
+                .setSupportsEmbeddedRuntimes(true)
+                .buildPartial());
 
     useConfiguration();
 
     getConfiguredTarget("//a:a");
-  }
-
-  @Test
-  public void testTurnOffDynamicLinkWhenLipoBinary() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    cpu = 'banana',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_libs = [':empty'],",
-        "    static_runtime_libs = [':empty'])");
-    scratch.file("foo/BUILD", "cc_binary(name='foo')");
-
-    useConfiguration("--lipo=binary", "--lipo_context=//foo", "--compilation_mode=opt");
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.OFF);
-
-    useConfiguration("--lipo=off", "--lipo_context=//foo");
-    target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.DEFAULT);
   }
 
   @Test
@@ -378,33 +341,24 @@ public class CcToolchainTest extends BuildViewTestCase {
     // Check defaults.
     useConfiguration();
     ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider =
-        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    CppConfiguration cppConfiguration =
+        getConfiguration(target).getFragment(CppConfiguration.class);
 
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.DEFAULT);
+    assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.DEFAULT);
 
     // Test "off"
     useConfiguration("--dynamic_mode=off");
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    cppConfiguration = getConfiguration(target).getFragment(CppConfiguration.class);
 
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.OFF);
+    assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.OFF);
 
     // Test "fully"
     useConfiguration("--dynamic_mode=fully");
     target = getConfiguredTarget("//a:b");
-    toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+    cppConfiguration = getConfiguration(target).getFragment(CppConfiguration.class);
 
-    assertThat(
-            CppHelper.getDynamicMode(
-                getConfiguration(target).getFragment(CppConfiguration.class), toolchainProvider))
-        .isEqualTo(DynamicMode.FULLY);
+    assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.FULLY);
 
     // Check an invalid value for disable_dynamic.
     try {
@@ -823,6 +777,192 @@ public class CcToolchainTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider =
         (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(toolchainProvider.getAbi()).isEqualTo("banana");
+  }
+
+  private void loadCcToolchainConfigLib() throws IOException {
+    scratch.appendFile("tools/cpp/BUILD", "");
+    scratch.file(
+        "tools/cpp/cc_toolchain_config_lib.bzl",
+        ResourceLoader.readFromResources(
+            TestConstants.BAZEL_REPO_PATH + "tools/cpp/cc_toolchain_config_lib.bzl"));
+  }
+
+  @Test
+  public void testToolchainFromSkylarkRule() throws Exception {
+    loadCcToolchainConfigLib();
+    scratch.file(
+        "a/BUILD",
+        "load(':crosstool_rule.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_config_rule(name = 'toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    toolchain_config = ':toolchain_config')");
+
+    scratch.file(
+        "a/crosstool_rule.bzl",
+        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
+        "        'feature',",
+        "        'action_config',",
+        "        'artifact_name_pattern',",
+        "        'env_entry',",
+        "        'variable_with_value',",
+        "        'make_variable',",
+        "        'feature_set',",
+        "        'with_feature_set',",
+        "        'env_set',",
+        "        'flag_group',",
+        "        'flag_set',",
+        "        'tool_path',",
+        "        'tool')",
+        "",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "                ctx = ctx,",
+        "                features = [feature(name = 'simple_feature')],",
+        "                action_configs = [",
+        "                   action_config(action_name = 'simple_action', enabled=True)",
+        "                ],",
+        "                artifact_name_patterns = [artifact_name_pattern(",
+        "                   category_name = 'static_library',",
+        "                   prefix = 'prefix',",
+        "                   extension = '.a')],",
+        "                cxx_builtin_include_directories = ['dir1', 'dir2', 'dir3'],",
+        "                toolchain_identifier = 'toolchain',",
+        "                host_system_name = 'host',",
+        "                target_system_name = 'target',",
+        "                target_cpu = 'cpu',",
+        "                target_libc = 'libc',",
+        "                default_libc_top = 'libc_top',",
+        "                compiler = 'compiler',",
+        "                abi_libc_version = 'abi_libc',",
+        "                abi_version = 'banana',",
+        "                supports_gold_linker = True,",
+        "                supports_start_end_lib = True,",
+        "                tool_paths = [",
+        "                     tool_path(name = 'ar', path = '/some/path'),",
+        "                     tool_path(name = 'cpp', path = '/some/path'),",
+        "                     tool_path(name = 'gcc', path = '/some/path'),",
+        "                     tool_path(name = 'gcov', path = '/some/path'),",
+        "                     tool_path(name = 'gcovtool', path = '/some/path'),",
+        "                     tool_path(name = 'ld', path = '/some/path'),",
+        "                     tool_path(name = 'nm', path = '/some/path'),",
+        "                     tool_path(name = 'objcopy', path = '/some/path'),",
+        "                     tool_path(name = 'objdump', path = '/some/path'),",
+        "                     tool_path(name = 'strip', path = '/some/path'),",
+        "                     tool_path(name = 'dwp', path = '/some/path'),",
+        "                     tool_path(name = 'llvm_profdata', path = '/some/path'),",
+        "                ],",
+        "                cc_target_os = 'os',",
+        "                compiler_flags = ['flag1', 'flag2', 'flag3'],",
+        "                linker_flags = ['flag1'],",
+        "                compilation_mode_compiler_flags = {",
+        "                    'OPT' : ['flagopt'], 'FASTBUILD' : ['flagfast'] ",
+        "                },",
+        "                objcopy_embed_flags = ['flag1'],",
+        "                needs_pic = True,",
+        "                builtin_sysroot = 'sysroot')",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo],",
+        "    fragments = ['cpp']",
+        ")");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setAbiVersion("orange").buildPartial());
+
+    useConfiguration(
+        "--experimental_enable_cc_toolchain_config_info",
+        "--incompatible_disable_late_bound_option_defaults",
+        "--incompatible_disable_cc_configuration_make_variables");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider toolchainProvider =
+        (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
+
+    assertThat(toolchainProvider.getAbi()).isEqualTo("banana");
+    assertThat(toolchainProvider.getCcToolchainLabel().toString()).isEqualTo("//a:b");
+    assertThat(toolchainProvider.getFeatures().getActivatableNames())
+        .containsExactly("simple_action", "simple_feature");
+  }
+
+  @Test
+  public void testToolchainFromSkylarkRuleWithoutIncompatibleFlagsFlipped() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':crosstool_rule.bzl', 'cc_toolchain_config_rule')",
+        "cc_toolchain_config_rule(name = 'toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    cpu = 'banana',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    dynamic_runtime_libs = [':empty'],",
+        "    static_runtime_libs = [':empty'],",
+        "    toolchain_config = ':toolchain_config')");
+
+    scratch.file(
+        "a/crosstool_rule.bzl",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "       ctx = ctx,",
+        "       toolchain_identifier = 'toolchain',",
+        "       host_system_name = 'host',",
+        "       target_system_name = 'target',",
+        "       target_cpu = 'cpu',",
+        "       target_libc = 'libc',",
+        "       compiler = 'compiler',",
+        "       abi_libc_version = 'abi_libc',",
+        "       abi_version = 'banana',",
+        "    )",
+        "cc_toolchain_config_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo],",
+        "    fragments = ['cpp']",
+        ")");
+
+    getAnalysisMock()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            CrosstoolConfig.CToolchain.newBuilder().setAbiVersion("orange").buildPartial());
+
+    useConfiguration("--experimental_enable_cc_toolchain_config_info");
+    try {
+      getConfiguredTarget("//a:b");
+    } catch (AssertionError e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "--incompatible_disable_late_bound_option_defaults and "
+                  + "--incompatible_disable_cc_configuration_make_variables must be set to true in "
+                  + "order to configure the C++ toolchain from Starlark.");
+    }
   }
 
   @Test

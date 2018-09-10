@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -39,7 +39,6 @@ import javax.annotation.Nullable;
  * Configuration fragment for Android's config_feature_flag, flags which can be defined in BUILD
  * files.
  */
-@AutoCodec
 public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fragment {
   /**
    * A configuration fragment loader able to create instances of {@link
@@ -95,24 +94,14 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
   @Nullable private final String flagHash;
 
   /** Creates a new configuration fragment from the given {@link ConfigFeatureFlagOptions}. */
-  public ConfigFeatureFlagConfiguration(ConfigFeatureFlagOptions options) {
+  @VisibleForTesting
+  ConfigFeatureFlagConfiguration(ConfigFeatureFlagOptions options) {
     // TODO(mstaib): we'd love to only construct these when we're trimmed, but this is still what
     // the top level looks like - make constructing an untrimmed configuration an error when no
     // configurations are constructed untrimmed.
-    this(
-        options.getFlagValues(),
-        options.getKnownDefaultFlags().orElse(ImmutableSortedSet.of()),
-        options.enforceTransitiveConfigsForConfigFeatureFlag && options.isTrimmed());
-  }
-
-  @AutoCodec.Instantiator
-  ConfigFeatureFlagConfiguration(
-      ImmutableSortedMap<Label, String> flagValues,
-      ImmutableSortedSet<Label> knownDefaultFlags,
-      boolean isTrimmed) {
-    this.flagValues = flagValues;
-    this.knownDefaultFlags = knownDefaultFlags;
-    this.isTrimmed = isTrimmed;
+    this.flagValues = options.getFlagValues();
+    this.knownDefaultFlags = options.getKnownDefaultFlags().orElse(ImmutableSortedSet.of());
+    this.isTrimmed = options.enforceTransitiveConfigsForConfigFeatureFlag && options.isTrimmed();
     // We don't hash flags set to their default values; all valid configurations of a target have
     // the same set of known flags, so the set of flags set to something other than their default
     // values is enough to disambiguate configurations. Similarly, isTrimmed need not be hashed;

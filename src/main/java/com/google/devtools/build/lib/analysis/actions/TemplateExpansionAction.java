@@ -15,393 +15,37 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
-/**
- * Action to expand a template and write the expanded content to a file.
- */
+/** Action to expand a template and write the expanded content to a file. */
 @AutoCodec
 @Immutable // if all substitutions are immutable
-public final class TemplateExpansionAction extends AbstractFileWriteAction {
+public final class TemplateExpansionAction extends AbstractAction {
 
   private static final String GUID = "786c1fe0-dca8-407a-b108-e1ecd6d1bc7f";
 
-  /**
-   * A pair of a string to be substituted and a string to substitute it with.
-   * For simplicity, these are called key and value. All implementations must
-   * be immutable, and always return the identical key. The returned values
-   * must be the same, though they need not be the same object.
-   *
-   * <p>It should be assumed that the {@link #getKey} invocation is cheap, and
-   * that the {@link #getValue} invocation is expensive.
-   */
-  @Immutable // if the keys and values in the passed in lists and maps are all immutable
-  public abstract static class Substitution {
-    private Substitution() {
-    }
-
-    public abstract String getKey();
-    public abstract String getValue();
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class StringSubstitution extends Substitution {
-      private final String key;
-      private final String value;
-
-      @AutoCodec.VisibleForSerialization
-      @AutoCodec.Instantiator
-      StringSubstitution(String key, String value) {
-        this.key = key;
-        this.value = value;
-      }
-
-      @Override
-      public String getKey() {
-        return key;
-      }
-
-      @Override
-      public String getValue() {
-        return value;
-      }
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class ListSubstitution extends Substitution {
-      private final String key;
-      private final ImmutableList<?> value;
-
-      @AutoCodec.VisibleForSerialization
-      @AutoCodec.Instantiator
-      ListSubstitution(String key, ImmutableList<?> value) {
-        this.key = key;
-        this.value = value;
-      }
-
-      @Override
-      public String getKey() {
-        return key;
-      }
-
-      @Override
-      public String getValue() {
-        return Joiner.on(" ").join(value);
-      }
-    }
-    /**
-     * Returns an immutable Substitution instance for the given key and value.
-     */
-    public static Substitution of(final String key, final String value) {
-      return new StringSubstitution(key, value);
-    }
-
-    /**
-     * Returns an immutable Substitution instance for the key and list of values. The
-     * values will be joined by spaces before substitution.
-     */
-    public static Substitution ofSpaceSeparatedList(
-        final String key, final ImmutableList<?> value) {
-      return new ListSubstitution(key, value);
-    }
-
-    @Override
-    public boolean equals(Object object) {
-      if (this == object) {
-        return true;
-      }
-      if (object instanceof Substitution) {
-        Substitution substitution = (Substitution) object;
-        return substitution.getKey().equals(this.getKey())
-            && substitution.getValue().equals(this.getValue());
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(getKey(), getValue());
-    }
-
-    @Override
-    public String toString() {
-      return "Substitution(" + getKey() + " -> " + getValue() + ")";
-    }
-  }
-
-  /**
-   * A substitution with a fixed key, and a computed value. The computed value
-   * must not change over the lifetime of an instance, though the {@link
-   * #getValue} method may return different String objects.
-   *
-   * <p>It should be assumed that the {@link #getKey} invocation is cheap, and
-   * that the {@link #getValue} invocation is expensive.
-   */
-  public abstract static class ComputedSubstitution extends Substitution {
-    private final String key;
-
-    public ComputedSubstitution(String key) {
-      this.key = key;
-    }
-
-    @Override
-    public String getKey() {
-      return key;
-    }
-  }
-
-  /**
-   * Expands a fragment value.
-   *
-   * <p>This is slighly more memory efficient since it defers the expansion of the path fragment's
-   * string until requested. Often a template action is never executed, meaning the string is never
-   * needed.
-   */
-  @AutoCodec
-  public static final class PathFragmentSubstitution extends ComputedSubstitution {
-    private final PathFragment pathFragment;
-
-    public PathFragmentSubstitution(String key, PathFragment pathFragment) {
-      super(key);
-      this.pathFragment = pathFragment;
-    }
-
-    @Override
-    public String getValue() {
-      return pathFragment.getPathString();
-    }
-  }
-
-  /**
-   * Expands a label value to its canonical string value.
-   *
-   * <p>This is more memory efficient than directly using the {@Label#toString}, since that method
-   * constructs a new string every time it's called.
-   */
-  @AutoCodec
-  public static final class LabelSubstitution extends ComputedSubstitution {
-    private final Label label;
-
-    public LabelSubstitution(String key, Label label) {
-      super(key);
-      this.label = label;
-    }
-
-    @Override
-    public String getValue() {
-      return label.getCanonicalForm();
-    }
-  }
-
-  /**
-   * Expands a collection of artifacts to their short (root relative paths).
-   *
-   * <p>This is much more memory efficient than eagerly joining them into a string.
-   */
-  @AutoCodec
-  public static final class JoinedArtifactShortPathSubstitution extends ComputedSubstitution {
-    private final Iterable<Artifact> artifacts;
-    private final String joinStr;
-
-    public JoinedArtifactShortPathSubstitution(
-        String key, ImmutableList<Artifact> artifacts, String joinStr) {
-      this(key, (Iterable<Artifact>) artifacts, joinStr);
-    }
-
-    public JoinedArtifactShortPathSubstitution(
-        String key, NestedSet<Artifact> artifacts, String joinStr) {
-      this(key, (Iterable<Artifact>) artifacts, joinStr);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    JoinedArtifactShortPathSubstitution(String key, Iterable<Artifact> artifacts, String joinStr) {
-      super(key);
-      this.artifacts = artifacts;
-      this.joinStr = joinStr;
-    }
-
-    @Override
-    public String getValue() {
-      return StreamSupport.stream(artifacts.spliterator(), false)
-          .map(artifact -> artifact.getRootRelativePath().getPathString())
-          .collect(Collectors.joining(joinStr));
-    }
-  }
-
-  /**
-   * A template that contains text content, or alternatively throws an {@link
-   * IOException}.
-   */
-  @Immutable // all subclasses are immutable
-  public abstract static class Template {
-
-    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
-
-    /**
-     * We only allow subclasses in this file.
-     */
-    private Template() {
-    }
-
-    /**
-     * Returns the text content of the template.
-     */
-    protected abstract String getContent() throws IOException;
-
-    /**
-     * Returns a string that is used for the action key. This must change if
-     * the getContent method returns something different, but is not allowed to
-     * throw an exception.
-     */
-    protected abstract String getKey();
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class ErrorTemplate extends Template {
-      private final IOException e;
-      private final String templateName;
-
-      @AutoCodec.VisibleForSerialization
-      @AutoCodec.Instantiator
-      ErrorTemplate(IOException e, String templateName) {
-        this.e = e;
-        this.templateName = templateName;
-      }
-
-      @Override
-      protected String getContent() throws IOException {
-        throw new IOException(
-            "failed to load resource file '"
-                + templateName
-                + "' due to I/O error: "
-                + e.getMessage(),
-            e);
-      }
-
-      @Override
-      protected String getKey() {
-        return "ERROR: " + e.getMessage();
-      }
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class StringTemplate extends Template {
-      private final String templateText;
-
-      @AutoCodec.VisibleForSerialization
-      @AutoCodec.Instantiator
-      StringTemplate(String templateText) {
-        this.templateText = templateText;
-      }
-
-      @Override
-      protected String getContent() {
-        return templateText;
-      }
-
-      @Override
-      protected String getKey() {
-        return templateText;
-      }
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec
-    static final class ArtifactTemplate extends Template {
-      private final Artifact templateArtifact;
-
-      @AutoCodec.VisibleForSerialization
-      @AutoCodec.Instantiator
-      ArtifactTemplate(Artifact templateArtifact) {
-        this.templateArtifact = templateArtifact;
-      }
-
-      @Override
-      protected String getContent() throws IOException {
-        Path templatePath = templateArtifact.getPath();
-        try {
-          return FileSystemUtils.readContent(templatePath, DEFAULT_CHARSET);
-        } catch (IOException e) {
-          throw new IOException(
-              "failed to load template file '"
-                  + templatePath.getPathString()
-                  + "' due to I/O error: "
-                  + e.getMessage(),
-              e);
-        }
-      }
-
-      @Override
-      protected String getKey() {
-        // This isn't strictly necessary, because the action inputs are automatically considered.
-        return "ARTIFACT: " + templateArtifact.getExecPathString();
-      }
-    }
-    /**
-     * Loads a template from the given resource. The resource is looked up
-     * relative to the given class. If the resource cannot be loaded, the returned
-     * template throws an {@link IOException} when {@link #getContent} is
-     * called. This makes it safe to use this method in a constant initializer.
-     */
-    public static Template forResource(final Class<?> relativeToClass, final String templateName) {
-      try {
-        String content = ResourceFileLoader.loadResource(relativeToClass, templateName);
-        return forString(content);
-      } catch (final IOException e) {
-        return new ErrorTemplate(e, templateName);
-      }
-    }
-
-    /**
-     * Returns a template for the given text string.
-     */
-    public static Template forString(final String templateText) {
-      return new StringTemplate(templateText);
-    }
-
-    /**
-     * Returns a template that loads the given artifact. It is important that
-     * the artifact is also an input for the action, or this won't work.
-     * Therefore this method is private, and you should use the corresponding
-     * {@link TemplateExpansionAction} constructor.
-     */
-    private static Template forArtifact(final Artifact templateArtifact) {
-      return new ArtifactTemplate(templateArtifact);
-    }
-  }
-
   private final Template template;
   private final ImmutableList<Substitution> substitutions;
+  private final boolean makeExecutable;
 
   /**
    * Creates a new TemplateExpansionAction instance.
@@ -423,9 +67,10 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
       Template template,
       List<Substitution> substitutions,
       boolean makeExecutable) {
-    super(owner, inputs, primaryOutput, makeExecutable);
+    super(owner, inputs, ImmutableList.of(primaryOutput));
     this.template = template;
     this.substitutions = ImmutableList.copyOf(substitutions);
+    this.makeExecutable = makeExecutable;
   }
 
   /**
@@ -468,21 +113,10 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
     this(owner, Artifact.NO_ARTIFACTS, output, template, substitutions, makeExecutable);
   }
 
-  /**
-   * Expands the template by applying all substitutions.
-   * @param template
-   * @return the expanded text.
-   */
-  private String expandTemplate(String template) {
-    for (Substitution entry : substitutions) {
-      template = StringUtilities.replaceAllLiteral(template, entry.getKey(), entry.getValue());
-    }
-    return template;
-  }
-
   @VisibleForTesting
   public String getFileContents() throws IOException {
-    return expandTemplate(template.getContent());
+    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(this,
+        ArtifactPathResolver.IDENTITY);
   }
 
   @Override
@@ -491,9 +125,18 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
-    return new ByteStringDeterministicWriter(
-        ByteString.copyFrom(getFileContents().getBytes(Template.DEFAULT_CHARSET)));
+  public final ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    TemplateExpansionContext expansionContext =
+        actionExecutionContext.getContext(TemplateExpansionContext.class);
+    try {
+      return ActionResult.create(expansionContext.expandTemplate(this, actionExecutionContext));
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(
+          "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
+          actionExecutionContext.getVerboseFailures(),
+          this);
+    }
   }
 
   @Override
@@ -520,6 +163,14 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
 
   public List<Substitution> getSubstitutions() {
     return substitutions;
+  }
+
+  public Template getTemplate() {
+    return template;
+  }
+
+  public boolean makeExecutable() {
+    return makeExecutable;
   }
 
   @Override

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
@@ -34,7 +33,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Bazel-specific Python configuration. */
-@AutoCodec
 @Immutable
 public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
   /**
@@ -56,7 +54,6 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
   }
 
   /** Bazel-specific Python configuration options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
     @Option(
       name = "python2_path",
@@ -152,8 +149,7 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
 
   private final Options options;
 
-  @AutoCodec.Instantiator
-  BazelPythonConfiguration(Options options) {
+  private BazelPythonConfiguration(Options options) {
     this.options = options;
   }
 

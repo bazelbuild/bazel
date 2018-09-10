@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.remote.worker;
 
+import build.bazel.remote.execution.v2.BatchUpdateBlobsRequest;
+import build.bazel.remote.execution.v2.BatchUpdateBlobsResponse;
+import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
+import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
-import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsRequest;
-import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsResponse;
-import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
-import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
-import com.google.devtools.remoteexecution.v1test.UpdateBlobRequest;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
@@ -62,14 +61,14 @@ final class CasServer extends ContentAddressableStorageImplBase {
   public void batchUpdateBlobs(
       BatchUpdateBlobsRequest request, StreamObserver<BatchUpdateBlobsResponse> responseObserver) {
     BatchUpdateBlobsResponse.Builder batchResponse = BatchUpdateBlobsResponse.newBuilder();
-    for (UpdateBlobRequest r : request.getRequestsList()) {
+    for (BatchUpdateBlobsRequest.Request r : request.getRequestsList()) {
       BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
       try {
         Digest digest = cache.uploadBlob(r.getData().toByteArray());
-        if (!r.getContentDigest().equals(digest)) {
+        if (!r.getDigest().equals(digest)) {
           String err =
-              "Upload digest " + r.getContentDigest() + " did not match data digest: " + digest;
-          resp.setStatus(StatusUtils.invalidArgumentStatus("content_digest", err));
+              "Upload digest " + r.getDigest() + " did not match data digest: " + digest;
+          resp.setStatus(StatusUtils.invalidArgumentStatus("digest", err));
           continue;
         }
         resp.getStatusBuilder().setCode(Code.OK.getNumber());

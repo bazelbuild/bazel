@@ -54,11 +54,13 @@ cc_library(
     ],
     visibility = [
         ":ijar",
+        "//src/main/tools:__pkg__",
         "//src/test/cpp/util:__pkg__",
         "//src/tools/launcher:__subpackages__",
         "//src/tools/singlejar:__pkg__",
         "//third_party/def_parser:__pkg__",
         "//tools/cpp/runfiles:__pkg__",
+        "//tools/test:__pkg__",
     ],
     deps = [
         ":blaze_exit_code",
@@ -107,7 +109,10 @@ cc_library(
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],
     visibility = ["//visibility:public"],
-    deps = [":blaze_exit_code"],
+    deps = [
+        ":blaze_exit_code",
+        ":strings",
+    ],
 )
 
 cc_library(
@@ -142,6 +147,26 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [":blaze_exit_code"],
+)
+
+cc_library(
+    name = "profiler",
+    srcs = [
+        "profiler.cc",
+    ] + select({
+        "//src/conditions:windows": ["profiler_windows.cc"],
+        "//conditions:default": ["profiler_posix.cc"],
+    }),
+    hdrs = ["profiler.h"],
+    visibility = [
+        "//src/main/cpp:__pkg__",
+        "//src/test/cpp/util:__pkg__",
+    ],
+    deps = [
+        ":blaze_exit_code",
+        ":errors",
+        ":logging",
+    ],
 )
 
 cc_library(

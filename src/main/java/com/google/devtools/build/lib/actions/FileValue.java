@@ -49,7 +49,8 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public abstract class FileValue implements SkyValue {
-  public static final SkyFunctionName FILE = SkyFunctionName.create("FILE");
+  // Depends non-hermetically on package path.
+  public static final SkyFunctionName FILE = SkyFunctionName.createNonHermetic("FILE");
 
   /**
    * Exists to accommodate the control flow of {@link ActionMetadataHandler#getMetadata}.
@@ -97,7 +98,7 @@ public abstract class FileValue implements SkyValue {
 
   /**
    * Returns the real rooted path of the file, taking ancestor symlinks into account. For example,
-   * the rooted path ['root']/['a/b'] is really ['root']/['c/b'] if 'a' is a symlink to 'b'. Note
+   * the rooted path ['root']/['a/b'] is really ['root']/['c/b'] if 'a' is a symlink to 'c'. Note
    * that ancestor symlinks outside the root boundary are not taken into consideration.
    */
   public abstract RootedPath realRootedPath();

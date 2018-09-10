@@ -14,17 +14,13 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
+import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -58,33 +54,13 @@ class NodeEntryVisitor {
    * Function that allows this visitor to execute the appropriate {@link Runnable} when given a
    * {@link SkyKey} to evaluate.
    */
-  private final Function<SkyKey, Runnable> runnableMaker;
+  private final RunnableMaker runnableMaker;
 
   NodeEntryVisitor(
-      ForkJoinPool forkJoinPool,
+      QuiescingExecutor quiescingExecutor,
       DirtyTrackingProgressReceiver progressReceiver,
-      Function<SkyKey, Runnable> runnableMaker) {
-    this.quiescingExecutor = ForkJoinQuiescingExecutor.newBuilder()
-        .withOwnershipOf(forkJoinPool)
-        .setErrorClassifier(NODE_ENTRY_VISITOR_ERROR_CLASSIFIER)
-        .build();
-    this.progressReceiver = progressReceiver;
-    this.runnableMaker = runnableMaker;
-  }
-
-  NodeEntryVisitor(
-      int threadCount,
-      DirtyTrackingProgressReceiver progressReceiver,
-      Function<SkyKey, Runnable> runnableMaker) {
-    quiescingExecutor =
-        new AbstractQueueVisitor(
-            threadCount,
-            /*keepAliveTime=*/ 1,
-            TimeUnit.SECONDS,
-            /*failFastOnException*/ true,
-            "skyframe-evaluator",
-            AbstractQueueVisitor.EXECUTOR_FACTORY,
-            NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
+      RunnableMaker runnableMaker) {
+    this.quiescingExecutor = quiescingExecutor;
     this.progressReceiver = progressReceiver;
     this.runnableMaker = runnableMaker;
   }
@@ -93,7 +69,23 @@ class NodeEntryVisitor {
     quiescingExecutor.awaitQuiescence(/*interruptWorkers=*/ true);
   }
 
-  void enqueueEvaluation(SkyKey key) {
+  /**
+   * Enqueue {@code key} for evaluation, at {@code evaluationPriority} if this visitor is using a
+   * priority queue.
+   *
+   * <p>{@code evaluationPriority} is used to minimize evaluation "sprawl": inefficiencies coming
+   * from incompletely evaluating many nodes, versus focusing on finishing the evaluation of nodes
+   * that have already started evaluating. Sprawl can be expensive because an incompletely evaluated
+   * node keeps state in Skyframe, and often in external caches, that uses memory.
+   *
+   * <p>In general, {@code evaluationPriority} should be maximal ({@link Integer#MAX_VALUE}) when
+   * restarting a node that has already started evaluation, and minimal when enqueueing a node that
+   * no other tasks depend on. Setting {@code evaluationPriority} to the same value for all children
+   * of a parent has good results experimentally, since it prioritizes batches of work that can be
+   * used together. Similarly, prioritizing deeper nodes (depth-first search of the evaluation
+   * graph) also has good results experimentally, since it minimizes sprawl.
+   */
+  void enqueueEvaluation(SkyKey key, int evaluationPriority) {
     if (preventNewEvaluations.get()) {
       // If an error happens in nokeep_going mode, we still want to mark these nodes as inflight,
       // otherwise cleanup will not happen properly.
@@ -101,7 +93,7 @@ class NodeEntryVisitor {
       return;
     }
     progressReceiver.enqueueing(key);
-    quiescingExecutor.execute(runnableMaker.apply(key));
+    quiescingExecutor.execute(runnableMaker.make(key, evaluationPriority));
   }
 
   /**

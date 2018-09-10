@@ -181,9 +181,14 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
     doc = "Compiles Java source files/jars from the implementation of a Skylark rule and returns a "
       + "provider that represents the results of the compilation and can be added to the set of "
       + "providers emitted by this rule.",
-    // There is one mandatory positional: the Skylark rule context.
-    mandatoryPositionals = 1,
     parameters = {
+      @Param(
+          name = "ctx",
+          positional = true,
+          named = false,
+          type = SkylarkRuleContextApi.class,
+          doc = "The rule context."
+      ),
       @Param(
           name = "source_jars",
           positional = false,
@@ -304,7 +309,8 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
           type = Boolean.class,
           defaultValue = "False"
       )
-    }
+    },
+    useEnvironment = true
   )
   public JavaInfoT createJavaCompileAction(
       SkylarkRuleContextT skylarkRuleContext,
@@ -321,7 +327,8 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
       TransitiveInfoCollectionT hostJavabase,
       SkylarkList<FileT> sourcepathEntries,
       SkylarkList<FileT> resources,
-      Boolean neverlink) throws EvalException, InterruptedException;
+      Boolean neverlink,
+      Environment environment) throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "run_ijar",
@@ -473,9 +480,14 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
       name = "default_javac_opts",
       // This function is experimental for now.
       documented = false,
-      // There's only one mandatory positional,the Skylark context
-      mandatoryPositionals = 1,
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = SkylarkRuleContextApi.class,
+            doc = "The rule context."
+        ),
         @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
       })
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
@@ -486,8 +498,16 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
   @SkylarkCallable(
     name = "merge",
     doc = "Merges the given providers into a single JavaInfo.",
-    // We have one positional argument: the list of providers to merge.
-    mandatoryPositionals = 1
+    parameters = {
+      @Param(
+          name = "providers",
+          positional = true,
+          named = false,
+          type = SkylarkList.class,
+          generic1 = JavaInfoApi.class,
+          doc = "The list of providers to merge."
+      ),
+    }
   )
   public JavaInfoT mergeJavaProviders(SkylarkList<JavaInfoT> providers);
 
@@ -496,8 +516,15 @@ public interface JavaCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfo
     doc =
         "Returns a new Java provider whose direct-jars part is the union of both the direct and"
             + " indirect jars of the given Java provider.",
-    // There's only one mandatory positional, the Java provider.
-    mandatoryPositionals = 1
+    parameters = {
+      @Param(
+          name = "java_info",
+          positional = true,
+          named = false,
+          type = JavaInfoApi.class,
+          doc = "The java info."
+      ),
+    }
   )
   public JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 

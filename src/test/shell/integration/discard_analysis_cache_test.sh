@@ -65,6 +65,8 @@ function extract_histogram_count() {
 }
 
 function test_aspect_and_configured_target_cleared() {
+  # NestedSetCodec can hang on to objects.
+  export DONT_SANITY_CHECK_SERIALIZATION=1
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
 def _simple_aspect_impl(target, ctx):

@@ -20,6 +20,7 @@ title: User Manual
 
   Available commands:
     <a href='#analyze-profile'>analyze-profile</a>     Analyzes build profile data.
+    <a href='#aquery'>aquery</a>             Executes a query on the <a href='#analysis-phase'>post-analysis</a> action graph.
     <a href='#build'>build</a>               Builds the specified targets.
 
     <a href='#canonicalize'>canonicalize-flags</a>  Canonicalize Bazel flags.
@@ -134,41 +135,43 @@ title: User Manual
   Bazel allows you to specify options in a configuration file.
 </p>
 
-<h4>Where are <code>.bazelrc</code> files?</h4>
+
+<h4>Where are the <code>.bazelrc</code> files?</h4>
 <p>
   Bazel looks for an optional configuration file in the following locations,
-  in order. It will stop searching once it has successfully found a file.
+  in the order shown below. The options are interpreted in this order, so
+  options in later files can override a value from an earlier file if a
+  conflict arises. All options to control which of these files are loaded are
+  startup options, which means they much occur after <code>bazel</code> and
+  before the command (<code>build</code>, etc).
 </p>
 <ol>
   <li>
-    The path specified by the <code class='flag'>--bazelrc=<var>file</var></code>
-    startup option. If specified, this option must appear <em>before</em> the
-    command name (e.g. <code>build</code>)
+    Unless the <code class='flag'>--nosystem_rc</code> is present, Bazel looks for
+    the system .bazelrc file: on Unix, it lives at <code>/etc/bazel.bazelrc</code>,
+    and on Windows at <code>%%ProgramData%%/bazel.bazelrc</code>.
+
+    If another system-specified location is required, this value can be
+    changed by setting <code>BAZEL_SYSTEM_BAZELRC_PATH</code> in
+    <code>src/main/cpp:option_processor</code> and using this custom Bazel binary.
   </li>
   <li>
-    A file named <code>.bazelrc</code> in your base workspace directory
+    Unless the <code class='flag'>--noworkspace_rc</code> is present, Bazel looks
+    for the <code>.bazelrc</code> file in your workspace directory.
   </li>
   <li>
-    A file named <code>.bazelrc</code> in your home directory
+    Unless the <code class='flag'>--nohome_rc</code> is present, Bazel looks for
+    the home, or user, bazelrc: the file <code>.bazelrc</code> in your home
+    directory.
+  </li>
+  <li>
+    An additional .rc file can be specified by the
+    <code class='flag'>--bazelrc=<var>file</var></code> startup option. If this
+    option is not present, no additional file is loaded. Unlike in the three
+    default locations specified above, an incorrect path or non-existent file
+    will fail if passed explicitly.
   </li>
 </ol>
-<p>
-  The option <code class='flag'>--bazelrc=/dev/null</code> effectively disables the
-  use of a configuration file.  We strongly recommend that you use
-  this option when performing release builds, or automated tests that
-  invoke Bazel.
-</p>
-
-<p>
-  Aside from the optional configuration file described above, Bazel also looks
-  for a master rc file named <code>bazel.bazelrc</code> next to the binary, in
-  the workspace at <code>tools/bazel.rc</code> or system-wide at
-  <code>/etc/bazel.bazelrc</code>. These files are here to support
-  installation-wide options or options shared between users. These files do not
-  override one another; if all of these files exist, all of them will be loaded.
-  Reading of these files can be disabled using the
-  <code class='flag'>--nomaster_bazelrc</code> option.
-</p>
 <h4><code>.bazelrc</code> syntax and semantics</h4>
 <p>
   Like all UNIX "rc" files, the <code>.bazelrc</code> file is a text file with
@@ -262,16 +265,9 @@ title: User Manual
   with an underscore ('_') to avoid unintentional name sharing.
 </p>
 <p>
-  The expansion behavior for these <code>--config=foo</code> options has
-  changed. The legacy behavior, still the default, is to expand these in a
-  fixed point expansion after all default rc options are loaded. This is
-  unintuitive and has caused debugging difficulties in the past. The new
-  behavior is to expand <code>--config=foo</code> to the options it expands to
+  <code>--config=foo</code> expands to the options defined in the rc files
   "in-place" so that the options specified for the config have the same
-  precedence that the <code>--config=foo</code> option had. This is more
-  intuitive, and can be enabled using the startup flag
-  <code>--expand_configs_in_place</code>, which can be included in a bazelrc
-  file on a <code>startup</code> line.
+  precedence that the <code>--config=foo</code> option had.
 </p>
 
 <h5>Example</h5>
@@ -1079,11 +1075,6 @@ $ bazel fetch //...
 
 <h3>Options that affect how packages are located</h3>
 
-<p>
-  See also the <a href='#flag--show_package_location'><code class='flag'>--show_package_location</code></a>
-  option.
-</p>
-
 <h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
 <p>
   This option specifies the set of directories that are searched to
@@ -1781,31 +1772,22 @@ The default is <code>armeabi-v7a</code>.
 
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>label</var>)</code></h4>
 <p>
-  This option sets the <i>label</i> of the base Java installation to
-  use for running JavaBuilder, SingleJar, for <i>bazel run</i> and <i>bazel
-  test</i>, and for Java binaries built by <code>java_binary</code> and <code>java_test</code>
-  rules.
-  The various  <a href='be/make-variables.html'>"Make" variables</a> for
-  Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
-  <code>JAR</code>) are derived from this option.
+  This option sets the <i>label</i> of the base Java installation to use for <i>bazel run</i>,
+  <i>bazel test</i>, and for Java binaries built by <code>java_binary</code> and
+  <code>java_test</code> rules. The <code>JAVABASE</code> and <code>JAVA</code>
+  <a href='be/make-variables.html'>"Make" variables</a> are derived from this option.
 </p>
 
 <h4 id='flag--host_javabase'><code class='flag'>--host_javabase <var>label</var></code></h4>
 <p>
-  If not specified, bazel uses the value of <code class='flag'>--javabase</code>
-  in the host configuration, i.e., for Java-based tools that run during the build.
-  The main purpose of this flag is to enable cross-compilation.
+  This option sets the <i>label</i> of the base Java installation to use in the host configuration,
+  for example for host build tools including JavaBuilder and Singlejar.
 </p>
-
 <p>
   This does not select the Java compiler that is used to compile Java
   source files. The compiler can be selected by settings the
   <a href="#flag--java_toolchain"><code class='flag'>--java_toolchain</code></a>
   option.
-</p>
-<p>
-  This option should not be confused with the startup option
-  <a href='#startup_flag--host_javabase'>--host_javabase</a>.
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>
@@ -2347,6 +2329,12 @@ either to the terminal, or to additional log files.
   However some commands are implemented internally within Bazel, such as
   creating symlink trees. For these there's no command line to display.
 
+</p>
+
+<p>
+  <code class='flag'>--subcommands=pretty_print</code> may be passed to print
+  the arguments of the command as a list rather than as a single line. This may
+  help make long command lines more readable.
 </p>
 
 <p>
@@ -3077,6 +3065,30 @@ Examples:
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
 </pre>
 
+<h2 id='aquery'>Querying the action graph with Bazel</h2>
+
+<b>Caution</b>: The aquery command is still experimental and its API will change.
+
+<p>
+  The <code>aquery</code> command allows you to query for actions in your build graph.
+  It operates on the post-analysis configured target graph and exposes
+  information about actions, artifacts and their relationships.
+</p>
+
+<p>
+  The tool accepts several command-line options.
+  <code class='flag'>--output</code> selects the output format
+  (<code>proto</code> is the default, use <code>text</code> for human readable
+  output).
+  Notably, the aquery command runs on top of a regular Bazel build and inherits
+  the set of options available during a build.
+</p>
+
+<p>
+  It supports the same set of functions that is also available to traditional
+  <code>query</code> but <code>siblings</code>, <code>buildfiles</code> and
+  <code>tests</code>.
+</p>
 
 <h2 id='misc'>Miscellaneous Bazel commands and options</h2>
 
@@ -3186,7 +3198,7 @@ Examples:
   </li>
 
   <li><code>used-heap-size</code>,
-      <code>committed-size</code>,
+      <code>committed-heap-size</code>,
       <code>max-heap-size</code>: reports various JVM heap size
     parameters.  Respectively: memory currently used, memory currently
     guaranteed to be available to the JVM from the system, maximum
@@ -3592,20 +3604,27 @@ adb -s deadbeef install ...
   base) if there is a better location in your filesystem layout.
 </p>
 
-<h4 id='startup_flag--host_javabase'><code class='flag'>--host_javabase=<var>dir</var></code></h4>
+<a name="startup_flag--host_javabase"></a>
+<h4 id='startup_flag--server_javabase'><code class='flag'>--server_javabase=<var>dir</var></code></h4>
 <p>
   Specifies the Java virtual machine in which <i>Bazel itself</i> runs. The value must be a path to
   the directory containing a JDK or JRE. It should not be a label.
   This option should appear before any bazel command, and not be confused with the build option
-  <a href='#flag--host_javabase'>--host_javabase</a>, for example:
+  <a href='#flag--server_javabase'>--server_javabase</a>, for example:
 </p>
 <pre>
-  % bazel --host_javabase=/usr/local/buildtools/java/jdk9 build //foo
+  % bazel --server_javabase=/usr/local/buildtools/java/jdk9 build //foo
 </pre>
 <p>
   This flag does <i>not</i> affect the JVMs used by Bazel subprocesses such as applications, tests,
   tools, and so on. Use build options <a href='#flag--javabase'>--javabase</a> or
   <a href='#flag--host_javabase'>--host_javabase</a> instead.
+</p>
+<p>
+  This flag was previously named <code>--host_javabase</code> (sometimes referred to as the
+  'left-hand side' <code>--host_javabase</code>), but was renamed to avoid confusion with the
+  build flag <a href='#flag--host_javabase'>--host_javabase</a> (sometimes referred to as the
+  'right-hand side' <code>--host_javabase</code>).
 </p>
 
 <h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>
@@ -3864,9 +3883,8 @@ Bazel execution can result in following exit codes:
 <b>For <code>bazel run</code>:</b>
 <ul>
   <li><code>1</code> - Build failed.</li>
-  <li><code>6</code> - Run command failure. The executed subprocess returned a
-                       non-zero exit code. The actual subprocess exit code is
-                       given in stderr.</li>
+  <li>If the build succeeds but the executed subprocess returns a non-zero exit code it will be the
+    exit code of the command as well.</li>
 </ul>
 
 

@@ -91,7 +91,7 @@ def _jvm_import_external(repository_ctx):
         repository_ctx.attr.generated_linkable_rule_name):
         lines.extend(_serialize_given_rule_import(
             name = repository_ctx.attr.generated_linkable_rule_name,
-            additonal_rule_attrs = repository_ctx.attr.additional_rule_attrs,
+            additional_rule_attrs = repository_ctx.attr.additional_rule_attrs,
             attrs = repository_ctx.attr,
             import_attr = repository_ctx.attr.rule_metadata["import_attr"],
             path = path,

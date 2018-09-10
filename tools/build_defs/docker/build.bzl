@@ -41,6 +41,7 @@ load(
     _join_path = "join",
 )
 load(":serialize.bzl", _serialize_dict = "dict_to_associative_list")
+load("//third_party/bazel_skylib:lib.bzl", "collections")
 
 def _build_layer(ctx):
     """Build the current layer for appending it the base layer."""
@@ -533,7 +534,7 @@ def docker_build(**kwargs):
         if reserved in kwargs:
             fail("reserved for internal use by docker_build macro", attr = reserved)
     if "labels" in kwargs:
-        files = sorted(depset([v[1:] for v in kwargs["labels"].values() if v[0] == "@"]))
+        files = sorted(collections.uniq([v[1:] for v in kwargs["labels"].values() if v[0] == "@"]))
         kwargs["label_files"] = files
         kwargs["label_file_strings"] = files
     if "entrypoint" in kwargs:

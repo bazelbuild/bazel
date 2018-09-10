@@ -13,8 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-
+import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.OutputDirectory;
+import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.Tree;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -25,24 +34,16 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Command;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.Directory;
-import com.google.devtools.remoteexecution.v1test.DirectoryNode;
-import com.google.devtools.remoteexecution.v1test.FileNode;
-import com.google.devtools.remoteexecution.v1test.OutputDirectory;
-import com.google.devtools.remoteexecution.v1test.OutputFile;
-import com.google.devtools.remoteexecution.v1test.Tree;
-import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -66,6 +67,10 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   static {
     ((SettableFuture<Void>) COMPLETED_SUCCESS).set(null);
     ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
+  }
+
+  public static boolean causedByCacheMiss(RetryException t) {
+    return t.getCause() instanceof CacheNotFoundException;
   }
 
   protected final RemoteOptions options;
@@ -94,7 +99,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    * documented that it cannot be used for remote execution.
    */
   public abstract void ensureInputsPresent(
-      TreeNodeRepository repository, Path execRoot, TreeNode root, Command command)
+      TreeNodeRepository repository, Path execRoot, TreeNode root, Action action, Command command)
       throws IOException, InterruptedException;
 
   /**
@@ -116,6 +121,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
    */
   abstract void upload(
       DigestUtil.ActionKey actionKey,
+      Action action,
+      Command command,
       Path execRoot,
       Collection<Path> files,
       FileOutErr outErr,
@@ -170,68 +177,84 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
   // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
   public void download(ActionResult result, Path execRoot, FileOutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    try {
-      Context ctx = Context.current();
-      List<FuturePathBooleanTuple> fileDownloads =
-          Collections.synchronizedList(
-              new ArrayList<>(result.getOutputFilesCount() + result.getOutputDirectoriesCount()));
-      for (OutputFile file : result.getOutputFilesList()) {
-        Path path = execRoot.getRelative(file.getPath());
-        ListenableFuture<Void> download =
-            retrier.executeAsync(
-                () -> ctx.call(() -> downloadFile(path, file.getDigest(), file.getContent())));
-        fileDownloads.add(new FuturePathBooleanTuple(download, path, file.getIsExecutable()));
-      }
+    Context ctx = Context.current();
+    List<FuturePathBooleanTuple> fileDownloads =
+        Collections.synchronizedList(
+            new ArrayList<>(result.getOutputFilesCount() + result.getOutputDirectoriesCount()));
+    for (OutputFile file : result.getOutputFilesList()) {
+      Path path = execRoot.getRelative(file.getPath());
+      ListenableFuture<Void> download =
+          retrier.executeAsync(
+              () -> ctx.call(() -> downloadFile(path, file.getDigest())));
+      fileDownloads.add(new FuturePathBooleanTuple(download, path, file.getIsExecutable()));
+    }
 
-      List<ListenableFuture<Void>> dirDownloads =
-          new ArrayList<>(result.getOutputDirectoriesCount());
-      for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-        SettableFuture<Void> dirDownload = SettableFuture.create();
-        ListenableFuture<byte[]> protoDownload =
-            retrier.executeAsync(() -> ctx.call(() -> downloadBlob(dir.getTreeDigest())));
-        Futures.addCallback(
-            protoDownload,
-            new FutureCallback<byte[]>() {
-              @Override
-              public void onSuccess(byte[] b) {
-                try {
-                  Tree tree = Tree.parseFrom(b);
-                  Map<Digest, Directory> childrenMap = new HashMap<>();
-                  for (Directory child : tree.getChildrenList()) {
-                    childrenMap.put(digestUtil.compute(child), child);
-                  }
-                  Path path = execRoot.getRelative(dir.getPath());
-                  fileDownloads.addAll(downloadDirectory(path, tree.getRoot(), childrenMap, ctx));
-                  dirDownload.set(null);
-                } catch (IOException e) {
-                  dirDownload.setException(e);
+    List<ListenableFuture<Void>> dirDownloads = new ArrayList<>(result.getOutputDirectoriesCount());
+    for (OutputDirectory dir : result.getOutputDirectoriesList()) {
+      SettableFuture<Void> dirDownload = SettableFuture.create();
+      ListenableFuture<byte[]> protoDownload =
+          retrier.executeAsync(() -> ctx.call(() -> downloadBlob(dir.getTreeDigest())));
+      Futures.addCallback(
+          protoDownload,
+          new FutureCallback<byte[]>() {
+            @Override
+            public void onSuccess(byte[] b) {
+              try {
+                Tree tree = Tree.parseFrom(b);
+                Map<Digest, Directory> childrenMap = new HashMap<>();
+                for (Directory child : tree.getChildrenList()) {
+                  childrenMap.put(digestUtil.compute(child), child);
                 }
+                Path path = execRoot.getRelative(dir.getPath());
+                fileDownloads.addAll(downloadDirectory(path, tree.getRoot(), childrenMap, ctx));
+                dirDownload.set(null);
+              } catch (IOException e) {
+                dirDownload.setException(e);
               }
+            }
 
-              @Override
-              public void onFailure(Throwable t) {
-                dirDownload.setException(t);
-              }
-            },
-            MoreExecutors.directExecutor());
-        dirDownloads.add(dirDownload);
-      }
+            @Override
+            public void onFailure(Throwable t) {
+              dirDownload.setException(t);
+            }
+          },
+          MoreExecutors.directExecutor());
+      dirDownloads.add(dirDownload);
+    }
 
+    // Subsequently we need to wait for *every* download to finish, even if we already know that
+    // one failed. That's so that when exiting this method we can be sure that all downloads have
+    // finished and don't race with the cleanup routine.
+    // TODO(buchgr): Look into cancellation.
+
+    IOException downloadException = null;
+    try {
       fileDownloads.addAll(downloadOutErr(result, outErr, ctx));
-
-      for (ListenableFuture<Void> dirDownload : dirDownloads) {
-        // Block on all directory download futures, so that we can be sure that we have discovered
-        // all file downloads and can subsequently safely iterate over the list of file downloads.
+    } catch (IOException e) {
+      downloadException = e;
+    }
+    for (ListenableFuture<Void> dirDownload : dirDownloads) {
+      // Block on all directory download futures, so that we can be sure that we have discovered
+      // all file downloads and can subsequently safely iterate over the list of file downloads.
+      try {
         getFromFuture(dirDownload);
+      } catch (IOException e) {
+        downloadException = downloadException == null ? e : downloadException;
       }
+    }
 
-      for (FuturePathBooleanTuple download : fileDownloads) {
+    for (FuturePathBooleanTuple download : fileDownloads) {
+      try {
         getFromFuture(download.getFuture());
         if (download.getPath() != null) {
           download.getPath().setExecutable(download.isExecutable());
         }
+      } catch (IOException e) {
+        downloadException = downloadException == null ? e : downloadException;
       }
-    } catch (IOException downloadException) {
+    }
+
+    if (downloadException != null) {
       try {
         // Delete any (partially) downloaded output files, since any subsequent local execution
         // of this action may expect none of the output files to exist.
@@ -259,6 +282,11 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       }
       throw downloadException;
     }
+  }
+
+  @VisibleForTesting
+  protected <T> T getFromFuture(ListenableFuture<T> f) throws IOException, InterruptedException {
+    return Utils.getFromFuture(f);
   }
 
   /** Tuple of {@code ListenableFuture, Path, boolean}. */
@@ -303,7 +331,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       downloads.add(
           new FuturePathBooleanTuple(
               retrier.executeAsync(
-                  () -> ctx.call(() -> downloadFile(childPath, child.getDigest(), null))),
+                  () -> ctx.call(() -> downloadFile(childPath, child.getDigest()))),
               childPath,
               child.getIsExecutable()));
     }
@@ -328,23 +356,12 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     return downloads;
   }
 
-  /**
-   * Download a file (that is not a directory). If the {@code content} is not given, the content is
-   * fetched from the digest.
-   */
-  public ListenableFuture<Void> downloadFile(Path path, Digest digest, @Nullable ByteString content)
-      throws IOException {
+  /** Download a file (that is not a directory). The content is fetched from the digest. */
+  public ListenableFuture<Void> downloadFile(Path path, Digest digest) throws IOException {
     Preconditions.checkNotNull(path.getParentDirectory()).createDirectoryAndParents();
     if (digest.getSizeBytes() == 0) {
       // Handle empty file locally.
       FileSystemUtils.writeContent(path, new byte[0]);
-      return COMPLETED_SUCCESS;
-    }
-
-    if (content != null && !content.isEmpty()) {
-      try (OutputStream stream = path.getOutputStream()) {
-        content.writeTo(stream);
-      }
       return COMPLETED_SUCCESS;
     }
 
@@ -466,6 +483,19 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
       }
     }
 
+    /**
+     * Adds an action and command protos to upload. They need to be uploaded as part of the action
+     * result.
+     */
+    public void addAction(Action action, Command command) throws IOException {
+      for (byte[] blob : new byte[][]{action.toByteArray(), command.toByteArray()}) {
+        Digest digest = digestUtil.compute(blob);
+        Chunker chunker =
+            Chunker.builder(digestUtil).setInput(digest, blob).setChunkSize(blob.length).build();
+        digestToChunkers.put(digest, chunker);
+      }
+    }
+
     /** Map of digests to file paths to upload. */
     public Map<Digest, Path> getDigestToFile() {
       return digestToFile;
@@ -497,7 +527,8 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
 
       byte[] blob = tree.build().toByteArray();
       Digest digest = digestUtil.compute(blob);
-      Chunker chunker = new Chunker(blob, blob.length, digestUtil);
+      Chunker chunker =
+          Chunker.builder(digestUtil).setInput(digest, blob).setChunkSize(blob.length).build();
 
       if (result != null) {
         result

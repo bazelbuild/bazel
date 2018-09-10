@@ -31,6 +31,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -191,6 +192,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     switch (configurationDistinguisher) {
       case UNKNOWN:
         return String.format("%s-out/ios_%s-%s/", TestConstants.PRODUCT_NAME, arch, modeSegment);
+      case APPLE_CROSSTOOL:
+        return String.format("%1$s-out/apl-ios_%2$s%3$s-%4$s/",
+            TestConstants.PRODUCT_NAME,
+            arch,
+            minOsSegment,
+            modeSegment);
       case APPLEBIN_IOS:
         return String.format(
             "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
@@ -910,7 +917,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected Action actionProducingArtifact(String targetLabel,
       String artifactSuffix) throws Exception {
     ConfiguredTarget libraryTarget = getConfiguredTarget(targetLabel);
-    Label parsedLabel = Label.parseAbsolute(targetLabel);
+    Label parsedLabel = Label.parseAbsolute(targetLabel, ImmutableMap.of());
     Artifact linkedLibrary = getBinArtifact(
         parsedLabel.getName() + artifactSuffix,
         libraryTarget);
@@ -1398,7 +1405,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   private BinaryFileWriteAction plMergeAction(String binaryLabelString) throws Exception {
-    Label binaryLabel = Label.parseAbsolute(binaryLabelString);
+    Label binaryLabel = Label.parseAbsolute(binaryLabelString, ImmutableMap.of());
     ConfiguredTarget binary = getConfiguredTarget(binaryLabelString);
     return (BinaryFileWriteAction)
         getGeneratingAction(getBinArtifact(binaryLabel.getName()
@@ -2106,7 +2113,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void checkCustomModuleMap(RuleType ruleType, boolean targetUnderTestShouldPropagate)
       throws Exception {
     useConfiguration(
-        "--experimental_objc_enable_module_maps", "--incompatible_strict_objc_module_maps");
+        "--experimental_objc_enable_module_maps",
+        "--incompatible_strict_objc_module_maps");
     ruleType.scratchTarget(scratch, "deps", "['//z:a']");
     scratch.file("z/a.m");
     scratch.file("z/a.h");
@@ -2138,7 +2146,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
     String x8664Genfiles =
-        configurationGenfiles("x86_64", ConfigurationDistinguisher.UNKNOWN, null);
+        configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLE_CROSSTOOL, null);
 
     // The target with the module map should propagate it to its direct dependers...
     ObjcProvider provider = providerForTarget("//z:testModuleMap");

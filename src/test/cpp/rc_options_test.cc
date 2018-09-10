@@ -22,12 +22,14 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
 using std::string;
 using std::unordered_map;
 using std::vector;
+using ::testing::MatchesRegex;
 
 class RcOptionsTest : public ::testing::Test {
  protected:
@@ -86,8 +88,6 @@ class RcOptionsTest : public ::testing::Test {
   }
 };
 
-// Effectively empty file tests
-
 TEST_F(RcOptionsTest, Empty) {
   WriteRc("empty.bazelrc",
           "");
@@ -124,8 +124,6 @@ TEST_F(RcOptionsTest, StartupWithOnlyCommentedArg) {
   SuccessfullyParseRcWithExpectedArgs("startup_with_comment.bazelrc",
                                       no_expected_args);
 }
-
-// Single command tests - testing tokenization and accumulation of arguments.
 
 TEST_F(RcOptionsTest, SingleStartupArg) {
   WriteRc("startup_foo.bazelrc",
@@ -247,8 +245,6 @@ TEST_F(RcOptionsTest, ManyArgStartup) {
       }});
 }
 
-// Testing which commands different args belong to.
-
 TEST_F(RcOptionsTest, MultipleCommands) {
   WriteRc("multiple_commands_intermixed.bazelrc",
           "startup foo\n"
@@ -260,8 +256,6 @@ TEST_F(RcOptionsTest, MultipleCommands) {
       "multiple_commands_intermixed.bazelrc",
       {{"startup", {"foo", "bar", "baz"}}, {"build", {"aaa", "bbb", "ccc"}}});
 }
-
-// Successful import tests
 
 TEST_F(RcOptionsTest, SimpleImportFoo) {
   WriteRc("startup_foo.bazelrc",
@@ -295,9 +289,36 @@ TEST_F(RcOptionsTest, StartupBarThenImportFoo) {
       {{"startup", {"bar", "foo"}}});
 }
 
-// Consider making this an error, or at least a warning - most likely, import
-// diamonds like this are unintended, and they might lead to surprising doubled
-// values for allow_multiple options.
+TEST_F(RcOptionsTest, SimpleTryImportFoo) {
+  WriteRc("startup_foo.bazelrc", "startup foo");
+  WriteRc("import_simple.bazelrc",
+          "try-import %workspace%/startup_foo.bazelrc");
+  SuccessfullyParseRcWithExpectedArgs("import_simple.bazelrc",
+                                      {{"startup", {"foo"}}});
+}
+
+TEST_F(RcOptionsTest, ImportTryFooThenAddBar) {
+  WriteRc("startup_foo.bazelrc", "startup foo");
+  WriteRc("import_foo_then_bar.bazelrc",
+          "try-import %workspace%/startup_foo.bazelrc\n"
+          "startup bar");
+  SuccessfullyParseRcWithExpectedArgs("import_foo_then_bar.bazelrc",
+                                      {{"startup", {"foo", "bar"}}});
+}
+
+TEST_F(RcOptionsTest, StartupBarThenTryImportFoo) {
+  WriteRc("startup_foo.bazelrc", "startup foo");
+  WriteRc("bar_then_import_foo.bazelrc",
+          "startup bar\n"
+          "try-import %workspace%/startup_foo.bazelrc");
+  SuccessfullyParseRcWithExpectedArgs("bar_then_import_foo.bazelrc",
+                                      {{"startup", {"bar", "foo"}}});
+}
+
+// Most likely, import diamonds like this are unintended, and they might lead
+// to surprising doubled values for allow_multiple options. This causes a
+// warning in option_processor, which checks for duplicates across multiple rc
+// files.
 TEST_F(RcOptionsTest, ImportDiamond) {
   WriteRc("startup_foo.bazelrc",
           "startup foo");
@@ -315,7 +336,6 @@ TEST_F(RcOptionsTest, ImportDiamond) {
       {{"startup", {"foo", "bar", "bar", "foo"}}});
 }
 
-// Testing failure modes
 
 TEST_F(RcOptionsTest, ImportCycleFails) {
   WriteRc("import_cycle_1.bazelrc",
@@ -328,13 +348,12 @@ TEST_F(RcOptionsTest, ImportCycleFails) {
   std::unique_ptr<RcFile> rc =
       Parse("import_cycle_1.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::IMPORT_LOOP);
-  string expected_error;
-  blaze_util::StringPrintf(
-      &expected_error, "Import loop detected:\n  %s\n  %s\n  %s\n",
-      blaze_util::JoinPath(test_file_dir_, "import_cycle_1.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "import_cycle_2.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "import_cycle_1.bazelrc").c_str());
-  ASSERT_EQ(error_text, expected_error);
+  ASSERT_THAT(
+      error_text,
+      MatchesRegex("Import loop detected:\n"
+                   "  .*import_cycle_1.bazelrc\n"
+                   "  .*import_cycle_2.bazelrc\n"
+                   "  .*import_cycle_1.bazelrc\n"));
 }
 
 TEST_F(RcOptionsTest, LongImportCycleFails) {
@@ -356,18 +375,16 @@ TEST_F(RcOptionsTest, LongImportCycleFails) {
   std::unique_ptr<RcFile> rc =
       Parse("chain_to_cycle_1.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::IMPORT_LOOP);
-  string expected_error;
-  blaze_util::StringPrintf(
-      &expected_error,
-      "Import loop detected:\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n  %s\n",
-      blaze_util::JoinPath(test_file_dir_, "chain_to_cycle_1.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "chain_to_cycle_2.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "chain_to_cycle_3.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "chain_to_cycle_4.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "import_cycle_1.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "import_cycle_2.bazelrc").c_str(),
-      blaze_util::JoinPath(test_file_dir_, "import_cycle_1.bazelrc").c_str());
-  ASSERT_EQ(error_text, expected_error);
+  ASSERT_THAT(
+      error_text,
+      MatchesRegex("Import loop detected:\n"
+                   "  .*chain_to_cycle_1.bazelrc\n"
+                   "  .*chain_to_cycle_2.bazelrc\n"
+                   "  .*chain_to_cycle_3.bazelrc\n"
+                   "  .*chain_to_cycle_4.bazelrc\n"
+                   "  .*import_cycle_1.bazelrc\n"
+                   "  .*import_cycle_2.bazelrc\n"
+                   "  .*import_cycle_1.bazelrc\n"));
 }
 
 TEST_F(RcOptionsTest, FileDoesNotExist) {
@@ -375,11 +392,10 @@ TEST_F(RcOptionsTest, FileDoesNotExist) {
   string error_text;
   std::unique_ptr<RcFile> rc = Parse("not_a_file.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
-  string expected_error;
-  blaze_util::StringPrintf(
-      &expected_error, "Unexpected error reading .blazerc file '%s'",
-      blaze_util::JoinPath(test_file_dir_, "not_a_file.bazelrc").c_str());
-  ASSERT_EQ(error_text, expected_error);
+  ASSERT_THAT(
+      error_text,
+      MatchesRegex(
+          "Unexpected error reading .blazerc file '.*not_a_file.bazelrc'"));
 }
 
 TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
@@ -394,6 +410,14 @@ TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
   ASSERT_EQ(error_text, "Unexpected error reading .blazerc file 'somefile'");
 }
 
+TEST_F(RcOptionsTest, TryImportedFileDoesNotExist) {
+  WriteRc("try_import_fake_file.bazelrc", "try-import somefile");
+
+  unordered_map<string, vector<string>> no_expected_args;
+  SuccessfullyParseRcWithExpectedArgs("try_import_fake_file.bazelrc",
+                                      no_expected_args);
+}
+
 TEST_F(RcOptionsTest, ImportHasTooManyArgs) {
   WriteRc("bad_import.bazelrc",
           "import somefile bar");
@@ -402,14 +426,25 @@ TEST_F(RcOptionsTest, ImportHasTooManyArgs) {
   string error_text;
   std::unique_ptr<RcFile> rc = Parse("bad_import.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
+  ASSERT_THAT(
+      error_text,
+      MatchesRegex("Invalid import declaration in .blazerc file "
+                   "'.*bad_import.bazelrc': 'import somefile bar' \\(are you "
+                   "in your source checkout/WORKSPACE\\?\\)"));
+}
 
-  string expected_error;
-  blaze_util::StringPrintf(
-      &expected_error,
-      "Invalid import declaration in .blazerc file '%s': "
-      "'import somefile bar' (are you in your source checkout/WORKSPACE?)",
-      blaze_util::JoinPath(test_file_dir_, "bad_import.bazelrc").c_str());
-  ASSERT_EQ(error_text, expected_error);
+TEST_F(RcOptionsTest, TryImportHasTooManyArgs) {
+  WriteRc("bad_import.bazelrc", "try-import somefile bar");
+
+  RcFile::ParseError error;
+  string error_text;
+  std::unique_ptr<RcFile> rc = Parse("bad_import.bazelrc", &error, &error_text);
+  EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
+  ASSERT_THAT(
+      error_text,
+      MatchesRegex("Invalid import declaration in .blazerc file "
+                   "'.*bad_import.bazelrc': 'try-import somefile bar' \\(are "
+                   "you in your source checkout/WORKSPACE\\?\\)"));
 }
 
 // TODO(b/34811299) The tests below identify ways that '\' used as a line

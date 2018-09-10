@@ -87,10 +87,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathException;
-import javax.xml.xpath.XPathExpression;
-import javax.xml.xpath.XPathFactory;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -110,36 +106,40 @@ import org.xml.sax.SAXException;
  * Class responsible for searching through a Gradle built tree (after resource merging, compilation
  * and ProGuarding has been completed, but before final .apk assembly), which figures out which
  * resources if any are unused, and removes them.
+ *
  * <p>It does this by examining
+ *
  * <ul>
  *   <li>The merged manifest, to find root resource references (such as drawables used for activity
- *       icons)</li>
- *   <li>The R.txt file (to find the actual integer constants assigned to resources)</li>
- *   <li>The ProGuard log files (to find the mapping from original symbol names to short names)</li>
+ *       icons)
+ *   <li>The R.txt file (to find the actual integer constants assigned to resources)
+ *   <li>The ProGuard log files (to find the mapping from original symbol names to short names)
  *   <li>The merged resources (to find which resources reference other resources, e.g. drawable
  *       state lists including other drawables, or layouts including other layouts, or styles
- *       referencing other drawables, or menus items including action layouts, etc.)</li>
+ *       referencing other drawables, or menus items including action layouts, etc.)
  *   <li>The ProGuard output classes (to find resource references in code that are actually
- *       reachable)</li>
+ *       reachable)
  * </ul>
+ *
  * From all this, it builds up a reference graph, and based on the root references (e.g. from the
  * manifest and from the remaining code) it computes which resources are actually reachable in the
  * app, and anything that is not reachable is then marked for deletion.
+ *
  * <p>A resource is referenced in code if either the field R.type.name is referenced (which is the
  * case for non-final resource references, e.g. in libraries), or if the corresponding int value is
  * referenced (for final resource values). We check this by looking at the ProGuard output classes
- * with an ASM visitor. One complication is that code can also call
- * {@code Resources#getIdentifier(String,String,String)} where they can pass in the names of
- * resources to look up. To handle this scenario, we use the ClassVisitor to see if there are any
- * calls to the specific {@code Resources#getIdentifier} method. If not, great, the usage analysis
- * is completely accurate. If we <b>do</b> find one, we check <b>all</b> the string constants found
- * anywhere in the app, and look to see if any look relevant. For example, if we find the string
- * "string/foo" or "my.pkg:string/foo", we will then mark the string resource named foo (if any) as
- * potentially used. Similarly, if we find just "foo" or "/foo", we will mark <b>all</b> resources
- * named "foo" as potentially used. However, if the string is "bar/foo" or " foo " these strings are
- * ignored. This means we can potentially miss resources usages where the resource name is completed
- * computed (e.g. by concatenating individual characters or taking substrings of strings that do not
- * look like resource names), but that seems extremely unlikely to be a real-world scenario.
+ * with an ASM visitor. One complication is that code can also call {@code
+ * Resources#getIdentifier(String,String,String)} where they can pass in the names of resources to
+ * look up. To handle this scenario, we use the ClassVisitor to see if there are any calls to the
+ * specific {@code Resources#getIdentifier} method. If not, great, the usage analysis is completely
+ * accurate. If we <b>do</b> find one, we check <b>all</b> the string constants found anywhere in
+ * the app, and look to see if any look relevant. For example, if we find the string "string/foo" or
+ * "my.pkg:string/foo", we will then mark the string resource named foo (if any) as potentially
+ * used. Similarly, if we find just "foo" or "/foo", we will mark <b>all</b> resources named "foo"
+ * as potentially used. However, if the string is "bar/foo" or " foo " these strings are ignored.
+ * This means we can potentially miss resources usages where the resource name is completed computed
+ * (e.g. by concatenating individual characters or taking substrings of strings that do not look
+ * like resource names), but that seems extremely unlikely to be a real-world scenario.
  */
 public class ResourceUsageAnalyzer {
   private static final String ANDROID_RES = "android_res/";
@@ -155,10 +155,9 @@ public class ResourceUsageAnalyzer {
   private final Path mergedManifest;
   private final Path mergedResourceDir;
   private final Logger logger;
+  private final Map<String, ArrayList<Integer>> styleableToAttrs = Maps.newHashMap();
 
-  /**
-   * The computed set of unused resources
-   */
+  /** The computed set of unused resources */
   private List<Resource> unused;
   /**
    * Map from resource class owners (VM format class) to corresponding resource entries. This lets
@@ -179,7 +178,8 @@ public class ResourceUsageAnalyzer {
       @NonNull Path manifest,
       @Nullable Path mapping,
       @NonNull Path resources,
-      @Nullable Path logFile) throws DOMException, ParserConfigurationException {
+      @Nullable Path logFile)
+      throws DOMException, ParserConfigurationException {
     this.model = new ResourceShrinkerUsageModel();
     this.resourcePackages = resourcePackages;
     this.rTxt = rTxt;
@@ -194,11 +194,13 @@ public class ResourceUsageAnalyzer {
       try {
         FileHandler fileHandler = new FileHandler(logFile.toString());
         fileHandler.setLevel(Level.FINE);
-        fileHandler.setFormatter(new Formatter(){
-          @Override public String format(LogRecord record) {
-            return record.getMessage() + "\n";
-          }
-        });
+        fileHandler.setFormatter(
+            new Formatter() {
+              @Override
+              public String format(LogRecord record) {
+                return record.getMessage() + "\n";
+              }
+            });
         logger.addHandler(fileHandler);
       } catch (SecurityException | IOException e) {
         logger.warning(String.format("Unable to open '%s' to write log.", logFile));
@@ -206,8 +208,12 @@ public class ResourceUsageAnalyzer {
     }
   }
 
-  public void shrink(Path destinationDir) throws IOException,
-      ParserConfigurationException, SAXException {
+  protected ResourceShrinkerUsageModel model() {
+    return model;
+  }
+
+  public void shrink(Path destinationDir)
+      throws IOException, ParserConfigurationException, SAXException {
     parseResourceTxtFile(rTxt, resourcePackages);
     recordMapping(proguardMapping);
     recordClassUsages(classes);
@@ -231,8 +237,8 @@ public class ResourceUsageAnalyzer {
    * @throws ParserConfigurationException
    * @throws SAXException
    */
-  private void removeUnused(Path destination) throws IOException,
-      ParserConfigurationException, SAXException {
+  private void removeUnused(Path destination)
+      throws IOException, ParserConfigurationException, SAXException {
     assert unused != null; // should always call analyze() first
     int resourceCount = unused.size() * 4; // *4: account for some resource folder repetition
     Set<File> skip = Sets.newHashSetWithExpectedSize(resourceCount);
@@ -270,8 +276,8 @@ public class ResourceUsageAnalyzer {
       }
     }
     // Special case the base values.xml folder
-    File values = new File(mergedResourceDir.toFile(),
-        FD_RES_VALUES + File.separatorChar + "values.xml");
+    File values =
+        new File(mergedResourceDir.toFile(), FD_RES_VALUES + File.separatorChar + "values.xml");
     if (values.exists()) {
       rewrite.add(values);
     }
@@ -282,8 +288,8 @@ public class ResourceUsageAnalyzer {
     // accurately removed from public.xml, but the definitions may be deleted if they occur in
     // other files. IDs should be added to values.xml so that there are no declarations in
     // public.xml without definitions.
-    File publicXml = new File(mergedResourceDir.toFile(),
-        FD_RES_VALUES + File.separatorChar + "public.xml");
+    File publicXml =
+        new File(mergedResourceDir.toFile(), FD_RES_VALUES + File.separatorChar + "public.xml");
     createStubIds(values, rewritten, publicXml);
 
     trimPublicResources(publicXml, deleted, rewritten);
@@ -291,9 +297,7 @@ public class ResourceUsageAnalyzer {
     filteredCopy(mergedResourceDir.toFile(), destination, skip, rewritten);
   }
 
-  /**
-   * Deletes unused resources from value XML files.
-   */
+  /** Deletes unused resources from value XML files. */
   private void rewriteXml(Set<File> rewrite, Map<File, String> rewritten, Set<Resource> deleted)
       throws IOException, ParserConfigurationException, SAXException {
     // Delete value resources: Must rewrite the XML files
@@ -305,23 +309,28 @@ public class ResourceUsageAnalyzer {
         List<Resource> removed = Lists.newArrayList();
         stripUnused(root, removed);
         deleted.addAll(removed);
-        logger.fine(String.format("Removed %d unused resources from %s:\n  %s",
-            removed.size(), file,
-            Joiner.on(", ").join(Lists.transform(removed, new Function<Resource, String>() {
-              @Override
-              public String apply(Resource resource) {
-                return resource.getUrl();
-              }
-            }))));
+        logger.fine(
+            String.format(
+                "Removed %d unused resources from %s:\n  %s",
+                removed.size(),
+                file,
+                Joiner.on(", ")
+                    .join(
+                        Lists.transform(
+                            removed,
+                            new Function<Resource, String>() {
+                              @Override
+                              public String apply(Resource resource) {
+                                return resource.getUrl();
+                              }
+                            }))));
         String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
         rewritten.put(file, formatted);
       }
     }
   }
 
-  /**
-   * Write stub values for IDs to values.xml to match those available in public.xml.
-   */
+  /** Write stub values for IDs to values.xml to match those available in public.xml. */
   private void createStubIds(File values, Map<File, String> rewritten, File publicXml)
       throws IOException, ParserConfigurationException, SAXException {
     if (values.exists()) {
@@ -333,18 +342,25 @@ public class ResourceUsageAnalyzer {
       Document document = XmlUtils.parseDocument(xml, true);
       Element root = document.getDocumentElement();
       for (Resource resource : model.getResources()) {
-        boolean inPublicXml = resource.declarations != null
-            && resource.declarations.contains(publicXml);
-        NodeList existing = null;
-        try {
-          XPathExpression expr = XPathFactory.newInstance().newXPath().compile(
-              String.format("//item[@type=\"id\"][@name=\"%s\"]", resource.name));
-          existing = (NodeList) expr.evaluate(document, XPathConstants.NODESET);
-        } catch (XPathException e) {
-          // Failed to retrieve any existing declarations for resource.
+        boolean inPublicXml =
+            resource.declarations != null && resource.declarations.contains(publicXml);
+        if (resource.type != ResourceType.ID || !inPublicXml) {
+          continue;
         }
-        if (resource.type == ResourceType.ID && inPublicXml
-            && (existing == null || existing.getLength() == 0)) {
+        boolean exists = false;
+        NodeList items = document.getElementsByTagName("item");
+        for (int i = 0; i < items.getLength(); i++) {
+          Node item = items.item(i);
+          if (item.getAttributes() != null
+              && item.getAttributes().getNamedItem("type") != null
+              && item.getAttributes().getNamedItem("type").getNodeValue().equals("id")
+              && item.getAttributes().getNamedItem("name") != null
+              && item.getAttributes().getNamedItem("name").getNodeValue().equals(resource.name)) {
+            exists = true;
+            break;
+          }
+        }
+        if (!exists) {
           Element item = document.createElement(TAG_ITEM);
           item.setAttribute(ATTR_TYPE, resource.type.getName());
           item.setAttribute(ATTR_NAME, resource.name);
@@ -352,18 +368,17 @@ public class ResourceUsageAnalyzer {
           stubbed.add(resource.getUrl());
         }
       }
-      logger.fine("Created " + stubbed.size() + " stub IDs for:\n  "
-          + Joiner.on(", ").join(stubbed));
+      logger.fine(
+          "Created " + stubbed.size() + " stub IDs for:\n  " + Joiner.on(", ").join(stubbed));
       String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
       rewritten.put(values, formatted);
     }
   }
 
-  /**
-   * Remove public definitions of unused resources.
-   */
-  private void trimPublicResources(File publicXml, Set<Resource> deleted,
-      Map<File, String> rewritten) throws IOException, ParserConfigurationException, SAXException {
+  /** Remove public definitions of unused resources. */
+  private void trimPublicResources(
+      File publicXml, Set<Resource> deleted, Map<File, String> rewritten)
+      throws IOException, ParserConfigurationException, SAXException {
     if (publicXml.exists()) {
       String xml = rewritten.get(publicXml);
       if (xml == null) {
@@ -397,8 +412,8 @@ public class ResourceUsageAnalyzer {
    * Copies one resource directory tree into another; skipping some files, replacing the contents of
    * some, and passing everything else through unmodified
    */
-  private static void filteredCopy(File source, Path destination, Set<File> skip,
-      Map<File, String> replace) throws IOException {
+  private static void filteredCopy(
+      File source, Path destination, Set<File> skip, Map<File, String> replace) throws IOException {
 
     File destinationFile = destination.toFile();
     if (source.isDirectory()) {
@@ -432,8 +447,7 @@ public class ResourceUsageAnalyzer {
     }
     Resource resource = model.getResource(element);
     if (resource != null) {
-      if (resource.type == ResourceType.DECLARE_STYLEABLE
-          || resource.type == ResourceType.ATTR) {
+      if (resource.type == ResourceType.DECLARE_STYLEABLE || resource.type == ResourceType.ATTR) {
         // Don't strip children of declare-styleable; we're not correctly
         // tracking field references of the R_styleable_attr fields yet
         return;
@@ -463,11 +477,11 @@ public class ResourceUsageAnalyzer {
     }
   }
 
-  private void dumpReferences() {
+  protected void dumpReferences() {
     logger.fine(model.dumpReferences());
   }
 
-  private void keepPossiblyReferencedResources() {
+  protected void keepPossiblyReferencedResources() {
     if ((!foundGetIdentifier && !foundWebContent) || strings == null) {
       // No calls to android.content.res.Resources#getIdentifier; no need
       // to worry about string references to resources
@@ -480,8 +494,7 @@ public class ResourceUsageAnalyzer {
     }
     List<String> sortedStrings = new ArrayList<String>(strings);
     Collections.sort(sortedStrings);
-    logger.fine(
-        "android.content.res.Resources#getIdentifier present: " + foundGetIdentifier);
+    logger.fine("android.content.res.Resources#getIdentifier present: " + foundGetIdentifier);
     logger.fine("Web content present: " + foundWebContent);
     logger.fine("Referenced Strings:");
     for (String string : sortedStrings) {
@@ -521,7 +534,12 @@ public class ResourceUsageAnalyzer {
       if (foundWebContent) {
         Resource resource = model.getResourceFromFilePath(string);
         if (resource != null) {
-          ResourceUsageModel.markReachable(resource);
+          if (ResourceUsageModel.markReachable(resource)) {
+            logger.warning(
+                String.format(
+                    "Marking %s used because it matches resource with file path %s",
+                    resource, string));
+          }
           continue;
         } else {
           int start = 0;
@@ -534,12 +552,12 @@ public class ResourceUsageAnalyzer {
           if (names.contains(name)) {
             for (Map<String, Resource> map : model.getResourceMaps()) {
               resource = map.get(name);
-              if (resource != null) {
-                logger.fine(String.format(
-                    "Marking %s used because it matches string pool constant %s",
-                    resource, string));
+              if (ResourceUsageModel.markReachable(resource)) {
+                logger.fine(
+                    String.format(
+                        "Marking %s used because it matches string pool constant %s",
+                        resource, string));
               }
-              ResourceUsageModel.markReachable(resource);
             }
           }
         }
@@ -574,10 +592,12 @@ public class ResourceUsageAnalyzer {
         // getResources().getIdentifier("ic_video_codec_" + codecName, "drawable", ...)
         for (Resource resource : model.getResources()) {
           if (resource.name.startsWith(name)) {
-            logger.fine(String.format(
-                "Marking %s used because its prefix matches string pool constant %s",
-                resource, string));
-            ResourceUsageModel.markReachable(resource);
+            if (ResourceUsageModel.markReachable(resource)) {
+              logger.fine(
+                  String.format(
+                      "Marking %s used because its prefix matches string pool constant %s",
+                      resource, string));
+            }
           }
         }
       } else if (!haveSlash) {
@@ -589,10 +609,12 @@ public class ResourceUsageAnalyzer {
             Pattern pattern = Pattern.compile(convertFormatStringToRegexp(string));
             for (Resource resource : model.getResources()) {
               if (pattern.matcher(resource.name).matches()) {
-                logger.fine(String.format(
-                    "Marking %s used because it format-string matches string pool constant %s",
-                    resource, string));
-                ResourceUsageModel.markReachable(resource);
+                if (ResourceUsageModel.markReachable(resource)) {
+                  logger.fine(
+                      String.format(
+                          "Marking %s used because it format-string matches string pool constant %s",
+                          resource, string));
+                }
               }
             }
           } catch (PatternSyntaxException ignored) {
@@ -620,12 +642,12 @@ public class ResourceUsageAnalyzer {
             continue;
           }
           Resource resource = model.getResource(type, name);
-          if (resource != null) {
-            logger.fine(String.format(
-                "Marking %s used because it matches string pool constant %s",
-                resource, string));
+          if (ResourceUsageModel.markReachable(resource)) {
+            logger.fine(
+                String.format(
+                    "Marking %s used because it matches string pool constant %s",
+                    resource, string));
           }
-          ResourceUsageModel.markReachable(resource);
           continue;
         }
         // fall through and check the name
@@ -633,12 +655,12 @@ public class ResourceUsageAnalyzer {
       if (names.contains(name)) {
         for (Map<String, Resource> map : model.getResourceMaps()) {
           Resource resource = map.get(name);
-          if (resource != null) {
-            logger.fine(String.format(
-                "Marking %s used because it matches string pool constant %s",
-                resource, string));
+          if (ResourceUsageModel.markReachable(resource)) {
+            logger.fine(
+                String.format(
+                    "Marking %s used because it matches string pool constant %s",
+                    resource, string));
           }
-          ResourceUsageModel.markReachable(resource);
         }
       } else if (Character.isDigit(name.charAt(0))) {
         // Just a number? There are cases where it calls getIdentifier by
@@ -648,7 +670,11 @@ public class ResourceUsageAnalyzer {
         try {
           int id = Integer.parseInt(name);
           if (id != 0) {
-            ResourceUsageModel.markReachable(model.getResource(id));
+            Resource resource = model.getResource(id);
+            if (ResourceUsageModel.markReachable(resource)) {
+              logger.fine(
+                  String.format("Marking %s used because it has a matching id %s", resource, name));
+            }
           }
         } catch (NumberFormatException e) {
           // pass
@@ -887,7 +913,7 @@ public class ResourceUsageAnalyzer {
     }
   }
 
-  private void recordClassUsages(Path file) throws IOException {
+  protected void recordClassUsages(Path file) throws IOException {
     if (file.toFile().isDirectory()) {
       File[] children = file.toFile().listFiles();
       if (children != null) {
@@ -954,6 +980,26 @@ public class ResourceUsageAnalyzer {
       }
       if (type == ResourceType.STYLEABLE) {
         if (tokens[0].equals("int[]")) {
+          ArrayList<Integer> values = new ArrayList<>();
+          for (int i = 4; ; ++i) { // skip tokens "int[] identifier = {"
+            String token = tokens[i];
+            if (token.equals("}")) {
+              // empty set?
+              break;
+            }
+
+            if (token.endsWith(",")) {
+              // strip trailing comma
+              token = token.substring(0, token.length() - 1);
+              values.add(Integer.decode(token));
+            } else {
+              values.add(Integer.decode(token));
+              // no comma means that this is the last value
+              break;
+            }
+          }
+
+          styleableToAttrs.put(tokens[2], values);
           model.addResource(ResourceType.DECLARE_STYLEABLE, tokens[2], null);
         } else {
           // TODO(jongerrish): Implement stripping of styleables.
@@ -1015,7 +1061,7 @@ public class ResourceUsageAnalyzer {
     private final String currentClass;
 
     public UsageVisitor(File jarFile, String name) {
-      super(Opcodes.ASM5);
+      super(Opcodes.ASM6);
       this.jarFile = jarFile;
       currentClass = name;
     }
@@ -1023,7 +1069,7 @@ public class ResourceUsageAnalyzer {
     @Override
     public MethodVisitor visitMethod(
         int access, final String name, String desc, String signature, String[] exceptions) {
-      return new MethodVisitor(Opcodes.ASM5) {
+      return new MethodVisitor(Opcodes.ASM6) {
         @Override
         public void visitLdcInsn(Object cst) {
           handleCodeConstant(cst, "ldc");
@@ -1033,8 +1079,11 @@ public class ResourceUsageAnalyzer {
         public void visitFieldInsn(int opcode, String owner, String name, String desc) {
           if (opcode == Opcodes.GETSTATIC) {
             Resource resource = getResourceFromCode(owner, name);
-            if (resource != null) {
-              ResourceUsageModel.markReachable(resource);
+            if (ResourceUsageModel.markReachable(resource)) {
+              logger.fine(
+                  String.format(
+                      "Marking %s used because it matches GETSTATIC instruction coming from %s (%s)",
+                      resource, owner, name));
             }
           }
         }
@@ -1046,8 +1095,7 @@ public class ResourceUsageAnalyzer {
           if (owner.equals("android/content/res/Resources")
               && name.equals("getIdentifier")
               && desc.equals("(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I")) {
-            if (currentClass.equals(resourcesWrapper)
-                || currentClass.equals(suggestionsAdapter)) {
+            if (currentClass.equals(resourcesWrapper) || currentClass.equals(suggestionsAdapter)) {
               // "benign" usages: don't trigger reflection mode just because
               // the user has included appcompat
               return;
@@ -1089,7 +1137,7 @@ public class ResourceUsageAnalyzer {
     public FieldVisitor visitField(
         int access, String name, String desc, String signature, Object value) {
       handleCodeConstant(value, "field");
-      return new FieldVisitor(Opcodes.ASM5) {
+      return new FieldVisitor(Opcodes.ASM6) {
         @Override
         public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
           return new AnnotationUsageVisitor();
@@ -1099,7 +1147,7 @@ public class ResourceUsageAnalyzer {
 
     private class AnnotationUsageVisitor extends AnnotationVisitor {
       public AnnotationUsageVisitor() {
-        super(Opcodes.ASM5);
+        super(Opcodes.ASM6);
       }
 
       @Override
@@ -1124,16 +1172,20 @@ public class ResourceUsageAnalyzer {
         Integer value = (Integer) cst;
         Resource resource = model.getResource(value);
         if (ResourceUsageModel.markReachable(resource)) {
-          logger.fine(String.format("Marking %s reachable: referenced from %s in %s:%s",
-              resource, context, jarFile, currentClass));
+          logger.fine(
+              String.format(
+                  "Marking %s reachable: referenced from %s in %s:%s",
+                  resource, context, jarFile, currentClass));
         }
       } else if (cst instanceof int[]) {
         int[] values = (int[]) cst;
         for (int value : values) {
           Resource resource = model.getResource(value);
           if (ResourceUsageModel.markReachable(resource)) {
-            logger.fine(String.format("Marking %s reachable: referenced from %s in %s:%s",
-                resource, context, jarFile, currentClass));
+            logger.fine(
+                String.format(
+                    "Marking %s reachable: referenced from %s in %s:%s",
+                    resource, context, jarFile, currentClass));
           }
         }
       } else if (cst instanceof String) {
@@ -1143,12 +1195,15 @@ public class ResourceUsageAnalyzer {
     }
   }
 
-  private class ResourceShrinkerUsageModel extends ResourceUsageModel {
+  protected class ResourceShrinkerUsageModel extends ResourceUsageModel {
     public File file;
 
     private ResourceShrinkerUsageModel() throws DOMException, ParserConfigurationException {
-      Attr attr = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument()
-          .createAttributeNS(SdkConstants.TOOLS_URI, SdkConstants.ATTR_SHRINK_MODE);
+      Attr attr =
+          DocumentBuilderFactory.newInstance()
+              .newDocumentBuilder()
+              .newDocument()
+              .createAttributeNS(SdkConstants.TOOLS_URI, SdkConstants.ATTR_SHRINK_MODE);
       attr.setValue(SdkConstants.VALUE_STRICT);
       super.recordToolsAttributes(attr);
     }
@@ -1179,9 +1234,9 @@ public class ResourceUsageAnalyzer {
       if (isPublic(element)) {
         ResourceType type = getTypeFromPublic(element);
         if (type != null) {
-            String name = getFieldName(element);
-            Resource resource = getResource(type, name);
-            return resource;
+          String name = getFieldName(element);
+          Resource resource = getResource(type, name);
+          return resource;
         }
         return null;
       } else {
@@ -1202,7 +1257,7 @@ public class ResourceUsageAnalyzer {
     }
 
     @Nullable
-    Resource getResourceFromUrl(@NonNull String possibleUrlReference) {
+    public Resource getResourceFromUrl(@NonNull String possibleUrlReference) {
       ResourceUrl url = ResourceUrl.parse(possibleUrlReference);
       if (url != null && !url.framework) {
         return addResource(url.type, LintUtils.getFieldName(url.name), null);
@@ -1348,13 +1403,10 @@ public class ResourceUsageAnalyzer {
               String parent = element.getAttribute(ATTR_PARENT);
               // Fix (see method comment): don't treat empty parent tag the same as extending
               // builtin theme.
-              if (parent.startsWith(ANDROID_STYLE_RESOURCE_PREFIX)
-                  || parent.startsWith(PREFIX_ANDROID)) {
-                // Extending a builtin theme: treat these as used
-                if (definition != null) {
-                  markReachable(definition);
-                }
-              } else if (!parent.isEmpty()) {
+              // Fix (see method comment): don't mark styles with builtin parents as reachable.
+              if (!parent.isEmpty()
+                  && !parent.startsWith(ANDROID_STYLE_RESOURCE_PREFIX)
+                  && !parent.startsWith(PREFIX_ANDROID)) {
                 String parentStyle = parent;
                 if (!parentStyle.startsWith(STYLE_RESOURCE_PREFIX)) {
                   // Fix (see method comment): allow parent references to start with 'style/'
@@ -1368,7 +1420,7 @@ public class ResourceUsageAnalyzer {
                   }
                 }
                 Resource ps = getResourceFromUrl(LintUtils.getFieldName(parentStyle));
-                if (ps != null && definition != null) {
+                if (definition != null) {
                   // Fix (see method comment): don't create parent to child reference.
                   definition.addReference(ps);
                 }
@@ -1382,7 +1434,7 @@ public class ResourceUsageAnalyzer {
                   name = name.substring(0, index);
                   Resource ps =
                       getResourceFromUrl(STYLE_RESOURCE_PREFIX + LintUtils.getFieldName(name));
-                  if (ps != null && definition != null) {
+                  if (definition != null) {
                     // Fix (see method comment): don't create parent to child reference.
                     definition.addReference(ps);
                   }
@@ -1416,7 +1468,7 @@ public class ResourceUsageAnalyzer {
         String text = node.getNodeValue().trim();
         // Why are we calling getFieldName here? That doesn't make sense! for styles I guess
         Resource textResource = getResourceFromUrl(LintUtils.getFieldName(text));
-        if (textResource != null && from != null) {
+        if (from != null) {
           from.addReference(textResource);
         }
       }

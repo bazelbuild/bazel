@@ -97,18 +97,13 @@ java_binary(
 )
 
 gen_java_lang_extras_jar_cmd = """
-    for jar in $(locations @local_jdk//:bootclasspath); do
-      if [[ "$${jar}" == *"/rt.jar" ]]; then
-        $(location %s) \
-            --exclude_build_data \
-            --dont_change_compression \
-            --sources $${jar} \
-            --include_prefixes "java/lang/invoke/" \
-            --include_prefixes "java/lang/annotation/" \
-            --output $@
-        break
-      fi
-    done
+    $(location %s) \
+        --exclude_build_data \
+        --dont_change_compression \
+        --sources  $(location @bazel_tools//tools/jdk:platformclasspath8) \
+        --include_prefixes "java/lang/invoke/" \
+        --include_prefixes "java/lang/annotation/" \
+        --output $@
     """
 
 # javac needs this Jar to compile lambdas, method references, and type annotations.
@@ -116,7 +111,7 @@ gen_java_lang_extras_jar_cmd = """
 genrule(
     name = "gen_java_lang_extras_jar",
     srcs = [
-        "@local_jdk//:bootclasspath"
+        "@bazel_tools//tools/jdk:platformclasspath8"
     ],
     tools = select({
         "//src/conditions:windows": [":singlejar_javabin"],
@@ -178,15 +173,10 @@ genrule(
     srcs = ["desugar_jdk_libs.jar"],
     outs = ["desugared_java8_legacy_libs.jar"],
     cmd = """
-    classpath=()
-    for j in $(locations //tools/jdk:bootclasspath); do
-      classpath+=("--classpath_entry")
-      classpath+=("$${j}")
-    done
     $(location :desugar_java8) \
         --input $< \
         --output $@ \
-        "$${classpath[@]}" \
+        --classpath_entry "$(location @bazel_tools//tools/jdk:platformclasspath8)" \
         --core_library --allow_empty_bootclasspath \
         --nobest_effort_tolerate_missing_deps \
         --noemit_dependency_metadata_as_needed \
@@ -199,12 +189,10 @@ genrule(
         --rewrite_core_library_prefix java/time/ \
         --rewrite_core_library_prefix java/util/stream/ \
         --rewrite_core_library_prefix java/util/function/ \
-        --rewrite_core_library_prefix java/util/Arrays8 \
         --rewrite_core_library_prefix java/util/Comparators \
-        --rewrite_core_library_prefix java/util/Date8 \
+        --rewrite_core_library_prefix java/util/Desugar \
         --rewrite_core_library_prefix java/util/DoubleSummaryStatistics \
         --rewrite_core_library_prefix java/util/IntSummaryStatistics \
-        --rewrite_core_library_prefix java/util/LinkedHashSet8 \
         --rewrite_core_library_prefix java/util/LongSummaryStatistics \
         --rewrite_core_library_prefix java/util/Objects \
         --rewrite_core_library_prefix java/util/Optional \
@@ -212,11 +200,11 @@ genrule(
         --rewrite_core_library_prefix java/util/SortedSet\$$1 \
         --rewrite_core_library_prefix java/util/Spliterator \
         --rewrite_core_library_prefix java/util/StringJoiner \
-        --rewrite_core_library_prefix java/util/TimeZone8 \
         --rewrite_core_library_prefix java/util/Tripwire \
-        --retarget_core_library_member "java/util/Arrays#stream->java/util/Arrays8" \
-        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/Arrays8" \
-        --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/LinkedHashSet8" \
+        --rewrite_core_library_prefix java/util/concurrent/atomic/DesugarAtomic \
+        --retarget_core_library_member "java/util/Arrays#stream->java/util/DesugarArrays" \
+        --retarget_core_library_member "java/util/Arrays#spliterator->java/util/DesugarArrays" \
+        --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/DesugarLinkedHashSet" \
         --emulate_core_library_interface java/util/Collection \
         --emulate_core_library_interface java/util/Map \
         --emulate_core_library_interface java/util/Map\$$Entry \
@@ -225,7 +213,7 @@ genrule(
         --dont_rewrite_core_library_invocation "java/util/Iterator#remove" """,
     tools = [
         ":desugar_java8",
-        "//tools/jdk:bootclasspath",
+        "@bazel_tools//tools/jdk:platformclasspath8",
     ],
     visibility = ["//visibility:private"],
 )
@@ -442,6 +430,11 @@ package_group(
 
 package_group(
     name = "export_deps_whitelist",
+    packages = ["//..."],
+)
+
+package_group(
+    name = "allow_android_library_deps_without_srcs_whitelist",
     packages = ["//..."],
 )
 

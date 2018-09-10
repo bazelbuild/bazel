@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** A provider used to communicate information between java_proto_library and its aspect. */
@@ -33,12 +33,12 @@ public class JavaProtoLibraryAspectProvider implements WrappingProvider {
    * <p>Contains all transitively generated protos and all proto runtimes (but not the runtime's own
    * dependencies).
    */
-  private final JavaCompilationArgs nonStrictCompArgs;
+  private final JavaCompilationArgsProvider nonStrictCompArgs;
 
   public JavaProtoLibraryAspectProvider(
       TransitiveInfoProviderMap transitiveInfoProviderMap,
       NestedSet<Artifact> jars,
-      JavaCompilationArgs nonStrictCompArgs) {
+      JavaCompilationArgsProvider nonStrictCompArgs) {
     this.transitiveInfoProviderMap = transitiveInfoProviderMap;
     this.jars = jars;
     this.nonStrictCompArgs = nonStrictCompArgs;
@@ -53,7 +53,7 @@ public class JavaProtoLibraryAspectProvider implements WrappingProvider {
     return jars;
   }
 
-  public JavaCompilationArgs getNonStrictCompArgs() {
+  public JavaCompilationArgsProvider getNonStrictCompArgs() {
     return nonStrictCompArgs;
   }
 }

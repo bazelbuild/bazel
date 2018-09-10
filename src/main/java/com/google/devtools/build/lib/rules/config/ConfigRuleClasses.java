@@ -27,13 +27,9 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
-import java.util.List;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -74,10 +70,11 @@ public class ConfigRuleClasses {
   }
 
   /**
-   * A named "partial configuration setting" that specifies a set of command-line
-   * "flag=value" bindings.
+   * A named "partial configuration setting" that specifies a set of command-line "flag=value"
+   * bindings.
    *
    * <p>For example:
+   *
    * <pre>
    *   config_setting(
    *       name = 'foo',
@@ -87,19 +84,37 @@ public class ConfigRuleClasses {
    *       })
    * </pre>
    *
-   * <p>declares a setting that binds command-line flag <pre>flag1</pre> to value
-   * <pre>aValue</pre> and <pre>flag2</pre> to <pre>bValue</pre>.
+   * <p>declares a setting that binds command-line flag
    *
-   * <p>This is used by configurable attributes to determine which branch to
-   * follow based on which <pre>config_setting</pre> instance matches all its
-   * flag values in the configurable attribute owner's configuration.
+   * <pre>flag1</pre>
+   *
+   * to value
+   *
+   * <pre>aValue</pre>
+   *
+   * and
+   *
+   * <pre>flag2</pre>
+   *
+   * to
+   *
+   * <pre>bValue</pre>
+   *
+   * .
+   *
+   * <p>This is used by configurable attributes to determine which branch to follow based on which
+   *
+   * <pre>config_setting</pre>
+   *
+   * instance matches all its flag values in the configurable attribute owner's configuration.
    *
    * <p>This rule isn't accessed through the standard {@link RuleContext#getPrerequisites}
-   * interface. This is because Bazel constructs a rule's configured attribute map *before*
-   * its {@link RuleContext} is created (in fact, the map is an input to the context's
-   * constructor). And the config_settings referenced by the rule's configurable attributes are
-   * themselves inputs to that map. So Bazel has special logic to read and properly apply
-   * config_setting instances. See {@link ConfiguredTargetFunction#getConfigConditions} for details.
+   * interface. This is because Bazel constructs a rule's configured attribute map *before* its
+   * {@link RuleContext} is created (in fact, the map is an input to the context's constructor). And
+   * the config_settings referenced by the rule's configurable attributes are themselves inputs to
+   * that map. So Bazel has special logic to read and properly apply config_setting instances. See
+   * {@link com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} for
+   * details.
    */
   public static final class ConfigSettingRule implements RuleDefinition {
     /**
@@ -115,45 +130,28 @@ public class ConfigRuleClasses {
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
-    /** The name of the late bound attribute that declares the target platforms list. */
-    public static final String TARGET_PLATFORMS_ATTRIBUTE = ":target_platforms";
-
-    /** Implementation for the :target_platform attribute. */
-    public static final LabelListLateBoundDefault<?> TARGET_PLATFORMS =
-        LabelListLateBoundDefault.fromTargetConfiguration(
-            PlatformConfiguration.class,
-            (rule, attributes, platformConfig) ->
-                ConfigSettingRule.getTargetPlatformsIfRelevant(attributes, platformConfig));
-
-    private static ImmutableList<Label> getTargetPlatformsIfRelevant(
-        AttributeMap attributes, PlatformConfiguration platformConfig) {
-      List<Label> constraintValues = attributes.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST);
-      if (constraintValues == null || constraintValues.isEmpty()) {
-        return ImmutableList.of();
-      } else {
-        return platformConfig.getTargetPlatforms();
-      }
-    }
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          .requiresConfigurationFragments(PlatformConfiguration.class)
+
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
-          The set of configuration values that match this rule (expressed as Blaze flags)
+          The set of configuration values that match this rule (expressed as Bazel flags)
 
           <i>(Dictionary mapping flags to expected values, both expressed as strings;
              mandatory)</i>
 
           <p>This rule inherits the configuration of the configured target that
             references it in a <code>select</code> statement. It is considered to
-            "match" a Blaze invocation if, for every entry in the dictionary, its
+            "match" a Bazel invocation if, for every entry in the dictionary, its
             configuration matches the entry's expected value. For example
             <code>values = {"compilation_mode": "opt"}</code> matches the invocations
-            <code>blaze build --compilation_mode=opt ...</code> and
-            <code>blaze build -c opt ...</code> on target-configured rules.
+            <code>bazel build --compilation_mode=opt ...</code> and
+            <code>bazel build -c opt ...</code> on target-configured rules.
           </p>
 
-          <p>For convenience's sake, configuration values are specified as Blaze flags (without
+          <p>For convenience's sake, configuration values are specified as Bazel flags (without
             the preceding <code>"--"</code>). But keep in mind that the two are not the same. This
             is because targets can be built in multiple configurations within the same
             build. For example, a host configuration's "cpu" matches the value of
@@ -165,7 +163,7 @@ public class ConfigRuleClasses {
           <p>If a flag is not explicitly set at the command line, its default value is used.
              If a key appears multiple times in the dictionary, only the last instance is used.
              If a key references a flag that can be set multiple times on the command line (e.g.
-             <code>blaze build --copt=foo --copt=bar --copt=baz ...</code>), a match occurs if
+             <code>bazel build --copt=foo --copt=bar --copt=baz ...</code>), a match occurs if
              <i>any</i> of those settings match.
           <p>
 
@@ -183,10 +181,10 @@ public class ConfigRuleClasses {
           <p><code>--define</code> is special for two reasons:
 
           <ol>
-            <li>It's the primary interface Blaze has today for declaring user-definable settings.
+            <li>It's the primary interface Bazel has today for declaring user-definable settings.
             </li>
             <li>Its syntax (<code>--define KEY=VAL</code>) means <code>KEY=VAL</code> is
-            a <i>value</i> from a Blaze flag perspective.</li>
+            a <i>value</i> from a Bazel flag perspective.</li>
           </ol>
 
           <p>That means:
@@ -212,7 +210,7 @@ public class ConfigRuleClasses {
                 })
           </pre>
 
-          <p>corrrectly matches <code>blaze build //foo --define a=1 --define b=2</code>.
+          <p>corrrectly matches <code>bazel build //foo --define a=1 --define b=2</code>.
 
           <p><code>--define</code> can still appear in
           <a href="${link config_setting.values}"><code>values</code></a> with normal flag syntax,
@@ -248,12 +246,12 @@ public class ConfigRuleClasses {
 
           <p>As mentioned above, this rule inherits the configuration of the configured target that
             references it in a <code>select</code> statement. This <code>constraint_values</code>
-            attribute is considered to "match" a Blaze invocation if it includes each
+            attribute is considered to "match" a Bazel invocation if it includes each
             <code>constraint_value</code> specified in the configuration's target platform which is
             set with the command line flag <code>--experimental_platforms</code>. If it contains
             extra <code>constraint_values</code> not included in the target platform, it is still
             considered a match. In this example, both <code>slate</code> and
-            <code>marble</code> would be considered matches for a blaze invocation which
+            <code>marble</code> would be considered matches for a bazel invocation which
             uses <code>--experimental_platforms=my_platform_rocks</code>. Multiple matches like this
             may lead to ambiguous select resolves and are not allowed.
           </p>
@@ -279,10 +277,6 @@ public class ConfigRuleClasses {
               attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
                   .allowedFileTypes())
-          .add(
-              attr(TARGET_PLATFORMS_ATTRIBUTE, LABEL_LIST)
-                  .value(TARGET_PLATFORMS)
-                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .setIsConfigMatcherForConfigSettingOnly()
           .setOptionReferenceFunctionForConfigSettingOnly(
               rule ->
@@ -302,97 +296,97 @@ public class ConfigRuleClasses {
           .build();
     }
   }
-/*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
+  /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
 
-<p>
-  Matches an expected configuration state (expressed as Blaze flags) for the purpose of triggering
-  configurable attributes. See <a href="${link select}">select</a> for how to consume this
-  rule and <a href="${link common-definitions#configurable-attributes}">
-  Configurable attributes</a> for an overview of the general feature.
+  <p>
+    Matches an expected configuration state (expressed as Bazel flags) for the purpose of triggering
+    configurable attributes. See <a href="${link select}">select</a> for how to consume this
+    rule and <a href="${link common-definitions#configurable-attributes}">
+    Configurable attributes</a> for an overview of the general feature.
 
-<h4 id="config_setting_examples">Examples</h4>
+  <h4 id="config_setting_examples">Examples</h4>
 
-<p>The following matches any Blaze invocation that specifies <code>--compilation_mode=opt</code>
-   or <code>-c opt</code> (either explicitly at the command line or implicitly from .blazerc
-   files, etc.), when applied to a target configuration rule:
-</p>
+  <p>The following matches any Bazel invocation that specifies <code>--compilation_mode=opt</code>
+     or <code>-c opt</code> (either explicitly at the command line or implicitly from .blazerc
+     files, etc.), when applied to a target configuration rule:
+  </p>
 
-<pre class="code">
-config_setting(
-    name = "simple",
-    values = {"compilation_mode": "opt"}
-)
-</pre>
+  <pre class="code">
+  config_setting(
+      name = "simple",
+      values = {"compilation_mode": "opt"}
+  )
+  </pre>
 
-<p>The following matches any Blaze invocation that builds for ARM and applies a custom define
-   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), when applied to a target
-   configuration rule:
-</p>
+  <p>The following matches any Bazel invocation that builds for ARM and applies a custom define
+     (e.g. <code>bazel build --cpu=armeabi --define FOO=bar ...</code>), when applied to a target
+     configuration rule:
+  </p>
 
-<pre class="code">
-config_setting(
-    name = "two_conditions",
-    values = {
-        "cpu": "armeabi",
-        "define": "FOO=bar"
-    }
-)
-</pre>
+  <pre class="code">
+  config_setting(
+      name = "two_conditions",
+      values = {
+          "cpu": "armeabi",
+          "define": "FOO=bar"
+      }
+  )
+  </pre>
 
-<p>The following config_setting matches any Blaze invocation that builds a platform which contains
-  exactly the same or a subset of its constraint_values (like the example below).
-</p>
+  <p>The following config_setting matches any Bazel invocation that builds a platform which contains
+    exactly the same or a subset of its constraint_values (like the example below).
+  </p>
 
-<pre class=""code">
-config_setting(
-    name = "marble",
-    constraint_values = [
-        "white",
-        "metamorphic",
-    ]
-)
+  <pre class=""code">
+  config_setting(
+      name = "marble",
+      constraint_values = [
+          "white",
+          "metamorphic",
+      ]
+  )
 
-platform(
-    name = "marble_platform",
-    constraint_values = [
-        "white",
-        "metamorphic"
-    ]
-)
-</pre>
+  platform(
+      name = "marble_platform",
+      constraint_values = [
+          "white",
+          "metamorphic"
+      ]
+  )
+  </pre>
 
-<h4 id="config_setting_notes">Notes</h4>
+  <h4 id="config_setting_notes">Notes</h4>
 
-<p>See <a href="${link select}">select</a> for policies on what happens depending on how
-   many rules match an invocation.
-</p>
+  <p>See <a href="${link select}">select</a> for policies on what happens depending on how
+     many rules match an invocation.
+  </p>
 
-<p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
-  <code>-c</code>), <code>values</code> definitions must use the full form. These automatically
-  match invocations using either form.
-</p>
+  <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
+    <code>-c</code>), <code>values</code> definitions must use the full form. These automatically
+    match invocations using either form.
+  </p>
 
-<p>The currently endorsed method for creating custom conditions that can't be expressed through
-  dedicated build flags is through the --define flag. Use this flag with caution: it's not ideal
-  and only endorsed for lack of a currently better workaround. See the
-  <a href="${link common-definitions#configurable-attributes}">
-  Configurable attributes</a> section for more discussion.
-</p>
+  <p>The currently endorsed method for creating custom conditions that can't be expressed through
+    dedicated build flags is through the --define flag. Use this flag with caution: it's not ideal
+    and only endorsed for lack of a currently better workaround. See the
+    <a href="${link common-definitions#configurable-attributes}">
+    Configurable attributes</a> section for more discussion.
+  </p>
 
-<p>Try to consolidate <code>config_setting</code> definitions as much as possible. In other words,
-  define <code>//common/conditions:foo</code> in one common package instead of repeating separate
-  instances in <code>//project1:foo</code>, <code>//project2:foo</code>, etc. that all mean the
-  same thing.
-</p>
+  <p>Try to consolidate <code>config_setting</code> definitions as much as possible. In other words,
+    define <code>//common/conditions:foo</code> in one common package instead of repeating separate
+    instances in <code>//project1:foo</code>, <code>//project2:foo</code>, etc. that all mean the
+    same thing.
+  </p>
 
-<p><a href="general.html#config_setting.values"><code>values</code></a>,
-   <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
-   <a href=general.html#config_setting.constraint_values"><code>constraint_values</code></a>
-   can be used in any combination in the same config_setting but at least one must be set for any
-   given config_setting.
-</p>
+  <p><a href="general.html#config_setting.values"><code>values</code></a>,
+     <a href="general.html#config_setting.define_values"><code>define_values</code></a>, and
+     <a href=general.html#config_setting.constraint_values"><code>constraint_values</code></a>
+     can be used in any combination in the same config_setting but at least one must be set for any
+     given config_setting.
+  </p>
 
-<!-- #END_BLAZE_RULE -->*/
+  <!-- #END_BLAZE_RULE -->*/
 
   /** Rule definition for Android's config_feature_flag rule. */
   public static final class ConfigFeatureFlagRule implements RuleDefinition {

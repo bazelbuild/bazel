@@ -31,8 +31,11 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 @SkylarkModule(
     name = "android_data",
     doc =
-        "Utilities for working with Android data (manifests, resources, and assets). "
-            + "This API is non-final and subject to change without warning; do not rely on it.")
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Utilities for working with Android data (manifests, resources, and assets). "
+            + "This API is non-final and subject to change without warning; do not rely on it.",
+    documented = false)
 public interface AndroidDataProcessingApi<
     AndroidDataContextT extends AndroidDataContextApi,
     TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
@@ -42,7 +45,8 @@ public interface AndroidDataProcessingApi<
     AndroidResourcesInfoT extends AndroidResourcesInfoApi,
     AndroidManifestInfoT extends AndroidManifestInfoApi,
     AndroidLibraryAarInfoT extends AndroidLibraryAarInfoApi,
-    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi> {
+    AndroidBinaryDataInfoT extends AndroidBinaryDataInfoApi,
+    ValidatedAndroidDataT extends ValidatedAndroidDataApi> {
 
   @SkylarkCallable(
       name = "assets_from_deps",
@@ -54,7 +58,7 @@ public interface AndroidDataProcessingApi<
             generic1 = AndroidAssetsInfoApi.class,
             positional = false,
             named = true,
-            doc = "Dependencies to inherit assets from"),
+            doc = "Dependencies to inherit assets from."),
         @Param(
             name = "neverlink",
             defaultValue = "False",
@@ -69,14 +73,20 @@ public interface AndroidDataProcessingApi<
       doc =
           "Creates an AndroidAssetsInfoApi from this target's asset dependencies, ignoring local"
               + " assets. No processing will be done. This method is deprecated and exposed only"
-              + " for backwards-compatibility with existing behavior.")
+              + " for backwards-compatibility with existing behavior.",
+      documented = false)
   AndroidAssetsInfoT assetsFromDeps(
       SkylarkList<AndroidAssetsInfoT> deps, boolean neverlink, Environment env);
 
   @SkylarkCallable(
       name = "resources_from_deps",
-      mandatoryPositionals = 1, // context
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
         @Param(
             name = "deps",
             defaultValue = "[]",
@@ -84,7 +94,7 @@ public interface AndroidDataProcessingApi<
             generic1 = AndroidResourcesInfoApi.class,
             positional = false,
             named = true,
-            doc = "Dependencies to inherit resources from"),
+            doc = "Dependencies to inherit resources from."),
         @Param(
             name = "neverlink",
             defaultValue = "False",
@@ -114,7 +124,8 @@ public interface AndroidDataProcessingApi<
               + " local resources. Only processing of deps will be done. This method is deprecated"
               + " and exposed only for backwards-compatibility with existing behavior. An empty"
               + " manifest will be generated and included in the provider - this path should  not"
-              + " be used when an explicit manifest is specified.")
+              + " be used when an explicit manifest is specified.",
+      documented = false)
   AndroidResourcesInfoT resourcesFromDeps(
       AndroidDataContextT ctx,
       SkylarkList<AndroidResourcesInfoT> deps,
@@ -126,8 +137,13 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "stamp_manifest",
-      mandatoryPositionals = 1, // AndroidDataContextApi ctx is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
         @Param(
             name = "manifest",
             positional = false,
@@ -135,7 +151,7 @@ public interface AndroidDataProcessingApi<
             type = FileApi.class,
             noneable = true,
             named = true,
-            doc = "The manifest to stamp. If not passed, a dummy manifest will be generated"),
+            doc = "The manifest to stamp. If not passed, a dummy manifest will be generated."),
         @Param(
             name = "custom_package",
             positional = false,
@@ -161,7 +177,8 @@ public interface AndroidDataProcessingApi<
       },
       useLocation = true,
       useEnvironment = true,
-      doc = "Stamps a manifest with package information.")
+      doc = "Stamps a manifest with package information.",
+      documented = false)
   AndroidManifestInfoT stampAndroidManifest(
       AndroidDataContextT ctx,
       Object manifest,
@@ -173,8 +190,13 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "merge_assets",
-      mandatoryPositionals = 1, // context
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
         @Param(
             name = "assets",
             positional = false,
@@ -222,7 +244,8 @@ public interface AndroidDataProcessingApi<
           "Merges this target's assets together with assets inherited from dependencies. Note that,"
               + " by default, actions for validating the merge are created but may not be called."
               + " You may want to force these actions to be called - see the 'validation_result'"
-              + " field in AndroidAssetsInfoApi")
+              + " field in AndroidAssetsInfoApi",
+      documented = false)
   AndroidAssetsInfoT mergeAssets(
       AndroidDataContextT ctx,
       Object assets,
@@ -235,8 +258,21 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "merge_resources",
-      mandatoryPositionals = 2, // context, manifest
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "manifest",
+            positional = true,
+            named = false,
+            type = AndroidManifestInfoApi.class,
+            doc =
+                "The provider of this target's manifest. This provider is produced by, "
+                    + "for example, stamp_android_manifest."),
         @Param(
             name = "resources",
             positional = false,
@@ -244,7 +280,7 @@ public interface AndroidDataProcessingApi<
             type = SkylarkList.class,
             generic1 = FileProviderApi.class,
             named = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "deps",
             positional = false,
@@ -284,7 +320,8 @@ public interface AndroidDataProcessingApi<
               + " used to get Android package information and to validate that all resources it"
               + " refers to are available. Note that this method might do additional processing to"
               + " this manifest, so in the future, you may want to use the manifest contained in"
-              + " this method's output instead of this one.")
+              + " this method's output instead of this one.",
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> mergeResources(
       AndroidDataContextT ctx,
       AndroidManifestInfoT manifest,
@@ -298,18 +335,45 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "make_aar",
-      mandatoryPositionals = 4, // context, resource info, asset info, and library class jar
       parameters = {
         @Param(
-            name = "proguard_specs",
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "resource_info",
+            positional = true,
+            named = false,
+            type = AndroidResourcesInfoApi.class,
+            doc =
+                "The provider containing processed resources for this target, produced, "
+                    + "for example, by merge_resources."),
+        @Param(
+            name = "asset_info",
+            positional = true,
+            named = false,
+            type = AndroidAssetsInfoApi.class,
+            doc =
+                "The provider containing processed assets for this target, produced, "
+                    + "for example, by merge_assets."),
+        @Param(
+            name = "library_class_jar",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The library class jar."),
+        @Param(
+            name = "local_proguard_specs",
             type = SkylarkList.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            generic1 = FileApi.class,
             defaultValue = "[]",
             positional = false,
             named = true,
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
+                    + " inherited in the top-level target."),
         @Param(
             name = "deps",
             type = SkylarkList.class,
@@ -331,21 +395,33 @@ public interface AndroidDataProcessingApi<
       doc =
           "Builds an AAR and corresponding provider for this target. The resource and asset"
               + " providers from this same target must both be passed, as must the class JAR output"
-              + " of building the Android Java library.")
+              + " of building the Android Java library.",
+      documented = false)
   AndroidLibraryAarInfoT makeAar(
       AndroidDataContextT ctx,
       AndroidResourcesInfoT resourcesInfo,
       AndroidAssetsInfoT assetsInfo,
       FileT libraryClassJar,
-      SkylarkList<TransitiveInfoCollectionT> proguardSpecs,
+      SkylarkList<FileT> localProguardSpecs,
       SkylarkList<AndroidLibraryAarInfoT> deps,
       boolean neverlink)
       throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "process_library_data",
-      mandatoryPositionals = 2, // ctx and libraryClassJar are required
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "library_class_jar",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The library class jar."),
         @Param(
             name = "manifest",
             positional = false,
@@ -364,7 +440,7 @@ public interface AndroidDataProcessingApi<
             generic1 = FileProviderApi.class,
             named = true,
             noneable = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
@@ -428,15 +504,15 @@ public interface AndroidDataProcessingApi<
                 "Defaults to False. If True, processes data binding expressions in layout"
                     + " resources."),
         @Param(
-            name = "proguard_specs",
+            name = "local_proguard_specs",
             type = SkylarkList.class,
-            generic1 = TransitiveInfoCollectionApi.class,
+            generic1 = FileApi.class,
             defaultValue = "[]",
             positional = false,
             named = true,
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
+                    + " inherited in the top-level target."),
         @Param(
             name = "deps",
             positional = false,
@@ -452,7 +528,8 @@ public interface AndroidDataProcessingApi<
       useEnvironment = true,
       doc =
           "Performs full processing of data for android_library or similar rules. Returns a dict"
-              + " from provider type to providers for the target.")
+              + " from provider type to providers for the target.",
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processLibraryData(
       AndroidDataContextT cotx,
       FileT libraryClassJar,
@@ -464,7 +541,7 @@ public interface AndroidDataProcessingApi<
       Object customPackage,
       boolean neverlink,
       boolean enableDataBinding,
-      SkylarkList<TransitiveInfoCollectionT> proguardSpecs,
+      SkylarkList<FileT> localProguardSpecs,
       SkylarkList<TransitiveInfoCollectionT> deps,
       Location location,
       Environment env)
@@ -472,9 +549,31 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_aar_import_data",
-      // context, resource, asset, and manifest are all mandatory
-      mandatoryPositionals = 4,
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "resource",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The resouce file."),
+        @Param(
+            name = "assets",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The assets file."),
+        @Param(
+            name = "manifest",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The manifest file."),
         @Param(
             name = "deps",
             type = SkylarkList.class,
@@ -484,7 +583,8 @@ public interface AndroidDataProcessingApi<
             defaultValue = "[]",
             doc = "Targets to inherit asset and resource dependencies from.")
       },
-      doc = "Processes assets, resources, and manifest for aar_import targets")
+      doc = "Processes assets, resources, and manifest for aar_import targets",
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processAarImportData(
       AndroidDataContextT ctx,
       SpecialFileT resources,
@@ -495,8 +595,13 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_local_test_data",
-      mandatoryPositionals = 1, // context is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
         @Param(
             name = "manifest",
             positional = false,
@@ -514,7 +619,7 @@ public interface AndroidDataProcessingApi<
             type = SkylarkList.class,
             generic1 = FileProviderApi.class,
             named = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
@@ -582,7 +687,8 @@ public interface AndroidDataProcessingApi<
       useEnvironment = true,
       doc =
           "Processes resources, assets, and manifests for android_local_test and returns a dict"
-              + " from provider type to the appropriate provider.")
+              + " from provider type to the appropriate provider.",
+      documented = false)
   SkylarkDict<? extends ProviderApi, ? extends StructApi> processLocalTestData(
       AndroidDataContextT ctx,
       Object manifest,
@@ -599,8 +705,13 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "make_binary_settings",
-      mandatoryPositionals = 1, // AndroidDataContextApi is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
         @Param(
             name = "shrink_resources",
             positional = false,
@@ -656,7 +767,8 @@ public interface AndroidDataProcessingApi<
       useEnvironment = true,
       doc =
           "Returns a wrapper object containing various settings shared across multiple methods for"
-              + " processing binary data.")
+              + " processing binary data.",
+      documented = false)
   AndroidBinaryDataSettingsApi makeBinarySettings(
       AndroidDataContextT ctx,
       Object shrinkResources,
@@ -670,8 +782,13 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "process_binary_data",
-      mandatoryPositionals = 1, // AndroidDataContextApi is mandatory
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
         @Param(
             name = "resources",
             positional = false,
@@ -679,7 +796,7 @@ public interface AndroidDataProcessingApi<
             type = SkylarkList.class,
             generic1 = FileProviderApi.class,
             named = true,
-            doc = "Providers of this target's resources"),
+            doc = "Providers of this target's resources."),
         @Param(
             name = "assets",
             positional = false,
@@ -761,7 +878,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Settings common to various binary processing methods, created with"
-                    + " make_binary_data_settings"),
+                    + " make_binary_data_settings."),
         @Param(
             name = "crunch_png",
             positional = false,
@@ -783,7 +900,8 @@ public interface AndroidDataProcessingApi<
       useEnvironment = true,
       doc =
           "Processes resources, assets, and manifests for android_binary and returns the"
-              + " appropriate providers.")
+              + " appropriate providers.",
+      documented = false)
   AndroidBinaryDataInfoT processBinaryData(
       AndroidDataContextT ctx,
       SkylarkList<TransitiveInfoCollectionT> resources,
@@ -803,10 +921,31 @@ public interface AndroidDataProcessingApi<
 
   @SkylarkCallable(
       name = "shrink_data_apk",
-      // Required: AndroidDataContextApi, AndroidBinaryDataInfoApi to shrink, and two proguard
-      // outputs
-      mandatoryPositionals = 4,
       parameters = {
+        @Param(
+            name = "ctx",
+            positional = true,
+            named = false,
+            type = AndroidDataContextApi.class,
+            doc = "The Android data context object for this target."),
+        @Param(
+            name = "binary_data_info",
+            positional = true,
+            named = false,
+            type = AndroidBinaryDataInfoApi.class,
+            doc = "The Info about the binary to shrink, as produced by process_binary_data."),
+        @Param(
+            name = "proguard_output_jar",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The proguard jar output file."),
+        @Param(
+            name = "proguard_mapping",
+            positional = true,
+            named = false,
+            type = FileApi.class,
+            doc = "The proguard mapping output file."),
         @Param(
             name = "binary_settings",
             type = AndroidBinaryDataSettingsApi.class,
@@ -816,7 +955,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Settings common to various binary processing methods, created with"
-                    + " make_binary_data_settings"),
+                    + " make_binary_data_settings."),
         @Param(
             name = "deps",
             positional = false,
@@ -836,7 +975,7 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
-                    + " inherited in the top-level target"),
+                    + " inherited in the top-level target."),
         @Param(
             name = "extra_proguard_specs,",
             type = SkylarkList.class,
@@ -846,13 +985,14 @@ public interface AndroidDataProcessingApi<
             named = true,
             doc =
                 "Additional proguard specs that should be added for top-level targets. This  value"
-                    + " is controlled by Java configuration."),
+                    + " is controlled by Java configuration.")
       },
       useLocation = true,
       useEnvironment = true,
       doc =
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
-              + " proguarding.")
+              + " proguarding.",
+      documented = false)
   AndroidBinaryDataInfoT shrinkDataApk(
       AndroidDataContextT ctx,
       AndroidBinaryDataInfoT binaryDataInfo,
@@ -865,4 +1005,19 @@ public interface AndroidDataProcessingApi<
       Location location,
       Environment env)
       throws EvalException, InterruptedException;
+
+  @SkylarkCallable(
+      name = "resources_from_validated_res",
+      allowReturnNones = true,
+      doc = "Returns an Artifact containing a zip of merged resources.",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "validated_res",
+            doc = "The validated Android resources.",
+            positional = true,
+            named = false,
+            type = ValidatedAndroidDataApi.class)
+      })
+  FileT resourcesFromValidatedRes(ValidatedAndroidDataT resources);
 }

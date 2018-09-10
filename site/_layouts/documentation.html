@@ -26,8 +26,8 @@ nav: docs
            <h3>Home</h3>
             <ul class="sidebar-nav">
               <li><a href="/versions/{{ site.version }}/bazel-overview.html">Bazel Overview</a></li>
+              <li><a href="/versions/{{ site.version }}/bazel-vision.html">Bazel Vision</a></li>
               <li><a href="/versions/{{ site.version }}/getting-started.html">Getting Started</a></li>
-              <li><a href="/versions/{{ site.version }}/experimental.html">Experimental Features</a></li>
             </ul>
 
            <h3>Using Bazel</h3>
@@ -114,6 +114,9 @@ nav: docs
                 <ul class="collapse sidebar-nav sidebar-submenu" id="android-menu">
                   <li><a href="/versions/{{ site.version }}/bazel-and-android.html">Android Resources</a></li>
                   <li><a href="/versions/{{ site.version }}/mobile-install.html">Using mobile-install</a></li>
+                  <li><a href="/versions/{{ site.version }}/android-instrumentation-test.html">Android Instrumentation Tests</a></li>
+                  <li><a href="/versions/{{ site.version }}/android-ndk.html">Android NDK</a></li>
+                  <li><a href="https://plugins.jetbrains.com/plugin/9185-bazel">Android Studio Plugin</a></li>
                 </ul>
               </li>
 
@@ -202,11 +205,11 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#skylark-concepts" aria-expanded="false"
-                    aria-controls="skylark-concepts">
+                    href="#starlark-concepts" aria-expanded="false"
+                    aria-controls="starlark-concepts">
                   Concepts<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-concepts">
+                <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-concepts">
                   <li><a href="/versions/{{ site.version }}/skylark/macros.html">Macros</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/rules.html">Rules</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/depsets.html">Depsets</a></li>
@@ -218,11 +221,11 @@ nav: docs
 
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
-                    href="#skylark-practices" aria-expanded="false"
-                    aria-controls="skylark-practices">
+                    href="#starlark-practices" aria-expanded="false"
+                    aria-controls="starlark-practices">
                   Best Practices<span class="caret"></span>
                 </a>
-                <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-practices">
+                <ul class="collapse sidebar-nav sidebar-submenu" id="starlark-practices">
                   <li><a href="/versions/{{ site.version }}/skylark/bzl-style.html">.bzl Style Guide</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/backward-compatibility.html">Backward Compatibility</a></li>
                   <li><a href="/versions/{{ site.version }}/skylark/testing.html">Testing</a></li>
@@ -237,7 +240,7 @@ nav: docs
 
               <li><a href="https://github.com/bazelbuild/examples/tree/master/rules">Examples</a></li>
               <li><a href="/versions/{{ site.version }}/skylark/lib/skylark-overview.html">API Reference</a></li>
-              <li><a href="/versions/{{ site.version }}/skylark/language.html">Skylark Language</a></li>
+              <li><a href="/versions/{{ site.version }}/skylark/language.html">Starlark Language</a></li>
             </ul>
           </nav>
         </div>

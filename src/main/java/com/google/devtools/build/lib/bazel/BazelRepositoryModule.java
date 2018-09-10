@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -83,14 +85,16 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -111,6 +115,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private Optional<RootedPath> resolvedFile = Optional.<RootedPath>absent();
+  private Set<String> outputVerificationRules = ImmutableSet.<String>of();
   private FileSystem filesystem;
 
   public BazelRepositoryModule() {
@@ -176,12 +182,12 @@ public class BazelRepositoryModule extends BlazeModule {
     @Override
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException, InterruptedException {
-      return this.repositoryCache.getRootPath().toString().getBytes(StandardCharsets.UTF_8);
+      return print(repositoryCache.getRootPath());
     }
   }
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new SyncCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
@@ -220,7 +226,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       builder.addRuleDefinition(ruleDefinition);
     }
-    builder.addSkylarkBootstrap(new RepositoryBootstrap(SkylarkRepositoryModule.class));
+    builder.addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
   }
 
   @Override
@@ -228,9 +234,12 @@ public class BazelRepositoryModule extends BlazeModule {
     clientEnvironmentSupplier.set(env.getActionClientEnv());
     PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
+    resolvedFile = Optional.<RootedPath>absent();
+    outputVerificationRules = ImmutableSet.<String>of();
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
+      repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalRepositoryCache != null) {
         Path repositoryCachePath;
         if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
@@ -287,6 +296,19 @@ public class BazelRepositoryModule extends BlazeModule {
       } else {
         overrides = ImmutableMap.of();
       }
+
+      if (!Strings.isNullOrEmpty(repoOptions.repositoryHashFile)) {
+        resolvedFile =
+            Optional.of(
+                RootedPath.toRootedPath(
+                    Root.absoluteRoot(filesystem),
+                    filesystem.getPath(repoOptions.repositoryHashFile)));
+      }
+
+      if (repoOptions.experimentalVerifyRepositoryRules != null) {
+        outputVerificationRules =
+            ImmutableSet.copyOf(repoOptions.experimentalVerifyRepositoryRules);
+      }
     }
   }
 
@@ -294,6 +316,11 @@ public class BazelRepositoryModule extends BlazeModule {
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
         PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION, resolvedFile),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES,
+            outputVerificationRules),
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
         PrecomputedValue.injected(

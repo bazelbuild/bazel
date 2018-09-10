@@ -47,13 +47,22 @@ public class RepositoryOptions extends OptionsBase {
   public PathFragment experimentalRepositoryCache;
 
   @Option(
+      name = "experimental_repository_cache_hardlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, the repository cache will hardlink the file in case of a"
+              + " cache hit, rather than copying. This is inteded to save disk space.")
+  public boolean useHardlinks;
+
+  @Option(
       name = "distdir",
       oldName = "experimental_distdir",
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Additional places to search for archives before accessing the network "
@@ -70,6 +79,30 @@ public class RepositoryOptions extends OptionsBase {
     help = "Overrides a repository with a local directory."
   )
   public List<RepositoryOverride> repositoryOverrides;
+
+  @Option(
+      name = "experimental_repository_hash_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If non-empty, specifies a file containing a resolved value, against which"
+              + " the repository directory hashes should be verified")
+  public String repositoryHashFile;
+
+  @Option(
+      name = "experimental_verify_repository_rules",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If list of repository rules for which the hash of the output directory should be"
+              + " verified, provided a file is specified by"
+              + " --experimental_respository_hash_file.")
+  public List<String> experimentalVerifyRepositoryRules;
 
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.

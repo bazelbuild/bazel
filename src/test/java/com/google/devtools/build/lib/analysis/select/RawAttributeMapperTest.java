@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.analysis.select;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -96,12 +95,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   public void testVisitLabels() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     try {
-      rawMapper.visitLabels(new AttributeMap.AcceptsLabelAttribute() {
-        @Override
-        public void acceptLabelAttribute(Label label, Attribute attribute) {
-          // Nothing to do.
-        }
-      });
+      rawMapper.visitLabels();
       fail("Expected label visitation to fail since one attribute is configurable");
     } catch (IllegalArgumentException e) {
       assertThat(e)
@@ -116,9 +110,9 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     assertThat(rawMapper.getConfigurabilityKeys("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            Label.parseAbsolute("//conditions:a"),
-            Label.parseAbsolute("//conditions:b"),
-            Label.parseAbsolute("//conditions:default"));
+            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:default", ImmutableMap.of()));
     assertThat(rawMapper.getConfigurabilityKeys("data", BuildType.LABEL_LIST)).isEmpty();
   }
 
@@ -132,10 +126,11 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "        '//conditions:b': ['b.sh', 'c.sh'],",
         "    }))");
     RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
-    assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST)).containsExactly(
-        Label.parseAbsolute("//x:a.sh"),
-        Label.parseAbsolute("//x:b.sh"),
-        Label.parseAbsolute("//x:c.sh"))
+    assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST))
+        .containsExactly(
+            Label.parseAbsolute("//x:a.sh", ImmutableMap.of()),
+            Label.parseAbsolute("//x:b.sh", ImmutableMap.of()),
+            Label.parseAbsolute("//x:c.sh", ImmutableMap.of()))
         .inOrder();
   }
 
@@ -152,12 +147,13 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "            '//conditions:b2': ['b2.sh']})",
         "    )");
     RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
-    assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST)).containsExactly(
-        Label.parseAbsolute("//x:a1.sh"),
-        Label.parseAbsolute("//x:b1.sh"),
-        Label.parseAbsolute("//x:another_b1.sh"),
-        Label.parseAbsolute("//x:a2.sh"),
-        Label.parseAbsolute("//x:b2.sh"))
+    assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST))
+        .containsExactly(
+            Label.parseAbsolute("//x:a1.sh", ImmutableMap.of()),
+            Label.parseAbsolute("//x:b1.sh", ImmutableMap.of()),
+            Label.parseAbsolute("//x:another_b1.sh", ImmutableMap.of()),
+            Label.parseAbsolute("//x:a2.sh", ImmutableMap.of()),
+            Label.parseAbsolute("//x:b2.sh", ImmutableMap.of()))
         .inOrder();
   }
 }

@@ -20,19 +20,6 @@ import java.util.function.Function;
 public interface DebugServer {
 
   /**
-   * Executes the given callable and returns its result, while making any skylark evaluation visible
-   * to the debugger. This method should be used to evaluate all debuggable Skylark code.
-   *
-   * @param env the Skylark execution environment
-   * @param threadName the descriptive name of the thread
-   * @param callable the callable object whose execution will be tracked
-   * @param <T> the result type of the callable
-   * @return the value returned by the callable
-   */
-  <T> T runWithDebugging(Environment env, String threadName, DebugCallable<T> callable)
-      throws EvalException, InterruptedException;
-
-  /**
    * Shuts down the debug server, closing any open sockets, etc. This can be safely called multiple
    * times.
    */

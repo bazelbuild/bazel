@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -216,8 +216,7 @@ public abstract class NativeDepsHelper {
     } else {
       sharedLibrary = nativeDeps;
     }
-    FdoSupportProvider fdoSupport =
-        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = toolchain.getFdoProvider();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
@@ -233,7 +232,7 @@ public abstract class NativeDepsHelper {
             sharedLibrary,
             configuration,
             toolchain,
-            fdoSupport,
+            fdoProvider,
             featureConfiguration,
             cppSemantics);
     if (useDynamicRuntime) {
@@ -274,8 +273,7 @@ public abstract class NativeDepsHelper {
 
     if (builder.hasLtoBitcodeInputs() && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       builder.setLtoIndexing(true);
-      builder.setUsePicForLtoBackendActions(
-          CppHelper.usePicForDynamicLibraries(ruleContext, toolchain));
+      builder.setUsePicForLtoBackendActions(toolchain.usePicForDynamicLibraries());
       CppLinkAction indexAction = builder.build();
       if (indexAction != null) {
         ruleContext.registerAction(indexAction);

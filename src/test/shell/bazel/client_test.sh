@@ -32,6 +32,7 @@ EOF
   expect_log "^bazel-testlogs:.*_bazel.*bazel-out.*testlogs\$"
   expect_log "^output_path:.*/execroot/blerp/bazel-out\$"
   expect_log "^execution_root:.*/execroot/blerp\$"
+  expect_log "^server_log:.*/java\.log.*\$"
 }
 
 # This test is for Bazel only and not for Google's internal version (Blaze),

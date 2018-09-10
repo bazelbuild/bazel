@@ -158,17 +158,18 @@ public class FileArtifactValueTest {
   @Test
   public void testIOException() throws Exception {
     final IOException exception = new IOException("beep");
-    FileSystem fs = new InMemoryFileSystem() {
-      @Override
-      public byte[] getDigest(Path path, HashFunction hf) throws IOException {
-        throw exception;
-      }
+    FileSystem fs =
+        new InMemoryFileSystem() {
+          @Override
+          public byte[] getDigest(Path path) throws IOException {
+            throw exception;
+          }
 
-      @Override
-      protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
-        throw exception;
-      }
-    };
+          @Override
+          protected byte[] getFastDigest(Path path) throws IOException {
+            throw exception;
+          }
+        };
     Path path = fs.getPath("/some/path");
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, "content");

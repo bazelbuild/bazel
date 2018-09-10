@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.logging.Level;
@@ -33,7 +33,7 @@ public class CommandLogModule extends BlazeModule {
   private OutputStream logOutputStream;
 
   @Override
-  public void serverInit(OptionsProvider startupOptions, ServerBuilder builder) {
+  public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addInfoItems(new CommandLogInfoItem());
   }
 
@@ -64,7 +64,7 @@ public class CommandLogModule extends BlazeModule {
   }
 
   static boolean writeCommandLog(BlazeRuntime runtime) {
-    OptionsProvider startupOptionsProvider = runtime.getStartupOptionsProvider();
+    OptionsParsingResult startupOptionsProvider = runtime.getStartupOptionsProvider();
     return startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).writeCommandLog;
   }
 

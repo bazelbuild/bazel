@@ -57,22 +57,11 @@ public final class DependencyModule {
 
   public static enum StrictJavaDeps {
     /** Legacy behavior: Silently allow referencing transitive dependencies. */
-    OFF(false),
+    OFF,
     /** Warn about transitive dependencies being used directly. */
-    WARN(true),
+    WARN,
     /** Fail the build when transitive dependencies are used directly. */
-    ERROR(true);
-
-    private final boolean enabled;
-
-    StrictJavaDeps(boolean enabled) {
-      this.enabled = enabled;
-    }
-
-    /** Convenience method for just checking if it's not OFF */
-    public boolean isEnabled() {
-      return enabled;
-    }
+    ERROR
   }
 
   private final StrictJavaDeps strictJavaDeps;
@@ -83,6 +72,7 @@ public final class DependencyModule {
   private final String targetLabel;
   private final Path outputDepsProtoFile;
   private final Set<Path> usedClasspath;
+  private boolean hasMissingTargets;
   private final Map<Path, Dependency> explicitDependenciesMap;
   private final Map<Path, Dependency> implicitDependenciesMap;
   private final ImmutableSet<Path> platformJars;
@@ -169,11 +159,6 @@ public final class DependencyModule {
     return deps.build();
   }
 
-  /** Returns whether strict dependency checks (strictJavaDeps) are enabled. */
-  public boolean isStrictDepsEnabled() {
-    return strictJavaDeps.isEnabled();
-  }
-
   /** Returns the paths of direct dependencies. */
   public ImmutableSet<Path> directJars() {
     return directJars;
@@ -239,6 +224,15 @@ public final class DependencyModule {
     return strictClasspathMode;
   }
 
+  void setHasMissingTargets() {
+    hasMissingTargets = true;
+  }
+
+  /** Returns true if any missing transitive dependencies were reported. */
+  public boolean hasMissingTargets() {
+    return hasMissingTargets;
+  }
+
   /**
    * Computes a reduced compile-time classpath from the union of direct dependencies and their
    * dependencies, as listed in the associated .deps artifacts.
@@ -299,10 +293,9 @@ public final class DependencyModule {
      *
      * @param missing the missing dependencies to be added.
      * @param recipient the target from which the dependencies are missing.
-     * @param dependencyModule {@link DependencyModule} instance for compilation context.
      * @return the string message describing the dependency build issues, including fix.
      */
-    String get(Iterable<JarOwner> missing, String recipient, DependencyModule dependencyModule);
+    String get(Iterable<JarOwner> missing, String recipient);
   }
 
   /** Tool with which to fix dependency issues. */
@@ -343,7 +336,7 @@ public final class DependencyModule {
 
     private static class DefaultFixMessage implements FixMessage {
       @Override
-      public String get(Iterable<JarOwner> missing, String recipient, DependencyModule depModule) {
+      public String get(Iterable<JarOwner> missing, String recipient) {
         ImmutableSet<String> missingTargets =
             Streams.stream(missing)
                 .flatMap(owner -> owner.label().map(Stream::of).orElse(Stream.empty()))

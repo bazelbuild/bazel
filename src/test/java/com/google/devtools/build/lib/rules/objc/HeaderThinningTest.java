@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -125,7 +126,8 @@ public class HeaderThinningTest extends ObjcRuleTestCase {
         HeaderThinning.findRequiredHeaderInputs(
             sourceFile,
             headersListFile,
-            createHeaderFilesMap(getPotentialHeaders(expectedHeaders)));
+            createHeaderFilesMap(getPotentialHeaders(expectedHeaders)),
+            ArtifactPathResolver.IDENTITY);
     assertThat(headersFound).containsExactlyElementsIn(expectedHeaders);
   }
 

@@ -33,13 +33,13 @@ using std::string;
 TEST(FileTest, TestSingleThreadedPipe) {
   std::unique_ptr<IPipe> pipe(CreatePipe());
   char buffer[50] = {0};
-  ASSERT_TRUE(pipe.get()->Send("hello", 5));
+  ASSERT_TRUE(pipe->Send("hello", 5));
   int error = -1;
-  ASSERT_EQ(3, pipe.get()->Receive(buffer, 3, &error));
-  ASSERT_TRUE(pipe.get()->Send(" world", 6));
-  ASSERT_EQ(5, pipe.get()->Receive(buffer + 3, 5, &error));
+  ASSERT_EQ(3, pipe->Receive(buffer, 3, &error));
+  ASSERT_TRUE(pipe->Send(" world", 6));
+  ASSERT_EQ(5, pipe->Receive(buffer + 3, 5, &error));
   ASSERT_EQ(IPipe::SUCCESS, error);
-  ASSERT_EQ(3, pipe.get()->Receive(buffer + 8, 40, &error));
+  ASSERT_EQ(3, pipe->Receive(buffer + 8, 40, &error));
   ASSERT_EQ(IPipe::SUCCESS, error);
   ASSERT_EQ(0, strncmp(buffer, "hello world", 11));
 }
@@ -48,19 +48,19 @@ TEST(FileTest, TestMultiThreadedPipe) {
   std::unique_ptr<IPipe> pipe(CreatePipe());
   char buffer[50] = {0};
   std::thread writer_thread([&pipe]() {
-    ASSERT_TRUE(pipe.get()->Send("hello", 5));
-    ASSERT_TRUE(pipe.get()->Send(" world", 6));
+    ASSERT_TRUE(pipe->Send("hello", 5));
+    ASSERT_TRUE(pipe->Send(" world", 6));
   });
 
   // Wait for all data to be fully written to the pipe.
   writer_thread.join();
 
   int error = -1;
-  ASSERT_EQ(3, pipe.get()->Receive(buffer, 3, &error));
+  ASSERT_EQ(3, pipe->Receive(buffer, 3, &error));
   ASSERT_EQ(IPipe::SUCCESS, error);
-  ASSERT_EQ(5, pipe.get()->Receive(buffer + 3, 5, &error));
+  ASSERT_EQ(5, pipe->Receive(buffer + 3, 5, &error));
   ASSERT_EQ(IPipe::SUCCESS, error);
-  ASSERT_EQ(3, pipe.get()->Receive(buffer + 8, 40, &error));
+  ASSERT_EQ(3, pipe->Receive(buffer + 8, 40, &error));
   ASSERT_EQ(IPipe::SUCCESS, error);
   ASSERT_EQ(0, strncmp(buffer, "hello world", 11));
 }
@@ -148,37 +148,31 @@ TEST(FileTest, TestMtimeHandling) {
   string tempdir(tempdir_cstr);
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
-  bool actual = false;
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(tempdir, &actual));
-  ASSERT_FALSE(actual);
-
+  // Assert that a directory is always untampered with. (We do
+  // not care about directories' mtimes.)
+  ASSERT_TRUE(mtime->IsUntampered(tempdir));
   // Create a new file, assert its mtime is not in the future.
   string file(JoinPath(tempdir, "foo.txt"));
   ASSERT_TRUE(WriteFile("hello", 5, file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_FALSE(actual);
+  ASSERT_FALSE(mtime->IsUntampered(file));
   // Set the file's mtime to the future, assert that it's so.
-  ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_TRUE(actual);
-  // Overwrite the file, resetting its mtime, assert that GetIfInDistantFuture
-  // notices.
+  ASSERT_TRUE(mtime->SetToDistantFuture(file));
+  ASSERT_TRUE(mtime->IsUntampered(file));
+  // Overwrite the file, resetting its mtime, assert that
+  // IsUntampered notices.
   ASSERT_TRUE(WriteFile("world", 5, file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_FALSE(actual);
+  ASSERT_FALSE(mtime->IsUntampered(file));
   // Set it to the future again so we can reset it using SetToNow.
-  ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_TRUE(actual);
+  ASSERT_TRUE(mtime->SetToDistantFuture(file));
+  ASSERT_TRUE(mtime->IsUntampered(file));
   // Assert that SetToNow resets the timestamp.
-  ASSERT_TRUE(mtime.get()->SetToNow(file));
-  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
-  ASSERT_FALSE(actual);
+  ASSERT_TRUE(mtime->SetToNow(file));
+  ASSERT_FALSE(mtime->IsUntampered(file));
   // Delete the file and assert that we can no longer set or query its mtime.
   ASSERT_TRUE(UnlinkPath(file));
-  ASSERT_FALSE(mtime.get()->SetToNow(file));
-  ASSERT_FALSE(mtime.get()->SetToDistantFuture(file));
-  ASSERT_FALSE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_FALSE(mtime->SetToNow(file));
+  ASSERT_FALSE(mtime->SetToDistantFuture(file));
+  ASSERT_FALSE(mtime->IsUntampered(file));
 }
 
 TEST(FileTest, TestRenameDirectory) {
@@ -255,7 +249,7 @@ TEST(FileTest, IsDevNullTest) {
   ASSERT_FALSE(IsDevNull("dev/null"));
   ASSERT_FALSE(IsDevNull("/dev/nul"));
   ASSERT_FALSE(IsDevNull("/dev/nulll"));
-  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull((char *) nullptr));
   ASSERT_FALSE(IsDevNull(""));
 }
 

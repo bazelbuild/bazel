@@ -20,7 +20,7 @@ PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/bui
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.10.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-GUAVA_VERSION=24.1
+GUAVA_VERSION=25.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
@@ -114,9 +114,14 @@ function java_compilation() {
     cat "$paramfile" >&2
   fi
 
+  # Use BAZEL_JAVAC_OPTS to pass additional arguments to javac, e.g.,
+  # export BAZEL_JAVAC_OPTS="-J-Xmx2g -J-Xms200m"
+  # Useful if your system chooses too small of a max heap for javac.
+  # We intentionally rely on shell word splitting to allow multiple
+  # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      -encoding UTF-8 "@${paramfile}"
+      -encoding UTF-8 ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do
@@ -215,7 +220,23 @@ workspace(name = 'bazel_tools')
 EOF
   link_dir ${PWD}/src ${BAZEL_TOOLS_REPO}/src
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
-  link_dir ${PWD}/tools ${BAZEL_TOOLS_REPO}/tools
+
+  # Create @bazel_tools//tools/cpp/runfiles
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
+  link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
+      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.h"
+  # Transform //tools/cpp/runfiles:runfiles_src.cc to
+  # @bazel_tools//tools/cpp/runfiles:runfiles.cc
+  # Keep this transformation logic in sync with the
+  # //tools/cpp/runfiles:srcs_for_embedded_tools genrule.
+  sed 's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' \
+      "${PWD}/tools/cpp/runfiles/runfiles_src.cc" > \
+      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.cc"
+  link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
+  # Create the rest of @bazel_tools//tools/...
+  link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
+  link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
   # Set up @bazel_tools//platforms properly
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms

@@ -32,6 +32,10 @@ default_toolchain {
   cpu: "ppc"
   toolchain_identifier: "local_linux"
 }
+default_toolchain {
+  cpu: "aarch64"
+  toolchain_identifier: "local_linux"
+}
 
 toolchain {
   abi_version: "local"
@@ -79,6 +83,7 @@ toolchain {
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   # Anticipated future default.
   unfiltered_cxx_flag: "-no-canonical-prefixes"
@@ -177,6 +182,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   needsPic: true
   supports_fission: true
@@ -216,6 +222,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   needsPic: true
   supports_fission: true
@@ -255,6 +262,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   needsPic: false
 
@@ -293,6 +301,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   needsPic: false
 
@@ -332,6 +341,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   needsPic: false
 
@@ -372,6 +382,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "/usr/bin/llvm-profdata" }
 
   needsPic: false
 
@@ -412,6 +423,7 @@ toolchain {
   tool_path { name: "objcopy" path: "C:/mingw/bin/objcopy" }
   tool_path { name: "objdump" path: "C:/mingw/bin/objdump" }
   tool_path { name: "strip" path: "C:/mingw/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "C:/mingw/bin/llvm-profdata" }
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"
@@ -446,6 +458,7 @@ toolchain {
   tool_path { name: "objcopy" path: "C:/msys64/mingw64/bin/objcopy" }
   tool_path { name: "objdump" path: "C:/msys64/mingw64/bin/objdump" }
   tool_path { name: "strip" path: "C:/msys64/mingw64/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "C:/msys64/mingw64/bin/llvm-profdata" }
 
   builtin_sysroot: "/usr/grte/v1"
   cxx_flag: "-std=c++0x"
@@ -479,6 +492,7 @@ toolchain {
   tool_path { name: "objcopy" path: "C:/Program Files (x86)/LLVM/bin/objcopy" }
   tool_path { name: "objdump" path: "C:/Program Files (x86)/LLVM/bin/objdump" }
   tool_path { name: "strip" path: "C:/Program Files (x86)/LLVM/bin/strip" }
+  tool_path { name: "llvm-profdata" path: "C:/Program Files (x86)/LLVM/bin/llvm-profdata" }
 
   cxx_flag: "-std=c++0x"
   cxx_builtin_include_directory: "/usr/lib/gcc/"
@@ -529,6 +543,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/bin/false" }
   tool_path { name: "objdump" path: "/bin/false" }
   tool_path { name: "strip" path: "/bin/false" }
+  tool_path { name: "llvm-profdata" path: "/bin/false" }
 
   supports_interface_shared_objects: true
 }
@@ -567,6 +582,7 @@ toolchain {
    objcopy_embed_flag: "binary"
    tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
    tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
+   tool_path { name: "llvm-profdata" path: "C:/tools/msys64/usr/bin/llvm-profdata" }
    linking_mode_flags { mode: DYNAMIC }
 }
 
@@ -604,5 +620,6 @@ toolchain {
    objcopy_embed_flag: "binary"
    tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
    tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
+   tool_path { name: "llvm-profdata" path: "C:/tools/msys64/usr/bin/llvm-profdata" }
    # No linking_mode_flags here
 }

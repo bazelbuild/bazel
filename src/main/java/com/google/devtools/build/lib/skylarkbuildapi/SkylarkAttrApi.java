@@ -39,17 +39,44 @@ import com.google.devtools.build.lib.syntax.UserDefinedFunction;
     namespace = true,
     category = SkylarkModuleCategory.BUILTIN,
     doc =
-        "Module for creating new attributes. "
-            + "They are only for use with <a href=\"globals.html#rule\">rule</a> or "
-            + "<a href=\"globals.html#aspect\">aspect</a>. "
-            + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
-            + "attributes/printer.bzl\">See example of use</a>.")
+        "This is a top-level module for defining the attribute schemas of a rule or aspect. Each "
+            + "function returns an object representing the schema of a single attribute. These "
+            + "objects are used as the values of the <code>attrs</code> dictionary argument of "
+            + "<a href=\"globals.html#rule\"><code>rule()</code></a> and "
+            + "<a href=\"globals.html#aspect\"><code>aspect()</code></a>."
+            + ""
+            + "<p>See the Rules page for more on "
+            + "<a href='../rules.$DOC_EXT#attributes'>defining</a> and "
+            + "<a href='../rules.$DOC_EXT#implementation-function'>using</a> attributes.")
 public interface SkylarkAttrApi extends SkylarkValue {
+
+  // dependency and output attributes
+  static final String LABEL_PARAGRAPH =
+      "<p>This attribute contains <a href='Label.html'><code>Label</code></a> values. If a string "
+          + "is supplied in place of a <code>Label</code>, it will be converted using the "
+          + "<a href='Label.html#Label'>label constructor</a>. The relative parts of the label "
+          + "path, including the (possibly renamed) repository, are resolved with respect to the "
+          + "instantiated target's package.";
+
+  // attr.label, attr.label_list, attr.label_keyed_string_dict
+  static final String DEPENDENCY_ATTR_TEXT =
+      LABEL_PARAGRAPH
+          + "<p>At analysis time (within the rule's implementation function), when retrieving the "
+          + "attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding "
+          + "<a href='Target.html'><code>Target</code></a>s. This allows you to access the "
+          + "providers of the currrent target's dependencies.";
+
+  // attr.output, attr.output_list
+  static final String OUTPUT_ATTR_TEXT =
+      LABEL_PARAGRAPH
+          + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
+          + "be retrieved using <code>ctx.outputs</code>.";
 
   static final String ALLOW_FILES_ARG = "allow_files";
   static final String ALLOW_FILES_DOC =
-      "Whether File targets are allowed. Can be True, False (default), or a list of file "
-          + "extensions that are allowed (for example, <code>[\".cc\", \".cpp\"]</code>).";
+      "Whether <code>File</code> targets are allowed. Can be <code>True</code>, <code>False</code> "
+          + "(default), or a list of file extensions that are allowed (for example, "
+          + "<code>[\".cc\", \".cpp\"]</code>).";
 
   static final String ALLOW_RULES_ARG = "allow_rules";
   static final String ALLOW_RULES_DOC =
@@ -62,13 +89,15 @@ public interface SkylarkAttrApi extends SkylarkValue {
           + "attribute.";
 
   static final String CONFIGURATION_ARG = "cfg";
+  // TODO(bazel-team): Update when new Skylark-based configuration framework is implemented.
   static final String CONFIGURATION_DOC =
       "<a href=\"../rules.$DOC_EXT#configurations\">Configuration</a> of the attribute. It can be "
           + "either <code>\"host\"</code> or <code>\"target\"</code>.";
 
   static final String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
-  static final String DEFAULT_DOC = "The default value of the attribute. ";
+  static final String DEFAULT_DOC =
+      "A default value to use if no value for this attribute is given when instantiating the rule.";
 
   static final String DOC_ARG = "doc";
   static final String DOC_DOC =
@@ -76,7 +105,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   static final String EXECUTABLE_ARG = "executable";
   static final String EXECUTABLE_DOC =
-      "True if the label has to be executable. This means the label must refer to an "
+      "True if the dependency has to be executable. This means the label must refer to an "
           + "executable file, or to a rule that outputs an executable file. Access the label "
           + "with <code>ctx.executable.&lt;attribute_name&gt;</code>.";
 
@@ -84,21 +113,26 @@ public interface SkylarkAttrApi extends SkylarkValue {
   static final String FLAGS_DOC = "Deprecated, will be removed.";
 
   static final String MANDATORY_ARG = "mandatory";
-  static final String MANDATORY_DOC = "True if the value must be explicitly specified.";
+  static final String MANDATORY_DOC =
+      "If true, the value must be specified explicitly (even if it has a <code>default</code>).";
 
   static final String NON_EMPTY_ARG = "non_empty";
   static final String NON_EMPTY_DOC =
-      "True if the attribute must not be empty. Deprecated: Use allow_empty instead.";
+      "True if the attribute must not be empty. Deprecated: Use <code>allow_empty</code> instead.";
 
   static final String ALLOW_EMPTY_ARG = "allow_empty";
   static final String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
   static final String PROVIDERS_ARG = "providers";
   static final String PROVIDERS_DOC =
-      "Mandatory providers list. It should be either a list of providers, or a "
-          + "list of lists of providers. Every dependency should provide ALL providers "
-          + "from at least ONE of these lists. A single list of providers will be "
-          + "automatically converted to a list containing one list of providers.";
+      "The providers that must be given by any dependency appearing in this attribute."
+          + ""
+          + "<p>The format of this argument is a list of lists of providers -- <code>*Info</code> "
+          + "objects returned by <a href='globals.html#provider'><code>provider()</code></a> (or "
+          + "in the case of a legacy provider, its string name). The dependency must return ALL "
+          + "providers mentioned in at least ONE of the inner lists. As a convenience, this "
+          + "argument may also be a single-level list of providers, in which case it is wrapped in "
+          + "an outer list with one element.";
 
   static final String SINGLE_FILE_ARG = "single_file";
   static final String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
@@ -110,7 +144,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "int",
-      doc = "Creates an attribute of type int.",
+      doc = "Creates a schema for an integer attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -158,7 +192,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "string",
-      doc = "Creates an attribute of type <a href=\"string.html\">string</a>.",
+      doc = "Creates a schema for a string attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -205,12 +239,17 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "label",
-      doc =
-          "Creates an attribute of type <a href=\"Target.html\">Target</a> which is the target "
-              + "referred to by the label. "
-              + "It is the only way to specify a dependency to another target. "
-              + "If you need a dependency that the user cannot overwrite, "
-              + "<a href=\"../rules.$DOC_EXT#private-attributes\">make the attribute private</a>.",
+      doc = "Creates a schema for a label attribute. This is a dependency attribute."
+              + DEPENDENCY_ATTR_TEXT
+              + "<p>In addition to ordinary source files, this kind of attribute is often used to "
+              + "refer to a tool -- for example, a compiler. Such tools are considered to be "
+              + "dependencies, just like source files. To avoid requiring users to specify the "
+              + "tool's label every time they use the rule in their BUILD files, you can hard-code "
+              + "the label of a canonical tool as the <code>default</code> value of this "
+              + "attribute. If you also want to prevent users from overriding this default, you "
+              + "can make the attribute private by giving it a name that starts with an "
+              + "underscore. See the <a href='../rules.$DOC_EXT#private-attributes'>Rules</a> page "
+              + "for more information.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -334,9 +373,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "string_list",
-      doc =
-          "Creates an attribute which is a <a href=\"list.html\">list</a> of "
-              + "<a href=\"string.html\">strings</a>.",
+      doc = "Creates a schema for a list-of-strings attribute.",
       parameters = {
         @Param(
             name = MANDATORY_ARG,
@@ -388,7 +425,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "int_list",
-      doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of ints.",
+      doc = "Creates a schema for a list-of-integers attribute.",
       parameters = {
         @Param(
             name = MANDATORY_ARG,
@@ -441,9 +478,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
   @SkylarkCallable(
       name = "label_list",
       doc =
-          "Creates an attribute which is a <a href=\"list.html\">list</a> of type "
-              + "<a href=\"Target.html\">Target</a> which are specified by the labels in the list. "
-              + "See <a href=\"attr.html#label\">label</a> for more information.",
+          "Creates a schema for a list-of-labels attribute. This is a dependency attribute."
+              + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -556,10 +592,9 @@ public interface SkylarkAttrApi extends SkylarkValue {
   @SkylarkCallable(
       name = "label_keyed_string_dict",
       doc =
-          "Creates an attribute which is a <a href=\"dict.html\">dict</a>. Its keys are type "
-              + "<a href=\"Target.html\">Target</a> and are specified by the label keys of the "
-              + "input dict. Its values are <a href=\"string.html\">strings</a>. See "
-              + "<a href=\"attr.html#label\">label</a> for more information.",
+          "Creates a schema for an attribute holding a dictionary, where the keys are labels and "
+              + "the values are strings. This is a dependency attribute."
+              + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -672,7 +707,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "bool",
-      doc = "Creates an attribute of type bool.",
+      doc = "Creates a schema for a boolean attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -708,9 +743,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
   @SkylarkCallable(
       name = "output",
       doc =
-          "Creates an attribute of type output. "
-              + "The user provides a file name (string) and the rule must create an action that "
-              + "generates the file.",
+          "Creates a schema for an output (label) attribute."
+              + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -747,8 +781,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
   @SkylarkCallable(
       name = "output_list",
       doc =
-          "Creates an attribute which is a <a href=\"list.html\">list</a> of outputs. "
-              + "See <a href=\"attr.html#output\">output</a> for more information.",
+          "Creates a schema for a list-of-outputs attribute."
+              + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -792,7 +826,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
       useEnvironment = true)
   public Descriptor outputListAttribute(
       Boolean allowEmpty,
-      SkylarkList defaultList,
+      SkylarkList<?> defaultList,
       String doc,
       Boolean mandatory,
       Boolean nonEmpty,
@@ -803,8 +837,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
   @SkylarkCallable(
       name = "string_dict",
       doc =
-          "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
-              + "<a href=\"string.html\">string</a> to <a href=\"string.html\">string</a>.",
+          "Creates a schema for an attribute holding a dictionary, where the keys and values are "
+              + "strings.",
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -859,9 +893,8 @@ public interface SkylarkAttrApi extends SkylarkValue {
   @SkylarkCallable(
       name = "string_list_dict",
       doc =
-          "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
-              + "<a href=\"string.html\">string</a> to <a href=\"list.html\">list</a> of "
-              + "<a href=\"string.html\">string</a>.",
+          "Creates a schema for an attribute holding a dictionary, where the keys are strings and "
+              + "the values are lists of strings.",
       parameters = {
         @Param(
             name = ALLOW_EMPTY_ARG,
@@ -915,7 +948,7 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   @SkylarkCallable(
       name = "license",
-      doc = "Creates an attribute of type license.",
+      doc = "Creates a schema for a license attribute.",
       // TODO(bazel-team): Implement proper license support for Skylark.
       parameters = {
         // TODO(bazel-team): ensure this is the correct default value

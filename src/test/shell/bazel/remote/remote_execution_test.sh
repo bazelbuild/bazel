@@ -30,7 +30,7 @@ function set_up() {
   while [ $attempts -le 5 ]; do
     (( attempts++ ))
     worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-    "${bazel_data}/src/tools/remote/worker" \
+    "${BAZEL_RUNFILES}/src/tools/remote/worker" \
         --work_path="${work_path}" \
         --listen_port=${worker_port} \
         --cas_path=${cas_path} \
@@ -169,6 +169,54 @@ EOF
       //a:test >& $TEST_log \
       && fail "Expected test failure" || true
   # TODO(ulfjack): Check that the test failure gets reported correctly.
+}
+
+function test_local_fallback_works_with_local_strategy() {
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_local_fallback_strategy=local \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "1 process: 1 local"
+}
+
+function test_local_fallback_works_with_sandboxed_strategy() {
+  mkdir -p gen2
+  cat > gen2/BUILD <<'EOF'
+genrule(
+name = "gen2",
+srcs = [],
+outs = ["out2"],
+cmd = "touch \"$@\"",
+tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=localhost:${worker_port} \
+      --remote_local_fallback_strategy=sandboxed \
+      --build_event_text_file=gen2.log \
+      //gen2 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen2.log $TEST_log
+  expect_log "1 process: 1 .*-sandbox"
 }
 
 function is_file_uploaded() {
@@ -527,6 +575,77 @@ EOF
           && fail "should have failed"# || true
     expect_log "/l is a symbolic link"
 }
+
+function test_treeartifact_in_runfiles() {
+     mkdir -p a
+    cat > a/BUILD <<'EOF'
+load(":output_directory.bzl", "gen_output_dir", "gen_output_dir_test")
+
+gen_output_dir(
+    name = "skylark_output_dir",
+    outdir = "dir",
+)
+
+gen_output_dir_test(
+    name = "skylark_output_dir_test",
+    dir = ":skylark_output_dir",
+)
+EOF
+     cat > a/output_directory.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+  output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+  ctx.actions.run_shell(
+      outputs = [output_dir],
+      inputs = [],
+      command = """
+        mkdir -p $1/sub; \
+        echo "foo" > $1/foo; \
+        echo "bar" > $1/sub/bar
+      """,
+      arguments = [output_dir.path],
+  )
+  return [
+      DefaultInfo(files=depset(direct=[output_dir]),
+                  runfiles = ctx.runfiles(files = [output_dir]))
+  ]
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+def _gen_output_dir_test_impl(ctx):
+    test = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(test, "echo hello world")
+    myrunfiles = ctx.runfiles(files=ctx.attr.dir.default_runfiles.files.to_list())
+    return [
+        DefaultInfo(
+            executable = test,
+            runfiles = myrunfiles,
+        ),
+    ]
+gen_output_dir_test = rule(
+    implementation = _gen_output_dir_test_impl,
+    test = True,
+    attrs = {
+        "dir":  attr.label(mandatory = True),
+    },
+)
+EOF
+     # Also test this directory inputs with sandboxing. Ideally we would add such
+     # a test into the sandboxing module.
+     bazel test \
+           --spawn_strategy=sandboxed \
+           //a:skylark_output_dir_test \
+           || fail "Failed to run //a:skylark_output_dir_test with sandboxing"
+
+     bazel test \
+           --spawn_strategy=remote \
+           --remote_executor=localhost:${worker_port} \
+           //a:skylark_output_dir_test \
+           || fail "Failed to run //a:skylark_output_dir_test with remote execution"
+}
+
 
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.

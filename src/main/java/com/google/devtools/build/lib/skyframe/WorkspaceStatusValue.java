@@ -37,9 +37,8 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
   WorkspaceStatusValue(
       Artifact stableArtifact,
       Artifact volatileArtifact,
-      WorkspaceStatusAction workspaceStatusAction,
-      boolean removeActionsAfterEvaluation) {
-    super(workspaceStatusAction, removeActionsAfterEvaluation);
+      WorkspaceStatusAction workspaceStatusAction) {
+    super(workspaceStatusAction);
     this.stableArtifact = stableArtifact;
     this.volatileArtifact = volatileArtifact;
   }

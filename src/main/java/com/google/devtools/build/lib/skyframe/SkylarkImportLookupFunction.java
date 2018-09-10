@@ -120,12 +120,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     if (cachedSkylarkImportLookupValueAndDeps == null) {
       return null;
     }
-    for (Iterable<SkyKey> depGroup : cachedSkylarkImportLookupValueAndDeps.deps) {
-      // Because we automatically filter out deps we've seen before and we don't expect this to be
-      // a super large DAG of dependencies, we iterate through without checking for already visited
-      // deps.
-      env.registerDependencies(depGroup);
-    }
+    cachedSkylarkImportLookupValueAndDeps.traverse(env::registerDependencies);
     return cachedSkylarkImportLookupValueAndDeps.getValue();
   }
 
@@ -509,7 +504,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
     ImmutableSet<Identifier> boundIdentifiers = assignmentStatement.getLValue().boundIdentifiers();
     for (Identifier ident : boundIdentifiers) {
-      Object lookup = extensionEnv.lookup(ident.getName());
+      Object lookup = extensionEnv.moduleLookup(ident.getName());
       if (lookup instanceof SkylarkExportable) {
         try {
           SkylarkExportable exportable = (SkylarkExportable) lookup;

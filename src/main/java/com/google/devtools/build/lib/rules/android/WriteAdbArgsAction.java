@@ -35,7 +35,7 @@ import java.util.List;
 
 /**
  * An action that writes the a parameter file to {@code incremental_install.py} based on the command
- * line arguments to {@code blaze mobile-install}.
+ * line arguments to {@code bazel mobile-install}.
  */
 @Immutable // note that it accesses data non-hermetically during the execution phase
 public final class WriteAdbArgsAction extends AbstractFileWriteAction {

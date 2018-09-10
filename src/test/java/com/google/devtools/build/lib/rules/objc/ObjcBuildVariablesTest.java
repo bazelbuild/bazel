@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -118,7 +119,8 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     // actions, follow the chain of actions starting at the lipobin
     // creation.
     Artifact lipoBin =
-        getBinArtifact(Label.parseAbsolute("//x:bin").getName() + "_lipobin", target);
+        getBinArtifact(
+            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
@@ -146,7 +148,6 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     String dummyMinimumOsValue = "13.579";
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
-        "--apple_crosstool_transition",
         "--cpu=darwin_x86_64",
         "--macos_minimum_os=" + dummyMinimumOsValue);
     scratch.file(
@@ -166,7 +167,8 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     // In order to get the set of variables that apply to the c++ actions, follow the chain of
     // actions starting at the lipobin creation.
     Artifact lipoBin =
-        getBinArtifact(Label.parseAbsolute("//x:bin").getName() + "_lipobin", target);
+        getBinArtifact(
+            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
@@ -211,7 +213,6 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     String dummyMinimumOsValue = "13.579";
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
-        "--apple_crosstool_transition",
         "--cpu=darwin_x86_64");
     scratch.file(
         "x/BUILD",
@@ -231,7 +232,8 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     // In order to get the set of variables that apply to the c++ actions, follow the chain of
     // actions starting at the lipobin creation.
     Artifact lipoBin =
-        getBinArtifact(Label.parseAbsolute("//x:bin").getName() + "_lipobin", target);
+        getBinArtifact(
+            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);

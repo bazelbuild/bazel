@@ -24,10 +24,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
+import java.io.Serializable;
 
 /**
  * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
@@ -131,12 +133,14 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
   }
 
   /** The default label of the build-wide {@code xcode_config} configuration rule. */
-  public static LabelLateBoundDefault<?> getXcodeConfigLabel(String toolsRepository) {
+  public static LabelLateBoundDefault<AppleConfiguration> getXcodeConfigLabel(
+      String toolsRepository) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         AppleConfiguration.class,
         Label.parseAbsoluteUnchecked(
             toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
-        (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
+        (Attribute.LateBoundDefault.Resolver<AppleConfiguration, Label> & Serializable)
+            (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
   }
 
   /**

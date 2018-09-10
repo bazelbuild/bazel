@@ -179,10 +179,10 @@ public abstract class ValueWithMetadata implements SkyValue {
   /**
    * Implementation of {@link ValueWithMetadata} for the error case.
    *
-   * ErorInfo does not override equals(), so it may as well be marked NotComparableSkyValue.
+   * <p>Mark NotComparableSkyValue because it's unlikely that re-evaluation gives the same error.
    */
   private static final class ErrorInfoValue extends ValueWithMetadata
-          implements NotComparableSkyValue {
+      implements NotComparableSkyValue {
 
     private final ErrorInfo errorInfo;
     private final NestedSet<TaggedEvents> transitiveEvents;
@@ -257,6 +257,7 @@ public abstract class ValueWithMetadata implements SkyValue {
     }
   }
 
+  @Nullable
   public static SkyValue justValue(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return ((ValueWithMetadata) value).getValue();
@@ -279,7 +280,8 @@ public abstract class ValueWithMetadata implements SkyValue {
     return null;
   }
 
-  static NestedSet<TaggedEvents> getEvents(SkyValue value) {
+  @VisibleForTesting
+  public static NestedSet<TaggedEvents> getEvents(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return ((ValueWithMetadata) value).getTransitiveEvents();
     }

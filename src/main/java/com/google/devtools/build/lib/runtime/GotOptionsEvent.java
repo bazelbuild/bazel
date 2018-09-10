@@ -22,15 +22,15 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import java.util.Objects;
 
 /** An event in which the command line options are discovered. */
 public class GotOptionsEvent implements BuildEventWithOrderConstraint {
 
-  private final OptionsProvider startupOptions;
-  private final OptionsProvider options;
+  private final OptionsParsingResult startupOptions;
+  private final OptionsParsingResult options;
   private final InvocationPolicy invocationPolicy;
 
   /**
@@ -40,23 +40,21 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
    * @param options the parsed options
    */
   public GotOptionsEvent(
-      OptionsProvider startupOptions, OptionsProvider options, InvocationPolicy invocationPolicy) {
+      OptionsParsingResult startupOptions,
+      OptionsParsingResult options,
+      InvocationPolicy invocationPolicy) {
     this.startupOptions = startupOptions;
     this.options = options;
     this.invocationPolicy = invocationPolicy;
   }
 
-  /**
-   * @return the parsed startup options
-   */
-  public OptionsProvider getStartupOptions() {
+  /** @return the parsed startup options */
+  public OptionsParsingResult getStartupOptions() {
     return startupOptions;
   }
 
-  /**
-   * @return the parsed options.
-   */
-  public OptionsProvider getOptions() {
+  /** @return the parsed options. */
+  public OptionsParsingResult getOptions() {
     return options;
   }
 
@@ -80,7 +78,7 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
     BuildEventStreamProtos.OptionsParsed.Builder optionsBuilder =
         BuildEventStreamProtos.OptionsParsed.newBuilder();
 
-    OptionsProvider options = getStartupOptions();
+    OptionsParsingResult options = getStartupOptions();
     optionsBuilder.addAllStartupOptions(OptionsUtils.asArgumentList(options));
     optionsBuilder.addAllExplicitStartupOptions(
         OptionsUtils.asArgumentList(

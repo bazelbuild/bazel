@@ -54,10 +54,10 @@ function test_bootstrap()  {
         || fail "Expected to be able to bootstrap bazel"
     _log_progress "run"
     ./output/bazel \
-      --host_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+      --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       version > "${TEST_log}" || fail "Generated bazel not working"
     ./output/bazel \
-      --host_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+      --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       shutdown
     _log_progress "assert"
     expect_log "${SOURCE_DATE_EPOCH}"

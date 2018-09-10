@@ -15,21 +15,16 @@ package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.when;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto.FlagInfo;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousFileChannel;
-import java.nio.channels.CompletionHandler;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -41,7 +36,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
@@ -49,10 +43,9 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class AsynchronousFileOutputStreamTest {
   @Rule public TemporaryFolder tmp = new TemporaryFolder();
-  @Mock AsynchronousFileChannel mockChannel;
-  Random random = ThreadLocalRandom.current();
-  static final char[] RAND_CHARS = "abcdefghijklmnopqrstuvwxzy0123456789-".toCharArray();
-  static final int RAND_STRING_LENGTH = 10;
+  private final Random random = ThreadLocalRandom.current();
+  private static final char[] RAND_CHARS = "abcdefghijklmnopqrstuvwxzy0123456789-".toCharArray();
+  private static final int RAND_STRING_LENGTH = 10;
 
   @Before
   public void initMocks() {
@@ -167,26 +160,17 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testFailedClosePropagatesIOException() throws Exception {
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(mockChannel);
-    when(mockChannel.isOpen()).thenReturn(true);
-    IOException ex = new IOException("foo");
-    Mockito.doThrow(ex).when(mockChannel).close();
-    Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              CompletionHandler<Integer, Void> handler =
-                  (CompletionHandler<Integer, Void>) invocationOnMock.getArguments()[3];
-              handler.completed(0, null); // We ignore the arguments.
-              return null;
-            })
-        .when(mockChannel)
-        .write(
-            any(ByteBuffer.class),
-            any(Integer.class),
-            eq(null),
-            Mockito.<CompletionHandler<Integer, Void>>anyObject());
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+      }
+      @Override
+      public void close() throws IOException {
+        throw new IOException("foo");
+      }
+    };
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
-
     try {
       out.close();
       fail("Expected an IOException");
@@ -197,86 +181,17 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testFailedClosePropagatesUncheckedException() throws Exception {
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(mockChannel);
-    when(mockChannel.isOpen()).thenReturn(true);
-    RuntimeException ex = new RuntimeException("foo");
-    Mockito.doThrow(ex).when(mockChannel).close();
-    Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              CompletionHandler<Integer, Void> handler =
-                  (CompletionHandler<Integer, Void>) invocationOnMock.getArguments()[3];
-              handler.completed(0, null); // We ignore the arguments.
-              return null;
-            })
-        .when(mockChannel)
-        .write(
-            any(ByteBuffer.class),
-            any(Integer.class),
-            eq(null),
-            Mockito.<CompletionHandler<Integer, Void>>anyObject());
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+      }
+      @Override
+      public void close() throws IOException {
+        throw new RuntimeException("foo");
+      }
+    };
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
-
-    try {
-      out.close();
-      fail("Expected a RuntimeException");
-    } catch (RuntimeException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
-  }
-
-  @Test
-  public void testFailedForcePropagatesIOException() throws Exception {
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(mockChannel);
-    when(mockChannel.isOpen()).thenReturn(true);
-    IOException ex = new IOException("foo");
-    Mockito.doThrow(ex).when(mockChannel).force(eq(true));
-    Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              CompletionHandler<Integer, Void> handler =
-                  (CompletionHandler<Integer, Void>) invocationOnMock.getArguments()[3];
-              handler.completed(0, null); // We ignore the arguments.
-              return null;
-            })
-        .when(mockChannel)
-        .write(
-            any(ByteBuffer.class),
-            any(Integer.class),
-            eq(null),
-            Mockito.<CompletionHandler<Integer, Void>>anyObject());
-    out.write("bla");
-
-    try {
-      out.close();
-      fail("Expected an IOException");
-    } catch (IOException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("foo");
-    }
-  }
-
-  @Test
-  public void testFailedForcePropagatesUncheckedException() throws Exception {
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(mockChannel);
-    when(mockChannel.isOpen()).thenReturn(true);
-    RuntimeException ex = new RuntimeException("foo");
-    Mockito.doThrow(ex).when(mockChannel).force(eq(true));
-    Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              CompletionHandler<Integer, Void> handler =
-                  (CompletionHandler<Integer, Void>) invocationOnMock.getArguments()[3];
-              handler.completed(0, null); // We ignore the arguments.
-              return null;
-            })
-        .when(mockChannel)
-        .write(
-            any(ByteBuffer.class),
-            any(Integer.class),
-            eq(null),
-            Mockito.<CompletionHandler<Integer, Void>>anyObject());
-    out.write("bla");
-
     try {
       out.close();
       fail("Expected a RuntimeException");
@@ -287,26 +202,18 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testFailedWritePropagatesIOException() throws Exception {
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(mockChannel);
-    when(mockChannel.isOpen()).thenReturn(true);
-    IOException ex = new IOException("foo");
-    Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              CompletionHandler<Integer, Void> handler =
-                  (CompletionHandler<Integer, Void>) invocationOnMock.getArguments()[3];
-              handler.failed(ex, null);
-              return null;
-            })
-        .when(mockChannel)
-        .write(
-            any(ByteBuffer.class),
-            any(Integer.class),
-            eq(null),
-            Mockito.<CompletionHandler<Integer, Void>>anyObject());
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        throw new IOException("foo");
+      }
+      @Override
+      public void close() throws IOException {
+      }
+    };
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
     out.write("blo");
-
     try {
       out.close();
       fail("Expected an IOException");
@@ -317,26 +224,18 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testFailedWritePropagatesUncheckedException() throws Exception {
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(mockChannel);
-    when(mockChannel.isOpen()).thenReturn(true);
-    RuntimeException ex = new RuntimeException("foo");
-    Mockito.doAnswer(
-            invocationOnMock -> {
-              @SuppressWarnings("unchecked")
-              CompletionHandler<Integer, Void> handler =
-                  (CompletionHandler<Integer, Void>) invocationOnMock.getArguments()[3];
-              handler.failed(ex, null);
-              return null;
-            })
-        .when(mockChannel)
-        .write(
-            any(ByteBuffer.class),
-            any(Integer.class),
-            eq(null),
-            Mockito.<CompletionHandler<Integer, Void>>anyObject());
+    OutputStream failingOutputStream = new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        throw new RuntimeException("foo");
+      }
+      @Override
+      public void close() throws IOException {
+      }
+    };
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream("", failingOutputStream);
     out.write("bla");
     out.write("blo");
-
     try {
       out.close();
       fail("Expected a RuntimeException");
@@ -347,15 +246,10 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testWriteAfterCloseThrowsException() throws Exception {
-    Path logPath = tmp.newFile().toPath();
-    AsynchronousFileChannel ch = AsynchronousFileChannel.open(
-            logPath,
-            StandardOpenOption.WRITE,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING);
-    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(ch);
+    AsynchronousFileOutputStream out = new AsynchronousFileOutputStream(
+        "", new ByteArrayOutputStream());
     out.write("bla");
-    ch.close();
+    out.close();
 
     try {
       out.write("blo");

@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -46,8 +47,8 @@ public interface SkyFunction {
    * another containing that additional context. If it has no such additional context, then it
    * should allow its dependency's exception to be thrown through it.
    *
-   * <p>This method may return {@link #SENTINEL_FOR_RESTART_FROM_SCRATCH} in rare circumstances. See
-   * its docs. Do not return this value unless you know exactly what you are doing.
+   * <p>This method may return {@link Restart} in rare circumstances. See its docs. Do not return
+   * values of this type unless you know exactly what you are doing.
    *
    * @throws SkyFunctionException on failure
    * @throws InterruptedException if interrupted
@@ -69,15 +70,36 @@ public interface SkyFunction {
   String extractTag(SkyKey skyKey);
 
   /**
-   * Sentinel value for {@link #compute} to return, indicating that something went wrong in external
-   * state and the evaluation has to be restarted from scratch, ignoring any deps that the {@link
-   * #compute} function may have declared during evaluation at this version (including deps declared
-   * during previous calls that returned null). Common causes for returning this would be data loss,
-   * if a dep's data is not actually available externally. In this case, the {@link SkyFunction}
-   * will likely dirty the unusable dep to force its re-evalution when re-requested by the restarted
-   * entry's computation.
+   * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that something went
+   * wrong, and that the evaluation returning this value must be restarted, and the nodes associated
+   * with the specified keys (which should be direct or transitive dependencies of the failed
+   * evaluation) must also be restarted.
+   *
+   * <p>An intended cause for returning this is external data loss; e.g., if a dependency's
+   * "done-ness" is intended to mean that certain data is available in an external system, but
+   * during evaluation of a node that depends on that external data, that data has gone missing, and
+   * reevaluation of the dependency is expected to repair the discrepancy.
+   *
+   * <p>Values of this type will <em>never</em> be returned by {@link Environment}'s getValue
+   * methods or from {@link NodeEntry#getValue()}.
+   *
+   * <p>TODO(mschaller): the ability to specify arbitrary additional keys to restart is error-prone.
+   * It would be safer to require nodes requesting restarts to provide dependency paths, which the
+   * framework could efficiently verify before restarting.
    */
-  SkyValue SENTINEL_FOR_RESTART_FROM_SCRATCH = new SkyValue() {};
+  interface Restart extends SkyValue {
+    Restart SELF = ImmutableList::of;
+
+    static Restart selfAnd(SkyKey... additionalKeysToRestart) {
+      return selfAnd(ImmutableList.copyOf(additionalKeysToRestart));
+    }
+
+    static Restart selfAnd(ImmutableList<SkyKey> additionalKeysToRestart) {
+      return () -> additionalKeysToRestart;
+    }
+
+    ImmutableList<SkyKey> getAdditionalKeysToRestart();
+  }
 
   /**
    * The services provided to the {@link SkyFunction#compute} implementation by the Skyframe
@@ -303,6 +325,11 @@ public interface SkyFunction {
      *
      * <p>WARNING: Dependencies here MUST be done! Only use this function if you know what you're
      * doing.
+     *
+     * <p>If the {@link EvaluationVersionBehavior} is {@link
+     * EvaluationVersionBehavior#MAX_CHILD_VERSIONS} then this method may fall back to just doing a
+     * {@link #getValues} call internally. Thus, any graph evaluations that require this method to
+     * be performant <i>must</i> run with {@link EvaluationVersionBehavior#GRAPH_VERSION}.
      */
     default void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
       getValues(keys);

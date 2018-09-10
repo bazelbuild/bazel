@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.buildeventservice.client;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -30,12 +29,11 @@ import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status;
+import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
@@ -45,14 +43,13 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
 
   private final PublishBuildEventStub besAsync;
   private final PublishBuildEventBlockingStub besBlocking;
-  private final AtomicReference<StreamObserver<PublishBuildToolEventStreamRequest>> streamReference;
+  private volatile StreamObserver<PublishBuildToolEventStreamRequest> stream;
+  private volatile SettableFuture<Status> streamStatus;
 
   public BuildEventServiceGrpcClient(Channel channel, @Nullable CallCredentials callCredentials) {
-    this.besAsync = withCallCredentials(
-        PublishBuildEventGrpc.newStub(channel), callCredentials);
-    this.besBlocking = withCallCredentials(
-        PublishBuildEventGrpc.newBlockingStub(channel), callCredentials);
-    this.streamReference = new AtomicReference<>(null);
+    this.besAsync = withCallCredentials(PublishBuildEventGrpc.newStub(channel), callCredentials);
+    this.besBlocking =
+        withCallCredentials(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials);
   }
 
   private static <T extends AbstractStub<T>> T withCallCredentials(
@@ -62,98 +59,100 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
   }
 
   @Override
-  public Status publish(PublishLifecycleEventRequest lifecycleEvent) throws Exception {
+  public void publish(PublishLifecycleEventRequest lifecycleEvent)
+      throws StatusException, InterruptedException {
+    throwIfInterrupted();
     try {
       besBlocking
           .withDeadlineAfter(RPC_TIMEOUT.toMillis(), MILLISECONDS)
           .publishLifecycleEvent(lifecycleEvent);
     } catch (StatusRuntimeException e) {
-      Throwable rootCause = Throwables.getRootCause(e);
-      Throwables.throwIfInstanceOf(rootCause, InterruptedException.class);
-      throw e;
+      Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
+      throw e.getStatus().asException();
     }
-    return Status.OK;
   }
 
   @Override
-  public ListenableFuture<Status> openStream(
-      Function<PublishBuildToolEventStreamResponse, Void> ack)
-      throws Exception {
-    SettableFuture<Status> streamFinished = SettableFuture.create();
-    checkState(
-        streamReference.compareAndSet(null, createStream(ack, streamFinished)),
-        "Starting a new stream without closing the previous one");
-    return streamFinished;
-  }
-
-  private StreamObserver<PublishBuildToolEventStreamRequest> createStream(
-      final Function<PublishBuildToolEventStreamResponse, Void> ack,
-      final SettableFuture<Status> streamFinished) throws InterruptedException {
+  public ListenableFuture<Status> openStream(AckCallback ackCallback) throws InterruptedException {
+    Preconditions.checkState(
+        stream == null, "Starting a new stream without closing the previous one");
+    streamStatus = SettableFuture.create();
     try {
-      return besAsync.publishBuildToolEventStream(
-          new StreamObserver<PublishBuildToolEventStreamResponse>() {
-            @Override
-            public void onNext(PublishBuildToolEventStreamResponse response) {
-              ack.apply(response);
-            }
+      stream =
+          besAsync.publishBuildToolEventStream(
+              new StreamObserver<PublishBuildToolEventStreamResponse>() {
+                @Override
+                public void onNext(PublishBuildToolEventStreamResponse response) {
+                  ackCallback.apply(response);
+                }
 
-            @Override
-            public void onError(Throwable t) {
-              streamReference.set(null);
-              streamFinished.setException(t);
-            }
+                @Override
+                public void onError(Throwable t) {
+                  Status error = Status.fromThrowable(t);
+                  if (error.getCode() == Status.CANCELLED.getCode()
+                      && error.getCause() != null
+                      && Status.fromThrowable(error.getCause()).getCode()
+                          != Status.UNKNOWN.getCode()) {
+                    // gRPC likes to wrap Status(Runtime)Exceptions in StatusRuntimeExceptions. If
+                    // the status is cancelled and has a Status(Runtime)Exception as a cause it
+                    // means the error was generated client side.
+                    error = Status.fromThrowable(error.getCause());
+                  }
+                  stream = null;
+                  streamStatus.set(error);
+                  streamStatus = null;
+                }
 
-            @Override
-            public void onCompleted() {
-              streamReference.set(null);
-              streamFinished.set(Status.OK);
-            }
-          });
+                @Override
+                public void onCompleted() {
+                  stream = null;
+                  streamStatus.set(Status.OK);
+                  streamStatus = null;
+                }
+              });
     } catch (StatusRuntimeException e) {
-      Throwable rootCause = Throwables.getRootCause(e);
-      Throwables.throwIfInstanceOf(rootCause, InterruptedException.class);
-      throw e;
+      Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
+      setStreamStatus(Status.fromThrowable(e));
     }
+    return streamStatus;
   }
 
   @Override
-  public void sendOverStream(PublishBuildToolEventStreamRequest buildEvent) throws Exception {
+  public void sendOverStream(PublishBuildToolEventStreamRequest buildEvent)
+      throws InterruptedException {
+    throwIfInterrupted();
+    StreamObserver<PublishBuildToolEventStreamRequest> stream0 = stream;
     try {
-      checkNotNull(streamReference.get(), "Attempting to send over a closed or unopened stream")
-          .onNext(buildEvent);
+      if (stream0 != null) {
+        stream0.onNext(buildEvent);
+      }
     } catch (StatusRuntimeException e) {
-      Throwable rootCause = Throwables.getRootCause(e);
-      Throwables.throwIfInstanceOf(rootCause, InterruptedException.class);
-      throw e;
+      Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
+      setStreamStatus(Status.fromThrowable(e));
     }
   }
 
   @Override
-  public void closeStream() {
-    StreamObserver<PublishBuildToolEventStreamRequest> stream;
-    if ((stream = streamReference.getAndSet(null)) != null) {
-      stream.onCompleted();
+  public void halfCloseStream() {
+    StreamObserver<PublishBuildToolEventStreamRequest> stream0 = stream;
+    if (stream0 != null) {
+      stream0.onCompleted();
     }
   }
 
   @Override
   public void abortStream(Status status) {
-    StreamObserver<PublishBuildToolEventStreamRequest> stream;
-    if ((stream = streamReference.getAndSet(null)) != null) {
-      stream.onError(status.asException());
+    StreamObserver<PublishBuildToolEventStreamRequest> stream0 = stream;
+    if (stream0 != null) {
+      stream0.onError(status.asException());
     }
   }
 
   @Override
-  public boolean isStreamActive() {
-    return streamReference.get() != null;
-  }
-
-  @Override
   public String userReadableError(Throwable t) {
-    if (t instanceof StatusRuntimeException) {
+    if (t instanceof StatusException) {
       Throwable rootCause = Throwables.getRootCause(t);
-      String message = ((StatusRuntimeException) t).getStatus().getCode().name();
+      String message = ((StatusException) t).getStatus().getCode().name();
       message += ": " + rootCause.getMessage();
       return message;
     } else {
@@ -162,5 +161,18 @@ public abstract class BuildEventServiceGrpcClient implements BuildEventServiceCl
   }
 
   @Override
-  public abstract void shutdown() throws InterruptedException;
+  public abstract void shutdown();
+
+  private void setStreamStatus(Status status) {
+    SettableFuture<Status> streamStatus0 = streamStatus;
+    if (streamStatus0 != null) {
+      streamStatus0.set(status);
+    }
+  }
+
+  private static void throwIfInterrupted() throws InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
+  }
 }

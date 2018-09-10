@@ -26,8 +26,9 @@ import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactory;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploaderFactoryMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
@@ -38,11 +39,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule.ModuleEnvironment;
 import com.google.devtools.build.lib.runtime.BuildEventStreamer;
 import com.google.devtools.build.lib.runtime.Command;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -62,6 +62,7 @@ public class BazelBuildEventServiceModuleTest {
       new ActionExecutedEvent(
           new ActionsTestUtil.NullAction(),
           /* exception= */ null,
+          ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
           /* stdout= */ null,
           /* stderr= */ null,
           ErrorTiming.NO_ERROR);
@@ -74,14 +75,6 @@ public class BazelBuildEventServiceModuleTest {
         }
       };
 
-  private static final PathConverter PATH_CONVERTER =
-      new PathConverter() {
-        @Override
-        public String apply(Path path) {
-          return path.getPathString();
-        }
-      };
-
   private Reporter reporter;
 
   private BuildEventServiceOptions besOptions;
@@ -90,7 +83,7 @@ public class BazelBuildEventServiceModuleTest {
 
   @Mock public BuildEventStreamOptions bepOptions;
 
-  @Mock public OptionsProvider optionsProvider;
+  @Mock public OptionsParsingResult optionsProvider;
 
   @Mock public ModuleEnvironment moduleEnvironment;
 
@@ -146,11 +139,14 @@ public class BazelBuildEventServiceModuleTest {
         commandLineReporter,
         moduleEnvironment,
         clock,
-        PATH_CONVERTER,
+        new BuildEventArtifactUploaderFactoryMap.Builder()
+            .add("", BuildEventArtifactUploaderFactory.LOCAL_FILES_UPLOADER_FACTORY)
+            .build(),
         reporter,
         /* buildRequestId= */ "foo",
         /* invocationId= */ "bar",
-        commandName);
+        commandName,
+        /*eventbus=*/ new EventBus());
   }
 
   @Test

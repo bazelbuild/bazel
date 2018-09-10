@@ -72,7 +72,8 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
     TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
     return new CcToolchainFeatures(
-        toolchainBuilder.buildPartial(), /* crosstoolTop= */ PathFragment.EMPTY_FRAGMENT);
+        CcToolchainConfigInfo.fromToolchain(toolchainBuilder.buildPartial()),
+        /* ccToolchainPath= */ PathFragment.EMPTY_FRAGMENT);
   }
 
   /** Returns the value of a given sequence variable in context of the given Variables instance. */

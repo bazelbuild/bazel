@@ -309,7 +309,9 @@ public class NotifyingHelper {
     public DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep)
         throws InterruptedException {
       graphListener.accept(myKey, EventType.CHECK_IF_DONE, Order.BEFORE, reverseDep);
-      return super.checkIfDoneForDirtyReverseDep(reverseDep);
+      DependencyState dependencyState = super.checkIfDoneForDirtyReverseDep(reverseDep);
+      graphListener.accept(myKey, EventType.CHECK_IF_DONE, Order.AFTER, reverseDep);
+      return dependencyState;
     }
 
     @Override

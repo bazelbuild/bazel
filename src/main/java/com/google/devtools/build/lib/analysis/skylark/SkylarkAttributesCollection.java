@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttributesCollectionApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -41,10 +41,10 @@ import java.util.Map;
 /** Information about attributes of a rule an aspect is applied to. */
 class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
   private final SkylarkRuleContext skylarkRuleContext;
-  private final Info attrObject;
-  private final Info executableObject;
-  private final Info fileObject;
-  private final Info filesObject;
+  private final StructImpl attrObject;
+  private final StructImpl executableObject;
+  private final StructImpl fileObject;
+  private final StructImpl filesObject;
   private final ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap;
   private final String ruleClassName;
 
@@ -85,25 +85,25 @@ class SkylarkAttributesCollection implements SkylarkAttributesCollectionApi {
   }
 
   @Override
-  public Info getAttr() throws EvalException {
+  public StructImpl getAttr() throws EvalException {
     checkMutable("attr");
     return attrObject;
   }
 
   @Override
-  public Info getExecutable() throws EvalException {
+  public StructImpl getExecutable() throws EvalException {
     checkMutable("executable");
     return executableObject;
   }
 
   @Override
-  public Info getFile() throws EvalException {
+  public StructImpl getFile() throws EvalException {
     checkMutable("file");
     return fileObject;
   }
 
   @Override
-  public Info getFiles() throws EvalException {
+  public StructImpl getFiles() throws EvalException {
     checkMutable("files");
     return filesObject;
   }

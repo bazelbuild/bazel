@@ -20,19 +20,20 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Provides information about transitive Android assets. */
-public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoApi {
+public final class AndroidAssetsInfo extends NativeInfo
+    implements AndroidAssetsInfoApi<Artifact, ParsedAndroidAssets> {
 
-  private static final String SKYLARK_NAME = "AndroidAssetsInfo";
-
-  public static final NativeProvider<AndroidAssetsInfo> PROVIDER =
-      new NativeProvider<AndroidAssetsInfo>(AndroidAssetsInfo.class, SKYLARK_NAME) {};
+  public static final String PROVIDER_NAME = "AndroidAssetsInfo";
+  public static final Provider PROVIDER = new Provider();
 
   private final Label label;
   @Nullable private final Artifact validationResult;
@@ -96,16 +97,18 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
     this.transitiveCompiledSymbols = transitiveCompiledSymbols;
   }
 
+  @Override
   public Label getLabel() {
     return label;
   }
 
-  @Override
   @Nullable
+  @Override
   public Artifact getValidationResult() {
     return validationResult;
   }
 
+  @Override
   public NestedSet<ParsedAndroidAssets> getDirectParsedAssets() {
     return directParsedAssets;
   }
@@ -120,15 +123,17 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
     return getLocalParsedAndroidAssets().map(AndroidAssets::getAssetDirAsString).orElse(null);
   }
 
-
+  @Override
   public NestedSet<ParsedAndroidAssets> getTransitiveParsedAssets() {
     return transitiveParsedAssets;
   }
 
+  @Override
   public NestedSet<Artifact> getAssets() {
     return transitiveAssets;
   }
 
+  @Override
   public NestedSet<Artifact> getSymbols() {
     return transitiveSymbols;
   }
@@ -139,7 +144,41 @@ public class AndroidAssetsInfo extends NativeInfo implements AndroidAssetsInfoAp
         : Optional.empty();
   }
 
+  @Override
   public NestedSet<Artifact> getCompiledSymbols() {
     return transitiveCompiledSymbols;
+  }
+
+  /** The provider can construct the Android IDL provider. */
+  public static class Provider extends BuiltinProvider<AndroidAssetsInfo>
+      implements AndroidAssetsInfoApi.Provider<Artifact, ParsedAndroidAssets> {
+
+    private Provider() {
+      super(PROVIDER_NAME, AndroidAssetsInfo.class);
+    }
+
+    @Override
+    public AndroidAssetsInfo createInfo(
+        Label label,
+        Artifact validationResult,
+        SkylarkNestedSet directParsedAssets,
+        SkylarkNestedSet transitiveParsedAssets,
+        SkylarkNestedSet transitiveAssets,
+        SkylarkNestedSet transitiveSymbols,
+        SkylarkNestedSet transitiveCompiledSymbols)
+        throws EvalException {
+      return new AndroidAssetsInfo(
+          label,
+          validationResult,
+          nestedSet(directParsedAssets, ParsedAndroidAssets.class),
+          nestedSet(transitiveParsedAssets, ParsedAndroidAssets.class),
+          nestedSet(transitiveAssets, Artifact.class),
+          nestedSet(transitiveSymbols, Artifact.class),
+          nestedSet(transitiveCompiledSymbols, Artifact.class));
+    }
+
+    private <T> NestedSet<T> nestedSet(SkylarkNestedSet from, Class<T> with) {
+      return NestedSetBuilder.<T>naiveLinkOrder().addTransitive(from.getSet(with)).build();
+    }
   }
 }

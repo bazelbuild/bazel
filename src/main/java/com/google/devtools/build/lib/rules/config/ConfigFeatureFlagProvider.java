@@ -95,7 +95,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   }
 
   // ConfigFeatureFlagProvider instances should all be unique, so we override the default
-  // equals and hashCode from Info to ensure that. SCO's toString is fine, however.
+  // equals and hashCode from InfoInterface to ensure that. SCO's toString is fine, however.
   @Override
   public boolean equals(Object other) {
     return other == this;

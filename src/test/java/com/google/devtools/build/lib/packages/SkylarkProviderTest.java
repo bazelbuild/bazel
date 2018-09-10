@@ -48,7 +48,8 @@ public final class SkylarkProviderTest {
 
   @Test
   public void exportedProvider_Accessors() throws Exception {
-    SkylarkKey key = new SkylarkKey(Label.parseAbsolute("//foo:bar.bzl"), "prov");
+    SkylarkKey key =
+        new SkylarkKey(Label.parseAbsolute("//foo:bar.bzl", ImmutableMap.of()), "prov");
     SkylarkProvider provider = SkylarkProvider.createExportedSchemaless(key, /*location=*/ null);
     assertThat(provider.isExported()).isTrue();
     assertThat(provider.getName()).isEqualTo("prov");
@@ -93,10 +94,14 @@ public final class SkylarkProviderTest {
   @Test
   public void providerEquals() throws Exception {
     // All permutations of differing label and differing name.
-    SkylarkKey keyFooA = new SkylarkKey(Label.parseAbsolute("//foo.bzl"), "provA");
-    SkylarkKey keyFooB = new SkylarkKey(Label.parseAbsolute("//foo.bzl"), "provB");
-    SkylarkKey keyBarA = new SkylarkKey(Label.parseAbsolute("//bar.bzl"), "provA");
-    SkylarkKey keyBarB = new SkylarkKey(Label.parseAbsolute("//bar.bzl"), "provB");
+    SkylarkKey keyFooA =
+        new SkylarkKey(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provA");
+    SkylarkKey keyFooB =
+        new SkylarkKey(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provB");
+    SkylarkKey keyBarA =
+        new SkylarkKey(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provA");
+    SkylarkKey keyBarB =
+        new SkylarkKey(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provB");
 
     // 1 for each key, plus a duplicate for one of the keys, plus 2 that have no key.
     SkylarkProvider provFooA1 =

@@ -23,11 +23,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -53,7 +55,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -126,7 +128,19 @@ public class Artifact
         }
       };
 
-  public static final SkyFunctionName ARTIFACT = SkyFunctionName.create("ARTIFACT");
+  /**
+   * {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} does direct filesystem access
+   * without declaring Skyframe dependencies if the artifact is a source directory. However, that
+   * filesystem access is not invalidated on incremental builds, and we have no plans to fix it,
+   * since general consumption of source directories in this way is unsound. Therefore no new bugs
+   * are created by declaring {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} to be
+   * hermetic.
+   *
+   * <p>TODO(janakr): Avoid this issue entirely by giving {@link SourceArtifact} its own {@code
+   * SkyFunction}. Then we can just declare that function to be non-hermetic. That will also save
+   * memory since we can make mandatory source artifacts their own SkyKeys!
+   */
+  public static final SkyFunctionName ARTIFACT = SkyFunctionName.createHermetic("ARTIFACT");
 
   @Override
   public int compareTo(Object o) {
@@ -147,12 +161,52 @@ public class Artifact
      * Only aggregating middlemen and tree artifacts are expanded.
      */
     void expand(Artifact artifact, Collection<? super Artifact> output);
+
+    /**
+     * Retrieve the expansion of Filesets for the given artifact.
+     *
+     * @param artifact {@code artifact.isFileset()} must be true.
+     */
+    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /** Implementation of {@link ArtifactExpander} */
+  public static class ArtifactExpanderImpl implements ArtifactExpander {
+    private final Map<Artifact, Collection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
+
+    public ArtifactExpanderImpl(
+        Map<Artifact, Collection<Artifact>> expandedInputMiddlemen,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
+      this.expandedInputs = expandedInputMiddlemen;
+      this.expandedFilesets = expandedFilesets;
+    }
+
+    @Override
+    public void expand(Artifact artifact, Collection<? super Artifact> output) {
+      Preconditions.checkState(
+          artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
+      Collection<Artifact> result = expandedInputs.get(artifact);
+      if (result != null) {
+        output.addAll(result);
+      }
+    }
+
+    @Override
+    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+      Preconditions.checkState(artifact.isFileset());
+      return Preconditions.checkNotNull(expandedFilesets.get(artifact));
+    }
   }
 
   public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();
 
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
+
+  private static final Interner<Artifact> ARTIFACT_INTERNER = BlazeInterners.newWeakInterner();
 
   private final int hashCode;
   private final ArtifactRoot root;
@@ -179,11 +233,16 @@ public class Artifact
               + ")");
     }
     PathFragment rootExecPath = root.getExecPath();
-    return new Artifact(
+    Artifact artifact = new Artifact(
         root,
         rootExecPath.isEmpty() ? rootRelativePath : rootExecPath.getRelative(rootRelativePath),
         rootRelativePath,
         owner);
+    if (artifact.isSourceArtifact()) {
+      return artifact;
+    } else {
+      return ARTIFACT_INTERNER.intern(artifact);
+    }
   }
 
   /**
@@ -231,7 +290,7 @@ public class Artifact
     // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
     // have the same execPath and different owners, so a collision is fine there. If this is
     // changed, OwnerlessArtifactWrapper must also be changed.
-    this.hashCode = execPath.hashCode() + this.getClass().hashCode() * 13;
+    this.hashCode = execPath.hashCode();
     this.root = root;
     this.execPath = execPath;
     this.rootRelativePath = rootRelativePath;
@@ -415,8 +474,6 @@ public class Artifact
   /**
    * Returns true iff this is a TreeArtifact representing a directory tree containing Artifacts.
    */
-  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
-  @Override
   public boolean isTreeArtifact() {
     return false;
   }
@@ -426,6 +483,11 @@ public class Artifact
    */
   public boolean isFileset() {
     return false;
+  }
+
+  @Override
+  public boolean isDirectory() {
+    return isTreeArtifact() || isFileset();
   }
 
   /**
@@ -648,8 +710,12 @@ public class Artifact
     return rootRelativePath.toString();
   }
 
+  @SuppressWarnings("EqualsGetClass") // Distinct classes of Artifact are never equal.
   @Override
   public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
     if (!(other instanceof Artifact)) {
       return false;
     }
@@ -657,11 +723,11 @@ public class Artifact
       return false;
     }
     Artifact that = (Artifact) other;
-    return equalsWithoutOwner(that) && owner.equals(that.getArtifactOwner());
+    return equalsWithoutOwner(that) && owner.equals(that.owner);
   }
 
   public boolean equalsWithoutOwner(Artifact other) {
-    return Objects.equals(this.execPath, other.execPath) && Objects.equals(this.root, other.root);
+    return hashCode == other.hashCode && execPath.equals(other.execPath) && root.equals(other.root);
   }
 
   @Override

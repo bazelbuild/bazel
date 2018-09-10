@@ -16,7 +16,7 @@
 
 def _embedded_tools(ctx):
     # The list of arguments we pass to the script.
-    args_file = ctx.new_file(ctx.label.name + ".params")
+    args_file = ctx.actions.declare_file(ctx.label.name + ".params")
     ctx.file_action(output = args_file, content = "\n".join([f.path for f in ctx.files.srcs]))
 
     # Action to call the script.
@@ -43,7 +43,7 @@ embedded_tools = rule(
 )
 
 def _srcsfile(ctx):
-    ctx.file_action(
+    ctx.actions.write(
         output = ctx.outputs.out,
         content = "\n".join([f.path for f in ctx.files.srcs]),
     )

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -194,21 +193,14 @@ public abstract class AbstractAction implements Action, ActionApi {
   }
 
   @Override
-  public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
-      throws ActionExecutionException, InterruptedException {
-    return null;
-  }
-
-  @Override
   public Iterable<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
   }
 
   /**
-   * Should be called when the inputs of the action become known, that is, either during
-   * {@link #discoverInputs(ActionExecutionContext)} or during
-   * {@link #execute(ActionExecutionContext)}.
+   * Should be called when the inputs of the action become known, that is, either during {@link
+   * #discoverInputs(ActionExecutionContext)} or during {@link #execute(ActionExecutionContext)}.
    *
    * <p>When an action discovers inputs, it must have been called by the time {@code #execute()}
    * returns. It can be called both during {@code discoverInputs} and during {@code execute()}.
@@ -217,7 +209,7 @@ public abstract class AbstractAction implements Action, ActionApi {
    * itself when an action is loaded from the on-disk action cache.
    */
   @Override
-  public final synchronized void updateInputs(Iterable<Artifact> inputs) {
+  public synchronized void updateInputs(Iterable<Artifact> inputs) {
     this.inputs = CollectionUtils.makeImmutable(inputs);
     inputsDiscovered = true;
   }
@@ -444,11 +436,6 @@ public abstract class AbstractAction implements Action, ActionApi {
   @Override
   public MiddlemanType getActionType() {
     return MiddlemanType.NORMAL;
-  }
-
-  @Override
-  public boolean canRemoveAfterExecution() {
-    return true;
   }
 
   /** If the action might create directories as outputs this method must be called. */

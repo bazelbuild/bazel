@@ -208,8 +208,8 @@ public class BazelJavaRuleClasses {
             <a href="https://maven.apache.org/guides/introduction/introduction-to-the-standard-directory-layout.html">standard directory layout</a>,
             (a "src" directory followed by a "resources" directory grandchild). If that is not
             found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
-            example, if a resource is at &lt;workspace root&gt;/x/java/y/java/z, Bazel will use the
-             path y/java/z. This heuristic cannot be overridden.
+            example, if a resource is at <code>&lt;workspace root&gt;/x/java/y/java/z</code>, the
+            path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden.
           </p>
 
           <p>
@@ -304,7 +304,7 @@ public class BazelJavaRuleClasses {
           .add(attr("classpath_resources", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(jvm_flags) -->
           A list of flags to embed in the wrapper script generated for running this binary.
-          Subject to <a href="#location">$(location)</a> and
+          Subject to <a href="${link make-variables#location}">$(location)</a> and
           <a href="make-variables.html">"Make variable"</a> substitution, and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 

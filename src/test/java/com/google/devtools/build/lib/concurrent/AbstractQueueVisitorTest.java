@@ -50,7 +50,6 @@ public class AbstractQueueVisitorTest {
     counter.enqueue();
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
     assertThat(counter.getCount()).isSameAs(10);
-    assertThat(counter.activeParallelTasks()).isSameAs(0);
   }
 
   @Test
@@ -565,7 +564,6 @@ public class AbstractQueueVisitorTest {
           TimeUnit.SECONDS,
           /* failFastOnException= */ false,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 
@@ -604,7 +602,6 @@ public class AbstractQueueVisitorTest {
           TimeUnit.SECONDS,
           /* failFastOnException= */ false,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 
@@ -615,7 +612,6 @@ public class AbstractQueueVisitorTest {
           TimeUnit.SECONDS,
           failFast,
           THREAD_NAME,
-          AbstractQueueVisitor.EXECUTOR_FACTORY,
           ErrorClassifier.DEFAULT);
     }
 

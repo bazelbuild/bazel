@@ -167,7 +167,7 @@ public class EvaluationTestCase {
   }
 
   public Object lookup(String varname) throws Exception {
-    return env.lookup(varname);
+    return env.moduleLookup(varname);
   }
 
   public Object eval(String... input) throws Exception {

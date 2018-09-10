@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -26,15 +28,14 @@ import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.remoteexecution.v1test.Digest;
-import com.google.devtools.remoteexecution.v1test.Directory;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import org.junit.Before;
@@ -52,8 +53,8 @@ public class TreeNodeRepositoryTest {
 
   @Before
   public final void setRootDir() throws Exception {
-    digestUtil = new DigestUtil(HashFunction.SHA256);
-    scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), HashFunction.SHA256));
+    digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+    scratch = new Scratch(new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256));
     execRoot = scratch.getFileSystem().getPath("/exec/root");
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/exec/root")));
   }
@@ -107,15 +108,15 @@ public class TreeNodeRepositoryTest {
     Digest barDigest = repo.getMerkleDigest(barNode);
     assertThat(digests).containsExactly(rootDigest, aDigest, barDigest, fooDigest);
 
-    ArrayList<Directory> directories = new ArrayList<>();
-    ArrayList<ActionInput> actionInputs = new ArrayList<>();
+    Map<Digest, Directory> directories = new HashMap<>();
+    Map<Digest, ActionInput> actionInputs = new HashMap<>();
     repo.getDataFromDigests(digests, actionInputs, directories);
-    assertThat(actionInputs).containsExactly(bar, foo);
+    assertThat(actionInputs.values()).containsExactly(bar, foo);
     assertThat(directories).hasSize(2);
-    Directory rootDirectory = directories.get(0);
+    Directory rootDirectory = directories.get(rootDigest);
     assertThat(rootDirectory.getDirectories(0).getName()).isEqualTo("a");
     assertThat(rootDirectory.getDirectories(0).getDigest()).isEqualTo(aDigest);
-    Directory aDirectory = directories.get(1);
+    Directory aDirectory = directories.get(aDigest);
     assertThat(aDirectory.getFiles(0).getName()).isEqualTo("bar");
     assertThat(aDirectory.getFiles(0).getDigest()).isEqualTo(barDigest);
     assertThat(aDirectory.getFiles(1).getName()).isEqualTo("foo");
@@ -191,27 +192,27 @@ public class TreeNodeRepositoryTest {
             aClientDigest,
             bazDigest);
 
-    ArrayList<Directory> directories = new ArrayList<>();
-    ArrayList<ActionInput> actionInputs = new ArrayList<>();
+    Map<Digest, Directory> directories = new HashMap<>();
+    Map<Digest, ActionInput> actionInputs = new HashMap<>();
     repo.getDataFromDigests(digests, actionInputs, directories);
-    assertThat(actionInputs).containsExactly(bar, fooH, fooCc, baz);
+    assertThat(actionInputs.values()).containsExactly(bar, fooH, fooCc, baz);
     assertThat(directories).hasSize(4); // root, root/a, root/a/foo, and root/a-client
-    Directory rootDirectory = directories.get(0);
+    Directory rootDirectory = directories.get(rootDigest);
     assertThat(rootDirectory.getDirectories(0).getName()).isEqualTo("a");
     assertThat(rootDirectory.getDirectories(0).getDigest()).isEqualTo(aDigest);
     assertThat(rootDirectory.getDirectories(1).getName()).isEqualTo("a-client");
     assertThat(rootDirectory.getDirectories(1).getDigest()).isEqualTo(aClientDigest);
-    Directory aDirectory = directories.get(1);
+    Directory aDirectory = directories.get(aDigest);
     assertThat(aDirectory.getFiles(0).getName()).isEqualTo("bar.txt");
     assertThat(aDirectory.getFiles(0).getDigest()).isEqualTo(barDigest);
     assertThat(aDirectory.getDirectories(0).getName()).isEqualTo("foo");
     assertThat(aDirectory.getDirectories(0).getDigest()).isEqualTo(fooDigest);
-    Directory fooDirectory = directories.get(2);
+    Directory fooDirectory = directories.get(fooDigest);
     assertThat(fooDirectory.getFiles(0).getName()).isEqualTo("foo.cc");
     assertThat(fooDirectory.getFiles(0).getDigest()).isEqualTo(fooCcDigest);
     assertThat(fooDirectory.getFiles(1).getName()).isEqualTo("foo.h");
     assertThat(fooDirectory.getFiles(1).getDigest()).isEqualTo(fooHDigest);
-    Directory aClientDirectory = directories.get(3);
+    Directory aClientDirectory = directories.get(aClientDigest);
     assertThat(aClientDirectory.getFiles(0).getName()).isEqualTo("baz.txt");
     assertThat(aClientDirectory.getFiles(0).getDigest()).isEqualTo(bazDigest);
   }

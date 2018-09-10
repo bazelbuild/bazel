@@ -66,5 +66,7 @@ public interface CoverageReportActionFactory {
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
       Iterable<Artifact> baselineCoverageArtifacts,
-      ArtifactFactory artifactFactory, ArtifactOwner artifactOwner);
+      ArtifactFactory artifactFactory,
+      ArtifactOwner artifactOwner,
+      String workspaceName);
 }

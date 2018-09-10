@@ -66,6 +66,12 @@ public final class EventCollector extends AbstractEventHandler implements Iterab
     if (getEventMask().contains(event.getKind())) {
       collected.add(event);
     }
+    if (event.getStdErr() != null) {
+      handle(Event.of(EventKind.STDERR, null, event.getStdErr()));
+    }
+    if (event.getStdOut() != null) {
+      handle(Event.of(EventKind.STDOUT, null, event.getStdOut()));
+    }
   }
 
   /**

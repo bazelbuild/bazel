@@ -162,7 +162,7 @@ Creates a tar file from a list of inputs.
         <code>List of files, optional</code>
         <p>File to add to the layer.</p>
         <p>
-          A list of files that should be included in the docker image.
+          A list of files that should be included in the archive.
         </p>
       </td>
     </tr>

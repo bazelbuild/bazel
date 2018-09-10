@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 @SkylarkModule(
     name = "AndroidDataContext",
     doc =
-        "Wraps common tools and settings used for working with Android assets, resources, and"
-            + " manifests")
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Wraps common tools and settings used for working with Android assets, resources, and"
+            + " manifests",
+    documented = false)
 public interface AndroidDataContextApi {}

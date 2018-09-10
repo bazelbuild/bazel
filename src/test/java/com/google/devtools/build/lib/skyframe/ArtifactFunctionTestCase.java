@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -52,7 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 
 abstract class ArtifactFunctionTestCase {
-  static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+  static final ActionLookupKey ALL_OWNER = new InjectedActionLookupKey("all_owner");
 
   protected LinkedHashSet<ActionAnalysisMetadata> actions;
   protected boolean fastDigest = false;
@@ -97,7 +98,7 @@ abstract class ArtifactFunctionTestCase {
                     new FileStateFunction(
                         new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper))
                 .put(FileValue.FILE, new FileFunction(pkgLocator))
-                .put(Artifact.ARTIFACT, new ArtifactFunction())
+                .put(Artifact.ARTIFACT, new ArtifactFunction(Suppliers.ofInstance(false)))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(
                     SkyFunctions.PACKAGE,
@@ -122,8 +123,7 @@ abstract class ArtifactFunctionTestCase {
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new ActionTemplateExpansionFunction(
-                        actionKeyContext, Suppliers.ofInstance(false)))
+                    new ActionTemplateExpansionFunction(actionKeyContext))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -160,18 +160,11 @@ abstract class ArtifactFunctionTestCase {
     }
   }
 
-  private static class SingletonActionLookupKey extends ActionLookupKey {
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.CONFIGURED_TARGET;
-    }
-  }
-
   /** InMemoryFileSystem that can pretend to do a fast digest. */
   protected class CustomInMemoryFs extends InMemoryFileSystem {
     @Override
-    protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
-      return fastDigest ? getDigest(path, hashFunction) : null;
+    protected byte[] getFastDigest(Path path) throws IOException {
+      return fastDigest ? getDigest(path) : null;
     }
   }
 }

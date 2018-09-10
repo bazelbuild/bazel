@@ -23,23 +23,20 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Deb
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Error;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.EvaluateResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Frame;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.GetChildrenResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListFramesResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ListThreadsResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PauseThreadResponse;
+import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.PausedThread;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Scope;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.SetBreakpointsResponse;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingResponse;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Thread;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadContinuedEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadEndedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadPausedEvent;
-import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.ThreadStartedEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.DebugFrame;
 import com.google.devtools.build.lib.syntax.Debuggable.Stepping;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -60,13 +57,6 @@ final class DebugEventHelper {
     return DebugEvent.newBuilder()
         .setSequenceNumber(sequenceNumber)
         .setError(Error.newBuilder().setMessage(message))
-        .build();
-  }
-
-  static DebugEvent listThreadsResponse(long sequenceNumber, List<Thread> threads) {
-    return DebugEvent.newBuilder()
-        .setSequenceNumber(sequenceNumber)
-        .setListThreads(ListThreadsResponse.newBuilder().addAllThread(threads).build())
         .build();
   }
 
@@ -112,33 +102,22 @@ final class DebugEventHelper {
         .build();
   }
 
-  static DebugEvent threadStartedEvent(long threadId, String threadName) {
+  static DebugEvent getChildrenResponse(long sequenceNumber, Collection<Value> children) {
     return DebugEvent.newBuilder()
-        .setThreadStarted(
-            ThreadStartedEvent.newBuilder()
-                .setThread(Thread.newBuilder().setId(threadId).setName(threadName))
-                .build())
+        .setSequenceNumber(sequenceNumber)
+        .setGetChildren(GetChildrenResponse.newBuilder().addAllChildren(children))
         .build();
   }
 
-  static DebugEvent threadEndedEvent(long threadId, String threadName) {
-    return DebugEvent.newBuilder()
-        .setThreadEnded(
-            ThreadEndedEvent.newBuilder()
-                .setThread(Thread.newBuilder().setId(threadId).setName(threadName))
-                .build())
-        .build();
-  }
-
-  static DebugEvent threadPausedEvent(Thread thread) {
+  static DebugEvent threadPausedEvent(PausedThread thread) {
     return DebugEvent.newBuilder()
         .setThreadPaused(ThreadPausedEvent.newBuilder().setThread(thread))
         .build();
   }
 
-  static DebugEvent threadContinuedEvent(Thread thread) {
+  static DebugEvent threadContinuedEvent(long threadId) {
     return DebugEvent.newBuilder()
-        .setThreadContinued(ThreadContinuedEvent.newBuilder().setThread(thread))
+        .setThreadContinued(ThreadContinuedEvent.newBuilder().setThreadId(threadId))
         .build();
   }
 
@@ -158,33 +137,36 @@ final class DebugEventHelper {
         .build();
   }
 
-  static SkylarkDebuggingProtos.Frame getFrameProto(DebugFrame frame) {
+  static SkylarkDebuggingProtos.Frame getFrameProto(ThreadObjectMap objectMap, DebugFrame frame) {
     SkylarkDebuggingProtos.Frame.Builder builder =
         SkylarkDebuggingProtos.Frame.newBuilder()
             .setFunctionName(frame.functionName())
-            .addAllScope(getScopes(frame));
+            .addAllScope(getScopes(objectMap, frame));
     if (frame.location() != null) {
       builder.setLocation(getLocationProto(frame.location()));
     }
     return builder.build();
   }
 
-  private static ImmutableList<Scope> getScopes(DebugFrame frame) {
+  private static ImmutableList<Scope> getScopes(ThreadObjectMap objectMap, DebugFrame frame) {
     ImmutableMap<String, Object> localVars = frame.lexicalFrameBindings();
     if (localVars.isEmpty()) {
-      return ImmutableList.of(getScope("global", frame.globalBindings()));
+      return ImmutableList.of(getScope(objectMap, "global", frame.globalBindings()));
     }
     Map<String, Object> globalVars = new LinkedHashMap<>(frame.globalBindings());
     // remove shadowed bindings
     localVars.keySet().forEach(globalVars::remove);
 
-    return ImmutableList.of(getScope("local", localVars), getScope("global", globalVars));
+    return ImmutableList.of(
+        getScope(objectMap, "local", localVars), getScope(objectMap, "global", globalVars));
   }
 
-  private static SkylarkDebuggingProtos.Scope getScope(String name, Map<String, Object> bindings) {
+  private static SkylarkDebuggingProtos.Scope getScope(
+      ThreadObjectMap objectMap, String name, Map<String, Object> bindings) {
     SkylarkDebuggingProtos.Scope.Builder builder =
         SkylarkDebuggingProtos.Scope.newBuilder().setName(name);
-    bindings.forEach((s, o) -> builder.addBinding(DebuggerSerialization.getValueProto(s, o)));
+    bindings.forEach(
+        (s, o) -> builder.addBinding(DebuggerSerialization.getValueProto(objectMap, s, o)));
     return builder.build();
   }
 

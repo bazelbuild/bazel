@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -54,6 +55,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -106,10 +108,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public byte[] getDigest(Path path, HashFunction hf) throws IOException {
-            return path.getBaseName().equals("unreadable")
-                ? expectedDigest
-                : super.getDigest(path, hf);
+          public byte[] getDigest(Path path) throws IOException {
+            return path.getBaseName().equals("unreadable") ? expectedDigest : super.getDigest(path);
           }
         });
 
@@ -143,8 +143,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
     SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
-    file(createFakeTreeFileArtifact(tree, "child1", "hello1").getPath(), "src1");
-    file(createFakeTreeFileArtifact(tree, "child2", "hello2").getPath(), "src2");
+    TreeFileArtifact treeFile1 = createFakeTreeFileArtifact(tree, "child1", "hello1");
+    TreeFileArtifact treeFile2 = createFakeTreeFileArtifact(tree, "child2", "hello2");
+    file(treeFile1.getPath(), "src1");
+    file(treeFile2.getPath(), "src2");
     Action action =
         new DummyAction(
             ImmutableList.of(input1, input2, tree), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
@@ -153,11 +155,14 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     file(input1.getPath(), "source contents");
     evaluate(Iterables.toArray(ImmutableSet.of(input2, input1, input2, tree), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
-    assertThat(((AggregatingArtifactValue) value).getInputs())
+    ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
+    inputs.addAll(((AggregatingArtifactValue) value).getFileArtifacts());
+    inputs.addAll(((AggregatingArtifactValue) value).getTreeArtifacts());
+    assertThat(inputs)
         .containsExactly(
             Pair.of(input1, create(input1)),
             Pair.of(input2, create(input2)),
-            Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree)).getSelfData()));
+            Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree))));
   }
 
   /**
@@ -170,11 +175,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+          public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
             if (path.getBaseName().equals("bad")) {
               throw exception;
             }
-            return super.stat(path, followSymlinks);
+            return super.statIfFound(path, followSymlinks);
           }
         });
     try {
@@ -378,8 +383,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               ALL_OWNER,
               new BasicActionLookupValue(
                   Actions.filterSharedActionsAndThrowActionConflict(
-                      actionKeyContext, ImmutableList.copyOf(actions)),
-                  false)));
+                      actionKeyContext, ImmutableList.copyOf(actions)))));
     }
   }
 
@@ -431,6 +435,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           treeArtifactData,
           additionalOutputData,
           /*outputSymlinks=*/ null,
+          /*discoveredModules=*/ null,
           /*notifyOnActionCacheHitAction=*/ false);
     }
 

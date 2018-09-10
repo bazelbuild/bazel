@@ -22,6 +22,10 @@ def sha256(ctx, artifact):
         inputs = [artifact],
         outputs = [out],
         mnemonic = "SHA256",
+        # This is necessary until the interpreter used by py_binary is more
+        # configurable. As a workaround, let users override $PATH with
+        # --action_env for this rule.
+        use_default_shell_env = True,
     )
     return out
 

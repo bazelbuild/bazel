@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
-import com.google.devtools.build.lib.query2.engine.QueryUtil;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import java.io.IOException;
 import java.util.Collection;
@@ -244,36 +242,6 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       }
     }
     return true;
-  }
-
-  public QueryTaskFuture<ThreadSafeMutableSet<T>> evalTargetPattern(
-      QueryExpression caller, String pattern) {
-    try {
-      preloadOrThrow(caller, ImmutableList.of(pattern));
-    } catch (TargetParsingException tpe) {
-      try {
-        // Will skip the target and keep going if -k is specified.
-        reportBuildFileError(caller, tpe.getMessage());
-      } catch (QueryException qe) {
-        return immediateFailedFuture(qe);
-      }
-    } catch (QueryException qe) {
-      return immediateFailedFuture(qe);
-    } catch (InterruptedException e) {
-      return immediateCancelledFuture();
-    }
-    final AggregateAllCallback<T, ThreadSafeMutableSet<T>> aggregatingCallback =
-        QueryUtil.newAggregateAllCallback(this);
-    QueryTaskFuture<Void> evalFuture =
-        getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
-    return whenSucceedsCall(
-        evalFuture,
-        new QueryTaskCallable<ThreadSafeMutableSet<T>>() {
-          @Override
-          public ThreadSafeMutableSet<T> call() {
-            return aggregatingCallback.getResult();
-          }
-        });
   }
 
   /**

@@ -19,6 +19,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -27,8 +28,8 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -66,7 +67,7 @@ public class SkylarkRepositoryContext
 
   private final Rule rule;
   private final Path outputDirectory;
-  private final Info attrObject;
+  private final StructImpl attrObject;
   private final SkylarkOS osObject;
   private final Environment env;
   private final HttpDownloader httpDownloader;
@@ -108,7 +109,7 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public Info getAttr() {
+  public StructImpl getAttr() {
     return attrObject;
   }
 
@@ -134,10 +135,14 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void symlink(Object from, Object to)
+  public void symlink(Object from, Object to, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath fromPath = getPath("symlink()", from);
     SkylarkPath toPath = getPath("symlink()", to);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newSymlinkEvent(
+            fromPath.toString(), toPath.toString(), rule.getLabel().toString(), location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(toPath);
       makeDirectories(toPath.getPath());
@@ -162,9 +167,13 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void createFile(Object path, String content, Boolean executable)
+  public void createFile(Object path, String content, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("file()", path);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newFileEvent(
+            p.toString(), content, executable, rule.getLabel().toString(), location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
@@ -181,10 +190,23 @@ public class SkylarkRepositoryContext
 
   @Override
   public void createFileFromTemplate(
-      Object path, Object template, SkylarkDict<String, String> substitutions, Boolean executable)
+      Object path,
+      Object template,
+      SkylarkDict<String, String> substitutions,
+      Boolean executable,
+      Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newTemplateEvent(
+            p.toString(),
+            t.toString(),
+            substitutions,
+            executable,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(p);
       makeDirectories(p.getPath());
@@ -213,7 +235,9 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkOS getOS() {
+  public SkylarkOS getOS(Location location) {
+    WorkspaceRuleEvent w = WorkspaceRuleEvent.newOsEvent(rule.getLabel().toString(), location);
+    env.getListener().post(w);
     return osObject;
   }
 
@@ -230,9 +254,23 @@ public class SkylarkRepositoryContext
 
   @Override
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment,
-      boolean quiet)
+      SkylarkList<Object> arguments,
+      Integer timeout,
+      SkylarkDict<String, String> environment,
+      boolean quiet,
+      Location location)
       throws EvalException, RepositoryFunctionException {
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExecuteEvent(
+            arguments,
+            timeout,
+            osObject.getEnvironmentVariables(),
+            environment,
+            outputDirectory.getPathString(),
+            quiet,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
     createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
         .addArguments(arguments)
@@ -244,7 +282,10 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public SkylarkPath which(String program) throws EvalException {
+  public SkylarkPath which(String program, Location location) throws EvalException {
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newWhichEvent(program, rule.getLabel().toString(), location);
+    env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
       throw new EvalException(
           Location.BUILTIN,
@@ -283,11 +324,16 @@ public class SkylarkRepositoryContext
   }
 
   @Override
-  public void download(Object url, Object output, String sha256, Boolean executable)
+  public void download(
+      Object url, Object output, String sha256, Boolean executable, Location location)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDownloadEvent(
+            urls, output.toString(), sha256, executable, rule.getLabel().toString(), location);
+    env.getListener().post(w);
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
@@ -311,10 +357,21 @@ public class SkylarkRepositoryContext
 
   @Override
   public void downloadAndExtract(
-      Object url, Object output, String sha256, String type, String stripPrefix)
+      Object url, Object output, String sha256, String type, String stripPrefix, Location location)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     validateSha256(sha256);
     List<URL> urls = getUrls(url);
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDownloadAndExtractEvent(
+            urls,
+            output.toString(),
+            sha256,
+            type,
+            stripPrefix,
+            rule.getLabel().toString(),
+            location);
+    env.getListener().post(w);
 
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
@@ -471,7 +528,7 @@ public class SkylarkRepositoryContext
    * potentially more expensive operations.
    */
   public void enforceLabelAttributes() throws EvalException, InterruptedException {
-    Info attr = getAttr();
+    StructImpl attr = getAttr();
     for (String name : attr.getFieldNames()) {
       Object value = attr.getValue(name);
       if (value instanceof Label) {

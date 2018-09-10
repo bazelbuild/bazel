@@ -98,7 +98,7 @@ public abstract class JavaHelper {
         ShellUtils.tokenize(result, current);
       } catch (ShellUtils.TokenizationException ex) {
         // Tokenization failed; this likely means that the user
-        // did not want tokenization to happen on his argument.
+        // did not want tokenization to happen on their argument.
         // (Any tokenization where we should produce an error
         // has already been done by the shell that invoked
         // blaze). Therefore, pass the argument through to

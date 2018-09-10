@@ -18,9 +18,11 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -32,17 +34,14 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -145,10 +144,19 @@ public class BazelPythonSemantics implements PythonSemantics {
     String pythonBinary = getPythonBinary(ruleContext, config);
 
     if (!ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
+      Artifact stubOutput = executable;
+      if (OS.getCurrent() == OS.WINDOWS
+          && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+        // On Windows, use a Windows native binary to launch the python launcher script (stub file).
+        stubOutput = common.getPythonLauncherArtifact(executable);
+        executable =
+            createWindowsExeLauncher(ruleContext, pythonBinary, executable, /*useZipFile*/ false);
+      }
+
       ruleContext.registerAction(
           new TemplateExpansionAction(
               ruleContext.getActionOwner(),
-              executable,
+              stubOutput,
               STUB_TEMPLATE,
               ImmutableList.of(
                   Substitution.of("%main%", main),
@@ -156,8 +164,8 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                   Substitution.of("%is_zipfile%", "False"),
-                  Substitution.of("%import_all%",
-                      config.getImportAllRepositories() ? "True" : "False")),
+                  Substitution.of(
+                      "%import_all%", config.getImportAllRepositories() ? "True" : "False")),
               true));
     } else {
       Artifact zipFile = common.getPythonZipArtifact(executable);
@@ -195,7 +203,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                 .build(ruleContext));
       } else {
         if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
-          return createWindowsExeLauncher(ruleContext, pythonBinary, executable);
+          return createWindowsExeLauncher(ruleContext, pythonBinary, executable, true);
         }
 
         ruleContext.registerAction(
@@ -213,13 +221,17 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static Artifact createWindowsExeLauncher(
-      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher)
+      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher, boolean useZipFile)
       throws InterruptedException {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Python")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair(
+                "symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("python_bin_path", pythonBinary)
+            .addKeyValuePair("use_zip_file", useZipFile ? "1" : "0")
             .build();
     LauncherFileWriteAction.createAndRegister(ruleContext, pythonLauncher, launchInfo);
     return pythonLauncher;
@@ -365,18 +377,16 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public CcLinkingInfo buildCcLinkingInfoProvider(
       Iterable<? extends TransitiveInfoCollection> deps) {
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    AbstractCcLinkParamsStore ccLinkParamsStore =
-        new AbstractCcLinkParamsStore() {
-          @Override
-          protected void collect(
-              CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-            builder.addTransitiveTargets(
-                deps, CcLinkParamsStore.TO_LINK_PARAMS, PyCcLinkParamsProvider.TO_LINK_PARAMS);
-          }
-        };
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .addAll(
+                Streams.stream(AnalysisUtils.getProviders(deps, PyCcLinkParamsProvider.PROVIDER))
+                    .map(PyCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .build();
+
     // TODO(plf): return empty CcLinkingInfo.
-    ccLinkingInfoBuilder.setCcLinkParamsStore(new CcLinkParamsStore(ccLinkParamsStore));
-    return ccLinkingInfoBuilder.build();
+    return CcLinkingInfo.merge(ccLinkingInfos);
   }
 }

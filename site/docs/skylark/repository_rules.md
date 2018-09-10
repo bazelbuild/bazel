@@ -27,7 +27,7 @@ can be referred as `@<name>//package:target` where `<name>` is the value of the
 
 The rule is loaded when you explicitly build it, or if it is a dependency of
 the build. In this case, Bazel will execute its `implementation` function. This
-function describe how to creates the repository, its content and BUILD files.
+function describe how to create the repository, its content and BUILD files.
 
 ## Attributes
 
@@ -51,8 +51,15 @@ If an attribute name starts with `_` it is private and users cannot set it.
 
 Every repository rule requires an `implementation` function. It contains the
 actual logic of the rule and is executed strictly in the Loading Phase.
-The function has exactly one input parameter, `repository_ctx`, and should
-always returns `None`. The input parameter `repository_ctx` can be used to
+
+The function has exactly one input parameter, `repository_ctx`. The function
+returns either `None` to signify that the rule is reproducible, or a dict with a
+set of parameters for that rule that would turn that rule into a reproducible
+one generating the same repository. For example, for a rule tracking a git
+repository that would mean returning a specific commit identifier instead of a
+floating branch that was originally specified.
+
+The input parameter `repository_ctx` can be used to
 access attribute values, and non-hermetic functions (finding a binary,
 executing a binary, creating a file in the repository or downloading a file
 from the Internet). See [the library](lib/repository_ctx.html) for more

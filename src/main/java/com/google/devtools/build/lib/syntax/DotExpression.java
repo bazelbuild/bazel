@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
 import java.util.Optional;
@@ -118,6 +117,27 @@ public final class DotExpression extends Expression {
    */
   public static Object eval(Object objValue, String name,
       Location loc, Environment env) throws EvalException, InterruptedException {
+
+    Iterable<MethodDescriptor> methods =
+        objValue instanceof Class<?>
+            ? FuncallExpression.getMethods((Class<?>) objValue, name)
+            : FuncallExpression.getMethods(objValue.getClass(), name);
+
+    if (methods != null) {
+      Optional<MethodDescriptor> method =
+          Streams.stream(methods).filter(MethodDescriptor::isStructField).findFirst();
+      if (method.isPresent() && method.get().isStructField()) {
+        return method
+            .get()
+            .call(
+                objValue,
+                FuncallExpression.extraInterpreterArgs(method.get(), /* ast = */ null, loc, env)
+                    .toArray(),
+                loc,
+                env);
+      }
+    }
+
     if (objValue instanceof SkylarkClassObject) {
       try {
         return ((SkylarkClassObject) objValue).getValue(name);
@@ -139,22 +159,6 @@ public final class DotExpression extends Expression {
         // so we have to disable it. This should not happen.
         SkylarkType.checkTypeAllowedInSkylark(result, loc);
         return result;
-      }
-    }
-
-    Iterable<MethodDescriptor> methods =
-        objValue instanceof Class<?>
-            ? FuncallExpression.getMethods((Class<?>) objValue, name)
-            : FuncallExpression.getMethods(objValue.getClass(), name);
-
-    if (methods != null) {
-      Optional<MethodDescriptor> method =
-          Streams.stream(methods)
-              .filter(methodDescriptor -> methodDescriptor.getAnnotation().structField())
-              .findFirst();
-      if (method.isPresent() && method.get().getAnnotation().structField()) {
-        return FuncallExpression.callMethod(
-            method.get(), name, objValue, new Object[] {}, loc, env);
       }
     }
 

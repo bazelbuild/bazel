@@ -16,6 +16,12 @@ $text-color: #444;
 
 $vpad: 20px;
 
+$table-bg: #fff;
+$table-cell-padding: 5px;
+$table-border-color: $bazel-green;
+$text-muted: $color-on-bazel-green;
+$line-height-base: 20px;
+$line-height-computed: 20px;
 
 html {
   position: relative;

@@ -20,6 +20,7 @@
 #include <string>
 
 #include "gtest/gtest.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -35,13 +36,9 @@
 
 namespace blaze_util {
 
-using bazel::windows::CreateJunction;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
-
-// Methods defined in path_windows.cc that are only visible for testing.
-string NormalizeWindowsPath(string path);
 
 TEST(PathWindowsTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string(""), NormalizeWindowsPath(""));
@@ -55,6 +52,19 @@ TEST(PathWindowsTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:/"));
   ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:\\"));
   ASSERT_EQ(string("c:\\foo\\bar"), NormalizeWindowsPath("c:\\..//foo/./bar/"));
+
+  ASSERT_EQ(wstring(L""), NormalizeWindowsPath(L""));
+  ASSERT_EQ(wstring(L""), NormalizeWindowsPath(L"."));
+  ASSERT_EQ(wstring(L"foo"), NormalizeWindowsPath(L"foo"));
+  ASSERT_EQ(wstring(L"foo"), NormalizeWindowsPath(L"foo/"));
+  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"foo//bar"));
+  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"../..//foo/./bar"));
+  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"../foo/baz/../bar"));
+  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:"));
+  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:/"));
+  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:\\"));
+  ASSERT_EQ(wstring(L"c:\\foo\\bar"),
+            NormalizeWindowsPath(L"c:\\..//foo/./bar/"));
 }
 
 TEST(PathWindowsTest, TestDirname) {
@@ -200,7 +210,14 @@ TEST(PathWindowsTest, TestAsAbsoluteWindowsPath) {
   ASSERT_TRUE(AsAbsoluteWindowsPath("c:/", &actual, nullptr));
   ASSERT_EQ(L"\\\\?\\c:\\", actual);
 
+  ASSERT_TRUE(AsAbsoluteWindowsPath(L"c:/", &actual, nullptr));
+  ASSERT_EQ(L"\\\\?\\c:\\", actual);
+
   ASSERT_TRUE(AsAbsoluteWindowsPath("c:/..\\non-existent//", &actual, nullptr));
+  ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
+
+  ASSERT_TRUE(
+      AsAbsoluteWindowsPath(L"c:/..\\non-existent//", &actual, nullptr));
   ASSERT_EQ(L"\\\\?\\c:\\non-existent", actual);
 
   WCHAR cwd[MAX_PATH];
@@ -209,6 +226,9 @@ TEST(PathWindowsTest, TestAsAbsoluteWindowsPath) {
       wstring(L"\\\\?\\") + cwdw +
       ((cwdw.back() == L'\\') ? L"non-existent" : L"\\non-existent");
   ASSERT_TRUE(AsAbsoluteWindowsPath("non-existent", &actual, nullptr));
+  ASSERT_EQ(actual, expected);
+
+  ASSERT_TRUE(AsAbsoluteWindowsPath(L"non-existent", &actual, nullptr));
   ASSERT_EQ(actual, expected);
 }
 
@@ -288,7 +308,7 @@ TEST(PathWindowsTest, IsWindowsDevNullTest) {
   ASSERT_FALSE(IsDevNull("/dev/nul"));
   ASSERT_FALSE(IsDevNull("/dev/nulll"));
   ASSERT_FALSE(IsDevNull("nu"));
-  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull((char *) nullptr));
   ASSERT_FALSE(IsDevNull(""));
 }
 
@@ -298,7 +318,7 @@ TEST(PathWindowsTest, ConvertPathTest) {
   EXPECT_EQ("c:\\foo\\bar", ConvertPath("c:/../foo\\BAR\\.\\"));
 }
 
-TEST(PathWindowsTest, TestMakeAbsolute) {
+TEST(PathWindowsTest, MakeAbsolute) {
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\BAR"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\bar\\"));
@@ -312,6 +332,32 @@ TEST(PathWindowsTest, TestMakeAbsolute) {
   EXPECT_EQ("nul", MakeAbsolute("/dev/null"));
 
   EXPECT_EQ("", MakeAbsolute(""));
+}
+
+TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_WithTmpdir) {
+  // We cannot test the system-default paths like %ProgramData% because these
+  // are wiped from the test environment. TestTmpdir is set by Bazel though,
+  // so serves as a fine substitute.
+  char buf[MAX_PATH] = {0};
+  DWORD len = ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH);
+  const std::string tmpdir = buf;
+  const std::string expected_tmpdir_bar = ConvertPath(tmpdir + "\\bar");
+
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%TEST_TMPDIR%\\bar"));
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%Test_Tmpdir%\\bar"));
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%test_tmpdir%\\bar"));
+  EXPECT_EQ(expected_tmpdir_bar,
+            MakeAbsoluteAndResolveWindowsEnvvars("%test_tmpdir%/bar"));
+}
+
+TEST(PathWindowsTest, MakeAbsoluteAndResolveWindowsEnvvars_LongPaths) {
+  const std::string long_path = "c:\\" + std::string(MAX_PATH, 'a');
+  blaze::SetEnv("long", long_path);
+
+  EXPECT_EQ(long_path, MakeAbsoluteAndResolveWindowsEnvvars("%long%"));
 }
 
 }  // namespace blaze_util

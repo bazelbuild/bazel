@@ -1,5 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
+DEPRECATION_MESSAGE = ("Don't depend on targets in the JDK workspace;" +
+                       " use @bazel_tools//tools/jdk:current_java_runtime instead" +
+                       " (see https://github.com/bazelbuild/bazel/issues/5594)")
+
 filegroup(
     name = "jni_header",
     srcs = ["include/jni.h"],
@@ -28,8 +32,8 @@ filegroup(
 filegroup(
     name = "java",
     srcs = select({
-       ":windows" : ["bin/java.exe"],
-       "//conditions:default" : ["bin/java"],
+        ":windows": ["bin/java.exe"],
+        "//conditions:default": ["bin/java"],
     }),
     data = [":jdk"],
 )
@@ -37,8 +41,8 @@ filegroup(
 filegroup(
     name = "jar",
     srcs = select({
-       ":windows" : ["bin/jar.exe"],
-       "//conditions:default" : ["bin/jar"],
+        ":windows": ["bin/jar.exe"],
+        "//conditions:default": ["bin/jar"],
     }),
     data = [":jdk"],
 )
@@ -46,12 +50,11 @@ filegroup(
 filegroup(
     name = "javac",
     srcs = select({
-        ":windows" : ["bin/javac.exe"],
-        "//conditions:default" : ["bin/javac"],
+        ":windows": ["bin/javac.exe"],
+        "//conditions:default": ["bin/javac"],
     }),
     data = [":jdk"],
 )
-
 
 filegroup(
     name = "xjc",
@@ -94,8 +97,8 @@ filegroup(
         # In some configurations, Java browser plugin is considered harmful and
         # common antivirus software blocks access to npjp2.dll interfering with Bazel,
         # so do not include it in JRE on Windows.
-        ":windows" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
-        "//conditions:default" : glob(["jre/bin/**"])
+        ":windows": glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
+        "//conditions:default": glob(["jre/bin/**"]),
     }),
 )
 
@@ -123,7 +126,8 @@ filegroup(
         ["bin/**"],
         # The JDK on Windows sometimes contains a directory called
         # "%systemroot%", which is not a valid label.
-        exclude = ["**/*%*/**"]),
+        exclude = ["**/*%*/**"],
+    ),
 )
 
 filegroup(
@@ -138,17 +142,12 @@ filegroup(
         exclude = [
             "lib/missioncontrol/**",
             "lib/visualvm/**",
-        ]),
-)
-
-java_runtime_suite(
-    name = "jdk",
-    runtimes = {},
-    default = ":jdk-default",
+        ],
+    ),
 )
 
 java_runtime(
-    name = "jdk-default",
+    name = "jdk",
     srcs = [
         ":jdk-bin",
         ":jdk-include",
@@ -173,4 +172,3 @@ config_setting(
     values = {"cpu": "x64_windows"},
     visibility = ["//visibility:private"],
 )
-

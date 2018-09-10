@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsChec
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -39,7 +38,6 @@ import java.util.Map;
 import java.util.Set;
 
 /** Command-line options for building Java targets */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class JavaOptions extends FragmentOptions {
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
@@ -76,16 +74,15 @@ public class JavaOptions extends FragmentOptions {
   }
 
   @Option(
-    name = "javabase",
-    defaultValue = "@bazel_tools//tools/jdk:jdk",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "JAVABASE used for the JDK invoked by Blaze. This is the "
-            + "java_runtime_suite which will be used to execute "
-            + "external Java commands."
-  )
+      name = "javabase",
+      defaultValue = "@bazel_tools//tools/jdk:jdk",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "JAVABASE used for the JDK invoked by Blaze. This is the "
+              + "java_runtime which will be used to execute "
+              + "external Java commands.")
   public Label javaBase;
 
   @Option(
@@ -109,15 +106,14 @@ public class JavaOptions extends FragmentOptions {
   public Label hostJavaToolchain;
 
   @Option(
-    name = "host_javabase",
-    defaultValue = "@bazel_tools//tools/jdk:host_jdk",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "JAVABASE used for the host JDK. This is the java_runtime_suite which is used to execute "
-            + "tools during a build."
-  )
+      name = "host_javabase",
+      defaultValue = "@bazel_tools//tools/jdk:host_jdk",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "JAVABASE used for the host JDK. This is the java_runtime which is used to execute "
+              + "tools during a build.")
   public Label hostJavaBase;
 
   @Option(
@@ -129,6 +125,17 @@ public class JavaOptions extends FragmentOptions {
     help = "Additional options to pass to javac."
   )
   public List<String> javacOpts;
+
+  @Option(
+      name = "host_javacopt",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Additional options to pass to javac when building tools that are executed during a"
+              + " build.")
+  public List<String> hostJavacOpts;
 
   @Option(
     name = "jvmopt",
@@ -461,6 +468,25 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean strictDepsJavaProtos;
 
+  // TODO(twerth): Remove flag after it's turned on globally.
+  @Option(
+      name = "experimental_proto_generated_strict_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help = "Enables strict deps mode for the java compilation of proto generated Java code.")
+  public boolean protoGeneratedStrictDeps;
+
+  @Option(
+      name = "experimental_enable_java_proto_exports",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Enables exports forwarding for proto_library targets depended on by "
+              + "java_proto_library targets.")
+  public boolean isJavaProtoExportsEnabled;
+
   @Option(
     name = "experimental_java_header_compilation_disable_javac_fallback",
     defaultValue = "false",
@@ -523,6 +549,16 @@ public class JavaOptions extends FragmentOptions {
   public boolean allowRuntimeDepsOnNeverLink;
 
   @Option(
+      name = "experimental_add_test_support_to_compile_time_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Flag to help transition away from adding test support libraries to the compile-time"
+              + " deps of Java test rules.")
+  public boolean addTestSupportToCompileTimeDeps;
+
+  @Option(
     name = "jplPropagateCcLinkParamsStore",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -554,7 +590,7 @@ public class JavaOptions extends FragmentOptions {
     host.javaBase = hostJavaBase;
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
-    host.javacOpts = javacOpts;
+    host.javacOpts = hostJavacOpts;
     host.javaToolchain = hostJavaToolchain;
 
     host.javaLauncher = hostJavaLauncher;
@@ -563,7 +599,6 @@ public class JavaOptions extends FragmentOptions {
     // incremental build performance is important.
     host.useIjars = useIjars;
     host.headerCompilation = headerCompilation;
-    host.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
@@ -576,8 +611,11 @@ public class JavaOptions extends FragmentOptions {
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
+    host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+
+    host.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
 
     return host;
   }

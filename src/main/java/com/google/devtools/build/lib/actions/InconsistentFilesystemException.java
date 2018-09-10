@@ -21,9 +21,12 @@ import java.io.IOException;
  */
 public class InconsistentFilesystemException extends IOException {
   public InconsistentFilesystemException(String inconsistencyMessage) {
-    super("Inconsistent filesystem operations. " + inconsistencyMessage + " The results of the "
-        + "build are not guaranteed to be correct. You should probably run 'blaze clean' and "
-        + "investigate the filesystem inconsistency (likely due to filesytem updates concurrent "
-        + "with the build)");
+    super(
+        "Inconsistent filesystem operations. "
+            + inconsistencyMessage
+            + " The results of the "
+            + "build are not guaranteed to be correct. You should probably run 'bazel clean' and "
+            + "investigate the filesystem inconsistency (likely due to filesytem updates "
+            + "concurrent with the build)");
   }
 }

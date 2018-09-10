@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -179,12 +180,14 @@ public abstract class FileArtifactValue implements SkyValue {
     return create(artifact.getPath());
   }
 
-  @VisibleForTesting
   public static FileArtifactValue create(Path path) throws IOException {
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
-    FileStatus stat = path.stat(Symlinks.FOLLOW);
+    return create(path, path.stat(Symlinks.FOLLOW));
+  }
+
+  public static FileArtifactValue create(Path path, FileStatus stat) throws IOException {
     return create(path, stat.isFile(), stat.getSize(), FileContentsProxy.create(stat), null);
   }
 
@@ -397,6 +400,10 @@ public abstract class FileArtifactValue implements SkyValue {
       this.digest = Preconditions.checkNotNull(digest);
     }
 
+    public InlineFileArtifactValue(byte[] bytes) {
+      this(bytes, Hashing.md5().hashBytes(bytes).asBytes());
+    }
+
     public ByteArrayInputStream getInputStream() {
       return new ByteArrayInputStream(data);
     }
@@ -437,24 +444,18 @@ public abstract class FileArtifactValue implements SkyValue {
    */
   public static final class SourceFileArtifactValue extends FileArtifactValue {
     private final PathFragment execPath;
-    private final int sourceRootIndex;
     private final byte[] digest;
     private final long size;
 
     public SourceFileArtifactValue(
-        PathFragment execPath, int sourceRootIndex, byte[] digest, long size) {
+        PathFragment execPath, byte[] digest, long size) {
       this.execPath = Preconditions.checkNotNull(execPath);
-      this.sourceRootIndex = sourceRootIndex;
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
     }
 
     public PathFragment getExecPath() {
       return execPath;
-    }
-
-    public int getSourceRootIndex() {
-      return sourceRootIndex;
     }
 
     @Override

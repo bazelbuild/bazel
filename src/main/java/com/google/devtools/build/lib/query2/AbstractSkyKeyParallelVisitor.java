@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.Callback;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -32,7 +33,7 @@ public abstract class AbstractSkyKeyParallelVisitor<T> extends ParallelVisitor<S
   }
 
   @Override
-  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> values) {
+  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> values) throws QueryException {
     return uniquifier.unique(values);
   }
 }

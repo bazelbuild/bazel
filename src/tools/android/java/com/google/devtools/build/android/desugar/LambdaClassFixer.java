@@ -192,7 +192,7 @@ class LambdaClassFixer extends ClassVisitor {
           getInternalName(),
           "<init>",
           checkNotNull(desc, "didn't see a constructor for %s", getInternalName()),
-          /*itf=*/ false);
+          /*isInterface=*/ false);
       codeBuilder.visitFieldInsn(
           Opcodes.PUTSTATIC, getInternalName(), SINGLETON_FIELD_NAME, singletonFieldDesc);
       codeBuilder.visitInsn(Opcodes.RETURN);

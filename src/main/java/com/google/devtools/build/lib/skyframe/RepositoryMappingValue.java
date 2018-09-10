@@ -52,6 +52,7 @@ public class RepositoryMappingValue implements SkyValue {
   private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
 
   private RepositoryMappingValue(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+    Preconditions.checkNotNull(repositoryMapping);
     this.repositoryMapping = repositoryMapping;
   }
 
@@ -83,6 +84,11 @@ public class RepositoryMappingValue implements SkyValue {
   @Override
   public int hashCode() {
     return Objects.hash(repositoryMapping);
+  }
+
+  @Override
+  public String toString() {
+    return repositoryMapping.toString();
   }
 
   /** {@link SkyKey} for {@link RepositoryMappingValue}. */

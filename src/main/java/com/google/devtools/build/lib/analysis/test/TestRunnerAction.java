@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -64,15 +65,18 @@ import javax.annotation.Nullable;
  * and test status artifacts.
  */
 // Not final so that we can mock it in tests.
-public class TestRunnerAction extends AbstractAction implements NotifyOnActionCacheHit {
+public class TestRunnerAction extends AbstractAction
+    implements NotifyOnActionCacheHit, ExecutionInfoSpecifier {
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
+  public static final String MNEMONIC = "TestRunner";
 
   private final Artifact testSetupScript;
+  private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
   private final BuildConfiguration configuration;
   private final TestConfiguration testConfiguration;
@@ -100,6 +104,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final int shardNum;
   private final int runNumber;
   private final String workspaceName;
+
+  // Takes the value of the `--windows_native_test_wrapper` flag.
+  private final boolean useTestWrapperInsteadOfTestSetupSh;
 
   // Mutable state related to test caching. Lazily initialized: null indicates unknown.
   private Boolean unconditionalExecution;
@@ -135,6 +142,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       ActionOwner owner,
       Iterable<Artifact> inputs,
       Artifact testSetupScript, // Must be in inputs
+      boolean useTestWrapperInsteadOfTestSetupSh,
+      Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
       Artifact cacheStatus,
@@ -157,6 +166,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
+    this.useTestWrapperInsteadOfTestSetupSh = useTestWrapperInsteadOfTestSetupSh;
+    this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testConfiguration =
@@ -520,6 +531,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     }
     env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
 
+    if (!isEnableRunfiles()) {
+      // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
+      env.put("RUNFILES_MANIFEST_ONLY", "1");
+    }
+
     if (isCoverageMode()) {
       // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
       // TODO(ulfjack): Find a way to avoid setting this variable.
@@ -683,6 +699,11 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return testProperties;
   }
 
+  @Override
+  public Map<String, String> getExecutionInfo() {
+    return testProperties.getExecutionInfo();
+  }
+
   public TestTargetExecutionSettings getExecutionSettings() {
     return executionSettings;
   }
@@ -729,7 +750,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   @Override
   public String getMnemonic() {
-    return "TestRunner";
+    return MNEMONIC;
   }
 
   @Override
@@ -739,6 +760,14 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public Artifact getTestSetupScript() {
     return testSetupScript;
+  }
+
+  public boolean isUsingTestWrapperInsteadOfTestSetupScript() {
+    return useTestWrapperInsteadOfTestSetupSh;
+  }
+
+  public Artifact getTestXmlGeneratorScript() {
+    return testXmlGeneratorScript;
   }
 
   @Nullable

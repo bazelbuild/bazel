@@ -41,15 +41,23 @@ public class AutoRegistry {
   /** Class name prefixes to blacklist for {@link DynamicCodec}. */
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
+          "com.google.devtools.build.lib.google",
           "com.google.devtools.build.lib.vfs",
-          "com.google.devtools.build.lib.actions.ArtifactFactory");
+          "com.google.devtools.build.lib.actions.ArtifactFactory",
+          "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
+          "com.google.devtools.build.skyframe.SkyFunctionEnvironment");
 
   /** Classes outside {@link AutoRegistry#PACKAGE_PREFIX} that need to be serialized. */
   private static final ImmutableList<String> EXTERNAL_CLASS_NAMES_TO_REGISTER =
       ImmutableList.of(
           "java.io.FileNotFoundException",
           "java.io.IOException",
-          "java.lang.invoke.SerializedLambda");
+          "java.lang.invoke.SerializedLambda",
+          "com.google.common.base.Predicates$InPredicate",
+          // Sadly, these builders are serialized as part of SkylarkCustomCommandLine$Builder, which
+          // apparently can be preserved through analysis. We may investigate if this actually has
+          // performance/correctness implications.
+          "com.google.common.collect.ImmutableList$Builder");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(

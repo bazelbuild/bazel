@@ -100,28 +100,88 @@ public class ProtoCommon {
   }
 
   /**
-   * Returns all proto source roots in this lib and in its transitive dependencies.
+   * Returns all proto source roots in this lib ({@code currentProtoSourceRoot}) and in its
+   * transitive dependencies.
    *
-   * Build will fail if the {@code proto_source_root} of the current lib is different than the
-   * package name.
+   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
    */
-  public static NestedSet<String> collectTransitiveProtoPathFlags(RuleContext ruleContext) {
+  public static NestedSet<String> collectTransitiveProtoPathFlags(
+      RuleContext ruleContext, String currentProtoSourceRoot) {
     NestedSetBuilder<String> protoPath = NestedSetBuilder.stableOrder();
 
     // first add the protoSourceRoot of the current target, if any
-    String protoSourceRoot =
-        ruleContext.attributes().get("proto_source_root", Type.STRING);
-    if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
-      checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
-      protoPath.add(protoSourceRoot);
+    if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
+      protoPath.add(currentProtoSourceRoot);
     }
 
-    for (ProtoSourcesProvider provider : ruleContext.getPrerequisites(
-            "deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+    for (ProtoSourcesProvider provider :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
       protoPath.addTransitive(provider.getTransitiveProtoPathFlags());
     }
 
     return protoPath.build();
+  }
+
+  /**
+   * Returns the {@code proto_source_root} of the current library or null if none is specified.
+   *
+   * <p>Build will fail if the {@code proto_source_root} of the current library is different than
+   * the package name.
+   */
+  @Nullable
+  public static String getProtoSourceRoot(RuleContext ruleContext) {
+    String protoSourceRoot =
+        ruleContext.attributes().get("proto_source_root", Type.STRING);
+    if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
+      checkProtoSourceRootIsTheSameAsPackage(protoSourceRoot, ruleContext);
+    }
+    return protoSourceRoot;
+  }
+
+  /**
+   * Returns a set of the {@code proto_source_root} collected from the current library and the
+   * specified attribute.
+   *
+   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
+   */
+  private static NestedSet<String> getProtoSourceRootsOfAttribute(
+      RuleContext ruleContext, String currentProtoSourceRoot, String attributeName) {
+    NestedSetBuilder<String> protoSourceRoots = NestedSetBuilder.stableOrder();
+    if (currentProtoSourceRoot != null && !currentProtoSourceRoot.isEmpty()) {
+      protoSourceRoots.add(currentProtoSourceRoot);
+    }
+
+    for (ProtoSourcesProvider provider :
+        ruleContext.getPrerequisites(attributeName, Mode.TARGET, ProtoSourcesProvider.class)) {
+      String protoSourceRoot = provider.getProtoSourceRoot();
+      if (protoSourceRoot != null && !protoSourceRoot.isEmpty()) {
+        protoSourceRoots.add(provider.getProtoSourceRoot());
+      }
+    }
+
+    return protoSourceRoots.build();
+  }
+
+  /**
+   * Returns a set of the {@code proto_source_root} collected from the current library and the
+   * direct dependencies.
+   *
+   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
+   */
+  public static NestedSet<String> getProtoSourceRootsOfDirectDependencies(
+      RuleContext ruleContext, String currentProtoSourceRoot) {
+    return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "deps");
+  }
+
+  /**
+   * Returns a set of the {@code proto_source_root} collected from the current library and the
+   * exported dependencies.
+   *
+   * <p>Assumes {@code currentProtoSourceRoot} is the same as the package name.
+   */
+  public static NestedSet<String> getProtoSourceRootsOfExportedDependencies(
+      RuleContext ruleContext, String currentProtoSourceRoot) {
+    return getProtoSourceRootsOfAttribute(ruleContext, currentProtoSourceRoot, "exports");
   }
 
   private static void checkProtoSourceRootIsTheSameAsPackage(
@@ -209,6 +269,19 @@ public class ProtoCommon {
     return getGeneratedOutputs(ruleContext, protoSources, extension, false);
   }
 
+  public static ImmutableList<Artifact> getGeneratedTreeArtifactOutputs(
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources, PathFragment directory) {
+    ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
+    if (!protoSources.isEmpty()) {
+      ArtifactRoot genfiles =
+          ruleContext
+              .getConfiguration()
+              .getGenfilesDirectory(ruleContext.getRule().getRepository());
+      outputsBuilder.add(ruleContext.getTreeArtifact(directory, genfiles));
+    }
+    return outputsBuilder.build();
+  }
+
   /**
    * Returns the .proto files that are the direct srcs of the direct-dependencies of this rule. If
    * the current rule is an alias proto_library (=no srcs), we use the direct srcs of the
@@ -229,6 +302,19 @@ public class ProtoCommon {
         result.addTransitive(provider.getCheckDepsProtoSources());
       }
       result.addAll(srcs);
+    }
+    return result.build();
+  }
+
+  /**
+   * Returns the .proto files that are the direct srcs of the exported dependencies of this rule.
+   */
+  @Nullable
+  public static NestedSet<Artifact> computeProtosInExportedDeps(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+    for (ProtoSupportDataProvider provider :
+        ruleContext.getPrerequisites("exports", TARGET, ProtoSupportDataProvider.class)) {
+      result.addTransitive(provider.getSupportData().getProtosInDirectDeps());
     }
     return result.build();
   }

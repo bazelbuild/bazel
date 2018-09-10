@@ -60,6 +60,7 @@ cc_test(
     ] + select({
         "//src/conditions:windows": [
             ":windows_test_util",
+            "//src/main/cpp:blaze_util",
             "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
@@ -89,7 +90,10 @@ cc_test(
 
 cc_test(
     name = "strings_test",
-    srcs = ["strings_test.cc"],
+    srcs = ["strings_test.cc"] + select({
+        "//src/conditions:windows": ["strings_windows_test.cc"],
+        "//conditions:default": [],
+    }),
     shard_count = 2,
     deps = [
         "//src/main/cpp/util:strings",
@@ -128,6 +132,15 @@ cc_test(
         ],
         "//conditions:default": [],
     }),
+)
+
+cc_test(
+    name = "profiler_test",
+    srcs = ["profiler_test.cc"],
+    deps = [
+        "//src/main/cpp/util:profiler",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_library(

@@ -32,8 +32,11 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataProcessingApi;
@@ -59,7 +62,8 @@ public abstract class AndroidSkylarkData
         AndroidResourcesInfo,
         AndroidManifestInfo,
         AndroidLibraryAarInfo,
-        AndroidBinaryDataInfo> {
+        AndroidBinaryDataInfo,
+        ValidatedAndroidResources> {
 
   public abstract AndroidSemantics getAndroidSemantics();
 
@@ -88,6 +92,7 @@ public abstract class AndroidSkylarkData
       }
       return ResourceApk.processFromTransitiveLibraryData(
               ctx,
+              DataBinding.asDisabledDataBindingContext(),
               ResourceDependencies.fromProviders(deps, /* neverlink = */ neverlink),
               AssetDependencies.empty(),
               StampedAndroidManifest.createEmpty(
@@ -108,23 +113,16 @@ public abstract class AndroidSkylarkData
     String pkg = fromNoneable(customPackage, String.class);
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      if (pkg == null) {
-        pkg =
-            AndroidManifest.getDefaultPackage(
-                env.getCallerLabel(), ctx.getActionConstructionContext(), errorReporter);
-      }
-    }
-
-    Artifact primaryManifest = fromNoneable(manifest, Artifact.class);
-    if (primaryManifest == null) {
-      return StampedAndroidManifest.createEmpty(ctx.getActionConstructionContext(), pkg, exported)
+      return AndroidManifest.from(
+              ctx,
+              errorReporter,
+              fromNoneable(manifest, Artifact.class),
+              getAndroidSemantics(),
+              pkg,
+              exported)
+          .stamp(ctx)
           .toProvider();
     }
-
-    // If needed, rename the manifest to "AndroidManifest.xml", which aapt expects.
-    Artifact renamedManifest = getAndroidSemantics().renameManifest(ctx, primaryManifest);
-
-    return new AndroidManifest(renamedManifest, pkg, exported).stamp(ctx).toProvider();
   }
 
   @Override
@@ -166,7 +164,8 @@ public abstract class AndroidSkylarkData
       throws EvalException, InterruptedException {
     try (SkylarkErrorReporter errorReporter =
         SkylarkErrorReporter.from(ctx.getActionConstructionContext(), location, env)) {
-      AndroidAaptVersion aaptVersion = ctx.getAndroidConfig().getAndroidAaptVersion();
+      AndroidAaptVersion aaptVersion =
+          ctx.getSdk().getAapt2() != null ? AndroidAaptVersion.AAPT2 : AndroidAaptVersion.AAPT;
 
       ValidatedAndroidResources validated =
           AndroidResources.from(errorReporter, getFileProviders(resources), "resources")
@@ -174,10 +173,14 @@ public abstract class AndroidSkylarkData
                   ctx,
                   manifest.asStampedManifest(),
                   ResourceDependencies.fromProviders(deps, neverlink),
-                  enableDataBinding,
+                  DataBinding.contextFrom(
+                      enableDataBinding,
+                      ctx.getActionConstructionContext(),
+                      ctx.getAndroidConfig()),
                   aaptVersion);
 
-      JavaInfo javaInfo = getJavaInfoForRClassJar(validated.getClassJar());
+      JavaInfo javaInfo =
+          getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
 
       return SkylarkDict.of(
           /* env = */ null,
@@ -197,7 +200,7 @@ public abstract class AndroidSkylarkData
       AndroidResourcesInfo resourcesInfo,
       AndroidAssetsInfo assetsInfo,
       Artifact libraryClassJar,
-      SkylarkList<ConfiguredTarget> proguardSpecs,
+      SkylarkList<Artifact> localProguardSpecs,
       SkylarkList<AndroidLibraryAarInfo> deps,
       boolean neverlink)
       throws EvalException, InterruptedException {
@@ -212,31 +215,31 @@ public abstract class AndroidSkylarkData
     boolean definesLocalResources = resourcesInfo.getDirectAndroidResources().isSingleton();
     AndroidResources resources = AndroidResources.empty();
     if (definesLocalResources) {
-      ValidatedAndroidData validatedAndroidData =
+      ValidatedAndroidResources validatedAndroidResources =
           resourcesInfo.getDirectAndroidResources().toList().get(0);
-      if (validatedAndroidData.getLabel().equals(ctx.getLabel())) {
-        // TODO(b/77574966): Remove this cast once we get rid of ResourceContainer and can guarantee
-        // that only properly processed resources are passed into this object.
-        if (!(validatedAndroidData instanceof ValidatedAndroidResources)) {
-          throw new EvalException(
-              Location.BUILTIN, "Old data processing pipeline does not support the Skylark API");
-        }
-        resources = (ValidatedAndroidResources) validatedAndroidData;
+      if (validatedAndroidResources.getLabel().equals(ctx.getLabel())) {
+        resources = validatedAndroidResources;
       } else {
         definesLocalResources = false;
       }
     }
 
     // Get the target's local assets, if defined, from the provider
-    boolean definesLocalAssets = assetsInfo.getDirectParsedAssets().isSingleton();
+    boolean definesLocalAssets = false;
     AndroidAssets assets = AndroidAssets.empty();
-    if (definesLocalAssets) {
+    if (assetsInfo.getDirectParsedAssets().isSingleton()) {
       ParsedAndroidAssets parsed = assetsInfo.getDirectParsedAssets().toList().get(0);
       if (parsed.getLabel().equals(ctx.getLabel())) {
         assets = parsed;
-      } else {
-        definesLocalAssets = false;
+        definesLocalAssets = true;
       }
+    }
+
+    if (!definesLocalAssets) {
+      // The target might still define an empty list of assets, in which case its information is not
+      // propagated for efficiency. If this is the case, we will still have an artifact for the
+      // merging output.
+      definesLocalAssets = assetsInfo.getValidationResult() != null;
     }
 
     if (definesLocalResources != definesLocalAssets) {
@@ -254,7 +257,7 @@ public abstract class AndroidSkylarkData
             resourcesInfo.getManifest(),
             resourcesInfo.getRTxt(),
             libraryClassJar,
-            filesFromConfiguredTargets(proguardSpecs))
+            localProguardSpecs.getImmutableList())
         .toProvider(deps, definesLocalResources);
   }
 
@@ -270,7 +273,7 @@ public abstract class AndroidSkylarkData
       Object customPackage,
       boolean neverlink,
       boolean enableDataBinding,
-      SkylarkList<ConfiguredTarget> proguardSpecs,
+      SkylarkList<Artifact> localProguardSpecs,
       SkylarkList<ConfiguredTarget> deps,
       Location location,
       Environment env)
@@ -330,7 +333,7 @@ public abstract class AndroidSkylarkData
             resourcesInfo,
             assetsInfo,
             libraryClassJar,
-            proguardSpecs,
+            localProguardSpecs,
             getProviders(deps, AndroidLibraryAarInfo.PROVIDER),
             neverlink);
 
@@ -342,7 +345,7 @@ public abstract class AndroidSkylarkData
     // Expose the updated manifest that was changed by resource processing
     // TODO(b/30817309): Use the base manifest once manifests are no longer changed in resource
     // processing
-    AndroidManifestInfo manifestInfo = resourcesInfo.getManifest().toProvider();
+    AndroidManifestInfo manifestInfo = resourcesInfo.getManifest();
 
     return SkylarkDict.copyOf(
         /* env = */ null,
@@ -370,7 +373,7 @@ public abstract class AndroidSkylarkData
                 AndroidManifest.forAarImport(androidManifestArtifact),
                 ResourceDependencies.fromProviders(
                     getProviders(deps, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false),
-                /* enableDataBinding = */ false,
+                DataBinding.asDisabledDataBindingContext(),
                 aaptVersion);
 
     MergedAndroidAssets mergedAssets =
@@ -415,6 +418,8 @@ public abstract class AndroidSkylarkData
           AndroidLocalTestBase.buildResourceApk(
               ctx,
               getAndroidSemantics(),
+              errorReporter,
+              DataBinding.asDisabledDataBindingContext(),
               rawManifest,
               AndroidResources.from(errorReporter, getFileProviders(resources), "resource_files"),
               AndroidAssets.from(
@@ -463,6 +468,11 @@ public abstract class AndroidSkylarkData
             shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
         ResourceFilterFactory.from(aaptVersion, resourceConfigurationFilters, densities),
         noCompressExtensions.getImmutableList());
+  }
+
+  @Override
+  public Artifact resourcesFromValidatedRes(ValidatedAndroidResources resources) {
+    return resources.getMergedResources();
   }
 
   /**
@@ -543,10 +553,10 @@ public abstract class AndroidSkylarkData
           rawManifest.mergeWithDeps(
               ctx,
               getAndroidSemantics(),
+              errorReporter,
               resourceDeps,
               manifestValues,
-              ApplicationManifest.useLegacyMerging(
-                  errorReporter, ctx.getAndroidConfig(), manifestMerger));
+              manifestMerger);
 
       ResourceApk resourceApk =
           ProcessedAndroidData.processBinaryDataFrom(
@@ -571,9 +581,12 @@ public abstract class AndroidSkylarkData
                   settings.resourceFilterFactory,
                   settings.noCompressExtensions,
                   crunchPng,
-                  dataBindingEnabled,
                   /* featureOf = */ null,
-                  /* featureAfter = */ null)
+                  /* featureAfter = */ null,
+                  DataBinding.contextFrom(
+                      dataBindingEnabled,
+                      ctx.getActionConstructionContext(),
+                      ctx.getAndroidConfig()))
               .generateRClass(ctx, settings.aaptVersion);
 
       return AndroidBinaryDataInfo.of(
@@ -617,7 +630,7 @@ public abstract class AndroidSkylarkData
             binaryDataInfo.getManifestInfo().getManifest(),
             filesFromConfiguredTargets(localProguardSpecs),
             filesFromConfiguredTargets(extraProguardSpecs),
-            getProviders(deps, ProguardSpecProvider.class));
+            getProviders(deps, ProguardSpecProvider.PROVIDER));
 
     // TODO(asteinb): There should never be more than one direct resource exposed in the provider.
     // Can we adjust its structure to take this into account?
@@ -654,14 +667,30 @@ public abstract class AndroidSkylarkData
 
     resourceApk.toManifestInfo().ifPresent(info -> builder.put(AndroidManifestInfo.PROVIDER, info));
 
-    builder.put(JavaInfo.PROVIDER, getJavaInfoForRClassJar(resourceApk.getResourceJavaClassJar()));
+    builder.put(
+        JavaInfo.PROVIDER,
+        getJavaInfoForRClassJar(
+            resourceApk.getResourceJavaClassJar(), resourceApk.getResourceJavaSrcJar()));
 
     return SkylarkDict.copyOf(/* env = */ null, builder.build());
   }
 
-  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar) {
+  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {
     return JavaInfo.Builder.create()
         .setNeverlink(true)
+        .addProvider(
+            JavaSourceJarsProvider.class,
+            JavaSourceJarsProvider.builder().addSourceJar(rClassSrcJar).build())
+        .addProvider(
+            JavaRuleOutputJarsProvider.class,
+            JavaRuleOutputJarsProvider.builder()
+                .addOutputJar(rClassJar, null, null, ImmutableList.of(rClassSrcJar))
+                .build())
+        .addProvider(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider.builder()
+                .addDirectCompileTimeJar(rClassJar, rClassJar)
+                .build())
         .addProvider(
             JavaCompilationInfoProvider.class,
             new JavaCompilationInfoProvider.Builder()

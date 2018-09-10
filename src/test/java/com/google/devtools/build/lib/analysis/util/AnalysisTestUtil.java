@@ -150,7 +150,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public List<ActionAnalysisMetadata> getRegisteredActions() {
+    public ImmutableList<ActionAnalysisMetadata> getRegisteredActions() {
       return original.getRegisteredActions();
     }
 
@@ -329,7 +329,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public List<ActionAnalysisMetadata> getRegisteredActions() {
+    public ImmutableList<ActionAnalysisMetadata> getRegisteredActions() {
       return ImmutableList.of();
     }
 

@@ -15,12 +15,12 @@ title: Configurable Build Attributes
 * [Multiple Selects](#multiple-selects)
 * [OR Chaining](#or-chaining)
 * [Custom Error Messages](#custom-error-messages)
-* [Skylark Compatibility](#skylark)
+* [Starlark Compatibility](#starlark)
 * [Bazel Query and Cquery](#query)
 * [FAQ](#faq)
-  * [Why doesn't select() work in Skylark](#skylark-macros-select)
-  * [Why does select() always return true in Skylark?](#boolean-select)
-  * [Can I read select() like a dict in Skylark?](#inspectable-select)
+  * [Why doesn't select() work in macros](#starlark-macros-select)
+  * [Why does select() always return true?](#boolean-select)
+  * [Can I read select() like a dict?](#inspectable-select)
 
 &nbsp;
 
@@ -143,8 +143,8 @@ because this only affects how Bazel reports progress to the user.
 
 `config_setting` semantics are intentionally simple. For example, there's no
 direct support for `OR` chaining (although a
-[Skylark convenience function](#or-chaining) provides this).  Consider writing
-Skylark macros for complicated flag logic.
+[convenience function](#or-chaining) provides this).  Consider writing
+macros for complicated flag logic.
 
 ## Defaults
 
@@ -344,7 +344,7 @@ sh_binary(
 ```
 
 
-For more complex expressions, use [Skylark macros](skylark/macros.md):
+For more complex expressions, use [macros](skylark/macros.md):
 
 Before:
 
@@ -430,7 +430,7 @@ sh_library(
 )
 ```
 
-or write a [Skylark macro](skylark/macros.md) to do the same thing
+or write a [macro](skylark/macros.md) to do the same thing
 automatically.
 
 This approach doesn't work for non-deps attributes (like
@@ -543,15 +543,15 @@ ERROR: Configurable attribute "deps" doesn't match this configuration: Please
 build with an Android or Windows toolchain
 ```
 
-## <a name="skylark"></a>Skylark Compatibility
-Skylark is compatible with configurable attributes in limited form.
+## <a name="starlark"></a>Starlark Compatibility
+Starlark is compatible with configurable attributes in limited form.
 
-Skylark rule implementations receive the *resolved values* of configurable
+Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
 
 ```sh
 //myproject/BUILD:
-some_skylark_rule(
+some_rule(
     name = "my_rule",
     some_attr = select({
         ":foo_mode": [":foo"],
@@ -564,11 +564,11 @@ some_skylark_rule(
 $ bazel build //myproject/my_rule --define mode=foo
 ```
 
-Skylark rule implementation code sees `ctx.attr.some_attr` as `[":foo"]`.
+Rule implementation code sees `ctx.attr.some_attr` as `[":foo"]`.
 
-Skylark macros can accept `select()` clauses and pass them through to native
+Macros can accept `select()` clauses and pass them through to native
 rules. But *they cannot directly manipulate them*. For example, there's no way
-for a Skylark macro to convert
+for a macro to convert
 
 ```sh
 `select({"foo": "val"}, ...)`
@@ -638,17 +638,17 @@ $ bazel cquery 'deps(//myproject:my_lib)' --define dog=pug
 
 ## FAQ
 
-## <a name="skylark-macros-select"></a>Why doesn't select() work in Skylark?
-select() *does* work in Skylark! See [Skylark compatibility](#skylark) for
+## <a name="macros-select"></a>Why doesn't select() work in macros?
+select() *does* work in rules! See [Starlark compatibility](#starlark) for
 details.
 
 The key issue this question usually means is that select() doesn't work in
-Skylark *macros*. These are different than Skylark *rules*. See the Skylark
+*macros*. These are different than *rules*. See the
 documentation on [rules](skylark/rules.html) and [macros](skylark/macros.html)
 to understand the difference.
 Here's an end-to-end example:
 
-Define a Skylark rule and macro:
+Define a rule and macro:
 
 ```sh
 # myproject/defs.bzl:
@@ -660,13 +660,13 @@ def _impl(ctx):
   allcaps = ctx.attr.my_config_string.upper()  # This works fine on all values.
   print("My name is " + name + " with custom message: " + allcaps)
 
-# Skylark rule declaration:
+# Rule declaration:
 my_custom_bazel_rule = rule(
     implementation = _impl,
     attrs = {"my_config_string": attr.string()}
 )
 
-# Skylark macro declaration:
+# Macro declaration:
 def my_custom_bazel_macro(name, my_config_string):
   allcaps = my_config_string.upper() # This line won't work with select(s).
   print("My name is " + name + " with custom message: " + allcaps)
@@ -746,9 +746,9 @@ DEBUG: /myworkspace/myproject/defs.bzl:23:3: Invoking macro sad_macro_less_sad.
 DEBUG: /myworkspace/myproject/defs.bzl:15:3: My name is sad_macro_less_sad with custom message: FIRST STRING.
 ```
 
-## <a name="boolean-select"></a>Why does select() always return true in Skylark?
-Because Skylark *macros* (but not rules) by definition
-[can't evaluate select(s)](#skylark-macros-select), any attempt to do so
+## <a name="boolean-select"></a>Why does select() always return true?
+Because *macros* (but not rules) by definition
+[can't evaluate select(s)](#macros-select), any attempt to do so
 usually produces a an error:
 
 ```sh
@@ -785,13 +785,13 @@ $ bazel build //myproject:all --cpu=ppc
 DEBUG: /myworkspace/myproject/defs.bzl:4:3: TRUE.
 ```
 
-This happens because Skylark macros don't understand the contents of `select()`.
+This happens because macros don't understand the contents of `select()`.
 So what they're really evaluting is the `select()` object itself. According to
 [Pythonic](https://docs.python.org/release/2.5.2/lib/truth.html) design
 standards, all objects aside from a very small number of exceptions
 automatically return true.
-## <a name="inspectable-select"></a>Can I read select() like a dict in Skylark?
-Fine. Skylark macros [can't](#skylark-macros-select) evaluate select(s) because
+## <a name="inspectable-select"></a>Can I read select() like a dict?
+Fine. Macros [can't](#macros-select) evaluate select(s) because
 macros are evaluated before Bazel knows what the command line flags are.
 
 Can macros at least read the `select()`'s dictionary, say, to add an extra

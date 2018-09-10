@@ -65,6 +65,10 @@ public class HttpJarRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = http_jar, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
+<p><strong>Deprecated.
+<code>load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")</code>
+for a drop-in replacement.</strong></p>
+
 <p>Downloads a jar from a URL and makes it available to be used as a Java dependency.</p>
 
 <p>Downloaded files must have a .jar extension.</p>

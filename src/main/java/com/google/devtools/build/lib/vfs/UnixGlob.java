@@ -21,9 +21,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -42,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -148,7 +146,7 @@ public final class UnixGlob {
   }
 
   /**
-   * Calls {@link #matches(String, String, Cache) matches(pattern, str, null)}
+   * Calls {@link #matches(String, String, ConcurrentHashMap) matches(pattern, str, null)}
    */
   public static boolean matches(String pattern, String str) {
     return matches(pattern, str, null);
@@ -164,7 +162,7 @@ public final class UnixGlob {
    *        {@code null} to skip caching
    */
   public static boolean matches(String pattern, String str,
-      Cache<String, Pattern> patternCache) {
+      ConcurrentHashMap<String, Pattern> patternCache) {
     if (pattern.length() == 0 || str.length() == 0) {
       return false;
     }
@@ -196,13 +194,10 @@ public final class UnixGlob {
       return str.startsWith(pattern.substring(0, lastIndex));
     }
 
-    Pattern regex = patternCache == null ? null : patternCache.getIfPresent(pattern);
-    if (regex == null) {
-      regex = makePatternFromWildcard(pattern);
-      if (patternCache != null) {
-        patternCache.put(pattern, regex);
-      }
-    }
+    Pattern regex =
+        patternCache == null
+            ? makePatternFromWildcard(pattern)
+            : patternCache.computeIfAbsent(pattern, p -> makePatternFromWildcard(p));
     return regex.matcher(str).matches();
   }
 
@@ -477,13 +472,7 @@ public final class UnixGlob {
   private static final class GlobVisitor {
     // These collections are used across workers and must therefore be thread-safe.
     private final Collection<Path> results = Sets.newConcurrentHashSet();
-    private final Cache<String, Pattern> cache = CacheBuilder.newBuilder().build(
-        new CacheLoader<String, Pattern>() {
-            @Override
-            public Pattern load(String wildcard) {
-              return makePatternFromWildcard(wildcard);
-            }
-          });
+    private final ConcurrentHashMap<String, Pattern> cache = new ConcurrentHashMap<>();
 
     private final GlobFuture result;
     private final ThreadPoolExecutor executor;
@@ -568,14 +557,13 @@ public final class UnixGlob {
       pendingOps.incrementAndGet();
       try {
         for (String[] splitPattern : splitPatterns) {
-          boolean containsRecursivePattern = false;
+          int numRecursivePatterns = 0;
           for (String pattern : splitPattern) {
             if (isRecursivePattern(pattern)) {
-              containsRecursivePattern = true;
-              break;
+              ++numRecursivePatterns;
             }
           }
-          GlobTaskContext context = containsRecursivePattern
+          GlobTaskContext context = numRecursivePatterns > 1
               ? new RecursiveGlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls)
               : new GlobTaskContext(splitPattern, excludeDirectories, dirPred, syscalls);
           context.queueGlob(base, baseStat.isDirectory(), 0);
@@ -819,20 +807,18 @@ public final class UnixGlob {
         }
         boolean childIsDir = (type == Dirent.Type.DIRECTORY);
         String text = dent.getName();
-        // Optimize allocations for the case where the pattern doesn't match the dirent.
-        Path child = null;
 
         if (isRecursivePattern) {
-          // Recurse without shifting the pattern.
+          Path child = base.getChild(text);
+          // Recurse without shifting the pattern. The case where we shifting the pattern is
+          // already handled by the special case above.
           if (childIsDir) {
-            child = base.getChild(text);
             context.queueGlob(child, childIsDir, idx);
+          } else if (idx + 1 == context.patternParts.length) {
+            results.add(child);
           }
-        }
-        if (matches(pattern, text, cache)) {
-          if (child == null) {
-            child = base.getChild(text);
-          }
+        } else if (matches(pattern, text, cache)) {
+          Path child = base.getChild(text);
 
           // Recurse and consume one segment of the pattern.
           if (childIsDir) {

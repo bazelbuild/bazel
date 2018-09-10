@@ -35,6 +35,9 @@ build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
 EOF
 
 function set_up {
+  export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
+  export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
+
   mkdir -p examples/genrule
   cat << 'EOF' > examples/genrule/a.txt
 foo bar bz
@@ -345,6 +348,25 @@ EOF
   kill_nc
 }
 
+function test_sandbox_block_network_access() {
+  serve_file file_to_serve
+  cat << EOF >> examples/genrule/BUILD
+
+genrule(
+  name = "breaks4",
+  outs = [ "breaks4.txt" ],
+  cmd = "curl -o \$@ localhost:${nc_port}",
+)
+EOF
+  bazel build --experimental_sandbox_default_allow_network=false examples/genrule:breaks1 &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks4" || true
+  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt" ] || {
+    output=$(cat "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4.txt")
+    fail "Non-hermetic genrule breaks1 succeeded with following output: $output"
+  }
+  kill_nc
+}
+
 function test_sandbox_network_access_with_local() {
   serve_file file_to_serve
   cat << EOF >> examples/genrule/BUILD
@@ -363,6 +385,26 @@ EOF
   kill_nc
 }
 
+function test_sandbox_network_access_with_requires_network() {
+  serve_file file_to_serve
+  cat << EOF >> examples/genrule/BUILD
+
+genrule(
+  name = "sandbox_network_access_with_requires_network",
+  outs = [ "sandbox_network_access_with_requires_network.txt" ],
+  cmd = "curl -o \$@ localhost:${nc_port}",
+  tags = [ "requires-network" ],
+)
+EOF
+  bazel build --experimental_sandbox_default_allow_network=false \
+    examples/genrule:sandbox_network_access_with_requires_network &> $TEST_log \
+    || fail "genrule failed even though tags=['requires-network']: \
+    examples/genrule:breaks4_works_with_requires_network"
+  [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_requires_network.txt" ] \
+    || fail "Genrule did not produce output: examples/genrule:sandbox_network_access_with_requires_network.txt"
+  kill_nc
+}
+
 function test_sandbox_network_access_with_block_network() {
   serve_file file_to_serve
   cat << EOF >> examples/genrule/BUILD
@@ -374,9 +416,9 @@ genrule(
   tags = [ "block-network" ],
 )
 EOF
-  bazel build examples/genrule:sandbox_network_access_with_block_network &> $TEST_log \
+  bazel build --experimental_sandbox_default_allow_network=true examples/genrule:sandbox_network_access_with_block_network &> $TEST_log \
     && fail "genrule 'sandbox_network_access_with_block_network' trying to use network succeeded, but should have failed" || true
-  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4_works_with_requires_network.txt" ] \
+  [ ! -f "${BAZEL_GENFILES_DIR}/examples/genrule/sandbox_network_access_with_block_network.txt" ] \
     || fail "genrule 'sandbox_network_access_with_block_network' produced output, but was expected to fail"
   kill_nc
 }
@@ -513,7 +555,7 @@ EOF
   expect_not_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
 
   # This is the error message telling us that some output artifacts couldn't be copied.
-  expect_log "Could not move output artifacts from sandboxed execution."
+  expect_log "Could not move output artifacts from sandboxed execution"
 
   # The build fails, because the action didn't generate its output artifact.
   expect_log "ERROR:.*Executing genrule //:test failed"
@@ -566,7 +608,6 @@ EOF
 }
 
 function test_sandbox_mount_customized_path () {
-
   if ! [ "${PLATFORM-}" = "linux" -a \
     "$(cat /dev/null /etc/*release | grep 'DISTRIB_CODENAME=' | sed 's/^.*=//')" = "trusty" ]; then
     echo "Skipping test: the toolchain used in this test is only supported on trusty."
@@ -660,6 +701,64 @@ EOF
 
   # Remove the mount target folder as sandbox binary does not do the cleanup
   rm -rf ${target_root}/x86_64-unknown-linux-gnu
+}
+
+function test_experimental_symlinked_sandbox_uses_expanded_tree_artifacts_in_runfiles_tree() {
+  touch WORKSPACE
+
+  cat > def.bzl <<'EOF'
+def _mkdata_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name + ".d")
+    script = "mkdir -p {out}; touch {out}/file; ln -s file {out}/link".format(out = out.path)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = script,
+    )
+    runfiles = ctx.runfiles(files = [out])
+    return [DefaultInfo(
+        files = depset([out]),
+        runfiles = runfiles,
+    )]
+
+mkdata = rule(
+    _mkdata_impl,
+)
+EOF
+
+  cat > mkdata_test.sh <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+test_dir="$1"
+cd "$test_dir"
+ls -l | cut -f1,9 -d' ' >&2
+
+if [ ! -f file -o -L file ]; then
+  echo "'file' is not a regular file" >&2
+  exit 1
+fi
+EOF
+  chmod +x mkdata_test.sh
+
+  cat > BUILD <<'EOF'
+load("//:def.bzl", "mkdata")
+
+mkdata(name = "mkdata")
+
+sh_test(
+    name = "mkdata_test",
+    srcs = ["mkdata_test.sh"],
+    args = ["$(location :mkdata)"],
+    data = [":mkdata"],
+)
+EOF
+
+  bazel test --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
+      --test_output=streamed :mkdata_test &>$TEST_log && fail "expected test to fail" || true
+
+  bazel test --noincompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
+      --test_output=streamed :mkdata_test &>$TEST_log || fail "expected test to pass"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

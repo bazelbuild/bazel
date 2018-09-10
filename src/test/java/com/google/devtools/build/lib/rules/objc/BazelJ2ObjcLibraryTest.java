@@ -380,7 +380,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       String objFileName,
       Iterable<String> compilationInputExecPaths)
       throws Exception {
-    String labelName = Label.parseAbsolute(targetLabel).getName();
+    String labelName = Label.parseAbsolute(targetLabel, ImmutableMap.of()).getName();
     CommandAction linkAction =
         (CommandAction)
             getGeneratingAction(
@@ -794,6 +794,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
+            null,
             null);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -845,6 +846,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             ImmutableMap.<String, String>of(),
             ImmutableMap.of(),
             DUMMY_ARTIFACT_EXPANDER,
+            null,
             null);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();

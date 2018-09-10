@@ -62,6 +62,10 @@ public class BuildRequestOptions extends OptionsBase {
   )
   public int jobs;
 
+  public int getJobs() {
+    return jobs == 0 ? 1 : jobs; // Treat 0 jobs as a single task.
+  }
+
   @Option(
     name = "progress_report_interval",
     defaultValue = "0",
@@ -399,10 +403,7 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "If true, Blaze will clear actions from memory after it executes them. Has no effect "
-              + "unless --notrack_incremental_state is also specified. Do not use unless instructed"
-              + " by the Blaze team.")
+      help = "This option is deprecated and has no effect.")
   public boolean discardActionsAfterExecution;
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */

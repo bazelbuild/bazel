@@ -23,7 +23,7 @@ import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
-import com.google.devtools.build.lib.skyframe.ToolchainUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -212,14 +212,21 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     new EqualsTester()
         .addEqualityGroup(
+            // Two platforms registered.
             RegisteredExecutionPlatformsValue.create(
                 ImmutableList.of(executionPlatformKey1, executionPlatformKey2)),
             RegisteredExecutionPlatformsValue.create(
                 ImmutableList.of(executionPlatformKey1, executionPlatformKey2)))
         .addEqualityGroup(
-            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey1)),
-            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey2)),
+            // A single platform registered.
+            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey1)))
+        .addEqualityGroup(
+            // A single, different, platform registered.
+            RegisteredExecutionPlatformsValue.create(ImmutableList.of(executionPlatformKey2)))
+        .addEqualityGroup(
+            // The same as the first group, but the order is different.
             RegisteredExecutionPlatformsValue.create(
-                ImmutableList.of(executionPlatformKey2, executionPlatformKey1)));
+                ImmutableList.of(executionPlatformKey2, executionPlatformKey1)))
+        .testEquals();
   }
 }

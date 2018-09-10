@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -57,11 +56,28 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
+    return new InMemoryFileSystem(BlazeClock.instance()) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         FileStatus defaultResult = super.stat(path, followSymlinks);
         return transformer.stat(defaultResult, path, followSymlinks);
+      }
+
+      @Nullable
+      @Override
+      public FileStatus statIfFound(Path path, boolean followSymlinks) {
+        return statNullable(path, followSymlinks);
+      }
+
+      @Nullable
+      @Override
+      public FileStatus statNullable(Path path, boolean followSymlinks) {
+        FileStatus defaultResult = super.statNullable(path, followSymlinks);
+        try {
+          return transformer.stat(defaultResult, path, followSymlinks);
+        } catch (IOException e) {
+          return null;
+        }
       }
 
       @Override
@@ -159,8 +175,12 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
             }
 
             @Override
-            public long getSize() throws IOException {
-              return stat.getSize();
+            public long getSize()  {
+              try {
+                return stat.getSize();
+              } catch (IOException e) {
+                throw new IllegalStateException(e);
+              }
             }
 
             @Override

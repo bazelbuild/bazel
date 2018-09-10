@@ -24,17 +24,13 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
-import com.google.devtools.build.lib.skyframe.serialization.NotSerializableRuntimeException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -53,10 +49,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
-
-  // This field is only for the purposes of generating the LoadingPhaseCompleteEvent.
-  // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
-  private final ImmutableSet<Label> removedTargetLabels;
   private final String workspaceName;
 
   TargetPatternPhaseValue(
@@ -64,19 +56,34 @@ public final class TargetPatternPhaseValue implements SkyValue {
       ImmutableSet<Label> testsToRunLabels,
       boolean hasError,
       boolean hasPostExpansionError,
-      ImmutableSet<Label> removedTargetLabels,
       String workspaceName) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
-    this.removedTargetLabels = removedTargetLabels;
     this.workspaceName = workspaceName;
   }
 
   public ImmutableSet<Target> getTargets(
       ExtendedEventHandler eventHandler, PackageManager packageManager) {
     return targetLabels
+        .stream()
+        .map(
+            (label) -> {
+              try {
+                return packageManager
+                    .getPackage(eventHandler, label.getPackageIdentifier())
+                    .getTarget(label.getName());
+              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+                throw new RuntimeException("Failed to get package from TargetPatternPhaseValue", e);
+              }
+            })
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
+  public ImmutableSet<Target> getTestsToRun(
+      ExtendedEventHandler eventHandler, PackageManager packageManager) {
+    return testsToRunLabels
         .stream()
         .map(
             (label) -> {
@@ -108,87 +115,34 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return hasPostExpansionError;
   }
 
-  /**
-   * Returns a set of targets that were present on the command line but got expanded during the
-   * loading phase (currently these are only test suites; this set is always empty when <code>
-   * --expand_test_suites=false</code>.
-   */
-  public ImmutableSet<Target> getRemovedTargets(
-      ExtendedEventHandler eventHandler, PackageManager packageManager) {
-    return removedTargetLabels
-        .stream()
-        .map(
-            (label) -> {
-              try {
-                return packageManager
-                    .getPackage(eventHandler, label.getPackageIdentifier())
-                    .getTarget(label.getName());
-              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .collect(ImmutableSet.toImmutableSet());
-  }
-
   public String getWorkspaceName() {
     return workspaceName;
   }
 
-  public LoadingResult toLoadingResult(
-      ExtendedEventHandler eventHandler, PackageManager packageManager) {
-    ImmutableSet<Target> targets =
-        getTargetLabels()
-            .stream()
-            .map(
-                (label) -> {
-                  try {
-                    return packageManager
-                        .getPackage(eventHandler, label.getPackageIdentifier())
-                        .getTarget(label.getName());
-                  } catch (NoSuchPackageException
-                      | NoSuchTargetException
-                      | InterruptedException e) {
-                    throw new RuntimeException(e);
-                  }
-                })
-            .collect(ImmutableSet.toImmutableSet());
-    ImmutableSet<Target> testsToRun = null;
-    if (testsToRunLabels != null) {
-      testsToRun =
-          getTestsToRunLabels()
-              .stream()
-              .map(
-                  (label) -> {
-                    try {
-                      return packageManager
-                          .getPackage(eventHandler, label.getPackageIdentifier())
-                          .getTarget(label.getName());
-                    } catch (NoSuchPackageException
-                        | NoSuchTargetException
-                        | InterruptedException e) {
-                      throw new RuntimeException(e);
-                    }
-                  })
-              .collect(ImmutableSet.toImmutableSet());
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
     }
-
-    return new LoadingResult(
-        hasError(), hasPostExpansionError(), targets, testsToRun, getWorkspaceName());
+    if (!(obj instanceof TargetPatternPhaseValue)) {
+      return false;
+    }
+    TargetPatternPhaseValue that = (TargetPatternPhaseValue) obj;
+    return Objects.equals(this.targetLabels, that.targetLabels)
+        && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
+        && Objects.equals(this.workspaceName, that.workspaceName)
+        && this.hasError == that.hasError
+        && this.hasPostExpansionError == that.hasPostExpansionError;
   }
 
-  @SuppressWarnings("unused")
-  private void writeObject(ObjectOutputStream out) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObject(ObjectInputStream in) {
-    throw new NotSerializableRuntimeException();
-  }
-
-  @SuppressWarnings("unused")
-  private void readObjectNoData() {
-    throw new IllegalStateException();
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        this.targetLabels,
+        this.testsToRunLabels,
+        this.workspaceName,
+        this.hasError,
+        this.hasPostExpansionError);
   }
 
   /** Create a target pattern phase value key. */

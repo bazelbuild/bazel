@@ -10,7 +10,7 @@ Vincent Batts [@vbatts](https://github.com/vbatts) generously maintains
 unofficial packages on
 [Fedora COPR](https://copr.fedorainfracloud.org/coprs/vbatts/bazel/).
 
-## Installing Bazel on Fedora 25, 26
+## Installing Bazel on Fedora 25, 26, 27, and 28
 
 1. Install `dnf` and the `copr` plugin if you have not already done so.
 

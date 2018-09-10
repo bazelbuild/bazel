@@ -24,14 +24,14 @@ import java.util.function.Function;
 public class RClassGeneratorActionBuilder {
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> AAPT_CONVERTER =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
+  static final AndroidDataConverter<ValidatedAndroidResources> AAPT_CONVERTER =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
           .with(chooseDepsToArg(AndroidAaptVersion.AAPT))
           .build();
 
   @AutoCodec @VisibleForSerialization
-  static final AndroidDataConverter<ValidatedAndroidData> AAPT2_CONVERTER =
-      AndroidDataConverter.<ValidatedAndroidData>builder(JoinerType.COLON_COMMA)
+  static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_CONVERTER =
+      AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
           .with(chooseDepsToArg(AndroidAaptVersion.AAPT2))
           .build();
 
@@ -54,12 +54,6 @@ public class RClassGeneratorActionBuilder {
   public RClassGeneratorActionBuilder setClassJarOut(Artifact classJarOut) {
     this.classJarOut = classJarOut;
     return this;
-  }
-
-  public ResourceContainer build(AndroidDataContext dataContext, ResourceContainer primary) {
-    build(dataContext, primary.getRTxt(), ProcessedAndroidManifest.from(primary));
-
-    return primary.toBuilder().setJavaClassJar(classJarOut).build();
   }
 
   public ResourceApk build(AndroidDataContext dataContext, ProcessedAndroidData data) {
@@ -95,7 +89,7 @@ public class RClassGeneratorActionBuilder {
         .buildAndRegister("Generating R Classes", "RClassGenerator");
   }
 
-  private static Function<ValidatedAndroidData, String> chooseDepsToArg(
+  private static Function<ValidatedAndroidResources, String> chooseDepsToArg(
       final AndroidAaptVersion version) {
     return container -> {
       Artifact rTxt =

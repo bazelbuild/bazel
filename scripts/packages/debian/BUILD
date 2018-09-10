@@ -70,6 +70,10 @@ pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
     built_using = "bazel (HEAD)",
+    conffiles = [
+        "etc/bash_completion.d/bazel",
+        "etc/bazel.bazelrc",
+    ],
     data = ":debian-data",
     depends = [
         # Keep in sync with Depends section in ./control
@@ -77,6 +81,7 @@ pkg_deb(
         "g++",
         "zlib1g-dev",
         "bash-completion",
+        "unzip",
     ],
     description_file = "description",
     homepage = "http://bazel.build",

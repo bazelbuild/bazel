@@ -14,22 +14,25 @@
 
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 
 /**
@@ -40,18 +43,25 @@ import java.util.Map;
  * of the android_test will be compiled with different flags from the android_binary code which runs
  * in the same Android virtual machine, which may cause compatibility issues at runtime.
  */
-@AutoValue
 @Immutable
-public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoProvider {
+public final class AndroidFeatureFlagSetProvider extends NativeInfo
+    implements AndroidFeatureFlagSetProviderApi {
+
+  public static final String PROVIDER_NAME = "AndroidFeatureFlagSetProvider";
+  public static final Provider PROVIDER = new Provider();
 
   /** The name of the attribute used by Android rules to set config_feature_flags. */
   public static final String FEATURE_FLAG_ATTR = "feature_flags";
 
-  AndroidFeatureFlagSetProvider() {}
+  private final Optional<ImmutableMap<Label, String>> flags;
 
-  /** Creates a new AndroidFeatureFlagSetProvider with the given flags. */
+  AndroidFeatureFlagSetProvider(Optional<? extends Map<Label, String>> flags) {
+    super(PROVIDER);
+    this.flags = flags.transform(ImmutableMap::copyOf);
+  }
+
   public static AndroidFeatureFlagSetProvider create(Optional<? extends Map<Label, String>> flags) {
-    return new AutoValue_AndroidFeatureFlagSetProvider(flags.transform(ImmutableMap::copyOf));
+    return new AndroidFeatureFlagSetProvider(flags.transform(ImmutableMap::copyOf));
   }
 
   /**
@@ -123,5 +133,32 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
         || (targetFlags.isPresent() && targetFlags.get().equals(depFlags.get()));
   }
 
-  public abstract Optional<ImmutableMap<Label, String>> getFlags();
+  public Optional<ImmutableMap<Label, String>> getFlags() {
+    return flags;
+  }
+
+  @Override
+  public ImmutableMap<Label, String> getFlagMap() {
+    return flags.or(ImmutableMap.of());
+  }
+
+  /** Provider class for {@link AndroidFeatureFlagSetProvider} objects. */
+  public static class Provider extends BuiltinProvider<AndroidFeatureFlagSetProvider>
+      implements AndroidFeatureFlagSetProviderApi.Provider {
+    private Provider() {
+      super(PROVIDER_NAME, AndroidFeatureFlagSetProvider.class);
+    }
+
+    public String getName() {
+      return PROVIDER_NAME;
+    }
+
+    @Override
+    public AndroidFeatureFlagSetProvider create(SkylarkDict<Label, String> flags)
+        throws EvalException {
+      return new AndroidFeatureFlagSetProvider(
+          Optional.of(
+              SkylarkDict.castSkylarkDictOrNoneToDict(flags, Label.class, String.class, "flags")));
+    }
+  }
 }

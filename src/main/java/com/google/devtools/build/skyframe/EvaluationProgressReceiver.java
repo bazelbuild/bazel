@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Receiver for various stages of the lifetime of a skyframe node evaluation. */
 @ThreadSafety.ThreadSafe
@@ -119,9 +120,13 @@ public interface EvaluationProgressReceiver {
    *
    * <p>If the value builder threw an error when building this node, then {@code
    * valueSupplier.get()} evaluates to null.
+   *
+   * @param value The sky value. Only available if just evaluated, eg. on success *and* <code>
+   *     state == EvalutionState.BUILT</code>
    */
   void evaluated(
       SkyKey skyKey,
+      @Nullable SkyValue value,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state);
 
@@ -146,6 +151,7 @@ public interface EvaluationProgressReceiver {
     @Override
     public void evaluated(
         SkyKey skyKey,
+        @Nullable SkyValue value,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {}
   }

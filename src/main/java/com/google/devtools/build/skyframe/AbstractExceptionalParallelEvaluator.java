@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
@@ -36,7 +35,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -85,37 +85,11 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      int threadCount,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver) {
-    super(
-        graph,
-        graphVersion,
-        skyFunctions,
-        reporter,
-        emittedEventState,
-        storedEventFilter,
-        errorInfoManager,
-        keepGoing,
-        threadCount,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        new SimpleCycleDetector());
-  }
-
-  AbstractExceptionalParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
-      final ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      ForkJoinPool forkJoinPool,
-      CycleDetector cycleDetector) {
+      Supplier<ExecutorService> executorService,
+      CycleDetector cycleDetector,
+      EvaluationVersionBehavior evaluationVersionBehavior) {
     super(
         graph,
         graphVersion,
@@ -127,8 +101,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         keepGoing,
         progressReceiver,
         graphInconsistencyReceiver,
-        forkJoinPool,
-        cycleDetector);
+        executorService,
+        cycleDetector,
+        evaluationVersionBehavior);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -153,16 +128,19 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       // retrieve them, but top-level nodes are presumably of more interest.
       // If valueVersion is not equal to graphVersion, it must be less than it (by the
       // Preconditions check above), and so the node is clean.
+      EvaluationState evaluationState =
+          valueVersion.equals(evaluatorContext.getGraphVersion())
+              ? EvaluationState.BUILT
+              : EvaluationState.CLEAN;
       evaluatorContext
           .getProgressReceiver()
           .evaluated(
               key,
+              evaluationState == EvaluationState.BUILT ? value : null,
               value != null
                   ? EvaluationSuccessState.SUCCESS.supplier()
                   : EvaluationSuccessState.FAILURE.supplier(),
-              valueVersion.equals(evaluatorContext.getGraphVersion())
-                  ? EvaluationState.BUILT
-                  : EvaluationState.CLEAN);
+              evaluationState);
     }
   }
 
@@ -245,7 +223,9 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey);
+            // Low priority because this node is not needed by any other currently evaluating node.
+            // So keep it at the back of the queue as long as there's other useful work to be done.
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);
@@ -256,17 +236,24 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             throw new IllegalStateException(entry + " for " + skyKey + " in unknown state");
         }
       }
-    } catch (InterruptedException e) {
+    } catch (InterruptedException ie) {
       // When multiple keys are being evaluated, it's possible that a key may get queued before
       // an InterruptedException is thrown from either #addReverseDepAndCheckIfDone or
       // #informProgressReceiverThatValueIsDone on a different key. Therefore we have to make sure
       // all evaluation threads are properly interrupted and shut down, if main thread (current
       // thread) is interrupted.
       Thread.currentThread().interrupt();
-      evaluatorContext.getVisitor().waitForCompletion();
+      try {
+        evaluatorContext.getVisitor().waitForCompletion();
+      } catch (SchedulerException se) {
+        // A SchedulerException due to a SkyFunction observing the interrupt is completely expected.
+        if (!(se.getCause() instanceof InterruptedException)) {
+          throw se;
+        }
+      }
 
       // Rethrow the InterruptedException to avoid proceeding to construct the result.
-      throw e;
+      throw ie;
     }
 
     return waitForCompletionAndConstructResult(skyKeys);
@@ -467,6 +454,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
             maybeMarkRebuilding(parentEntry);
             // Fall through to REBUILDING.
           case REBUILDING:
+          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
@@ -475,7 +463,7 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       SkyFunctionEnvironment env =
           new SkyFunctionEnvironment(
               parent,
-              new GroupedList<SkyKey>(),
+              parentEntry.getTemporaryDirectDeps(),
               bubbleErrorInfo,
               ImmutableSet.<SkyKey>of(),
               evaluatorContext);
@@ -501,8 +489,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
               errorKey,
               ValueWithMetadata.error(
                   ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  env.buildEvents(parentEntry, /*missingChildren=*/ true),
-                  env.buildPosts(parentEntry)));
+                  env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
+                  env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
           continue;
         }
       } finally {
@@ -514,8 +502,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           errorKey,
           ValueWithMetadata.error(
               ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              env.buildEvents(parentEntry, /*missingChildren=*/ true),
-              env.buildPosts(parentEntry)));
+              env.buildAndReportEvents(parentEntry, /*expectDoneDeps=*/ false),
+              env.buildAndReportPostables(parentEntry, /*expectDoneDeps=*/ false)));
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.

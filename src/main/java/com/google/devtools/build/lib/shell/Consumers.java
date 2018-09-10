@@ -244,12 +244,7 @@ final class Consumers {
     }
   }
 
-  /**
-   * Factory which produces threads with a 32K stack size.
-   */
   private static class AccumulatorThreadFactory implements ThreadFactory {
-
-    private static final int THREAD_STACK_SIZE = 32 * 1024;
 
     private static AtomicInteger threadInitNumber = new AtomicInteger(0);
 
@@ -258,13 +253,11 @@ final class Consumers {
       final Thread t =
         new Thread(null,
                    runnable,
-                   "Command-Accumulator-Thread-" + threadInitNumber.getAndIncrement(),
-                   THREAD_STACK_SIZE);
+                   "Command-Accumulator-Thread-" + threadInitNumber.getAndIncrement());
       // Don't let this thread hold up JVM exit
       t.setDaemon(true);
       return t;
     }
-
   }
 
   /**

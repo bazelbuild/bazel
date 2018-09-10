@@ -39,31 +39,41 @@ public class Turbine {
 
   public static void main(String[] args) throws Exception {
     System.exit(
-        new Turbine("An exception has occurred in turbine.", "", "")
+        new Turbine(
+                /* bugMessage= */ "An exception has occurred in turbine.",
+                /* unhelpfulMessage= */ "",
+                /* fixImportCommand= */ null)
             .compile(TurbineOptionsParser.parse(ImmutableList.copyOf(args))));
+  }
+
+  /** Formats a suggested fix for missing import errors. */
+  @FunctionalInterface
+  public interface FixImportCommand {
+    String formatCommand(String type, String target);
   }
 
   private final String bugMessage;
   private final String unhelpfulMessage;
-  // path to jadep binary, see: https://github.com/bazelbuild/tools_jvm_autodeps
-  private final @Nullable String jadepPath;
+  private final @Nullable FixImportCommand fixImportCommand;
 
-  public Turbine(String bugMessage, String unhelpfulMessage, @Nullable String jadepPath) {
+  public Turbine(
+      String bugMessage, String unhelpfulMessage, @Nullable FixImportCommand fixImportCommand) {
     this.bugMessage = bugMessage;
     this.unhelpfulMessage = unhelpfulMessage;
-    this.jadepPath = jadepPath;
+    this.fixImportCommand = fixImportCommand;
   }
 
   public int compile(TurbineOptions options) throws IOException {
-    return compile(
-        options,
-        new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true));
+    try (PrintWriter writer =
+        new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true)) {
+      return compile(options, writer);
+    }
   }
 
   public int compile(TurbineOptions options, PrintWriter out) throws IOException {
     Throwable turbineCrash = null;
     try {
-      if (Main.compile(options)) {
+      if (options.processors().isEmpty() && Main.compile(options)) {
         return 0;
       }
       // fall back to javac for API-generating processors
@@ -86,15 +96,14 @@ public class Turbine {
         out.println(turbineError.getMessage());
         switch (turbineError.kind()) {
           case SYMBOL_NOT_FOUND:
-            if (jadepPath != null && options.targetLabel().isPresent()) {
+            if (fixImportCommand != null && options.targetLabel().isPresent()) {
               out.println();
               Object arg = getOnlyElement(turbineError.args());
-              out.printf(
-                  "\033[35m\033[1m** Command to add missing dependencies:\033[0m"
-                      + "\n%s -classnames=%s %s",
-                  jadepPath,
-                  CharMatcher.anyOf("$/").replaceFrom(arg.toString(), '.'),
-                  options.targetLabel().get());
+              out.println("\033[35m\033[1m** Command to add missing dependencies:\033[0m\n");
+              out.println(
+                  fixImportCommand.formatCommand(
+                      CharMatcher.anyOf("$/").replaceFrom(arg.toString(), '.'),
+                      options.targetLabel().get()));
               out.println();
             }
             break;

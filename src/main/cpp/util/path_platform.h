@@ -54,21 +54,33 @@ bool IsAbsolute(const std::string &path);
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
 std::string MakeAbsolute(const std::string &path);
 
+// Returns the given path in absolute form, taking into account a possible
+// starting environment variable on the windows platform, so that we can
+// accept standard path variables like %USERPROFILE%. We do not support
+// unix-style envvars here: recreating that logic is error-prone and not
+// worthwhile, since they are less critical to standard paths as in Windows.
+//
+//   MakeAbsolute("foo") in wd "/bar" --> "/bar/foo"
+//   MakeAbsolute("%USERPROFILE%/foo") --> "C:\Users\bazel-user\foo"
+std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path);
+
 // TODO(bazel-team) consider changing the path(_platform) header split to be a
 // path.h and path_windows.h split, which would make it clearer what functions
 // are included by an import statement. The downside to this gain in clarity
 // is that this would add more complexity to the implementation file(s)? of
 // path.h, which would have to have the platform-specific implementations.
 #if defined(_WIN32) || defined(__CYGWIN__)
+bool IsDevNull(const wchar_t *path);
+
+bool IsAbsolute(const std::wstring &path);
+
 const wchar_t *RemoveUncPrefixMaybe(const wchar_t *ptr);
+
 void AddUncPrefixMaybe(std::wstring *path);
 
 std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring &path);
 
 bool IsRootDirectoryW(const std::wstring &path);
-
-bool AsWindowsPath(const std::string &path, std::string *result,
-                   std::string *error);
 
 // Returns a normalized form of the input `path`.
 //
@@ -85,7 +97,14 @@ bool AsWindowsPath(const std::string &path, std::string *result,
 // "foo".
 //
 // Visible for testing, would be static otherwise.
-std::string NormalizeWindowsPath(std::string path);
+template <typename char_type>
+std::basic_string<char_type> NormalizeWindowsPath(
+    std::basic_string<char_type> path);
+
+template <typename char_type>
+std::basic_string<char_type> NormalizeWindowsPath(const char_type *path) {
+  return NormalizeWindowsPath(std::basic_string<char_type>(path));
+}
 
 // Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
 //
@@ -106,8 +125,32 @@ std::string NormalizeWindowsPath(std::string path);
 bool AsWindowsPath(const std::string &path, std::wstring *result,
                    std::string *error);
 
-bool AsAbsoluteWindowsPath(const std::string &path, std::wstring *wpath,
-                           std::string *error);
+template <typename char_type>
+bool AsWindowsPath(const std::basic_string<char_type> &path,
+                   std::basic_string<char_type> *result, std::string *error);
+
+template <typename char_type>
+bool AsWindowsPath(const char_type *path, std::basic_string<char_type> *result,
+                   std::string *error) {
+  return AsWindowsPath(std::basic_string<char_type>(path), result, error);
+}
+
+template <typename char_type>
+bool AsAbsoluteWindowsPath(const std::basic_string<char_type> &path,
+                           std::wstring *result, std::string *error);
+
+template <typename char_type>
+bool AsAbsoluteWindowsPath(const char_type *path, std::wstring *result,
+                           std::string *error) {
+  return AsAbsoluteWindowsPath(std::basic_string<char_type>(path), result,
+                               error);
+}
+
+// Explicit instantiate AsAbsoluteWindowsPath for char and wchar_t.
+template bool AsAbsoluteWindowsPath<char>(const char *, std::wstring *,
+                                          std::string *);
+template bool AsAbsoluteWindowsPath<wchar_t>(const wchar_t *, std::wstring *,
+                                             std::string *);
 
 // Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
 // Result will never have a UNC prefix, nor a trailing "/" or "\".

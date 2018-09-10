@@ -25,9 +25,6 @@ sh_library(
     name = "runfiles_lib",
     testonly = 1,
     srcs = ["runfiles.bash"],
-    # TODO(laszlocsomor): remove this visibility after the tests under
-    # //src/test/shell/... depend on @bazel_tools//tools/bash/runfiles
-    visibility = ["//src/test/shell:__subpackages__"],
 )
 
 sh_test(
@@ -49,5 +46,5 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src:__pkg__"],
+    visibility = ["//tools/bash:__pkg__"],
 )

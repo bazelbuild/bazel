@@ -16,19 +16,57 @@
 #
 # An end-to-end test that Bazel's experimental UI produces reasonable output.
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+# --- begin runfiles.bash initialization ---
+set -euo pipefail
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-#### SETUP #############################################################
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
 
-set -e
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+#### SETUP #############################################################
 
 add_to_bazelrc "build --genrule_strategy=local"
 add_to_bazelrc "test --test_strategy=standalone"
 
 function set_up() {
+  if [[ -d pkg ]]; then
+    # All tests share these scratch packages. No need to recreate them if they
+    # already exist.
+    return
+  fi
+
   mkdir -p pkg
   touch remote_file
   cat > pkg/true.sh <<EOF
@@ -98,7 +136,50 @@ genrule(
   tools = [":do_output.sh"],
   cmd = "\$(location :do_output.sh) B && touch \$@",
 )
+sh_library(
+  name = "outputlib",
+  data = [":withOutputA", ":withOutputB"],
+)
+sh_test(
+  name = "truedependingonoutput",
+  srcs = ["true.sh"],
+  deps = [":outputlib"],
+)
 EOF
+  mkdir -p error
+  cat > error/BUILD <<'EOF'
+genrule(
+  name = "failwitherror",
+  outs = ["fail.txt"],
+  cmd = "echo Here is the error message; exit 1",
+)
+EOF
+  mkdir -p pkg/errorAfterWarning
+  cat > pkg/errorAfterWarning/BUILD <<'EOF'
+RANGE = range(500)
+
+[ genrule(
+    name = "true%s_c" % i,
+    outs = ["true%s.c" % i],
+    cmd = "echo Build Warning...; echo 'int main(int argc, char **argv) { return 0; }' > $@",
+) for i in RANGE]
+
+[ cc_binary(
+    name = "true_%s" % i,
+    srcs = ["true%s.c" % i],
+) for i in RANGE]
+
+genrule(
+  name = "failing",
+  outs = ["failing.txt"],
+  srcs = ["true_%s" % i for i in RANGE],
+  cmd = "echo This is the error message; false",
+)
+EOF
+  chmod -w pkg/* # prevent accidental editing
+  # keep directories writable though, so that test clean up can work
+  chmod 755 error
+  chmod 755 pkg/errorAfterWarning
 }
 
 #### TESTS #############################################################
@@ -178,10 +259,11 @@ function test_query_spacing() {
   # other tools, i.e., contains only result lines, separated only by newlines.
   BAZEL_QUERY_OUTPUT=`bazel query --experimental_ui 'deps(//pkg:true)'`
   echo "$BAZEL_QUERY_OUTPUT" | grep -q -v '^[@/]' \
-   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<"
-  echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
-   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<"
-  true
+   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
+  if ! is_windows; then
+    echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
+     && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<" || true
+  fi
 }
 
 function test_clean_nobuild {
@@ -281,6 +363,30 @@ function test_streamed {
   expect_log 'foobar'
 }
 
+function test_stdout_bundled {
+    # Verify that the error message is part of the error event
+    bazel build --experimental_ui --experimental_ui_debug_all_events \
+          error:failwitherror > "${TEST_log}" 2>&1 \
+    && fail "expected failure" || :
+    grep -A1 '^ERROR' "${TEST_log}" \
+        | grep -q "with STDOUT: Here is the error message" \
+        || fail "Error message not bundled"
+}
+
+function test_output_deduplicated {
+    # Verify that we suscessfully deduplicate identical messages from actions
+    bazel clean --expunge
+    bazel version
+    bazel build --experimental_ui --curses=yes --color=yes \
+          --experimental_ui_deduplicate \
+          pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
+        && fail "expected failure" || :
+    expect_log_once 'Build Warning'
+    expect_log 'This is the error message'
+    expect_log 'ERROR.*//pkg/errorAfterWarning:failing'
+    expect_log 'deduplicated.*events'
+}
+
 function test_output_limit {
     # Verify that output limting works
     bazel clean --expunge
@@ -301,6 +407,46 @@ function test_output_limit {
     output_length=`cat $TEST_log | wc -c`
     [ "${output_length}" -le 52224 ] \
         || fail "Output too large, is ${output_length}"
+}
+
+function test_status_despite_output_limit {
+    # Verify that even if we limit the output very strictly, we
+    # still find the test summary.
+    bazel clean --expunge
+    bazel version
+    bazel test --experimental_ui --curses=yes --color=yes \
+          --experimental_ui_limit_console_output=500 \
+          pkg:truedependingonoutput >$TEST_log 2>&1 \
+    || fail "expected success"
+    expect_log "//pkg:truedependingonoutput.*PASSED"
+
+    # Also sanity check that the limit was applied, again, allowing
+    # 2k for any startup messages etc generated by the client.
+    output_length=`cat $TEST_log | wc -c`
+    [ "${output_length}" -le 2724 ] \
+        || fail "Output too large, is ${output_length}"
+}
+
+function test_error_message_despite_output_limit {
+    # Verify that, even if we limit the output very strictly, we
+    # still the the final error message.
+    bazel clean --expunge
+    bazel version
+    bazel build --experimental_ui --curses=yes --color=yes \
+          --experimental_ui_limit_console_output=10240 \
+          pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
+        && fail "expected failure" || :
+    expect_log 'This is the error message'
+    expect_log 'ERROR.*//pkg/errorAfterWarning:failing'
+
+    # Also sanity check that the limit was applied, again, allowing
+    # 2k for any startup messages etc generated by the client.
+    output_length=`cat $TEST_log | wc -c`
+    [[ "${output_length}" -le 11264 ]] \
+        || fail "Output too large, is ${output_length}"
+
+    # Also expect a note that messages were dropped on the console
+    expect_log "dropped.*console"
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s experimental UI"

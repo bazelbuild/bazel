@@ -85,16 +85,20 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsNullaryOption(options, "deep_execroot");
   ExpectIsNullaryOption(options, "experimental_oom_more_eagerly");
   ExpectIsNullaryOption(options, "fatal_event_bus_exceptions");
+  ExpectIsNullaryOption(options, "home_rc");
   ExpectIsNullaryOption(options, "host_jvm_debug");
   ExpectIsNullaryOption(options, "ignore_all_rc_files");
   ExpectIsNullaryOption(options, "master_bazelrc");
+  ExpectIsNullaryOption(options, "system_rc");
   ExpectIsNullaryOption(options, "watchfs");
+  ExpectIsNullaryOption(options, "workspace_rc");
   ExpectIsNullaryOption(options, "write_command_log");
   ExpectIsUnaryOption(options, "bazelrc");
   ExpectIsUnaryOption(options, "command_port");
   ExpectIsUnaryOption(options, "connect_timeout_secs");
+  ExpectIsUnaryOption(options, "digest_function");
   ExpectIsUnaryOption(options, "experimental_oom_more_eagerly_threshold");
-  ExpectIsUnaryOption(options, "host_javabase");
+  ExpectIsUnaryOption(options, "server_javabase");
   ExpectIsUnaryOption(options, "host_jvm_args");
   ExpectIsUnaryOption(options, "host_jvm_profile");
   ExpectIsUnaryOption(options, "invocation_policy");
@@ -126,28 +130,28 @@ TEST_F(BazelStartupOptionsTest, IgnoredBazelrcFlagWarnsWhenAfterIgnore) {
       "on.\n");
 }
 
-TEST_F(BazelStartupOptionsTest, IgnoredMasterBazelrcFlagWarns) {
+TEST_F(BazelStartupOptionsTest, IgnoredWorkspaceRcFlagWarns) {
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--master_bazelrc", "--ignore_all_rc_files"},
-      "WARNING: Explicit value of --master_bazelrc is ignored, "
+      startup_options_.get(), {"--workspace_rc", "--ignore_all_rc_files"},
+      "WARNING: Explicit value of --workspace_rc is ignored, "
       "since --ignore_all_rc_files is on.\n");
 }
 
-TEST_F(BazelStartupOptionsTest, IgnoredMasterBazelrcFlagWarnsAfterIgnore) {
+TEST_F(BazelStartupOptionsTest, IgnoredWorkspaceRcFlagWarnsAfterIgnore) {
   ParseStartupOptionsAndExpectWarning(
-      startup_options_.get(), {"--ignore_all_rc_files", "--master_bazelrc"},
-      "WARNING: Explicit value of --master_bazelrc is ignored, "
+      startup_options_.get(), {"--ignore_all_rc_files", "--workspace_rc"},
+      "WARNING: Explicit value of --workspace_rc is ignored, "
       "since --ignore_all_rc_files is on.\n");
 }
 
 TEST_F(BazelStartupOptionsTest, MultipleIgnoredRcFlagsWarnOnceEach) {
   ParseStartupOptionsAndExpectWarning(
       startup_options_.get(),
-      {"--master_bazelrc", "--bazelrc=somefile", "--ignore_all_rc_files",
-       "--bazelrc=thefinalfile", "--master_bazelrc"},
+      {"--workspace_rc", "--bazelrc=somefile", "--ignore_all_rc_files",
+       "--bazelrc=thefinalfile", "--workspace_rc"},
       "WARNING: Value of --bazelrc is ignored, "
       "since --ignore_all_rc_files is on.\n"
-      "WARNING: Explicit value of --master_bazelrc is ignored, "
+      "WARNING: Explicit value of --workspace_rc is ignored, "
       "since --ignore_all_rc_files is on.\n");
 }
 

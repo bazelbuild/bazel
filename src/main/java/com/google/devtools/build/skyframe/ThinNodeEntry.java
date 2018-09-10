@@ -15,11 +15,10 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import javax.annotation.Nullable;
 
 /**
  * A node in the graph without the means to access its value. All operations on this class are
- * thread-safe. Note, however, the warning on the return value of {@link #markDirty}.
+ * thread-safe (note, however, the warning on the return value of {@link #markDirty}).
  *
  * <p>This interface is public only for the benefit of alternative graph implementations outside of
  * the package.
@@ -45,45 +44,101 @@ public interface ThinNodeEntry {
   boolean isChanged();
 
   /**
-   * Marks this node dirty, or changed if {@code isChanged} is true. The node is put in the
-   * just-created state. It will be re-evaluated if necessary during the evaluation phase, but if it
-   * has not changed, it will not force a re-evaluation of its parents.
+   * Marks this node dirty, or changed if {@code isChanged} is true.
    *
-   * <p>{@code markDirty(b)} must not be called on an undone node if {@code isChanged() == b}. It is
-   * the caller's responsibility to ensure that this does not happen. Calling {@code
-   * markDirty(false)} when {@code isChanged() == true} has no effect. The idea here is that the
-   * caller will only ever want to call {@code markDirty()} a second time if a transition from a
-   * dirty-unchanged state to a dirty-changed state is required.
+   * <p>A dirty node P is re-evaluated during the evaluation phase if it's requested and directly
+   * depends on some node C whose value changed since the last evaluation of P. If it's requested
+   * and there is no such node C, P is marked clean.
    *
-   * @return A {@link ThinNodeEntry.MarkedDirtyResult} if the node was previously clean, and {@code
-   *     null} if it was already dirty. If it was already dirty, the caller should abort its
-   *     handling of this node, since another thread is already dealing with it. Note the warning on
-   *     {@link ThinNodeEntry.MarkedDirtyResult} regarding the collection it provides.
+   * <p>A changed node is re-evaluated during the evaluation phase if it's requested (regardless of
+   * the state of its dependencies).
+   *
+   * @return a {@link MarkedDirtyResult} indicating whether the call was redundant and which may
+   *     include the node's reverse deps
    */
-  @Nullable
   @ThreadSafe
   MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException;
 
-  /**
-   * Returned by {@link #markDirty} if that call changed the node from clean to dirty. Contains an
-   * iterable of the node's reverse deps for efficiency, because the single use case for {@link
-   * #markDirty} is during invalidation, and if such an invalidation call wins, the invalidator
-   * must immediately afterwards schedule the invalidation of the node's reverse deps.
-   *
-   * <p>Warning: {@link #getReverseDepsUnsafe()} may return a live view of the reverse deps
-   * collection of the marked-dirty node. The consumer of this data must be careful only to
-   * iterate over and consume its values while that collection is guaranteed not to change. This
-   * is true during invalidation, because reverse deps don't change during invalidation.
-   */
-  class MarkedDirtyResult {
+  /** Returned by {@link #markDirty}. */
+  interface MarkedDirtyResult {
+
+    /** Returns true iff the node was clean prior to the {@link #markDirty} call. */
+    boolean wasClean();
+
+    /**
+     * Returns true iff the call to {@link #markDirty} was the same as some previous call to {@link
+     * #markDirty} (i.e., sharing the same {@code isChanged} parameter value) since the last time
+     * the node was clean.
+     *
+     * <p>More specifically, this returns true iff the call was {@code n.markDirty(b)} and prior to
+     * the call {@code n.isDirty() && n.isChanged() == b}).
+     */
+    boolean wasCallRedundant();
+
+    /**
+     * If {@code wasClean()}, this returns an iterable of the node's reverse deps for efficiency,
+     * because the {@link #markDirty} caller may be doing graph invalidation, and after dirtying a
+     * node, the invalidation process may want to dirty the node's reverse deps.
+     *
+     * <p>If {@code !wasClean()}, this must not be called. It will throw {@link
+     * IllegalStateException}.
+     *
+     * <p>Warning: the returned iterable may be a live view of the reverse deps collection of the
+     * marked-dirty node. The consumer of this data must be careful only to iterate over and consume
+     * its values while that collection is guaranteed not to change. This is true during
+     * invalidation, because reverse deps don't change during invalidation.
+     */
+    Iterable<SkyKey> getReverseDepsUnsafeIfWasClean();
+  }
+
+  /** A {@link MarkedDirtyResult} returned when {@link #markDirty} is called on a clean node. */
+  class FromCleanMarkedDirtyResult implements MarkedDirtyResult {
     private final Iterable<SkyKey> reverseDepsUnsafe;
 
-    public MarkedDirtyResult(Iterable<SkyKey> reverseDepsUnsafe) {
+    public FromCleanMarkedDirtyResult(Iterable<SkyKey> reverseDepsUnsafe) {
       this.reverseDepsUnsafe = Preconditions.checkNotNull(reverseDepsUnsafe);
     }
 
-    public Iterable<SkyKey> getReverseDepsUnsafe() {
+    @Override
+    public boolean wasClean() {
+      return true;
+    }
+
+    @Override
+    public boolean wasCallRedundant() {
+      return false;
+    }
+
+    @Override
+    public Iterable<SkyKey> getReverseDepsUnsafeIfWasClean() {
       return reverseDepsUnsafe;
+    }
+  }
+
+  /** A {@link MarkedDirtyResult} returned when {@link #markDirty} is called on a dirty node. */
+  class FromDirtyMarkedDirtyResult implements MarkedDirtyResult {
+    static final FromDirtyMarkedDirtyResult REDUNDANT = new FromDirtyMarkedDirtyResult(true);
+    static final FromDirtyMarkedDirtyResult NOT_REDUNDANT = new FromDirtyMarkedDirtyResult(false);
+
+    private final boolean redundant;
+
+    private FromDirtyMarkedDirtyResult(boolean redundant) {
+      this.redundant = redundant;
+    }
+
+    @Override
+    public boolean wasClean() {
+      return false;
+    }
+
+    @Override
+    public boolean wasCallRedundant() {
+      return redundant;
+    }
+
+    @Override
+    public Iterable<SkyKey> getReverseDepsUnsafeIfWasClean() {
+      throw new IllegalStateException();
     }
   }
 }

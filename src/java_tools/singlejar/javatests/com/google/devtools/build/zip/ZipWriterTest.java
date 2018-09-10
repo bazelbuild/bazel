@@ -103,19 +103,19 @@ public class ZipWriterTest {
   }
 
   @Test public void testSingleEntry() throws IOException {
-    ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8);
     byte[] content = "content".getBytes(UTF_8);
-    crc.update(content);
-    ZipFileEntry entry = new ZipFileEntry("foo");
-    entry.setSize(content.length);
-    entry.setCompressedSize(content.length);
-    entry.setCrc(crc.getValue());
-    entry.setTime(cal.getTimeInMillis());
+    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+      crc.update(content);
+      ZipFileEntry entry = new ZipFileEntry("foo");
+      entry.setSize(content.length);
+      entry.setCompressedSize(content.length);
+      entry.setCrc(crc.getValue());
+      entry.setTime(cal.getTimeInMillis());
 
-    writer.putNextEntry(entry);
-    writer.write(content);
-    writer.closeEntry();
-    writer.close();
+      writer.putNextEntry(entry);
+      writer.write(content);
+      writer.closeEntry();
+    }
 
     byte[] buf = new byte[128];
     try (ZipFile zipFile = new ZipFile(test)) {
@@ -131,44 +131,46 @@ public class ZipWriterTest {
   }
 
   @Test public void testMultipleEntry() throws IOException {
-    ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8);
-    writer.setComment("file comment");
-
     byte[] fooContent = "content".getBytes(UTF_8);
-    crc.update(fooContent);
-    long fooCrc = crc.getValue();
-    ZipFileEntry rawFoo = new ZipFileEntry("foo");
-    rawFoo.setMethod(Compression.STORED);
-    rawFoo.setSize(fooContent.length);
-    rawFoo.setCompressedSize(fooContent.length);
-    rawFoo.setCrc(crc.getValue());
-    rawFoo.setTime(cal.getTimeInMillis());
-    rawFoo.setComment("foo comment");
-
-    writer.putNextEntry(rawFoo);
-    writer.write(fooContent);
-    writer.closeEntry();
-
     byte[] barContent = "stuff".getBytes(UTF_8);
-    byte[] deflatedBarContent = new byte[128];
-    crc.reset();
-    crc.update(barContent);
-    long barCrc = crc.getValue();
-    deflater.setInput(barContent);
-    deflater.finish();
-    int deflatedSize = deflater.deflate(deflatedBarContent);
-    ZipFileEntry rawBar = new ZipFileEntry("bar");
-    rawBar.setMethod(Compression.DEFLATED);
-    rawBar.setSize(barContent.length);
-    rawBar.setCompressedSize(deflatedSize);
-    rawBar.setCrc(barCrc);
-    rawBar.setTime(cal.getTimeInMillis());
+    long fooCrc = -1;
+    long barCrc = -1;
+    int deflatedSize = -1;
+    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+      writer.setComment("file comment");
 
-    writer.putNextEntry(rawBar);
-    writer.write(deflatedBarContent, 0, deflatedSize);
-    writer.closeEntry();
+      crc.update(fooContent);
+      fooCrc = crc.getValue();
+      ZipFileEntry rawFoo = new ZipFileEntry("foo");
+      rawFoo.setMethod(Compression.STORED);
+      rawFoo.setSize(fooContent.length);
+      rawFoo.setCompressedSize(fooContent.length);
+      rawFoo.setCrc(crc.getValue());
+      rawFoo.setTime(cal.getTimeInMillis());
+      rawFoo.setComment("foo comment");
 
-    writer.close();
+      writer.putNextEntry(rawFoo);
+      writer.write(fooContent);
+      writer.closeEntry();
+
+      byte[] deflatedBarContent = new byte[128];
+      crc.reset();
+      crc.update(barContent);
+      barCrc = crc.getValue();
+      deflater.setInput(barContent);
+      deflater.finish();
+      deflatedSize = deflater.deflate(deflatedBarContent);
+      ZipFileEntry rawBar = new ZipFileEntry("bar");
+      rawBar.setMethod(Compression.DEFLATED);
+      rawBar.setSize(barContent.length);
+      rawBar.setCompressedSize(deflatedSize);
+      rawBar.setCrc(barCrc);
+      rawBar.setTime(cal.getTimeInMillis());
+
+      writer.putNextEntry(rawBar);
+      writer.write(deflatedBarContent, 0, deflatedSize);
+      writer.closeEntry();
+    }
 
     byte[] buf = new byte[128];
     try (ZipFile zipFile = new ZipFile(test)) {
@@ -214,25 +216,25 @@ public class ZipWriterTest {
   }
 
   @Test public void testRawZipEntry() throws IOException {
-    ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8);
     byte[] content = "content".getBytes(UTF_8);
-    crc.update(content);
-    ZipFileEntry entry = new ZipFileEntry("foo");
-    entry.setVersion((short) 1);
-    entry.setVersionNeeded((short) 2);
-    entry.setSize(content.length);
-    entry.setCompressedSize(content.length);
-    entry.setCrc(crc.getValue());
-    entry.setTime(cal.getTimeInMillis());
-    entry.setFlags(ZipUtil.get16(new byte[]{ 0x08, 0x00 }, 0));
-    entry.setInternalAttributes(ZipUtil.get16(new byte[]{ 0x34, 0x12 }, 0));
-    entry.setExternalAttributes(ZipUtil.get32(new byte[]{ 0x0a,  0x09, 0x78, 0x56 }, 0));
-    entry.setLocalHeaderOffset(rand.nextInt(Integer.MAX_VALUE));
+    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+      crc.update(content);
+      ZipFileEntry entry = new ZipFileEntry("foo");
+      entry.setVersion((short) 1);
+      entry.setVersionNeeded((short) 2);
+      entry.setSize(content.length);
+      entry.setCompressedSize(content.length);
+      entry.setCrc(crc.getValue());
+      entry.setTime(cal.getTimeInMillis());
+      entry.setFlags(ZipUtil.get16(new byte[] {0x08, 0x00}, 0));
+      entry.setInternalAttributes(ZipUtil.get16(new byte[] {0x34, 0x12}, 0));
+      entry.setExternalAttributes(ZipUtil.get32(new byte[] {0x0a, 0x09, 0x78, 0x56}, 0));
+      entry.setLocalHeaderOffset(rand.nextInt(Integer.MAX_VALUE));
 
-    writer.putNextEntry(entry);
-    writer.write(content);
-    writer.closeEntry();
-    writer.close();
+      writer.putNextEntry(entry);
+      writer.write(content);
+      writer.closeEntry();
+    }
 
     byte[] buf = new byte[128];
     try (ZipFile zipFile = new ZipFile(test)) {
@@ -258,24 +260,23 @@ public class ZipWriterTest {
   }
 
   @Test public void testPrefixFile() throws IOException, InterruptedException {
-    ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8);
-
-    writer.startPrefixFile();
-    writer.write("#!/bin/bash\necho 'hello world'\n".getBytes(UTF_8));
-    writer.endPrefixFile();
-
     byte[] content = "content".getBytes(UTF_8);
-    crc.update(content);
-    ZipFileEntry entry = new ZipFileEntry("foo");
-    entry.setSize(content.length);
-    entry.setCompressedSize(content.length);
-    entry.setCrc(crc.getValue());
-    entry.setTime(cal.getTimeInMillis());
+    try (ZipWriter writer = new ZipWriter(new FileOutputStream(test), UTF_8)) {
+      writer.startPrefixFile();
+      writer.write("#!/bin/bash\necho 'hello world'\n".getBytes(UTF_8));
+      writer.endPrefixFile();
 
-    writer.putNextEntry(entry);
-    writer.write(content);
-    writer.closeEntry();
-    writer.close();
+      crc.update(content);
+      ZipFileEntry entry = new ZipFileEntry("foo");
+      entry.setSize(content.length);
+      entry.setCompressedSize(content.length);
+      entry.setCrc(crc.getValue());
+      entry.setTime(cal.getTimeInMillis());
+
+      writer.putNextEntry(entry);
+      writer.write(content);
+      writer.closeEntry();
+    }
 
     byte[] buf = new byte[128];
     try (ZipFile zipFile = new ZipFile(test)) {

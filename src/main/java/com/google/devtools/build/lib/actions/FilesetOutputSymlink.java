@@ -13,69 +13,61 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Definition of a symlink in the output tree of a Fileset rule. */
-public final class FilesetOutputSymlink {
-  private static final String STRIPPED_METADATA = "<stripped-for-testing>";
+@AutoValue
+public abstract class FilesetOutputSymlink {
+  private static final Integer STRIPPED_METADATA = new Integer(-1);
 
   /** Final name of the symlink relative to the Fileset's output directory. */
-  public final PathFragment name;
+  public abstract PathFragment getName();
 
-  /** Target of the symlink. Depending on FilesetEntry.symlinks it may be relative or absolute. */
-  public final PathFragment target;
+  /**
+   * Target of the symlink. This may be relative to the target's location if the target itself is a
+   * relative symlink. We can override it by using FilesetEntry.symlinks = 'dereference'.
+   */
+  public abstract PathFragment getTargetPath();
 
-  /** Opaque metadata about the link and its target; should change if either of them changes. */
-  public final String metadata;
+  /**
+   * Return the best effort metadata about the target. Currently this will be a FileStateValue for
+   * source targets. For generated targets we try to return a FileArtifactValue when possible, or
+   * else this will be a Integer hashcode of the target.
+   */
+  public abstract Object getMetadata();
+
+  /** true if the target is a generated artifact */
+  public abstract boolean isGeneratedTarget();
+
+  @Override
+  public String toString() {
+    if (getMetadata() == STRIPPED_METADATA) {
+      return String.format(
+          "FilesetOutputSymlink(%s -> %s)",
+          getName().getPathString(), getTargetPath().getPathString());
+    } else {
+      return String.format(
+          "FilesetOutputSymlink(%s -> %s | metadataHash=%s)",
+          getName().getPathString(), getTargetPath().getPathString(), getMetadata());
+    }
+  }
 
   @VisibleForTesting
-  public FilesetOutputSymlink(PathFragment name, PathFragment target) {
-    this.name = name;
-    this.target = target;
-    this.metadata = STRIPPED_METADATA;
+  public static FilesetOutputSymlink createForTesting(PathFragment name, PathFragment target) {
+    return new AutoValue_FilesetOutputSymlink(name, target, STRIPPED_METADATA, false);
   }
 
   /**
    * @param name relative path under the Fileset's output directory, including FilesetEntry.destdir
-   *        with and FilesetEntry.strip_prefix applied (if applicable)
+   *     with and FilesetEntry.strip_prefix applied (if applicable)
    * @param target relative or absolute value of the link
-   * @param metadata opaque metadata about the link and its target; should change if either the link
-   *        or its target changes
+   * @param metadata metadata corresponding to the target.
+   * @param isGeneratedTarget true if the target is generated.
    */
-  public FilesetOutputSymlink(PathFragment name, PathFragment target, String metadata) {
-    this.name = Preconditions.checkNotNull(name);
-    this.target = Preconditions.checkNotNull(target);
-    this.metadata = Preconditions.checkNotNull(metadata);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (obj == null || !obj.getClass().equals(getClass())) {
-      return false;
-    }
-    FilesetOutputSymlink o = (FilesetOutputSymlink) obj;
-    return name.equals(o.name) && target.equals(o.target) && metadata.equals(o.metadata);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(name, target, metadata);
-  }
-
-  @Override
-  public String toString() {
-    if (metadata.equals(STRIPPED_METADATA)) {
-      return String.format("FilesetOutputSymlink(%s -> %s)",
-          name.getPathString(), target.getPathString());
-    } else {
-      return String.format("FilesetOutputSymlink(%s -> %s | metadata=%s)",
-          name.getPathString(), target.getPathString(), metadata);
-    }
+  public static FilesetOutputSymlink create(
+      PathFragment name, PathFragment target, Object metadata, boolean isGeneratedTarget) {
+    return new AutoValue_FilesetOutputSymlink(name, target, metadata, isGeneratedTarget);
   }
 }

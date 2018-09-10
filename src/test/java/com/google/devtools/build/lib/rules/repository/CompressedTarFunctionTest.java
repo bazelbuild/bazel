@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -82,7 +83,10 @@ public class CompressedTarFunctionTest {
   @Before
   public void setUpFs() throws Exception {
 
-    testFS = OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
+    testFS =
+        OS.getCurrent() == OS.WINDOWS
+            ? new JavaIoFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS)
+            : new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
     tarballPath =
         testFS

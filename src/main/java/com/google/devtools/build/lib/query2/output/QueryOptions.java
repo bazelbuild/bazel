@@ -32,6 +32,17 @@ public class QueryOptions extends CommonQueryOptions {
   }
 
   @Option(
+      name = "output",
+      defaultValue = "label",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The format in which the query results should be printed. Allowed values for query are: "
+              + "build, graph, label, label_kind, locations, maxrank, minrank, package, proto, xml."
+  )
+  public String outputFormat;
+
+  @Option(
     name = "null",
     defaultValue = "null",
     expansion = {"--line_terminator_null=true"},
@@ -113,6 +124,16 @@ public class QueryOptions extends CommonQueryOptions {
             + " --output=graph."
   )
   public int graphNodeStringLimit;
+
+  @Option(
+      name = "graph:conditional_edges_limit",
+      defaultValue = "4",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "The maximum number of condition labels to show. -1 means no truncation and 0 means no "
+              + "annotation. This option is only applicable to --output=graph.")
+  public int graphConditionalEdgesLimit;
 
   @Option(
     name = "graph:factored",

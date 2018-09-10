@@ -226,7 +226,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         builder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbol);
       }
       if (childObjcConfig.generateDsym()) {
-        Artifact dsymBinary = intermediateArtifacts.dsymSymbol(DsymOutputType.APP);
+        Artifact dsymBinary =
+            childObjcConfig.shouldStripBinary()
+                ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
+                : intermediateArtifacts.dsymSymbolForStrippedBinary();
         builder.addOutput(arch, OutputType.DSYM_BINARY, dsymBinary);
       }
       if (childObjcConfig.generateLinkmap()) {

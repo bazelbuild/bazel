@@ -77,8 +77,7 @@ java_toolchain(
     # class path after -bootclasspath. For convenience, we currently have a
     # single jar that contains the contents of both the bootclasspath and
     # extdirs.
-    bootclasspath = ["//tools/jdk:platformclasspath-impl.jar"],
-    encoding = "UTF-8",
+    bootclasspath = ["//tools/jdk:platformclasspath8.jar"],
     extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
@@ -90,7 +89,6 @@ java_toolchain(
         # Using tiered compilation improves performance of Javac when not using the worker mode.
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
     source_version = "8",

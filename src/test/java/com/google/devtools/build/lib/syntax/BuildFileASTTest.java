@@ -64,7 +64,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertThat(env.lookup("x"))
+    assertThat(env.moduleLookup("x"))
         .isEqualTo(SkylarkList.createImmutable(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")));
   }
 

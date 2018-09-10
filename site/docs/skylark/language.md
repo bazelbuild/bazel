@@ -1,20 +1,22 @@
 ---
 layout: documentation
-title: Skylark Language
+title: Starlark Language
 ---
 
-# Skylark Language
+# Starlark Language
 
 <!-- [TOC] -->
 
-The page is an overview of Skylark, the language used in Bazel. This should be
+The page is an overview of [Starlark](https://github.com/bazelbuild/starlark)
+(formerly known as Skylark), the language used in Bazel. This should be
 enough to get you started, but you may be interested in a more complete
-[Skylark Language Specification](spec.md). For a complete list of functions and
-types, please check the [API reference](lib/skylark-overview.html).
+[Starlark Language Specification](https://github.com/bazelbuild/starlark/blob/master/spec.md).
+For a complete list of functions and types, please check the
+[API reference](lib/skylark-overview.html).
 
 ## Syntax
 
-Skylark is designed to be small, simple, and thread-safe. Although it is
+Starlark is designed to be small, simple, and thread-safe. Although it is
 inspired from Python, it is not a general-purpose language and most Python
 features are not included.
 
@@ -42,11 +44,11 @@ The following basic types are supported: [None](lib/globals.html#None),
 types are specific to Bazel: [depset](lib/depset.html) and
 [struct](lib/struct.html).
 
-Skylark is syntactically a subset of both Python 2 and Python 3, and will remain
+Starlark is syntactically a subset of both Python 2 and Python 3, and will remain
 so through at least the 1.x release lifecycle. This ensures that Python-based
-tooling can at least parse Skylark code. Although Skylark is not *semantically*
+tooling can at least parse Starlark code. Although Starlark is not *semantically*
 a subset of Python, behavioral differences are rare (excluding cases where
-Skylark raises an error).
+Starlark raises an error).
 
 
 ## Mutability

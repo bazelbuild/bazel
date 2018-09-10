@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -139,24 +138,13 @@ public interface Action extends ActionExecutionMetadata {
   boolean isVolatile();
 
   /**
-   * Method used to find inputs before execution for an action that
-   * {@link ActionExecutionMetadata#discoversInputs}. Returns null if action's inputs will be
-   * discovered during execution proper.
+   * Method used to find inputs before execution for an action that {@link
+   * ActionExecutionMetadata#discoversInputs}. Returns the set of discovered inputs (may be the
+   * empty set) or null if this action declared additional Skyframe dependencies that must be
+   * computed before it can make a decision.
    */
   @Nullable
   Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException;
-
-  /**
-   * Used in combination with {@link #discoverInputs} if inputs need to be found before execution in
-   * multiple steps. Returns null if two-stage input discovery isn't necessary.
-   *
-   * <p>Any deps requested here must not change unless one of the action's inputs changes.
-   * Otherwise, changes to nodes that should cause re-execution of actions might be prevented by the
-   * action cache.
-   */
-  @Nullable
-  Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
       throws ActionExecutionException, InterruptedException;
 
   /**
@@ -181,8 +169,6 @@ public interface Action extends ActionExecutionMetadata {
    * Returns true if the output should bypass output filtering. This is used for test actions.
    */
   boolean showsOutputUnconditionally();
-
-  boolean canRemoveAfterExecution();
 
   /**
    * Called by {@link com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time to

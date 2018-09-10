@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcLinkParamsApi;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -43,7 +45,7 @@ import javax.annotation.Nullable;
  * link order (preorder) and linkstamps are sorted.
  */
 @AutoCodec
-public final class CcLinkParams {
+public final class CcLinkParams implements CcLinkParamsApi {
   /**
    * A list of link options contributed by a single configured target.
    *
@@ -105,6 +107,14 @@ public final class CcLinkParams {
     return ImmutableList.copyOf(Iterables.concat(Iterables.transform(linkOpts, LinkOptions::get)));
   }
 
+  @Override
+  public SkylarkNestedSet getSkylarkLinkopts() {
+    // TODO(plf): Shouldn't flatten nested set. Remove LinkOptions class and just have a nested set
+    // of strings.
+    return SkylarkNestedSet.of(
+        String.class, NestedSetBuilder.wrap(Order.COMPILE_ORDER, flattenedLinkopts()));
+  }
+
   /**
    * Returns the linkstamps
    */
@@ -119,9 +129,19 @@ public final class CcLinkParams {
     return libraries;
   }
 
+  @Override
+  public SkylarkNestedSet getSkylarkLibrariesToLink() {
+    return SkylarkNestedSet.of(LibraryToLink.class, libraries);
+  }
+
   /** Returns the dynamicLibrariesForRuntime. */
   public NestedSet<Artifact> getDynamicLibrariesForRuntime() {
     return dynamicLibrariesForRuntime;
+  }
+
+  @Override
+  public SkylarkNestedSet getSkylarkDynamicLibrariesForRuntime() {
+    return SkylarkNestedSet.of(Artifact.class, dynamicLibrariesForRuntime);
   }
 
   /**
@@ -142,6 +162,10 @@ public final class CcLinkParams {
     return new Builder(linkingStatically, linkShared);
   }
 
+  public static final Builder builder() {
+    return new Builder();
+  }
+
   /**
    * Builder for {@link CcLinkParams}.
    */
@@ -154,12 +178,16 @@ public final class CcLinkParams {
      * libraries, which are not handled by CcLinkParams). When this is false, we want to use dynamic
      * versions of any libraries that this target depends on.
      */
-    private final boolean linkingStatically;
+    private boolean linkingStatically;
 
-    /**
-     * linkShared is true when we're linking with "-shared" (linkshared=1).
-     */
-    private final boolean linkShared;
+    /** linkShared is true when we're linking with "-shared" (linkshared=1). */
+    private boolean linkShared;
+
+    // TODO(plf): Ideally the two booleans above are removed from this Builder. We would pass the
+    // specific instances of CcLinkParams that are needed from transitive dependencies instead of
+    // calling the convenience methods that dig them out from the CcLinkingInfo using these
+    // booleans.
+    private boolean linkingStaticallyLinkSharedSet;
 
     private ImmutableList.Builder<String> localLinkoptsBuilder = ImmutableList.builder();
 
@@ -183,10 +211,14 @@ public final class CcLinkParams {
 
     private boolean built = false;
 
+    /** The static builder methods of {@link CcLinkParams} should be used for instantiation. */
     private Builder(boolean linkingStatically, boolean linkShared) {
       this.linkingStatically = linkingStatically;
       this.linkShared = linkShared;
+      this.linkingStaticallyLinkSharedSet = true;
     }
+
+    private Builder() {}
 
     /**
      * Builds a {@link CcLinkParams} object.
@@ -216,12 +248,13 @@ public final class CcLinkParams {
           nonCodeInputs);
     }
 
-    public boolean add(AbstractCcLinkParamsStore store) {
-      if (store != null) {
-        CcLinkParams args = store.get(linkingStatically, linkShared);
+    public boolean add(CcLinkingInfo ccLinkingInfo) {
+      Preconditions.checkState(linkingStaticallyLinkSharedSet);
+      if (ccLinkingInfo != null) {
+        CcLinkParams args = ccLinkingInfo.getCcLinkParams(linkingStatically, linkShared);
         addTransitiveArgs(args);
       }
-      return store != null;
+      return ccLinkingInfo != null;
     }
 
     /**
@@ -237,15 +270,13 @@ public final class CcLinkParams {
     /**
      * Includes link parameters from a dependency target.
      *
-     * <p>The target should implement {@link CcLinkParamsStore}. If it does not, the method does not
-     * do anything.
+     * <p>The target should implement {@link CcLinkingInfo}. If it does not, the method does not do
+     * anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
       CcLinkingInfo ccLinkingInfo = target.get(CcLinkingInfo.PROVIDER);
-      CcLinkParamsStore ccLinkParamsStore =
-          ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsStore();
-      if (ccLinkParamsStore != null) {
-        add(ccLinkParamsStore);
+      if (ccLinkingInfo != null) {
+        add(ccLinkingInfo);
       }
       return this;
     }
@@ -258,14 +289,13 @@ public final class CcLinkParams {
     @SafeVarargs
     public final Builder addTransitiveTarget(
         TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> firstMapping,
+        Function<TransitiveInfoCollection, CcLinkingInfo> firstMapping,
         @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
-            Function<TransitiveInfoCollection, AbstractCcLinkParamsStore>... remainingMappings) {
+            Function<TransitiveInfoCollection, CcLinkingInfo>... remainingMappings) {
       if (add(firstMapping.apply(target))) {
         return this;
       }
-      for (Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> mapping :
-          remainingMappings) {
+      for (Function<TransitiveInfoCollection, CcLinkingInfo> mapping : remainingMappings) {
         if (add(mapping.apply(target))) {
           return this;
         }
@@ -281,9 +311,9 @@ public final class CcLinkParams {
     @SafeVarargs
     public final Builder addTransitiveTargets(
         Iterable<? extends TransitiveInfoCollection> targets,
-        Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> firstMapping,
+        Function<TransitiveInfoCollection, CcLinkingInfo> firstMapping,
         @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
-            Function<TransitiveInfoCollection, AbstractCcLinkParamsStore>... remainingMappings) {
+            Function<TransitiveInfoCollection, CcLinkingInfo>... remainingMappings) {
       for (TransitiveInfoCollection target : targets) {
         addTransitiveTarget(target, firstMapping, remainingMappings);
       }
@@ -379,7 +409,7 @@ public final class CcLinkParams {
     /** Processes typical dependencies of a C/C++ library. */
     public Builder addCcLibrary(RuleContext context) {
       addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET), CcLinkParamsStore.TO_LINK_PARAMS);
+          context.getPrerequisites("deps", Mode.TARGET), x -> x.get(CcLinkingInfo.PROVIDER));
       return this;
     }
   }

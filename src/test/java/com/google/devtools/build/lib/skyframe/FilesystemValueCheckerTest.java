@@ -750,6 +750,7 @@ public class FilesystemValueCheckerTest {
         ImmutableMap.<Artifact, TreeArtifactValue>of(),
         ImmutableMap.<Artifact, FileArtifactValue>of(),
         /*outputSymlinks=*/ null,
+        /*discoveredModules=*/ null,
         /*notifyOnActionCacheHitAction=*/ false);
   }
 
@@ -762,6 +763,7 @@ public class FilesystemValueCheckerTest {
         ImmutableMap.of(emptyDir, emptyValue),
         ImmutableMap.<Artifact, FileArtifactValue>of(),
         /*outputSymlinks=*/ null,
+        /*discoveredModules=*/ null,
         /*notifyOnActionCacheHitAction=*/ false);
   }
 
@@ -796,6 +798,7 @@ public class FilesystemValueCheckerTest {
         treeArtifactData,
         ImmutableMap.<Artifact, FileArtifactValue>of(),
         /*outputSymlinks=*/ null,
+        /*discoveredModules=*/ null,
         /*notifyOnActionCacheHitAction=*/ false);
   }
 
@@ -840,11 +843,11 @@ public class FilesystemValueCheckerTest {
     }
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
       if (statThrowsRuntimeException) {
         throw new RuntimeException("bork");
       }
-      return super.stat(path, followSymlinks);
+      return super.statIfFound(path, followSymlinks);
     }
 
     @Override

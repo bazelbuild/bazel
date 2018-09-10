@@ -9,7 +9,7 @@ filegroup(
 filegroup(
     name = "test-deps",
     testonly = 1,
-    srcs = ["//src:bazel_with_jdk"],
+    srcs = ["//src:bazel"],
     data = ["//src/tools/remote:worker"],
 )
 
@@ -130,6 +130,22 @@ py_test(
     }),
     main = select({
         "//src/conditions:windows": "bazel_windows_cpp_test.py",
+        "//conditions:default": "empty_test.py",
+    }),
+    deps = select({
+        "//src/conditions:windows": [":test_base"],
+        "//conditions:default": [],
+    }),
+)
+
+py_test(
+    name = "test_wrapper_test",
+    srcs = select({
+        "//src/conditions:windows": ["test_wrapper_test.py"],
+        "//conditions:default": ["empty_test.py"],
+    }),
+    main = select({
+        "//src/conditions:windows": "test_wrapper_test.py",
         "//conditions:default": "empty_test.py",
     }),
     deps = select({

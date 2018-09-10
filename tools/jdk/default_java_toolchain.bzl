@@ -19,6 +19,10 @@ JDK8_JVM_OPTS = [
 ]
 
 JDK9_JVM_OPTS = [
+    # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
+    # G1 collector and having compact strings enabled.
+    "-XX:+UseParallelOldGC",
+    "-XX:-CompactStrings",
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -35,7 +39,9 @@ JDK9_JVM_OPTS = [
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
     # see: https://github.com/google/protobuf/issues/3781
+    # and: https://github.com/bazelbuild/bazel/issues/5599
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
 ]
 
 DEFAULT_JAVACOPTS = [
@@ -57,7 +63,6 @@ COMPATIBLE_JAVACOPTS = {
 }
 
 DEFAULT_TOOLCHAIN_CONFIGURATION = {
-    "encoding": "UTF-8",
     "forcibly_disable_header_compilation": 0,
     "genclass": ["@bazel_tools//tools/jdk:genclass"],
     "header_compiler": ["@bazel_tools//tools/jdk:turbine"],
@@ -85,3 +90,19 @@ def default_java_toolchain(name, **kwargs):
         name = name,
         **toolchain_args
     )
+
+def java_runtime_files(name, srcs):
+    """Copies the given sources out of the current Java runtime."""
+
+    native.filegroup(
+        name = name,
+        srcs = srcs,
+    )
+    for src in srcs:
+        native.genrule(
+            name = "gen_%s" % src,
+            srcs = ["@bazel_tools//tools/jdk:current_java_runtime"],
+            toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+            cmd = "cp $(JAVABASE)/%s $@" % src,
+            outs = [src],
+        )

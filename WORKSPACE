@@ -35,14 +35,15 @@ bind(
 
 http_archive(
     name = "bazel_j2objc",
-    url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
     # Computed using "shasum -a 256 j2objc-2.0.3.zip"
     sha256 = "a36bac432d0dbd8c98249e484b2b69dd5720afa4abb58711a3c3def1c0bfa21d",
     strip_prefix = "j2objc-2.0.3",
+    url = "https://github.com/google/j2objc/releases/download/2.0.3/j2objc-2.0.3.zip",
 )
 
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
+
 list_source_repository(name = "local_bazel_source_list")
 
 # To run the Android integration tests in //src/test/shell/bazel/android:all or
@@ -69,106 +70,139 @@ bind(
 
 new_local_repository(
     name = "com_google_protobuf",
-    build_file = "./third_party/protobuf/3.4.0/BUILD",
-    path = "./third_party/protobuf/3.4.0/",
+    build_file = "./third_party/protobuf/3.6.1/BUILD",
+    path = "./third_party/protobuf/3.6.1/",
 )
 
 new_local_repository(
     name = "com_google_protobuf_cc",
-    build_file = "./third_party/protobuf/3.4.0/BUILD",
-    path = "./third_party/protobuf/3.4.0/",
+    build_file = "./third_party/protobuf/3.6.1/BUILD",
+    path = "./third_party/protobuf/3.6.1/",
 )
 
 new_local_repository(
     name = "com_google_protobuf_java",
-    build_file = "./third_party/protobuf/3.4.0/com_google_protobuf_java.BUILD",
-    path = "./third_party/protobuf/3.4.0/",
+    build_file = "./third_party/protobuf/3.6.1/com_google_protobuf_java.BUILD",
+    path = "./third_party/protobuf/3.6.1/",
 )
 
 new_local_repository(
     name = "googleapis",
-    path = "./third_party/googleapis/",
     build_file = "./third_party/googleapis/BUILD",
+    path = "./third_party/googleapis/",
+)
+
+new_local_repository(
+    name = "remoteapis",
+    build_file = "./third_party/remoteapis/BUILD.bazel",
+    path = "./third_party/remoteapis/",
 )
 
 http_archive(
     name = "desugar_jdk_libs",
-    url = "https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip",
     # Computed using "shasum -a 256 <zip>"
-    sha256 = "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
-    strip_prefix = "desugar_jdk_libs-f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd",
+    sha256 = "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
+    strip_prefix = "desugar_jdk_libs-fd937f4180c1b557805219af4482f1a27eb0ff2b",
+    url = "https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
 )
 
 load("//:distdir.bzl", "distdir_tar")
+
 distdir_tar(
     name = "additional_distfiles",
+    archives = [
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip",
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
+    ],
     dirname = "derived/distdir",
-    archives = ["f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip"],
-    urls = {
-        "f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip" :
-        ["https://github.com/google/desugar_jdk_libs/archive/f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip"],
-    },
     sha256 = {
-        "f5e6d80c6b4ec6b0a46603f72b015d45cf3c11cd.zip" :
-        "c80f3f3d442d8a6ca7adc83f90ecd638c3864087fdd6787ffac070b6f1cc8f9b",
-  },
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": "43b8fcc56a180e178d498f375fbeb95e8b65b9bf6c2da91ae3ae0332521a1a12",
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz": "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
+    },
+    urls = {
+        "fd937f4180c1b557805219af4482f1a27eb0ff2b.zip": ["https://github.com/google/desugar_jdk_libs/archive/fd937f4180c1b557805219af4482f1a27eb0ff2b.zip"],
+        "7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz": ["https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz"],
+    },
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
-    sha256 = "45f2dfbee93b91b1468cf81d843fc6d9a47fef1f831c0b7ceff4f1eb6e6851c8",
+    sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
-        "https://cdn.azul.com/zulu/bin/zulu9.0.7.1-jdk9.0.7-linux_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_macos",
-    sha256 = "5a5b3225b86d3fdb51e9add5335f43cc19c6b2d9b8b5558e72b52d7b2ce9162e",
+    sha256 = "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
-        "https://cdn.azul.com/zulu/bin/zulu9.0.7.1-jdk9.0.7-macosx_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-macosx_x64-allmodules.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_win",
-    sha256 = "75f76c53c6a1f12b1a571b86bd9708ab75adf582d689dddc94fdd77dcc0f3f5c",
+    sha256 = "e738829017f107e7a7cd5069db979398ec3c3f03ef56122f89ba38e7374f63ed",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
-        "https://cdn.azul.com/zulu/bin/zulu9.0.7.1-jdk9.0.7-win_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-win_x64-allmodules.zip",
+    ],
+)
+
+# The source-code for this OpenJDK can be found at:
+# https://openjdk.linaro.org/releases/jdk9-src-1708.tar.xz
+http_file(
+    name = "openjdk_linux_aarch64",
+    sha256 = "72e7843902b0395e2d30e1e9ad2a5f05f36a4bc62529828bcbc698d54aec6022",
+    urls = [
+        # When you update this, also update the link to the source-code above.
+        "http://openjdk.linaro.org/releases/jdk9-server-release-1708.tar.xz",
     ],
 )
 
 http_archive(
-  name = "bazel_toolchains",
-  urls = [
-    "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/09c850dbb8e785ded3d23a7003e9a0168fe1fb2f.tar.gz",
-    "https://github.com/bazelbuild/bazel-toolchains/archive/09c850dbb8e785ded3d23a7003e9a0168fe1fb2f.tar.gz",
-  ],
-  strip_prefix = "bazel-toolchains-09c850dbb8e785ded3d23a7003e9a0168fe1fb2f",
-  sha256 = "08e521cf2d0998e3d27a16c2e2542ebf4d3857b3ddadcfd145d128140754d7bd",
+    name = "bazel_toolchains",
+    sha256 = "cefb6ccf86ca592baaa029bcef04148593c0efe8f734542f10293ea58f170715",
+    strip_prefix = "bazel-toolchains-cdea5b8675914d0a354d89f108de5d28e54e0edc",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/cdea5b8675914d0a354d89f108de5d28e54e0edc.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/archive/cdea5b8675914d0a354d89f108de5d28e54e0edc.tar.gz",
+    ],
 )
 
 # We're pinning to a commit because this project does not have a recent release.
 # Nothing special about this commit, though.
 http_archive(
     name = "com_google_googletest",
+    sha256 = "313a16fba8f0be8ee20ba9883e044556044cbd1ae6cea532473d163a843ef991",
+    strip_prefix = "googletest-dfa853b63d17c787914b663b50c2095a0c5b706e",
     urls = [
         "https://github.com/google/googletest/archive/dfa853b63d17c787914b663b50c2095a0c5b706e.tar.gz",
     ],
-    strip_prefix = "googletest-dfa853b63d17c787914b663b50c2095a0c5b706e",
-    sha256 = "313a16fba8f0be8ee20ba9883e044556044cbd1ae6cea532473d163a843ef991",
 )
 
 # For src/test/shell/bazel:bazel_sandboxing_test
 http_file(
-  name = 'mount_path_toolchain',
-  url = 'https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz',
-  sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
+    name = "mount_path_toolchain",
+    sha256 = "dd8088d3543a86fd91a9ccde6e40102aff6eaf3d048aa73cc18eff05cc2053d5",
+    url = "https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz",
+)
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "3528fc6012a78da6291c00854373ea43f7f8b6c4046320be5f0884f5b3385b14",
+    strip_prefix = "bazel-skylib-7490380c6bbf9a5a060df78dc2222e7de6ffae5c",
+    urls = [
+        "https://github.com/bazelbuild/bazel-skylib/archive/7490380c6bbf9a5a060df78dc2222e7de6ffae5c.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "skydoc",
+    sha256 = "cfbfcc107f5c9853dc5b2b81f1fe90fc326bd1c61f76c9aac2b4201dff75b91d",
+    strip_prefix = "skydoc-d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8",
+    urls = [
+        "https://github.com/bazelbuild/skydoc/archive/d34c44c3f4102eb94beaf2636c6cf532f0ec1ee8.tar.gz",
+    ],
 )

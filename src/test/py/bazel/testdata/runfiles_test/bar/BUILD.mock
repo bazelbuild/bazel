@@ -13,7 +13,7 @@ java_binary(
     srcs = ["Bar.java"],
     data = ["bar-java-data.txt"],
     main_class = "Bar",
-    deps = ["@bazel_tools//tools/runfiles:java-runfiles"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )
 
 sh_binary(

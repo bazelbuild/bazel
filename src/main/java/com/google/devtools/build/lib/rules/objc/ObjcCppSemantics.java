@@ -140,17 +140,12 @@ public class ObjcCppSemantics implements CppSemantics {
   public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
     // Currently, objc builds do not enforce strict deps.  To begin enforcing strict deps in objc,
     // switch this flag to STRICT.
-    return HeadersCheckingMode.WARN;
+    return HeadersCheckingMode.LOOSE;
   }
 
   @Override
   public IncludeProcessing getIncludeProcessing() {
     return includeProcessing;
-  }
-
-  @Override
-  public boolean needsIncludeScanning(RuleContext ruleContext) {
-    return false;
   }
 
   @Override

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableCollection;
@@ -73,6 +74,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
   };
 
+  @SkylarkSignature(
+      name = "interrupted_function",
+      returnType = Runtime.NoneType.class,
+      documented = false)
+  static BuiltinFunction interruptedFunction =
+      new BuiltinFunction("interrupted_function") {
+        public Runtime.NoneType invoke() throws InterruptedException {
+          throw new InterruptedException();
+        }
+      };
+
   @SkylarkModule(name = "Mock", doc = "")
   static class NativeInfoMock extends NativeInfo {
 
@@ -120,16 +132,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       return "I'm a mock named " + myName;
     }
 
-    @SkylarkCallable(documented = false)
+    @SkylarkCallable(name = "value_of",
+        parameters = { @Param(name = "str", type = String.class) },
+        documented = false)
     public static Integer valueOf(String str) {
       return Integer.valueOf(str);
     }
-    @SkylarkCallable(documented = false)
+    @SkylarkCallable(name = "is_empty",
+        parameters = { @Param(name = "str", type = String.class) },
+        documented = false)
     public Boolean isEmpty(String str) {
       return str.isEmpty();
     }
     public void value() {}
-    @SkylarkCallable(documented = false)
+    @SkylarkCallable(name = "return_bad", documented = false)
     public Bad returnBad() {
       return new Bad();
     }
@@ -137,16 +153,36 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     public String structField() {
       return "a";
     }
+    @SkylarkCallable(name = "struct_field_with_extra",
+        documented = false,
+        structField = true,
+        useSkylarkSemantics = true)
+    public String structFieldWithExtra(SkylarkSemantics sem) {
+      return "struct_field_with_extra("
+        + (sem != null)
+        + ")";
+    }
     @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
     public BuiltinFunction structFieldCallable() {
       return foobar;
     }
+
+    @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
+    public BuiltinFunction structFieldInterruptedCallable() throws InterruptedException {
+      throw new InterruptedException();
+    }
+
     @SkylarkCallable(name = "function", documented = false, structField = false)
     public String function() {
       return "a";
     }
     @SuppressWarnings("unused")
-    @SkylarkCallable(name = "nullfunc_failing", documented = false, allowReturnNones = false)
+    @SkylarkCallable(name = "nullfunc_failing",
+        parameters = {
+          @Param(name = "p1", type = String.class),
+          @Param(name = "p2", type = Integer.class),
+        },
+        documented = false, allowReturnNones = false)
     public SkylarkValue nullfuncFailing(String p1, Integer p2) {
       return null;
     }
@@ -191,8 +227,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     @SkylarkCallable(
       name = "with_params",
       documented = false,
-      mandatoryPositionals = 1,
       parameters = {
+        @Param(name = "pos1"),
         @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
         @Param(
           name = "posOrNamed",
@@ -288,8 +324,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     @SkylarkCallable(
       name = "with_params_and_extra",
       documented = false,
-      mandatoryPositionals = 1,
       parameters = {
+        @Param(name = "pos1"),
         @Param(name = "pos2", defaultValue = "False", type = Boolean.class),
         @Param(
           name = "posOrNamed",
@@ -473,7 +509,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "MockInterface", doc = "")
   static interface MockInterface {
-    @SkylarkCallable(documented = false)
+    @SkylarkCallable(name = "is_empty_interface",
+        parameters = { @Param(name = "str", type = String.class) },
+        documented = false)
     public Boolean isEmptyInterface(String str);
   }
 
@@ -1241,11 +1279,33 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testCallingInterruptedStructField() throws Exception {
+    update("mock", new Mock());
+    assertThrows(InterruptedException.class, () -> eval("mock.interrupted_struct_field()"));
+  }
+
+  @Test
+  public void testCallingInterruptedFunction() throws Exception {
+    interruptedFunction.configure(
+        getClass().getDeclaredField("interruptedFunction").getAnnotation(SkylarkSignature.class));
+    update("interrupted_function", interruptedFunction);
+    assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));
+  }
+
+  @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
         .testLookup("v", "with_extra(1, 0, true, true)");
+  }
+
+  @Test
+  public void testStructFieldWithExtraInterpreterParams() throws Exception {
+    new SkylarkTest()
+        .update("mock", new Mock())
+        .setUp("v = mock.struct_field_with_extra")
+        .testLookup("v", "struct_field_with_extra(true)");
   }
 
   @Test
@@ -1736,6 +1796,39 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testLocalVariableDefinedBelow() throws Exception {
+    new SkylarkTest("--incompatible_static_name_resolution=true")
+        .setUp(
+            "def beforeEven(li):", // returns the value before the first even number
+            "    for i in li:",
+            "        if i % 2 == 0:",
+            "            return a",
+            "        else:",
+            "            a = i",
+            "res = beforeEven([1, 3, 4, 5])")
+        .testLookup("res", 3);
+  }
+
+  @Test
+  public void testShadowisNotInitialized() throws Exception {
+    new SkylarkTest("--incompatible_static_name_resolution=true")
+        .testIfErrorContains(
+            /* error message */ "local variable 'gl' is referenced before assignment",
+            "gl = 5",
+            "def foo():", // returns the value before the first even number
+            "    if False: gl = 2",
+            "    return gl",
+            "res = foo()");
+  }
+
+  @Test
+  public void testLegacyGlobalIsNotInitialized() throws Exception {
+    new SkylarkTest("--incompatible_static_name_resolution=false")
+        .setUp("a = len")
+        .testIfErrorContains("Variable len is read only", "len = 2");
+  }
+
+  @Test
   public void testFunctionCallRecursion() throws Exception {
     new SkylarkTest().testIfErrorContains("Recursion was detected when calling 'f' from 'g'",
         "def main():",
@@ -1840,6 +1933,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testExactOrder(
             "dir(mock)",
             "function",
+            "interrupted_struct_field",
             "is_empty",
             "legacy_method",
             "nullfunc_failing",
@@ -1851,6 +1945,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             "string_list_dict",
             "struct_field",
             "struct_field_callable",
+            "struct_field_with_extra",
             "value_of",
             "voidfunc",
             "with_args_and_env",
@@ -2064,7 +2159,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("val", new SkylarkClassObjectWithSkylarkCallables())
         .setUp("v = val.collision_field")
-        .testLookup("v", "fromValues");
+        .testLookup("v", "fromSkylarkCallable");
   }
 
   @Test

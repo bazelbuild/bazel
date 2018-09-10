@@ -29,18 +29,14 @@ message DebugRequest {
 
   // The payload describes the type of the request and its arguments, if any.
   oneof payload {
-    ListThreadsRequest list_threads = 100;
     SetBreakpointsRequest set_breakpoints = 101;
     ContinueExecutionRequest continue_execution = 102;
     EvaluateRequest evaluate = 103;
     ListFramesRequest list_frames = 104;
     StartDebuggingRequest start_debugging = 105;
     PauseThreadRequest pause_thread = 106;
+    GetChildrenRequest get_children = 107;
   }
-}
-
-// A request to list the threads that are currently active running Skylark code.
-message ListThreadsRequest {
 }
 
 // A request to update the breakpoints used by the debug server.
@@ -50,27 +46,35 @@ message SetBreakpointsRequest {
   repeated Breakpoint breakpoint = 1;
 }
 
-// A request to continue execution on a paused thread.
+// A request to continue execution on a paused or stepping thread. (A stepping
+// thread is a thread that is running as the result of a previous
+// ContinueExecutionRequest with non-NONE stepping.)
+//
+// A paused thread will be resumed with the given stepping, unless thread_id is
+// 0. A stepping thread will continue to run with its stepping condition
+// removed, as if it were already paused.
 message ContinueExecutionRequest {
-  // The identifier of the thread to continue.
+  // The identifier of the thread to continue. The thread must be paused or
+  // stepping.
   //
-  // If this field is not set (i.e., zero), then execution of all threads will
-  // be continued. This is typically used when the debugger disconnects from the
-  // server. In this case, the stepping field is ignored.
+  // If this field is not set (i.e., zero), then all threads will be continued
+  // without stepping; the stepping field in this message will be ignored. This
+  // is typically used when the debugger disconnects from the server.
+
   int64 thread_id = 1;
 
   // Describes the stepping behavior to use when continuing execution.
   Stepping stepping = 2;
 }
 
-// A request to evaluate a Skylark expression in a thread's current environment.
+// A request to evaluate a Skylark statement in a thread's current environment.
 message EvaluateRequest {
   // The identifier of the thread in whose execution context the expression
   // should be evaluated.
   int64 thread_id = 1;
 
-  // The Skylark expression to evaluate.
-  string expression = 2;
+  // The Skylark statement to evaluate.
+  string statement = 2;
 }
 
 // A request to list the stack frames of a thread.
@@ -95,6 +99,19 @@ message PauseThreadRequest {
   int64 thread_id = 1;
 }
 
+// A request to list the children of a previously-communicated Value, such as
+// its elements (for a list or dictionary), its fields (for a struct), and so
+// forth.
+message GetChildrenRequest {
+  // The identifier of the relevant thread.
+  int64 thread_id = 1;
+
+  // The identifier of the value for which children are being requested. If the
+  // value has no children, an empty list will be returned in
+  // GetChildrenResponse.
+  int64 value_id = 2;
+}
+
 // There are two kinds of events: "responses", which correspond to a
 // DebugRequest sent by the client, and other asynchronous events that may be
 // sent by the server to notify the client of activity in the Skylark code being
@@ -109,18 +126,16 @@ message DebugEvent {
   oneof payload {
     Error error = 99;
 
-    ListThreadsResponse list_threads = 100;
     SetBreakpointsResponse set_breakpoints = 101;
     ContinueExecutionResponse continue_execution = 102;
     EvaluateResponse evaluate = 103;
     ListFramesResponse list_frames = 104;
     StartDebuggingResponse start_debugging = 105;
     PauseThreadResponse pause_thread = 106;
+    GetChildrenResponse get_children = 107;
 
-    ThreadStartedEvent thread_started = 1000;
-    ThreadEndedEvent thread_ended = 1001;
-    ThreadPausedEvent thread_paused = 1002;
-    ThreadContinuedEvent thread_continued = 1003;
+    ThreadPausedEvent thread_paused = 1001;
+    ThreadContinuedEvent thread_continued = 1002;
   }
 }
 
@@ -129,12 +144,6 @@ message DebugEvent {
 message Error {
   // A message describing the error that occurred.
   string message = 1;
-}
-
-// The response to a ListThreadsRequest.
-message ListThreadsResponse {
-  // The threads that are currently active running Skylark code.
-  repeated Thread thread = 1;
 }
 
 // The response to a SetBreakpointsRequest.
@@ -147,7 +156,7 @@ message ContinueExecutionResponse {
 
 // The response to an EvaluateRequest.
 message EvaluateResponse {
-  // The result of evaluating an expression.
+  // The result of evaluating a statement.
   Value result = 1;
 }
 
@@ -168,37 +177,37 @@ message StartDebuggingResponse {
 message PauseThreadResponse {
 }
 
-// An event indicating that a thread has begun executing Skylark code.
-message ThreadStartedEvent {
-  // The thread that began.
-  Thread thread = 1;
-}
-
-// An event indicating that a thread that was executed Skylark code has ended.
-message ThreadEndedEvent {
-  // The thread that ended.
-  Thread thread = 1;
+// The response to a GetChildrenRequest.
+message GetChildrenResponse {
+  repeated Value children = 1;
 }
 
 // An event indicating that a thread was paused during execution.
 message ThreadPausedEvent {
   // The thread that was paused.
-  Thread thread = 1;
+  PausedThread thread = 1;
 }
 
 // An event indicating that a thread has continued execution after being paused.
 message ThreadContinuedEvent {
-  // The thread that continued executing.
-  Thread thread = 1;
+  // The identifier of the thread that continued executing.
+  int64 thread_id = 1;
 }
 
 // A location where the debug server will pause execution.
 message Breakpoint {
   oneof condition {
     // A breakpoint that is triggered when a particular line is reached.
-    // Column index will be ignored for breakpoints.
+    // Column index will be ignored for breakpoints. The debugger only supports
+    // one breakpoint per line. If multiple breakpoints are supplied for a
+    // single line, only the last such breakpoint is accepted.
     Location location = 1;
   }
+  // An optional condition for the breakpoint. When present, the breakpoint will
+  // be triggered iff both the primary condition holds and this expression
+  // evaluates to True. It is unspecified how many times this expression will be
+  // evaluated, so it should be free of side-effects.
+  string expression = 2;
 }
 
 // A single frame in a thread's stack trace.
@@ -255,45 +264,49 @@ enum Stepping {
   OUT = 3;
 }
 
-// Information about a thread that is running Skylark code.
-message Thread {
+// Information about a paused Skylark thread.
+message PausedThread {
   // The identifier of the thread.
   int64 id = 1;
 
-  // Present if the thread is paused, providing details such as the thread's
-  // location. Not set if the thread is running.
-  ThreadPausedState thread_paused_state = 2;
-
   // A descriptive name for the thread that can be displayed in the debugger's
   // UI.
-  string name = 3;
-}
+  string name = 2;
 
-// Information about a paused thread.
-message ThreadPausedState {
-  PauseReason pause_reason = 1;
+  PauseReason pause_reason = 3;
 
   // The location in Skylark code of the next statement or expression that will
   // be executed.
-  Location location = 2;
+  Location location = 4;
+
+  // An error that occurred while evaluating a breakpoint condition. Present if
+  // and only if pause_reason is CONDITIONAL_BREAKPOINT_ERROR.
+  Error conditional_breakpoint_error = 5;
 }
 
-// The reason why a thread was paused
+// The reason why a thread was paused.
 enum PauseReason {
-  // The debug server hasn't set a reason for pausing a thread.
+  // The debug server hasn't set any reason.
   UNSET = 0;
 
   // The stepping condition in a ContinueExecutionRequest was hit.
-  STEPPING = 4;
+  STEPPING = 1;
 
-  // All threads are paused (e.g. prior to the initial StartDebuggingRequest).
-  ALL_THREADS_PAUSED = 1;
+  // A PauseThreadRequest was sent with thread_id=0.
+  ALL_THREADS_PAUSED = 2;
 
-  // Thread paused in response to a PauseThreadRequest.
-  PAUSE_THREAD_REQUEST = 2;
+  // A PauseThreadRequest was sent with thread_id matching this thread.
+  PAUSE_THREAD_REQUEST = 3;
 
   // A breakpoint was hit.
-  HIT_BREAKPOINT = 3;
+  HIT_BREAKPOINT = 4;
+
+  // An error occurred while evaluating a breakpoint condition.
+  CONDITIONAL_BREAKPOINT_ERROR = 5;
+
+  // Debugging just started, and a StartDebuggingRequest has not yet been
+  // received and processed.
+  INITIALIZING = 6;
 }
 
 // The debugger representation of a Skylark value.
@@ -318,7 +331,12 @@ message Value {
   // themselves do not have a meaningful type with respect to our rendering.
   string type = 3;
 
-  // Any child values associated with this value, such as its elements (for a
-  // list or dictionary), its fields (for a struct), and so forth.
-  repeated Value child = 4;
+  // Will be false if the value is known to have no children. May sometimes be
+  // true if this isn't yet known, in which case GetChildrenResponse#children
+  // will be empty.
+  bool has_children = 4;
+
+  // An identifier for this value, used to request its children. The same value
+  // may be known by multiple ids. Not set for values without children.
+  int64 id = 5;
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tools/cpp/runfiles/runfiles.h"
+#include "tools/cpp/runfiles/runfiles_src.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -25,10 +25,11 @@
 
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/path.h"
 
-#define _T(x) #x
-#define T(x) _T(x)
-#define LINE() T(__LINE__)
+#define RUNFILES_TEST_TOSTRING_HELPER(x) #x
+#define RUNFILES_TEST_TOSTRING(x) RUNFILES_TEST_TOSTRING_HELPER(x)
+#define LINE_AS_STRING() RUNFILES_TEST_TOSTRING(__LINE__)
 
 namespace bazel {
 namespace tools {
@@ -145,8 +146,8 @@ RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
 RunfilesTest::MockFile::~MockFile() { std::remove(path_.c_str()); }
 
 TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromManifestNextToBinary) {
-  unique_ptr<MockFile> mf(
-      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
   EXPECT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles_manifest").size()));
@@ -164,8 +165,8 @@ TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromManifestNextToBinary) {
 
 TEST_F(RunfilesTest,
        CreatesManifestBasedRunfilesFromManifestInRunfilesDirectory) {
-  unique_ptr<MockFile> mf(
-      MockFile::Create("foo" LINE() ".runfiles/MANIFEST", {"a/b c/d"}));
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" LINE_AS_STRING() ".runfiles/MANIFEST", {"a/b c/d"}));
   EXPECT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles/MANIFEST").size()));
@@ -180,8 +181,8 @@ TEST_F(RunfilesTest,
 }
 
 TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
-  unique_ptr<MockFile> mf(
-      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
@@ -197,8 +198,8 @@ TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
 }
 
 TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
-  unique_ptr<MockFile> mf(
-      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a b", "nospace"}));
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" LINE_AS_STRING() ".runfiles_manifest", {"a b", "nospace"}));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
@@ -210,8 +211,8 @@ TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
 }
 
 TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
-  unique_ptr<MockFile> mf(
-      MockFile::Create("foo" LINE() ".runfiles_manifest", {"a/b c/d"}));
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
@@ -242,7 +243,7 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
 
 TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
   unique_ptr<MockFile> dummy(
-      MockFile::Create("foo" LINE() ".runfiles/dummy", {"a/b c/d"}));
+      MockFile::Create("foo" LINE_AS_STRING() ".runfiles/dummy", {"a/b c/d"}));
   EXPECT_TRUE(dummy != nullptr);
   string dir = dummy->DirName();
 
@@ -273,8 +274,8 @@ TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
 }
 
 TEST_F(RunfilesTest, ManifestAndDirectoryBasedRunfilesRlocationAndEnvVars) {
-  unique_ptr<MockFile> mf(
-      MockFile::Create("foo" LINE() ".runfiles/MANIFEST", {"a/b c/d"}));
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" LINE_AS_STRING() ".runfiles/MANIFEST", {"a/b c/d"}));
   EXPECT_TRUE(mf != nullptr);
   string dir = mf->DirName();
 
@@ -311,7 +312,7 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
                                  ".txt"});
   for (vector<string>::size_type i = 0; i < suffixes.size(); ++i) {
     unique_ptr<MockFile> mf(
-        MockFile::Create(string("foo" LINE()) + suffixes[i]));
+        MockFile::Create(string("foo" LINE_AS_STRING()) + suffixes[i]));
     EXPECT_TRUE(mf != nullptr) << " (suffix=\"" << suffixes[i] << "\")";
 
     string error;
@@ -334,7 +335,7 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
 TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {
   // We create a directory as a side-effect of creating a mock file.
   unique_ptr<MockFile> mf(
-      MockFile::Create(string("foo" LINE() ".runfiles/dummy")));
+      MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles/dummy")));
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles/dummy").size()));
 
@@ -353,7 +354,7 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {
 TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
   // We create a directory as a side-effect of creating a mock file.
   unique_ptr<MockFile> mf(
-      MockFile::Create(string("foo" LINE() ".runfiles/dummy")));
+      MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles/dummy")));
   string dir = mf->DirName();
 
   string error;
@@ -371,7 +372,7 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
 
 TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
   unique_ptr<MockFile> mf(
-      MockFile::Create(string("foo" LINE() ".runfiles/MANIFEST")));
+      MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles/MANIFEST")));
   EXPECT_TRUE(mf != nullptr);
 
   string error;
@@ -381,7 +382,7 @@ TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
   EXPECT_TRUE(error.empty());
 
   // We create a directory as a side-effect of creating a mock file.
-  mf.reset(MockFile::Create(string("foo" LINE() ".runfiles/dummy")));
+  mf.reset(MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles/dummy")));
   r.reset(Runfiles::Create("ignore-argv0", "", mf->DirName(), &error));
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
@@ -393,23 +394,43 @@ TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
 
 TEST_F(RunfilesTest, MockFileTest) {
   {
-    unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() "/..")));
+    unique_ptr<MockFile> mf(
+        MockFile::Create(string("foo" LINE_AS_STRING() "/..")));
     EXPECT_TRUE(mf == nullptr);
   }
 
   {
-    unique_ptr<MockFile> mf(MockFile::Create(string("/Foo" LINE())));
+    unique_ptr<MockFile> mf(MockFile::Create(string("/Foo" LINE_AS_STRING())));
     EXPECT_TRUE(mf == nullptr);
   }
 
   {
-    unique_ptr<MockFile> mf(MockFile::Create(string("C:/Foo" LINE())));
+    unique_ptr<MockFile> mf(
+        MockFile::Create(string("C:/Foo" LINE_AS_STRING())));
     EXPECT_TRUE(mf == nullptr);
   }
 
   string path;
   {
-    unique_ptr<MockFile> mf(MockFile::Create(string("foo" LINE() "/bar1/qux")));
+    unique_ptr<MockFile> mf(
+        MockFile::Create(string("foo" LINE_AS_STRING() "/bar1/qux")));
+    EXPECT_TRUE(mf != nullptr);
+    path = mf->Path();
+
+    std::ifstream stm(path);
+    EXPECT_TRUE(stm.good());
+    string actual;
+    stm >> actual;
+    EXPECT_TRUE(actual.empty());
+  }
+  {
+    std::ifstream stm(path);
+    EXPECT_FALSE(stm.good());
+  }
+
+  {
+    unique_ptr<MockFile> mf(MockFile::Create(
+        string("foo" LINE_AS_STRING() "/bar2/qux"), vector<string>()));
     EXPECT_TRUE(mf != nullptr);
     path = mf->Path();
 
@@ -426,24 +447,7 @@ TEST_F(RunfilesTest, MockFileTest) {
 
   {
     unique_ptr<MockFile> mf(
-        MockFile::Create(string("foo" LINE() "/bar2/qux"), vector<string>()));
-    EXPECT_TRUE(mf != nullptr);
-    path = mf->Path();
-
-    std::ifstream stm(path);
-    EXPECT_TRUE(stm.good());
-    string actual;
-    stm >> actual;
-    EXPECT_TRUE(actual.empty());
-  }
-  {
-    std::ifstream stm(path);
-    EXPECT_FALSE(stm.good());
-  }
-
-  {
-    unique_ptr<MockFile> mf(
-        MockFile::Create(string("foo" LINE() "/bar3/qux"),
+        MockFile::Create(string("foo" LINE_AS_STRING() "/bar3/qux"),
                          {"hello world", "you are beautiful"}));
     EXPECT_TRUE(mf != nullptr);
     path = mf->Path();

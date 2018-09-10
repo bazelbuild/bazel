@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -104,24 +106,28 @@ public interface AttributeMap {
   /** Returns the {@link Location} at which the attribute was defined. */
   Location getAttributeLocation(String attrName);
 
-  /** An interface which accepts {@link Attribute}s, used by {@link #visitLabels}. */
-  interface AcceptsLabelAttribute {
-    /**
-     * Accept a (Label, Attribute) pair describing a dependency edge.
-     *
-     * @param label the target node of the (Rule, Label) edge. The source node should already be
-     *     known.
-     * @param attribute the attribute.
-     */
-    void acceptLabelAttribute(Label label, Attribute attribute) throws InterruptedException;
-  }
+  /**
+   * Returns a {@link Collection} with a {@link DepEdge} for every attribute that contains labels in
+   * its value (either by *being* a label or being a collection that includes labels).
+   */
+  Collection<DepEdge> visitLabels() throws InterruptedException;
 
   /**
-   * For all attributes that contain labels in their values (either by *being* a label or being a
-   * collection that includes labels), visits every label and notifies the specified observer at
-   * each visit.
+   * {@code (Label, Attribute)} pair describing a dependency edge.
+   *
+   * <p>The {@link Label} is the target node of the {@code (Rule, Label)} edge. The source node
+   * should already be known. The {@link Attribute} is the attribute giving the edge.
    */
-  void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException;
+  @AutoValue
+  abstract class DepEdge {
+    public abstract Label getLabel();
+
+    public abstract Attribute getAttribute();
+
+    static DepEdge create(Label label, Attribute attribute) {
+      return new AutoValue_AttributeMap_DepEdge(label, attribute);
+    }
+  }
 
   // TODO(bazel-team): These methods are here to support computed defaults that inherit
   // package-level default values. Instead, we should auto-inherit and remove the computed

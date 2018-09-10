@@ -91,10 +91,11 @@ public final class MockProtoSupport {
         "          srcs = [ 'composite_cc_plugin.cc' ])");
 
     // Fake targets for proto API libs of all languages and versions.
-    config.create("net/proto2/public/BUILD",
+    config.create(
+        "net/proto2/public/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'proto2',",
-        "           srcs = [ 'proto2.cc' ])");
+        "cc_library(name = 'cc_proto_library_blaze_internal_deps',",
+        "           srcs = [ 'cc_proto_library_blaze_internal_deps.cc' ])");
     config.create("net/proto2/python/public/BUILD",
         "package(default_visibility=['//visibility:public'])",
          "py_library(name = 'public',",
@@ -136,9 +137,10 @@ public final class MockProtoSupport {
         "             srcs = [ 'Rpc.java' ])",
         "java_library(name = 'rpc_noloas_internal',",
         "             srcs = [ 'RpcNoloas.java' ])");
-    config.create("java/com/google/net/rpc3/BUILD",
+    config.create(
+        "java/com/google/net/rpc3/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "java_library(name = 'rpc3',",
+        "java_library(name = 'rpc3_proto_runtime',",
         "             deps = [':rpc3_noloas_internal'],",
         "             srcs = [ 'Rpc3.java' ])",
         "java_library(name = 'rpc3_noloas_internal',",
@@ -180,6 +182,12 @@ public final class MockProtoSupport {
         "licenses(['notice'])",
         "java_library(name = 'jsr250_source_annotations',",
         "           srcs = [ 'Generated.java' ])");
+    config.create(
+        "third_party/golang/grpc/metadata/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "go_library(name = 'metadata',",
+        "           srcs = [ 'metadata.go' ])");
   }
 
   /**

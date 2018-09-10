@@ -66,4 +66,9 @@ std::string MakeAbsolute(const std::string &path) {
 
   return JoinPath(blaze_util::GetCwd(), path);
 }
+
+std::string MakeAbsoluteAndResolveWindowsEnvvars(const std::string &path) {
+  return MakeAbsolute(path);
+}
+
 }  // namespace blaze_util

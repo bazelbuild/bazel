@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -62,8 +62,8 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
 
   @Nullable
   @Override
-  public Info getProvider(Provider.Key key) {
-    return (Info) get(key);
+  public InfoInterface getProvider(Provider.Key key) {
+    return (InfoInterface) get(key);
   }
 
   @Nullable

@@ -30,11 +30,9 @@ sh_library(
 sh_test(
     name = "bashunit_test",
     srcs = ["unittest_test.sh"],
-    data = [":bashunit"],
-    deps = [
-        # TODO(laszlocsomor): Change this to @bazel_tools//tools/bash/runfiles
-        # after Bazel is released with that target in @bazel_tools.
-        "//tools/bash/runfiles:runfiles_lib",
+    data = [
+        ":bashunit",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -51,12 +49,7 @@ sh_test(
         "testenv.sh",
         ":bashunit",
         ":shell_utils",
-    ],
-    deps = [
-        # TODO(laszlocsomor): Change this to @bazel_tools//tools/bash/runfiles
-        # after Bazel is released and this target exists, and remove the
-        # visibility from //tools/bash/runfiles:runfiles_lib
-        "//tools/bash/runfiles:runfiles_lib",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -67,15 +60,10 @@ sh_test(
         "testenv.sh",
         ":bashunit",
         ":shell_utils",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [
         "no_windows",  # test asserts symlink behavior
-    ],
-    deps = [
-        # TODO(laszlocsomor): Change this to @bazel_tools//tools/bash/runfiles
-        # after Bazel is released and this target exists, and remove the
-        # visibility from //tools/bash/runfiles:runfiles_lib
-        "//tools/bash/runfiles:runfiles_lib",
     ],
 )
 
@@ -93,6 +81,7 @@ test_suite(
     tests = [
         ":windows_tests",
         "//src/test/shell/bazel:all_windows_tests",
+        "//src/test/shell/integration:all_windows_tests",
     ],
     visibility = ["//src:__pkg__"],
 )

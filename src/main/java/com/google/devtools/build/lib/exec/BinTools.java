@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -261,8 +261,8 @@ public final class BinTools {
     }
 
     private static FileArtifactValue hash(Path path) throws IOException {
-      HashFunction hashFn = path.getFileSystem().getDigestFunction();
-      Hasher hasher = hashFn.getHash().newHasher();
+      DigestHashFunction hashFn = path.getFileSystem().getDigestFunction();
+      Hasher hasher = hashFn.getHashFunction().newHasher();
       int bytesCopied = 0;
       try (InputStream in = path.getInputStream()) {
         byte[] buffer = new byte[1024];

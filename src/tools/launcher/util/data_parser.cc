@@ -17,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/data_parser.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
@@ -28,6 +29,7 @@ using std::ios;
 using std::make_unique;
 using std::string;
 using std::unique_ptr;
+using std::wstring;
 
 int64_t LaunchDataParser::ReadDataSize(ifstream* binary) {
   int64_t data_size;
@@ -63,34 +65,34 @@ bool LaunchDataParser::ParseLaunchData(LaunchInfo* launch_info,
       end++;
     }
     if (equal == -1) {
-      PrintError("Cannot find equal symbol in line: %s",
+      PrintError(L"Cannot find equal symbol in line: %hs",
                  string(launch_data + start, end - start).c_str());
       return false;
     } else if (start == equal) {
-      PrintError("Key is empty string in line: %s",
+      PrintError(L"Key is empty string in line: %hs",
                  string(launch_data + start, end - start).c_str());
       return false;
     } else {
       string key(launch_data + start, equal - start);
       string value(launch_data + equal + 1, end - equal - 1);
       if (launch_info->find(key) != launch_info->end()) {
-        PrintError("Duplicated launch info key: %s", key.c_str());
+        PrintError(L"Duplicated launch info key: %hs", key.c_str());
         return false;
       }
-      launch_info->insert(make_pair(key, value));
+      launch_info->insert(make_pair(key, blaze_util::CstringToWstring(value)));
     }
     start = end + 1;
   }
   return true;
 }
 
-bool LaunchDataParser::GetLaunchInfo(const string& binary_path,
+bool LaunchDataParser::GetLaunchInfo(const wstring& binary_path,
                                      LaunchInfo* launch_info) {
   unique_ptr<ifstream> binary =
       make_unique<ifstream>(binary_path, ios::binary | ios::in);
   int64_t data_size = ReadDataSize(binary.get());
   if (data_size == 0) {
-    PrintError("No data appended, cannot launch anything!");
+    PrintError(L"No data appended, cannot launch anything!");
     return false;
   }
   unique_ptr<char[]> launch_data(new char[data_size]);

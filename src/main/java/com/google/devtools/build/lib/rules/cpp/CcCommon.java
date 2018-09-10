@@ -20,7 +20,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProviderImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -50,14 +48,14 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
@@ -65,6 +63,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -81,6 +80,9 @@ public final class CcCommon {
 
   /** Name of the build variable for the path to the input file being processed. */
   public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
+
+  /** Name of the build variable for the minimum_os_version being targeted. */
+  public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
 
   public static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it";
@@ -105,15 +107,11 @@ public final class CcCommon {
     }
   };
 
-  private static final ImmutableList<PathFragment> WHITELISTED_PACKAGES =
-      ImmutableList.of(PathFragment.create("tools/build_defs"));
-
   public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
           CppActionNames.C_COMPILE,
           CppActionNames.CPP_COMPILE,
           CppActionNames.CPP_HEADER_PARSING,
-          CppActionNames.CPP_HEADER_PREPROCESSING,
           CppActionNames.CPP_MODULE_COMPILE,
           CppActionNames.CPP_MODULE_CODEGEN,
           CppActionNames.ASSEMBLE,
@@ -157,24 +155,18 @@ public final class CcCommon {
 
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
 
-  /** C++ configuration */
-  private final CppConfiguration cppConfiguration;
-
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
 
-  private final FdoSupportProvider fdoSupport;
+  private final FdoProvider fdoProvider;
 
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.ccToolchain =
         Preconditions.checkNotNull(
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
-    this.fdoSupport =
-        Preconditions.checkNotNull(
-            CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
+    this.fdoProvider = ccToolchain.getFdoProvider();
   }
 
   /**
@@ -206,33 +198,41 @@ public final class CcCommon {
       throws EvalException {
     RuleContext context = skylarkRuleContext.getRuleContext();
     Rule rule = context.getRule();
+
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label != null
-        && WHITELISTED_PACKAGES
-            .stream()
-            .noneMatch(path -> label.getPackageFragment().startsWith(path))) {
-      throwWhiteListError(rule.getLocation(), label.getPackageFragment().toString());
+    try {
+      if (label != null) {
+        checkLocationWhitelisted(
+            context.getAnalysisEnvironment().getSkylarkSemantics(),
+            rule.getLocation(),
+            label.getPackageFragment().toString());
+      }
+    } catch (InterruptedException e) {
+      throw new EvalException(rule.getLocation(), e);
     }
   }
 
-  public static void checkLocationWhitelisted(Location location) throws EvalException {
-    String bzlPath = location.getPath().toString();
-    if (WHITELISTED_PACKAGES.stream().noneMatch(path -> bzlPath.contains(path.toString()))) {
-      throwWhiteListError(location, bzlPath);
+  public static void checkLocationWhitelisted(
+      SkylarkSemantics semantics, Location location, String callPath) throws EvalException {
+    List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
+    if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
+      throwWhiteListError(location, callPath, whitelistedPackagesList);
     }
   }
 
-  private static void throwWhiteListError(Location location, String bzlPath) throws EvalException {
-    String whitelistedPackages =
-        WHITELISTED_PACKAGES.stream().map(p -> p.toString()).collect(Collectors.joining(", "));
+  private static void throwWhiteListError(
+      Location location, String callPath, List<String> whitelistedPackagesList)
+      throws EvalException {
+    String whitelistedPackages = whitelistedPackagesList.stream().collect(Collectors.joining(", "));
     throw new EvalException(
         location,
         String.format(
-            "the C++ Skylark API is for the time being only allowed for rules in in '//%s/...'; "
-                + "but this is defined in '//%s'. Contact blaze-rules@google.com for more "
-                + "information.",
-            whitelistedPackages, bzlPath));
+            "the C++ Skylark API is for the time being only allowed for rules in '%s'; "
+                + "but this is defined in '%s'. You can try it out by passing "
+                + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that "
+                + "we will be making breaking changes to this API without prior warning.",
+            whitelistedPackages, callPath));
   }
 
   /**
@@ -244,12 +244,6 @@ public final class CcCommon {
     Iterable<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
     List<String> result;
     if (ourLinkopts != null) {
-      boolean allowDashStatic =
-          !cppConfiguration.forceIgnoreDashStatic()
-              && (CppHelper.getDynamicMode(cppConfiguration, ccToolchain) != DynamicMode.FULLY);
-      if (!allowDashStatic) {
-        ourLinkopts = Iterables.filter(ourLinkopts, (v) -> !"-static".equals(v));
-      }
       result = CppHelper.expandLinkopts(ruleContext, "linkopts", ourLinkopts);
     } else {
       result = ImmutableList.of();
@@ -301,25 +295,12 @@ public final class CcCommon {
       deps.add(CppHelper.mallocForTarget(ruleContext));
     }
 
-    return compilationOutputs == null // Possible in LIPO collection mode (see initializationHook).
-        ? DwoArtifactsCollector.emptyCollector()
-        : DwoArtifactsCollector.transitiveCollector(
-            compilationOutputs,
-            deps.build(),
-            generateDwo,
-            ltoBackendArtifactsUsePic,
-            ltoBackendArtifacts);
-  }
-
-  public TransitiveLipoInfoProvider collectTransitiveLipoLabels(CcCompilationOutputs outputs) {
-    if (fdoSupport.getFdoSupport().getFdoRoot() == null
-        || !cppConfiguration.isLipoContextCollector()) {
-      return TransitiveLipoInfoProvider.EMPTY;
-    }
-
-    NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();
-    CppHelper.addTransitiveLipoInfoForCommonAttributes(ruleContext, outputs, scannableBuilder);
-    return new TransitiveLipoInfoProvider(scannableBuilder.build());
+    return DwoArtifactsCollector.transitiveCollector(
+        compilationOutputs,
+        deps.build(),
+        generateDwo,
+        ltoBackendArtifactsUsePic,
+        ltoBackendArtifacts);
   }
 
   /**
@@ -427,8 +408,8 @@ public final class CcCommon {
   /**
    * Returns the C++ FDO optimization support provider.
    */
-  public FdoSupportProvider getFdoSupport() {
-    return fdoSupport;
+  public FdoProvider getFdoProvider() {
+    return fdoProvider;
   }
 
   /**
@@ -586,37 +567,28 @@ public final class CcCommon {
 
   /**
    * Determines a list of loose include directories that are only allowed to be referenced when
-   * headers checking is {@link HeadersCheckingMode#LOOSE} or {@link HeadersCheckingMode#WARN}.
+   * headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
-  List<PathFragment> getLooseIncludeDirs() {
-    List<PathFragment> result = new ArrayList<>();
+  Set<PathFragment> getLooseIncludeDirs() {
+    ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
     // The package directory of the rule contributes includes. Note that this also covers all
     // non-subpackage sub-directories.
     PathFragment rulePackage = ruleContext.getLabel().getPackageIdentifier()
         .getPathUnderExecRoot();
     result.add(rulePackage);
 
-    // Gather up all the dirs from the rule's srcs as well as any of the srcs outputs.
-    if (hasAttribute("srcs", BuildType.LABEL_LIST)) {
-      for (TransitiveInfoCollection src :
-          ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
-        PathFragment packageDir = src.getLabel().getPackageIdentifier().getPathUnderExecRoot();
-        for (Artifact a : src.getProvider(FileProvider.class).getFilesToBuild()) {
-          result.add(packageDir);
-          // Attempt to gather subdirectories that might contain include files.
-          result.add(a.getRootRelativePath().getParentDirectory());
-        }
-      }
-    }
-
-    // Add in any 'includes' attribute values as relative path fragments
-    if (ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
-      PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier()
-          .getPathUnderExecRoot();
+    if (ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CppOptions.class)
+            .experimentalIncludesAttributeSubpackageTraversal
+        && ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
+      PathFragment packageFragment =
+          ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot();
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
     }
-    return result;
+    return result.build();
   }
 
   List<PathFragment> getSystemIncludeDirs() {
@@ -729,13 +701,14 @@ public final class CcCommon {
    */
   public InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files,
       boolean withBaselineCoverage) {
-    return cppConfiguration.isLipoContextCollector()
-        ? InstrumentedFilesProviderImpl.EMPTY
-        : InstrumentedFilesCollector.collect(
-            ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files,
-            CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
-            CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
-            withBaselineCoverage);
+    return InstrumentedFilesCollector.collect(
+        ruleContext,
+        CppRuleClasses.INSTRUMENTATION_SPEC,
+        CC_METADATA_COLLECTOR,
+        files,
+        CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
+        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
+        withBaselineCoverage);
   }
 
   public static ImmutableList<String> getCoverageFeatures(CcToolchainProvider toolchain) {
@@ -839,7 +812,6 @@ public final class CcCommon {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
-      unsupportedFeaturesBuilder.add(CppRuleClasses.PREPROCESS_HEADERS);
     }
     if (toolchain.getCcCompilationInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
@@ -919,16 +891,6 @@ public final class CcCommon {
     }
     if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
-    }
-    if (cppConfiguration.isLipoOptimizationOrInstrumentation()) {
-      // Map LIPO to ThinLTO for LLVM builds.
-      if (toolchain.isLLVMCompiler() && fdoMode != FdoMode.OFF) {
-        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
-          allFeatures.add(CppRuleClasses.THIN_LTO);
-        }
-      } else {
-        allFeatures.add(CppRuleClasses.LIPO);
-      }
     }
 
     for (String feature : allFeatures.build()) {

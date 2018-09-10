@@ -32,30 +32,27 @@
 
 namespace blaze_util {
 
-using std::basic_string;
-using std::pair;
-using std::string;
-using std::unique_ptr;
-using std::wstring;
 using bazel::windows::AutoHandle;
 using bazel::windows::GetLongPath;
 using bazel::windows::HasUncPrefix;
 using bazel::windows::OpenDirectory;
-
-
+using std::basic_string;
+using std::pair;
+using std::string;
+using std::unique_ptr;
+using std::vector;
+using std::wstring;
 
 // Returns true if `path` refers to a directory or (non-dangling) junction.
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
 // necessary.
-static bool IsDirectoryW(const wstring& path);
+bool IsDirectoryW(const wstring& path);
 
 // Returns true the file or junction at `path` is successfully deleted.
 // Returns false otherwise, or if `path` doesn't exist or is a directory.
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
 // necessary.
 static bool UnlinkPathW(const wstring& path);
-
-static bool MakeDirectoriesW(const wstring& path);
 
 static bool CanReadFileW(const wstring& path);
 
@@ -109,111 +106,74 @@ class WindowsFileMtime : public IFileMtime {
   WindowsFileMtime()
       : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
 
-  bool GetIfInDistantFuture(const string& path, bool* result) override;
+  bool IsUntampered(const string& path) override;
   bool SetToNow(const string& path) override;
   bool SetToDistantFuture(const string& path) override;
 
  private:
-  // 1 year in FILETIME.
-  static const ULARGE_INTEGER kOneYear;
   // 9 years in the future.
   const FILETIME near_future_;
   // 10 years in the future.
   const FILETIME distant_future_;
 
-  static ULARGE_INTEGER&& OneYearDelay();
-  static const FILETIME GetNow();
-  static const FILETIME GetFuture(WORD years);
-  static bool Set(const string& path, const FILETIME& time);
+  static FILETIME GetNow();
+  static FILETIME GetFuture(WORD years);
+  static bool Set(const string& path, FILETIME time);
 };
 
-const ULARGE_INTEGER WindowsFileMtime::kOneYear =
-    std::move(WindowsFileMtime::OneYearDelay());
-
-ULARGE_INTEGER&& WindowsFileMtime::OneYearDelay() {
-  SYSTEMTIME now;
-  GetSystemTime(&now);
-  now.wMonth = 1;
-  now.wDayOfWeek = 0;
-  now.wDay = 1;
-  now.wHour = 0;
-  now.wMinute = 0;
-  now.wSecond = 0;
-  now.wMilliseconds = 0;
-
-  FILETIME now_ft;
-  if (!::SystemTimeToFileTime(&now, &now_ft)) {
-    string err = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::OneYearDelay: SystemTimeToFileTime 1 failed: "
-        << err;
-  }
-  ULARGE_INTEGER t1;
-  t1.LowPart = now_ft.dwLowDateTime;
-  t1.HighPart = now_ft.dwHighDateTime;
-
-  now.wYear++;
-  if (!::SystemTimeToFileTime(&now, &now_ft)) {
-    string err = GetLastErrorString();
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::OneYearDelay: SystemTimeToFileTime 2 failed: "
-        << err;
-  }
-  ULARGE_INTEGER t2;
-  t2.LowPart = now_ft.dwLowDateTime;
-  t2.HighPart = now_ft.dwHighDateTime;
-
-  t2.QuadPart -= t1.QuadPart;
-  return std::move(t2);
-}
-
-bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
-  if (path.empty()) {
+bool WindowsFileMtime::IsUntampered(const string& path) {
+  if (path.empty() || IsDevNull(path.c_str())) {
     return false;
   }
-  if (IsDevNull(path.c_str())) {
-    *result = false;
-    return true;
-  }
+
   wstring wpath;
   string error;
   if (!AsAbsoluteWindowsPath(path, &wpath, &error)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "WindowsFileMtime::GetIfInDistantFuture(" << path
+        << "WindowsFileMtime::IsUntampered(" << path
         << "): AsAbsoluteWindowsPath failed: " << error;
   }
 
-  AutoHandle handle(::CreateFileW(
+  // Get attributes, to check if the file exists. (It may still be a dangling
+  // junction.)
+  DWORD attrs = GetFileAttributesW(wpath.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+
+  bool is_directory = attrs & FILE_ATTRIBUTE_DIRECTORY;
+  AutoHandle handle(CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */
-      IsDirectoryW(wpath)
-          ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
-          : FILE_ATTRIBUTE_NORMAL,
+      // Per CreateFile's documentation on MSDN, opening directories requires
+      // the FILE_FLAG_BACKUP_SEMANTICS flag.
+      is_directory ? FILE_FLAG_BACKUP_SEMANTICS : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
+
   if (!handle.IsValid()) {
     return false;
   }
-  FILETIME mtime;
-  if (!::GetFileTime(
-          /* hFile */ handle,
-          /* lpCreationTime */ NULL,
-          /* lpLastAccessTime */ NULL,
-          /* lpLastWriteTime */ &mtime)) {
-    return false;
-  }
 
-  // Compare the mtime with `near_future_`, not with `GetNow()` or
-  // `distant_future_`.
-  // This way we don't need to call GetNow() every time we want to compare (and
-  // thus convert a SYSTEMTIME to FILETIME), and we also don't need to worry
-  // about potentially unreliable FILETIME equality check (in case it uses
-  // floats or something crazy).
-  *result = CompareFileTime(&near_future_, &mtime) == -1;
-  return true;
+  if (is_directory) {
+    return true;
+  } else {
+    BY_HANDLE_FILE_INFORMATION info;
+    if (!GetFileInformationByHandle(handle, &info)) {
+      return false;
+    }
+
+    // Compare the mtime with `near_future_`, not with `GetNow()` or
+    // `distant_future_`.
+    // This way we don't need to call GetNow() every time we want to compare
+    // (and thus convert a SYSTEMTIME to FILETIME), and we also don't need to
+    // worry about potentially unreliable FILETIME equality check (in case it
+    // uses floats or something crazy).
+    return CompareFileTime(&near_future_, &info.ftLastWriteTime) == -1;
+  }
 }
 
 bool WindowsFileMtime::SetToNow(const string& path) {
@@ -224,7 +184,7 @@ bool WindowsFileMtime::SetToDistantFuture(const string& path) {
   return Set(path, distant_future_);
 }
 
-bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
+bool WindowsFileMtime::Set(const string& path, FILETIME time) {
   if (path.empty()) {
     return false;
   }
@@ -258,20 +218,23 @@ bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
              /* lpLastWriteTime */ &time) == TRUE;
 }
 
-const FILETIME WindowsFileMtime::GetNow() {
+FILETIME WindowsFileMtime::GetNow() {
   FILETIME now;
   GetSystemTimeAsFileTime(&now);
   return now;
 }
 
-const FILETIME WindowsFileMtime::GetFuture(WORD years) {
+FILETIME WindowsFileMtime::GetFuture(WORD years) {
   FILETIME result;
   GetSystemTimeAsFileTime(&result);
+
+  // 1 year in FILETIME.
+  constexpr ULONGLONG kOneYear = 365ULL * 24 * 60 * 60 * 10'000'000;
 
   ULARGE_INTEGER result_value;
   result_value.LowPart = result.dwLowDateTime;
   result_value.HighPart = result.dwHighDateTime;
-  result_value.QuadPart += kOneYear.QuadPart * years;
+  result_value.QuadPart += kOneYear * years;
   result.dwLowDateTime = result_value.LowPart;
   result.dwHighDateTime = result_value.HighPart;
   return result;
@@ -586,6 +549,99 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
   return Resolve(path, result, kMaximumJunctionDepth);
 }
 
+class SymlinkResolver {
+ public:
+  SymlinkResolver();
+
+  // Resolves symlink to its actual path.
+  //
+  // Returns true if `path` is not a symlink and it exists.
+  // Returns true if `path` is a symlink and can be successfully resolved.
+  // Returns false otherwise.
+  //
+  // If `result` is not nullptr and the method returned true, then this will be
+  // reset to point to a new WCHAR buffer containing the resolved path.
+  // If `path` is a symlink, this will be the resolved path, otherwise
+  // it will be a copy of `path`.
+  bool Resolve(const WCHAR* path, std::unique_ptr<WCHAR[]>* result);
+
+ private:
+  // Symbolic Link Reparse Data Buffer is described at:
+  // https://msdn.microsoft.com/en-us/library/cc232006.aspx
+  typedef struct _ReparseSymbolicLinkData {
+    static const int kSize = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
+    ULONG ReparseTag;
+    USHORT ReparseDataLength;
+    USHORT Reserved;
+    USHORT SubstituteNameOffset;
+    USHORT SubstituteNameLength;
+    USHORT PrintNameOffset;
+    USHORT PrintNameLength;
+    ULONG Flags;
+    WCHAR PathBuffer[1];
+  } ReparseSymbolicLinkData;
+
+  uint8_t reparse_buffer_bytes_[ReparseSymbolicLinkData::kSize];
+  ReparseSymbolicLinkData* reparse_buffer_;
+};
+
+SymlinkResolver::SymlinkResolver()
+    : reparse_buffer_(
+          reinterpret_cast<ReparseSymbolicLinkData*>(reparse_buffer_bytes_)) {}
+
+bool SymlinkResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
+  DWORD attributes = ::GetFileAttributesW(path);
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    // `path` does not exist.
+    return false;
+  } else {
+    if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+      bool is_dir = attributes & FILE_ATTRIBUTE_DIRECTORY;
+      AutoHandle handle(
+          CreateFileW(path, FILE_READ_EA,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                      NULL, OPEN_EXISTING,
+                      (is_dir ? FILE_FLAG_BACKUP_SEMANTICS : 0) |
+                          FILE_FLAG_OPEN_REPARSE_POINT,
+                      NULL));
+      if (!handle.IsValid()) {
+        // Opening the symlink failed for whatever reason. For all intents and
+        // purposes we can treat this file as if it didn't exist.
+        return false;
+      }
+      // Read out the reparse point data.
+      DWORD bytes_returned;
+      BOOL ok = ::DeviceIoControl(
+          handle, FSCTL_GET_REPARSE_POINT, NULL, 0, reparse_buffer_,
+          MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned, NULL);
+      if (!ok) {
+        // Reading the symlink data failed. For all intents and purposes we can
+        // treat this file as if it didn't exist.
+        return false;
+      }
+      if (reparse_buffer_->ReparseTag == IO_REPARSE_TAG_SYMLINK) {
+        if (result) {
+          size_t len = reparse_buffer_->SubstituteNameLength / sizeof(WCHAR);
+          result->reset(new WCHAR[len + 1]);
+          const WCHAR* substituteName =
+              reparse_buffer_->PathBuffer +
+              (reparse_buffer_->SubstituteNameOffset / sizeof(WCHAR));
+          wcsncpy_s(result->get(), len + 1, substituteName, len);
+          result->get()[len] = UNICODE_NULL;
+        }
+        return true;
+      }
+    }
+  }
+  // `path` is a normal file or directory.
+  if (result) {
+    size_t len = wcslen(path) + 1;
+    result->reset(new WCHAR[len]);
+    memcpy(result->get(), path, len * sizeof(WCHAR));
+  }
+  return true;
+}
+
 bool ReadDirectorySymlink(const string& name, string* result) {
   wstring wname;
   string error;
@@ -600,6 +656,23 @@ bool ReadDirectorySymlink(const string& name, string* result) {
     return false;
   }
   *result = WstringToCstring(RemoveUncPrefixMaybe(result_ptr.get())).get();
+  return true;
+}
+
+bool ReadSymlinkW(const wstring& name, wstring* result) {
+  wstring wname;
+  string error;
+  if (!AsAbsoluteWindowsPath(name, &wname, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ReadSymlinkW(" << name
+        << "): AsAbsoluteWindowsPath failed: " << error;
+    return false;
+  }
+  unique_ptr<WCHAR[]> result_ptr;
+  if (!SymlinkResolver().Resolve(wname.c_str(), &result_ptr)) {
+    return false;
+  }
+  *result = RemoveUncPrefixMaybe(result_ptr.get());
   return true;
 }
 
@@ -813,7 +886,7 @@ bool CanAccessDirectory(const std::string& path) {
   return true;
 }
 
-static bool IsDirectoryW(const wstring& path) {
+bool IsDirectoryW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
   return (attrs != INVALID_FILE_ATTRIBUTES) &&
          (attrs & FILE_ATTRIBUTE_DIRECTORY) &&
@@ -840,7 +913,7 @@ void SyncFile(const string& path) {
   // fsync always fails on Cygwin with "Permission denied" for some reason.
 }
 
-static bool MakeDirectoriesW(const wstring& path) {
+bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
   if (path.empty()) {
     return false;
   }
@@ -855,7 +928,7 @@ static bool MakeDirectoriesW(const wstring& path) {
         << "MakeDirectoriesW(" << blaze_util::WstringToString(path)
         << ") could not find dirname: " << GetLastErrorString();
   }
-  return MakeDirectoriesW(parent) &&
+  return MakeDirectoriesW(parent, mode) &&
          ::CreateDirectoryW(path.c_str(), NULL) == TRUE;
 }
 
@@ -875,20 +948,39 @@ bool MakeDirectories(const string& path, unsigned int mode) {
         << "): AsAbsoluteWindowsPath failed: " << error;
     return false;
   }
-  return MakeDirectoriesW(wpath);
+  return MakeDirectoriesW(wpath, mode);
+}
+
+static inline void ToLowerW(WCHAR* p) {
+  while (*p) {
+    *p++ = towlower(*p);
+  }
 }
 
 std::wstring GetCwdW() {
-  DWORD len = ::GetCurrentDirectoryW(0, nullptr);
-  unique_ptr<WCHAR[]> cwd(new WCHAR[len]);
-  if (!::GetCurrentDirectoryW(len, cwd.get())) {
+  static constexpr size_t kBufSmall = MAX_PATH;
+  WCHAR buf[kBufSmall];
+  DWORD len = GetCurrentDirectoryW(kBufSmall, buf);
+  if (len == 0) {
+    DWORD err = GetLastError();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "GetCurrentDirectoryW failed: " << GetLastErrorString();
+        << "GetCurrentDirectoryW failed (error " << err << ")";
   }
-  for (WCHAR* p = cwd.get(); *p != 0; ++p) {
-    *p = towlower(*p);
+
+  if (len < kBufSmall) {
+    ToLowerW(buf);
+    return std::wstring(buf);
   }
-  return std::wstring(cwd.get());
+
+  unique_ptr<WCHAR[]> buf_big(new WCHAR[len]);
+  len = GetCurrentDirectoryW(len, buf_big.get());
+  if (len == 0) {
+    DWORD err = GetLastError();
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "GetCurrentDirectoryW failed (error " << err << ")";
+  }
+  ToLowerW(buf_big.get());
+  return std::wstring(buf_big.get());
 }
 
 string GetCwd() {
@@ -904,6 +996,79 @@ bool ChangeDirectory(const string& path) {
         << "ChangeDirectory(" << path << "): failed: " << error;
   }
   return ::SetCurrentDirectoryA(spath.c_str()) == TRUE;
+}
+
+class DirectoryTreeWalkerW : public DirectoryEntryConsumerW {
+ public:
+  DirectoryTreeWalkerW(vector<wstring>* files,
+                       _ForEachDirectoryEntryW walk_entries)
+      : _files(files), _walk_entries(walk_entries) {}
+
+  void Consume(const wstring& path, bool follow_directory) override {
+    if (follow_directory) {
+      Walk(path);
+    } else {
+      _files->push_back(path);
+    }
+  }
+
+  void Walk(const wstring& path) { _walk_entries(path, this); }
+
+ private:
+  vector<wstring>* _files;
+  _ForEachDirectoryEntryW _walk_entries;
+};
+
+void ForEachDirectoryEntryW(const wstring& path,
+                            DirectoryEntryConsumerW* consume) {
+  wstring wpath;
+  if (path.empty() || IsDevNull(path.c_str())) {
+    return;
+  }
+  string error;
+  if (!AsWindowsPath(path, &wpath, &error)) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "ForEachDirectoryEntryW(" << path
+        << "): AsWindowsPath failed: " << GetLastErrorString();
+  }
+
+  static const wstring kUncPrefix(L"\\\\?\\");
+  static const wstring kDot(L".");
+  static const wstring kDotDot(L"..");
+  // Always add an UNC prefix to ensure we can work with long paths.
+  if (!HasUncPrefix(wpath.c_str())) {
+    wpath = kUncPrefix + wpath;
+  }
+  // Unconditionally add a trailing backslash. We know `wpath` has no trailing
+  // backslash because it comes from AsWindowsPath whose output is always
+  // normalized (see NormalizeWindowsPath).
+  wpath.append(L"\\");
+  WIN32_FIND_DATAW metadata;
+  HANDLE handle = ::FindFirstFileW((wpath + L"*").c_str(), &metadata);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return;  // directory does not exist or is empty
+  }
+
+  do {
+    if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
+      wstring wname = wpath + metadata.cFileName;
+      wstring name(/* omit prefix */ 4 + wname.c_str());
+      bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+      bool is_junc =
+          (metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+      consume->Consume(name, is_dir && !is_junc);
+    }
+  } while (::FindNextFileW(handle, &metadata));
+  ::FindClose(handle);
+}
+
+void GetAllFilesUnderW(const wstring& path, vector<wstring>* result) {
+  _GetAllFilesUnderW(path, result, &ForEachDirectoryEntryW);
+}
+
+void _GetAllFilesUnderW(const wstring& path, vector<wstring>* result,
+                        _ForEachDirectoryEntryW walk_entries) {
+  DirectoryTreeWalkerW(result, walk_entries).Walk(path);
 }
 
 void ForEachDirectoryEntry(const string &path,

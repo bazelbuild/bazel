@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
@@ -48,8 +48,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.Printer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -62,7 +60,13 @@ import javax.annotation.Nullable;
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
-  private static final String ACTIONS_FIELD_NAME = "actions";
+  /**
+   * The name of the key for the 'actions' synthesized provider.
+   *
+   * <p>If you respond to this key you are expected to return a list of actions belonging to this
+   * configured target.
+   */
+  public static final String ACTIONS_FIELD_NAME = "actions";
 
   /**
    * The configuration transition for an attribute through which a prerequisite
@@ -86,11 +90,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private static final Interner<ImmutableSet<ConfiguredTargetKey>> IMPLICIT_DEPS_INTERNER =
       BlazeInterners.newWeakInterner();
 
-  private boolean actionsAccessible = true;
   private final TransitiveInfoProviderMap providers;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final String ruleClassString;
-  private final ArrayList<ActionAnalysisMetadata> actions;
+  private final ImmutableList<ActionAnalysisMetadata> actions;
   private final ImmutableMap<Artifact, Integer> generatingActionIndex;
 
   @Instantiator
@@ -103,7 +106,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
       String ruleClassString,
-      List<ActionAnalysisMetadata> actions,
+      ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex) {
     super(label, configurationKey, visibility);
 
@@ -127,14 +130,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this.configConditions = configConditions;
     this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(implicitDeps);
     this.ruleClassString = ruleClassString;
-    this.actions = new ArrayList<>(actions);
+    this.actions = actions;
     this.generatingActionIndex = generatingActionIndex;
   }
 
   public RuleConfiguredTarget(
       RuleContext ruleContext,
       TransitiveInfoProviderMap providers,
-      List<? extends ActionAnalysisMetadata> actions,
+      ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Artifact, Integer> generatingActionIndex) {
     this(
         ruleContext.getLabel(),
@@ -144,7 +147,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClass(),
-        (List<ActionAnalysisMetadata>) actions,
+        actions,
         generatingActionIndex);
 
     // If this rule is the run_under target, then check that we have an executable; note that
@@ -208,14 +211,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
     return providers.getProvider(providerKey);
   }
 
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
     if (providerKey.equals(ACTIONS_FIELD_NAME)) {
-      return actionsAccessible ? actions : ImmutableList.of();
+      return actions;
     }
     return providers.getProvider(providerKey);
   }
@@ -243,7 +246,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /** Returns a list of actions that this configured target generated. */
-  public ArrayList<ActionAnalysisMetadata> getActions() {
+  public ImmutableList<ActionAnalysisMetadata> getActions() {
     return actions;
   }
 
@@ -253,10 +256,5 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
    */
   public ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
     return generatingActionIndex;
-  }
-
-  /** Disables accessing actions via a provider skylark interface. */
-  public void disableAcccesibleActions() {
-    this.actionsAccessible = false;
   }
 }

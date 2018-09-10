@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -57,6 +58,17 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     this.spawnRunner = spawnRunner;
   }
 
+  /**
+   * Get's the {@link SpawnRunner} that this {@link AbstractSpawnStrategy} uses to actually run
+   * spawns.
+   *
+   * <p>This is considered a stop-gap until we refactor the entire SpawnStrategy / SpawnRunner
+   * mechanism to no longer need Spawn strategies.
+   */
+  public SpawnRunner getSpawnRunner() {
+    return spawnRunner;
+  }
+
   @Override
   public List<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
@@ -69,9 +81,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    if (actionExecutionContext.reportsSubcommands()) {
-      actionExecutionContext.reportSubcommand(spawn);
-    }
+    actionExecutionContext.maybeReportSubcommand(spawn);
+
     final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionContext context =
         new SpawnExecutionContextImpl(spawn, actionExecutionContext, writeOutputFiles, timeout);
@@ -112,7 +123,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getMetadataProvider(),
-            context.getInputMapping(),
+            context.getInputMapping(true),
             context.getTimeout(),
             spawnResult);
       } catch (IOException e) {
@@ -172,10 +183,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public void prefetchInputs() throws IOException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        // TODO(philwo): Benchmark whether using an ExecutionService to do multiple operations in
-        // parallel speeds up prefetching of inputs.
-        // TODO(philwo): Do we have to expand middleman artifacts here?
-        actionExecutionContext.getActionInputPrefetcher().prefetchFiles(getInputMapping().values());
+        actionExecutionContext
+            .getActionInputPrefetcher()
+            .prefetchFiles(getInputMapping(true).values());
       }
     }
 
@@ -187,6 +197,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     @Override
     public ArtifactExpander getArtifactExpander() {
       return actionExecutionContext.getArtifactExpander();
+    }
+
+    @Override
+    public ArtifactPathResolver getPathResolver() {
+      return actionExecutionContext.getPathResolver();
     }
 
     @Override
@@ -215,13 +230,16 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        boolean expandTreeArtifactsInRunfiles) throws IOException {
       if (lazyInputMapping == null) {
         lazyInputMapping =
             spawnInputExpander.getInputMapping(
                 spawn,
                 actionExecutionContext.getArtifactExpander(),
-                actionExecutionContext.getMetadataProvider());
+                actionExecutionContext.getPathResolver(),
+                actionExecutionContext.getMetadataProvider(),
+                expandTreeArtifactsInRunfiles);
       }
       return lazyInputMapping;
     }
@@ -230,6 +248,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnActionConte
     public void report(ProgressStatus state, String name) {
       ActionExecutionMetadata action = spawn.getResourceOwner();
       if (action.getOwner() == null) {
+        return;
+      }
+
+      // TODO(djasper): This should not happen as per the contract of ActionExecutionMetadata, but
+      // there are implementations that violate the contract. Remove when those are gone.
+      if (action.getPrimaryOutput() == null) {
         return;
       }
 

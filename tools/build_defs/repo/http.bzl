@@ -35,15 +35,9 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_bu
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if not ctx.attr.url and not ctx.attr.urls:
-        ctx.fail("At least of of url and urls must be provided")
+        fail("At least one of url and urls must be provided")
     if ctx.attr.build_file and ctx.attr.build_file_content:
-        ctx.fail("Only one of build_file and build_file_content can be provided.")
-
-    if ctx.attr.build_file:
-        print("ctx.attr.build_file %s, path %s" %
-              (str(ctx.attr.build_file), ctx.path(ctx.attr.build_file)))
-    for patchfile in ctx.attr.patches:
-        print("patch file %s, path %s" % (patchfile, ctx.path(patchfile)))
+        fail("Only one of build_file and build_file_content can be provided.")
 
     all_urls = []
     if ctx.attr.urls:
@@ -66,20 +60,33 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "file",
-    srcs = ["downloaded"],
+    srcs = ["{}"],
 )
 """
 
 def _http_file_impl(ctx):
     """Implementation of the http_file rule."""
+    repo_root = ctx.path(".")
+    forbidden_files = [
+        repo_root,
+        ctx.path("WORKSPACE"),
+        ctx.path("BUILD"),
+        ctx.path("BUILD.bazel"),
+        ctx.path("file/BUILD"),
+        ctx.path("file/BUILD.bazel"),
+    ]
+    downloaded_file_path = ctx.attr.downloaded_file_path
+    download_path = ctx.path("file/" + downloaded_file_path)
+    if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
+        fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
     ctx.download(
         ctx.attr.urls,
-        "file/downloaded",
+        "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("file/BUILD", _HTTP_FILE_BUILD)
+    ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
 
 _HTTP_JAR_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -115,13 +122,13 @@ _http_archive_attrs = {
     "sha256": attr.string(),
     "strip_prefix": attr.string(),
     "type": attr.string(),
-    "build_file": attr.label(),
+    "build_file": attr.label(allow_single_file = True),
     "build_file_content": attr.string(),
     "patches": attr.label_list(default = []),
     "patch_tool": attr.string(default = "patch"),
     "patch_args": attr.string_list(default = ["-p0"]),
     "patch_cmds": attr.string_list(default = []),
-    "workspace_file": attr.label(),
+    "workspace_file": attr.label(allow_single_file = True),
     "workspace_file_content": attr.string(),
 }
 
@@ -179,10 +186,10 @@ Args:
 
     Either `build_file` or `build_file_content` can be specified.
 
-    This attribute is a label relative to the main workspace. The file does not
-    need to be named `BUILD`, but can be (something like `BUILD.new-repo-name`
-    may work well for distinguishing it from the repository's actual `BUILD`
-    files.
+    This attribute is an absolute label (use '@//' for the main repo). The file
+    does not need to be named `BUILD`, but can be (something like
+    `BUILD.new-repo-name` may work well for distinguishing it from the
+    repository's actual `BUILD` files.
 
   build_file_content: The content for the BUILD file for this repository.
 
@@ -227,7 +234,7 @@ Args:
     `"tar.xz"`, or `tar.bz2`.
   url: A URL to a file that will be made available to Bazel.
 
-    This must be an file, http or https URL. Redirections are followed.
+    This must be a file, http or https URL. Redirections are followed.
     Authentication is not supported.
 
     This parameter is to simplify the transition from the native http_archive
@@ -235,7 +242,7 @@ Args:
     to specify alternative URLs to fetch from.
   urls: A list of URLs to a file that will be made available to Bazel.
 
-    Each entry must be an file, http or https URL. Redirections are followed.
+    Each entry must be a file, http or https URL. Redirections are followed.
     Authentication is not supported.
   patches: A list of files that are to be applied as patches after extracting
     the archive.
@@ -248,6 +255,7 @@ http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = {
         "executable": attr.bool(),
+        "downloaded_file_path": attr.string(default = "downloaded"),
         "sha256": attr.string(),
         "urls": attr.string_list(mandatory = True),
     },
@@ -274,6 +282,7 @@ Args:
   name: A unique name for this rule.
   executable: If the downloaded file should be made executable. Defaults to
     False.
+  downloaded_file_path: Path assigned to the file downloaded.
   sha256: The expected SHA-256 of the file downloaded.
 
     This must match the SHA-256 of the file downloaded. _It is a security risk
@@ -282,7 +291,7 @@ Args:
     easier but should be set before shipping.
   urls: A list of URLs to a file that will be made available to Bazel.
 
-    Each entry must be an file, http or https URL. Redirections are followed.
+    Each entry must be a file, http or https URL. Redirections are followed.
     Authentication is not supported.
 """
 
@@ -315,6 +324,11 @@ Examples:
   ```
 
   Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
+
+  You may also reference files on the current system (localhost) by using "file:///path/to/file"
+  if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
+  examples, note the three slashes (`/`) -- the first two slashes belong to `file://` and the third
+  one belongs to the absolute path to the file.
 
 
 Args:

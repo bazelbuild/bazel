@@ -1,0 +1,74 @@
+<a name="#my_rule"></a>
+## my_rule
+
+<pre>
+my_rule(name, deps, extra_arguments, out, src, tool)
+</pre>
+
+This rule exercises some of the build API.
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#my_rule_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="#my_rule_deps">
+      <td><code>deps</code></td>
+      <td>
+        List of labels; optional
+        <p>
+          A list of dependencies.
+These dependencies better provide MyInfo!
+...or else.
+        </p>
+      </td>
+    </tr>
+    <tr id="#my_rule_extra_arguments">
+      <td><code>extra_arguments</code></td>
+      <td>
+        List of strings; optional
+      </td>
+    </tr>
+    <tr id="#my_rule_out">
+      <td><code>out</code></td>
+      <td>
+        Label; required
+        <p>
+          The output file.
+        </p>
+      </td>
+    </tr>
+    <tr id="#my_rule_src">
+      <td><code>src</code></td>
+      <td>
+        Label; optional
+        <p>
+          The source file.
+        </p>
+      </td>
+    </tr>
+    <tr id="#my_rule_tool">
+      <td><code>tool</code></td>
+      <td>
+        Label; optional
+        <p>
+          The location of the tool to use.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

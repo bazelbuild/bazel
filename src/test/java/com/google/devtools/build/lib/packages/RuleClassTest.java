@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -120,7 +119,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         attr("my-label-attr", LABEL)
             .mandatory()
             .legacyAllowAnyFileType()
-            .value(Label.parseAbsolute("//default:label"))
+            .value(Label.parseAbsolute("//default:label", ImmutableMap.of()))
             .build(),
         attr("my-labellist-attr", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
         attr("my-integer-attr", INTEGER).value(42).build(),
@@ -189,7 +188,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     // default based on type
     assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
     assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
-        .isEqualTo(Label.parseAbsolute("//default:label"));
+        .isEqualTo(Label.parseAbsolute("//default:label", ImmutableMap.of()));
     assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
     assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(42);
     // default explicitly specified
@@ -1040,13 +1039,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST));
 
     ruleClassBuilder.addRequiredToolchains(
-        Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+        Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of()),
+        Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getRequiredToolchains())
         .containsExactly(
-            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"));
+            Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of()),
+            Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of()));
   }
 
   @Test
@@ -1058,13 +1059,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE);
 
     ruleClassBuilder.addExecutionPlatformConstraints(
-        Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+        Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
+        Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
+            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
     assertThat(ruleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 
@@ -1092,7 +1095,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST))
             .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE)
             .addExecutionPlatformConstraints(
-                Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"))
+                Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
+                Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()))
             .build();
 
     RuleClass childRuleClass =
@@ -1102,7 +1106,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
+            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 
@@ -1118,13 +1123,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_RULE)
             .addExecutionPlatformConstraints(
-                Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+                Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
+                Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
 
     RuleClass childRuleClass = childRuleClassBuilder.build();
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1"), Label.parseAbsolute("//constraints:cv2"));
+            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
+            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 
@@ -1191,7 +1198,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(childRuleClass.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_RULE);
-    assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isFalse();
   }
 
   @Test
@@ -1212,20 +1218,5 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(childRuleClass.executionPlatformConstraintsAllowed())
         .isEqualTo(ExecutionPlatformConstraintsAllowed.PER_TARGET);
     assertThat(childRuleClass.hasAttr("exec_compatible_with", LABEL_LIST)).isTrue();
-  }
-
-  @Test
-  public void testExecutionPlatformConstraints_extraExecCompatibleWithAttribute() {
-    RuleClass.Builder ruleClassBuilder =
-        new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
-            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .add(attr("tags", STRING_LIST));
-
-    ruleClassBuilder.add(
-        attr("exec_compatible_with", LABEL_LIST).allowedFileTypes().value(ImmutableList.of()));
-    ruleClassBuilder.executionPlatformConstraintsAllowed(
-        ExecutionPlatformConstraintsAllowed.PER_TARGET);
-
-    assertThrows(IllegalStateException.class, () -> ruleClassBuilder.build());
   }
 }

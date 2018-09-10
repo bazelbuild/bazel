@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -123,7 +124,9 @@ public class WorkerModule extends BlazeModule {
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (workerPoolConfig != null && !workerPoolConfig.equals(newConfig)) {
-      shutdownPool("Worker configuration has changed, restarting worker pool...");
+      shutdownPool(
+          "Worker configuration has changed, restarting worker pool...",
+          /* alwaysLog= */ true);
     }
 
     if (workerPool == null) {
@@ -143,7 +146,10 @@ public class WorkerModule extends BlazeModule {
             workerPool,
             extraFlags,
             env.getReporter(),
-            createFallbackRunner(env));
+            createFallbackRunner(env),
+            env.getOptions()
+                .getOptions(SandboxOptions.class)
+                .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
     builder.addActionContext(new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner));
 
     builder.addStrategyByContext(SpawnActionContext.class, "standalone");
@@ -183,10 +189,15 @@ public class WorkerModule extends BlazeModule {
 
   /** Shuts down the worker pool and sets {#code workerPool} to null. */
   private void shutdownPool(String reason) {
+    shutdownPool(reason, /* alwaysLog= */ false);
+  }
+
+  /** Shuts down the worker pool and sets {#code workerPool} to null. */
+  private void shutdownPool(String reason, boolean alwaysLog) {
     Preconditions.checkArgument(!reason.isEmpty());
 
     if (workerPool != null) {
-      if (options != null && options.workerVerbose) {
+      if ((options != null && options.workerVerbose) || alwaysLog) {
         env.getReporter().handle(Event.info(reason));
       }
       workerPool.close();

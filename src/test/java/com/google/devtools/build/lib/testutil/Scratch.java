@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -133,9 +134,9 @@ public final class Scratch {
   }
 
   public String readFile(String pathName) throws IOException {
-    return new String(
-        ByteStreams.toByteArray(resolve(pathName).getInputStream()),
-        DEFAULT_CHARSET);
+    try (InputStream in = resolve(pathName).getInputStream()) {
+      return new String(ByteStreams.toByteArray(in), DEFAULT_CHARSET);
+    }
   }
 
   /** Like {@code scratch.file}, but the lines are added to the end if the file already exists. */

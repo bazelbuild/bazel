@@ -119,6 +119,25 @@ public class AssetDependencies {
       return AndroidAssetsInfo.empty(assets.getLabel());
     }
 
+    NestedSet<ParsedAndroidAssets> updatedTransitiveParsedAssets =
+        NestedSetBuilder.<ParsedAndroidAssets>naiveLinkOrder()
+            .addTransitive(transitiveParsedAssets)
+            .addTransitive(directParsedAssets)
+            .build();
+
+    if (assets.getAssets().isEmpty()) {
+      return AndroidAssetsInfo.of(
+          assets.getLabel(),
+          // Even though no new assets were added, we should still make merging output available so
+          // callers can ensure validation succeeded.
+          assets.getMergedAssets(),
+          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+          updatedTransitiveParsedAssets,
+          transitiveAssets,
+          transitiveSymbols,
+          transitiveCompiledSymbols);
+    }
+
     // Create a new object to avoid passing around unwanted merge information to the provider
     ParsedAndroidAssets parsedAssets = new ParsedAndroidAssets(assets);
 
@@ -133,10 +152,7 @@ public class AssetDependencies {
         assets.getLabel(),
         assets.getMergedAssets(),
         NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, parsedAssets),
-        NestedSetBuilder.<ParsedAndroidAssets>naiveLinkOrder()
-            .addTransitive(transitiveParsedAssets)
-            .addTransitive(directParsedAssets)
-            .build(),
+        updatedTransitiveParsedAssets,
         NestedSetBuilder.<Artifact>naiveLinkOrder()
             .addTransitive(transitiveAssets)
             .addAll(assets.getAssets())

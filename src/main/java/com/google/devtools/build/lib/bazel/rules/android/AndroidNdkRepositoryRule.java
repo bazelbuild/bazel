@@ -84,6 +84,11 @@ code. NDK versions 10 up to 16 are currently supported.
 <p>Note that building for Android also requires an <code>android_sdk_repository</code> rule in your
 <code>WORKSPACE</code> file.
 
+<p>
+For more information, read the <a href="https://docs.bazel.build/versions/master/android-ndk.html">
+full documentation on using Android NDK with Bazel</a>.
+</p>
+
 <h4 id="android_ndk_repository_examples">Examples</h4>
 
 <pre class="code">

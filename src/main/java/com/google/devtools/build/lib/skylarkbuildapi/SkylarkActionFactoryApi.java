@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -343,12 +342,19 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             named = true,
             positional = false,
             doc =
-                "Command line arguments of the action. "
-                    + "Must be a list of strings or "
-                    + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects.<br>"
-                    + "Blaze passes the elements in this attribute as arguments to the command."
-                    + "The command can access these arguments as <code>$1</code>, <code>$2</code>, "
-                    + "etc."),
+                "Command line arguments of the action. Must be a list of strings or "
+                    + "<a href=\"actions.html#args\"><code>actions.args()</code></a> objects."
+                    + ""
+                    + "<p>Bazel passes the elements in this attribute as arguments to the command."
+                    + "The command can access these arguments using shell variable substitutions "
+                    + "such as <code>$1</code>, <code>$2</code>, etc. Note that since Args "
+                    + "objects are flattened before indexing, if there is an Args object of "
+                    + "unknown size then all subsequent strings will be at unpredictable indices. "
+                    + "It may be useful to use <code>$@</code> (to retrieve all arguments) in "
+                    + "conjunction with Args objects of indeterminate size."
+                    + ""
+                    + "<p>In the case where <code>command</code> is a list of strings, this "
+                    + "parameter may not be used."),
         @Param(
             name = "mnemonic",
             type = String.class,
@@ -363,22 +369,32 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = SkylarkList.class, generic1 = String.class),
-              @ParamType(type = Runtime.NoneType.class),
             },
             named = true,
             positional = false,
             doc =
-                "Shell command to execute.<br><br>"
-                    + "<b>Passing a sequence of strings to this attribute is deprecated and Blaze"
-                    + "may "
-                    + "stop accepting such values in the future.</b><br><br>"
-                    + "The command can access the elements of the <code>arguments</code> object "
-                    + "via "
-                    + "<code>$1</code>, <code>$2</code>, etc.<br>"
-                    + "When this argument is a string, it must be a valid shell command. For "
-                    + "example: "
-                    + "\"<code>echo foo > $1</code>\". Blaze uses the same shell to execute the "
-                    + "command as it does for genrules."),
+                "Shell command to execute. This may either be a string (preferred) or a sequence "
+                    + "of strings <b>(deprecated)</b>."
+                    + ""
+                    + "<p>If <code>command</code> is a string, then it is executed as if by "
+                    + "<code>sh -c &lt;command&gt; \"\" &lt;arguments&gt;</code> -- that is, the "
+                    + "elements in <code>arguments</code> are made available to the command as "
+                    + "<code>$1</code>, <code>$2</code>, etc. If <code>arguments</code> contains "
+                    + "any <a href=\"actions.html#args\"><code>actions.args()</code></a> objects, "
+                    + "their contents are appended one by one to the command line, so "
+                    + "<code>$</code><i>i</i> can refer to individual strings within an Args "
+                    + "object. Note that if an Args object of unknown size is passed as part of "
+                    + "<code>arguments</code>, then the strings will be at unknown indices; in "
+                    + "this case the <code>$@</code> shell substitution (retrieve all arguments) "
+                    + "may be useful."
+                    + ""
+                    + "<p><b>(Deprecated)</b> If <code>command</code> is a sequence of strings, "
+                    + "the first item is the executable to run and the remaining items are its "
+                    + "arguments. If this form is used, the <code>arguments</code> parameter must "
+                    + "not be supplied."
+                    + ""
+                    + "<p>Bazel uses the same shell to execute the command as it does for "
+                    + "genrules."),
         @Param(
             name = "progress_message",
             type = String.class,
@@ -450,8 +466,9 @@ public interface SkylarkActionFactoryApi extends SkylarkValue {
       doc =
           "Creates a template expansion action. When the action is executed, it will "
               + "generate a file based on a template. Parts of the template will be replaced "
-              + "using the <code>substitutions</code> dictionary. Whenever a key of the "
-              + "dictionary appears in the template, it is replaced with the associated value. "
+              + "using the <code>substitutions</code> dictionary, in the order the substitutions "
+              + "are specified. Whenever a key of the dictionary appears in the template (or a "
+              + "result of a previous substitution), it is replaced with the associated value. "
               + "There is no special syntax for the keys. You may, for example, use curly braces "
               + "to avoid conflicts (for example, <code>{KEY}</code>). "
               + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/"

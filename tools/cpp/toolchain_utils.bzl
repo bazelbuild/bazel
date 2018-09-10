@@ -33,6 +33,8 @@ def find_cpp_toolchain(ctx):
     Returns:
       A CcToolchainProvider.
     """
+    if not hasattr(ctx.attr, "_cc_toolchain"):
+        fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
 
     if Label("@bazel_tools//tools/cpp:toolchain_type") in ctx.fragments.platform.enabled_toolchain_types:
         return ctx.toolchains["@bazel_tools//tools/cpp:toolchain_type"]

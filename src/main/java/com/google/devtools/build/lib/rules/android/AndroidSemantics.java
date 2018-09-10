@@ -35,21 +35,10 @@ import java.util.Optional;
  * to keep state.
  */
 public interface AndroidSemantics {
-  /**
-   * Returns the manifest to be used when compiling a given rule.
-   *
-   * @throws InterruptedException
-   */
-  default ApplicationManifest getManifestForRule(RuleContext ruleContext)
-      throws InterruptedException, RuleErrorException {
-    Artifact rawManifest = ApplicationManifest.getManifestFromAttributes(ruleContext);
-    return ApplicationManifest.fromExplicitManifest(
-        ruleContext, renameManifest(makeContextForNative(ruleContext), rawManifest));
-  }
 
-  default Artifact renameManifest(AndroidDataContext dataContext, Artifact rawManifest)
-      throws InterruptedException {
-    return ApplicationManifest.renameManifestIfNeeded(dataContext, rawManifest);
+  default AndroidManifest renameManifest(
+      AndroidDataContext dataContext, AndroidManifest rawManifest) throws InterruptedException {
+    return rawManifest.renameManifestIfNeeded(dataContext);
   }
 
   default Optional<Artifact> maybeDoLegacyManifestMerging(

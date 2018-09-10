@@ -30,12 +30,13 @@ static const int MAX_ARG_STRLEN = 7000;
 class JavaBinaryLauncher : public BinaryLauncherBase {
  public:
   JavaBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info, int argc,
-                     char* argv[])
+                     wchar_t* argv[])
       : BinaryLauncherBase(launch_info, argc, argv),
         singlejar(false),
         print_javabin(false),
         classpath_limit(MAX_ARG_STRLEN) {}
-  ExitCode Launch();
+  ~JavaBinaryLauncher() override = default;
+  ExitCode Launch() override;
 
  private:
   // If present, these flags should either be at the beginning of the command
@@ -68,19 +69,19 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   //                       classpath jar.
   //
   // The remainder of the command line is passed to the program.
-  bool ProcessWrapperArgument(const std::string& argument);
+  bool ProcessWrapperArgument(const std::wstring& argument);
 
   // Parse arguments sequentially until the first unrecognized arg is
   // encountered. Scan the remaining args for --wrapper_script_flag=X options
   // and process them.
   //
   // Return the remaining arguments that should be passed to the program.
-  std::vector<std::string> ProcessesCommandLine();
+  std::vector<std::wstring> ProcessesCommandLine();
 
-  std::string jvm_debug_port;
-  std::string main_advice;
-  std::string main_advice_classpath;
-  std::vector<std::string> jvm_flags_cmdline;
+  std::wstring jvm_debug_port;
+  std::wstring main_advice;
+  std::wstring main_advice_classpath;
+  std::vector<std::wstring> jvm_flags_cmdline;
   bool singlejar;
   bool print_javabin;
   int classpath_limit;
@@ -89,11 +90,11 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   // limit.
   //
   // Return the path of the classpath jar created.
-  std::string CreateClasspathJar(const std::string& classpath);
+  std::wstring CreateClasspathJar(const std::wstring& classpath);
 
   // Creat a directory based on the binary path, all the junctions will be
   // generated under this directory.
-  std::string GetJunctionBaseDir();
+  std::wstring GetJunctionBaseDir();
 
   // Delete all the junction directory and all the junctions under it.
   void DeleteJunctionBaseDir();

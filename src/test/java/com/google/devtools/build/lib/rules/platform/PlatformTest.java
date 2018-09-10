@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -34,36 +33,6 @@ import org.junit.runners.JUnit4;
 public class PlatformTest extends BuildViewTestCase {
 
   @Rule public ExpectedException expectedException = ExpectedException.none();
-
-  @Before
-  public void createPlatform() throws Exception {
-    scratch.file(
-        "constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        "    )",
-        "platform(name = 'plat1',",
-        "    constraint_values = [",
-        "       ':foo',",
-        "    ])");
-  }
-
-  @Test
-  public void testPlatform() throws Exception {
-    ConfiguredTarget platform = getConfiguredTarget("//constraint:plat1");
-    assertThat(platform).isNotNull();
-
-    PlatformInfo provider = PlatformProviderUtils.platform(platform);
-    assertThat(provider).isNotNull();
-    assertThat(provider.constraints()).hasSize(1);
-    ConstraintSettingInfo constraintSetting =
-        ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintValueInfo constraintValue =
-        ConstraintValueInfo.create(constraintSetting, makeLabel("//constraint:foo"));
-    assertThat(provider.constraints()).containsExactly(constraintValue);
-    assertThat(provider.remoteExecutionProperties()).isEmpty();
-  }
 
   @Test
   public void testPlatform_autoconfig() throws Exception {
@@ -100,10 +69,10 @@ public class PlatformTest extends BuildViewTestCase {
     ConstraintSettingInfo cpuConstraint =
         ConstraintSettingInfo.create(makeLabel("//autoconfig:cpu"));
     ConstraintSettingInfo osConstraint = ConstraintSettingInfo.create(makeLabel("//autoconfig:os"));
-    assertThat(hostPlatformProvider.constraints())
-        .containsExactly(
-            ConstraintValueInfo.create(cpuConstraint, makeLabel("//autoconfig:x86_32")),
-            ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
+    assertThat(hostPlatformProvider.constraints().get(cpuConstraint))
+        .isEqualTo(ConstraintValueInfo.create(cpuConstraint, makeLabel("//autoconfig:x86_32")));
+    assertThat(hostPlatformProvider.constraints().get(osConstraint))
+        .isEqualTo(ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
 
     // Check the target platform.
     ConfiguredTarget targetPlatform = getConfiguredTarget("//autoconfig:target_platform");
@@ -113,46 +82,25 @@ public class PlatformTest extends BuildViewTestCase {
     assertThat(targetPlatformProvider).isNotNull();
 
     // Check the CPU and OS.
-    assertThat(targetPlatformProvider.constraints())
-        .containsExactly(
-            ConstraintValueInfo.create(cpuConstraint, makeLabel("//autoconfig:x86_64")),
-            ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
+    assertThat(targetPlatformProvider.constraints().get(cpuConstraint))
+        .isEqualTo(ConstraintValueInfo.create(cpuConstraint, makeLabel("//autoconfig:x86_64")));
+    assertThat(targetPlatformProvider.constraints().get(osConstraint))
+        .isEqualTo(ConstraintValueInfo.create(osConstraint, makeLabel("//autoconfig:linux")));
   }
 
   @Test
-  public void testPlatform_overlappingConstraintValueError() throws Exception {
-    checkError(
-        "constraint/overlap",
-        "plat_overlap",
-        "Duplicate constraint_values detected: "
-            + "constraint_setting //constraint:basic has "
-            + "[//constraint:foo, //constraint/overlap:bar]",
-        "constraint_value(name = 'bar',",
-        "    constraint_setting = '//constraint:basic',",
-        "    )",
-        "platform(name = 'plat_overlap',",
-        "    constraint_values = [",
-        "       '//constraint:foo',",
-        "       ':bar',",
-        "    ])");
-  }
+  public void hostPlatformRemoteProperties_fromFlag() throws Exception {
+    useConfiguration("--host_platform_remote_properties_override='flag properties'");
 
-  @Test
-  public void testPlatform_remoteExecution() throws Exception {
     scratch.file(
-        "constraint/remote/BUILD",
-        "platform(name = 'plat_remote',",
-        "    constraint_values = [",
-        "       '//constraint:foo',",
-        "    ],",
-        "    remote_execution_properties = 'foo: val1',",
-        ")");
+        "autoconfig/BUILD", "platform(name = 'host_platform',", "    host_platform = True,", ")");
 
-    ConfiguredTarget platform = getConfiguredTarget("//constraint/remote:plat_remote");
-    assertThat(platform).isNotNull();
+    // Check the host platform.
+    ConfiguredTarget hostPlatform = getConfiguredTarget("//autoconfig:host_platform");
+    assertThat(hostPlatform).isNotNull();
 
-    PlatformInfo provider = PlatformProviderUtils.platform(platform);
-    assertThat(provider).isNotNull();
-    assertThat(provider.remoteExecutionProperties()).isEqualTo("foo: val1");
+    PlatformInfo hostPlatformProvider = PlatformProviderUtils.platform(hostPlatform);
+    assertThat(hostPlatformProvider).isNotNull();
+    assertThat(hostPlatformProvider.remoteExecutionProperties()).isEqualTo("'flag properties'");
   }
 }

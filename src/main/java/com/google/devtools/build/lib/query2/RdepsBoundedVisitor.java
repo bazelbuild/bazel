@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
@@ -29,6 +27,7 @@ import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdep;
 import com.google.devtools.build.lib.query2.ParallelSkyQueryUtils.DepAndRdepAtDepth;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -129,13 +128,10 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
     }
 
     Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
-        env.makePackageKeyToTargetKeyMap(Iterables.concat(reverseDepMultimap.values()));
+        SkyQueryEnvironment.makePackageKeyToTargetKeyMap(
+            Iterables.concat(reverseDepMultimap.values()));
     Set<PackageIdentifier> pkgIdsNeededForTargetification =
-        packageKeyToTargetKeyMap
-            .keySet()
-            .stream()
-            .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
-            .collect(toImmutableSet());
+        SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
     packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
 
     try {
@@ -211,7 +207,7 @@ class RdepsBoundedVisitor extends AbstractEdgeVisitor<DepAndRdepAtDepth> {
 
   @Override
   protected ImmutableList<DepAndRdepAtDepth> getUniqueValues(
-      Iterable<DepAndRdepAtDepth> depAndRdepAtDepths) {
+      Iterable<DepAndRdepAtDepth> depAndRdepAtDepths) throws QueryException {
     // See the comment in RdepsUnboundedVisitor#getUniqueValues.
     return depAndRdepAtDepthUniquifier.unique(
         Iterables.filter(

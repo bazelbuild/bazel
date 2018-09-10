@@ -35,9 +35,21 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
       name = "create_java_lite_proto_compile_action",
       // This function is experimental for now.
       documented = false,
-      // There's 2 mandatory positional arguments, the Skylark context and the ConfiguredTarget.
-      mandatoryPositionals = 2,
       parameters = {
+          @Param(
+              name = "ctx",
+              positional = true,
+              named = false,
+              type = SkylarkRuleContextApi.class,
+              doc = "The rule context."
+          ),
+          @Param(
+              name = "target",
+              positional = true,
+              named = false,
+              type = TransitiveInfoCollectionApi.class,
+              doc = "The target."
+          ),
           @Param(
               name = "src_jar",
               positional = false,
@@ -70,7 +82,16 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
       name = "has_proto_sources",
       doc = "Returns whether the given proto_library target contains proto sources. If there are no"
           + " sources it means that the proto_library is an alias library, which exports its"
-          + " dependencies."
+          + " dependencies.",
+      parameters = {
+        @Param(
+            name = "target",
+            positional = true,
+            named = false,
+            type = TransitiveInfoCollectionApi.class,
+            doc = "The proto_library target."
+        ),
+      }
   )
   public boolean hasProtoSources(TransitiveInfoCollectionT target);
 
@@ -78,9 +99,14 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
     name = "toolchain_deps",
     // This function is experimental for now.
     documented = false,
-    // There's only one mandatory positional,the Skylark context
-    mandatoryPositionals = 1,
     parameters = {
+      @Param(
+          name = "ctx",
+          positional = true,
+          named = false,
+          type = SkylarkRuleContextApi.class,
+          doc = "The rule context."
+      ),
       @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
     }
   )
@@ -91,9 +117,14 @@ public interface JavaProtoCommonApi<FileT extends FileApi,
     name = "javac_opts",
     // This function is experimental for now.
     documented = false,
-    // There's only one mandatory positional,the Skylark context
-    mandatoryPositionals = 1,
     parameters = {
+      @Param(
+          name = "ctx",
+          positional = true,
+          named = false,
+          type = SkylarkRuleContextApi.class,
+          doc = "The rule context."
+      ),
       @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
     }
   )

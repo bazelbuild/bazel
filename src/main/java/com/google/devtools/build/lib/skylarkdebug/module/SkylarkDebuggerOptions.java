@@ -34,11 +34,20 @@ public final class SkylarkDebuggerOptions extends OptionsBase {
   public boolean debugSkylark;
 
   @Option(
-      name = "experimental_debug_server_port",
+      name = "experimental_skylark_debug_server_port",
       defaultValue = "7300",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "The port on which the Skylark debug server will listen for connections.")
   public int debugServerPort;
+
+  @Option(
+      name = "experimental_skylark_debug_verbose_logging",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Show verbose logs for the debugger.")
+  public boolean verboseLogs;
 }

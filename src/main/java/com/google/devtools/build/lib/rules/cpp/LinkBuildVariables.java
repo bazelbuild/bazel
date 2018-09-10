@@ -75,10 +75,6 @@ public enum LinkBuildVariables {
   FORCE_PIC("force_pic"),
   /** Presence of this variable indicates that the debug symbols should be stripped. */
   STRIP_DEBUG_SYMBOLS("strip_debug_symbols"),
-  @Deprecated
-  IS_CC_TEST_LINK_ACTION("is_cc_test_link_action"),
-  @Deprecated
-  IS_NOT_CC_TEST_LINK_ACTION("is_not_cc_test_link_action"),
   /** Truthy when current action is a cc_test linking action, falsey otherwise. */
   IS_CC_TEST("is_cc_test"),
   /**
@@ -116,14 +112,16 @@ public enum LinkBuildVariables {
       String interfaceLibraryOutput,
       PathFragment ltoOutputRootPrefix,
       String defFile,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       Iterable<String> runtimeLibrarySearchDirectories,
       SequenceBuilder librariesToLink,
       Iterable<String> librarySearchDirectories,
       boolean isLegacyFullyStaticLinkingMode,
-      boolean isStaticLinkingMode)
+      boolean isStaticLinkingMode,
+      boolean addIfsoRelatedVariables)
       throws EvalException {
-    CcToolchainVariables.Builder buildVariables = new CcToolchainVariables.Builder();
+    CcToolchainVariables.Builder buildVariables =
+        new CcToolchainVariables.Builder(ccToolchainProvider.getBuildVariables());
 
     // symbol counting
     if (symbolCounts != null) {
@@ -147,10 +145,8 @@ public enum LinkBuildVariables {
 
     if (useTestOnlyFlags) {
       buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-      buildVariables.addStringVariable(IS_CC_TEST_LINK_ACTION.getVariableName(), "");
     } else {
       buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
-      buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION.getVariableName(), "");
     }
 
     if (runtimeLibrarySearchDirectories != null) {
@@ -160,8 +156,6 @@ public enum LinkBuildVariables {
 
     if (librariesToLink != null) {
       buildVariables.addCustomBuiltVariable(LIBRARIES_TO_LINK.getVariableName(), librariesToLink);
-      // TODO(b/72803478): Remove once existing crosstools have been migrated
-      buildVariables.addStringVariable("libs_to_link_dont_emit_objects_for_archiver", "");
     }
 
     buildVariables.addStringSequenceVariable(
@@ -214,30 +208,33 @@ public enum LinkBuildVariables {
         buildVariables.addStringVariable(THINLTO_PARAM_FILE.getVariableName(), thinltoParamFile);
       }
     }
-    boolean shouldGenerateInterfaceLibrary =
-        outputFile != null
-            && interfaceLibraryBuilder != null
-            && interfaceLibraryOutput != null
-            && !isLtoIndexing;
-    buildVariables.addStringVariable(
-        GENERATE_INTERFACE_LIBRARY.getVariableName(),
-        shouldGenerateInterfaceLibrary ? "yes" : "no");
-    buildVariables.addStringVariable(
-        INTERFACE_LIBRARY_BUILDER.getVariableName(),
-        shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder : "ignored");
-    buildVariables.addStringVariable(
-        INTERFACE_LIBRARY_INPUT.getVariableName(),
-        shouldGenerateInterfaceLibrary ? outputFile : "ignored");
-    buildVariables.addStringVariable(
-        INTERFACE_LIBRARY_OUTPUT.getVariableName(),
-        shouldGenerateInterfaceLibrary ? interfaceLibraryOutput : "ignored");
+
+    if (addIfsoRelatedVariables) {
+      boolean shouldGenerateInterfaceLibrary =
+          outputFile != null
+              && interfaceLibraryBuilder != null
+              && interfaceLibraryOutput != null
+              && !isLtoIndexing;
+      buildVariables.addStringVariable(
+          GENERATE_INTERFACE_LIBRARY.getVariableName(),
+          shouldGenerateInterfaceLibrary ? "yes" : "no");
+      buildVariables.addStringVariable(
+          INTERFACE_LIBRARY_BUILDER.getVariableName(),
+          shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder : "ignored");
+      buildVariables.addStringVariable(
+          INTERFACE_LIBRARY_INPUT.getVariableName(),
+          shouldGenerateInterfaceLibrary ? outputFile : "ignored");
+      buildVariables.addStringVariable(
+          INTERFACE_LIBRARY_OUTPUT.getVariableName(),
+          shouldGenerateInterfaceLibrary ? interfaceLibraryOutput : "ignored");
+    }
 
     if (defFile != null) {
       buildVariables.addStringVariable(DEF_FILE_PATH.getVariableName(), defFile);
     }
 
-    if (fdoSupport != null) {
-      fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      buildVariables.addStringVariable("fdo_instrument_path", fdoProvider.getFdoInstrument());
     }
 
     Iterable<String> userLinkFlagsWithLtoIndexingIfNeeded;
@@ -326,7 +323,9 @@ public enum LinkBuildVariables {
       result.addAll(ccToolchainProvider.getTestOnlyLinkOptions());
     }
 
-    result.addAll(ccToolchainProvider.getLinkOptions());
+    if (!cppConfiguration.enableLinkoptsInUserLinkFlags()) {
+      result.addAll(ccToolchainProvider.getLinkOptions());
+    }
 
     // -pie is not compatible with shared and should be
     // removed when the latter is part of the link command. Should we need to further

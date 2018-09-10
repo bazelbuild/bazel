@@ -22,19 +22,15 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Strategy;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import javax.annotation.Nullable;
 
 /** Configuration fragment for android_local_test. */
-@AutoCodec
 @Immutable
 public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
   /** android_local_test specific options */
-  @AutoCodec(strategy = Strategy.PUBLIC_FIELDS)
   public static final class Options extends FragmentOptions {
     @Option(
       name = "experimental_android_local_test_binary_resources",
@@ -53,9 +49,7 @@ public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "If enabled, android_local_test rules are subject to the same validation "
-                + "as other Android and Java rules.")
+        help = "This attribute is deprecated and has no effect.")
     public boolean androidLocalTestUsesJavaRuleValidation;
   }
 
@@ -84,25 +78,12 @@ public class AndroidLocalTestConfiguration extends BuildConfiguration.Fragment {
   }
 
   private final boolean androidLocalTestBinaryResources;
-  private final boolean androidLocalTestUsesJavaRuleValidation;
 
-  AndroidLocalTestConfiguration(Options options) {
+  private AndroidLocalTestConfiguration(Options options) {
     this.androidLocalTestBinaryResources = options.androidLocalTestBinaryResources;
-    this.androidLocalTestUsesJavaRuleValidation = options.androidLocalTestUsesJavaRuleValidation;
-  }
-
-  @AutoCodec.Instantiator
-  AndroidLocalTestConfiguration(
-      boolean androidLocalTestBinaryResources, boolean androidLocalTestUsesJavaRuleValidation) {
-    this.androidLocalTestBinaryResources = androidLocalTestBinaryResources;
-    this.androidLocalTestUsesJavaRuleValidation = androidLocalTestUsesJavaRuleValidation;
   }
 
   public boolean useAndroidLocalTestBinaryResources() {
     return this.androidLocalTestBinaryResources;
-  }
-
-  public boolean androidLocalTestUsesJavaRuleValidation() {
-    return androidLocalTestUsesJavaRuleValidation;
   }
 }

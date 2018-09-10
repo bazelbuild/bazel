@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc.
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,6 +83,35 @@ message QuotaFailure {
   }
 
   // Describes all quota violations.
+  repeated Violation violations = 1;
+}
+
+// Describes what preconditions have failed.
+//
+// For example, if an RPC failed because it required the Terms of Service to be
+// acknowledged, it could list the terms of service violation in the
+// PreconditionFailure message.
+message PreconditionFailure {
+  // A message type used to describe a single precondition failure.
+  message Violation {
+    // The type of PreconditionFailure. We recommend using a service-specific
+    // enum type to define the supported precondition violation types. For
+    // example, "TOS" for "Terms of Service violation".
+    string type = 1;
+
+    // The subject, relative to the type, that failed.
+    // For example, "google.com/cloud" relative to the "TOS" type would
+    // indicate which terms of service is being referenced.
+    string subject = 2;
+
+    // A description of how the precondition failed. Developers can use this
+    // description to understand how to fix the failure.
+    //
+    // For example: "Terms of service not accepted".
+    string description = 3;
+  }
+
+  // Describes all precondition violations.
   repeated Violation violations = 1;
 }
 

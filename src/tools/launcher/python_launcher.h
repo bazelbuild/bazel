@@ -23,9 +23,10 @@ namespace launcher {
 class PythonBinaryLauncher : public BinaryLauncherBase {
  public:
   PythonBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,
-                       int argc, char* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv){}
-  ExitCode Launch();
+                       int argc, wchar_t* argv[])
+      : BinaryLauncherBase(launch_info, argc, argv) {}
+  ~PythonBinaryLauncher() override = default;
+  ExitCode Launch() override;
 };
 
 }  // namespace launcher

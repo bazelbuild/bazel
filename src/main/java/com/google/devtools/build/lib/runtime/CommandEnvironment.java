@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -37,16 +36,16 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.build.lib.skyframe.OutputService;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.Collections;
@@ -80,7 +79,7 @@ public final class CommandEnvironment {
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
-  private final OptionsProvider options;
+  private final OptionsParsingResult options;
 
   private String[] crashData;
 
@@ -97,9 +96,7 @@ public final class CommandEnvironment {
     public Path getFileFromWorkspace(Label label)
         throws NoSuchThingException, InterruptedException, IOException {
       Target target = getPackageManager().getTarget(reporter, label);
-      return (outputService != null)
-          ? outputService.stageTool(target)
-          : target.getPackage().getPackageDirectory().getRelative(target.getName());
+      return target.getPackage().getPackageDirectory().getRelative(target.getName());
     }
 
     @Override
@@ -126,7 +123,7 @@ public final class CommandEnvironment {
       EventBus eventBus,
       Thread commandThread,
       Command command,
-      OptionsProvider options,
+      OptionsParsingResult options,
       List<String> warnings) {
     this.runtime = runtime;
     this.workspace = workspace;
@@ -232,7 +229,7 @@ public final class CommandEnvironment {
     return command.name();
   }
 
-  public OptionsProvider getOptions() {
+  public OptionsParsingResult getOptions() {
     return options;
   }
 
@@ -517,7 +514,7 @@ public final class CommandEnvironment {
    *
    * @see DefaultsPackage
    */
-  public void setupPackageCache(OptionsClassProvider options,
+  public void setupPackageCache(OptionsProvider options,
       String defaultsPackageContents) throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .sync(
@@ -564,9 +561,8 @@ public final class CommandEnvironment {
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
   void beforeCommand(
-      OptionsProvider options,
+      OptionsParsingResult options,
       CommonCommandOptions commonOptions,
-      long execStartTimeNanos,
       long waitTimeInMs,
       InvocationPolicy invocationPolicy)
       throws AbruptExitException {
@@ -613,16 +609,14 @@ public final class CommandEnvironment {
     skyframeExecutor.setActive(false);
     // Let skyframe figure out how much incremental state it will be keeping.
     AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
-    BuildRequestOptions requestOptions = options.getOptions(BuildRequestOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
         commonOptions.keepStateAfterBuild, commonOptions.trackIncrementalState,
         viewOptions != null && viewOptions.discardAnalysisCache,
-        requestOptions != null && requestOptions.discardActionsAfterExecution,
         reporter);
 
     // Start the performance and memory profilers.
-    runtime.beforeCommand(this, commonOptions, execStartTimeNanos);
+    runtime.beforeCommand(this, commonOptions);
 
     eventBus.post(new CommandStartEvent(
         command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),

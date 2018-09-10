@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -366,5 +367,52 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
       }
     }
     return null;
+  }
+
+  @Test
+  public void testUserLinkFlags() throws Exception {
+    useConfiguration("--linkopt=-bar", "--noexperimental_linkopts_in_user_link_flags");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'], linkopts = ['-foo'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo");
+    CcToolchainVariables testVariables =
+        getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    ImmutableList<String> userLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+    assertThat(userLinkFlags).contains("-foo");
+    assertThat(userLinkFlags).doesNotContain("-bar");
+
+    ImmutableList<String> legacyLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName());
+    assertThat(legacyLinkFlags).doesNotContain("-foo");
+    assertThat(legacyLinkFlags).contains("-bar");
+  }
+
+  @Test
+  public void testUserLinkFlagsWithLinkoptOption() throws Exception {
+    useConfiguration("--linkopt=-bar", "--experimental_linkopts_in_user_link_flags");
+
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'], linkopts = ['-foo'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo");
+    CcToolchainVariables testVariables =
+        getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    ImmutableList<String> userLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+    assertThat(userLinkFlags).containsAllOf("-foo", "-bar").inOrder();
+
+    ImmutableList<String> legacyLinkFlags =
+        CcToolchainVariables.toStringList(
+            testVariables, LinkBuildVariables.LEGACY_LINK_FLAGS.getVariableName());
+    assertThat(legacyLinkFlags).doesNotContain("-foo");
+    assertThat(legacyLinkFlags).doesNotContain("-bar");
   }
 }

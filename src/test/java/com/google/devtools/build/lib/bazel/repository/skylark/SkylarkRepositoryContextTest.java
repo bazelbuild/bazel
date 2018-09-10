@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
@@ -88,13 +89,17 @@ public class SkylarkRepositoryContextTest {
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
     HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
+    SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
+    ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
+    Mockito.when(environment.getListener()).thenReturn(listener);
     context =
         new SkylarkRepositoryContext(
             rule,
             outputDirectory,
-            Mockito.mock(SkyFunction.Environment.class),
+            environment,
             ImmutableMap.of("FOO", "BAR"),
-            downloader, new HashMap<String, String>());
+            downloader,
+            new HashMap<String, String>());
   }
 
   protected void setUpContexForRule(String name) throws Exception {
@@ -122,26 +127,26 @@ public class SkylarkRepositoryContextTest {
     scratch.file("/path/bin/def").setExecutable(true);
     scratch.file("/bin/undef");
 
-    assertThat(context.which("anything")).isNull();
-    assertThat(context.which("def")).isNull();
-    assertThat(context.which("undef")).isNull();
-    assertThat(context.which("true").toString()).isEqualTo("/bin/true");
-    assertThat(context.which("false").toString()).isEqualTo("/path/sbin/false");
+    assertThat(context.which("anything", null)).isNull();
+    assertThat(context.which("def", null)).isNull();
+    assertThat(context.which("undef", null)).isNull();
+    assertThat(context.which("true", null).toString()).isEqualTo("/bin/true");
+    assertThat(context.which("false", null).toString()).isEqualTo("/path/sbin/false");
   }
 
   @Test
   public void testFile() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foobar"), "", true);
-    context.createFile(context.path("foo/bar"), "foobar", true);
-    context.createFile(context.path("bar/foo/bar"), "", true);
+    context.createFile(context.path("foobar"), "", true, null);
+    context.createFile(context.path("foo/bar"), "foobar", true, null);
+    context.createFile(context.path("bar/foo/bar"), "", true, null);
 
     testOutputFile(outputDirectory.getChild("foobar"), "");
     testOutputFile(outputDirectory.getRelative("foo/bar"), "foobar");
     testOutputFile(outputDirectory.getRelative("bar/foo/bar"), "");
 
     try {
-      context.createFile(context.path("/absolute"), "", true);
+      context.createFile(context.path("/absolute"), "", true, null);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -150,7 +155,7 @@ public class SkylarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
-      context.createFile(context.path("../somepath"), "", true);
+      context.createFile(context.path("../somepath"), "", true, null);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -159,7 +164,7 @@ public class SkylarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
-      context.createFile(context.path("foo/../../somepath"), "", true);
+      context.createFile(context.path("foo/../../somepath"), "", true, null);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -172,9 +177,9 @@ public class SkylarkRepositoryContextTest {
   @Test
   public void testSymlink() throws Exception {
     setUpContexForRule("test");
-    context.createFile(context.path("foo"), "foobar", true);
+    context.createFile(context.path("foo"), "foobar", true, null);
 
-    context.symlink(context.path("foo"), context.path("bar"));
+    context.symlink(context.path("foo"), context.path("bar"), null);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
     assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));
@@ -182,10 +187,10 @@ public class SkylarkRepositoryContextTest {
 
   private void testOutputFile(Path path, String content) throws IOException {
     assertThat(path.exists()).isTrue();
-    assertThat(
-            CharStreams.toString(
-                new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)))
-        .isEqualTo(content);
+    try (InputStreamReader reader =
+        new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)) {
+      assertThat(CharStreams.toString(reader)).isEqualTo(content);
+    }
   }
 
   @Test

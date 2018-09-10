@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.io.ByteArrayInputStream;
@@ -110,7 +109,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Command cmd =
         new Command(
             new String[] {dockerClient.getPathString(), "info"},
-            ImmutableMap.of(),
+            cmdEnv.getClientEnv(),
             cmdEnv.getExecRoot().getPathFile());
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
@@ -149,6 +148,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final int uid;
   private final int gid;
   private final List<UUID> containersToCleanup;
+  private final CommandEnvironment cmdEnv;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -179,6 +179,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.commandId = cmdEnv.getCommandId().toString();
     this.reporter = cmdEnv.getReporter();
     this.useCustomizedImages = useCustomizedImages;
+    this.cmdEnv = cmdEnv;
     if (OS.getCurrent() == OS.LINUX) {
       this.uid = ProcessUtils.getuid();
       this.gid = ProcessUtils.getgid();
@@ -239,7 +240,9 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
         .setKillDelay(timeoutKillDelay)
-        .setCreateNetworkNamespace(!(allowNetwork || Spawns.requiresNetwork(spawn)))
+        .setCreateNetworkNamespace(
+            !(allowNetwork
+                || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
         .setCommandId(commandId)
         .setUuid(uuid);
     // If uid / gid are -1, we are on an operating system that doesn't require us to set them on the
@@ -259,8 +262,12 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             sandboxPath,
             sandboxExecRoot,
             cmdLine.build(),
-            environment,
-            SandboxHelpers.processInputFiles(spawn, context, execRoot),
+            cmdEnv.getClientEnv(),
+            SandboxHelpers.processInputFiles(
+                spawn,
+                context,
+                execRoot,
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
             outputs,
             ImmutableSet.of());
 
@@ -347,8 +354,11 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private String executeCommand(List<String> cmdLine, InputStream stdIn) throws UserExecException {
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
+
+    // Docker might need the $HOME and $PATH variables in order to be able to use advanced
+    // authentication mechanisms (e.g. for Google Cloud), thus we pass in the client env.
     Command cmd =
-        new Command(cmdLine.toArray(new String[0]), ImmutableMap.of(), execRoot.getPathFile());
+        new Command(cmdLine.toArray(new String[0]), cmdEnv.getClientEnv(), execRoot.getPathFile());
     try {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
@@ -412,7 +422,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     Command cmd =
-        new Command(cmdLine.toArray(new String[0]), ImmutableMap.of(), execRoot.getPathFile());
+        new Command(cmdLine.toArray(new String[0]), cmdEnv.getClientEnv(), execRoot.getPathFile());
 
     try {
       cmd.execute();

@@ -56,7 +56,7 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public abstract class FileStateValue implements SkyValue {
-  public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
+  public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
 
   @AutoCodec
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =

@@ -34,6 +34,17 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 @SkylarkGlobalLibrary
 public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
 
+  static final String PROVIDES_DOC =
+      "A list of providers that the implementation function must return."
+          + ""
+          + "<p>It is an error if the implementation function omits any of the types of providers "
+          + "listed here from its return value. However, the implementation function may return "
+          + "additional providers not listed here."
+          + ""
+          + "<p>Each element of the list is an <code>*Info</code> object returned by "
+          + "<a href='globals.html#provider'><code>provider()</code></a>, except that a legacy "
+          + "provider is represented by its string name instead.";
+
   @SkylarkCallable(
     name = "provider",
     doc =
@@ -261,10 +272,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
         named = true,
         positional = false,
         defaultValue = "[]",
-        doc =
-            "A list of providers this rule is guaranteed to provide. "
-                + "It is an error if a provider is listed here and the rule "
-                + "implementation function does not return it."
+        doc = PROVIDES_DOC
       ),
       @Param(
         name = "execution_platform_constraints_allowed",
@@ -304,7 +312,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
       SkylarkList<?> fragments,
       SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
@@ -378,10 +386,7 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
               type = SkylarkList.class,
               legacyNamed = true,
               defaultValue = "[]",
-              doc =
-                  "A list of providers this aspect is guaranteed to provide. "
-                      + "It is an error if a provider is listed here and the aspect "
-                      + "implementation function does not return it."
+              doc = PROVIDES_DOC
           ),
           @Param(
               name = "fragments",
@@ -429,13 +434,13 @@ public interface SkylarkRuleFunctionsApi<FileApiT extends FileApi> {
   )
   public SkylarkAspectApi aspect(
       BaseFunction implementation,
-      SkylarkList attributeAspects,
+      SkylarkList<?> attributeAspects,
       Object attrs,
-      SkylarkList requiredAspectProvidersArg,
-      SkylarkList providesArg,
-      SkylarkList fragments,
-      SkylarkList hostFragments,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> requiredAspectProvidersArg,
+      SkylarkList<?> providesArg,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
+      SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
       Environment funcallEnv)

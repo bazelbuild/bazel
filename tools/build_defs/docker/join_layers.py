@@ -60,11 +60,11 @@ def _add_top(tar, repositories):
       tar.add_file('top', content=layer_id)
 
 
-def create_image(output, layers, repositories=None):
+def _create_image(tar, layers, repositories=None):
   """Creates a Docker image from a list of layers.
 
   Args:
-    output: the name of the docker image file to create.
+    tar: archive.TarFileWriter object for the docker image file to create.
     layers: the layers (tar files) to join to the image.
     repositories: the repositories two-level dictionary, which is keyed by
                   repo names at the top-level, and tag names at the second
@@ -82,7 +82,6 @@ def create_image(output, layers, repositories=None):
       layers_to_tag[layer_name] = layer_tags
 
   manifests = []
-  tar = archive.TarFileWriter(output)
   for layer in layers:
     tar.add_tar(layer, name_filter=_layer_filter)
     layer_manifests = utils.GetManifestFromTar(layer)
@@ -118,6 +117,20 @@ def create_image(output, layers, repositories=None):
     _add_top(tar, repositories)
     tar.add_file('repositories',
                  content=json.dumps(repositories, sort_keys=True))
+
+
+def create_image(output, layers, repositories=None):
+  """Creates a Docker image from a list of layers.
+
+  Args:
+    output: the name of the docker image file to create.
+    layers: the layers (tar files) to join to the image.
+    repositories: the repositories two-level dictionary, which is keyed by
+                  repo names at the top-level, and tag names at the second
+                  level pointing to layer ids.
+  """
+  with archive.TarFileWriter(output) as tar:
+    _create_image(tar, layers, repositories)
 
 
 def resolve_layer(identifier):

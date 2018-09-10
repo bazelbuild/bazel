@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-java_filetype = FileType([".java"])
-jar_filetype = FileType([".jar"])
-srcjar_filetype = FileType([".jar", ".srcjar"])
+"""Java rules for bootstraping Bazel.
 
-# This is a quick and dirty rule to make Bazel compile itself. It's not
-# production ready.
+
+This is a quick and dirty rule to make Bazel compile itself. It's not production
+ready.
+"""
 
 def java_library_impl(ctx):
     javac_options = ctx.fragments.java.default_javac_flags
@@ -28,8 +28,8 @@ def java_library_impl(ctx):
         compile_time_jars += dep.compile_time_jars
         runtime_jars += dep.runtime_jars
 
-    jars = jar_filetype.filter(ctx.files.jars)
-    neverlink_jars = jar_filetype.filter(ctx.files.neverlink_jars)
+    jars = ctx.files.jars
+    neverlink_jars = ctx.files.neverlink_jars
     compile_time_jars += jars + neverlink_jars
     runtime_jars += jars
     compile_time_jars_list = list(compile_time_jars)  # TODO: This is weird.
@@ -50,15 +50,17 @@ def java_library_impl(ctx):
     cmd = "set -e;rm -rf " + build_output + " " + java_output + " " + javalist_output + "\n"
     cmd += "mkdir " + build_output + " " + java_output + "\n"
     files = " @" + sources_param_file.path
+    java_runtime = ctx.attr._jdk[java_common.JavaRuntimeInfo]
+    jar_path = "%s/bin/jar" % java_runtime.java_home
 
     if ctx.files.srcjars:
         files += " @" + javalist_output
         for file in ctx.files.srcjars:
-            cmd += "%s tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (ctx.file._jar.path, file.path, java_output, javalist_output)
+            cmd += "%s tf %s | grep '\.java$' | sed 's|^|%s/|' >> %s\n" % (jar_path, file.path, java_output, javalist_output)
             cmd += "unzip %s -d %s >/dev/null\n" % (file.path, java_output)
 
     if ctx.files.srcs or ctx.files.srcjars:
-        cmd += ctx.file._javac.path
+        cmd += "%s/bin/javac" % java_runtime.java_home
         cmd += " " + " ".join(javac_options)
         if compile_time_jars:
             cmd += " -classpath '" + cmd_helper.join_paths(ctx.configuration.host_path_separator, compile_time_jars) + "'"
@@ -68,11 +70,11 @@ def java_library_impl(ctx):
     # stick them in the root of the jar.
     for r in ctx.files.resources:
         cmd += "cp %s %s\n" % (r.path, build_output)
-    cmd += (ctx.file._jar.path + " cf " + class_jar.path + " -C " + build_output + " .\n" +
+    cmd += (jar_path + " cf " + class_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
     ctx.action(
         inputs = (sources + compile_time_jars_list + [sources_param_file] +
-                  [ctx.file._jar] + ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
+                  ctx.files._jdk + ctx.files.resources + ctx.files.srcjars),
         outputs = [class_jar],
         mnemonic = "JavacBootstrap",
         command = cmd,
@@ -95,6 +97,8 @@ def java_binary_impl(ctx):
     manifest = ctx.outputs.manifest
     build_output = deploy_jar.path + ".build_output"
     main_class = ctx.attr.main_class
+    java_runtime = ctx.attr._jdk[java_common.JavaRuntimeInfo]
+    jar_path = "%s/bin/jar" % java_runtime.java_home
     ctx.file_action(
         output = manifest,
         content = "Main-Class: " + main_class + "\n",
@@ -105,7 +109,7 @@ def java_binary_impl(ctx):
     cmd = "set -e;rm -rf " + build_output + ";mkdir " + build_output + "\n"
     for jar in library_result.runtime_jars:
         cmd += "unzip -qn " + jar.path + " -d " + build_output + "\n"
-    cmd += (ctx.file._jar.path + " cmf " + manifest.path + " " +
+    cmd += (jar_path + " cmf " + manifest.path + " " +
             deploy_jar.path + " -C " + build_output + " .\n" +
             "touch " + build_output + "\n")
 
@@ -138,7 +142,7 @@ def java_binary_impl(ctx):
             "  fi",
             "fi",
             "",
-            "jvm_bin=%s" % (ctx.file._java.path),
+            "jvm_bin=%s" % (ctx.attr._jdk[java_common.JavaRuntimeInfo].java_executable_exec_path),
             "if [[ ! -x ${jvm_bin} ]]; then",
             "  jvm_bin=$(which java)",
             "fi",
@@ -171,8 +175,8 @@ def java_binary_impl(ctx):
 def java_import_impl(ctx):
     # TODO(bazel-team): Why do we need to filter here? The attribute
     # already says only jars are allowed.
-    jars = depset(jar_filetype.filter(ctx.files.jars))
-    neverlink_jars = depset(jar_filetype.filter(ctx.files.neverlink_jars))
+    jars = depset(ctx.files.jars)
+    neverlink_jars = depset(ctx.files.neverlink_jars)
     runfiles = ctx.runfiles(collect_data = True)
     return struct(
         files = jars,
@@ -182,16 +186,16 @@ def java_import_impl(ctx):
     )
 
 java_library_attrs = {
-    "_java": attr.label(default = Label("//tools/jdk:java"), single_file = True),
-    "_javac": attr.label(default = Label("//tools/jdk:javac"), single_file = True),
-    "_jar": attr.label(default = Label("//tools/jdk:jar"), single_file = True),
-    "_jdk": attr.label(default = Label("//tools/jdk:jdk"), allow_files = True),
-    "data": attr.label_list(allow_files = True, cfg = "data"),
+    "_jdk": attr.label(
+        default = Label("//tools/jdk:current_java_runtime"),
+        providers = [java_common.JavaRuntimeInfo],
+    ),
+    "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),
-    "srcs": attr.label_list(allow_files = java_filetype),
-    "jars": attr.label_list(allow_files = jar_filetype),
-    "neverlink_jars": attr.label_list(allow_files = jar_filetype),
-    "srcjars": attr.label_list(allow_files = srcjar_filetype),
+    "srcs": attr.label_list(allow_files = [".java"]),
+    "jars": attr.label_list(allow_files = [".jar"]),
+    "neverlink_jars": attr.label_list(allow_files = [".jar"]),
+    "srcjars": attr.label_list(allow_files = [".jar", ".srcjar"]),
     "deps": attr.label_list(
         allow_files = False,
         providers = ["compile_time_jars", "runtime_jars"],
@@ -266,8 +270,8 @@ java_test = rule(
 java_import = rule(
     java_import_impl,
     attrs = {
-        "jars": attr.label_list(allow_files = jar_filetype),
-        "srcjar": attr.label(allow_files = srcjar_filetype),
-        "neverlink_jars": attr.label_list(allow_files = jar_filetype, default = []),
+        "jars": attr.label_list(allow_files = [".jar"]),
+        "srcjar": attr.label(allow_files = [".jar", ".srcjar"]),
+        "neverlink_jars": attr.label_list(allow_files = [".jar"], default = []),
     },
 )

@@ -29,8 +29,9 @@ load(
 def workspace_and_buildfile(ctx):
     """Utility function for writing WORKSPACE and, if requested, a BUILD file.
 
-    It assumes the paramters name, build_file, and build_file_contents to be
-    present in ctx.attr, the latter two possibly with value None.
+    It assumes the parameters name, build_file, build_file_contents,
+    workspace_file, and workspace_file_content to be
+    present in ctx.attr, the latter four possibly with value None.
 
     Args:
       ctx: The repository context of the repository rule calling this utility
@@ -49,7 +50,7 @@ def workspace_and_buildfile(ctx):
     elif ctx.attr.workspace_file_content:
         bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
         ctx.execute([bash_exe, "-c", "rm -f WORKSPACE"])
-        ctx.file("WORKSPACE", ctx.attr.build_file_content)
+        ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
     else:
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 

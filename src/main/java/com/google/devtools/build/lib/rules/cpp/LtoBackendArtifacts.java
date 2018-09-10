@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -94,7 +95,7 @@ public final class LtoBackendArtifacts {
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       boolean usePic,
       boolean generateDwo,
       List<String> commandLine) {
@@ -111,7 +112,7 @@ public final class LtoBackendArtifacts {
         ruleContext,
         featureConfiguration,
         ccToolchain,
-        fdoSupport,
+        fdoProvider,
         usePic,
         generateDwo,
         configuration,
@@ -129,7 +130,7 @@ public final class LtoBackendArtifacts {
       CppLinkAction.LinkArtifactFactory linkArtifactFactory,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       boolean usePic,
       boolean generateDwo,
       List<String> commandLine) {
@@ -144,7 +145,7 @@ public final class LtoBackendArtifacts {
         ruleContext,
         featureConfiguration,
         ccToolchain,
-        fdoSupport,
+        fdoProvider,
         usePic,
         generateDwo,
         configuration,
@@ -180,7 +181,7 @@ public final class LtoBackendArtifacts {
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       boolean usePic,
       boolean generateDwo,
       BuildConfiguration configuration,
@@ -198,8 +199,7 @@ public final class LtoBackendArtifacts {
       builder.addImportsInfo(bitcodeFiles, imports);
       // Although the imports file is not used by the LTOBackendAction while the action is
       // executing, it is needed during the input discovery phase, and we must list it as an input
-      // to the action // in order for it to be preserved under
-      // --experimental_discard_orphaned_artifacts.
+      // to the action in order for it to be preserved under --discard_orphaned_artifacts.
       builder.addInput(imports);
     }
     if (index != null) {
@@ -231,19 +231,7 @@ public final class LtoBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
-    ProfileArtifacts profileArtifacts =
-        Preconditions.checkNotNull(
-            fdoSupport
-                .getFdoSupport()
-                .buildProfileForLtoBackend(
-                    fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext));
-
-    if (profileArtifacts.getProfileArtifact() != null) {
-      builder.addInput(profileArtifacts.getProfileArtifact());
-    }
-    if (profileArtifacts.getPrefetchHintsArtifact() != null) {
-      builder.addInput(profileArtifacts.getPrefetchHintsArtifact());
-    }
+    addProfileForLtoBackend(builder, fdoProvider, featureConfiguration, buildVariablesBuilder);
 
     if (generateDwo) {
       dwoFile =
@@ -272,5 +260,29 @@ public final class LtoBackendArtifacts {
     builder.addExecutableArguments(execArgs);
 
     ruleContext.registerAction(builder.build(ruleContext));
+  }
+
+  /**
+   * Adds the AFDO profile path to the variable builder and the profile tothe inputs of the action.
+   */
+  @ThreadSafe
+  private static void addProfileForLtoBackend(
+      LtoBackendAction.Builder builder,
+      FdoProvider fdoProvider,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainVariables.Builder buildVariables) {
+    Artifact prefetch = fdoProvider.getPrefetchHintsArtifact();
+    if (prefetch != null) {
+      buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
+      builder.addInput(fdoProvider.getPrefetchHintsArtifact());
+    }
+    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+        && !featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
+      return;
+    }
+
+    Artifact profile = fdoProvider.getProfileArtifact();
+    buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
+    builder.addInput(fdoProvider.getProfileArtifact());
   }
 }

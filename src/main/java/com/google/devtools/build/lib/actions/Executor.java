@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsProvider;
 
 /**
  * The Executor provides the context for the execution of actions. It is only valid during the
@@ -67,14 +68,14 @@ public interface Executor {
   /**
    * Returns the command line options of the Blaze command being executed.
    */
-  OptionsClassProvider getOptions();
+  OptionsProvider getOptions();
 
   /**
    * Whether this Executor reports subcommands. If not, reportSubcommand has no effect.
    * This is provided so the caller of reportSubcommand can avoid wastefully constructing the
    * subcommand string.
    */
-  boolean reportsSubcommands();
+  ShowSubcommands reportsSubcommands();
 
   /**
    * An event listener to report messages to. Errors that signal a action failure should use

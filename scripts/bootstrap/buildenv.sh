@@ -53,7 +53,7 @@ PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' -o "${MACHINE_TYPE}" = 'aarch64' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
@@ -308,8 +308,51 @@ function link_dir() {
   local dest=$2
 
   if [[ "${PLATFORM}" == "windows" ]]; then
-    cmd.exe /C "mklink /J \"$(cygpath -w "$dest")\" \"$(cygpath -w "$source")\""
+    cmd.exe /C "mklink /J \"$(cygpath -w "$dest")\" \"$(cygpath -w "$source")\"" >&/dev/null
   else
     ln -s "${source}" "${dest}"
   fi
+}
+
+function link_file() {
+  local source=$1
+  local dest=$2
+
+  if [[ "${PLATFORM}" == "windows" ]]; then
+    # Attempt creating a symlink to the file. This is supported without
+    # elevation (Administrator privileges) on Windows 10 version 1709 when
+    # Developer Mode is enabled.
+    if ! cmd.exe /C "mklink \"$(cygpath -w "$dest")\" \"$(cygpath -w "$source")\"" >&/dev/null; then
+      # If the previous call failed to create a symlink, just copy the file.
+      cp "$source" "$dest"
+    fi
+  else
+    ln -s "${source}" "${dest}"
+  fi
+}
+
+# Link direct children (subdirectories and files) of a directory.
+# Usage:
+#   link_children "$PWD" "tools" "${BAZEL_TOOLS_REPO}"
+# This creates:
+#   ${BAZEL_TOOLS_REPO}/tools/android -> $PWD/tools/android
+#   ${BAZEL_TOOLS_REPO}/tools/bash -> $PWD/tools/bash
+#   ... and so on for all files and directories directly under "tools".
+function link_children() {
+  local -r source_dir=${1%/}
+  local -r source_subdir=${2%/}
+  local -r dest_dir=${3%/}
+
+  for e in $(find "${source_dir}/${source_subdir}" -mindepth 1 -maxdepth 1 -type d); do
+    local dest_path="${dest_dir}/${e#$source_dir/}"
+    if [[ ! -d "$dest_path" ]]; then
+      link_dir "$e" "$dest_path"
+    fi
+  done
+  for e in $(find "${source_dir}/${source_subdir}" -mindepth 1 -maxdepth 1 -type f); do
+    local dest_path="${dest_dir}/${e#$source_dir/}"
+    if [[ ! -f "$dest_path" ]]; then
+      link_file "$e" "$dest_path"
+    fi
+  done
 }

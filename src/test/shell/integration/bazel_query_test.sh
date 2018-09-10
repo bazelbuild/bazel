@@ -22,6 +22,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 add_to_bazelrc "build --package_path=%workspace%"
+create_new_workspace
 
 #### TESTS #############################################################
 
@@ -247,7 +248,7 @@ function test_skylark_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
-  ln -s "foo/moo" "foo/baz.bzl" || fail "Couldn't create baz.bzl symlink"
+  ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
   bazel query --universe_scope=//...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
@@ -261,7 +262,7 @@ function test_skylark_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
-  ln -s "foo/baz.bzl" "foo/Moo.java" || fail "Couldn't create Moo.java symlink"
+  ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = ["Moo.java"])' > foo/BUILD
   bazel query --universe_scope=//...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
@@ -288,7 +289,7 @@ function test_skylark_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
-  ln -s "foo/moo" "foo/baz.bzl" || fail "Couldn't create baz.bzl symlink"
+  ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
   bazel query --universe_scope=//...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
@@ -302,7 +303,7 @@ function test_skylark_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
-  ln -s "foo/baz.bzl" "foo/Moo.java" || fail "Couldn't create Moo.java symlink"
+  ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.java"]))' > foo/BUILD
   bazel query --universe_scope=//...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
@@ -329,7 +330,7 @@ function test_skylark_recursive_glob_symlink_source_not_included_in_rbuildfiles(
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
-  ln -s "foo/moo" "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl symlink"
+  ln -s "$PWD/foo/moo" "foo/bar/baz.bzl" && [[ -f foo/bar/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
   bazel query --universe_scope=//...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
@@ -343,7 +344,7 @@ function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles(
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
-  ln -s "foo/bar/baz.bzl" "foo/Moo.java" || fail "Couldn't create Moo.java symlink"
+  ln -s "$PWD/foo/bar/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.java"]))' > foo/BUILD
   bazel query --universe_scope=//...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"

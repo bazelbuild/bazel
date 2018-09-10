@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -36,8 +37,8 @@ public class UnixPathEqualityTest {
 
   @Before
   public final void initializeFileSystem() throws Exception  {
-    unixFs = new UnixFileSystem();
-    otherUnixFs = new UnixFileSystem();
+    unixFs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
+    otherUnixFs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
     assertThat(unixFs != otherUnixFs).isTrue();
   }
 

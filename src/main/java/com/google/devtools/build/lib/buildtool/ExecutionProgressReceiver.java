@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
@@ -29,12 +28,14 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.text.NumberFormat;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * Listener for executed actions and built artifacts. We use a listener so that we have an
@@ -44,7 +45,13 @@ public final class ExecutionProgressReceiver
     extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
     implements SkyframeActionExecutor.ProgressSupplier,
         SkyframeActionExecutor.ActionCompletedReceiver {
-  private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
+  private static final ThreadLocal<NumberFormat> PROGRESS_MESSAGE_NUMBER_FORMATTER =
+      ThreadLocal.withInitial(
+          () -> {
+            NumberFormat numberFormat = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+            numberFormat.setGroupingUsed(true);
+            return numberFormat;
+          });
 
   // Must be thread-safe!
   private final Set<ConfiguredTargetKey> builtTargets;
@@ -53,14 +60,8 @@ public final class ExecutionProgressReceiver
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
 
-  private final Object activityIndicator = new Object();
   /** Number of exclusive tests. To be accounted for in progress messages. */
   private final int exclusiveTestsCount;
-
-  static {
-    PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
-    PROGRESS_MESSAGE_NUMBER_FORMATTER.setGroupingUsed(true);
-  }
 
   /**
    * {@code builtTargets} is accessed through a synchronized set, and so no other access to it is
@@ -100,6 +101,7 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
+      @Nullable SkyValue value,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     SkyFunctionName type = skyKey.functionName();
@@ -136,9 +138,6 @@ public final class ExecutionProgressReceiver
   public void actionCompleted(ActionLookupData actionLookupData) {
     if (!ignoredActions.contains(actionLookupData)) {
       completedActions.add(actionLookupData);
-      synchronized (activityIndicator) {
-        activityIndicator.notifyAll();
-      }
     }
   }
 
@@ -150,8 +149,10 @@ public final class ExecutionProgressReceiver
   public String getProgressString() {
     return String.format(
         "[%s / %s]",
-        PROGRESS_MESSAGE_NUMBER_FORMATTER.format(completedActions.size()),
-        PROGRESS_MESSAGE_NUMBER_FORMATTER.format(exclusiveTestsCount + enqueuedActions.size()));
+        PROGRESS_MESSAGE_NUMBER_FORMATTER.get().format(completedActions.size()),
+        PROGRESS_MESSAGE_NUMBER_FORMATTER
+            .get()
+            .format(exclusiveTestsCount + enqueuedActions.size()));
   }
 
   ActionExecutionInactivityWatchdog.InactivityMonitor createInactivityMonitor(
@@ -169,28 +170,17 @@ public final class ExecutionProgressReceiver
       }
 
       @Override
-      public int waitForNextCompletion(int timeoutMilliseconds) throws InterruptedException {
-        long rest = timeoutMilliseconds;
-        synchronized (activityIndicator) {
-          int before = completedActions.size();
-          long startTime = BlazeClock.instance().currentTimeMillis();
-          while (true) {
-            activityIndicator.wait(rest);
-
-            int completed = completedActions.size() - before;
-            long now = 0;
-            if (completed > 0
-                || (startTime + rest)
-                    <= (now = BlazeClock.instance().currentTimeMillis())) {
-              // Some actions completed, or timeout fully elapsed.
-              return completed;
-            } else {
-              // Spurious Wakeup -- no actions completed and there's still time to wait.
-              rest -= now - startTime; // account for elapsed wait time
-              startTime = now;
-            }
+      public int waitForNextCompletion(int timeoutSeconds) throws InterruptedException {
+        int before = completedActions.size();
+        // Otherwise, wake up once per second to see whether something completed.
+        for (int i = 0; i < timeoutSeconds; i++) {
+          Thread.sleep(1000);
+          int count = completedActions.size() - before;
+          if (count > 0) {
+            return count;
           }
         }
+        return 0;
       }
     };
   }

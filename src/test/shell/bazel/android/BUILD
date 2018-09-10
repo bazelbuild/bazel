@@ -35,6 +35,17 @@ sh_test(
 )
 
 sh_test(
+    name = "aapt_integration_test",
+    size = "large",
+    srcs = ["aapt_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+)
+
+sh_test(
     name = "aar_integration_test",
     size = "large",
     srcs = ["aar_integration_test.sh"],
@@ -102,8 +113,6 @@ sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # This test builds an android_binary with Java 8 code.
-    tags = ["jdk8"],
 )
 
 sh_test(

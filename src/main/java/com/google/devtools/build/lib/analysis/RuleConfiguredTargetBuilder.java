@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironments;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
+import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
@@ -40,7 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Builder class for analyzed rule instances.
@@ -79,7 +81,11 @@ public final class RuleConfiguredTargetBuilder {
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
-  /** Constructs the RuleConfiguredTarget instance based on the values set for this Builder. */
+  /**
+   * Constructs the RuleConfiguredTarget instance based on the values set for this Builder.
+   * Returns null if there were rule errors reported.
+   */
+  @Nullable
   public ConfiguredTarget build() throws ActionConflictException {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
@@ -178,7 +184,7 @@ public final class RuleConfiguredTargetBuilder {
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
       EnvironmentCollection.Builder refinedEnvironments = new EnvironmentCollection.Builder();
-      Map<Label, LabelAndLocation> removedEnvironmentCulprits = new LinkedHashMap<>();
+      Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
       constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
           removedEnvironmentCulprits);
       add(SupportedEnvironmentsProvider.class,
@@ -271,7 +277,8 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(Info value) {
+  private <T extends TransitiveInfoProvider> void maybeAddSkylarkLegacyProvider(
+      InfoInterface value) {
     if (value.getProvider() instanceof NativeProvider.WithLegacySkylarkName) {
       addSkylarkTransitiveInfo(
           ((NativeProvider.WithLegacySkylarkName) value.getProvider()).getSkylarkName(), value);
@@ -297,9 +304,9 @@ public final class RuleConfiguredTargetBuilder {
    * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from
    * Skylark directly, instead its outpuyt groups are added.
    *
-   * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
+   * <p>Use {@link #addNativeDeclaredProvider(InfoInterface)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider)
+  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(InfoInterface provider)
       throws EvalException {
     Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
@@ -321,10 +328,10 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(InfoInterface)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
-    for (Info provider : providers) {
+  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<InfoInterface> providers) {
+    for (InfoInterface provider : providers) {
       addNativeDeclaredProvider(provider);
     }
     return this;
@@ -334,9 +341,9 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Skylark rule implementations.
+   * <p>Use {@link #addSkylarkDeclaredProvider(InfoInterface)} for Skylark rule implementations.
    */
-  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
+  public RuleConfiguredTargetBuilder addNativeDeclaredProvider(InfoInterface provider) {
     Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
     providersBuilder.put(provider);

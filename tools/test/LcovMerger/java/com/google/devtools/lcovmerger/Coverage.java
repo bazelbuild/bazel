@@ -15,6 +15,7 @@
 package com.google.devtools.lcovmerger;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.TreeMap;
 
 class Coverage {
@@ -32,6 +33,47 @@ class Coverage {
     } else {
       sourceFiles.put(sourceFilename, input);
     }
+  }
+
+  static Coverage merge(Coverage c1, Coverage c2) {
+    Coverage merged = new Coverage();
+    for (SourceFileCoverage sourceFile : c1.getAllSourceFiles()) {
+      merged.add(sourceFile);
+    }
+    for (SourceFileCoverage sourceFile : c2.getAllSourceFiles()) {
+      merged.add(sourceFile);
+    }
+    return merged;
+  }
+
+  static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)
+      throws IllegalArgumentException {
+    if (coverage == null || regexes == null) {
+      throw new IllegalArgumentException("Coverage and regex should not be null.");
+    }
+    if (regexes.isEmpty()) {
+      return coverage;
+    }
+    Coverage filteredCoverage = new Coverage();
+    for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
+      if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
+        filteredCoverage.add(source);
+      }
+    }
+    return filteredCoverage;
+  }
+
+  private static boolean matchesAnyRegex(String input, List<String> regexes) {
+    for (String regex : regexes) {
+      if (input.matches(regex)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  boolean isEmpty() {
+    return sourceFiles.isEmpty();
   }
 
   Collection<SourceFileCoverage> getAllSourceFiles() {

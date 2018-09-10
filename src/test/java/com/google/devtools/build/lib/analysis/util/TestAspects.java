@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -228,7 +229,8 @@ public class TestAspects {
     implements ConfiguredAspectFactory {
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+        throws ActionConflictException {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
@@ -274,7 +276,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+        throws ActionConflictException {
       return new ConfiguredAspect.Builder(this, parameters, ruleContext)
           .addProvider(new FooProvider())
           .build();
@@ -293,7 +296,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+        throws ActionConflictException {
       return new ConfiguredAspect.Builder(this, parameters, ruleContext)
           .addProvider(new BarProvider())
           .build();
@@ -418,7 +422,9 @@ public class TestAspects {
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
         try {
-          builder.add(attr("$dep", LABEL).value(Label.parseAbsolute(baz.iterator().next())));
+          builder.add(
+              attr("$dep", LABEL)
+                  .value(Label.parseAbsolute(baz.iterator().next(), ImmutableMap.of())));
         } catch (LabelSyntaxException e) {
           throw new IllegalStateException();
         }
@@ -428,7 +434,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+        throws ActionConflictException {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
       if (!parameters.isEmpty()) {
         information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
@@ -475,7 +482,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters) {
+        ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters parameters)
+        throws ActionConflictException {
       ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
       return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
     }
@@ -531,7 +539,7 @@ public class TestAspects {
     @Override
     public ConfiguredAspect create(
         ConfiguredTargetAndData ctadBase, RuleContext context, AspectParameters parameters)
-        throws InterruptedException {
+        throws InterruptedException, ActionConflictException {
       return new ConfiguredAspect.Builder(this, parameters, context).build();
     }
   }
@@ -777,7 +785,7 @@ public class TestAspects {
     @Override
     public ConfiguredAspect create(
         ConfiguredTargetAndData ctadBase, RuleContext context, AspectParameters parameters)
-        throws InterruptedException {
+        throws InterruptedException, ActionConflictException {
       return ConfiguredAspect.builder(this, parameters, context)
           .addProvider(Provider.class, new Provider(ctadBase.getConfiguredTarget().getLabel()))
           .build();

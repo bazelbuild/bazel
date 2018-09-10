@@ -69,15 +69,16 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
   private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(
-        JavaCompilationArgsProvider.class,
-        JavaSourceJarsProvider.class,
-        JavaRuleOutputJarsProvider.class,
-        JavaRunfilesProvider.class,
-        JavaPluginInfoProvider.class,
-        JavaGenJarsProvider.class,
-        JavaExportsProvider.class,
-        JavaCompilationInfoProvider.class
-      );
+          JavaCompilationArgsProvider.class,
+          JavaSourceJarsProvider.class,
+          JavaRuleOutputJarsProvider.class,
+          JavaRunfilesProvider.class,
+          JavaPluginInfoProvider.class,
+          JavaGenJarsProvider.class,
+          JavaExportsProvider.class,
+          JavaCompilationInfoProvider.class,
+          JavaStrictCompilationArgsProvider.class,
+          JavaSourceInfoProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -118,6 +119,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public static JavaInfo merge(List<JavaInfo> providers) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
+    List<JavaStrictCompilationArgsProvider> javaStrictCompilationArgsProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaStrictCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
     List<JavaRunfilesProvider> javaRunfilesProviders =
@@ -126,6 +129,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
     List<JavaExportsProvider> javaExportsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+    List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
+        JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
 
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
@@ -139,10 +144,12 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
         .addProvider(
-          JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-        // When a rule merges multiple JavaProviders, its purpose is to pass on information, so
-        // it doesn't have any output jars.
-        .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
+            JavaStrictCompilationArgsProvider.class,
+            JavaStrictCompilationArgsProvider.merge(javaStrictCompilationArgsProviders))
+        .addProvider(
+            JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
+        .addProvider(JavaRuleOutputJarsProvider.class,
+            JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
@@ -281,7 +288,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public SkylarkNestedSet getFullCompileTimeJars() {
     NestedSet<Artifact> fullCompileTimeJars =
         getProviderAsNestedSet(
-            JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getFullCompileTimeJars);
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getDirectFullCompileTimeJars);
     return SkylarkNestedSet.of(Artifact.class, fullCompileTimeJars);
   }
 
@@ -546,6 +554,16 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     }
 
     public JavaInfo build() {
+      // TODO(twerth): Clean up after we remove java_proto_library.strict_deps.
+      // Instead of teaching every (potential Skylark) caller to also create the provider for strict
+      // deps we wrap the non strict provider instead.
+      if (!providerMap.contains(JavaStrictCompilationArgsProvider.class)
+          && providerMap.contains(JavaCompilationArgsProvider.class)) {
+        JavaStrictCompilationArgsProvider javaStrictCompilationArgsProvider =
+            new JavaStrictCompilationArgsProvider(
+                providerMap.getProvider(JavaCompilationArgsProvider.class));
+        addProvider(JavaStrictCompilationArgsProvider.class, javaStrictCompilationArgsProvider);
+      }
       return new JavaInfo(providerMap.build(), runtimeJars, neverlink, javaConstraints, location);
     }
   }

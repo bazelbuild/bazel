@@ -147,7 +147,9 @@ public class ResourceCompiler {
       final String filename = interpolateAapt2Filename(qualifiers, file.getFileName().toString());
 
       final List<Path> results = new ArrayList<>();
-      if (qualifiers.asFolderType().equals(ResourceFolderType.VALUES)) {
+      if (qualifiers.asFolderType().equals(ResourceFolderType.VALUES)
+          || (qualifiers.asFolderType().equals(ResourceFolderType.RAW)
+              && file.getFileName().toString().endsWith(".xml"))) {
         extractAttributes(directoryName, filename, results);
       }
 
@@ -170,10 +172,29 @@ public class ResourceCompiler {
     }
 
     static String interpolateAapt2Filename(Qualifiers qualifiers, String filename) {
-      return qualifiers.asFolderType().equals(ResourceFolderType.VALUES)
-          ? (filename.indexOf('.') != -1 ? filename.substring(0, filename.indexOf('.')) : filename)
-              + ".arsc"
-          : filename;
+      // res/<not values>/foo.bar -> foo.bar
+      if (!qualifiers.asFolderType().equals(ResourceFolderType.VALUES)) {
+        return filename;
+      }
+
+      int periodIndex = filename.indexOf('.');
+
+      // res/values/foo -> foo.arsc
+      if (periodIndex == -1) {
+        return filename + ".arsc";
+      }
+
+      // res/values/foo.bar.baz -> throw error.
+      if (filename.lastIndexOf('.') != periodIndex) {
+        throw new CompileError(
+            new IllegalArgumentException(
+                "aapt2 does not support compiling resource xmls with multiple periods in the "
+                    + "filename: "
+                    + filename));
+      }
+
+      // res/values/foo.xml -> foo.arsc
+      return filename.substring(0, periodIndex) + ".arsc";
     }
 
     private void compile(

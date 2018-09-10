@@ -75,6 +75,14 @@ public class RemoteRetrier extends Retrier {
         }
       };
 
+  public static final Predicate<? super Exception> RETRIABLE_GRPC_EXEC_ERRORS =
+      e -> {
+        if (RETRIABLE_GRPC_ERRORS.test(e)) {
+          return true;
+        }
+        return RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND);
+      };
+
   public RemoteRetrier(
       RemoteOptions options,
       Predicate<? super Exception> shouldRetry,

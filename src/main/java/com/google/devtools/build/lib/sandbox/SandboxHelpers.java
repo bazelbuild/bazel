@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -48,9 +48,16 @@ public final class SandboxHelpers {
    * @throws IOException If any files could not be written.
    */
   public static Map<PathFragment, Path> processInputFiles(
-      Spawn spawn, SpawnExecutionContext context, Path execRoot) throws IOException {
+      Spawn spawn,
+      SpawnExecutionContext context,
+      Path execRoot,
+      boolean expandTreeArtifactsInRunfiles)
+      throws IOException {
     return processInputFiles(
-        context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
+        context.getInputMapping(expandTreeArtifactsInRunfiles),
+        spawn,
+        context.getArtifactExpander(),
+        execRoot);
   }
 
   /**
@@ -124,7 +131,7 @@ public final class SandboxHelpers {
    * reference to the full set of build options (and also for performance, since this only needs to
    * be checked once-per-build).
    */
-  static boolean shouldAllowNetwork(OptionsProvider buildOptions) {
+  static boolean shouldAllowNetwork(OptionsParsingResult buildOptions) {
     // Allow network access, when --java_debug is specified, otherwise we can't connect to the
     // remote debug server of the test. This intentionally overrides the "block-network" execution
     // tag.

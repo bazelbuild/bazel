@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -67,7 +68,8 @@ public class CustomCommandLineTest {
     assertThat(builder().addDynamicString("--arg").build().arguments())
         .containsExactly("--arg")
         .inOrder();
-    assertThat(builder().addLabel(Label.parseAbsolute("//a:b")).build().arguments())
+    assertThat(
+            builder().addLabel(Label.parseAbsolute("//a:b", ImmutableMap.of())).build().arguments())
         .containsExactly("//a:b")
         .inOrder();
     assertThat(builder().addPath(PathFragment.create("path")).build().arguments())
@@ -93,7 +95,11 @@ public class CustomCommandLineTest {
     assertThat(builder().add("--arg", "val").build().arguments())
         .containsExactly("--arg", "val")
         .inOrder();
-    assertThat(builder().addLabel("--arg", Label.parseAbsolute("//a:b")).build().arguments())
+    assertThat(
+            builder()
+                .addLabel("--arg", Label.parseAbsolute("//a:b", ImmutableMap.of()))
+                .build()
+                .arguments())
         .containsExactly("--arg", "//a:b")
         .inOrder();
     assertThat(builder().addPath("--arg", PathFragment.create("path")).build().arguments())
@@ -131,7 +137,10 @@ public class CustomCommandLineTest {
         .containsExactly("prefix-foo")
         .inOrder();
     assertThat(
-            builder().addPrefixedLabel("prefix-", Label.parseAbsolute("//a:b")).build().arguments())
+            builder()
+                .addPrefixedLabel("prefix-", Label.parseAbsolute("//a:b", ImmutableMap.of()))
+                .build()
+                .arguments())
         .containsExactly("prefix-//a:b")
         .inOrder();
     assertThat(

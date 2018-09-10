@@ -105,7 +105,7 @@ public class BuildFileAST extends ASTNode {
           imports.add(SkylarkImports.create(str, /* repositoryMapping= */ ImmutableMap.of()));
         } catch (SkylarkImportSyntaxException e) {
           throw new IllegalStateException(
-              "Cannot create SkylarImport for '" + str + "'. This is an internal error.");
+              "Cannot create SkylarkImport for '" + str + "'. This is an internal error.");
         }
       }
     }
@@ -198,18 +198,6 @@ public class BuildFileAST extends ASTNode {
    * @return true if no error occurred during execution.
    */
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
-    try {
-      // Handles debugging BUILD file evaluation
-      // TODO(bazel-team): add support for debugging skylark file evaluation
-      return DebugServerUtils.runWithDebuggingIfEnabled(
-          env, () -> Thread.currentThread().getName(), () -> doExec(env, eventHandler));
-    } catch (EvalException e) {
-      // runWithDebuggingIfEnabled() shouldn't throw EvalException, since doExec() does not
-      throw new AssertionError("Unexpected EvalException", e);
-    }
-  }
-
-  private boolean doExec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : statements) {
       if (!execTopLevelStatement(stmt, env, eventHandler)) {

@@ -31,7 +31,7 @@ import java.io.IOException;
 @ThreadSafe
 public abstract class InMemoryContentInfo implements FileStatus {
 
-  private final Clock clock;
+  protected final Clock clock;
 
   /**
    * Stores the time when the file was last modified. This is atomically updated
@@ -95,7 +95,7 @@ public abstract class InMemoryContentInfo implements FileStatus {
    * size of links is unspecified.
    */
   @Override
-  public abstract long getSize() throws IOException;
+  public abstract long getSize();
 
   /**
    * Returns the time when the entity denoted by the current object was last

@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -241,7 +242,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping() {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        boolean expandTreeArtifactsInRunfiles) {
       return inputMapping;
     }
 
@@ -809,20 +811,22 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem();
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
 
     Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(2));
+    // Under normal loads we should be able to use a much lower bound for maxUserTime, but be
+    // generous here in case of hardware issues.
+    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(20));
 
     Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
+    // Under normal loads we should be able to use a much lower bound for maxSysTime, but be
+    // generous here in case of hardware issues.
+    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(20));
 
     Path execRoot = getTemporaryExecRoot(fs);
     copyProcessWrapperIntoExecRoot(execRoot);
@@ -856,7 +860,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(spawnResult.getWallTime()).isPresent();
     assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
+    // Under heavy starvation, max wall time could be anything, so don't check it here.
     assertThat(spawnResult.getUserTime()).isPresent();
     assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
     assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
@@ -873,14 +877,12 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem();
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.DEFAULT_HASH_FOR_TESTS);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
-    // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
+    Duration minimumWallTimeToSpend = Duration.ofSeconds(1);
 
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
     Duration minimumSystemTimeToSpend = Duration.ZERO;
@@ -917,7 +919,7 @@ public class LocalSpawnRunnerTest {
 
     assertThat(spawnResult.getWallTime()).isPresent();
     assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
+    // Under heavy starvation, max wall time could be anything, so don't check it here.
     assertThat(spawnResult.getUserTime()).isEmpty();
     assertThat(spawnResult.getSystemTime()).isEmpty();
     assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();

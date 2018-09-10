@@ -28,7 +28,7 @@ public class ArtifactPrefixConflictException extends Exception {
         String.format(
             "output path '%s' (belonging to %s) is a prefix of output path '%s' (belonging to %s). "
                 + "These actions cannot be simultaneously present; please rename one of the output "
-                + "files or, as a last resort, run 'clean' and then build just one of them",
+                + "files or build just one of them",
             firstPath, firstOwner, secondPath, secondOwner));
   }
 }

@@ -17,14 +17,23 @@
  */
 #include "src/tools/singlejar/output_jar.h"
 
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <time.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#else
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif  // WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#endif  // _WIN32
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
@@ -100,8 +109,8 @@ int OutputJar::Doit(Options *options) {
       fprintf(stderr, "java_launcher_file=%s\n",
               options_->java_launcher.c_str());
     }
-    fprintf(stderr, "%ld source files\n", options_->input_jars.size());
-    fprintf(stderr, "%ld manifest lines\n", options_->manifest_lines.size());
+    fprintf(stderr, "%zu source files\n", options_->input_jars.size());
+    fprintf(stderr, "%zu manifest lines\n", options_->manifest_lines.size());
   }
 
   if (!Open()) {
@@ -124,7 +133,7 @@ int OutputJar::Doit(Options *options) {
       diag_err(1, "%s:%d: Cannot copy %s to %s", __FILE__, __LINE__,
                launcher_path, options_->output_jar.c_str());
     } else if (byte_count != statbuf.st_size) {
-      diag_err(1, "%s:%d: Copied only %ld bytes out of %" PRIu64 " from %s",
+      diag_err(1, "%s:%d: Copied only %zu bytes out of %" PRIu64 " from %s",
                __FILE__, __LINE__, byte_count, statbuf.st_size, launcher_path);
     }
     close(in_fd);
@@ -261,8 +270,15 @@ bool OutputJar::Open() {
   if (file_) {
     diag_errx(1, "%s:%d: Cannot open output archive twice", __FILE__, __LINE__);
   }
+
   // Set execute bits since we may produce an executable output file.
-  int fd = open(path(), O_CREAT|O_WRONLY|O_TRUNC, 0777);
+  int mode = O_CREAT | O_WRONLY | O_TRUNC;
+#ifdef _WIN32
+  // Make sure output file is in binary mode, or \r\n will be converted to \n.
+  mode |= _O_BINARY;
+#endif
+
+  int fd = open(path(), mode, 0777);
   if (fd < 0) {
     diag_warn("%s:%d: %s", __FILE__, __LINE__, path());
     return false;
@@ -275,7 +291,7 @@ bool OutputJar::Open() {
   }
   outpos_ = 0;
   buffer_.reset(new char[kBufferSize]);
-  setbuffer(file_, buffer_.get(), kBufferSize);
+  setvbuf(file_, buffer_.get(), _IOFBF, kBufferSize);
   if (options_->verbose) {
     fprintf(stderr, "Writing to %s\n", path());
   }
@@ -418,7 +434,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     //  local header
     //  file data
     //  data descriptor, if present.
-    off_t copy_from = jar_entry->local_header_offset();
+    off64_t copy_from = jar_entry->local_header_offset();
     size_t num_bytes = lh->size();
     if (jar_entry->no_size_in_local_header()) {
       const DDR *ddr = reinterpret_cast<const DDR *>(
@@ -431,7 +447,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     } else {
       num_bytes += lh->compressed_file_size();
     }
-    off_t local_header_offset = Position();
+    off64_t local_header_offset = Position();
 
     // When normalize_timestamps is set, entry's timestamp is to be set to
     // 01/01/1980 00:00:00 (or to 01/01/1980 00:00:02, if an entry is a .class
@@ -489,7 +505,7 @@ bool OutputJar::AddJar(int jar_path_index) {
 
     // Do the actual copy.
     if (!WriteBytes(input_jar.mapped_start() + copy_from, num_bytes)) {
-      diag_err(1, "%s:%d: Cannot write %ld bytes of %.*s from %s", __FILE__,
+      diag_err(1, "%s:%d: Cannot write %zu bytes of %.*s from %s", __FILE__,
                __LINE__, num_bytes, file_name_length, file_name,
                input_jar_path.c_str());
     }
@@ -501,7 +517,7 @@ bool OutputJar::AddJar(int jar_path_index) {
   return input_jar.Close();
 }
 
-off_t OutputJar::Position() {
+off64_t OutputJar::Position() {
   if (file_ == nullptr) {
     diag_err(1, "%s:%d: output file is not open", __FILE__, __LINE__);
   }
@@ -520,7 +536,7 @@ void OutputJar::WriteEntry(void *buffer) {
   }
   LH *entry = reinterpret_cast<LH *>(buffer);
   if (options_->verbose) {
-    fprintf(stderr, "%-.*s combiner has %lu bytes, %s to %lu\n",
+    fprintf(stderr, "%-.*s combiner has %zu bytes, %s to %zu\n",
             entry->file_name_length(), entry->file_name(),
             entry->uncompressed_file_size(),
             entry->compression_method() == Z_NO_COMPRESSION ? "copied"
@@ -553,7 +569,7 @@ void OutputJar::WriteEntry(void *buffer) {
   }
 
   uint8_t *data = reinterpret_cast<uint8_t *>(entry);
-  off_t output_position = Position();
+  off64_t output_position = Position();
   if (!WriteBytes(data, entry->data() + entry->in_zip_size() - data)) {
     diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
@@ -638,7 +654,7 @@ void OutputJar::WriteDirEntry(const std::string &name,
 }
 
 // Create output Central Directory entry for the input jar entry.
-void OutputJar::AppendToDirectoryBuffer(const CDH *cdh, off_t lh_pos,
+void OutputJar::AppendToDirectoryBuffer(const CDH *cdh, off64_t lh_pos,
                                         uint16_t normalized_time,
                                         bool fix_timestamp) {
   // While copying from the input CDH pointed to by 'cdh', we may need to drop
@@ -750,7 +766,7 @@ uint8_t *OutputJar::ReserveCdr(size_t chunk_size) {
     cen_capacity_ += 1000000;
     cen_ = reinterpret_cast<uint8_t *>(realloc(cen_, cen_capacity_));
     if (!cen_) {
-      diag_errx(1, "%s:%d: Cannot allocate %ld bytes for the directory",
+      diag_errx(1, "%s:%d: Cannot allocate %zu bytes for the directory",
                 __FILE__, __LINE__, cen_capacity_);
     }
   }
@@ -779,7 +795,7 @@ bool OutputJar::Close() {
   WriteEntry(spring_schemas_.OutputEntry(options_->force_compression));
   WriteEntry(protobuf_meta_handler_.OutputEntry(options_->force_compression));
   // TODO(asmundak): handle manifest;
-  off_t output_position = Position();
+  off64_t output_position = Position();
   bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||
                          cen_size_ >= 0xFFFFFFFF;
 
@@ -816,7 +832,7 @@ bool OutputJar::Close() {
       // affects javac and javah only, 'jar' experiences no problems.
       ecd->cen_size32(std::min(cen_size, static_cast<size_t>(0xFFFFFFFFUL)));
       ecd->cen_offset32(
-          std::min(output_position, static_cast<off_t>(0x0FFFFFFFFL)));
+          std::min(output_position, static_cast<off64_t>(0x0FFFFFFFFL)));
     }
   } else {
     ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
@@ -857,7 +873,7 @@ bool IsDir(const std::string &path) {
     diag_warn("%s:%d: stat %s:", __FILE__, __LINE__, path.c_str());
     return false;
   }
-  return S_ISDIR(st.st_mode);
+  return (st.st_mode & S_IFDIR) == S_IFDIR;
 }
 
 void OutputJar::ClasspathResource(const std::string &resource_name,
@@ -892,7 +908,7 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
   }
 }
 
-ssize_t OutputJar::AppendFile(int in_fd, off_t offset, size_t count) {
+ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   if (count == 0) {
     return 0;
   }
@@ -902,6 +918,23 @@ ssize_t OutputJar::AppendFile(int in_fd, off_t offset, size_t count) {
   }
   ssize_t total_written = 0;
 
+#ifdef _WIN32
+  HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(in_fd));
+  while (static_cast<size_t>(total_written) < count) {
+    ssize_t len = std::min(kBufferSize, count - total_written);
+    DWORD n_read;
+    if (!::ReadFile(hFile, buffer.get(), len, &n_read, NULL)) {
+      return -1;
+    }
+    if (n_read == 0) {
+      break;
+    }
+    if (!WriteBytes(buffer.get(), n_read)) {
+      return -1;
+    }
+    total_written += n_read;
+  }
+#else
   while (static_cast<size_t>(total_written) < count) {
     size_t len = std::min(kBufferSize, count - total_written);
     ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
@@ -916,6 +949,7 @@ ssize_t OutputJar::AppendFile(int in_fd, off_t offset, size_t count) {
       return -1;
     }
   }
+#endif  // _WIN32
 
   return total_written;
 }

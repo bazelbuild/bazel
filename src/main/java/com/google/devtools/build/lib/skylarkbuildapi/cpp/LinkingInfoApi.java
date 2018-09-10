@@ -30,5 +30,8 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public interface LinkingInfoApi {
 
   @SkylarkCallable(name = "cc_linking_info", documented = false)
-  public CcLinkingInfoApi getCcLinkingInfo();
+  CcLinkingInfoApi getCcLinkingInfo();
+
+  @SkylarkCallable(name = "cc_linking_outputs", documented = false)
+  CcLinkingOutputsApi getCcLinkingOutputs();
 }

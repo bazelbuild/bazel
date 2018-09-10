@@ -80,7 +80,7 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
@@ -91,7 +91,6 @@ import com.google.devtools.build.lib.rules.python.PythonOptions;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -109,7 +108,6 @@ public class BazelRuleClassProvider {
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
 
   /** Command-line options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class StrictActionEnvOptions extends FragmentOptions {
     @Option(
         name = "experimental_strict_action_env",
@@ -258,10 +256,14 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          LabelLateBoundDefault<?> hostJdkAttribute = JavaSemantics.hostJdkAttribute(builder);
-          BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect(hostJdkAttribute);
+          LabelLateBoundDefault<JavaConfiguration> hostJdkAttribute =
+              JavaSemantics.hostJdkAttribute(builder);
+          LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute =
+              JavaSemantics.javaToolchainAttribute(builder);
+          BazelJavaProtoAspect bazelJavaProtoAspect =
+              new BazelJavaProtoAspect(hostJdkAttribute, javaToolchainAttribute);
           BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect =
-              new BazelJavaLiteProtoAspect(hostJdkAttribute);
+              new BazelJavaLiteProtoAspect(hostJdkAttribute, javaToolchainAttribute);
           builder.addNativeAspectClass(bazelJavaProtoAspect);
           builder.addNativeAspectClass(bazelJavaLiteProtoAspect);
           builder.addRuleDefinition(new BazelJavaProtoLibraryRule(bazelJavaProtoAspect));
@@ -381,10 +383,6 @@ public class BazelRuleClassProvider {
 
   private static final ImmutableSet<RuleSet> RULE_SETS =
       ImmutableSet.of(
-          // Rules defined before LipoDataTransitionRuleSet will fail when trying to declare a data
-          // transition.
-          // TODO(b/73071922): remove this when LIPO support is phased out
-          LipoDataTransitionRuleSet.INSTANCE,
           BAZEL_SETUP,
           CoreRules.INSTANCE,
           CoreWorkspaceRules.INSTANCE,

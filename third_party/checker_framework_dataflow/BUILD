@@ -9,8 +9,8 @@ filegroup(
 
 java_import(
     name = "checker_framework_dataflow",
-    jars = ["dataflow-2.5.0.jar"],
-    srcjar = "dataflow-2.5.0-sources.jar",
+    jars = ["dataflow-2.5.3.jar"],
+    srcjar = "dataflow-2.5.3-sources.jar",
     deps = [
         "//third_party/checker_framework_javacutil",
     ],
@@ -18,5 +18,5 @@ java_import(
 
 filegroup(
     name = "bootstrap",
-    srcs = ["dataflow-2.5.0.jar"],
+    srcs = ["dataflow-2.5.3.jar"],
 )

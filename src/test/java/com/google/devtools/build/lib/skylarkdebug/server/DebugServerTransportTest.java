@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.Con
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugEvent;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.DebugRequest;
 import com.google.devtools.build.lib.skylarkdebugging.SkylarkDebuggingProtos.StartDebuggingRequest;
-import com.google.devtools.build.lib.syntax.Environment.FailFastException;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -30,13 +29,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -85,30 +82,14 @@ public class DebugServerTransportTest {
     }
   }
 
-  @Before
-  public void setupEventHandler() {
-    // fail-fast treats 'debug' messages as errors. Replace with something that doesn't
-    events.setFailFast(false);
-
-    EnumSet<EventKind> failOnEvents = EnumSet.copyOf(EventKind.ERRORS_AND_WARNINGS);
-    failOnEvents.remove(EventKind.DEBUG);
-
-    events
-        .reporter()
-        .addHandler(
-            event -> {
-              if (failOnEvents.contains(event.getKind())) {
-                throw new FailFastException(event.toString());
-              }
-            });
-  }
-
   @Test
   public void testConnectAndReceiveRequest() throws Exception {
     ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getByName(null));
     Future<DebugServerTransport> future =
         executor.submit(
-            () -> DebugServerTransport.createAndWaitForClient(events.reporter(), serverSocket));
+            () ->
+                DebugServerTransport.createAndWaitForClient(
+                    events.reporter(), serverSocket, false));
     MockDebugClient client = new MockDebugClient();
     client.connect(Duration.ofSeconds(10), serverSocket);
 
@@ -130,7 +111,9 @@ public class DebugServerTransportTest {
     ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getByName(null));
     Future<DebugServerTransport> future =
         executor.submit(
-            () -> DebugServerTransport.createAndWaitForClient(events.reporter(), serverSocket));
+            () ->
+                DebugServerTransport.createAndWaitForClient(
+                    events.reporter(), serverSocket, false));
     MockDebugClient client = new MockDebugClient();
     client.connect(Duration.ofSeconds(10), serverSocket);
 

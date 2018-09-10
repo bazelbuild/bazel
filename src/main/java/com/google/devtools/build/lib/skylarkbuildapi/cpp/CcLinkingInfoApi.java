@@ -31,9 +31,30 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 public interface CcLinkingInfoApi extends StructApi {
 
   @SkylarkCallable(
-      name = "cc_runfiles",
+      name = "static_mode_params_for_dynamic_library",
       documented = false,
       allowReturnNones = true,
       structField = true)
-  public CcRunfilesApi getCcRunfiles();
+  CcLinkParamsApi getStaticModeParamsForDynamicLibrary();
+
+  @SkylarkCallable(
+      name = "static_mode_params_for_executable",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getStaticModeParamsForExecutable();
+
+  @SkylarkCallable(
+      name = "dynamic_mode_params_for_dynamic_library",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getDynamicModeParamsForDynamicLibrary();
+
+  @SkylarkCallable(
+      name = "dynamic_mode_params_for_executable",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  CcLinkParamsApi getDynamicModeParamsForExecutable();
 }

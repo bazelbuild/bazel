@@ -303,7 +303,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent("--xcode_version=6 specified, but '6' is not an available Xcode version. "
-        + "available versions: [5.1.2, 8.4]");
+        + "available versions: [5.1.2, 8.4]. If you believe you have '6' installed");
   }
 
   @Test

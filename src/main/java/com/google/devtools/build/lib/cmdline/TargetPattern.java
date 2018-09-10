@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -157,17 +158,6 @@ public abstract class TargetPattern implements Serializable {
       BatchCallback<T, E> callback,
       Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException;
-
-  protected void assertBlacklistedAndExcludedSubdirectoriesEmpty(
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories) {
-    Preconditions.checkArgument(blacklistedSubdirectories.isEmpty(),
-        "Target pattern %s of type %s cannot be evaluated with blacklisted subdirectories: %s.",
-        getOriginalPattern(), getType(), blacklistedSubdirectories);
-    Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
-        "Target pattern %s of type %s cannot be evaluated with excluded subdirectories: %s.",
-        getOriginalPattern(), getType(), excludedSubdirectories);
-  }
 
   /**
    * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given
@@ -333,8 +323,6 @@ public abstract class TargetPattern implements Serializable {
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback,
         Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
-      assertBlacklistedAndExcludedSubdirectoriesEmpty(
-          blacklistedSubdirectories, excludedSubdirectories);
       callback.process(resolver.getExplicitTarget(label(targetName)).getTargets());
     }
 
@@ -392,8 +380,6 @@ public abstract class TargetPattern implements Serializable {
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
-      assertBlacklistedAndExcludedSubdirectoriesEmpty(
-          blacklistedSubdirectories, excludedSubdirectories);
       if (resolver.isPackage(PackageIdentifier.createInMainRepo(path))) {
         // User has specified a package name. lookout for default target.
         callback.process(resolver.getExplicitTarget(label("//" + path)).getTargets());
@@ -479,8 +465,6 @@ public abstract class TargetPattern implements Serializable {
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
-      assertBlacklistedAndExcludedSubdirectoriesEmpty(
-          blacklistedSubdirectories, excludedSubdirectories);
       if (checkWildcardConflict) {
         ResolvedTargets<T> targets = getWildcardConflict(resolver);
         if (targets != null) {
@@ -900,7 +884,7 @@ public abstract class TargetPattern implements Serializable {
   // TargetParsingException.
   private static Label label(String label) throws TargetParsingException {
     try {
-      return Label.parseAbsolute(label);
+      return Label.parseAbsolute(label, ImmutableMap.of());
     } catch (LabelSyntaxException e) {
       throw new TargetParsingException("invalid target format: '"
           + StringUtilities.sanitizeControlChars(label) + "'; "

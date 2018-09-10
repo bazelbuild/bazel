@@ -19,8 +19,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 
 /**
  * A target that can provide local proguard specifications, returned by the {@link
@@ -29,9 +30,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfo
  * <p>This class provides additional data, not available in the pure native {@link
  * com.google.devtools.build.lib.rules.java.ProguardSpecProvider} provider.
  */
-@AutoCodec
 @Immutable
-public class AndroidProguardInfo extends NativeInfo implements AndroidProguardInfoApi<Artifact> {
+public final class AndroidProguardInfo extends NativeInfo
+    implements AndroidProguardInfoApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
 
   private final ImmutableList<Artifact> localProguardSpecs;
@@ -46,17 +47,17 @@ public class AndroidProguardInfo extends NativeInfo implements AndroidProguardIn
     return localProguardSpecs;
   }
 
-  /**
-   * Provider class for {@link AndroidProguardInfo} objects.
-   */
-  public static class Provider extends BuiltinProvider<AndroidProguardInfo> {
+  /** Provider class for {@link AndroidProguardInfo} objects. */
+  public static class Provider extends BuiltinProvider<AndroidProguardInfo>
+      implements AndroidProguardInfoApi.Provider<Artifact> {
     private Provider() {
       super(PROVIDER_NAME, AndroidProguardInfo.class);
     }
-  }
 
-  @Override
-  public AndroidProguardInfo androidProguardInfo(ImmutableList<Artifact> localProguardSpecs) {
-    return new AndroidProguardInfo(localProguardSpecs);
+    @Override
+    public AndroidProguardInfo createInfo(SkylarkList<Artifact> localProguardSpecs)
+        throws EvalException {
+      return new AndroidProguardInfo(localProguardSpecs.getImmutableList());
+    }
   }
 }

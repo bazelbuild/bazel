@@ -17,13 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,11 +36,11 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Package;
@@ -92,8 +92,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
                 .put(Artifact.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-                    new ActionTemplateExpansionFunction(
-                        new ActionKeyContext(), Suppliers.ofInstance(false)))
+                    new ActionTemplateExpansionFunction(new ActionKeyContext()))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -193,8 +192,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
   }
 
-  private static final ConfiguredTargetKey CTKEY =
-      ConfiguredTargetKey.of(Label.parseAbsoluteUnchecked("//foo:foo"), null);
+  private static final ActionLookupValue.ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
 
   private List<Action> evaluate(SpawnActionTemplate spawnActionTemplate) throws Exception {
     ConfiguredTargetValue ctValue = createConfiguredTargetValue(spawnActionTemplate);
@@ -223,8 +221,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     return new NonRuleConfiguredTargetValue(
         Mockito.mock(ConfiguredTarget.class),
         Actions.GeneratingActions.fromSingleAction(actionTemplate),
-        NestedSetBuilder.<Package>stableOrder().build(),
-        /*removeActionsAfterEvaluation=*/ false);
+        NestedSetBuilder.<Package>stableOrder().build());
   }
 
   private SpecialArtifact createTreeArtifact(String path) {

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -82,13 +83,43 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
       Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
       throws ActionTemplateExpansionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
+
+    ImmutableList.Builder<TreeFileArtifact> sourcesBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> privateHeadersBuilder = ImmutableList.builder();
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
+      boolean isHeader = CppFileTypes.CPP_HEADER.matches(inputTreeFileArtifact.getExecPath());
+      boolean isTextualInclude =
+          CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(inputTreeFileArtifact.getExecPath());
+      boolean isSource =
+          SourceCategory.CC_AND_OBJC
+                  .getSourceTypes()
+                  .matches(inputTreeFileArtifact.getExecPathString())
+              && !isHeader;
+
+      if (isHeader) {
+        privateHeadersBuilder.add(inputTreeFileArtifact);
+      }
+      if (isSource || (isHeader && shouldCompileHeaders() && !isTextualInclude)) {
+        sourcesBuilder.add(inputTreeFileArtifact);
+      } else if (!isSource && !isHeader) {
+        throw new ActionTemplateExpansionException(
+            String.format(
+                "Artifact '%s' expanded from the directory artifact '%s' is neither header "
+                    + "nor source file.",
+                inputTreeFileArtifact.getExecPathString(), sourceTreeArtifact.getExecPathString()));
+      }
+    }
+    ImmutableList<TreeFileArtifact> sources = sourcesBuilder.build();
+    ImmutableList<Artifact> privateHeaders = privateHeadersBuilder.build();
+
+    for (TreeFileArtifact inputTreeFileArtifact : sources) {
       try {
         String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
         TreeFileArtifact outputTreeFileArtifact =
             ActionInputHelper.treeFileArtifact(
                 outputTreeArtifact, PathFragment.create(outputName), artifactOwner);
-        expandedActions.add(createAction(inputTreeFileArtifact, outputTreeFileArtifact));
+        expandedActions.add(
+            createAction(inputTreeFileArtifact, outputTreeFileArtifact, privateHeaders));
       } catch (InvalidConfigurationException e) {
         throw new ActionTemplateExpansionException(e);
       }
@@ -97,10 +128,17 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     return expandedActions.build();
   }
 
+  private boolean shouldCompileHeaders() {
+    return cppCompileActionBuilder.shouldCompileHeaders();
+  }
+
   private CppCompileAction createAction(
-      Artifact sourceTreeFileArtifact, Artifact outputTreeFileArtifact)
+      Artifact sourceTreeFileArtifact,
+      Artifact outputTreeFileArtifact,
+      ImmutableList<Artifact> privateHeaders)
       throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
+    builder.setAdditionalPrunableHeaders(privateHeaders);
     builder.setSourceFile(sourceTreeFileArtifact);
     builder.setOutputs(outputTreeFileArtifact, null);
 

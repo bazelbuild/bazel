@@ -183,10 +183,14 @@ public class HttpDownloader {
       if (repositoryCache.isEnabled()) {
         isCachingByProvidedSha256 = true;
 
-        Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
-        if (cachedDestination != null) {
-          // Cache hit!
-          return cachedDestination;
+        try {
+          Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
+          if (cachedDestination != null) {
+            // Cache hit!
+            return cachedDestination;
+          }
+        } catch (IOException e) {
+          // Ignore error trying to get. We'll just download again.
         }
       }
 

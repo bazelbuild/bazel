@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 
 import com.google.common.collect.ImmutableList;
-
 import java.util.Collection;
 
 /**
@@ -29,17 +28,24 @@ public class AnalysisPhaseCompleteEvent {
   private final long timeInMs;
   private int targetsVisited;
   private final PackageManagerStatistics pkgManagerStats;
+  private final int actionsConstructed;
 
   /**
    * Construct the event.
+   *
    * @param topLevelTargets The set of active topLevelTargets that remain.
    */
-  public AnalysisPhaseCompleteEvent(Collection<? extends ConfiguredTarget> topLevelTargets,
-      int targetsVisited, long timeInMs, PackageManagerStatistics pkgManagerStats) {
+  public AnalysisPhaseCompleteEvent(
+      Collection<? extends ConfiguredTarget> topLevelTargets,
+      int targetsVisited,
+      long timeInMs,
+      PackageManagerStatistics pkgManagerStats,
+      int actionsConstructed) {
     this.timeInMs = timeInMs;
     this.topLevelTargets = ImmutableList.copyOf(topLevelTargets);
     this.targetsVisited = targetsVisited;
     this.pkgManagerStats = pkgManagerStats;
+    this.actionsConstructed = actionsConstructed;
   }
 
   /**
@@ -59,6 +65,10 @@ public class AnalysisPhaseCompleteEvent {
 
   public long getTimeInMs() {
     return timeInMs;
+  }
+
+  public int getActionsConstructed() {
+    return actionsConstructed;
   }
 
   /**

@@ -14,24 +14,38 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.base.Predicates.not;
+import static java.util.stream.Collectors.toMap;
 
+import com.android.SdkConstants;
+import com.android.annotations.VisibleForTesting;
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilder;
 import com.google.devtools.build.android.AndroidResourceOutputs.ZipBuilderVisitorWithDirectories;
 import com.google.devtools.build.android.aapt2.CompiledResources;
+import com.google.devtools.build.android.aapt2.ProtoApk;
+import com.google.devtools.build.android.aapt2.ProtoResourceUsageAnalyzer;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
+import com.google.devtools.build.android.aapt2.ResourceLinker;
+import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
+import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
 import org.xml.sax.SAXException;
@@ -39,20 +53,31 @@ import org.xml.sax.SAXException;
 /** Represents a collection of raw, merged resources with an optional id list. */
 public class ResourcesZip {
 
-  private final Path resourcesRoot;
-  private final Path assetsRoot;
-  private final Optional<Path> apkWithAssets;
-  private final Optional<Path> ids;
+  static final Logger logger = Logger.getLogger(ResourcesZip.class.toString());
+
+  @Nullable private final Path resourcesRoot;
+  @Nullable private final Path assetsRoot;
+  @Nullable private final Path apkWithAssets;
+  @Nullable private final Path proto;
+  @Nullable private final Path attributes;
+  @Nullable private final Path packages;
+  @Nullable private final Path ids;
 
   private ResourcesZip(
-      Path resourcesRoot,
-      Path assetsRoot,
-      Optional<Path> ids,
-      Optional<Path> apkWithAssets) {
+      @Nullable Path resourcesRoot,
+      @Nullable Path assetsRoot,
+      @Nullable Path ids,
+      @Nullable Path apkWithAssets,
+      @Nullable Path proto,
+      @Nullable Path attributes,
+      @Nullable Path packages) {
     this.resourcesRoot = resourcesRoot;
     this.assetsRoot = assetsRoot;
     this.ids = ids;
     this.apkWithAssets = apkWithAssets;
+    this.proto = proto;
+    this.attributes = attributes;
+    this.packages = packages;
   }
 
   /**
@@ -60,7 +85,7 @@ public class ResourcesZip {
    * @param assetsRoot The root of the raw assets.
    */
   public static ResourcesZip from(Path resourcesRoot, Path assetsRoot) {
-    return new ResourcesZip(resourcesRoot, assetsRoot, Optional.empty(), Optional.empty());
+    return new ResourcesZip(resourcesRoot, assetsRoot, null, null, null, null, null);
   }
 
   /**
@@ -72,8 +97,11 @@ public class ResourcesZip {
     return new ResourcesZip(
         resourcesRoot,
         assetsRoot,
-        Optional.of(resourceIds).filter(Files::exists),
-        Optional.empty());
+        resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
+        null,
+        null,
+        null,
+        null);
   }
 
   /**
@@ -85,8 +113,29 @@ public class ResourcesZip {
     return new ResourcesZip(
         resourcesRoot,
         /* assetsRoot= */ null,
-        Optional.of(resourceIds).filter(Files::exists),
-        Optional.of(apkWithAssets));
+        resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
+        apkWithAssets,
+        null,
+        null,
+        null);
+  }
+
+  /**
+   * @param proto apk in proto format.
+   * @param attributes Tooling attributes.
+   * @param resourceIds Optional path to a file containing the resource ids.
+   * @param packages Optional path to a file containing the dependency packages.
+   */
+  public static ResourcesZip fromApkWithProto(
+      Path proto, Path attributes, Path resourceIds, Path packages) {
+    return new ResourcesZip(
+        /* resourcesRoot= */ null,
+        /* assetsRoot= */ null,
+        resourceIds != null && Files.exists(resourceIds) ? resourceIds : null,
+        /* apkWithAssets= */ null,
+        proto,
+        attributes,
+        packages);
   }
 
   /** Creates a ResourcesZip from an archive by expanding into the workingDirectory. */
@@ -110,10 +159,19 @@ public class ResourcesZip {
                 throw new RuntimeException(e);
               }
             });
-    return from(
+    return new ResourcesZip(
         Files.createDirectories(workingDirectory.resolve("res")),
         Files.createDirectories(workingDirectory.resolve("assets")),
-        workingDirectory.resolve("ids.txt"));
+        ifExists(workingDirectory.resolve("ids.txt")),
+        /** apkWithAssets */
+        null,
+        ifExists(workingDirectory.resolve("apk.pb")),
+        ifExists(workingDirectory.resolve("tools.attributes.pb")),
+        ifExists(workingDirectory.resolve("packages.txt")));
+  }
+
+  private static Path ifExists(Path path) {
+    return Files.exists(path) ? path : null;
   }
 
   /**
@@ -125,7 +183,7 @@ public class ResourcesZip {
    */
   public void writeTo(Path output, boolean compress) throws IOException {
     try (final ZipBuilder zip = ZipBuilder.createFor(output)) {
-      if (Files.exists(resourcesRoot)) {
+      if (resourcesRoot != null && Files.exists(resourcesRoot)) {
         ZipBuilderVisitorWithDirectories visitor =
             new ZipBuilderVisitorWithDirectories(zip, resourcesRoot, "res");
         visitor.setCompress(compress);
@@ -139,38 +197,49 @@ public class ResourcesZip {
         visitor.writeEntries();
       }
 
-      if (apkWithAssets.isPresent()){
-        ZipFile apkZip = new ZipFile(apkWithAssets.get().toString());
+      if (apkWithAssets != null && Files.exists(apkWithAssets)) {
+        ZipFile apkZip = new ZipFile(apkWithAssets.toString());
+        if (apkZip.getEntry("assets/") == null) {
+          zip.addEntry("assets/", new byte[0], compress ? ZipEntry.DEFLATED : ZipEntry.STORED);
+        }
         apkZip
             .stream()
             .filter(entry -> entry.getName().startsWith("assets/"))
             .forEach(
                 entry -> {
                   try {
-                    zip.addEntry(
-                        entry,
-                        ByteStreams.toByteArray(apkZip.getInputStream(entry)));
+                    zip.addEntry(entry, ByteStreams.toByteArray(apkZip.getInputStream(entry)));
                   } catch (IOException e) {
                     throw new RuntimeException(e);
                   }
                 });
-        zip.addEntry("assets/", new byte[0], compress ? ZipEntry.DEFLATED : ZipEntry.STORED);
-      } else if (Files.exists(assetsRoot)) {
+      } else if (assetsRoot != null && Files.exists(assetsRoot)) {
         ZipBuilderVisitorWithDirectories visitor =
             new ZipBuilderVisitorWithDirectories(zip, assetsRoot, "assets");
         visitor.setCompress(compress);
         Files.walkFileTree(assetsRoot, visitor);
         visitor.writeEntries();
       }
+      try {
+        if (ids != null) {
+          zip.addEntry("ids.txt", Files.readAllBytes(ids), ZipEntry.STORED);
+        }
 
-      ids.ifPresent(
-          p -> {
-            try {
-              zip.addEntry("ids.txt", Files.readAllBytes(p), ZipEntry.STORED);
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-          });
+        if (proto != null && Files.exists(proto)) {
+          zip.addEntry("apk.pb", Files.readAllBytes(proto), ZipEntry.STORED);
+        }
+
+        if (attributes != null && Files.exists(attributes)) {
+          zip.addEntry("tools.attributes.pb", Files.readAllBytes(attributes), ZipEntry.STORED);
+        }
+
+        if (packages != null && Files.exists(packages)) {
+          zip.addEntry("packages.txt", Files.readAllBytes(packages), ZipEntry.STORED);
+        }
+
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
@@ -189,9 +258,107 @@ public class ResourcesZip {
             packages, rTxt, classJar, manifest, proguardMapping, resourcesRoot, logFile)
         .shrink(workingDirectory);
     return ShrunkResources.of(
-        new ResourcesZip(workingDirectory, assetsRoot, ids, Optional.empty()),
+        new ResourcesZip(workingDirectory, assetsRoot, ids, null, null, attributes, null),
         new UnvalidatedAndroidData(
             ImmutableList.of(workingDirectory), ImmutableList.of(assetsRoot), manifest));
+  }
+
+  /**
+   * Shrinks the apk using a protocol buffer apk.
+   *
+   * @param packages The packages of the dependencies. Used to analyze the java code for resource
+   *     references.
+   * @param classJar Used to find resource references in java.
+   * @param proguardMapping Mapping used to decode java references.
+   * @param logFile Destination of the resource shrinker log.
+   * @param workingDirectory Temporary directory for intermediate artifacts.
+   * @return A ShrunkProtoApk, which must be closed when finished.
+   * @throws ParserConfigurationException thrown when the xml parsing not possible.
+   * @throws IOException thrown when the filesystem is going pear shaped.
+   * @throws SAXException thrown when the xml parsing goes badly.
+   */
+  @CheckReturnValue
+  public ShrunkProtoApk shrinkUsingProto(
+      Set<String> packages,
+      Path classJar,
+      Path proguardMapping,
+      Path logFile,
+      Path workingDirectory)
+      throws ParserConfigurationException, IOException, SAXException {
+    final Path shrunkApkProto =
+        workingDirectory.resolve("shrunk." + ResourceLinker.PROTO_EXTENSION);
+    try (final ProtoApk apk = ProtoApk.readFrom(proto)) {
+      final Map<String, Set<String>> toolAttributes = toAttributes();
+      // record resources and manifest
+      final ProtoResourceUsageAnalyzer analyzer =
+          new ProtoResourceUsageAnalyzer(packages, proguardMapping, logFile);
+
+      final ProtoApk shrink =
+          analyzer.shrink(
+              apk,
+              classJar,
+              shrunkApkProto,
+              toolAttributes.getOrDefault(SdkConstants.ATTR_KEEP, ImmutableSet.of()),
+              toolAttributes.getOrDefault(SdkConstants.ATTR_DISCARD, ImmutableSet.of()));
+      return new ShrunkProtoApk(shrink, logFile, ids);
+    }
+  }
+
+  @VisibleForTesting
+  public Map<String, Set<String>> toAttributes() throws IOException {
+    return ToolAttributes.parseFrom(Files.readAllBytes(attributes))
+        .getAttributesMap()
+        .entrySet()
+        .stream()
+        .collect(toMap(Entry::getKey, e -> ImmutableSet.copyOf(e.getValue().getValuesList())));
+  }
+
+  public List<String> asPackages() throws IOException {
+    return packages != null
+        ? Files.readAllLines(packages, StandardCharsets.UTF_8)
+        : ImmutableList.of();
+  }
+
+  Path asApk() {
+    return proto;
+  }
+
+  static class ShrunkProtoApk implements Closeable {
+    private final ProtoApk apk;
+    private final Path report;
+    private final Path ids;
+
+    ShrunkProtoApk(ProtoApk apk, Path report, Path ids) {
+      this.apk = apk;
+      this.report = report;
+      this.ids = ids;
+    }
+
+    ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
+        throws IOException {
+      Files.copy(
+          writeAsProto ? apk.asApkPath() : linker.link(apk, ids),
+          binaryOut,
+          StandardCopyOption.REPLACE_EXISTING);
+      return this;
+    }
+
+    ShrunkProtoApk writeReportTo(Path reportOut) throws IOException {
+      Files.copy(report, reportOut);
+      return this;
+    }
+
+    ShrunkProtoApk writeResourcesToZip(Path resourcesZip) throws IOException {
+      try (final ZipBuilder zip = ZipBuilder.createFor(resourcesZip)) {
+        zip.addEntry("apk.pb", Files.readAllBytes(apk.asApkPath()), ZipEntry.STORED);
+      }
+      return this;
+    }
+
+    @Override
+    public void close() throws IOException {
+      apk.close();
+    }
   }
 
   static class ShrunkResources {

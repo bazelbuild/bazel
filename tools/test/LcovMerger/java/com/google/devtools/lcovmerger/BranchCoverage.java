@@ -22,11 +22,14 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 abstract class BranchCoverage {
 
-  static BranchCoverage create(
-      int lineNumber, int blockNumber, int branchNumber, boolean wasExecuted, int nrOfExecutions) {
-    assert (wasExecuted && nrOfExecutions > 0) || (!wasExecuted && nrOfExecutions == 0);
+  static BranchCoverage create(int lineNumber, int nrOfExecutions) {
     return new AutoValue_BranchCoverage(
-        lineNumber, blockNumber, branchNumber, wasExecuted, nrOfExecutions);
+        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions);
+  }
+
+  static BranchCoverage createWithBlockAndBranch(
+      int lineNumber, String blockNumber, String branchNumber, int nrOfExecutions) {
+    return new AutoValue_BranchCoverage(lineNumber, blockNumber, branchNumber, nrOfExecutions);
   }
 
   /**
@@ -37,21 +40,23 @@ abstract class BranchCoverage {
    */
   static BranchCoverage merge(BranchCoverage first, BranchCoverage second) {
     assert first.lineNumber() == second.lineNumber();
-    assert first.blockNumber() == second.blockNumber();
-    assert first.branchNumber() == second.branchNumber();
+    assert first.blockNumber().equals(second.blockNumber());
+    assert first.branchNumber().equals(second.branchNumber());
 
-    return create(
+    return createWithBlockAndBranch(
         first.lineNumber(),
         first.blockNumber(),
         first.branchNumber(),
-        first.wasExecuted() || second.wasExecuted(),
         first.nrOfExecutions() + second.nrOfExecutions());
   }
 
   abstract int lineNumber();
   // The two numbers below should be -1 for non-gcc emitted coverage (e.g. Java).
-  abstract int blockNumber();  // internal gcc internal ID for the branch
-  abstract int branchNumber(); // internal gcc internal ID for the branch
-  abstract boolean wasExecuted();
+  abstract String blockNumber();  // internal gcc internal ID for the branch
+  abstract String branchNumber(); // internal gcc internal ID for the branch
   abstract int nrOfExecutions();
+
+  boolean wasExecuted() {
+    return nrOfExecutions() > 0;
+  }
 }

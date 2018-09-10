@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.syntax.MethodLibrary;
+import com.google.devtools.build.lib.syntax.Runtime;
 
 /**
  * The basis for a Skylark Environment with all build-related modules registered.
@@ -31,20 +34,23 @@ public final class SkylarkModules {
   /** A bootstrap for non-rules-specific globals of the build API. */
   private static TopLevelBootstrap topLevelBootstrap =
       new TopLevelBootstrap(
-          BazelBuildApiGlobals.class,
-          SkylarkAttr.class,
-          SkylarkCommandLine.class,
-          SkylarkNativeModule.class,
-          SkylarkRuleClassFunctions.class,
+          new BazelBuildApiGlobals(),
+          new SkylarkAttr(),
+          new SkylarkCommandLine(),
+          new SkylarkNativeModule(),
+          new SkylarkRuleClassFunctions(),
           StructProvider.STRUCT,
-          OutputGroupInfo.SKYLARK_CONSTRUCTOR);
-
+          OutputGroupInfo.SKYLARK_CONSTRUCTOR,
+          ActionsProvider.INSTANCE,
+          DefaultInfo.PROVIDER);
   /**
    * Adds bindings for skylark built-ins and non-rules-specific globals of the build API to
    * the given environment map builder.
    */
   public static void addSkylarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> envBuilder) {
-    BazelLibrary.addSkylarkGlobalsToBuilder(envBuilder);
+    Runtime.addConstantsToBuilder(envBuilder);
+    MethodLibrary.addBindingsToBuilder(envBuilder);
+
     topLevelBootstrap.addBindingsToBuilder(envBuilder);
   }
 }

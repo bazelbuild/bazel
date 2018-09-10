@@ -21,7 +21,9 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -31,10 +33,10 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
+import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
+import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -42,16 +44,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -422,6 +421,9 @@ public class BazelJavaSemantics implements JavaSemantics {
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Java")
             .addKeyValuePair("workspace_name", ruleContext.getWorkspaceName())
+            .addKeyValuePair(
+                "symlink_runfiles_enabled",
+                ruleContext.getConfiguration().runfilesEnabled() ? "1" : "0")
             .addKeyValuePair("java_bin_path", javaExecutable)
             .addKeyValuePair(
                 "jar_bin_path",
@@ -509,7 +511,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps) {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
-    // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
+    // so we reuse the logic within JavaCompilationArgsProvider to handle both scenarios.
     return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.copyOf(deps))
         .getRuntimeJars();
   }
@@ -562,20 +564,20 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact gensrcJar,
       RuleConfiguredTargetBuilder ruleBuilder) {
     // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    ccLinkingInfoBuilder.setCcLinkParamsStore(
-        new CcLinkParamsStore(
-            new AbstractCcLinkParamsStore() {
-              @Override
-              protected void collect(
-                  CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
-                builder.addTransitiveTargets(
-                    javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
-                    JavaCcLinkParamsProvider.TO_LINK_PARAMS,
-                    CcLinkParamsStore.TO_LINK_PARAMS);
-              }
-            }));
-    ruleBuilder.addNativeDeclaredProvider(ccLinkingInfoBuilder.build());
+    ImmutableList<? extends TransitiveInfoCollection> deps =
+        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH);
+    ImmutableList<CcLinkingInfo> ccLinkingInfos =
+        ImmutableList.<CcLinkingInfo>builder()
+            .addAll(AnalysisUtils.getProviders(deps, CcLinkingInfo.PROVIDER))
+            .addAll(
+                Streams.stream(AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.class))
+                    .map(JavaCcLinkParamsProvider::getCcLinkingInfo)
+                    .collect(ImmutableList.toImmutableList()))
+            .build();
+
+    // TODO(plf): return empty CcLinkingInfo because deps= in Java targets should not contain C++
+    // targets. We need to make sure that no one uses this functionality, though.
+    ruleBuilder.addNativeDeclaredProvider(CcLinkingInfo.merge(ccLinkingInfos));
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.
@@ -855,5 +857,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
       throws InterruptedException {
     return null;
+  }
+
+  @Override
+  public boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext) {
+    return false;
   }
 }

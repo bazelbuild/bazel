@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -61,33 +62,42 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
     assertThat(group.getEnvironments())
         .isEqualTo(
             ImmutableSet.of(
-                Label.parseAbsolute("//pkg:foo"),
-                Label.parseAbsolute("//pkg:bar"),
-                Label.parseAbsolute("//pkg:baz")));
+                Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
+                Label.parseAbsolute("//pkg:bar", ImmutableMap.of()),
+                Label.parseAbsolute("//pkg:baz", ImmutableMap.of())));
   }
 
   @Test
   public void defaultsMembership() throws Exception {
-    assertThat(group.getDefaults()).isEqualTo(ImmutableSet.of(Label.parseAbsolute("//pkg:foo")));
+    assertThat(group.getDefaults())
+        .isEqualTo(ImmutableSet.of(Label.parseAbsolute("//pkg:foo", ImmutableMap.of())));
   }
 
   @Test
   public void isDefault() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
-    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:foo"))).isTrue();
-    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:bar"))).isFalse();
-    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:baz"))).isFalse();
-    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:not_in_group"))).isFalse();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:foo", ImmutableMap.of())))
+        .isTrue();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:bar", ImmutableMap.of())))
+        .isFalse();
+    assertThat(unpackedGroup.isDefault(Label.parseAbsolute("//pkg:baz", ImmutableMap.of())))
+        .isFalse();
+    assertThat(
+            unpackedGroup.isDefault(Label.parseAbsolute("//pkg:not_in_group", ImmutableMap.of())))
+        .isFalse();
   }
 
   @Test
   public void fulfillers() throws Exception {
     EnvironmentLabels unpackedGroup = group.getEnvironmentLabels();
-    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:baz")))
-        .containsExactly(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:bar"));
-    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:bar")))
-        .containsExactly(Label.parseAbsolute("//pkg:foo"));
-    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:foo"))).isEmpty();
+    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:baz", ImmutableMap.of())))
+        .containsExactly(
+            Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
+            Label.parseAbsolute("//pkg:bar", ImmutableMap.of()));
+    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:bar", ImmutableMap.of())))
+        .containsExactly(Label.parseAbsolute("//pkg:foo", ImmutableMap.of()));
+    assertThat(unpackedGroup.getFulfillers(Label.parseAbsolute("//pkg:foo", ImmutableMap.of())))
+        .isEmpty();
   }
 
   @Test

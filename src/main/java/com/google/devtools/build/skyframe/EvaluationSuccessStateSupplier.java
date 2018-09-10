@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
 
 /**
@@ -41,5 +42,11 @@ class EvaluationSuccessStateSupplier implements Supplier<EvaluationSuccessState>
               + state,
           e);
     }
+  }
+
+  static Supplier<EvaluationSuccessState> fromSkyValue(SkyValue value) {
+    return ValueWithMetadata.justValue(value) != null
+        ? Suppliers.ofInstance(EvaluationSuccessState.SUCCESS)
+        : Suppliers.ofInstance(EvaluationSuccessState.FAILURE);
   }
 }

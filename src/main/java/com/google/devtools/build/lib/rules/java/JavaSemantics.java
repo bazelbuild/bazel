@@ -30,23 +30,27 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
+import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
+import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -103,10 +107,8 @@ public interface JavaSemantics {
   /**
    * Label to the Java Toolchain rule. It is resolved from a label given in the java options.
    */
-  String JAVA_TOOLCHAIN_LABEL = "//tools/defaults:java_toolchain";
+  String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
 
-  /** The java_toolchain.compatible_javacopts key for Java 7 javacopts */
-  public static final String JAVA7_JAVACOPTS_KEY = "java7";
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
@@ -114,11 +116,14 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
-  LabelLateBoundDefault<JavaConfiguration> JAVA_TOOLCHAIN =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          Label.parseAbsoluteUnchecked(JAVA_TOOLCHAIN_LABEL),
-          (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+  static LabelLateBoundDefault<JavaConfiguration> javaToolchainAttribute(
+      RuleDefinitionEnvironment environment) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        JavaConfiguration.class,
+        environment.getToolsLabel(JAVA_TOOLCHAIN_LABEL),
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, javaConfig) -> javaConfig.getToolchainLabel());
+  }
 
   /**
    * Name of the output group used for source jars.
@@ -126,19 +131,13 @@ public interface JavaSemantics {
   String SOURCE_JARS_OUTPUT_GROUP =
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
-  /**
-   * Name of the output group used for gen jars (the jars containing the class files for sources
-   * generated from annotation processors).
-   */
-  String GENERATED_JARS_OUTPUT_GROUP =
-      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
-
   /** Implementation for the :jvm attribute. */
   static LabelLateBoundDefault<JavaConfiguration> jvmAttribute(RuleDefinitionEnvironment env) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.JDK_LABEL),
-        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /** Implementation for the :host_jdk attribute. */
@@ -146,13 +145,15 @@ public interface JavaSemantics {
     return LabelLateBoundDefault.fromHostConfiguration(
         JavaConfiguration.class,
         env.getToolsLabel(JavaImplicitAttributes.HOST_JDK_LABEL),
-        (rule, attributes, configuration) -> configuration.getRuntimeLabel());
+        (Attribute.LateBoundDefault.Resolver<JavaConfiguration, Label> & Serializable)
+            (rule, attributes, configuration) -> configuration.getRuntimeLabel());
   }
 
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
+  @AutoCodec
   LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -176,24 +177,28 @@ public interface JavaSemantics {
             return javaConfig.getJavaLauncherLabel();
           });
 
+  @AutoCodec
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
   /** Implementation for the :proguard attribute. */
+  @AutoCodec
   LabelLateBoundDefault<JavaConfiguration> PROGUARD =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           null,
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
+  @AutoCodec
   LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) ->
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
+  @AutoCodec
   LabelListLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZERS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -456,7 +461,7 @@ public interface JavaSemantics {
       List<String> jvmFlags,
       JavaTargetAttributes.Builder attributesBuilder,
       boolean shouldStrip)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Add a source artifact to a {@link JavaTargetAttributes.Builder}. It is called when a source
@@ -510,4 +515,10 @@ public interface JavaSemantics {
       throws InterruptedException;
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
+
+  /**
+   * Checks if dependency errors coming from java_proto_library rules should be treated as errors
+   * even if the java_proto_library rule sets strict_deps = 0.
+   */
+  boolean isJavaProtoLibraryStrictDeps(RuleContext ruleContext);
 }

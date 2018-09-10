@@ -13,6 +13,20 @@
 # limitations under the License.
 """Helpers to create golden tests, to minimize code duplication."""
 
+def _compile_time_jars(ctx):
+    jars = depset([], transitive = [dep[JavaInfo].transitive_compile_time_jars for dep in ctx.attr.deps])
+    return [DefaultInfo(
+        files = jars,
+        runfiles = ctx.runfiles(transitive_files = jars),
+    )]
+
+compile_time_jars = rule(
+    attrs = {
+        "deps": attr.label_list(providers = ["java"]),
+    },
+    implementation = _compile_time_jars,
+)
+
 def create_golden_test(
         name,
         golden_output_file,
@@ -40,6 +54,7 @@ def create_golden_test(
         golden_stderr_file,
         import_deps_checker,
         rt_jar,
+        ":DumpProto",
     ] + [testdata_pkg + ":" + x for x in all_dep_jars]
     if (replacing_jar):
         data.append(testdata_pkg + ":" + replacing_jar)
@@ -49,6 +64,7 @@ def create_golden_test(
         "$(location %s)" % golden_stderr_file,
         # The exit code 199 means the checker emits errors on dependency issues.
         "199" if expect_errors else "0",
+        "$(location :DumpProto)",
         "$(location %s)" % import_deps_checker,
         "--checking_mode=%s" % checking_mode,
     ]

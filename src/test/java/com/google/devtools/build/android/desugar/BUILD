@@ -316,8 +316,12 @@ java_test(
     srcs = [
         "DesugarCoreLibraryFunctionalTest.java",
     ],
-    # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
-    jvm_flags = ["-Xbootclasspath/p:$(location :testdata_desugared_core_library):$(location //third_party/java/jacoco:blaze-agent)"],
+    jvm_flags = [
+        # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
+        "-XX:+IgnoreUnrecognizedVMOptions",
+        "-Xbootclasspath/a:$(location :testdata_desugared_core_library):$(location //third_party/java/jacoco:blaze-agent)",
+        "--patch-module=java.base=$(location :testdata_desugared_core_library)",
+    ],
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared_core_library",  # Make tests run against desugared library
@@ -1618,9 +1622,7 @@ genrule(
 $(JAVABASE)/bin/javap -c -p -cp $< 'com.google.devtools.build.android.desugar.testdata.Lambda$$$$Lambda$$0' > $@
 """,
     tags = ["no_windows"],
-    # Bazel 0.8.0 doesn't have this target under @bazel_tools, so we have to
-    # use the one in the main repository
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = ["@bazel_tools//tools/jdk"],
 )
 
@@ -1870,6 +1872,163 @@ grep lambda $(location subclass_disassembled.txt) > $(location subclass_lambda_s
     tools = [
         "@bazel_tools//tools/jdk",
     ],
+)
+
+sh_test(
+    name = "desugar_deps_consistent_test",
+    srcs = ["desugar_deps_consistency_test.sh"],
+    args = [
+        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(location :testdata_desugared_default_methods.jar)",
+        "$(location :separate_java8_desugared_default_methods.jar)",
+        "$(location :guava_at_head_desugared.jar)",
+    ],
+    data = [
+        ":guava_at_head_desugared.jar",
+        ":separate_java8_desugared_default_methods.jar",
+        ":testdata_desugared_default_methods.jar",
+        "//src/tools/singlejar:singlejar_local",
+        "@bazel_tools//tools/jdk:jar",
+    ],
+    tags = ["no_windows"],
+)
+
+# Tests that deps checking fails due to missing default method: libseparate_java8.jar defines
+# default methods which testdata_desugared_default_methods.jar assumes have been moved to companion.
+sh_test(
+    name = "desugar_deps_missing_fail_test",
+    srcs = ["desugar_deps_consistency_test.sh"],
+    args = [
+        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(location :testdata_desugared_default_methods.jar)",
+        "$(location :libseparate_java8.jar)",
+        "$(location :guava_at_head_desugared.jar)",
+    ],
+    data = [
+        ":guava_at_head_desugared.jar",
+        ":libseparate_java8.jar",
+        ":testdata_desugared_default_methods.jar",
+        "//src/tools/singlejar:singlejar_local",
+        "@bazel_tools//tools/jdk:jar",
+    ],
+    tags = ["no_windows"],
+)
+
+# Regression test for b/68049457 with deps checking failing due to missing static method:
+# b68049457_caller_desugared.jar assumes presence of companion class that's missing (in fact,
+# the whole Jar is missing, similar to neverlink situations).
+sh_test(
+    name = "desugar_deps_b68049457_fail_test",
+    srcs = ["desugar_deps_consistency_test.sh"],
+    args = [
+        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(location :b68049457_caller_desugared.jar)",
+    ],
+    data = [
+        ":b68049457_caller_desugared.jar",
+        "//src/tools/singlejar:singlejar_local",
+        "@bazel_tools//tools/jdk:jar",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "desugar_deps_missed_default_method_fail_test",
+    srcs = ["desugar_deps_consistency_test.sh"],
+    args = [
+        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(location :testdata_desugared_with_missing_dep.jar)",
+        "$(location :separate_java8_desugared_default_methods.jar)",
+        "$(location :guava_at_head_desugared.jar)",
+    ],
+    data = [
+        ":guava_at_head_desugared.jar",
+        ":separate_java8_desugared_default_methods.jar",
+        ":testdata_desugared_with_missing_dep.jar",
+        "//src/tools/singlejar:singlejar_local",
+        "@bazel_tools//tools/jdk:jar",
+    ],
+    tags = ["no_windows"],
+)
+
+# Tests that any Jar entry starting with j$/ causes singlejar to fail when run
+# with --check_desugar_deps.  This is a backstop against such entries being
+# included in deploy.jars.
+sh_test(
+    name = "bad_entry_jar_fail_test",
+    srcs = ["desugar_deps_consistency_test.sh"],
+    args = [
+        "$(location //src/tools/singlejar:singlejar_local)",
+        "$(location @bazel_tools//tools/jdk:jar)",
+        "$(location :mock_bad_entry_jar)",
+    ],
+    data = [
+        ":mock_bad_entry_jar",
+        "//src/tools/singlejar:singlejar_local",
+        "@bazel_tools//tools/jdk:jar",
+    ],
+    tags = ["no_windows"],
+)
+
+genrule(
+    name = "desugar_testdata_with_missing_dep",
+    srcs = [
+        ":separate",
+        ":testdata_java8",
+        "//third_party:guava-jars",
+        "//third_party/java/jacoco:blaze-agent",
+        "@bazel_tools//tools/android:android_jar",
+    ],
+    outs = ["testdata_desugared_with_missing_dep.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
+          "-i $(location :testdata_java8) -o $@ " +
+          "--emit_dependency_metadata_as_needed " +
+          "--classpath_entry $(location :separate) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
+          "--classpath_entry $(location //third_party/java/jacoco:blaze-agent) " +
+          "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+genrule(
+    name = "desugar_b68049457_caller",
+    srcs = [
+        ":b68049457_caller",
+        ":b68049457_interface",
+        "//third_party/java/jacoco:blaze-agent",
+        "@bazel_tools//tools/android:android_jar",
+    ],
+    outs = ["b68049457_caller_desugared.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
+          "-i $(location :b68049457_caller) -o $@ " +
+          "--emit_dependency_metadata_as_needed " +
+          "--classpath_entry $(location :b68049457_interface) " +
+          "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+java_library(
+    name = "b68049457_interface",
+    srcs = ["testdata/b68049457/StaticInterfaceMethod.java"],
+    neverlink = 1,
+)
+
+java_library(
+    name = "b68049457_caller",
+    srcs = ["testdata/b68049457/StaticInterfaceMethodCaller.java"],
+    deps = [":b68049457_interface"],
+)
+
+# Creates simple .jar file with empty file entry called "j$/hello"
+genrule(
+    name = "mock_bad_entry_jar",
+    outs = ["mock_bad_entry.jar"],
+    cmd = """$(location //tools/zip:zipper) c $@ "j\$$/hello=" """,
+    tools = ["//tools/zip:zipper"],
 )
 
 # b/62623509 regression test.  Calls to jacoco-generated method in interface

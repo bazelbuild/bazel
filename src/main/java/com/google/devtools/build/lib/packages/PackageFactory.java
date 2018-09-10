@@ -1142,7 +1142,7 @@ public final class PackageFactory {
    */
   public static PackageContext getContext(Environment env, Location location)
       throws EvalException {
-    PackageContext value = (PackageContext) env.lookup(PKG_CONTEXT);
+    PackageContext value = (PackageContext) env.dynamicLookup(PKG_CONTEXT);
     if (value == null) {
       // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.

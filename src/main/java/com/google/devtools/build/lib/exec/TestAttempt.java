@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -188,6 +189,19 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
   }
 
   @Override
+  public ImmutableList<LocalFile> referencedLocalFiles() {
+    LocalFileType localFileType =
+        status == TestStatus.PASSED
+            ? LocalFileType.SUCCESSFUL_TEST_OUTPUT
+            : LocalFileType.FAILED_TEST_OUTPUT;
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    for (Pair<String, Path> file : files) {
+      localFiles.add(new LocalFile(file.getSecond(), localFileType));
+    }
+    return localFiles.build();
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     return GenericBuildEvent.protoChaining(this).setTestResult(asTestResult(converters)).build();
   }
@@ -205,11 +219,11 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {
-      builder.addTestActionOutput(
-          BuildEventStreamProtos.File.newBuilder()
-              .setName(file.getFirst())
-              .setUri(pathConverter.apply(file.getSecond()))
-              .build());
+      String uri = pathConverter.apply(file.getSecond());
+      if (uri != null) {
+        builder.addTestActionOutput(
+            BuildEventStreamProtos.File.newBuilder().setName(file.getFirst()).setUri(uri).build());
+      }
     }
     return builder.build();
   }

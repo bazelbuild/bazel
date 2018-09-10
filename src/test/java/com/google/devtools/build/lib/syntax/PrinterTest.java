@@ -61,8 +61,9 @@ public class PrinterTest {
     assertThat(Printer.repr(3)).isEqualTo("3");
     assertThat(Printer.repr(Runtime.NONE)).isEqualTo("None");
 
-    assertThat(Printer.str(Label.parseAbsolute("//x"))).isEqualTo("//x:x");
-    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("Label(\"//x:x\")");
+    assertThat(Printer.str(Label.parseAbsolute("//x", ImmutableMap.of()))).isEqualTo("//x:x");
+    assertThat(Printer.repr(Label.parseAbsolute("//x", ImmutableMap.of())))
+        .isEqualTo("Label(\"//x:x\")");
 
     List<?> list = MutableList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
@@ -148,6 +149,10 @@ public class PrinterTest {
             "    2,\n" +
             "    3\n" +
             "]");
+    assertThat(Printer.getPrettyPrinter().repr(ImmutableList.<String>of()).toString())
+        .isEqualTo("[]");
+    assertThat(Printer.getPrettyPrinter().repr(ImmutableList.of("foo")).toString())
+        .isEqualTo("[\n    \"foo\"\n]");
     assertThat(
             Printer.getPrettyPrinter()
                 .repr(ImmutableMap.<Object, Object>of("foo", "bar", "baz", ImmutableList.of(1, 2)))
@@ -159,6 +164,17 @@ public class PrinterTest {
             "        1,\n" +
             "        2\n" +
             "    ]\n" +
+            "}");
+    assertThat(
+            Printer.getPrettyPrinter()
+                .repr(ImmutableMap.<Object, Object>of(
+                        "foo", "bar", "empty", ImmutableList.of(), "a", "b"))
+                .toString())
+        .isEqualTo(
+            "{\n" +
+            "    \"foo\": \"bar\",\n" +
+            "    \"empty\": [],\n" +
+            "    \"a\": \"b\"\n" +
             "}");
   }
 

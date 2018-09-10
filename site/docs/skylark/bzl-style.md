@@ -6,15 +6,15 @@ title: .bzl Style Guide
 # .bzl Style Guide
 
 
-Skylark is a language that defines how software is built, and as such it is both
-a programming and a configuration language.
+[Starlark](language.md) is a language that defines how software is built, and as
+such it is both a programming and a configuration language.
 
-You will use Skylark to write BUILD files, macros, and build rules. Macros and
+You will use Starlark to write BUILD files, macros, and build rules. Macros and
 rules are essentially meta-languages - they define how BUILD files are written.
 BUILD files are intended to be simple and repetitive.
 
 All software is read more often than it is written. This is especially true for
-Skylark, as engineers read BUILD files to understand dependencies of their
+Starlark, as engineers read BUILD files to understand dependencies of their
 targets and details of their builds.This reading will often happen in passing,
 in a hurry, or in parallel to accomplishing some other task. Consequently,
 simplicity and readability are very important so that users can parse and
@@ -46,8 +46,8 @@ to make your files easy to process, both by humans and tools.
 
 *   When in doubt, follow the [Python style
     guide](https://www.python.org/dev/peps/pep-0008/). In particular, use 4
-    4 spaces for indentation (we previously recommended 2, but we now
-    follow the Python convention).
+    spaces for indentation (we previously recommended 2, but we now follow the
+    Python convention).
 
 *   Document files and functions using [docstrings](skylint.md#docstrings). Use
     a docstring at the top of each `.bzl` file, and a docstring for each public
@@ -125,9 +125,9 @@ For macros that define non-leaf nodes, follow these best practices:
 *   When calling a macro, use only keyword arguments. This is consistent with
     rules, and greatly improves readability.
 
-Engineers often write macros when the Skylark API of relevant rules is
+Engineers often write macros when the Starlark API of relevant rules is
 insufficient for their specific use case, regardless of whether the rule is
-defined within Bazel in native code, or in Skylark. If you’re facing this
+defined within Bazel in native code, or in Starlark. If you’re facing this
 problem, ask the rule author if they can extend the API to accomplish your
 goals.
 

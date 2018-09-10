@@ -73,12 +73,13 @@ public class AarImportBaseRule implements RuleDefinition {
                 .cfg(HostTransition.INSTANCE)
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_import_deps_checker")))
-        .add(attr(ZIPPER, LABEL)
-            .cfg(HostTransition.INSTANCE)
-            .exec()
-            .value(env.getToolsLabel("//tools/zip:zipper")))
+        .add(
+            attr(ZIPPER, LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .exec()
+                .value(env.getToolsLabel("//tools/zip:zipper")))
         .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requiresConfigurationFragments(JavaConfiguration.class)
+        .requiresConfigurationFragments(AndroidConfiguration.class, JavaConfiguration.class)
         .build();
   }
 

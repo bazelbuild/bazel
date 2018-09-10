@@ -33,30 +33,30 @@ using bazel::launcher::die;
 using std::make_unique;
 using std::unique_ptr;
 
-int main(int argc, char* argv[]) {
+int wmain(int argc, wchar_t* argv[]) {
   LaunchDataParser::LaunchInfo launch_info;
 
   if (!LaunchDataParser::GetLaunchInfo(GetBinaryPathWithExtension(argv[0]),
                                        &launch_info)) {
-    die("Failed to parse launch info.");
+    die(L"Failed to parse launch info.");
   }
 
   auto result = launch_info.find(BINARY_TYPE);
   if (result == launch_info.end()) {
-    die("Cannot find key \"%s\" from launch data.", BINARY_TYPE);
+    die(L"Cannot find key \"%hs\" from launch data.", BINARY_TYPE);
   }
 
   unique_ptr<BinaryLauncherBase> binary_launcher;
 
-  if (result->second == "Python") {
+  if (result->second == L"Python") {
     binary_launcher =
         make_unique<PythonBinaryLauncher>(launch_info, argc, argv);
-  } else if (result->second == "Bash") {
+  } else if (result->second == L"Bash") {
     binary_launcher = make_unique<BashBinaryLauncher>(launch_info, argc, argv);
-  } else if (result->second == "Java") {
+  } else if (result->second == L"Java") {
     binary_launcher = make_unique<JavaBinaryLauncher>(launch_info, argc, argv);
   } else {
-    die("Unknown binary type, cannot launch anything.");
+    die(L"Unknown binary type, cannot launch anything.");
   }
 
   return binary_launcher->Launch();

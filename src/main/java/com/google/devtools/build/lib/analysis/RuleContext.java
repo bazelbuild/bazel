@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.fileset.FilesetProvider;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -77,6 +76,7 @@ import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -98,11 +98,9 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -181,7 +179,6 @@ public final class RuleContext extends TargetContext
   private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
-  private final PatchTransition disableLipoTransition;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
   private final ErrorReporter reporter;
@@ -204,9 +201,13 @@ public final class RuleContext extends TargetContext
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainContext toolchainContext,
       ConstraintSemantics constraintSemantics) {
-    super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
+    super(
+        builder.env,
+        builder.target.getAssociatedRule(),
+        builder.configuration,
+        builder.prerequisiteMap.get(null),
         builder.visibility);
-    this.rule = builder.rule;
+    this.rule = builder.target.getAssociatedRule();
     this.aspects = builder.aspects;
     this.aspectDescriptors =
         builder
@@ -227,7 +228,6 @@ public final class RuleContext extends TargetContext
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
     this.ruleClassNameForLogging = ruleClassNameForLogging;
     this.hostConfiguration = builder.hostConfiguration;
-    this.disableLipoTransition = builder.disableLipoTransition;
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
     this.constraintSemantics = constraintSemantics;
@@ -755,18 +755,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the list of transitive info collections that feed into this target through the
-   * specified attribute. Note that you need to specify the correct mode for the attribute,
-   * otherwise an assertion will be raised.
-   */
-  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
-      Mode mode) {
-    return Lists.transform(
-        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
-        ConfiguredTargetAndData::getConfiguredTarget);
-  }
-
-  /**
    * Returns the prerequisites keyed by the CPU of their configurations. If the split transition
    * is not active (e.g. split() returned an empty list), the key is an empty Optional.
    */
@@ -902,10 +890,34 @@ public final class RuleContext extends TargetContext
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
+   *
+   * @deprecated use {@link #getPrerequisitesByConfiguration(String, Mode, BuiltinProvider)}
+   *     instead
+   */
+  @Deprecated
+  public <C extends Info>
+  ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+      String attributeName, Mode mode, final NativeProvider<C> provider) {
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
+        ImmutableListMultimap.builder();
+    for (ConfiguredTargetAndData prerequisite :
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode)) {
+      C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
+      if (prerequisiteProvider != null) {
+        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * For a given attribute, returns all declared provider provided by targets of that attribute.
+   * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
+   * created.
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, Mode mode, final NativeProvider<C> provider) {
+          String attributeName, Mode mode, final BuiltinProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -935,6 +947,18 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the list of transitive info collections that feed into this target through the
+   * specified attribute. Note that you need to specify the correct mode for the attribute,
+   * otherwise an assertion will be raised.
+   */
+  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
+      Mode mode) {
+    return Lists.transform(
+        getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
+        ConfiguredTargetAndData::getConfiguredTarget);
+  }
+
+  /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file.
    */
@@ -948,7 +972,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends InfoInterface> Iterable<T> getPrerequisites(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -957,7 +981,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> Iterable<T> getPrerequisites(
+  public <T extends InfoInterface> Iterable<T> getPrerequisites(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
@@ -968,7 +992,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends Info> T getPrerequisite(
+  public <T extends InfoInterface> T getPrerequisite(
       String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -980,7 +1004,7 @@ public final class RuleContext extends TargetContext
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
-  public <T extends Info> T getPrerequisite(
+  public <T extends InfoInterface> T getPrerequisite(
       String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
@@ -1065,26 +1089,6 @@ public final class RuleContext extends TargetContext
     return new Expander(this, getConfigurationMakeVariableContext());
   }
 
-  public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
-    ArrayList<TemplateVariableInfo> templateVariableInfos = new ArrayList<>();
-
-    for (String attributeName : attributeNames) {
-      // TODO(b/37567440): Remove this continue statement.
-      if (!attributes().has(attributeName)) {
-        continue;
-      }
-      Iterables.addAll(templateVariableInfos, getPrerequisites(
-          attributeName, Mode.DONT_CHECK, TemplateVariableInfo.PROVIDER));
-    }
-
-    LinkedHashMap<String, String> makeVariables = new LinkedHashMap<>();
-    for (TemplateVariableInfo templateVariableInfo : templateVariableInfos) {
-      makeVariables.putAll(templateVariableInfo.getVariables());
-    }
-
-    return ImmutableMap.copyOf(makeVariables);
-  }
-
   /**
    * Returns a cached context that maps Make variable names (string) to values (string) without any
    * extra {@link MakeVariableSupplier}.
@@ -1111,7 +1115,7 @@ public final class RuleContext extends TargetContext
     if (getToolchainContext() == null) {
       return null;
     }
-    return getToolchainContext().getExecutionPlatform();
+    return getToolchainContext().executionPlatform();
   }
 
   private void checkAttribute(String attributeName, Mode mode) {
@@ -1426,12 +1430,11 @@ public final class RuleContext extends TargetContext
   @VisibleForTesting
   public static final class Builder implements RuleErrorConsumer  {
     private final AnalysisEnvironment env;
-    private final Rule rule;
+    private final Target target;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
-    private PatchTransition disableLipoTransition;
     private final PrerequisiteValidator prerequisiteValidator;
     private final ErrorReporter reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1445,22 +1448,20 @@ public final class RuleContext extends TargetContext
     @VisibleForTesting
     public Builder(
         AnalysisEnvironment env,
-        Rule rule,
+        Target target,
         ImmutableList<Aspect> aspects,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
-        PatchTransition disableLipoTransition,
         PrerequisiteValidator prerequisiteValidator,
         ConfigurationFragmentPolicy configurationFragmentPolicy) {
       this.env = Preconditions.checkNotNull(env);
-      this.rule = Preconditions.checkNotNull(rule);
+      this.target = Preconditions.checkNotNull(target);
       this.aspects = aspects;
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
-      this.disableLipoTransition = disableLipoTransition;
       this.prerequisiteValidator = prerequisiteValidator;
-      reporter = new ErrorReporter(env, rule, getRuleClassNameForLogging());
+      reporter = new ErrorReporter(env, target.getAssociatedRule(), getRuleClassNameForLogging());
     }
 
     @VisibleForTesting
@@ -1469,11 +1470,12 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
       Preconditions.checkNotNull(constraintSemantics);
-      AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configConditions);
+      AttributeMap attributes =
+          ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions);
       validateAttributes(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
-          createFilesetEntryMap(rule, configConditions);
+          createFilesetEntryMap(target.getAssociatedRule(), configConditions);
       return new RuleContext(
           this,
           attributes,
@@ -1488,7 +1490,10 @@ public final class RuleContext extends TargetContext
     }
 
     private void validateAttributes(AttributeMap attributes) {
-      rule.getRuleClassObject().checkAttributesNonEmpty(rule, reporter, attributes);
+      target
+          .getAssociatedRule()
+          .getRuleClassObject()
+          .checkAttributesNonEmpty(target.getAssociatedRule(), reporter, attributes);
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
@@ -1549,9 +1554,12 @@ public final class RuleContext extends TargetContext
     }
 
     private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
-      if (src.getConfiguredTarget().getProvider(FilesetProvider.class) != null) {
+      NestedSet<Artifact> filesToBuild =
+          src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
+      if (filesToBuild.isSingleton() && Iterables.getOnlyElement(filesToBuild).isFileset()) {
         return true;
       }
+
       if (filesetEntry.isSourceFileset()) {
         return true;
       }
@@ -1579,6 +1587,10 @@ public final class RuleContext extends TargetContext
      */
     private ListMultimap<String, ConfiguredFilesetEntry> createFilesetEntryMap(
         final Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
+      if (!target.getTargetKind().equals("Fileset rule")) {
+        return ImmutableSortedKeyListMultimap.<String, ConfiguredFilesetEntry>builder().build();
+      }
+
       final ImmutableSortedKeyListMultimap.Builder<String, ConfiguredFilesetEntry> mapBuilder =
           ImmutableSortedKeyListMultimap.builder();
       for (Attribute attr : rule.getAttributes()) {
@@ -1735,7 +1747,10 @@ public final class RuleContext extends TargetContext
       if (prerequisiteTarget instanceof Rule) {
         Rule prerequisiteRule = (Rule) prerequisiteTarget;
 
-        String reason = attribute.getValidityPredicate().checkValid(rule, prerequisiteRule);
+        String reason =
+            attribute
+                .getValidityPredicate()
+                .checkValid(target.getAssociatedRule(), prerequisiteRule);
         if (reason != null) {
           reportBadPrerequisite(attribute, prerequisite, reason, false);
         }
@@ -1776,7 +1791,7 @@ public final class RuleContext extends TargetContext
     }
 
     public Rule getRule() {
-      return rule;
+      return target.getAssociatedRule();
     }
 
     /**
@@ -1784,13 +1799,13 @@ public final class RuleContext extends TargetContext
      */
     public String getRuleClassNameForLogging() {
       if (aspects.isEmpty()) {
-        return rule.getRuleClass();
+        return target.getAssociatedRule().getRuleClass();
       }
 
       return Joiner.on(",")
               .join(aspects.stream().map(a -> a.getDescriptor()).collect(Collectors.toList()))
           + " aspect on "
-          + rule.getRuleClass();
+          + target.getAssociatedRule().getRuleClass();
     }
 
     public BuildConfiguration getConfiguration() {
@@ -1806,7 +1821,7 @@ public final class RuleContext extends TargetContext
      * method to determine whether a dependency is allowed as per visibility rules.
      */
     public boolean isVisible(TransitiveInfoCollection prerequisite) {
-      return RuleContext.isVisible(rule, prerequisite);
+      return RuleContext.isVisible(target.getAssociatedRule(), prerequisite);
     }
 
     private void validateDirectPrerequisiteFileTypes(
@@ -1840,6 +1855,9 @@ public final class RuleContext extends TargetContext
         }
         for (Artifact sourceArtifact : artifacts) {
           if (allowedFileTypes.apply(sourceArtifact.getFilename())) {
+            return;
+          }
+          if (sourceArtifact.isTreeArtifact()) {
             return;
           }
         }

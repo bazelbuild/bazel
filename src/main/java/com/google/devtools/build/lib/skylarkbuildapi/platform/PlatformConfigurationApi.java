@@ -32,15 +32,22 @@ import java.util.List;
 public interface PlatformConfigurationApi {
 
   @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
-  public Label getHostPlatform();
+  Label getHostPlatform();
 
-  @SkylarkCallable(name = "platforms", structField = true, doc = "The current target platforms")
-  public ImmutableList<Label> getTargetPlatforms();
+  @SkylarkCallable(name = "platform", structField = true, doc = "The current target platform")
+  Label getTargetPlatform();
 
   @SkylarkCallable(
-    name = "enabled_toolchain_types",
-    structField = true,
-    doc = "The set of toolchain types enabled for platform-based toolchain selection."
-  )
-  public List<Label> getEnabledToolchainTypes();
+      name = "platforms",
+      structField = true,
+      doc = "The current target platforms",
+      documented = false)
+  @Deprecated
+  ImmutableList<Label> getTargetPlatforms();
+
+  @SkylarkCallable(
+      name = "enabled_toolchain_types",
+      structField = true,
+      doc = "The set of toolchain types enabled for platform-based toolchain selection.")
+  List<Label> getEnabledToolchainTypes();
 }

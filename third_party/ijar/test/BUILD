@@ -9,10 +9,10 @@ sh_test(
     size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
-        "../local_jdk/bin/javac",
-        "../local_jdk/bin/java",
-        "../local_jdk/bin/jar",
-        "../local_jdk/bin/javap",
+        "$(JAVABASE)/bin/javac",
+        "$(JAVABASE)/bin/java",
+        "$(JAVABASE)/bin/jar",
+        "$(JAVABASE)/bin/javap",
         "$(location //third_party/ijar)",
         "$(location //tools/jdk:langtools)",
         # We assume unzip and zip to be on the path
@@ -31,6 +31,9 @@ sh_test(
         "WellCompressed2.java",
         ":libtypeannotations2.jar",
         ":libmethodparameters.jar",
+        # This is a precompiled .jar file because it needs to be compiled with JDK 11.
+        # TODO(cushon): build from source once we have a JDK 11
+        "nestmates/nestmates.jar",
         ":source_debug_extension.jar",
         ":largest_regular.jar",
         ":smallest_zip64.jar",
@@ -41,13 +44,13 @@ sh_test(
         # Intentionally bad test JAR: file count in central directory
         # wrong.
         "libwrongcentraldir.jar",
-        "//tools/defaults:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
         "//tools/jdk:langtools",
     ],
     shard_count = 5,
-    tags = [
-        "jdk8",
-        "zip",
+    tags = ["zip"],
+    toolchains = [
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ],
 )
 
@@ -73,7 +76,6 @@ java_library(
     name = "invokedynamic",
     testonly = 1,
     srcs = ["invokedynamic/ClassWithLambda.java"],
-    tags = ["jdk8"],
 )
 
 # For testing purposes: a class which exposes a private nested class in
@@ -160,14 +162,12 @@ genrule(
 java_library(
     name = "typeannotations2",
     srcs = glob(["typeannotations2/**/*.java"]),
-    tags = ["jdk8"],
 )
 
 java_library(
     name = "methodparameters",
     srcs = ["methodparameters/Test.java"],
     javacopts = ["-parameters"],
-    tags = ["jdk8"],
 )
 
 java_binary(
@@ -276,11 +276,6 @@ java_test(
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
         ":module_info-interface.jar",
-        "//third_party/java/jdk/langtools:javac_jar",
-    ],
-    jvm_flags = [
-        # Simulates how Bazel invokes javac
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
     ],
     tags = ["zip"],
     test_class = "IjarTests",

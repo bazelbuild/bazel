@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -40,9 +39,7 @@ import com.google.devtools.build.lib.bazel.rules.ToolchainRules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.transitions.LipoDataTransitionRuleSet;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.util.FileType;
@@ -120,8 +117,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             emptylib
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcDynamicLibrariesForRuntime()
-                .getDynamicLibrariesForRuntimeArtifacts()
+                .getDynamicModeParamsForExecutable()
+                .getDynamicLibrariesForRuntime()
                 .isEmpty())
         .isTrue();
   }
@@ -233,8 +230,8 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(
             statically
                 .get(CcLinkingInfo.PROVIDER)
-                .getCcDynamicLibrariesForRuntime()
-                .getDynamicLibrariesForRuntimeArtifacts()
+                .getDynamicModeParamsForExecutable()
+                .getDynamicLibrariesForRuntime()
                 .isEmpty())
         .isTrue();
     Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));
@@ -575,7 +572,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
         "           includes = ['./'])");
-    Label label = Label.parseAbsolute("@pkg//bar:lib");
+    Label label = Label.parseAbsolute("@pkg//bar:lib", ImmutableMap.of());
     ConfiguredTarget target = view.getConfiguredTargetForTesting(reporter, label, targetConfig);
     assertThat(view.hasErrors(target)).isFalse();
     assertNoEvents();
@@ -644,27 +641,6 @@ public class CcCommonTest extends BuildViewTestCase {
     Action linkAction = getGeneratingAction(getOnlyElement(getFilesToBuild(theApp)));
     ImmutableList<Artifact> filesToBuild = ImmutableList.copyOf(getFilesToBuild(theLib));
     assertThat(ImmutableSet.copyOf(linkAction.getInputs()).containsAll(filesToBuild)).isTrue();
-  }
-
-  @Test
-  public void testMissingLabelInLinkopts() throws Exception {
-    scratch.file(
-        "linklow/BUILD",
-        "genrule(name = 'linklow_linker_script',",
-        "  srcs = [ 'default_linker_script' ],",
-        "  tools = [ 'default_linker_script' ],",
-        "  outs = [ 'linklow.lds' ],",
-        "  cmd = 'cat  $< > $@')");
-    checkError(
-        "ocean/scoring2",
-        "ms-ascorer",
-        // error:
-        "could not resolve label '//linklow:linklow_linker_script'",
-        "cc_binary(name = 'ms-ascorer',",
-        "    srcs = [ ],",
-        "    deps = [ ':ascorer-servlet'],",
-        "    linkopts = [ '-static', '-Xlinker', '-script', '//linklow:linklow_linker_script'])",
-        "cc_library(name = 'ascorer-servlet')");
   }
 
   @Test
@@ -969,17 +945,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * A {@code toolchain_type} rule for testing that only supports C++.
-   */
-  public static class OnlyCppToolchainType extends ToolchainType {
-    public OnlyCppToolchainType() {
-      super(
-          ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>of(),
-          ImmutableMap.<Label, ImmutableMap<String, String>>of());
-    }
-  }
-
-  /**
    * Tests for the case where there are only C++ rules defined.
    */
   @RunWith(JUnit4.class)
@@ -993,7 +958,6 @@ public class CcCommonTest extends BuildViewTestCase {
         public ConfiguredRuleClassProvider createRuleClassProvider() {
           ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
           builder.setToolsRepository("@bazel_tools");
-          LipoDataTransitionRuleSet.INSTANCE.init(builder);
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           CoreRules.INSTANCE.init(builder);
           CoreWorkspaceRules.INSTANCE.init(builder);

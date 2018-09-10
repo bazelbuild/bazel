@@ -21,14 +21,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.UnshareableValue;
@@ -77,6 +80,8 @@ public class ActionExecutionValue implements SkyValue {
 
   @Nullable private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
 
+  @Nullable private final NestedSet<Artifact> discoveredModules;
+
   /**
    * @param artifactData Map from Artifacts to corresponding FileValues.
    * @param treeArtifactData All tree artifact data.
@@ -86,16 +91,19 @@ public class ActionExecutionValue implements SkyValue {
    *     data are not used by the {@link FilesystemValueChecker} to invalidate
    *     ActionExecutionValues.
    * @param outputSymlinks This represents the SymlinkTree which is the output of a fileset action.
+   * @param discoveredModules cpp modules discovered
    */
   private ActionExecutionValue(
       Map<Artifact, FileValue> artifactData,
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
+      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      @Nullable NestedSet<Artifact> discoveredModules) {
     this.artifactData = ImmutableMap.<Artifact, FileValue>copyOf(artifactData);
     this.additionalOutputData = ImmutableMap.copyOf(additionalOutputData);
     this.treeArtifactData = ImmutableMap.copyOf(treeArtifactData);
     this.outputSymlinks = outputSymlinks;
+    this.discoveredModules = discoveredModules;
   }
 
   static ActionExecutionValue create(
@@ -103,12 +111,17 @@ public class ActionExecutionValue implements SkyValue {
       Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      @Nullable NestedSet<Artifact> discoveredModules,
       boolean notifyOnActionCacheHitAction) {
     return notifyOnActionCacheHitAction
         ? new CrossServerUnshareableActionExecutionValue(
-            artifactData, treeArtifactData, additionalOutputData, outputSymlinks)
+            artifactData, treeArtifactData, additionalOutputData, outputSymlinks, discoveredModules)
         : new ActionExecutionValue(
-            artifactData, treeArtifactData, additionalOutputData, outputSymlinks);
+            artifactData,
+            treeArtifactData,
+            additionalOutputData,
+            outputSymlinks,
+            discoveredModules);
   }
 
   /**
@@ -117,7 +130,7 @@ public class ActionExecutionValue implements SkyValue {
    * ActionMetadataHandler#getAdditionalOutputData} for when that can happen.
    */
   @Nullable
-  FileArtifactValue getArtifactValue(Artifact artifact) {
+  public FileArtifactValue getArtifactValue(Artifact artifact) {
     return additionalOutputData.get(artifact);
   }
 
@@ -157,6 +170,11 @@ public class ActionExecutionValue implements SkyValue {
   @Nullable
   ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return outputSymlinks;
+  }
+
+  @Nullable
+  public NestedSet<Artifact> getDiscoveredModules() {
+    return discoveredModules;
   }
 
   /**
@@ -228,8 +246,10 @@ public class ActionExecutionValue implements SkyValue {
         Map<Artifact, FileValue> artifactData,
         Map<Artifact, TreeArtifactValue> treeArtifactData,
         Map<Artifact, FileArtifactValue> additionalOutputData,
-        @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-      super(artifactData, treeArtifactData, additionalOutputData, outputSymlinks);
+        @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
+        @Nullable NestedSet<Artifact> discoveredModules) {
+      super(
+          artifactData, treeArtifactData, additionalOutputData, outputSymlinks, discoveredModules);
     }
   }
 
@@ -240,6 +260,7 @@ public class ActionExecutionValue implements SkyValue {
     }
     ImmutableMap.Builder<Artifact, V> result = ImmutableMap.builderWithExpectedSize(data.size());
     for (Map.Entry<Artifact, V> entry : data.entrySet()) {
+      Artifact artifact = entry.getKey();
       Artifact transformedArtifact =
           newArtifactMap.get(new OwnerlessArtifactWrapper(entry.getKey()));
       if (transformedArtifact == null) {
@@ -257,11 +278,13 @@ public class ActionExecutionValue implements SkyValue {
             .collect(Collectors.toMap(OwnerlessArtifactWrapper::new, Function.identity()));
     // This is only called for shared actions, so we'll almost certainly have to transform all keys
     // in all sets.
+    // Discovered modules come from the action's inputs, and so don't need to be transformed.
     return create(
         transformKeys(artifactData, newArtifactMap),
         transformKeys(treeArtifactData, newArtifactMap),
         transformKeys(additionalOutputData, newArtifactMap),
         outputSymlinks,
+        discoveredModules,
         this instanceof CrossServerUnshareableActionExecutionValue);
   }
 }

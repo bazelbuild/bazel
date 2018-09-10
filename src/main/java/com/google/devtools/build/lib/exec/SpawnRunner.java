@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -168,6 +169,11 @@ public interface SpawnRunner {
     // directories? Or maybe we need a separate method to return the set of directories?
     ArtifactExpander getArtifactExpander();
 
+    /** The {@link ArtifactPathResolver} to use when directly writing output files. */
+    default ArtifactPathResolver getPathResolver() {
+      return ArtifactPathResolver.IDENTITY;
+    }
+
     /**
      * All implementations must call this method before writing to the provided stdout / stderr or
      * to any of the output file locations. This method is used to coordinate - implementations
@@ -187,7 +193,8 @@ public interface SpawnRunner {
     /** The files to which to write stdout and stderr. */
     FileOutErr getFileOutErr();
 
-    SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException;
+    SortedMap<PathFragment, ActionInput> getInputMapping(boolean expandTreeArtifactsInRunfiles)
+        throws IOException;
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus state, String name);

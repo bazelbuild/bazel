@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
@@ -40,7 +41,16 @@ public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigura
 
   @SkylarkCallable(
     name = "platform_developer_framework_dir",
-    doc = "Returns the platform frameworks directory inside of Xcode for a given configuration."
+    doc = "Returns the platform frameworks directory inside of Xcode for a given configuration.",
+    parameters = {
+      @Param(
+          name = "configuration",
+          positional = true,
+          named = false,
+          type = AppleConfigurationApi.class,
+          doc = "The apple configuration fragment."
+      )
+    }
   )
   public String platformFrameworkDirFromConfig(AppleConfigurationApiT configuration);
 }

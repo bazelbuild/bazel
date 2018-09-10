@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.MoreCollectors;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -28,24 +30,68 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /** Test-related options. */
-@AutoCodec
 public class TestConfiguration extends Fragment {
+  public static final OptionsDiffPredicate HAVE_OPTIONS_AFFECTING_NON_TEST_TARGETS_CHANGED =
+      (diff, options) -> {
+          if (!options.contains(TestOptions.class)) {
+            // if there's a diff and there are no test options, a non-test option definitely changed
+            return true;
+          }
+          if (!options.get(TestOptions.class).trimTestConfiguration) {
+            // if trimTestConfiguration is off, test options affect all targets
+            return true;
+          }
+          for (OptionDefinition changedOption : diff.getFirst().keySet()) {
+            if (TestOptions.TRIM_TEST_CONFIGURATION.equals(changedOption)) {
+              // toggling trimTestConfiguration affects all non-test targets
+              return true;
+            }
+            if (!changedOption.getField().getDeclaringClass().equals(TestOptions.class)) {
+              // only TestOptions are trimmed; options from other classes affect all targets
+              return true;
+            }
+          }
+          return false;
+      };
+
   /** Command-line options. */
-  @AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
   public static class TestOptions extends FragmentOptions {
+    private static final OptionDefinition TRIM_TEST_CONFIGURATION =
+        OptionsParser.getOptionDefinitions(TestOptions.class)
+            .stream()
+            .filter(definition -> definition.getOptionName().equals("trim_test_configuration"))
+            .collect(MoreCollectors.onlyElement());
+
+    @Option(
+        name = "test_timeout",
+        defaultValue = "-1",
+        converter = TestTimeout.TestTimeoutConverter.class,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Override the default test timeout values for test timeouts (in secs). If a single "
+                + "positive integer value is specified it will override all categories.  If 4 "
+                + "comma-separated integers are specified, they will override the timeouts for "
+                + "short, moderate, long and eternal (in that order). In either form, a value of "
+                + "-1 tells blaze to use its default timeouts for that category.")
+    public Map<TestTimeout, Duration> testTimeout;
+
     @Option(
       name = "test_filter",
       allowMultiple = false,
@@ -84,6 +130,20 @@ public class TestConfiguration extends Fragment {
       help = "This option is deprecated and has no effect."
     )
     public int testResultExpiration;
+
+    @Option(
+      name = "trim_test_configuration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      },
+      help = "When enabled, test-related options will be cleared below the top level of the build. "
+          + "When this flag is active, tests cannot be built as dependencies of non-test rules, "
+          + "but changes to test-related options will not cause non-test rules to be re-analyzed."
+    )
+    public boolean trimTestConfiguration;
 
     @Option(
       name = "test_arg",
@@ -170,6 +230,23 @@ public class TestConfiguration extends Fragment {
     )
     public Label coverageReportGenerator;
 
+    @Option(
+        name = "windows_native_test_wrapper",
+        // Undocumented: this features is under development and not yet ready for production use.
+        // We define the flag to be able to test the feature.
+        // Design:
+        // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        // Affects loading and analysis: this flag affects which target Bazel loads and creates test
+        // actions with on Windows.
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        defaultValue = "false",
+        help =
+            "Do not use yet, this flag's functionality is not yet implemented. "
+                + "(On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
+                + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.)")
+    public boolean windowsNativeTestWrapper;
+
     @Override
     public Map<String, Set<Label>> getDefaultsLabels() {
       return ImmutableMap.<String, Set<Label>>of(
@@ -193,6 +270,9 @@ public class TestConfiguration extends Fragment {
     @Override
     public Fragment create(BuildOptions buildOptions)
         throws InvalidConfigurationException {
+      if (!buildOptions.contains(TestOptions.class)) {
+        return null;
+      }
       return new TestConfiguration(buildOptions.get(TestOptions.class));
     }
 
@@ -208,9 +288,11 @@ public class TestConfiguration extends Fragment {
   }
 
   private final TestOptions options;
+  private final ImmutableMap<TestTimeout, Duration> testTimeout;
 
-  TestConfiguration(TestOptions options) {
+  private TestConfiguration(TestOptions options) {
     this.options = options;
+    this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
   }
 
   @Override
@@ -223,6 +305,11 @@ public class TestConfiguration extends Fragment {
                   + "benefit from sharding certain tests. Please don't keep this option in your "
                   + ".blazerc or continuous build"));
     }
+  }
+
+  /** Returns test timeout mapping as set by --test_timeout options. */
+  public ImmutableMap<TestTimeout, Duration> getTestTimeout() {
+    return testTimeout;
   }
 
   public String getTestFilter() {
@@ -247,6 +334,10 @@ public class TestConfiguration extends Fragment {
 
   public Label getCoverageReportGenerator(){
     return options.coverageReportGenerator;
+  }
+
+  public boolean isUsingWindowsNativeTestWrapper() {
+    return options.windowsNativeTestWrapper;
   }
 
   /**

@@ -28,12 +28,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.MissingDepException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -46,8 +47,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -71,14 +72,15 @@ import javax.annotation.Nullable;
 /**
  * A {@link SkyFunction} that creates {@link ActionExecutionValue}s. There are four points where
  * this function can abort due to missing values in the graph:
+ *
  * <ol>
  *   <li>For actions that discover inputs, if missing metadata needed to resolve an artifact from a
- *   string input in the action cache.</li>
- *   <li>If missing metadata for artifacts in inputs (including the artifacts above).</li>
+ *       string input in the action cache.
+ *   <li>If missing metadata for artifacts in inputs (including the artifacts above).
  *   <li>For actions that discover inputs, if missing metadata for inputs discovered prior to
- *   execution.</li>
+ *       execution.
  *   <li>For actions that discover inputs, but do so during execution, if missing metadata for
- *   inputs discovered during execution.</li>
+ *       inputs discovered during execution.
  * </ol>
  */
 public class ActionExecutionFunction implements SkyFunction, CompletionReceiver {
@@ -87,7 +89,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
   private ConcurrentMap<Action, ContinuationState> stateMap;
 
-  public ActionExecutionFunction(SkyframeActionExecutor skyframeActionExecutor,
+  public ActionExecutionFunction(
+      SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
       AtomicReference<TimestampGranularityMonitor> tsgm) {
     this.skyframeActionExecutor = skyframeActionExecutor;
@@ -97,8 +100,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws ActionExecutionFunctionException,
-      InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     ActionLookupValue actionLookupValue =
         (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
@@ -152,14 +155,18 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       env.getValues(state.allInputs.keysRequested);
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
-    Pair<ActionInputMap, Map<Artifact, Collection<Artifact>>> checkedInputs = null;
+    CheckInputResults checkedInputs = null;
     try {
       // Declare deps on known inputs to action. We do this unconditionally to maintain our
       // invariant of asking for the same deps each build.
-      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps
-          = env.getValuesOrThrow(toKeys(state.allInputs.getAllInputs(),
-              action.discoversInputs() ? action.getMandatoryInputs() : null),
-          MissingInputFileException.class, ActionExecutionException.class);
+      Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
+          inputDeps =
+              env.getValuesOrThrow(
+                  toKeys(
+                      state.allInputs.getAllInputs(),
+                      action.discoversInputs() ? action.getMandatoryInputs() : null),
+                  MissingInputFileException.class,
+                  ActionExecutionException.class);
 
       if (!sharedActionAlreadyRan && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
@@ -178,8 +185,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       return null;
     }
 
+    Object skyframeDepsResult;
     try {
-      establishSkyframeDependencies(env, action);
+      skyframeDepsResult = establishSkyframeDependencies(env, action);
     } catch (ActionExecutionException e) {
       throw new ActionExecutionFunctionException(e);
     }
@@ -189,34 +197,14 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     if (checkedInputs != null) {
       Preconditions.checkState(!state.hasArtifactData(), "%s %s", state, action);
-      state.inputArtifactData = checkedInputs.first;
-      state.expandedArtifacts = checkedInputs.second;
+      state.inputArtifactData = checkedInputs.actionInputMap;
+      state.expandedArtifacts = checkedInputs.expandedArtifacts;
+      state.expandedFilesets = checkedInputs.expandedFilesets;
       if (skyframeActionExecutor.usesActionFileSystem()) {
-        Iterable<Artifact> optionalInputs;
-        if (action.discoversInputs()) {
-          if (action instanceof IncludeScannable) {
-            // This is a performance optimization to minimize nested set traversals for cpp
-            // compilation. CppCompileAction.getAllowedDerivedInputs iterates over mandatory inputs,
-            // prunable inputs, declared include srcs, transitive compilation prerequisites and
-            // transitive modules.
-            //
-            // The only one of those sets known to be needed is the declared include srcs.
-            optionalInputs = ((IncludeScannable) action).getDeclaredIncludeSrcs();
-          } else {
-            // This might be reachable by LtoBackendAction and ExtraAction.
-            optionalInputs = action.getAllowedDerivedInputs();
-          }
-        } else {
-          optionalInputs = ImmutableList.of();
-        }
         state.actionFileSystem =
-            new ActionFileSystem(
-                skyframeActionExecutor.getExecutorFileSystem(),
-                skyframeActionExecutor.getExecRoot().asFragment(),
+            skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
-                skyframeActionExecutor.getSourceRoots(),
-                checkedInputs.first,
-                optionalInputs,
+                checkedInputs.actionInputMap,
                 action.getOutputs());
       }
     }
@@ -225,7 +213,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan);
+              action, state, env, clientEnv, actionLookupData, sharedActionAlreadyRan,
+              skyframeDepsResult);
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -243,7 +232,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
-    actionLookupValue.actionEvaluated(actionIndex, action);
     return result;
   }
 
@@ -275,10 +263,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
   private static class AllInputs {
     final Iterable<Artifact> defaultInputs;
-    @Nullable
-    final Iterable<Artifact> actionCacheInputs;
-    @Nullable
-    final List<SkyKey> keysRequested;
+    @Nullable final Iterable<Artifact> actionCacheInputs;
+    @Nullable final List<SkyKey> keysRequested;
 
     AllInputs(Iterable<Artifact> defaultInputs) {
       this.defaultInputs = Preconditions.checkNotNull(defaultInputs);
@@ -286,7 +272,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       this.keysRequested = null;
     }
 
-    AllInputs(Iterable<Artifact> defaultInputs, Iterable<Artifact> actionCacheInputs,
+    AllInputs(
+        Iterable<Artifact> defaultInputs,
+        Iterable<Artifact> actionCacheInputs,
         List<SkyKey> keysRequested) {
       this.defaultInputs = Preconditions.checkNotNull(defaultInputs);
       this.actionCacheInputs = Preconditions.checkNotNull(actionCacheInputs);
@@ -315,13 +303,17 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     @Override
     public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
         throws InterruptedException {
-      Preconditions.checkState(keysRequested.isEmpty(),
-          "resolver should only be called once: %s %s", keysRequested, execPaths);
+      Preconditions.checkState(
+          keysRequested.isEmpty(),
+          "resolver should only be called once: %s %s",
+          keysRequested,
+          execPaths);
       // Create SkyKeys list based on execPaths.
       Map<PathFragment, SkyKey> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
-        PathFragment parent = Preconditions.checkNotNull(
-            path.getParentDirectory(), "Must pass in files, not root directory");
+        PathFragment parent =
+            Preconditions.checkNotNull(
+                path.getParentDirectory(), "Must pass in files, not root directory");
         Preconditions.checkArgument(!parent.isAbsolute(), path);
         try {
           SkyKey depKey =
@@ -372,7 +364,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Environment env,
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
-      boolean sharedActionAlreadyRan)
+      boolean sharedActionAlreadyRan,
+      Object skyframeDepsResult)
       throws ActionExecutionException, InterruptedException {
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
@@ -414,6 +407,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           metadataHandler.getOutputTreeArtifactData(),
           metadataHandler.getAdditionalOutputData(),
           /*outputSymlinks=*/ null,
+          (action instanceof IncludeScannable)
+              ? ((IncludeScannable) action).getDiscoveredModules()
+              : null,
           action instanceof NotifyOnActionCacheHit);
     }
 
@@ -429,12 +425,22 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (action.discoversInputs()) {
       if (state.discoveredInputs == null) {
         try {
-          state.updateFileSystemContext(env, metadataHandler);
+          try {
+            state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler,
+                ImmutableMap.of());
+          } catch (IOException e) {
+            throw new ActionExecutionException(
+                "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);
+          }
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
                   action, perActionFileCache, metadataHandler, env, state.actionFileSystem);
-          Preconditions.checkState(state.discoveredInputs != null,
-              "discoverInputs() returned null on action %s", action);
+          Preconditions.checkState(
+              env.valuesMissing() == (state.discoveredInputs == null),
+              "discoverInputs() must return null iff requesting more dependencies.");
+          if (state.discoveredInputs == null) {
+            return null;
+          }
         } catch (MissingDepException e) {
           Preconditions.checkState(env.valuesMissing(), action);
           return null;
@@ -448,23 +454,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       perActionFileCache =
           new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
 
-      // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
-      // files with addDiscoveredInputs() and then have waited for those files to be available
-      // by returning null if env.valuesMissing() returned true. So stage 2 can now access those
-      // inputs to discover even more inputs and then potentially also wait for those to be
-      // available.
-      if (state.discoveredInputsStage2 == null) {
-        state.discoveredInputsStage2 = action.discoverInputsStage2(env);
-      }
-      if (state.discoveredInputsStage2 != null) {
-        addDiscoveredInputs(
-            state.inputArtifactData, state.expandedArtifacts, state.discoveredInputsStage2, env);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        perActionFileCache =
-            new PerActionFileCache(state.inputArtifactData, /*missingArtifactsAllowed=*/ false);
-      }
       metadataHandler =
           new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get(),
               pathResolver(state.actionFileSystem));
@@ -472,37 +461,45 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       metadataHandler.discardOutputMetadata();
     }
 
-    ImmutableMap.Builder<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings =
-        ImmutableMap.builder();
+    // Make sure this is a regular HashMap rather than ImmutableMapBuilder so that we are safe
+    // in case of collisions.
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = new HashMap<>();
     for (Artifact actionInput : action.getInputs()) {
       if (!actionInput.isFileset()) {
         continue;
       }
 
-      ActionLookupKey filesetActionLookupKey = (ActionLookupKey) actionInput.getArtifactOwner();
-      // Index 0 for the Fileset ConfiguredTarget indicates the SkyframeFilesetManifestAction where
-      // we compute the fileset's outputSymlinks.
-      SkyKey filesetActionKey = ActionExecutionValue.key(filesetActionLookupKey, 0);
-      ActionExecutionValue filesetValue = (ActionExecutionValue) env.getValue(filesetActionKey);
-      if (filesetValue == null) {
-        // At this point skyframe does not guarantee that the filesetValue will be ready, since
-        // the current action does not directly depend on the outputs of the
-        // SkyframeFilesetManifestAction whose ActionExecutionValue (filesetValue) is needed here.
-        // TODO(kush): Get rid of this hack by making the outputSymlinks available in the Fileset
-        // artifact, which this action depends on, so its value will be guaranteed to be present.
+      ImmutableList<FilesetOutputSymlink> mapping =
+          ActionInputMapHelper.getFilesets(env, actionInput);
+      if (mapping == null) {
         return null;
       }
-      filesetMappings.put(actionInput.getExecPath(), filesetValue.getOutputSymlinks());
+      filesetMappings.put(actionInput, mapping);
     }
 
-    state.updateFileSystemContext(env, metadataHandler);
+    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
+        ImmutableMap.copyOf(filesetMappings);
+
+    // Aggregate top-level Filesets with Filesets nested in Runfiles. Both should be used to update
+    // the FileSystem context.
+    state.expandedFilesets.forEach(filesetMappings::put);
+    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets =
+        ImmutableMap.copyOf(filesetMappings);
+    try {
+      state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler, expandedFilesets);
+    } catch (IOException e) {
+      throw new ActionExecutionException(
+          "Failed to update filesystem context: ", e, action, /*catastrophe=*/ false);
+    }
     try (ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             perActionFileCache,
             metadataHandler,
             Collections.unmodifiableMap(state.expandedArtifacts),
-            filesetMappings.build(),
-            state.actionFileSystem)) {
+            expandedFilesets,
+            topLevelFilesets,
+            state.actionFileSystem,
+            skyframeDepsResult)) {
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
@@ -527,7 +524,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       if (env.valuesMissing()) {
         return null;
       }
-      if (!Iterables.isEmpty(newInputs)) {
+      if (!metadataFoundDuringActionExecution.isEmpty()) {
         // We are in the interesting case of an action that discovered its inputs during
         // execution, and found some new ones, but the new ones were already present in the graph.
         // We must therefore cache the metadata for those new ones.
@@ -550,12 +547,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return state.value;
   }
 
-  private ArtifactPathResolver pathResolver(ActionFileSystem actionFileSystem) {
-    if (actionFileSystem != null) {
-      return ArtifactPathResolver.withTransformedFileSystem(
-          actionFileSystem.getPath(skyframeActionExecutor.getExecRoot().asFragment()));
-    }
-    return ArtifactPathResolver.forExecRoot(skyframeActionExecutor.getExecRoot());
+  private ArtifactPathResolver pathResolver(@Nullable FileSystem actionFileSystem) {
+    return ArtifactPathResolver.createPathResolver(
+        actionFileSystem, skyframeActionExecutor.getExecRoot());
   }
 
   private static final Function<Artifact, SkyKey> TO_NONMANDATORY_SKYKEY =
@@ -606,7 +600,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
   }
 
-  private static void establishSkyframeDependencies(Environment env, Action action)
+  private static Object establishSkyframeDependencies(Environment env, Action action)
       throws ActionExecutionException, InterruptedException {
     // Before we may safely establish Skyframe dependencies, we must build all action inputs by
     // requesting their ArtifactValues.
@@ -623,15 +617,16 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Preconditions.checkState(action.executeUnconditionally(), action);
 
       try {
-        ((SkyframeAwareAction) action).establishSkyframeDependencies(env);
+        return ((SkyframeAwareAction) action).establishSkyframeDependencies(env);
       } catch (SkyframeAwareAction.ExceptionBase e) {
         throw new ActionExecutionException(e, action, false);
       }
     }
+    return null;
   }
 
-  private static Iterable<SkyKey> toKeys(Iterable<Artifact> inputs,
-      Iterable<Artifact> mandatoryInputs) {
+  private static Iterable<SkyKey> toKeys(
+      Iterable<Artifact> inputs, Iterable<Artifact> mandatoryInputs) {
     if (mandatoryInputs == null) {
       // This is a non inputs-discovering action, so no need to distinguish mandatory from regular
       // inputs.
@@ -653,15 +648,32 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
   }
 
+  private static class CheckInputResults {
+    /** Metadata about Artifacts consumed by this Action. */
+    private final ActionInputMap actionInputMap;
+    /** Artifact expansion mapping for Runfiles tree and tree artifacts. */
+    private final Map<Artifact, Collection<Artifact>> expandedArtifacts;
+    /** Artifact expansion mapping for Filesets embedded in Runfiles. */
+    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
+
+    public CheckInputResults(ActionInputMap actionInputMap,
+        Map<Artifact, Collection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
+      this.actionInputMap = actionInputMap;
+      this.expandedArtifacts = expandedArtifacts;
+      this.expandedFilesets = expandedFilesets;
+    }
+  }
+
   /**
    * Declare dependency on all known inputs of action. Throws exception if any are known to be
    * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
    */
-  private Pair<ActionInputMap, Map<Artifact, Collection<Artifact>>> checkInputs(
+  private CheckInputResults checkInputs(
       Environment env,
       Action action,
       Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     int missingCount = 0;
     int actionFailures = 0;
     // Only populate input data if we have the input values, otherwise they'll just go unused.
@@ -673,45 +685,22 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     ActionInputMap inputArtifactData = new ActionInputMap(populateInputData ? inputDeps.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
         new HashMap<>(populateInputData ? 128 : 0);
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
-    for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException,
-        ActionExecutionException>> depsEntry : inputDeps.entrySet()) {
+    for (Map.Entry<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>>
+        depsEntry : inputDeps.entrySet()) {
       Artifact input = ArtifactSkyKey.artifact(depsEntry.getKey());
       try {
         SkyValue value = depsEntry.getValue().get();
         if (populateInputData) {
-          if (value instanceof AggregatingArtifactValue) {
-            AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-            for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getInputs()) {
-              inputArtifactData.put(entry.first, entry.second);
-            }
-            // We have to cache the "digest" of the aggregating value itself,
-            // because the action cache checker may want it.
-            inputArtifactData.put(input, aggregatingValue.getSelfData());
-            // Runfiles artifacts are not expanded into the action's inputs but their metadata is
-            // available from the action file cache.
-            if (!(value instanceof RunfilesArtifactValue)) {
-              ImmutableList.Builder<Artifact> expansionBuilder = ImmutableList.builder();
-              for (Pair<Artifact, FileArtifactValue> pair : aggregatingValue.getInputs()) {
-                expansionBuilder.add(pair.first);
-              }
-              expandedArtifacts.put(input, expansionBuilder.build());
-            }
-          } else if (value instanceof TreeArtifactValue) {
-            TreeArtifactValue treeValue = (TreeArtifactValue) value;
-            expandedArtifacts.put(input, ImmutableSet.<Artifact>copyOf(treeValue.getChildren()));
-            for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
-                treeValue.getChildValues().entrySet()) {
-              inputArtifactData.put(child.getKey(), child.getValue());
-            }
-
-            // Again, we cache the "digest" of the value for cache checking.
-            inputArtifactData.put(input, treeValue.getSelfData());
-          } else {
-            Preconditions.checkState(value instanceof FileArtifactValue, depsEntry);
-            inputArtifactData.put(input, (FileArtifactValue) value);
-          }
+          ActionInputMapHelper.addToMap(
+              inputArtifactData,
+              expandedArtifacts,
+              expandedFilesets,
+              input,
+              value,
+              env);
         }
       } catch (MissingInputFileException e) {
         missingCount++;
@@ -754,10 +743,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
                         "%s: missing input file '%s'",
                         action.getOwner().getLabel(), missingInput.getLabel())));
       }
-      throw new ActionExecutionException(missingCount + " input file(s) do not exist", action,
-          rootCauses.build(), /*catastrophe=*/false);
+      throw new ActionExecutionException(
+          missingCount + " input file(s) do not exist",
+          action,
+          rootCauses.build(),
+          /*catastrophe=*/ false);
     }
-    return Pair.of(inputArtifactData, expandedArtifacts);
+    return new CheckInputResults(inputArtifactData, expandedArtifacts, expandedFilesets);
   }
 
   private static Iterable<Artifact> filterKnownInputs(
@@ -765,19 +757,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     return Iterables.filter(newInputs, input -> inputArtifactData.getMetadata(input) == null);
   }
 
-  /**
-   * All info/warning messages associated with actions should be always displayed.
-   */
+  /** All info/warning messages associated with actions should be always displayed. */
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
   }
-
-  /**
-   * Exception to be thrown if an action is missing Skyframe dependencies that it finds are missing
-   * during execution/input discovery.
-   */
-  public static class MissingDepException extends RuntimeException {}
 
   /**
    * Should be called once execution is over, and the intra-build cache of in-progress computations
@@ -803,15 +787,16 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
    * State to save work across restarts of ActionExecutionFunction due to missing values in the
    * graph for actions that discover inputs. There are three places where we save work, all for
    * actions that discover inputs:
+   *
    * <ol>
    *   <li>If not all known input metadata (coming from Action#getInputs) is available yet, then the
-   *   calculated set of inputs (including the inputs resolved from the action cache) is saved.</li>
+   *       calculated set of inputs (including the inputs resolved from the action cache) is saved.
    *   <li>If not all discovered inputs' metadata is available yet, then the known input metadata
-   *   together with the set of discovered inputs is saved, as well as the Token used to identify
-   *   this action to the action cache.</li>
+   *       together with the set of discovered inputs is saved, as well as the Token used to
+   *       identify this action to the action cache.
    *   <li>If, after execution, new inputs are discovered whose metadata is not yet available, then
-   *   the same data as in the previous case is saved, along with the actual result of execution.
-   *   </li>
+   *       the same data as in the previous case is saved, along with the actual result of
+   *       execution.
    * </ol>
    */
   private static class ContinuationState {
@@ -820,11 +805,11 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     ActionInputMap inputArtifactData = null;
 
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = null;
     Token token = null;
     Iterable<Artifact> discoveredInputs = null;
-    Iterable<Artifact> discoveredInputsStage2 = null;
     ActionExecutionValue value = null;
-    ActionFileSystem actionFileSystem = null;
+    FileSystem actionFileSystem = null;
 
     boolean hasCollectedInputs() {
       return allInputs != null;
@@ -848,22 +833,34 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     /** Must be called to assign values to the given variables as they change. */
     void updateFileSystemContext(
-        SkyFunction.Environment env, ActionMetadataHandler metadataHandler) {
+        SkyframeActionExecutor executor,
+        Environment env,
+        ActionMetadataHandler metadataHandler,
+        ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
+        throws IOException {
       if (actionFileSystem != null) {
-        actionFileSystem.updateContext(env, metadataHandler::injectOutputData);
+        executor.updateActionFileSystemContext(
+            actionFileSystem, env, metadataHandler::injectOutputData, filesets);
       }
     }
 
     @Override
     public String toString() {
-      return token + ", " + value + ", " + allInputs + ", " + inputArtifactData + ", "
+      return token
+          + ", "
+          + value
+          + ", "
+          + allInputs
+          + ", "
+          + inputArtifactData
+          + ", "
           + discoveredInputs;
     }
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link ActionExecutionFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * ActionExecutionFunction#compute}.
    */
   private static final class ActionExecutionFunctionException extends SkyFunctionException {
 

@@ -23,14 +23,14 @@ import com.google.devtools.build.lib.syntax.Runtime;
  */
 public class RepositoryBootstrap implements Bootstrap {
 
-  private final Class<? extends RepositoryModuleApi> repositoryModuleApiClass;
+  private final RepositoryModuleApi repositoryModuleApi;
 
-  public RepositoryBootstrap(Class<? extends RepositoryModuleApi> repositoryModuleApiClass) {
-    this.repositoryModuleApiClass = repositoryModuleApiClass;
+  public RepositoryBootstrap(RepositoryModuleApi repositoryModuleApi) {
+    this.repositoryModuleApi = repositoryModuleApi;
   }
 
   @Override
   public void addBindingsToBuilder(Builder<String, Object> builder) {
-    Runtime.setupModuleGlobals(builder, repositoryModuleApiClass);
+    Runtime.setupSkylarkLibrary(builder, repositoryModuleApi);
   }
 }

@@ -30,10 +30,10 @@
 #error This code for 64 bit Unix.
 #endif
 
-inline MappedFile::MappedFile()
+MappedFile::MappedFile()
     : mapped_start_(nullptr), mapped_end_(nullptr), fd_(-1) {}
 
-inline bool MappedFile::Open(const std::string& path) {
+bool MappedFile::Open(const std::string& path) {
   if (is_open()) {
     diag_errx(1, "%s:%d: This instance is already open", __FILE__, __LINE__);
   }
@@ -60,7 +60,7 @@ inline bool MappedFile::Open(const std::string& path) {
   return true;
 }
 
-inline void MappedFile::Close() {
+void MappedFile::Close() {
   if (is_open()) {
     munmap(mapped_start_, mapped_end_ - mapped_start_);
     mapped_start_ = mapped_end_ = nullptr;
@@ -68,7 +68,5 @@ inline void MappedFile::Close() {
     fd_ = -1;
   }
 }
-
-inline bool MappedFile::is_open() const { return fd_ >= 0; }
 
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_POSIX_H_

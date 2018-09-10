@@ -152,4 +152,9 @@ public class BadOperationCheckerTest {
         .contains("1:1-1:5: '/' operator is deprecated");
     Truth.assertThat(findIssues("5 // 2")).isEmpty();
   }
+
+  @Test
+  public void augmentedAssignmentOperator() {
+    Truth.assertThat(findIssues("kwargs['name'] += 'foo'")).isEmpty();
+  }
 }

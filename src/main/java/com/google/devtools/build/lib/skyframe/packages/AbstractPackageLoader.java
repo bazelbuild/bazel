@@ -26,6 +26,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -120,7 +120,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         }
       };
   private final Reporter reporter;
-  protected final RuleClassProvider ruleClassProvider;
+  protected final ConfiguredRuleClassProvider ruleClassProvider;
+  private final PackageFactory pkgFactory;
   protected SkylarkSemantics skylarkSemantics;
   protected final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
   private final AtomicReference<PathPackageLocator> pkgLocatorRef;
@@ -136,7 +137,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected final PathPackageLocator pkgLocator;
     final AtomicReference<PathPackageLocator> pkgLocatorRef;
     protected final ExternalFilesHelper externalFilesHelper;
-    protected RuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
+    protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected SkylarkSemantics skylarkSemantics;
     protected Reporter reporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
@@ -168,7 +169,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
               directories);
     }
 
-    public Builder setRuleClassProvider(RuleClassProvider ruleClassProvider) {
+    public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
       return this;
     }
@@ -229,7 +230,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     protected abstract PackageLoader buildImpl();
 
-    protected abstract RuleClassProvider getDefaultRuleClassProvider();
+    protected abstract ConfiguredRuleClassProvider getDefaultRuleClassProvider();
 
     protected abstract String getDefaultDefaultPackageContents();
   }
@@ -252,6 +253,13 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             builder.pkgLocator,
             builder.defaultsPackageContents,
             ImmutableList.copyOf(builder.extraPrecomputedValues));
+    pkgFactory =
+        new PackageFactory(
+            ruleClassProvider,
+            AttributeContainer::new,
+            getEnvironmentExtensions(),
+            "PackageLoader",
+            Package.Builder.DefaultHelper.INSTANCE);
   }
 
   private static ImmutableDiff makePreinjectedDiff(
@@ -279,6 +287,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
     PrecomputedValue.SKYLARK_SEMANTICS.set(injectable, skylarkSemantics);
     PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.set(injectable, defaultsPackageContents);
+    PrecomputedValue.ENABLE_DEFAULTS_PACKAGE.set(injectable, true);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 
@@ -316,6 +325,14 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     return result.build();
   }
 
+  public ConfiguredRuleClassProvider getRuleClassProvider() {
+    return ruleClassProvider;
+  }
+
+  public PackageFactory getPackageFactory() {
+    return pkgFactory;
+  }
+
   private static NoSuchPackageException exceptionFromErrorInfo(
       ErrorInfo error, PackageIdentifier pkgId) {
     if (!Iterables.isEmpty(error.getCycleInfo())) {
@@ -341,14 +358,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             preinjectedDifferencer,
             new EvaluationProgressReceiver.NullEvaluationProgressReceiver(),
             GraphInconsistencyReceiver.THROWING,
+            InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
             new MemoizingEvaluator.EmittedEventState(),
             /*keepEdges=*/ false));
   }
-
-  /**
-   * Version is the string BazelPackageLoader reports in native.bazel_version to be used by Skylark.
-   */
-  protected abstract String getVersion();
 
   protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
 
@@ -368,13 +381,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     AtomicReference<PerBuildSyscallCache> syscallCacheRef =
         new AtomicReference<>(
             PerBuildSyscallCache.newBuilder().setConcurrencyLevel(legacyGlobbingThreads).build());
-    PackageFactory pkgFactory =
-        new PackageFactory(
-            ruleClassProvider,
-            AttributeContainer::new,
-            getEnvironmentExtensions(),
-            getVersion(),
-            Package.Builder.DefaultHelper.INSTANCE);
     pkgFactory.setGlobbingThreads(legacyGlobbingThreads);
     pkgFactory.setSyscalls(syscallCacheRef);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(

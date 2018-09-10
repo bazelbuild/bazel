@@ -18,10 +18,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.SkylarkInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -175,8 +175,8 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   /** Returns a Skylark struct that contains the instances of this enum. */
-  public static Info getSkylarkStruct() {
-    Provider constructor = new NativeProvider<Info>(Info.class, "platforms") {};
+  public static StructImpl getSkylarkStruct() {
+    Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platforms") {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
@@ -231,8 +231,8 @@ public enum ApplePlatform implements ApplePlatformApi {
     }
 
     /** Returns a Skylark struct that contains the instances of this enum. */
-    public static Info getSkylarkStruct() {
-      Provider constructor = new NativeProvider<Info>(Info.class, "platform_types") {};
+    public static StructImpl getSkylarkStruct() {
+      Provider constructor = new NativeProvider<StructImpl>(StructImpl.class, "platform_types") {};
       HashMap<String, Object> fields = new HashMap<>();
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
@@ -26,6 +27,6 @@ public class LabelCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(Label.parseAbsolute("//foo/bar:baz")).runTests();
+    new SerializationTester(Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())).runTests();
   }
 }

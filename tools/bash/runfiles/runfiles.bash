@@ -12,59 +12,65 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This Bash script defines functions to handle sh_binary/sh_test runfiles.
+# Runfiles lookup library for Bazel-built Bash binaries and tests.
 #
-# REQUIREMENTS:
-# - At least one of RUNFILES_MANIFEST_FILE and RUNFILES_DIR environment
-#   variables must be set, to the absolute path of the runfiles manifest or the
-#   <rulename>.runfiles directory respectively.
+# ENVIRONMENT:
+# - Use the example code provided below. It initializes the environment
+#   variables required by this script.
 # - If RUNFILES_LIB_DEBUG=1 is set, the script will print diagnostic messages to
 #   stderr.
 #
 # USAGE:
-# 1. Depend on this runfiles library from your build rule:
+# 1.  Depend on this runfiles library from your build rule:
 #
-#      sh_binary(
-#          name = "my_binary",
-#          ...
-#          deps = ["@bazel_tools//tools/bash/runfiles"],
-#      )
+#       sh_binary(
+#           name = "my_binary",
+#           ...
+#           deps = ["@bazel_tools//tools/bash/runfiles"],
+#       )
 #
-# 2. Source the runfiles library.
-#    The runfiles library itself defines rlocation which you would need to look
-#    up the library's runtime location, thus we have a chicken-and-egg problem.
-#    Insert the following code snippet to the top of your main script:
+# 2.  Source the runfiles library.
 #
-#      set -euo pipefail
-#      # --- begin runfiles.bash initialization ---
-#      if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-#          if [[ -f "$0.runfiles_manifest" ]]; then
-#            export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-#          elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-#            export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-#          elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-#            export RUNFILES_DIR="$0.runfiles"
-#          fi
-#      fi
-#      if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-#        source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
-#      elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-#        source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
-#                  "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-#      else
-#        echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
-#        exit 1
-#      fi
-#      # --- end runfiles.bash initialization ---
+#     The runfiles library itself defines rlocation which you would need to look
+#     up the library's runtime location, thus we have a chicken-and-egg problem.
+#     Insert the following code snippet to the top of your main script:
+#
+#       # --- begin runfiles.bash initialization ---
+#       # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+#       set -euo pipefail
+#       if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+#         if [[ -f "$0.runfiles_manifest" ]]; then
+#           export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+#         elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+#           export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+#         elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+#           export RUNFILES_DIR="$0.runfiles"
+#         fi
+#       fi
+#       if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+#         source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+#       elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+#         source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+#                   "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+#       else
+#         echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+#         exit 1
+#       fi
+#       # --- end runfiles.bash initialization ---
+#
+# 3.  Use rlocation to look up runfile paths:
+#
+#       cat "$(rlocation my_workspace/path/to/my/data.txt)"
+#
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
   # matches an absolute Windows path
-  export _rlocation_isabs_pattern="^[a-zA-Z]:[/\\]"
+  export _RLOCATION_ISABS_PATTERN="^[a-zA-Z]:[/\\]"
   ;;
 *)
   # matches an absolute Unix path
-  export _rlocation_isabs_pattern="^/[^/].*"
+  export _RLOCATION_ISABS_PATTERN="^/[^/].*"
   ;;
 esac
 
@@ -73,7 +79,7 @@ function rlocation() {
   if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
     echo >&2 "INFO[runfiles.bash]: rlocation($1): start"
   fi
-  if [[ "$1" =~ $_rlocation_isabs_pattern ]]; then
+  if [[ "$1" =~ $_RLOCATION_ISABS_PATTERN ]]; then
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "INFO[runfiles.bash]: rlocation($1): absolute path, return"
     fi

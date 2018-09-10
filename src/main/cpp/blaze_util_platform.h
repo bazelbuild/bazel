@@ -25,6 +25,50 @@
 
 namespace blaze {
 
+namespace embedded_binaries {
+
+// Dumps embedded binaries that were extracted from the Bazel zip to disk.
+// The platform-specific implementations may use multi-threaded I/O.
+class Dumper {
+ public:
+  // Requests to write the `data` of `size` bytes to disk under `path`.
+  // The actual writing may happen asynchronously.
+  // `path` must be an absolute path. All of its parent directories will be
+  // created.
+  // The caller retains ownership of `data` and may release it immediately after
+  // this method returns.
+  // Callers may call this method repeatedly, but only from the same thread
+  // (this method is not thread-safe).
+  // If writing fails, this method sets a flag in the `Dumper`, and `Finish`
+  // will return false. Subsequent `Dump` calls will have no effect.
+  virtual void Dump(const void* data, const size_t size,
+                    const std::string& path) = 0;
+
+  // Finishes dumping data.
+  //
+  // This method may block in case the Dumper is asynchronous and some async
+  // writes are still in progress.
+  // Subsequent `Dump` calls after this method have no effect.
+  //
+  // Returns true if there were no errors in any of the `Dump` calls.
+  // Returns false if any of the `Dump` calls failed, and if `error` is not
+  // null then puts an error message in `error`.
+  virtual bool Finish(std::string* error) = 0;
+
+  // Destructor. Subclasses should make sure it calls `Finish(nullptr)`.
+  virtual ~Dumper() {}
+
+ protected:
+  Dumper() {}
+};
+
+// Creates a new Dumper. The caller takes ownership of the returned object.
+// Returns nullptr upon failure and puts an error message in `error` (if `error`
+// is not nullptr).
+Dumper* Create(std::string* error = nullptr);
+
+}  // namespace embedded_binaries
+
 struct GlobalVariables;
 
 class SignalHandler {
@@ -60,9 +104,6 @@ std::string GetOutputRoot();
 // Returns the current user's home directory, or the empty string if unknown.
 // On Linux/macOS, this is $HOME. On Windows this is %USERPROFILE%.
 std::string GetHomeDir();
-
-// Returns the location of the global bazelrc file if it exists, otherwise "".
-std::string FindSystemWideBlazerc();
 
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
 void WarnFilesystemType(const std::string& output_base);
@@ -214,6 +255,12 @@ int32_t GetExplicitSystemLimit(const int resource);
 // implemented for a given platform. Returns true if all limits were properly
 // raised; false otherwise.
 bool UnlimitResources();
+
+// Raises the soft coredump limit to the hard limit in an attempt to let
+// coredumps work. This is a best-effort operation and may or may not be
+// implemented for a given platform. Returns true if all limits were properly
+// raised; false otherwise.
+bool UnlimitCoredumps();
 
 void DetectBashOrDie();
 

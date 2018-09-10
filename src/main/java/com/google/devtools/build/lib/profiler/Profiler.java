@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -26,12 +27,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -47,6 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Blaze internal profiler. Provides facility to report various Blaze tasks and store them
@@ -140,9 +143,10 @@ public final class Profiler {
   private static final TaskData POISON_PILL = new TaskData(0, 0, null, null, "poison pill");
 
   /** File format enum. */
-  public static enum Format {
+  public enum Format {
     BINARY_BAZEL_FORMAT,
-    JSON_TRACE_FILE_FORMAT;
+    JSON_TRACE_FILE_FORMAT,
+    JSON_TRACE_FILE_COMPRESSED_FORMAT;
   }
 
   /** A task that was very slow. */
@@ -417,9 +421,12 @@ public final class Profiler {
       @Override
       boolean isProfiling(ProfilerTask type) {
         return !type.isVfs()
-            // Exclude the critical path - it's not useful in the Json trace output.
+            // CRITICAL_PATH corresponds to writing the file.
             && type != ProfilerTask.CRITICAL_PATH
-            && type != ProfilerTask.CRITICAL_PATH_COMPONENT;
+            && type != ProfilerTask.SKYFUNCTION
+            && type != ProfilerTask.ACTION_EXECUTE
+            && type != ProfilerTask.ACTION_COMPLETE
+            && !type.isSkylark();
       }
     },
 
@@ -466,6 +473,9 @@ public final class Profiler {
       new SlowestTaskAggregator[ProfilerTask.values().length];
 
   private final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
+
+  /** Thread that collects local cpu usage data (if enabled). */
+  private CollectLocalCpuUsage cpuUsageThread;
 
   private Profiler() {
     initHistograms();
@@ -525,9 +535,8 @@ public final class Profiler {
   /**
    * Enable profiling.
    *
-   * <p>Subsequent calls to beginTask/endTask will be recorded
-   * in the provided output stream. Please note that stream performance is
-   * extremely important and buffered streams should be utilized.
+   * <p>Subsequent calls to beginTask/endTask will be recorded in the provided output stream. Please
+   * note that stream performance is extremely important and buffered streams should be utilized.
    *
    * @param profiledTaskKinds which kinds of {@link ProfilerTask}s to track
    * @param stream output stream to store profile data. Note: passing unbuffered stream object
@@ -545,7 +554,9 @@ public final class Profiler {
       String comment,
       boolean recordAllDurations,
       Clock clock,
-      long execStartTimeNanos) {
+      long execStartTimeNanos,
+      boolean enabledCpuUsageProfiling)
+      throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
 
@@ -562,19 +573,29 @@ public final class Profiler {
     this.recordAllDurations = recordAllDurations;
     this.taskStack = new TaskStack();
     FileWriter writer = null;
-    if (stream != null) {
-      if (format == Format.BINARY_BAZEL_FORMAT) {
-        writer = new BinaryFormatWriter(stream, profileStartTime, comment);
-        writer.start();
-      } else if (format == Format.JSON_TRACE_FILE_FORMAT) {
-        writer = new JsonTraceFileWriter(stream, profileStartTime);
-        writer.start();
+    if (stream != null && format != null) {
+      switch (format) {
+        case BINARY_BAZEL_FORMAT:
+          writer = new BinaryFormatWriter(stream, execStartTimeNanos, comment);
+          break;
+        case JSON_TRACE_FILE_FORMAT:
+          writer = new JsonTraceFileWriter(stream, execStartTimeNanos);
+          break;
+        case JSON_TRACE_FILE_COMPRESSED_FORMAT:
+          writer = new JsonTraceFileWriter(new GZIPOutputStream(stream), execStartTimeNanos);
       }
+      writer.start();
     }
     this.writerRef.set(writer);
 
     // activate profiler
     profileStartTime = execStartTimeNanos;
+
+    if (enabledCpuUsageProfiling) {
+      cpuUsageThread = new CollectLocalCpuUsage();
+      cpuUsageThread.setDaemon(true);
+      cpuUsageThread.start();
+    }
   }
 
   /**
@@ -603,6 +624,18 @@ public final class Profiler {
     if (!isActive()) {
       return;
     }
+
+    if (cpuUsageThread != null) {
+      cpuUsageThread.stopCollecting();
+      try {
+        cpuUsageThread.join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+      cpuUsageThread.logCollectedData();
+      cpuUsageThread = null;
+    }
+
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");
     FileWriter writer = writerRef.getAndSet(null);
@@ -652,6 +685,7 @@ public final class Profiler {
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
     Preconditions.checkNotNull(description);
     Preconditions.checkState(startTimeNanos > 0, "startTime was %s", startTimeNanos);
+    Preconditions.checkState(!"".equals(description), "No description -> not helpful");
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
@@ -738,11 +772,17 @@ public final class Profiler {
     }
   }
 
-  /** Used to log "events" - tasks with zero duration. */
-  void logEvent(ProfilerTask type, String description) {
+  /** Used to log "events" happening at a specific time - tasks with zero duration. */
+  public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
     if (isActive() && isProfiling(type)) {
-      logTask(clock.nanoTime(), 0, type, description);
+      logTask(atTimeNanos, 0, type, description);
     }
+  }
+
+  /** Used to log "events" - tasks with zero duration. */
+  @VisibleForTesting
+  void logEvent(ProfilerTask type, String description) {
+    logEventAtTime(clock.nanoTime(), type, description);
   }
 
   /**
@@ -886,30 +926,21 @@ public final class Profiler {
 
   /** Writes the profile in the binary Bazel profile format. */
   private static class BinaryFormatWriter extends FileWriter {
-    private final DataOutputStream out;
+    private final OutputStream outStream;
     private final long profileStartTime;
     private final String comment;
 
-    BinaryFormatWriter(
-        OutputStream out,
-        long profileStartTime,
-        String comment) {
+    BinaryFormatWriter(OutputStream outStream, long profileStartTime, String comment) {
       // Wrapping deflater stream in the buffered stream proved to reduce CPU consumption caused by
       // the write() method. Values for buffer sizes were chosen by running small amount of tests
       // and identifying point of diminishing returns - but I have not really tried to optimize
       // them.
-      this.out =
-          new DataOutputStream(
-              new BufferedOutputStream(
-                  new DeflaterOutputStream(
-                      // the DeflaterOutputStream has its own output buffer of 65k, chosen at random
-                      out, new Deflater(Deflater.BEST_SPEED, false), 65536),
-                  262144)); // buffer size, basically chosen at random
+      this.outStream = outStream;
       this.profileStartTime = profileStartTime;
       this.comment = comment;
     }
 
-    private void writeHeader() throws IOException {
+    private static void writeHeader(DataOutputStream out, String comment) throws IOException {
       out.writeInt(MAGIC); // magic
       out.writeInt(VERSION); // protocol_version
       out.writeUTF(comment);
@@ -930,14 +961,22 @@ public final class Profiler {
     public void run() {
       try {
         boolean receivedPoisonPill = false;
-        try {
-          writeHeader();
+        try (DataOutputStream out =
+            new DataOutputStream(
+                new BufferedOutputStream(
+                    new DeflaterOutputStream(
+                        // the DeflaterOutputStream has its own output buffer of 65k, chosen at
+                        // random
+                        outStream, new Deflater(Deflater.BEST_SPEED, false), 65536),
+                    // buffer size, basically chosen at random
+                    262144))) {
+          writeHeader(out, comment);
           // Allocate the sink once to avoid GC
           ByteBuffer sink = ByteBuffer.allocate(1024);
           ObjectDescriber describer = new ObjectDescriber();
           TaskData data;
           while ((data = queue.take()) != POISON_PILL) {
-            sink.clear();
+            ((Buffer) sink).clear();
 
             VarInt.putVarLong(data.threadId, sink);
             VarInt.putVarInt(data.id, sink);
@@ -973,14 +1012,8 @@ public final class Profiler {
           }
           receivedPoisonPill = true;
           out.writeInt(EOF_MARKER);
-          out.close();
         } catch (IOException e) {
           this.savedException = e;
-          try {
-            out.close();
-          } catch (IOException e2) {
-            // ignore it
-          }
           if (!receivedPoisonPill) {
             while (queue.take() != POISON_PILL) {
               // We keep emptying the queue, but we can't write anything.
@@ -995,17 +1028,32 @@ public final class Profiler {
 
   /** Writes the profile in Json Trace file format. */
   private static class JsonTraceFileWriter extends FileWriter {
-    private final Writer out;
+    private final OutputStream outStream;
     private final long profileStartTimeNanos;
+    private final ThreadLocal<Boolean> metadataPosted =
+        ThreadLocal.withInitial(() -> Boolean.FALSE);
+    // The JDK never returns 0 as thread id so we use that as fake thread id for the critical path.
+    private static final long CRITICAL_PATH_THREAD_ID = 0;
 
-    JsonTraceFileWriter(
-        OutputStream out,
-        long profileStartTimeNanos) {
-      this.out =
-          // The buffer size of 262144 is chosen at random. We might also want to use compression
-          // in the future.
-          new OutputStreamWriter(new BufferedOutputStream(out, 262144), StandardCharsets.UTF_8);
+    JsonTraceFileWriter(OutputStream outStream, long profileStartTimeNanos) {
+      this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
+    }
+
+    @Override
+    public void enqueue(TaskData data) {
+      if (!metadataPosted.get().booleanValue()) {
+        metadataPosted.set(Boolean.TRUE);
+        // Create a TaskData object that is special-cased below.
+        queue.add(
+            new TaskData(
+                /* id= */ 0,
+                /* startTimeNanos= */ -1,
+                /* parent= */ null,
+                ProfilerTask.THREAD_NAME,
+                Thread.currentThread().getName()));
+      }
+      queue.add(data);
     }
 
     /**
@@ -1017,47 +1065,92 @@ public final class Profiler {
     public void run() {
       try {
         boolean receivedPoisonPill = false;
-        try {
-          out.append("[");
-          boolean first = true;
+        try (JsonWriter writer =
+            new JsonWriter(
+                // The buffer size of 262144 is chosen at random.
+                new OutputStreamWriter(
+                    new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
+          writer.beginArray();
           TaskData data;
+
+          // Generate metadata event for the critical path as thread 0 in disguise.
+          writer.setIndent("  ");
+          writer.beginObject();
+          writer.setIndent("");
+          writer.name("name").value("thread_name");
+          writer.name("ph").value("M");
+          writer.name("pid").value(1);
+          writer.name("tid").value(CRITICAL_PATH_THREAD_ID);
+          writer.name("args");
+          writer.beginObject();
+          writer.name("name").value("Critical Path");
+          writer.endObject();
+          writer.endObject();
+
           while ((data = queue.take()) != POISON_PILL) {
-            if (data.duration == 0) {
+            if (data.type == ProfilerTask.THREAD_NAME) {
+              writer.setIndent("  ");
+              writer.beginObject();
+              writer.setIndent("");
+              writer.name("name").value("thread_name");
+              writer.name("ph").value("M");
+              writer.name("pid").value(1);
+              writer.name("tid").value(data.threadId);
+              writer.name("args");
+
+              writer.beginObject();
+              writer.name("name").value(data.description);
+              writer.endObject();
+
+              writer.endObject();
               continue;
             }
-            if (first) {
-              first = false;
-            } else {
-              out.append(",");
+            if (data.type == ProfilerTask.LOCAL_CPU_USAGE) {
+              writer.setIndent("  ");
+              writer.beginObject();
+              writer.setIndent("");
+              writer.name("name").value(data.type.description);
+              writer.name("ph").value("C");
+              writer
+                  .name("ts")
+                  .value(
+                      TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos));
+              writer.name("pid").value(1);
+              writer.name("tid").value(data.threadId);
+              writer.name("args");
+
+              writer.beginObject();
+              writer.name("cpu").value(data.description);
+              writer.endObject();
+
+              writer.endObject();
+              continue;
             }
-            char eventType = data.duration == 0 ? 'i' : 'X';
-            out.append("{");
-            out.append("\"name\":\"").append(data.description).append("\",");
-            out.append("\"ph\":\"").append(eventType).append("\",");
-            out.append("\"ts\":")
-                .append(
-                    Long.toString(
-                        TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos)))
-                .append(",");
+            String eventType = data.duration == 0 ? "i" : "X";
+            writer.setIndent("  ");
+            writer.beginObject();
+            writer.setIndent("");
+            writer.name("cat").value(data.type.description);
+            writer.name("name").value(data.description);
+            writer.name("ph").value(eventType);
+            writer.name("ts")
+                .value(TimeUnit.NANOSECONDS.toMicros(data.startTimeNanos - profileStartTimeNanos));
             if (data.duration != 0) {
-              out.append("\"dur\":")
-                  .append(Long.toString(TimeUnit.NANOSECONDS.toMicros(data.duration)))
-                  .append(",");
+              writer.name("dur").value(TimeUnit.NANOSECONDS.toMicros(data.duration));
             }
-            out.append("\"pid\":1,");
-            out.append("\"tid\":").append(Long.toString(data.threadId));
-            out.append("}\n");
+            writer.name("pid").value(1);
+            long threadId =
+                data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
+                    ? CRITICAL_PATH_THREAD_ID
+                    : data.threadId;
+            writer.name("tid").value(threadId);
+            writer.endObject();
           }
           receivedPoisonPill = true;
-          out.append("]");
-          out.close();
+          writer.setIndent("  ");
+          writer.endArray();
         } catch (IOException e) {
           this.savedException = e;
-          try {
-            out.close();
-          } catch (IOException e2) {
-            // ignore it
-          }
           if (!receivedPoisonPill) {
             while (queue.take() != POISON_PILL) {
               // We keep emptying the queue, but we can't write anything.

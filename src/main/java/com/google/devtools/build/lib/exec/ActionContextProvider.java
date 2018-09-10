@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 
 /**
  * An object that provides execution strategies to {@link BlazeExecutor}.
@@ -50,8 +51,7 @@ public abstract class ActionContextProvider {
 
   /** Called when the execution phase is started. */
   public void executionPhaseStarting(
-      ActionGraph actionGraph,
-      Iterable<Artifact> topLevelArtifacts)
+      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
       throws ExecutorInitException, InterruptedException {}
 
   /**

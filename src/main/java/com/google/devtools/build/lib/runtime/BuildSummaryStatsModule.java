@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.protobuf.ByteString;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -119,8 +118,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
           for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
             Profiler.instance()
                 .logSimpleTaskDuration(
-                    stat.getStartNanos(),
-                    Duration.ofNanos(stat.getElapsedTimeNanos()),
+                    stat.getStartTimeNanos(),
+                    stat.getElapsedTime(),
                     ProfilerTask.CRITICAL_PATH_COMPONENT,
                     stat.prettyPrintAction());
           }

@@ -33,13 +33,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.skylark.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -51,7 +48,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
@@ -74,7 +70,6 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleFunctionsApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -85,7 +80,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -105,16 +99,21 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   // If we don't want to support old built-in rules and Skylark simultaneously
   // (except for transition phase) it's probably OK.
   private static final LoadingCache<String, Label> labelCache =
-      CacheBuilder.newBuilder().build(new CacheLoader<String, Label>() {
-        @Override
-        public Label load(String from) throws Exception {
-          try {
-            return Label.parseAbsolute(from, false);
-          } catch (LabelSyntaxException e) {
-            throw new Exception(from);
-          }
-        }
-      });
+      CacheBuilder.newBuilder()
+          .build(
+              new CacheLoader<String, Label>() {
+                @Override
+                public Label load(String from) throws Exception {
+                  try {
+                    return Label.parseAbsolute(
+                        from,
+                        /* defaultToMain=*/ false,
+                        /* repositoryMapping= */ ImmutableMap.of());
+                  } catch (LabelSyntaxException e) {
+                    throw new Exception(from);
+                  }
+                }
+              });
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Skylark rules. */
@@ -127,7 +126,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           .add(
               attr("toolchains", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.NO_FILE)
-                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id())))
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+                  .dontCheckConstraints())
           .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
@@ -138,8 +138,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           .build();
 
   /** Parent rule class for test Skylark rules. */
-  public static final RuleClass getTestBaseRule(String toolsRepository,
-      PatchTransition lipoDataTransition) {
+  public static final RuleClass getTestBaseRule(String toolsRepository) {
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)
         .add(
@@ -167,6 +166,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         .add(attr("args", STRING_LIST))
         // Input files for every test action
         .add(
+            attr("$test_wrapper", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
+        .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.INSTANCE)
                 .value(
@@ -177,6 +181,12 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                 .cfg(HostTransition.INSTANCE)
                 .singleArtifact()
                 .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
+        .add(
+            attr("$xml_generator_script", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .singleArtifact()
+                .value(
+                    labelCache.getUnchecked(toolsRepository + "//tools/test:test_xml_generator")))
         .add(
             attr("$collect_coverage_script", LABEL)
                 .cfg(HostTransition.INSTANCE)
@@ -198,9 +208,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
                     BaseRuleClasses.coverageReportGeneratorAttribute(
                         labelCache.getUnchecked(
                             toolsRepository
-                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE)))
-                .singleArtifact())
-        .add(attr(":run_under", LABEL).cfg(lipoDataTransition).value(RUN_UNDER))
+                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
+        .add(attr(":run_under", LABEL).value(RUN_UNDER))
         .executionPlatformConstraintsAllowed(ExecutionPlatformConstraintsAllowed.PER_TARGET)
         .build();
   }
@@ -220,65 +229,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
           return "illegal";
         }
       };
-
-  @SkylarkSignature(
-    name = "DefaultInfo",
-    returnType = Provider.class,
-    doc =
-        "A provider that gives general information about a target's direct and transitive files. "
-            + "Every rule type has this provider, even if it is not returned explicitly by the "
-            + "rule's implementation function."
-            + "<p>The <code>DefaultInfo</code> constructor accepts the following parameters:"
-            + "<ul>"
-            + "<li><code>executable</code>: If this rule is marked "
-            + "<a href='globals.html#rule.executable'><code>executable</code></a> or "
-            + "<a href='globals.html#rule.test'><code>test</code></a>, this is a "
-            + "<a href='File.html'><code>File</code></a> object representing the file that should "
-            + "be executed to run the target. By default it is the predeclared output "
-            + "<code>ctx.outputs.executable</code>."
-            + "<li><code>files</code>: A <a href='depset.html'><code>depset</code></a> of "
-            + "<a href='File.html'><code>File</code></a> objects representing the default outputs "
-            + "to build when this target is specified on the blaze command line. By default it is "
-            + "all predeclared outputs."
-            + "<li><code>runfiles</code>: set of files acting as both the "
-            + "<code>data_runfiles</code> and <code>default_runfiles</code>."
-            + "<li><code>data_runfiles</code>: are the files that are added to the runfiles of a "
-            + "target that depends on the rule via the <code>data</code> attribute."
-            + "<li><code>default_runfiles</code>: are the files that are added to the runfiles of "
-            + "a target that depends on the rule via anything but the <code>data</code> attribute."
-            + "</ul>"
-            + "Each <code>DefaultInfo</code> instance has the following fields: "
-            + "<ul>"
-            + "<li><code>files</code>"
-            + "<li><code>files_to_run</code>"
-            + "<li><code>data_runfiles</code>"
-            + "<li><code>default_runfiles</code>"
-            + "</ul>"
-            + "See the <a href='../rules.$DOC_EXT'>rules</a> page for more information."
-  )
-  private static final NativeProvider<?> defaultInfo = DefaultInfo.PROVIDER;
-
-  // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
-  // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
-  // configured BaseFunction, rather than defining a new BuiltinFunction. This should wait for
-  // better support from the Skylark/Java interface, or perhaps support for first-class modules.
-  @SkylarkSignature(
-    name = "Actions",
-    returnType = SkylarkProvider.class,
-    doc =
-        "<i>(Note: This is a provider type. Don't instantiate it yourself; use it to retrieve a "
-            + "provider object from a <a href=\"Target.html\">Target</a>.)</i>"
-            + "<br/><br/>"
-            + "Provides access to the <a href=\"Action.html\">actions</a> generated by a rule. "
-            + "There is one field, <code>by_file</code>, which is a dictionary from an output "
-            + "of the rule to its corresponding generating action. "
-            + "<br/><br/>"
-            + "This is designed for testing rules, and should not be accessed outside "
-            + "of test logic. This provider is only available for targets generated by rules"
-            + " that have <a href=\"globals.html#rule._skylark_testable\">_skylark_testable</a> "
-            + "set to <code>True</code>."
-  )
-  private static final NativeProvider<?> actions = ActionsProvider.SKYLARK_CONSTRUCTOR;
 
   @Override
   public Provider provider(String doc, Object fields, Location location) throws EvalException {
@@ -315,7 +265,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       SkylarkList<?> fragments,
       SkylarkList<?> hostFragments,
       Boolean skylarkTestable,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> toolchains,
       String doc,
       SkylarkList<?> providesArg,
       Boolean executionPlatformConstraintsAllowed,
@@ -327,9 +277,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
         test
-            ? getTestBaseRule(
-                SkylarkUtils.getToolsRepository(funcallEnv),
-                (PatchTransition) SkylarkUtils.getLipoDataTransition(funcallEnv))
+            ? getTestBaseRule(SkylarkUtils.getToolsRepository(funcallEnv))
             : (executable ? binaryBaseRule : baseRule);
 
     // We'll set the name later, pass the empty string for now.
@@ -384,7 +332,9 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     builder.setRuleDefinitionEnvironmentLabelAndHashCode(
         funcallEnv.getGlobals().getTransitiveLabel(),
         funcallEnv.getTransitiveContentHashCode());
-    builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
+    builder.addRequiredToolchains(
+        collectToolchainLabels(
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
 
     for (Object o : providesArg) {
       if (!SkylarkAttr.isProvider(o)) {
@@ -440,17 +390,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   }
 
   private static ImmutableList<Label> collectToolchainLabels(
-      Iterable<String> rawLabels, FuncallExpression ast) throws EvalException {
+      Iterable<String> rawLabels, Location loc) throws EvalException {
     ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label toolchainLabel = Label.parseAbsolute(rawLabel);
+        Label toolchainLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         requiredToolchains.add(toolchainLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
-            ast.getLocation(),
-            String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()),
-            e);
+            loc, String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()), e);
       }
     }
 
@@ -462,7 +410,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     ImmutableList.Builder<Label> constraintLabels = new ImmutableList.Builder<>();
     for (String rawLabel : rawLabels) {
       try {
-        Label constraintLabel = Label.parseAbsolute(rawLabel);
+        Label constraintLabel = Label.parseAbsolute(rawLabel, ImmutableMap.of());
         constraintLabels.add(constraintLabel);
       } catch (LabelSyntaxException e) {
         throw new EvalException(
@@ -476,13 +424,13 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
   @Override
   public SkylarkAspect aspect(
       BaseFunction implementation,
-      SkylarkList attributeAspects,
+      SkylarkList<?> attributeAspects,
       Object attrs,
-      SkylarkList requiredAspectProvidersArg,
-      SkylarkList providesArg,
-      SkylarkList fragments,
-      SkylarkList hostFragments,
-      SkylarkList<String> toolchains,
+      SkylarkList<?> requiredAspectProvidersArg,
+      SkylarkList<?> providesArg,
+      SkylarkList<?> fragments,
+      SkylarkList<?> hostFragments,
+      SkylarkList<?> toolchains,
       String doc,
       FuncallExpression ast,
       Environment funcallEnv)
@@ -573,7 +521,8 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
         ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
-        collectToolchainLabels(toolchains, ast));
+        collectToolchainLabels(
+            toolchains.getContents(String.class, "toolchains"), ast.getLocation()));
   }
 
   /**
@@ -650,7 +599,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
-        PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
+        PackageContext pkgContext = (PackageContext) env.dynamicLookup(PackageFactory.PKG_CONTEXT);
         if (pkgContext == null) {
           throw new EvalException(ast.getLocation(),
               "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "
@@ -711,17 +660,6 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     }
   }
 
-  /**
-   * All classes of values that need special processing after they are exported from an extension
-   * file.
-   *
-   * <p>Order in list is significant: all {@link SkylarkDefinedAspect}s need to be exported before
-   * {@link SkylarkRuleFunction}s etc.
-   */
-  private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
-      ImmutableList.of(
-          SkylarkProvider.class, SkylarkDefinedAspect.class, SkylarkRuleFunction.class);
-
   @Override
   public Label label(
       String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
@@ -735,7 +673,11 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     try {
       if (parentLabel != null) {
         LabelValidator.parseAbsoluteLabel(labelString);
-        labelString = parentLabel.getRelative(labelString).getUnambiguousCanonicalForm();
+        // TODO(dannark): pass the environment here
+        labelString =
+            parentLabel
+                .getRelativeWithRemapping(labelString, ImmutableMap.of())
+                .getUnambiguousCanonicalForm();
       }
       return labelCache.get(labelString);
     } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
@@ -754,9 +696,5 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
               + "--incompatible_disallow_filetype=false");
     }
     return SkylarkFileType.of(types.getContents(String.class, "types"));
-  }
-
-  static {
-    SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
   }
 }

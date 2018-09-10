@@ -33,6 +33,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProv
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -81,6 +83,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
    * aspect. Must be provided when attaching this aspect to a target.
    */
+  @AutoCodec
   public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
       (Rule rule) -> {
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
@@ -92,8 +95,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   /**
    * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
    * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
-   * for {@code blaze mobile-install}.
+   * for {@code bazel mobile-install}.
    */
+  @AutoCodec
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
       (Rule rule) ->
           new AspectParameters.Builder()
@@ -132,14 +136,14 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .requireSkylarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
             // Latch onto Skylark toolchains in case they have a "runtime" (b/78647825)
             .requireSkylarkProviders(forKey(ToolchainInfo.PROVIDER.getKey()))
+            // For android_sdk rules, where we just want to get at aidl runtime deps.
+            .requireSkylarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
             .requireProviderSets(
                 ImmutableList.of(
                     ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
-                    // For android_sdk rules, where we just want to get at aidl runtime deps.
-                    ImmutableSet.<Class<?>>of(AndroidSdkProvider.class)))
+                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
@@ -175,7 +179,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   @Override
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase, RuleContext ruleContext, AspectParameters params)
-      throws InterruptedException {
+      throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, params, ruleContext);
     Function<Artifact, Artifact> desugaredJars =
         desugarJarsIfRequested(ctadBase.getConfiguredTarget(), ruleContext, result);
@@ -337,12 +341,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static ImmutableList<Artifact> getBootclasspath(
       ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationInfoProvider compilationInfo =
-        base.getProvider(JavaCompilationInfoProvider.class);
+        JavaInfo.getProvider(JavaCompilationInfoProvider.class, base);
     if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
       return ImmutableList.of(
           ruleContext
-              .getPrerequisite(":dex_archive_android_sdk", Mode.TARGET)
-              .getProvider(AndroidSdkProvider.class)
+              .getPrerequisite(":dex_archive_android_sdk", Mode.TARGET, AndroidSdkProvider.PROVIDER)
               .getAndroidJar());
     }
     return compilationInfo.getBootClasspath();

@@ -30,10 +30,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
@@ -52,7 +52,7 @@ import java.util.Map;
  * deps that are needed for building Objective-C rules.
  */
 @Immutable
-public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Artifact> {
+public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact> {
 
   /** Skylark name for the ObjcProvider. */
   public static final String SKYLARK_NAME = "objc";
@@ -263,18 +263,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
       new Key<>(STABLE_ORDER, "nested_bundle", Bundling.class);
 
   /**
-   * Artifact containing information on debug symbols.
-   */
-  public static final Key<Artifact> DEBUG_SYMBOLS =
-      new Key<>(STABLE_ORDER, "debug_symbols", Artifact.class);
-
-  /**
-   * Artifact containing the plist of the debug symbols.
-   */
-  public static final Key<Artifact> DEBUG_SYMBOLS_PLIST =
-      new Key<>(STABLE_ORDER, "debug_symbols_plist", Artifact.class);
-
-  /**
    * Debug artifacts that should be exported by the top-level target.
    */
   public static final Key<Artifact> EXPORTED_DEBUG_ARTIFACTS =
@@ -372,8 +360,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
           DEFINE,
           DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
-          DEBUG_SYMBOLS,
-          DEBUG_SYMBOLS_PLIST,
           EXPORTED_DEBUG_ARTIFACTS,
           FRAMEWORK_SEARCH_PATH_ONLY,
           FORCE_LOAD_LIBRARY,
@@ -444,16 +430,6 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
   @Override
   public NestedSet<Artifact> dynamicFrameworkFile() {
     return get(DYNAMIC_FRAMEWORK_FILE);
-  }
-
-  @Override
-  public NestedSet<Artifact> debugSymbols() {
-    return get(DEBUG_SYMBOLS);
-  }
-
-  @Override
-  public NestedSet<Artifact> debugSymbolsPlist() {
-    return get(DEBUG_SYMBOLS_PLIST);
   }
 
   @Override
@@ -685,14 +661,14 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
   /** Skylark constructor and identifier for ObjcProvider. */
-  public static final NativeProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
       SkylarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableMap<Key<?>, NestedSet<?>> nonPropagatedItems,
       ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
     this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.nonPropagatedItems = Preconditions.checkNotNull(nonPropagatedItems);
@@ -803,16 +779,12 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
     // three possible locations (and may be duplicated!):
     // 1. ObjcProvider.LIBRARY
     // 2. ObjcProvider.CC_LIBRARY
-    // 3. CcLinkParamsStore->LibraryToLink->getArtifact()
+    // 3. CcLinkingInfo->LibraryToLink->getArtifact()
     // TODO(cpeyser): Clean up objc-cc interop.
     HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
     for (CcLinkingInfo linkProvider : avoidCcProviders) {
-      CcLinkParamsStore ccLinkParamsStore = linkProvider.getCcLinkParamsStore();
-      if (ccLinkParamsStore == null) {
-        continue;
-      }
       NestedSet<LibraryToLink> librariesToLink =
-          ccLinkParamsStore.getCcLinkParams(true, false).getLibraries();
+          linkProvider.getStaticModeParamsForExecutable().getLibraries();
       for (LibraryToLink libraryToLink : librariesToLink.toList()) {
         avoidLibrariesSet.add(libraryToLink.getArtifact().getRunfilesPath());
       }
@@ -986,7 +958,7 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
       }
       return this;
     }
-   
+
     /**
      * Add all keys and values from the given provider, but propagate any normally-propagated items
      * only to direct dependers of this ObjcProvider.
@@ -1148,10 +1120,10 @@ public final class ObjcProvider extends NativeInfo implements ObjcProviderApi<Ar
     }
   }
 
-  private static class Constructor extends NativeProvider<ObjcProvider>
+  private static class Constructor extends BuiltinProvider<ObjcProvider>
       implements WithLegacySkylarkName {
     public Constructor() {
-      super(ObjcProvider.class, ObjcProvider.SKYLARK_NAME);
+      super(ObjcProvider.SKYLARK_NAME, ObjcProvider.class);
     }
 
     @Override

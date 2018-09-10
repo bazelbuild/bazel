@@ -1248,6 +1248,84 @@ EOF
   expect_log "Using type com.google.sandwich.C from an indirect dependency"
 }
 
+function test_java_merge_outputs() {
+  mkdir -p java/com/google/sandwich
+
+  cat > java/com/google/sandwich/BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"],
+  jar = "libb.jar"
+)
+
+java_library(
+  name = "b",
+  srcs = ["B.java"]
+)
+EOF
+
+  cat > java/com/google/sandwich/B.java << EOF
+package com.google.sandwich;
+class B {
+  public void printB() {
+    System.out.println("Message from B");
+  }
+}
+EOF
+
+  cat > java/com/google/sandwich/A.java << EOF
+package com.google.sandwich;
+class A {
+  public void printA() {
+    System.out.println("Message from A");
+  }
+}
+EOF
+
+  cat > java/com/google/sandwich/java_custom_library.bzl << EOF
+def _impl(ctx):
+  compiled_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
+  imported_jar = ctx.files.jar[0];
+
+  compilation_provider = java_common.compile(
+    ctx,
+    source_files = ctx.files.srcs,
+    output = compiled_jar,
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
+  )
+
+  imported_provider = JavaInfo(output_jar = imported_jar, use_ijar=False);
+
+  final_provider = java_common.merge([compilation_provider, imported_provider])
+
+  print(final_provider.outputs.jars[0].class_jar)
+  print(final_provider.outputs.jars[1].class_jar)
+
+  return struct(
+    files = depset([compiled_jar, imported_jar]),
+    providers = [final_provider]
+  )
+
+java_custom_library = rule(
+  implementation = _impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files=True),
+    "jar": attr.label(allow_files=True),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+    "_host_javabase": attr.label(default = Label("@bazel_tools//tools/jdk:current_host_java_runtime"))
+  },
+  fragments = ["java"]
+)
+EOF
+
+  bazel build java/com/google/sandwich:custom &> "$TEST_log" || fail "Java sandwich build failed"
+  expect_log "<generated file java/com/google/sandwich/libcustom.jar>"
+  expect_log "<generated file java/com/google/sandwich/libb.jar>"
+}
+
 function test_java_common_create_provider_with_ijar() {
   mkdir -p java/com/google/foo
   touch java/com/google/foo/{BUILD,A.java,my_rule.bzl}

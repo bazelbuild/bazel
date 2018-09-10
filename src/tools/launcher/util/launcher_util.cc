@@ -14,6 +14,8 @@
 
 // For rand_s function, https://msdn.microsoft.com/en-us/library/sxtz2fa8.aspx
 #define _CRT_RAND_S
+#include <fcntl.h>
+#include <io.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,10 +31,10 @@
 namespace bazel {
 namespace launcher {
 
-using std::ostringstream;
 using std::string;
-using std::wstring;
 using std::stringstream;
+using std::wostringstream;
+using std::wstring;
 
 string GetLastErrorString() {
   DWORD last_error = GetLastError();
@@ -53,88 +55,99 @@ string GetLastErrorString() {
   return result.str();
 }
 
-void die(const char* format, ...) {
+void die(const wchar_t* format, ...) {
+  // Set translation mode to _O_U8TEXT so that we can display
+  // error message containing unicode correctly.
+  _setmode(_fileno(stderr), _O_U8TEXT);
   va_list ap;
   va_start(ap, format);
-  fputs("LAUNCHER ERROR: ", stderr);
-  vfprintf(stderr, format, ap);
+  fputws(L"LAUNCHER ERROR: ", stderr);
+  vfwprintf(stderr, format, ap);
   va_end(ap);
-  fputc('\n', stderr);
+  fputwc(L'\n', stderr);
   exit(1);
 }
 
-void PrintError(const char* format, ...) {
+void PrintError(const wchar_t* format, ...) {
+  // Set translation mode to _O_U8TEXT so that we can display
+  // error message containing unicode correctly.
+  // _setmode returns -1 if it fails to set the mode.
+  int previous_mode = _setmode(_fileno(stderr), _O_U8TEXT);
   va_list ap;
   va_start(ap, format);
-  fputs("LAUNCHER ERROR: ", stderr);
-  vfprintf(stderr, format, ap);
+  fputws(L"LAUNCHER ERROR: ", stderr);
+  vfwprintf(stderr, format, ap);
   va_end(ap);
-  fputc('\n', stderr);
+  fputwc(L'\n', stderr);
+  // Set translation mode back to the original one if it's changed.
+  if (previous_mode != -1) {
+    _setmode(_fileno(stderr), previous_mode);
+  }
 }
 
-wstring AsAbsoluteWindowsPath(const char* path) {
+wstring AsAbsoluteWindowsPath(const wchar_t* path) {
   wstring wpath;
   string error;
   if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
-    die("Couldn't convert %s to absolute Windows path: %s", path,
+    die(L"Couldn't convert %s to absolute Windows path: %hs", path,
         error.c_str());
   }
   return wpath;
 }
 
-bool DoesFilePathExist(const char* path) {
+bool DoesFilePathExist(const wchar_t* path) {
   DWORD dwAttrib = GetFileAttributesW(AsAbsoluteWindowsPath(path).c_str());
 
   return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
           !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-bool DoesDirectoryPathExist(const char* path) {
+bool DoesDirectoryPathExist(const wchar_t* path) {
   DWORD dwAttrib = GetFileAttributesW(AsAbsoluteWindowsPath(path).c_str());
 
   return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
           (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-bool DeleteFileByPath(const char* path) {
+bool DeleteFileByPath(const wchar_t* path) {
   return DeleteFileW(AsAbsoluteWindowsPath(path).c_str());
 }
 
-bool DeleteDirectoryByPath(const char* path) {
+bool DeleteDirectoryByPath(const wchar_t* path) {
   return RemoveDirectoryW(AsAbsoluteWindowsPath(path).c_str());
 }
 
-string GetBinaryPathWithoutExtension(const string& binary) {
-  if (binary.find(".exe", binary.size() - 4) != string::npos) {
+wstring GetBinaryPathWithoutExtension(const wstring& binary) {
+  if (binary.find(L".exe", binary.size() - 4) != wstring::npos) {
     return binary.substr(0, binary.length() - 4);
   }
   return binary;
 }
 
-string GetBinaryPathWithExtension(const string& binary) {
-  return GetBinaryPathWithoutExtension(binary) + ".exe";
+wstring GetBinaryPathWithExtension(const wstring& binary) {
+  return GetBinaryPathWithoutExtension(binary) + L".exe";
 }
 
-string GetEscapedArgument(const string& argument, bool escape_backslash) {
-  string escaped_arg;
+wstring GetEscapedArgument(const wstring& argument, bool escape_backslash) {
+  wstring escaped_arg;
   // escaped_arg will be at least this long
   escaped_arg.reserve(argument.size());
-  bool has_space = argument.find_first_of(' ') != string::npos;
+  bool has_space = argument.find_first_of(L' ') != wstring::npos;
 
   if (has_space) {
-    escaped_arg += '\"';
+    escaped_arg += L'\"';
   }
 
-  for (const char ch : argument) {
+  for (const wchar_t ch : argument) {
     switch (ch) {
-      case '"':
+      case L'"':
         // Escape double quotes
-        escaped_arg += "\\\"";
+        escaped_arg += L"\\\"";
         break;
 
-      case '\\':
+      case L'\\':
         // Escape back slashes if escape_backslash is true
-        escaped_arg += (escape_backslash ? "\\\\" : "\\");
+        escaped_arg += (escape_backslash ? L"\\\\" : L"\\");
         break;
 
       default:
@@ -143,7 +156,7 @@ string GetEscapedArgument(const string& argument, bool escape_backslash) {
   }
 
   if (has_space) {
-    escaped_arg += '\"';
+    escaped_arg += L'\"';
   }
   return escaped_arg;
 }
@@ -152,54 +165,54 @@ string GetEscapedArgument(const string& argument, bool escape_backslash) {
 // https://msdn.microsoft.com/en-us/library/ms683188.aspx
 static const int BUFFER_SIZE = 32767;
 
-bool GetEnv(const string& env_name, string* value) {
-  char buffer[BUFFER_SIZE];
-  if (!GetEnvironmentVariableA(env_name.c_str(), buffer, BUFFER_SIZE)) {
+bool GetEnv(const wstring& env_name, wstring* value) {
+  wchar_t buffer[BUFFER_SIZE];
+  if (!GetEnvironmentVariableW(env_name.c_str(), buffer, BUFFER_SIZE)) {
     return false;
   }
   *value = buffer;
   return true;
 }
 
-bool SetEnv(const string& env_name, const string& value) {
-  return SetEnvironmentVariableA(env_name.c_str(), value.c_str());
+bool SetEnv(const wstring& env_name, const wstring& value) {
+  return SetEnvironmentVariableW(env_name.c_str(), value.c_str());
 }
 
-string GetRandomStr(size_t len) {
-  static const char alphabet[] =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  string rand_str;
+wstring GetRandomStr(size_t len) {
+  static const wchar_t alphabet[] =
+      L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  wstring rand_str;
   rand_str.reserve(len);
   unsigned int x;
   for (size_t i = 0; i < len; i++) {
     rand_s(&x);
-    rand_str += alphabet[x % strlen(alphabet)];
+    rand_str += alphabet[x % wcslen(alphabet)];
   }
   return rand_str;
 }
 
-bool NormalizePath(const string& path, string* result) {
+bool NormalizePath(const wstring& path, wstring* result) {
   string error;
   if (!blaze_util::AsWindowsPath(path, result, &error)) {
-    PrintError("Failed to normalize %s: %s", path.c_str(), error.c_str());
+    PrintError(L"Failed to normalize %s: %hs", path.c_str(), error.c_str());
     return false;
   }
   std::transform(result->begin(), result->end(), result->begin(), ::tolower);
   return true;
 }
 
-string GetBaseNameFromPath(const string& path) {
-  return path.substr(path.find_last_of("\\/") + 1);
+wstring GetBaseNameFromPath(const wstring& path) {
+  return path.substr(path.find_last_of(L"\\/") + 1);
 }
 
-string GetParentDirFromPath(const string& path) {
-  return path.substr(0, path.find_last_of("\\/"));
+wstring GetParentDirFromPath(const wstring& path) {
+  return path.substr(0, path.find_last_of(L"\\/"));
 }
 
-bool RelativeTo(const string& path, const string& base, string* result) {
+bool RelativeTo(const wstring& path, const wstring& base, wstring* result) {
   if (blaze_util::IsAbsolute(path) != blaze_util::IsAbsolute(base)) {
     PrintError(
-        "Cannot calculate relative path from an absolute and a non-absolute"
+        L"Cannot calculate relative path from an absolute and a non-absolute"
         " path.\npath = %s\nbase = %s",
         path.c_str(), base.c_str());
     return false;
@@ -208,7 +221,7 @@ bool RelativeTo(const string& path, const string& base, string* result) {
   if (blaze_util::IsAbsolute(path) && blaze_util::IsAbsolute(base) &&
       path[0] != base[0]) {
     PrintError(
-        "Cannot calculate relative path from absolute path under different "
+        L"Cannot calculate relative path from absolute path under different "
         "drives."
         "\npath = %s\nbase = %s",
         path.c_str(), base.c_str());
@@ -218,21 +231,21 @@ bool RelativeTo(const string& path, const string& base, string* result) {
   // Record the back slash position after the last matched path fragment
   int pos = 0;
   int back_slash_pos = -1;
-  while (path[pos] == base[pos] && base[pos] != '\0') {
-    if (path[pos] == '\\') {
+  while (path[pos] == base[pos] && base[pos] != L'\0') {
+    if (path[pos] == L'\\') {
       back_slash_pos = pos;
     }
     pos++;
   }
 
-  if (base[pos] == '\0' && path[pos] == '\0') {
+  if (base[pos] == L'\0' && path[pos] == L'\0') {
     // base == path in this case
-    result->assign("");
+    result->assign(L"");
     return true;
   }
 
-  if ((base[pos] == '\0' && path[pos] == '\\') ||
-      (base[pos] == '\\' && path[pos] == '\0')) {
+  if ((base[pos] == L'\0' && path[pos] == L'\\') ||
+      (base[pos] == L'\\' && path[pos] == L'\0')) {
     // In this case, one of the paths is the parent of another one.
     // We should move back_slash_pos to the end of the shorter path.
     // eg. path = c:\foo\bar, base = c:\foo => back_slash_pos = 6
@@ -240,7 +253,7 @@ bool RelativeTo(const string& path, const string& base, string* result) {
     back_slash_pos = pos;
   }
 
-  ostringstream buffer;
+  wostringstream buffer;
 
   // Create the ..\\ prefix
   // eg. path = C:\foo\bar1, base = C:\foo\bar2, we need ..\ prefix
@@ -249,11 +262,11 @@ bool RelativeTo(const string& path, const string& base, string* result) {
   // back_slash_pos + 1 == base.length() is not possible because the last
   // character of a normalized path won't be back slash.
   if (back_slash_pos + 1 < base.length()) {
-    buffer << "..\\";
+    buffer << L"..\\";
   }
   for (int i = back_slash_pos + 1; i < base.length(); i++) {
-    if (base[i] == '\\') {
-      buffer << "..\\";
+    if (base[i] == L'\\') {
+      buffer << L"..\\";
     }
   }
 

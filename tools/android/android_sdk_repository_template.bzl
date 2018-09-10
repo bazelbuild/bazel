@@ -91,6 +91,18 @@ def create_android_sdk_rules(
                 jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level],
             )
 
+        if api_level >= 28:
+            # Android 28 removed most of android.test from android.jar and moved it
+            # to separate jars.
+            native.java_import(
+                name = "legacy_test-%d" % api_level,
+                jars = [
+                    "platforms/android-%d/optional/android.test.base.jar" % api_level,
+                    "platforms/android-%d/optional/android.test.mock.jar" % api_level,
+                    "platforms/android-%d/optional/android.test.runner.jar" % api_level,
+                ],
+            )
+
         native.android_sdk(
             name = "sdk-%d" % api_level,
             build_tools_version = build_tools_version,
@@ -279,7 +291,7 @@ def create_system_images_filegroups(system_image_dirs):
     system_images = [
         (tag, str(api), arch)
         for tag in ["android", "google"]
-        for api in [10] + range(15, 20) + range(21, 27)
+        for api in [10] + range(15, 20) + range(21, 29)
         for arch in ("x86", "arm")
     ]
     tv_images = [

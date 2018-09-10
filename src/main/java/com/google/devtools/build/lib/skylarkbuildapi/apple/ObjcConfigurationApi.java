@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -40,12 +41,32 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
 
   @SkylarkCallable(
       name = "simulator_device_for_platform_type",
-      doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.")
+      doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.",
+      parameters = {
+        @Param(
+            name = "platform_type",
+            positional = true,
+            named = false,
+            type = ApplePlatformTypeApi.class,
+            doc = "The apple platform type."
+        ),
+      }
+  )
   public String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(
       name = "simulator_version_for_platform_type",
-      doc = "The SDK version of the simulator to use when running on the simulator.")
+      doc = "The SDK version of the simulator to use when running on the simulator.",
+      parameters = {
+        @Param(
+            name = "platform_type",
+            positional = true,
+            named = false,
+            type = ApplePlatformTypeApi.class,
+            doc = "The apple platform type."
+        ),
+      }
+  )
   public DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
 
   @SkylarkCallable(

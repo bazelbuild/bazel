@@ -402,9 +402,6 @@ message CToolchain {
   // Additional compiler and linker flags depending on the compilation mode.
   repeated CompilationModeFlags compilation_mode_flags = 17;
 
-  // Additional compiler and linker flags depending on the LIPO mode.
-  repeated LipoModeFlags lipo_mode_flags = 44;
-
   // Additional linker flags depending on the linking mode.
   repeated LinkingModeFlags linking_mode_flags = 18;
 
@@ -500,19 +497,6 @@ enum LinkingMode {
 message LinkingModeFlags {
   required LinkingMode mode = 1;
   repeated string linker_flag = 2;
-}
-
-enum LipoMode {
-  OFF = 1;
-  BINARY = 2;
-  // LIBRARY = 3;  // RESERVED
-}
-
-message LipoModeFlags {
-  required LipoMode mode = 1;
-  repeated string compiler_flag = 2;
-  repeated string cxx_flag = 3;
-  repeated string linker_flag = 4;
 }
 
 message MakeVariable {

@@ -89,7 +89,7 @@ in your genrule's cmd attribute.
 <ul>
   <li class="harmful"> <code>CC</code>: The C and C++ compiler command. The built-in C++
     rules are much more sophisticated than "run the compiler on it". In order to
-    support compilation modes as diverse as *SAN, LIPO, ThinLTO, with/without
+    support compilation modes as diverse as *SAN, ThinLTO, with/without
     modules, and carefully optimized binaries at the same time as fast running
     tests on multiple platforms, the built-in rules go to great lengths to
     ensure the correct inputs, outputs, and command-line flags are set on each

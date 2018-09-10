@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -40,6 +41,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
 
   private final Action action;
   private final ActionExecutionException exception;
+  private final Path primaryOutput;
   private final Path stdout;
   private final Path stderr;
   private final ErrorTiming timing;
@@ -47,11 +49,13 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   public ActionExecutedEvent(
       Action action,
       ActionExecutionException exception,
+      Path primaryOutput,
       Path stdout,
       Path stderr,
       ErrorTiming timing) {
     this.action = action;
     this.exception = exception;
+    this.primaryOutput = primaryOutput;
     this.stdout = stdout;
     this.stderr = stderr;
     this.timing = timing;
@@ -89,10 +93,10 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   @Override
   public BuildEventId getEventId() {
     if (action.getOwner() == null) {
-      return BuildEventId.actionCompleted(action.getPrimaryOutput().getPath());
+      return BuildEventId.actionCompleted(primaryOutput);
     } else {
       return BuildEventId.actionCompleted(
-          action.getPrimaryOutput().getPath(),
+          primaryOutput,
           action.getOwner().getLabel(),
           action.getOwner().getConfigurationChecksum());
     }
@@ -117,6 +121,21 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   }
 
   @Override
+  public Collection<LocalFile> referencedLocalFiles() {
+    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    if (stdout != null) {
+      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT));
+    }
+    if (stderr != null) {
+      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR));
+    }
+    if (exception == null) {
+      localFiles.add(new LocalFile(primaryOutput, LocalFileType.OUTPUT));
+    }
+    return localFiles.build();
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
@@ -128,18 +147,18 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       actionBuilder.setExitCode(exception.getExitCode().getNumericExitCode());
     }
     if (stdout != null) {
-      actionBuilder.setStdout(
-          BuildEventStreamProtos.File.newBuilder()
-          .setName("stdout")
-          .setUri(pathConverter.apply(stdout))
-          .build());
+      String uri = pathConverter.apply(stdout);
+      if (uri != null) {
+        actionBuilder.setStdout(
+            BuildEventStreamProtos.File.newBuilder().setName("stdout").setUri(uri).build());
+      }
     }
     if (stderr != null) {
-      actionBuilder.setStderr(
-          BuildEventStreamProtos.File.newBuilder()
-          .setName("stderr")
-          .setUri(pathConverter.apply(stderr))
-          .build());
+      String uri = pathConverter.apply(stderr);
+      if (uri != null) {
+        actionBuilder.setStderr(
+            BuildEventStreamProtos.File.newBuilder().setName("stderr").setUri(uri).build());
+      }
     }
     if (action.getOwner() != null && action.getOwner().getLabel() != null) {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
@@ -152,10 +171,11 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       actionBuilder.setConfiguration(configuration.getEventId().asStreamProto().getConfiguration());
     }
     if (exception == null) {
-      actionBuilder.setPrimaryOutput(
-          BuildEventStreamProtos.File.newBuilder()
-              .setUri(pathConverter.apply(action.getPrimaryOutput().getPath()))
-              .build());
+      String uri = pathConverter.apply(primaryOutput);
+      if (uri != null) {
+        actionBuilder.setPrimaryOutput(
+            BuildEventStreamProtos.File.newBuilder().setUri(uri).build());
+      }
     }
     try {
       if (action instanceof CommandAction) {

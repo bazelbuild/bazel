@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.function.Supplier;
 
 /** Creates the workspace status artifacts and action. */
 public class WorkspaceStatusFunction implements SkyFunction {
@@ -26,13 +25,10 @@ public class WorkspaceStatusFunction implements SkyFunction {
     WorkspaceStatusAction create(String workspaceName);
   }
 
-  private final Supplier<Boolean> removeActionAfterEvaluation;
   private final WorkspaceStatusActionFactory workspaceStatusActionFactory;
 
   WorkspaceStatusFunction(
-      Supplier<Boolean> removeActionAfterEvaluation,
       WorkspaceStatusActionFactory workspaceStatusActionFactory) {
-    this.removeActionAfterEvaluation = Preconditions.checkNotNull(removeActionAfterEvaluation);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
   }
 
@@ -49,11 +45,7 @@ public class WorkspaceStatusFunction implements SkyFunction {
     WorkspaceStatusAction action =
         workspaceStatusActionFactory.create(workspaceNameValue.getName());
 
-    return new WorkspaceStatusValue(
-        action.getStableStatus(),
-        action.getVolatileStatus(),
-        action,
-        removeActionAfterEvaluation.get());
+    return new WorkspaceStatusValue(action.getStableStatus(), action.getVolatileStatus(), action);
   }
 
   @Override

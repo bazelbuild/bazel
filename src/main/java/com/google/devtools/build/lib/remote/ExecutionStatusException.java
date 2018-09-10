@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
+import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.rpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;

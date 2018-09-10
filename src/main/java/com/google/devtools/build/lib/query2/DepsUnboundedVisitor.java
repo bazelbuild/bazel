@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.IS_TTV;
 import static com.google.devtools.build.lib.query2.SkyQueryEnvironment.SKYKEY_TO_LABEL;
 
@@ -47,7 +46,6 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
   private final Uniquifier<SkyKey> validDepUniquifier;
 
   private final boolean depsNeedFiltering;
-  private final Callback<Target> errorReporter;
   private final QueryExpressionContext<Target> context;
 
   DepsUnboundedVisitor(
@@ -56,12 +54,10 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore,
       boolean depsNeedFiltering,
-      Callback<Target> errorReporter,
       QueryExpressionContext<Target> context) {
     super(env, callback, packageSemaphore);
     this.validDepUniquifier = validDepUniquifier;
     this.depsNeedFiltering = depsNeedFiltering;
-    this.errorReporter = errorReporter;
     this.context = context;
   }
 
@@ -77,7 +73,6 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
     private final Callback<Target> callback;
     private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
     private final boolean depsNeedFiltering;
-    private final Callback<Target> errorReporter;
     private final QueryExpressionContext<Target> context;
 
     Factory(
@@ -85,14 +80,12 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
         Callback<Target> callback,
         MultisetSemaphore<PackageIdentifier> packageSemaphore,
         boolean depsNeedFiltering,
-        Callback<Target> errorReporter,
         QueryExpressionContext<Target> context) {
       this.env = env;
       this.validDepUniquifier = env.createSkyKeyUniquifier();
       this.callback = callback;
       this.packageSemaphore = packageSemaphore;
       this.depsNeedFiltering = depsNeedFiltering;
-      this.errorReporter = errorReporter;
       this.context = context;
     }
 
@@ -104,7 +97,6 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
           callback,
           packageSemaphore,
           depsNeedFiltering,
-          errorReporter,
           context);
     }
   }
@@ -113,24 +105,26 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
   protected Visit getVisitResult(Iterable<SkyKey> keys) throws InterruptedException {
     if (depsNeedFiltering) {
       // We have to targetify the keys here in order to determine the allowed dependencies.
-      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = env.makePackageKeyToTargetKeyMap(keys);
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
+          SkyQueryEnvironment.makePackageKeyToTargetKeyMap(keys);
       Set<PackageIdentifier> pkgIdsNeededForTargetification =
-          packageKeyToTargetKeyMap
-              .keySet()
-              .stream()
-              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
-              .collect(toImmutableSet());
+          SkyQueryEnvironment.getPkgIdsNeededForTargetification(packageKeyToTargetKeyMap);
       packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
-      Iterable<Target> deps;
+      Iterable<SkyKey> depsAsSkyKeys;
       try {
-        deps = env.getFwdDeps(env.makeTargetsFromSkyKeys(keys).values(), context);
+        Iterable<Target> depsAsTargets =
+            env.getFwdDeps(
+                env.getTargetKeyToTargetMapForPackageKeyToTargetKeyMap(
+                    packageKeyToTargetKeyMap).values(),
+                context);
+        depsAsSkyKeys = Iterables.transform(depsAsTargets, Target::getLabel);
       } finally {
         packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
       }
 
       return new Visit(
           /*keysToUseForResult=*/ keys,
-          /*keysToVisit=*/ Iterables.transform(deps, Target::getLabel));
+          /*keysToVisit=*/ depsAsSkyKeys);
     }
 
     // We need to explicitly check that all requested TTVs are actually in the graph.
@@ -157,19 +151,13 @@ class DepsUnboundedVisitor extends AbstractEdgeVisitor<SkyKey> {
   }
 
   @Override
-  protected void processPartialResults(
-      Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
-      throws QueryException, InterruptedException {
-    errorReporter.process(processResultsAndReturnTargets(keysToUseForResult, callback));
-  }
-
-  @Override
   protected SkyKey getNewNodeFromEdge(SkyKey visit) {
     return visit;
   }
 
   @Override
-  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> keysToVisit) {
+  protected ImmutableList<SkyKey> getUniqueValues(Iterable<SkyKey> keysToVisit)
+      throws QueryException {
     // Legit deps are already filtered using env.getFwdDeps().
     return validDepUniquifier.unique(keysToVisit);
   }

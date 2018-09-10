@@ -78,6 +78,19 @@ class OptionProcessorTest : public ::testing::Test {
     EXPECT_EQ(expected.command_args, result->command_args);
   }
 
+  void HelpArgIsInterpretedAsACommand(const std::string& arg) {
+    const std::vector<std::string> args = {"bazel", arg};
+    std::string error;
+    ASSERT_EQ(blaze_exit_code::SUCCESS,
+              option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+        << error;
+    ASSERT_EQ("", error);
+
+    EXPECT_EQ(arg, option_processor_->GetCommand());
+    EXPECT_EQ(std::vector<std::string>({}),
+              option_processor_->GetExplicitCommandArguments());
+  }
+
   const std::string workspace_;
   const std::string cwd_;
   const std::unique_ptr<WorkspaceLayout> workspace_layout_;
@@ -108,7 +121,7 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
             option_processor_->GetExplicitCommandArguments());
 }
 
-TEST_F(OptionProcessorTest, CanParseHelpArgs) {
+TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
   const std::vector<std::string> args =
       {"bazel",
        "--host_jvm_args=MyParam", "--nobatch",
@@ -130,6 +143,18 @@ TEST_F(OptionProcessorTest, CanParseHelpArgs) {
 
   EXPECT_EQ(std::vector<std::string>({"--flag", "//my:target", "--flag2=42"}),
             option_processor_->GetExplicitCommandArguments());
+}
+
+TEST_F(OptionProcessorTest, CanParseHelpCommand) {
+  HelpArgIsInterpretedAsACommand("help");
+}
+
+TEST_F(OptionProcessorTest, CanParseHelpShortFlag) {
+  HelpArgIsInterpretedAsACommand("-h");
+}
+
+TEST_F(OptionProcessorTest, CanParseHelpFlag) {
+  HelpArgIsInterpretedAsACommand("-help");
 }
 
 TEST_F(OptionProcessorTest, CanParseEmptyArgs) {
@@ -281,6 +306,12 @@ TEST_F(OptionProcessorTest, SplitCommandLineWithDashDash) {
 
 TEST_F(OptionProcessorTest, TestDedupePathsOmitsInvalidPath) {
   std::vector<std::string> input = {"foo"};
+  std::vector<std::string> expected = {};
+  ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
+}
+
+TEST_F(OptionProcessorTest, TestDedupePathsOmitsEmptyPath) {
+  std::vector<std::string> input = {""};
   std::vector<std::string> expected = {};
   ASSERT_EQ(expected, internal::DedupeBlazercPaths(input));
 }

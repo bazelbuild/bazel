@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -49,6 +51,16 @@ public class ExecutionOptions extends OptionsBase {
   public static final ExecutionOptions DEFAULTS = Options.getDefaults(ExecutionOptions.class);
 
   @Option(
+      name = "materialize_param_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Writes intermediate parameter files to output tree even when using "
+              + "remote action execution. Useful when debugging actions. ")
+  public boolean materializeParamFiles;
+
+  @Option(
     name = "verbose_failures",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -61,11 +73,12 @@ public class ExecutionOptions extends OptionsBase {
     name = "subcommands",
     abbrev = 's',
     defaultValue = "false",
+    converter = ShowSubcommandsConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Display the subcommands executed during a build."
   )
-  public boolean showSubcommands;
+  public ShowSubcommands showSubcommands;
 
   @Option(
     name = "check_up_to_date",
@@ -143,13 +156,12 @@ public class ExecutionOptions extends OptionsBase {
   public List<PerLabelOptions> testAttempts;
 
   @Option(
-    name = "test_tmpdir",
-    defaultValue = "null",
-    converter = OptionsUtils.PathFragmentConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Specifies the base temporary directory for 'blaze test' to use."
-  )
+      name = "test_tmpdir",
+      defaultValue = "null",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specifies the base temporary directory for 'bazel test' to use.")
   public PathFragment testTmpDir;
 
   @Option(
@@ -191,37 +203,35 @@ public class ExecutionOptions extends OptionsBase {
   public boolean useResourceAutoSense;
 
   @Option(
-    name = "ram_utilization_factor",
-    defaultValue = "67",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Specify what percentage of the system's RAM Blaze should try to use for its subprocesses. "
-            + "This option affects how many processes Blaze will try to run in parallel. "
-            + "If you run several Blaze builds in parallel, using a lower value for "
-            + "this option may avoid thrashing and thus improve overall throughput. "
-            + "Using a value higher than the default is NOT recommended. "
-            + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
-            + "higher or much lower than specified. "
-            + "Note also that this option does not affect the amount of memory that the Blaze "
-            + "server itself will use. "
-  )
+      name = "ram_utilization_factor",
+      defaultValue = "67",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify what percentage of the system's RAM Bazel should try to use for its "
+              + "subprocesses. This option affects how many processes Bazel will try to run in "
+              + "parallel. If you run several Bazel builds in parallel, using a lower value for "
+              + "this option may avoid thrashing and thus improve overall throughput. "
+              + "Using a value higher than the default is NOT recommended. "
+              + "Note that Blaze's estimates are very coarse, so the actual RAM usage may be much "
+              + "higher or much lower than specified. "
+              + "Note also that this option does not affect the amount of memory that the Bazel "
+              + "server itself will use. ")
   public int ramUtilizationPercentage;
 
   @Option(
-    name = "local_resources",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Explicitly set amount of local resources available to Blaze. "
-            + "By default, Blaze will query system configuration to estimate amount of RAM (in MB) "
-            + "and number of CPU cores available for the locally executed build actions. It would "
-            + "also assume default I/O capabilities of the local workstation (1.0). This options "
-            + "allows to explicitly set all 3 values. Note, that if this option is used, Blaze "
-            + "will ignore --ram_utilization_factor.",
-    converter = ResourceSet.ResourceSetConverter.class
-  )
+      name = "local_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Explicitly set amount of local resources available to Blaze. By default, Bazel will "
+              + "query system configuration to estimate amount of RAM (in MB) "
+              + "and number of CPU cores available for the locally executed build actions. It "
+              + "would also assume default I/O capabilities of the local workstation (1.0). This "
+              + "options allows to explicitly set all 3 values. Note, that if this option is used, "
+              + "Bazel will ignore --ram_utilization_factor.",
+      converter = ResourceSet.ResourceSetConverter.class)
   public ResourceSet availableResources;
 
   @Option(
@@ -265,17 +275,16 @@ public class ExecutionOptions extends OptionsBase {
   public boolean debugPrintActionContexts;
 
   @Option(
-    name = "cache_computed_file_digests",
-    defaultValue = "50000",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If greater than 0, configures Blaze to cache file digests in memory based on their "
-            + "metadata instead of recomputing the digests from disk every time they are needed. "
-            + "Setting this to 0 ensures correctness because not all file changes can be noted "
-            + "from file metadata. When not 0, the number indicates the size of the cache as the "
-            + "number of file digests to be cached."
-  )
+      name = "cache_computed_file_digests",
+      defaultValue = "50000",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If greater than 0, configures Bazel to cache file digests in memory based on their "
+              + "metadata instead of recomputing the digests from disk every time they are needed. "
+              + "Setting this to 0 ensures correctness because not all file changes can be noted "
+              + "from file metadata. When not 0, the number indicates the size of the cache as the "
+              + "number of file digests to be cached.")
   public long cacheSizeForComputedFileDigests;
 
   @Option(
@@ -299,6 +308,17 @@ public class ExecutionOptions extends OptionsBase {
     help = "Log the executed spawns into this file as delimited Spawn protos."
   )
   public String executionLogFile;
+
+  @Option(
+    name = "experimental_split_xml_generation",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help = "If this flag is set, and a test action does not generate a test.xml file, then "
+        + "Bazel uses a separate action to generate a dummy test.xml file containing the test log. "
+        + "Otherwise, Bazel generates the test.xml as part of the test action."
+  )
+  public boolean splitXmlGeneration;
 
   /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
@@ -357,4 +377,13 @@ public class ExecutionOptions extends OptionsBase {
           + "This flag may be passed more than once";
     }
   }
+
+  /** Converter for --subcommands */
+  public static class ShowSubcommandsConverter extends BoolOrEnumConverter<ShowSubcommands> {
+    public ShowSubcommandsConverter() {
+      super(
+          ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);
+    }
+  }
+
 }

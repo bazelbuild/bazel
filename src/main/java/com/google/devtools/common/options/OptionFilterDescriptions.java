@@ -29,6 +29,7 @@ public class OptionFilterDescriptions {
       OptionDocumentationCategory.OUTPUT_PARAMETERS,
       OptionDocumentationCategory.INPUT_STRICTNESS,
       OptionDocumentationCategory.SIGNING,
+      OptionDocumentationCategory.SKYLARK_SEMANTICS,
       OptionDocumentationCategory.TESTING,
       OptionDocumentationCategory.QUERY,
       OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -72,6 +73,10 @@ public class OptionFilterDescriptions {
         .put(
             OptionDocumentationCategory.SIGNING,
             "Options that affect the signing outputs of a build")
+        .put(
+            OptionDocumentationCategory.SKYLARK_SEMANTICS,
+            "This option affects semantics of the skylark language or the build API accessible to "
+                + "BUILD files, .bzl files, or WORKSPACE files.")
         .put(
             OptionDocumentationCategory.TESTING,
             "Options that govern the behavior of the test environment or test runner")

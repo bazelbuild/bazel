@@ -66,9 +66,9 @@ mkdir "${tempdir}/root"
 
 [ -z "${prepend}" ] || cat ${prepend} >>"${tempdir}/output"
 
-host_javabase_flag=
-[ -z "${javabase}" ] || host_javabase_flag="--host_javabase=${javabase}"
-"${bazel}" --output_user_root="${tempdir}/root" ${host_javabase_flag} \
+server_javabase_flag=
+[ -z "${javabase}" ] || server_javabase_flag="--server_javabase=${javabase}"
+"${bazel}" --output_user_root="${tempdir}/root" ${server_javabase_flag} \
     help completion >>"${tempdir}/output"
 
 [ -z "${append}" ] || cat ${append} >>"${tempdir}/output"

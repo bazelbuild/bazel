@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
@@ -25,10 +24,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBitcodeModeApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -43,11 +40,7 @@ import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
-@AutoCodec(strategy = AutoCodec.Strategy.PUBLIC_FIELDS)
 public class AppleCommandLineOptions extends FragmentOptions {
-  public static final ObjectCodec<AppleCommandLineOptions> CODEC =
-      new AppleCommandLineOptions_AutoCodec();
-
   @Option(
     name = "experimental_apple_mandatory_minimum_version",
     defaultValue = "false",
@@ -327,26 +320,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
             + "Values: 'none', 'embedded_markers', 'embedded'."
   )
   public AppleBitcodeMode appleBitcodeMode;
-
-  @Option(
-    name = "apple_crosstool_transition",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If true, the apple crosstool is used for all apple rules."
-  )
-  public boolean enableAppleCrosstoolTransition;
-
-  @Option(
-    name = "target_uses_apple_crosstool",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "If true, this target uses the apple crosstool.  Do not set this flag manually."
-  )
-  public boolean targetUsesAppleCrosstool;
-
+  
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
     switch (applePlatformType) {
@@ -360,34 +334,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
         return watchosMinimumOs;
       default:
         throw new IllegalStateException();
-    }
-  }
-
-  /**
-   * Returns the architecture implied by these options.
-   *
-   * <p>In contexts in which a configuration instance is present, prefer {@link
-   * AppleConfiguration#getSingleArchitecture}.
-   */
-  public String getSingleArchitecture() {
-    if (!Strings.isNullOrEmpty(appleSplitCpu)) {
-      return appleSplitCpu;
-    }
-    switch (applePlatformType) {
-      case IOS:
-        if (!iosMultiCpus.isEmpty()) {
-          return iosMultiCpus.get(0);
-        } else {
-          return iosCpu;
-        }
-      case WATCHOS:
-        return watchosCpus.get(0);
-      case TVOS:
-        return tvosCpus.get(0);
-      case MACOS:
-        return macosCpus.get(0);
-      default:
-        throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
   }
 

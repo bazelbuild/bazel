@@ -400,21 +400,4 @@ public class AndroidManifestProcessor {
       throw new ManifestProcessingException(e);
     }
   }
-
-  public static Path writeDummyManifestForAapt(Path dummyManifest, String packageForR) {
-    try {
-      Files.createDirectories(dummyManifest.getParent());
-      return Files.write(
-          dummyManifest,
-          String.format(
-                  "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-                      + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
-                      + " package=\"%s\">"
-                      + "</manifest>",
-                  packageForR)
-              .getBytes(UTF_8));
-    } catch (IOException e) {
-      throw new ManifestProcessingException(e);
-    }
-  }
 }

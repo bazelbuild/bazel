@@ -1,0 +1,54 @@
+<a name="#<unknown name>"></a>
+## <unknown name>
+
+<pre>
+<unknown name>(name, first, fourth, second, third)
+</pre>
+
+
+
+### Attributes
+
+<table class="params-table">
+  <colgroup>
+    <col class="col-param" />
+    <col class="col-description" />
+  </colgroup>
+  <tbody>
+    <tr id="#<unknown name>_name">
+      <td><code>name</code></td>
+      <td>
+        String; required
+        <p>
+          A unique name for this rule.
+        </p>
+      </td>
+    </tr>
+    <tr id="#<unknown name>_first">
+      <td><code>first</code></td>
+      <td>
+        Label; required
+      </td>
+    </tr>
+    <tr id="#<unknown name>_fourth">
+      <td><code>fourth</code></td>
+      <td>
+        Boolean; optional
+      </td>
+    </tr>
+    <tr id="#<unknown name>_second">
+      <td><code>second</code></td>
+      <td>
+        Dictionary: String -> String; required
+      </td>
+    </tr>
+    <tr id="#<unknown name>_third">
+      <td><code>third</code></td>
+      <td>
+        Label; required
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+

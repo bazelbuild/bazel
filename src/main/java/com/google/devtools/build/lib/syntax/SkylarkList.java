@@ -116,7 +116,8 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
   @Override
   public boolean equals(Object object) {
     return (this == object)
-        || ((object != null) && (this.getClass() == object.getClass())
+        || ((object != null)
+            && (this.getClass() == object.getClass())
             && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
   }
 
@@ -345,7 +346,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
       return new MutableList<>(newContents, mutability);
     }
 
-    /**  More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
+    /** More efficient {@link List#addAll} replacement when both lists are {@link ArrayList}s. */
     private static <T> void addAll(ArrayList<T> addTo, ArrayList<? extends T> addFrom) {
       // Hot code path, skip iterator.
       for (int i = 0; i < addFrom.size(); i++) {
@@ -372,8 +373,9 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         throws EvalException {
       List<Integer> sliceIndices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
       ArrayList<E> list = new ArrayList<>(sliceIndices.size());
-      for (int pos : sliceIndices) {
-        list.add(this.get(pos));
+      // foreach is not used to avoid iterator overhead
+      for (int i = 0; i < sliceIndices.size(); ++i) {
+        list.add(this.get(sliceIndices.get(i)));
       }
       return MutableList.wrapUnsafe(mutability, list);
     }
@@ -614,7 +616,7 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
      * Creates a {@code Tuple} from an {@link ImmutableList}, reusing the empty instance if
      * applicable.
      */
-    private static<T> Tuple<T> create(ImmutableList<T> contents) {
+    private static <T> Tuple<T> create(ImmutableList<T> contents) {
       if (contents.isEmpty()) {
         return empty();
       }
@@ -624,6 +626,16 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
     /** Returns a {@code Tuple} whose items are given by an iterable. */
     public static <T> Tuple<T> copyOf(Iterable<? extends T> contents) {
       return create(ImmutableList.<T>copyOf(contents));
+    }
+
+    /**
+     * Returns a {@code Tuple} whose items are given by an immutable list.
+     *
+     * <p>This method is a specialization of a {@link #copyOf(Iterable)} that avoids an unnecessary
+     * {@code copyOf} invocation.
+     */
+    public static <T> Tuple<T> copyOf(ImmutableList<T> contents) {
+      return create(contents);
     }
 
     /** Returns a {@code Tuple} with the given items. */
@@ -680,8 +692,9 @@ public abstract class SkylarkList<E> extends BaseMutableList<E>
         throws EvalException {
       List<Integer> sliceIndices = EvalUtils.getSliceIndices(start, end, step, this.size(), loc);
       ImmutableList.Builder<E> builder = ImmutableList.builderWithExpectedSize(sliceIndices.size());
-      for (int pos : sliceIndices) {
-        builder.add(this.get(pos));
+      // foreach is not used to avoid iterator overhead
+      for (int i = 0; i < sliceIndices.size(); ++i) {
+        builder.add(this.get(sliceIndices.get(i)));
       }
       return copyOf(builder.build());
     }

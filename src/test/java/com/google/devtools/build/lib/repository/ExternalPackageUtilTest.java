@@ -229,7 +229,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   }
 
   private static final SkyFunctionName GET_RULE_BY_NAME_FUNCTION =
-      SkyFunctionName.create("GET_RULE_BY_NAME");
+      SkyFunctionName.createHermetic("GET_RULE_BY_NAME");
 
   @AutoValue
   abstract static class GetRuleByNameValue implements SkyValue {
@@ -277,7 +277,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   }
 
   private static final SkyFunctionName GET_REGISTERED_TOOLCHAINS_FUNCTION =
-      SkyFunctionName.create("GET_REGISTERED_TOOLCHAINS");
+      SkyFunctionName.createHermetic("GET_REGISTERED_TOOLCHAINS");
 
   @AutoValue
   abstract static class GetRegisteredToolchainsValue implements SkyValue {
@@ -324,7 +324,7 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
   }
 
   private static final SkyFunctionName GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION =
-      SkyFunctionName.create("GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION");
+      SkyFunctionName.createHermetic("GET_REGISTERED_EXECUTION_PLATFORMS_FUNCTION");
 
   @AutoValue
   abstract static class GetRegisteredExecutionPlatformsValue implements SkyValue {

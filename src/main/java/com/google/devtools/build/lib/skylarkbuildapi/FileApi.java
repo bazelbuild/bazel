@@ -40,40 +40,45 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 )
 public interface FileApi extends SkylarkValue {
 
-  @SkylarkCallable(name = "dirname", structField = true,
-      doc = "The name of the directory containing this file. It's taken from "
-          + "<a href=\"#path\">path</a> and is always relative to the execution directory.")
-  public String getDirname();
+  @SkylarkCallable(
+      name = "dirname",
+      structField = true,
+      doc =
+          "The name of the directory containing this file. It's taken from "
+              + "<a href=\"#path\">path</a> and is always relative to the execution directory.")
+  String getDirname();
 
-  @SkylarkCallable(name = "basename", structField = true,
+  @SkylarkCallable(
+      name = "basename",
+      structField = true,
       doc = "The base name of this file. This is the name of the file inside the directory.")
-  public String getFilename();
+  String getFilename();
 
   @SkylarkCallable(name = "extension", structField = true, doc = "The file extension of this file.")
-  public String getExtension();
-
-  @SkylarkCallable(name = "owner", structField = true, allowReturnNones = true,
-    doc = "A label of a target that produces this File."
-  )
-  public Label getOwnerLabel();
+  String getExtension();
 
   @SkylarkCallable(
-    name = "root",
-    structField = true,
-    doc = "The root beneath which this file resides."
-  )
-  public FileRootApi getRoot();
+      name = "owner",
+      structField = true,
+      allowReturnNones = true,
+      doc = "A label of a target that produces this File.")
+  Label getOwnerLabel();
 
   @SkylarkCallable(
-    name = "is_source",
-    structField = true,
-    doc = "Returns true if this is a source file, i.e. it is not generated."
-  )
-  public boolean isSourceArtifact();
+      name = "root",
+      structField = true,
+      doc = "The root beneath which this file resides.")
+  FileRootApi getRoot();
+
+  @SkylarkCallable(
+      name = "is_source",
+      structField = true,
+      doc = "Returns true if this is a source file, i.e. it is not generated.")
+  boolean isSourceArtifact();
 
   // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
   @SkylarkCallable(name = "is_directory", structField = true, documented = false)
-  public boolean isTreeArtifact();
+  boolean isDirectory();
 
   @SkylarkCallable(
       name = "short_path",
@@ -81,23 +86,21 @@ public interface FileApi extends SkylarkValue {
       doc =
           "The path of this file relative to its root. This excludes the aforementioned "
               + "<i>root</i>, i.e. configuration-specific fragments of the path. This is also the "
-              + "path under which the file is mapped if it's in the runfiles of a binary."
-  )
-  public String getRunfilesPathString();
+              + "path under which the file is mapped if it's in the runfiles of a binary.")
+  String getRunfilesPathString();
 
   @SkylarkCallable(
-    name = "path",
-    structField = true,
-    doc =
-        "The execution path of this file, relative to the workspace's execution directory. It "
-            + "consists of two parts, an optional first part called the <i>root</i> (see also the "
-            + "<a href=\"root.html\">root</a> module), and the second part which is the "
-            + "<code>short_path</code>. The root may be empty, which it usually is for "
-            + "non-generated files. For generated files it usually contains a "
-            + "configuration-specific path fragment that encodes things like the target CPU "
-            + "architecture that was used while building said file. Use the "
-            + "<code>short_path</code> for the path under which the file is mapped if it's in the "
-            + "runfiles of a binary."
-  )
-  public String getExecPathString();
+      name = "path",
+      structField = true,
+      doc =
+          "The execution path of this file, relative to the workspace's execution directory. It "
+              + "consists of two parts, an optional first part called the <i>root</i> (see also "
+              + "the <a href=\"root.html\">root</a> module), and the second part which is the "
+              + "<code>short_path</code>. The root may be empty, which it usually is for "
+              + "non-generated files. For generated files it usually contains a "
+              + "configuration-specific path fragment that encodes things like the target CPU "
+              + "architecture that was used while building said file. Use the "
+              + "<code>short_path</code> for the path under which the file is mapped if it's in "
+              + "the runfiles of a binary.")
+  String getExecPathString();
 }

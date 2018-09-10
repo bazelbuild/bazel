@@ -612,7 +612,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   /** Returns the path to the dSYM binary artifact for given architecture and compilation mode. */
   protected String dsymBinaryPath(String arch, CompilationMode mode) throws Exception {
     return configurationBin(arch, ConfigurationDistinguisher.APPLEBIN_IOS, null, mode)
-        + "examples/apple_skylark/bin.app.dSYM/Contents/Resources/DWARF/bin_bin";
+        + "examples/apple_skylark/bin_bin.dwarf";
   }
 
   /** Returns the path to the linkmap artifact for a given architecture. */

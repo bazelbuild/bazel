@@ -70,7 +70,7 @@ public class ParallelSkyQueryUtils {
         ParallelVisitor.createParallelVisitorCallback(
             new RdepsUnboundedVisitor.Factory(
                 env,
-                /*universe=*/ Predicates.alwaysTrue(),
+                /*unfilteredUniverse=*/ Predicates.alwaysTrue(),
                 callback,
                 packageSemaphore)));
   }
@@ -97,7 +97,7 @@ public class ParallelSkyQueryUtils {
   static QueryTaskFuture<Void> getRdepsInUniverseUnboundedParallel(
       SkyQueryEnvironment env,
       QueryExpression expression,
-      Predicate<SkyKey> universe,
+      Predicate<SkyKey> unfilteredUniverse,
       QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
@@ -105,7 +105,8 @@ public class ParallelSkyQueryUtils {
         expression,
         context,
         ParallelVisitor.createParallelVisitorCallback(
-            new RdepsUnboundedVisitor.Factory(env, universe, callback, packageSemaphore)));
+            new RdepsUnboundedVisitor.Factory(
+                env, unfilteredUniverse, callback, packageSemaphore)));
   }
 
   static QueryTaskFuture<Predicate<SkyKey>> getDTCSkyKeyPredicateFuture(
@@ -126,7 +127,7 @@ public class ParallelSkyQueryUtils {
               () -> {
                 Callback<Target> visitorCallback =
                     ParallelVisitor.createParallelVisitorCallback(
-                        new TransitiveTraversalValueDTCVisitor.Factory(
+                        new UnfilteredSkyKeyTTVDTCVisitor.Factory(
                             env,
                             env.createSkyKeyUniquifier(),
                             processResultsBatchSize,
@@ -176,14 +177,13 @@ public class ParallelSkyQueryUtils {
       QueryExpressionContext<Target> context,
       Callback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore,
-      boolean depsNeedFiltering,
-      Callback<Target> errorReporter) {
+      boolean depsNeedFiltering) {
     return env.eval(
         expression,
         context,
         ParallelVisitor.createParallelVisitorCallback(
             new DepsUnboundedVisitor.Factory(
-                env, callback, packageSemaphore, depsNeedFiltering, errorReporter, context)));
+                env, callback, packageSemaphore, depsNeedFiltering, context)));
   }
 
   static class DepAndRdep {

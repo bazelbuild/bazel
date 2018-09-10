@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -46,14 +47,17 @@ public final class JavaRuleOutputJarsProvider
   public static class OutputJar implements OutputJarApi<Artifact> {
     @Nullable private final Artifact classJar;
     @Nullable private final Artifact iJar;
+    @Nullable private final Artifact manifestProto;
     @Nullable private final ImmutableList<Artifact> srcJars;
 
     public OutputJar(
         @Nullable Artifact classJar,
         @Nullable Artifact iJar,
+        @Nullable Artifact manifestProto,
         @Nullable Iterable<Artifact> srcJars) {
       this.classJar = classJar;
       this.iJar = iJar;
+      this.manifestProto = manifestProto;
       this.srcJars = ImmutableList.copyOf(srcJars);
     }
 
@@ -67,6 +71,12 @@ public final class JavaRuleOutputJarsProvider
     @Override
     public Artifact getIJar() {
       return iJar;
+    }
+
+    @Nullable
+    @Override
+    public Artifact getManifestProto() {
+      return manifestProto;
     }
 
     @Nullable
@@ -150,6 +160,15 @@ public final class JavaRuleOutputJarsProvider
     return new Builder();
   }
 
+  public static JavaRuleOutputJarsProvider merge(
+      Collection<JavaRuleOutputJarsProvider> providers) {
+    Builder builder = new Builder();
+    for (JavaRuleOutputJarsProvider provider : providers) {
+      builder.addOutputJars(provider.getOutputJars());
+    }
+    return builder.build();
+  }
+
   /**
    * Builder for {@link JavaRuleOutputJarsProvider}.
    */
@@ -161,19 +180,20 @@ public final class JavaRuleOutputJarsProvider
     public Builder addOutputJar(
         @Nullable Artifact classJar,
         @Nullable Artifact iJar,
+        @Nullable Artifact manifestProto,
         @Nullable ImmutableList<Artifact> sourceJars) {
       Preconditions.checkState(classJar != null || iJar != null || !sourceJars.isEmpty());
-      outputJars.add(new OutputJar(classJar, iJar, sourceJars));
-      return this;
-    }
-
-    public Builder addOutputJars(Iterable<OutputJar> outputJars) {
-      this.outputJars.addAll(outputJars);
+      outputJars.add(new OutputJar(classJar, iJar, manifestProto, sourceJars));
       return this;
     }
 
     public Builder addOutputJar(OutputJar outputJar) {
       outputJars.add(outputJar);
+      return this;
+    }
+
+    public Builder addOutputJars(Iterable<OutputJar> outputJars) {
+      this.outputJars.addAll(outputJars);
       return this;
     }
 

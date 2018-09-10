@@ -14,7 +14,12 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.Path;
+import java.util.Collection;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -23,11 +28,81 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  * pass-through of events, as well as proper chaining of events.
  */
 public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postable {
+
+  /**
+   * A local file that is referenced by the build event. These can be uploaded to a separate backend
+   * storage.
+   */
+  final class LocalFile {
+
+    /**
+     * The type of the local file. This is used by uploaders to determine how long to store the
+     * associated files for.
+     */
+    public enum LocalFileType {
+      SOURCE,
+      OUTPUT,
+      SUCCESSFUL_TEST_OUTPUT,
+      FAILED_TEST_OUTPUT,
+      STDOUT,
+      STDERR,
+      LOG,
+    }
+
+    public final Path path;
+    public final LocalFileType type;
+
+    public LocalFile(Path path, LocalFileType type) {
+      this.path = path;
+      this.type = type;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      LocalFile localFile = (LocalFile) o;
+      return Objects.equal(path, localFile.path) && type == localFile.type;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(path, type);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(LocalFile.class)
+          .add("path", path)
+          .add("type", type)
+          .toString();
+    }
+  }
+
+  /**
+   * Returns a list of files that are referenced in the protobuf representation returned by {@link
+   * #asStreamProto(BuildEventContext)}.
+   *
+   * <p>This method is different from {@code EventReportingArtifacts#reportedArtifacts()} in that it
+   * only returns files directly referenced in the protobuf returned by {@link
+   * #asStreamProto(BuildEventContext)}.
+   *
+   * <p>Note the consistency requirement - you must not attempt to pass Path objects to the {@link
+   * PathConverter} unless you have returned a corresponding {@link LocalFile} object here.
+   */
+  default Collection<LocalFile> referencedLocalFiles() {
+    return ImmutableList.of();
+  }
+
   /**
    * Provide a binary representation of the event.
    *
    * <p>Provide a presentation of the event according to the specified binary format, as appropriate
    * protocol buffer.
    */
-  BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters);
+  BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context);
 }

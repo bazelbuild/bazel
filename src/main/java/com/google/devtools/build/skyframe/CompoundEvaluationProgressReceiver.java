@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * An {@link EvaluationProgressReceiver} that delegates to a bunch of other
@@ -63,10 +64,11 @@ public class CompoundEvaluationProgressReceiver implements EvaluationProgressRec
   @Override
   public void evaluated(
       SkyKey skyKey,
+      @Nullable SkyValue value,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     for (EvaluationProgressReceiver receiver : receivers) {
-      receiver.evaluated(skyKey, evaluationSuccessState, state);
+      receiver.evaluated(skyKey, value, evaluationSuccessState, state);
     }
   }
 }

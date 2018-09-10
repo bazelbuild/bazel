@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
@@ -51,6 +52,9 @@ import javax.annotation.Nullable;
  * Helper class to create test actions.
  */
 public final class TestActionBuilder {
+
+  private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
+  private static final String LCOV_MERGER = "LCOV_MERGER";
 
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
@@ -189,12 +193,27 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());
 
+    // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
+    // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
+    // initialization.
+    final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
+
+    final boolean isUsingTestWrapperInsteadOfTestSetupScript =
+        isExecutedOnWindows
+            && ruleContext
+                .getConfiguration()
+                .getFragment(TestConfiguration.class)
+                .isUsingWindowsNativeTestWrapper();
+
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
         NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman()));
-    NestedSet<Artifact> testRuntime = PrerequisiteArtifacts.nestedSet(
-        ruleContext, "$test_runtime", Mode.HOST);
-    inputsBuilder.addTransitive(testRuntime);
+
+    if (!isUsingTestWrapperInsteadOfTestSetupScript) {
+      NestedSet<Artifact> testRuntime =
+          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime", Mode.HOST);
+      inputsBuilder.addTransitive(testRuntime);
+    }
     TestTargetProperties testProperties = new TestTargetProperties(
         ruleContext, executionRequirements);
 
@@ -202,8 +221,15 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
 
-    Artifact testSetupScript = ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
-    inputsBuilder.add(testSetupScript);
+    Artifact testActionExecutable =
+        isUsingTestWrapperInsteadOfTestSetupScript
+            ? ruleContext.getHostPrerequisiteArtifact("$test_wrapper")
+            : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
+
+    inputsBuilder.add(testActionExecutable);
+    Artifact testXmlGeneratorScript =
+        ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+    inputsBuilder.add(testXmlGeneratorScript);
 
     Artifact collectCoverageScript = null;
     TreeMap<String, String> extraTestEnv = new TreeMap<>();
@@ -219,13 +245,21 @@ public final class TestActionBuilder {
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
           PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support", Mode.DONT_CHECK));
+
+      if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
+        Artifact collectCcCoverage =
+            ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage");
+        inputsBuilder.add(collectCcCoverage);
+        extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
+      }
+
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
         TransitiveInfoCollection lcovMerger =
             ruleContext.getPrerequisite("$lcov_merger", Mode.TARGET);
         FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
         if (lcovFilesToRun != null) {
-          extraTestEnv.put("LCOV_MERGER", lcovFilesToRun.getExecutable().getExecPathString());
+          extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
         } else {
           NestedSet<Artifact> filesToBuild =
@@ -233,7 +267,7 @@ public final class TestActionBuilder {
 
           if (Iterables.size(filesToBuild) == 1) {
             Artifact lcovMergerArtifact = Iterables.getOnlyElement(filesToBuild);
-            extraTestEnv.put("LCOV_MERGER", lcovMergerArtifact.getExecPathString());
+            extraTestEnv.put(LCOV_MERGER, lcovMergerArtifact.getExecPathString());
             inputsBuilder.add(lcovMergerArtifact);
           } else {
             ruleContext.attributeError("$lcov_merger",
@@ -306,7 +340,9 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 ruleContext.getActionOwner(),
                 inputs,
-                testSetupScript,
+                testActionExecutable,
+                isUsingTestWrapperInsteadOfTestSetupScript,
+                testXmlGeneratorScript,
                 collectCoverageScript,
                 testLog,
                 cacheStatus,
@@ -323,13 +359,14 @@ public final class TestActionBuilder {
       }
     }
     // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
-    Artifact reportGenerator = null;
+    FilesToRunProvider reportGenerator = null;
     if (config.isCodeCoverageEnabled()) {
       // It's not enough to add this if the rule has coverage enabled because the command line may
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
-      reportGenerator = ruleContext.getPrerequisiteArtifact(
-          ":coverage_report_generator", Mode.HOST);
+      TransitiveInfoCollection reportGeneratorTarget =
+          ruleContext.getPrerequisite(":coverage_report_generator", Mode.HOST);
+      reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
     }
 
     return new TestParams(runsPerTest, shards, TestTimeout.getTestTimeout(ruleContext.getRule()),

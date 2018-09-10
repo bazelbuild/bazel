@@ -418,4 +418,211 @@ EOF
       || fail "expected 'y_symbol' in $(cat bazel-genfiles/external/a/result.txt)"
 }
 
+function test_repository_reassignment_label_in_build() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo hello > \$(location result.txt)"
+)
+EOF
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel query --experimental_enable_repo_mapping --output=build @a//:a | grep "@b//:x.txt" \
+      || fail "Expected srcs to contain '@b//:x.txt'"
+}
+
+function test_repository_reassignment_location() {
+  # Repository a refers to @x
+  mkdir -p a
+  touch a/WORKSPACE
+  cat > a/BUILD<<EOF
+genrule(name = "a",
+        srcs = ["@x//:x.txt"],
+        outs = ["result.txt"],
+        cmd = "echo \$(location @x//:x.txt) > \$(location result.txt); \
+            cat \$(location @x//:x.txt)>> \$(location result.txt);"
+)
+EOF
+
+  # Repository b is a substitute for x
+  mkdir -p b
+  touch b/WORKSPACE
+  cat >b/BUILD <<EOF
+exports_files(srcs = ["x.txt"])
+EOF
+  echo "Hello from @b//:x.txt" > b/x.txt
+
+  # Main repo assigns @x to @b within @a
+  mkdir -p main
+  cat > main/WORKSPACE <<EOF
+workspace(name = "main")
+
+local_repository(name = "a", path="../a", repo_mapping = {"@x" : "@b"})
+local_repository(name = "b", path="../b")
+EOF
+  touch main/BUILD
+
+  cd main
+  bazel build --experimental_enable_repo_mapping @a//:a || fail "Expected build to succeed"
+  grep "external/b/x.txt" bazel-genfiles/external/a/result.txt \
+      || fail "expected external/b/x.txt in $(cat bazel-genfiles/external/a/result.txt)"
+}
+
+function test_workspace_addition_change_aspect() {
+  mkdir -p repo_one
+  mkdir -p repo_two
+
+
+  touch foo.c
+  cat > BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["foo.c"],
+)
+EOF
+
+  touch WORKSPACE
+  touch repo_one/BUILD
+  touch repo_two/BUILD
+
+  cat > repo_one/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+  cat > repo_two/WORKSPACE <<EOF
+workspace(name = "new_repo")
+EOF
+
+
+  cat > repo_one/aspects.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+  # Make sure the rule has a srcs attribute.
+  if hasattr(ctx.rule.attr, 'srcs'):
+    # Output '1' for each file in srcs.
+    for src in ctx.rule.attr.srcs:
+      for f in src.files:
+        print(1)
+  return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+EOF
+  cat > repo_two/aspects.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+  # Make sure the rule has a srcs attribute.
+  if hasattr(ctx.rule.attr, 'srcs'):
+    print(ctx.rule.attr.srcs)
+  return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+)
+EOF
+
+  bazel clean --expunge
+
+  echo; echo "no repo"; echo
+  bazel build //:lib --aspects @new_repo//:aspects.bzl%print_aspect \
+      && fail "Failure expected" || true
+
+  echo; echo "repo_one"; echo
+  bazel build //:lib --override_repository="new_repo=$PWD/repo_one" \
+      --aspects @new_repo//:aspects.bzl%print_aspect \
+      || fail "Expected build to succeed"
+
+  echo; echo "repo_two"; echo
+  bazel build //:lib --override_repository="new_repo=$PWD/repo_two" \
+      --aspects @new_repo//:aspects.bzl%print_aspect \
+      || fail "Expected build to succeed"
+}
+
+function test_mainrepo_name_is_not_different_repo() {
+  # Repository a refers to @x
+  mkdir -p mainrepo
+  echo "workspace(name = 'mainrepo')" > mainrepo/WORKSPACE
+  cat > mainrepo/BUILD<<EOF
+load("//:def.bzl", "a")
+load("@mainrepo//:def.bzl", "a")
+EOF
+  cat > mainrepo/def.bzl<<EOF
+print("def.bzl loaded")
+a = 1
+EOF
+
+  cd mainrepo
+  bazel query --experimental_remap_main_repo //... &>"$TEST_log" \
+      || fail "Expected query to succeed"
+  expect_log "def.bzl loaded"
+  expect_not_log "external"
+}
+
+function test_mainrepo_name_remapped_properly() {
+  mkdir -p mainrepo
+  touch mainrepo/BUILD
+  cat > mainrepo/WORKSPACE<<EOF
+workspace(name = "mainrepo")
+local_repository(
+  name = "a",
+  path = "../a"
+)
+EOF
+  cat > mainrepo/def.bzl<<EOF
+print ("def.bzl loaded")
+x = 10
+EOF
+
+  mkdir -p a
+  touch a/WORKSPACE
+  echo "load('@mainrepo//:def.bzl', 'x')"> a/BUILD
+
+  # the bzl file should be loaded from the main workspace and
+  # not as an external repository
+  cd mainrepo
+  bazel query --experimental_remap_main_repo @a//... &>"$TEST_log" \
+      || fail "Expected query to succeed"
+  expect_log "def.bzl loaded"
+  expect_not_log "external"
+
+  cd ..
+  cat > mainrepo/WORKSPACE<<EOF
+workspace(name = "mainrepo")
+local_repository(
+  name = "a",
+  path = "../a",
+  repo_mapping = {"@mainrepo" : "@newname"}
+)
+EOF
+
+  # now that @mainrepo doesn't exist within workspace "a",
+  # the query should fail
+  cd mainrepo
+  bazel query --experimental_remap_main_repo --experimental_enable_repo_mapping \
+      @a//... &>"$TEST_log" \
+      && fail "Failure expected" || true
+}
+
 run_suite "workspace tests"

@@ -40,12 +40,15 @@ guarded behind flags in the current release:
 *   [FileType is deprecated](#filetype-is-deprecated)
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
-*   [Glob tracking](#glob-tracking)
 *   [Disable objc provider resources](#disable-objc-provider-resources)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
+*   [Expand directories in Args](#expand-directories-in-args)
+*   [Static Name Resolution](#static-name-resolution)
+*   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
+*   [Disable late bound option defaults](#disable-late-bound-option-defaults)
 
 
 ### Dictionary concatenation
@@ -70,11 +73,16 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 ### Depset is no longer iterable
 
-When the flag is set to true, `depset` objects are not treated as iterable. If
-you need an iterable, call the `.to_list()` method. This affects `for` loops and
-many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, and `any`.
+When the flag is set to true, `depset` objects are not treated as iterable. This
+prohibits directly iterating over depsets in `for` loops, taking its size via
+`len()`, and passing it to many functions such as `list`, `tuple`, `min`, `max`,
+`sorted`, `all`, and `any`. It does not prohibit checking for emptiness by
+converting the depset to a boolean.
+
 The goal of this change is to avoid accidental iteration on `depset`, which can
-be expensive.
+be [expensive](performance.md#avoid-calling-depsetto-list). If you really need
+to iterate over a depset, you can call the `.to_list()` method to obtain a
+flattened list of its contents.
 
 ``` python
 deps = depset()
@@ -222,13 +230,13 @@ or `add_joined()` instead.
 *   Default: `false`
 
 
-### Glob tracking
+### Python 3 range behavior.
+When set, the result of `range(...)` function is a lazy `range` type instead of
+a `list`. Because of this repetitions using `*` operator are no longer
+supported and `range` slices are also lazy `range` instances.
 
-When set, glob tracking is disabled. This is a legacy feature that we expect has
-no user-visible impact.
-
-*   Flag: `--incompatible_disable_glob_tracking`
-*   Default: `true`
+*   Flag: `--incompatible_range_type`
+*   Default: `false`
 
 
 ### Disable objc provider resources
@@ -243,7 +251,7 @@ This flag disables certain deprecated resource fields on
 ### Remove native git repository
 
 When set, the native `git_repository` and `new_git_repository` rules are
-disabled. The Skylark versions
+disabled. The Starlark versions
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:git.bzl",
@@ -262,7 +270,7 @@ for example: `build_file = "@//third_party:repo.BUILD"`.
 ### Remove native http archive
 
 When set, the native `http_archive` and all related rules are disabled.
-The Skylark version
+The Starlark version
 
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -270,7 +278,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 should be used instead. This is a drop-in replacement, however with the
 additional requirement that all label arguments be provided as
-fully qualified labels (usually starting with `@//`). The Skylark `http_archive`
+fully qualified labels (usually starting with `@//`). The Starlark `http_archive`
 is also a drop-in replacement for the native `new_http_archive` (with
 the same proviso). `http.bzl` also
 provides `http_jar` and `http_file` (the latter only supports the `urls`
@@ -387,5 +395,126 @@ have been migrated from `inputs`.
 
 *   Flag: `--incompatible_no_support_tools_in_action_inputs`
 *   Default: `false`
+
+
+### Expand directories in Args
+
+Previously, directories created by
+[`ctx.actions.declare_directory`](lib/actions.html#declare_directory) expanded
+to the path of the directory when added to an [`Args`](lib/Args.html) object.
+
+With this flag enabled, directories are instead replaced by the full file
+contents of that directory when passed to `args.add_all()` or
+`args.add_joined()`. (Directories may not be passed to `args.add()`.)
+
+If you want the old behavior on a case-by-case basis (perhaps your tool can
+handle directories on the command line), you can pass `expand_directories=False`
+to the `args.add_all()` or `args.add_joined()` call.
+
+```
+d = ctx.action.declare_directory(“dir”)
+# ... Some action runs and produces [“dir/file1”, “dir/file2”] ...
+f = ctx.action.declare_file(“file”)
+args = ctx.action.args()
+args.add_all([d, f])
+  -> Used to expand to ["dir", "file"]
+     Now expands to [“dir/file1”, “dir/file2”, “file”]
+```
+
+*   Flag: `--incompatible_expand_directories`
+*   Default: `false`
+
+
+### Static Name Resolution
+
+When the flag is set, use a saner way to resolve variables. The previous
+behavior was buggy in a number of subtle ways. See [the
+proposal](https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md)
+for background and examples.
+
+The proposal is not fully implemented yet.
+
+*   Flag: `--incompatible_static_name_resolution`
+*   Default: `false`
+
+### Disable InMemory Tools Defaults Package
+
+If false, Bazel constructs an in-memory //tools/defaults package based on the
+command line options. If true, //tools/defaults:* is resolved from file system
+as a regular package.
+
+*   Flag: `--incompatible_disable_tools_defaults_package`
+*   Default: `false`
+
+#### Motivation:
+
+`//tools/default` was initially created as virtual in-memory package. It
+generates content dynamically based on current configuration. There is no need
+of having `//tools/defaults` any more as LateBoundAlias can do dynamic
+configuration-based label resolving.  Also, having `//tools/default` makes
+negative impact on performance, and introduces unnecessary code complexity.
+
+All references to `//tools/defaults:*` targets should be removed or replaced
+to corresponding target in `@bazel_tools//tools/jdk:` and
+`@bazel_tools//tools/cpp:` packages.
+
+#### Scope of changes and impact:
+
+Targets in `//tools/default` will not exist any more. If you have any references
+inside your BUILD or *.bzl files to any of its, then bazel will fail to resolve.
+
+#### Migration plan:
+
+Please replace all occurrences:
+
+*   `//tools/defaults:jdk`
+    *   by `@bazel_tools//tools/jdk:current_java_runtime`
+    *   or/and `@bazel_tools//tools/jdk:current_host_java_runtime`
+*   `//tools/defaults:java_toolchain`
+    *   by `@bazel_tools//tools/jdk:current_java_toolchain`
+*   `//tools/defaults:crosstool`
+    *   by `@bazel_tools//tools/cpp:current_cc_toolchain`
+    *   or/and `@bazel_tools//tools/cpp:current_cc_host_toolchain`
+    *   if you need reference to libc_top, then `@bazel_tools//tools/cpp:current_libc_top`
+
+These targets will not be supported any more:
+*   `//tools/defaults:coverage_report_generator`
+*   `//tools/defaults:coverage_support`
+
+### Disable late bound option defaults
+
+If true, Bazel will stop retrieving the value of `compiler` from the cpp configuration when
+`--compiler` is not specified. This will cause a `config_setting` that have
+`values = {"compiler": "x"}` to not work properly when `--compiler` is not specified at command
+line.
+
+The former behavior can be achieved by changing the `config_setting` to use
+`flag_values = {"@bazel_tools/tools/cpp:compiler": "x"}` instead:
+
+```python
+# Before
+config_setting(
+    name = "cpu_x_compiler_y",
+    values = {
+        "cpu": "x",
+        "compiler": "y",
+    },
+)
+
+# After
+config_setting(
+    name = "cpu_x_compiler_y",
+    values = {
+        "cpu": "x",
+    },
+    flag_values = {
+        "@bazel_tools/tools/cpp:compiler": "y",
+    },
+)
+```
+
+*   Flag: `--incompatible_disable_late_bound_option_defaults`
+*   Default: `false`
+*   Introduced in: `0.18.0`
 
 <!-- Add new options here -->

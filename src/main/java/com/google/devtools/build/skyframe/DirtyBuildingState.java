@@ -93,16 +93,20 @@ public abstract class DirtyBuildingState {
   final void forceChanged() {
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex, this);
-    dirtyState = DirtyState.REBUILDING;
+    dirtyState = DirtyState.FORCED_REBUILDING;
   }
 
   final boolean isChanged() {
-    return dirtyState == DirtyState.NEEDS_REBUILDING || dirtyState == DirtyState.REBUILDING;
+    return dirtyState == DirtyState.NEEDS_REBUILDING
+        || dirtyState == DirtyState.REBUILDING
+        || dirtyState == DirtyState.FORCED_REBUILDING;
   }
 
   private void checkFinishedBuildingWhenAboutToSetValue() {
     Preconditions.checkState(
-        dirtyState == DirtyState.VERIFIED_CLEAN || dirtyState == DirtyState.REBUILDING,
+        dirtyState == DirtyState.VERIFIED_CLEAN
+            || dirtyState == DirtyState.REBUILDING
+            || dirtyState == DirtyState.FORCED_REBUILDING,
         "not done building %s",
         this);
   }
@@ -194,7 +198,8 @@ public abstract class DirtyBuildingState {
   }
 
   final void resetForRestartFromScratch() {
-    Preconditions.checkState(dirtyState == DirtyState.REBUILDING, this);
+    Preconditions.checkState(
+        dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
     dirtyDirectDepIndex = 0;
   }
 

@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -453,36 +454,29 @@ public final class StringModule {
    * @return A three-tuple (List) of the form [part_before_separator, separator,
    *     part_after_separator].
    */
-  private static List<String> stringPartition(String input, String separator, boolean forward) {
+  private static ImmutableList<String> stringPartition(
+      String input, String separator, boolean forward) {
     if (separator.isEmpty()) {
       throw new IllegalArgumentException("Empty separator");
     }
 
-    int partitionSize = 3;
-    ArrayList<String> result = new ArrayList<>(partitionSize);
     int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
 
     if (pos < 0) {
-      for (int i = 0; i < partitionSize; ++i) {
-        result.add("");
-      }
-
       // Following Python's implementation of str.partition() and str.rpartition(),
       // the input string is copied to either the first or the last position in the
       // list, depending on the value of the forward flag.
-      result.set(forward ? 0 : partitionSize - 1, input);
+      return forward ? ImmutableList.of(input, "", "") : ImmutableList.of("", "", input);
     } else {
-      result.add(input.substring(0, pos));
-      result.add(separator);
-
-      // pos + sep.length() is at most equal to input.length(). This worst-case
-      // happens when the separator is at the end of the input string. However,
-      // substring() will return an empty string in this scenario, thus making
-      // any additional safety checks obsolete.
-      result.add(input.substring(pos + separator.length()));
+      return ImmutableList.of(
+          input.substring(0, pos),
+          separator,
+          // pos + sep.length() is at most equal to input.length(). This worst-case
+          // happens when the separator is at the end of the input string. However,
+          // substring() will return an empty string in this scenario, thus making
+          // any additional safety checks obsolete.
+          input.substring(pos + separator.length()));
     }
-
-    return result;
   }
 
   @SkylarkCallable(
@@ -893,7 +887,13 @@ public final class StringModule {
               + "and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
+        @Param(
+            name = "sub",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Tuple.class, generic1 = String.class),
+            },
+            legacyNamed = true,
             doc = "The substring to check."),
         @Param(
             name = "start",
@@ -909,9 +909,21 @@ public final class StringModule {
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
       })
-  public Boolean endsWith(String self, String sub, Integer start, Object end)
-      throws ConversionException {
-    return pythonSubstring(self, start, end, "'end' operand of 'endswith'").endsWith(sub);
+  public Boolean endsWith(String self, Object sub, Integer start, Object end)
+      throws ConversionException, EvalException {
+    String str = pythonSubstring(self, start, end, "'end' operand of 'endswith'");
+    if (sub instanceof String) {
+      return str.endsWith((String) sub);
+    }
+
+    @SuppressWarnings("unchecked")
+    Tuple<Object> subs = (Tuple<Object>) sub;
+    for (String s : subs.getContents(String.class, "string")) {
+      if (str.endsWith(s)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // In Python, formatting is very complex.
@@ -966,8 +978,14 @@ public final class StringModule {
               + "<code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "sub", type = String.class, legacyNamed = true,
-            doc = "The substring to check."),
+        @Param(
+            name = "sub",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Tuple.class, generic1 = String.class),
+            },
+            legacyNamed = true,
+            doc = "The substring(s) to check."),
         @Param(
             name = "start",
             type = Integer.class,
@@ -982,9 +1000,21 @@ public final class StringModule {
             defaultValue = "None",
             doc = "Stop comparing at this position.")
       })
-  public Boolean startsWith(String self, String sub, Integer start, Object end)
-      throws ConversionException {
-    return pythonSubstring(self, start, end, "'end' operand of 'startswith'").startsWith(sub);
+  public Boolean startsWith(String self, Object sub, Integer start, Object end)
+      throws ConversionException, EvalException {
+    String str = pythonSubstring(self, start, end, "'end' operand of 'startswith'");
+    if (sub instanceof String) {
+      return str.startsWith((String) sub);
+    }
+
+    @SuppressWarnings("unchecked")
+    Tuple<Object> subs = (Tuple<Object>) sub;
+    for (String s : subs.getContents(String.class, "string")) {
+      if (str.startsWith(s)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static final StringModule INSTANCE = new StringModule();

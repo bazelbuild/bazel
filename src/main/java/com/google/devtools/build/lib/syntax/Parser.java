@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
 import java.util.ArrayList;
@@ -185,12 +186,15 @@ public class Parser {
    * @param input the input to parse
    * @param eventHandler a reporter for parsing errors
    * @see BuildFileAST#parseBuildString
-   * @see BuildFileAST#parseSkylarkString
    */
   public static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
     Lexer lexer = new Lexer(input, eventHandler);
     Parser parser = new Parser(lexer, eventHandler);
-    List<Statement> statements = parser.parseFileInput();
+    List<Statement> statements;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.SKYLARK_PARSER, input.getPath().getPathString())) {
+      statements = parser.parseFileInput();
+    }
     boolean errors = parser.errorsCount > 0 || lexer.containsErrors();
     return new ParseResult(
         statements, lexer.getComments(), locationFromStatements(lexer, statements), errors);
@@ -1002,7 +1006,6 @@ public class Parser {
 
   // file_input ::= ('\n' | stmt)* EOF
   private List<Statement> parseFileInput() {
-    long startTime = Profiler.nanoTimeMaybe();
     List<Statement> list =  new ArrayList<>();
     while (token.kind != TokenKind.EOF) {
       if (token.kind == TokenKind.NEWLINE) {
@@ -1016,7 +1019,6 @@ public class Parser {
         parseTopLevelStatement(list);
       }
     }
-    Profiler.instance().logSimpleTask(startTime, ProfilerTask.SKYLARK_PARSER, "");
     return list;
   }
 

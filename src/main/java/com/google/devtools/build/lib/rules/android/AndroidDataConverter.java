@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem.ParametrizedMapFn;
@@ -36,16 +37,86 @@ import javax.annotation.Nullable;
 public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
 
   /**
-   * Converts Android data to the "SerializedAndroidData" format used by the Android data processing
-   * actions.
+   * Converts parsed Android resources to the "SerializedAndroidData" format used by the Android
+   * data processing actions.
    */
   @AutoCodec
-  static final AndroidDataConverter<MergableAndroidData> MERGABLE_DATA_CONVERTER =
-      AndroidDataConverter.<MergableAndroidData>builder(JoinerType.SEMICOLON_AMPERSAND)
-          .withRoots(MergableAndroidData::getResourceRoots)
-          .withRoots(MergableAndroidData::getAssetRoots)
-          .withLabel(MergableAndroidData::getLabel)
-          .maybeWithArtifact(MergableAndroidData::getSymbols)
+  static final AndroidDataConverter<ParsedAndroidResources> PARSED_RESOURCE_CONVERTER =
+      AndroidDataConverter.<ParsedAndroidResources>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withRoots(ParsedAndroidResources::getResourceRoots)
+          .withEmpty()
+          .withLabel(ParsedAndroidResources::getLabel)
+          .maybeWithArtifact(ParsedAndroidResources::getSymbols)
+          .build();
+
+  /**
+   * Converts compiled Android resources to the "SerializedAndroidData" format used by the Android
+   * data processing actions.
+   */
+  @AutoCodec
+  static final AndroidDataConverter<ParsedAndroidResources> COMPILED_RESOURCE_CONVERTER =
+      AndroidDataConverter.<ParsedAndroidResources>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withRoots(ParsedAndroidResources::getResourceRoots)
+          .withEmpty()
+          .withLabel(ParsedAndroidResources::getLabel)
+          .maybeWithArtifact(ParsedAndroidResources::getCompiledSymbols)
+          .build();
+
+  /**
+   * Converts processed Android resources produced by aapt to the "DependencyAndroidData" format
+   * used by the Android data processing actions.
+   */
+  @AutoCodec
+  static final AndroidDataConverter<ValidatedAndroidResources>
+      AAPT_RESOURCES_AND_MANIFEST_CONVERTER =
+          AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+              .withRoots(ValidatedAndroidResources::getResourceRoots)
+              .withEmpty()
+              .withArtifact(ValidatedAndroidResources::getManifest)
+              .maybeWithArtifact(ValidatedAndroidResources::getRTxt)
+              .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
+              .build();
+
+  /**
+   * Converts processed Android resources produced by aapt2 to the "DependencyAndroidData" format
+   * used by the Android data processing actions.
+   */
+  @AutoCodec
+  static final AndroidDataConverter<ValidatedAndroidResources>
+      AAPT2_RESOURCES_AND_MANIFEST_CONVERTER =
+          AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
+              .withRoots(ValidatedAndroidResources::getResourceRoots)
+              .withEmpty()
+              .withArtifact(ValidatedAndroidResources::getManifest)
+              .maybeWithArtifact(ValidatedAndroidResources::getAapt2RTxt)
+              .maybeWithArtifact(ValidatedAndroidResources::getCompiledSymbols)
+              .maybeWithArtifact(ValidatedAndroidResources::getSymbols)
+              .build();
+
+  /**
+   * Converts parsed Android assets to the "SerializedAndroidData" format used by the Android data
+   * processing actions.
+   */
+  @AutoCodec
+  static final AndroidDataConverter<ParsedAndroidAssets> PARSED_ASSET_CONVERTER =
+      AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withEmpty()
+          .withRoots(ParsedAndroidAssets::getAssetRoots)
+          .withLabel(ParsedAndroidAssets::getLabel)
+          .maybeWithArtifact(ParsedAndroidAssets::getSymbols)
+          .build();
+
+  /**
+   * Converts compiled Android assets to the "SerializedAndroidData" format used by the Android data
+   * processing actions.
+   */
+  @AutoCodec
+  static final AndroidDataConverter<ParsedAndroidAssets> COMPILED_ASSET_CONVERTER =
+      AndroidDataConverter.<ParsedAndroidAssets>builder(JoinerType.SEMICOLON_AMPERSAND)
+          .withEmpty()
+          .withRoots(ParsedAndroidAssets::getAssetRoots)
+          .withLabel(ParsedAndroidAssets::getLabel)
+          .maybeWithArtifact(ParsedAndroidAssets::getCompiledSymbols)
           .build();
 
   /** Indicates the type of joiner between options expected by the command line. */
@@ -115,6 +186,10 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
    *
    * <p>Because of how Bazel handles these objects, call this method *only* as part of creating a
    * static final field.
+   *
+   * <p>Additionally, the resulting {@link AndroidDataConverter} object should be annotated with
+   * {@link AutoCodec} (and, if relevant, {@link
+   * com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization}.
    */
   public static <T> Builder<T> builder(JoinerType joinerType) {
     return new Builder<>(joinerType);
@@ -145,6 +220,10 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
       return with(t -> artifactFunction.apply(t).getExecPathString());
     }
 
+    Builder<T> withEmpty() {
+      return with(t -> "");
+    }
+
     Builder<T> maybeWithArtifact(Function<T, Artifact> nullableArtifactFunction) {
       return with(
           t -> {
@@ -169,7 +248,8 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
     }
   }
 
-  static String rootsToString(ImmutableList<PathFragment> roots) {
+  @VisibleForTesting
+  public static String rootsToString(ImmutableList<PathFragment> roots) {
     return roots.stream().map(PathFragment::toString).collect(Collectors.joining("#"));
   }
 }

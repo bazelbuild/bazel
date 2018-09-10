@@ -46,12 +46,11 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id())))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.PROVIDER.id())))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
-        A text proto (the Platform message from
-        https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
-        that will be sent to a remote execution platform.
+        A string used to configure a remote execution platform. Actual builds make no attempt to
+        interpret this, it is treated as opaque data that can be used by a specific SpawnRunner.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING))
 
@@ -72,14 +71,14 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id()))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.PROVIDER.id()))
                 .undocumented("Should only be used by internal packages."))
         // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
         // mapping.
         .add(
             attr(OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id()))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.PROVIDER.id()))
                 .undocumented("Should only be used by internal packages."))
         .build();
   }

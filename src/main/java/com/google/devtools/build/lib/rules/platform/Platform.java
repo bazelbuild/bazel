@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -69,7 +70,7 @@ public class Platform implements RuleConfiguredTargetFactory {
 
     String remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING);
-    if (platformBuilder.getRemoteExecutionProperties() == null && isHostPlatform) {
+    if (Strings.isNullOrEmpty(platformBuilder.getRemoteExecutionProperties()) && isHostPlatform) {
       // Use the default override.
       PlatformOptions platformOptions =
           ruleContext.getConfiguration().getOptions().get(PlatformOptions.class);

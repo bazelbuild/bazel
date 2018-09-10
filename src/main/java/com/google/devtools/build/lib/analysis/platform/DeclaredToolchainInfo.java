@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
 /**
  * Provider for a toolchain declaration, which associates a toolchain type, the execution and target
@@ -35,20 +36,33 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
   public abstract Label toolchainType();
 
   /** The constraints describing the execution environment. */
-  public abstract ImmutableList<ConstraintValueInfo> execConstraints();
+  public abstract ConstraintCollection execConstraints();
 
   /** The constraints describing the target environment. */
-  public abstract ImmutableList<ConstraintValueInfo> targetConstraints();
+  public abstract ConstraintCollection targetConstraints();
 
   /** The label of the toolchain to resolve for use in toolchain-aware rules. */
   public abstract Label toolchainLabel();
 
   /** Returns a new {@link DeclaredToolchainInfo} with the given data. */
-  @AutoCodec.Instantiator
   public static DeclaredToolchainInfo create(
       Label toolchainType,
       ImmutableList<ConstraintValueInfo> execConstraints,
       ImmutableList<ConstraintValueInfo> targetConstraints,
+      Label toolchainLabel) {
+    return create(
+        toolchainType,
+        new ConstraintCollection(execConstraints),
+        new ConstraintCollection(targetConstraints),
+        toolchainLabel);
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  static DeclaredToolchainInfo create(
+      Label toolchainType,
+      ConstraintCollection execConstraints,
+      ConstraintCollection targetConstraints,
       Label toolchainLabel) {
     return new AutoValue_DeclaredToolchainInfo(
         toolchainType, execConstraints, targetConstraints, toolchainLabel);

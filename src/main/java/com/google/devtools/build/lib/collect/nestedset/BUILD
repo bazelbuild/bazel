@@ -55,6 +55,7 @@ java_library(
         ":nestedset",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
 )
