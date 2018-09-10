@@ -208,7 +208,7 @@ public class CcModule
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
         /* includes= */ ImmutableList.of(),
-        asStringNestedSet(userCompileFlags),
+        userFlagsToIterable(ccToolchainProvider.getCppConfiguration(), userCompileFlags),
         /* cppModuleMap= */ null,
         usePic,
         /* fakeOutputFile= */ null,
@@ -254,7 +254,7 @@ public class CcModule
         featureConfiguration,
         useTestOnlyFlags,
         /* isLtoIndexing= */ false,
-        asStringNestedSet(userLinkFlags),
+        userFlagsToIterable(ccToolchainProvider.getCppConfiguration(), userLinkFlags),
         /* interfaceLibraryBuilder= */ null,
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
@@ -285,13 +285,46 @@ public class CcModule
     return (T) obj;
   }
 
-  /** Converts an object that can be the either SkylarkNestedSet or None into NestedSet. */
+  /** Converts an object that can be ether SkylarkNestedSet or None into NestedSet. */
   protected NestedSet<String> asStringNestedSet(Object o) {
     SkylarkNestedSet skylarkNestedSet = convertFromNoneable(o, /* defaultValue= */ null);
     if (skylarkNestedSet != null) {
       return skylarkNestedSet.getSet(String.class);
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+  }
+
+  /** Converts an object that can be either SkylarkList, or None into ImmutableList. */
+  protected ImmutableList<String> asStringImmutableList(Object o) {
+    SkylarkList skylarkList = convertFromNoneable(o, /* defaultValue= */ null);
+    if (skylarkList != null) {
+      return skylarkList.getImmutableList();
+    } else {
+      return ImmutableList.of();
+    }
+  }
+
+  /**
+   * Converts an object that represents user flags and can be either SkylarkNestedSet , SkylarkList,
+   * or None into Iterable.
+   */
+  protected Iterable<String> userFlagsToIterable(CppConfiguration cppConfiguration, Object o)
+      throws EvalException {
+    if (o instanceof SkylarkNestedSet) {
+      if (cppConfiguration.disableDepsetInUserFlags()) {
+        throw new EvalException(
+            Location.BUILTIN,
+            "Passing depset into user flags is deprecated (see "
+                + "--incompatible_disable_depset_in_cc_user_flags), use list instead.");
+      }
+      return asStringNestedSet(o);
+    } else if (o instanceof SkylarkList) {
+      return asStringImmutableList(o);
+    } else if (o instanceof NoneType) {
+      return ImmutableList.of();
+    } else {
+      throw new EvalException(Location.BUILTIN, "Only depset and list is allowed.");
     }
   }
 

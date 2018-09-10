@@ -1175,6 +1175,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.disableEmittingStaticLibgcc;
   }
 
+  public boolean disableDepsetInUserFlags() {
+    return cppOptions.disableDepsetInUserFlags;
+  }
+
   private void checkForToolchainSkylarkApiAvailability() throws EvalException {
     if (cppOptions.disableLegacyToolchainSkylarkApi
         || !cppOptions.enableLegacyToolchainSkylarkApi) {

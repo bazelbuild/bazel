@@ -892,6 +892,21 @@ public class CppOptions extends FragmentOptions {
               + "across subpackage boundaries.")
   public boolean experimentalIncludesAttributeSubpackageTraversal;
 
+  @Option(
+      name = "incompatible_disable_depset_in_cc_user_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, C++ toolchain Skylark API will not accept depset in `user_compile_flags` "
+              + "param of `create_compile_variables`, and in `user_link_flags` of "
+              + "`create_link_variables`. Use list instead.")
+  public boolean disableDepsetInUserFlags;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
