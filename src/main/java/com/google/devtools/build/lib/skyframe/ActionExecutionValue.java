@@ -241,8 +241,10 @@ public class ActionExecutionValue implements SkyValue {
     ImmutableMap.Builder<Artifact, V> result = ImmutableMap.builderWithExpectedSize(data.size());
     for (Map.Entry<Artifact, V> entry : data.entrySet()) {
       Artifact transformedArtifact =
-          Preconditions.checkNotNull(
-              newArtifactMap.get(new OwnerlessArtifactWrapper(entry.getKey())), entry);
+          newArtifactMap.get(new OwnerlessArtifactWrapper(entry.getKey()));
+      if (transformedArtifact == null) {
+        throw new IllegalStateException(entry.toString());
+      }
       result.put(transformedArtifact, entry.getValue());
     }
     return result.build();
