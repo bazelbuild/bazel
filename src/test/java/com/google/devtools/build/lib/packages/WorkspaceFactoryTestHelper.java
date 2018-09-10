@@ -73,7 +73,8 @@ class WorkspaceFactoryTestHelper {
             allowOverride,
             root,
             root,
-            /* defaultSystemJavabaseDir= */ null);
+            /* defaultSystemJavabaseDir= */ null,
+            /* skylarkSemantics= */ SkylarkSemantics.DEFAULT_SEMANTICS);
     Exception exception = null;
     try {
       byte[] bytes =

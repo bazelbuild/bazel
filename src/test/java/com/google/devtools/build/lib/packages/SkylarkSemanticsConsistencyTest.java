@@ -146,7 +146,8 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_remove_native_http_archive=" + rand.nextBoolean(),
         "--incompatible_static_name_resolution=" + rand.nextBoolean(),
         "--incompatible_string_is_not_iterable=" + rand.nextBoolean(),
-        "--internal_skylark_flag_test_canary=" + rand.nextBoolean());
+        "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
+        "--incompatible_never_use_embedded_jdk_for_javabase=" + rand.nextBoolean());
   }
 
   /**
@@ -183,6 +184,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleStaticNameResolution(rand.nextBoolean())
         .incompatibleStringIsNotIterable(rand.nextBoolean())
         .internalSkylarkFlagTestCanary(rand.nextBoolean())
+        .incompatibleNeverUseEmbeddedJDKForJavabase(rand.nextBoolean())
         .build();
   }
 

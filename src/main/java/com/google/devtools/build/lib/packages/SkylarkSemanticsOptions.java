@@ -410,6 +410,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean internalSkylarkFlagTestCanary;
 
+  @Option(
+      name = "incompatible_never_use_embedded_jdk_for_javabase",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Don't use the embedded JDK as a fall-back --javabase if we can't find a locally"
+              + " installed JDK (using JAVA_HOME or `which javac`).")
+  public boolean incompatibleNeverUseEmbeddedJDKForJavabase;
+
   /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
@@ -440,6 +454,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleStaticNameResolution(incompatibleStaticNameResolution)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
+        .incompatibleNeverUseEmbeddedJDKForJavabase(incompatibleNeverUseEmbeddedJDKForJavabase)
         .build();
   }
 }
