@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -479,6 +480,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     for (String targetName : ImmutableList.of("rule2", "in3", "in4", "out3")) {
       try {
         found.add(pkg.getTarget(targetName));
+        // No fail() here: if there's no exception, we add the name to a list
+        // and we check below that it's empty.
       } catch (NoSuchTargetException e) {
         /* good! */
       }
@@ -858,10 +861,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     unreadableSubdir.setReadable(false);
 
     Path file = scratch.file("/pkg/BUILD", "cc_library(name = 'c', srcs = glob(['globs/**']))");
-    try {
-      packages.eval("pkg", file);
-    } catch (NoSuchPackageException expected) {
-    }
+    MoreAsserts.assertThrows(NoSuchPackageException.class, () -> packages.eval("pkg", file));
     events.assertContainsError("Directory is not readable");
   }
 
@@ -1032,10 +1032,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Path parentDir = buildFile.getParentDirectory();
     scratch.file("/e/data.txt");
     throwOnReaddir = parentDir;
-    try {
-      packages.createPackage("e", buildFile);
-    } catch (NoSuchPackageException expected) {
-    }
+    MoreAsserts.assertThrows(
+        NoSuchPackageException.class, () -> packages.createPackage("e", buildFile));
     events.setFailFast(true);
     throwOnReaddir = null;
     Package pkg = packages.createPackage("e", buildFile);
