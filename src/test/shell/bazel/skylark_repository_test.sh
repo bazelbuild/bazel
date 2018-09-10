@@ -1069,28 +1069,6 @@ EOF
   bazel build //external:reg &> $TEST_log || fail "Couldn't build repo"
 }
 
-function test_unexported_rule() {
-  cat > repo.bzl <<'EOF'
-def _trivial_rule_impl(ctx):
-  ctx.file("BUILD","genrule(name='hello', outs=['hello.txt'], cmd=' echo hello world > $@')")
-
-def use_hidden_rule(name=""):
-  repository_rule(
-    implementation = _trivial_rule_impl,
-    attrs = {},
-  )(name=name)
-EOF
-  touch BUILD
-  cat > WORKSPACE <<'EOF'
-load("//:repo.bzl", "use_hidden_rule")
-
-use_hidden_rule(name="foo")
-EOF
-  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
-
-  expect_log 'unexported'
-}
-
 function tear_down() {
   shutdown_server
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then

@@ -36,9 +36,12 @@ import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.DotExpression;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.Map;
@@ -121,13 +124,22 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
         Object[] args, FuncallExpression ast, com.google.devtools.build.lib.syntax.Environment env)
         throws EvalException, InterruptedException {
       String ruleClassName = null;
-      // If the function ever got exported, we take the name it was exported to.
+      Expression function = ast.getFunction();
+      // If the function ever got exported (the common case), we take the name
+      // it was exprted to. Only in the not intended case of calling an unexported
+      // repository function through an exported macro, we fall back, for lack of
+      // alternatives, to the name in the local context.
+      // TODO(b/111199163): we probably should disallow the use of non-exported
+      // repository rules anyway.
       if (isExported()) {
         ruleClassName = exportedName;
+      } else if (function instanceof Identifier) {
+        ruleClassName = ((Identifier) function).getName();
+      } else if (function instanceof DotExpression) {
+        ruleClassName = ((DotExpression) function).getField().getName();
       } else {
-        throw new EvalException(ast.getLocation(),
-            "Use of unexported repository rule; this repository rule class has not been exported"
-            + "by a Skylark file");
+        // TODO: Remove the wrong assumption that a  "function name" always exists and is relevant
+        throw new IllegalStateException("Function is not an identifier or method call");
       }
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
