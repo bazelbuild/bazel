@@ -70,6 +70,8 @@ function llvm_coverage() {
 # Computes code coverage data using gcda files found under $COVERAGE_DIR.
 # Writes the collected coverage into the given output file in lcov format.
 function lcov_coverage() {
+  local output_file="${1}"
+  
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
     cp "${ROOT}/${gcno}" "${COVERAGE_DIR}/${gcno}"
@@ -92,10 +94,10 @@ function lcov_coverage() {
   # -o "${COVERAGE_OUTPUT_FILE}" - Output file
   $lcov_tool -c --no-external --ignore-errors graph \
       --gcov-tool "${GCOV}" -b /proc/self/cwd \
-      -d "${COVERAGE_DIR}" -o "${CC_COVERAGE_OUTPUT_FILE}"
+      -d "${COVERAGE_DIR}" -o "${output_file}"
 
   # Fix up the paths to be relative by removing the prefix we specified above.
-  sed -i -e "s*/proc/self/cwd/**g" "${CC_COVERAGE_OUTPUT_FILE}"
+  sed -i -e "s*/proc/self/cwd/**g" "${output_file}"
 }
 
 # Generates a code coverage report in gcov intermediate text format by invoking
@@ -126,7 +128,7 @@ function gcov_coverage() {
   # concatenate them together into the output file.
   find . -name "*.gcov" | while read path; do
     echo "Processing $path"
-    cat $path >> "${CC_COVERAGE_OUTPUT_FILE}"
+    cat $path >> "${output_file}"
   done
 }
 
