@@ -101,8 +101,8 @@ def java_runtime_files(name, srcs):
     for src in srcs:
         native.genrule(
             name = "gen_%s" % src,
-            srcs = ["//tools/jdk:current_java_runtime"],
-            toolchains = ["//tools/jdk:current_java_runtime"],
+            srcs = ["@bazel_tools//tools/jdk:current_java_runtime"],
+            toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
             cmd = "cp $(JAVABASE)/%s $@" % src,
             outs = [src],
         )
