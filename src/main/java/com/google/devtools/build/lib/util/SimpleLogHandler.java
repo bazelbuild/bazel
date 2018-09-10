@@ -28,6 +28,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.lang.management.ManagementFactory;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -652,7 +653,8 @@ public final class SimpleLogHandler extends Handler {
       try {
         close();
         file = new File(path);
-        stream = new CountingOutputStream(Files.newOutputStream(file.toPath(), true));
+        stream = new CountingOutputStream(
+            Files.newOutputStream(file.toPath(), StandardOpenOption.APPEND));
         writer = new OutputStreamWriter(stream, UTF_8);
       } catch (IOException e) {
         close();
