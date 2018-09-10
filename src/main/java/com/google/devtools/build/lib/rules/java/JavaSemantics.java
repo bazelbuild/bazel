@@ -109,8 +109,6 @@ public interface JavaSemantics {
    */
   String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
 
-  /** The java_toolchain.compatible_javacopts key for Java 7 javacopts */
-  public static final String JAVA7_JAVACOPTS_KEY = "java7";
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
