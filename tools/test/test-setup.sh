@@ -126,11 +126,11 @@ function rlocation() {
 
 export -f rlocation
 export -f is_absolute
-# If the runfiles manifest exists, then test programs should use it to find
+# If RUNFILES_MANIFEST_ONLY is set to 1, then test programs should use manifest file to find
 # runfiles.
-if [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" ]]; then
   export RUNFILES_MANIFEST_FILE
-  export RUNFILES_MANIFEST_ONLY=1
+  export RUNFILES_MANIFEST_ONLY
 fi
 
 DIR="$TEST_SRCDIR"
