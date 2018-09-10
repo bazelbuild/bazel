@@ -119,19 +119,22 @@ public class GcovParser {
     return true;
   }
 
-  // function:start_line_number,end_line_number,execution_count,function_name
+  /**
+   * Valid lines: function:start_line_number,end_line_number,execution_count,function_name
+   * function:start_line_number,execution_count,function_name
+   */
   private boolean parseFunction(String line) {
     String lineContent = line.substring(GCOV_FUNCTION_MARKER.length());
     String[] items = lineContent.split(DELIMITER, -1);
-    if (items.length != 4) {
+    if (items.length != 4 && items.length != 3) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;
     }
     try {
       // Ignore end_line_number since it's redundant information.
       int startLine = Integer.parseInt(items[0]);
-      int execCount = Integer.parseInt(items[2]);
-      String functionName = items[3];
+      int execCount = items.length == 4 ? Integer.parseInt(items[2]) : Integer.parseInt(items[1]);
+      String functionName = items.length == 4 ? items[3] : items[2];
       currentSourceFileCoverage.addLineNumber(functionName, startLine);
       currentSourceFileCoverage.addFunctionExecution(functionName, execCount);
     } catch (NumberFormatException e) {
@@ -141,11 +144,14 @@ public class GcovParser {
     return true;
   }
 
-  // lcount:line number,execution_count,has_unexecuted_block
+  /**
+   * Valid lines: lcount:line number,execution_count,has_unexecuted_block lcount:line
+   * number,execution_count
+   */
   private boolean parseLCount(String line) {
     String lineContent = line.substring(GCOV_LINE_MARKER.length());
     String[] items = lineContent.split(DELIMITER, -1);
-    if (items.length != 3) {
+    if (items.length != 3 && items.length != 2) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;
     }
