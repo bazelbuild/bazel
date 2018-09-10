@@ -240,8 +240,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   public void testUpdateCacheError() throws Exception {
     FileSystem fs = new InMemoryFileSystem() {
       @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
-        final FileStatus stat = super.stat(path, followSymlinks);
+      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+        final FileStatus stat = super.statIfFound(path, followSymlinks);
         if (path.toString().endsWith("/out/foo")) {
           return new FileStatus() {
             private final FileStatus original = stat;

@@ -63,6 +63,23 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
         return transformer.stat(defaultResult, path, followSymlinks);
       }
 
+      @Nullable
+      @Override
+      public FileStatus statIfFound(Path path, boolean followSymlinks) {
+        return statNullable(path, followSymlinks);
+      }
+
+      @Nullable
+      @Override
+      public FileStatus statNullable(Path path, boolean followSymlinks) {
+        FileStatus defaultResult = super.statNullable(path, followSymlinks);
+        try {
+          return transformer.stat(defaultResult, path, followSymlinks);
+        } catch (IOException e) {
+          return null;
+        }
+      }
+
       @Override
       protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
         Collection<Dirent> defaultResult = super.readdir(path, followSymlinks);

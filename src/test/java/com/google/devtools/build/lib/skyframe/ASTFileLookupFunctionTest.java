@@ -45,12 +45,12 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     boolean statThrowsIoException;
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
       if (statThrowsIoException
           && path.asFragment().getPathString().equals("/workspace/" + preludeLabelRelativePath)) {
         throw new IOException("bork");
       }
-      return super.stat(path, followSymlinks);
+      return super.statIfFound(path, followSymlinks);
     }
   }
 

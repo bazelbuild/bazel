@@ -80,13 +80,14 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Override
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance()) {
+      @Nullable
       @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
         if (crash != null) {
           throw new IOException(crash);
         }
-        return super.stat(path, followSymlinks);
+        return super.statIfFound(path, followSymlinks);
       }
     };
   }

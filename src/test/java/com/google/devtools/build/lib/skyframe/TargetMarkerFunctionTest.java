@@ -153,11 +153,11 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
       if (stubbedStatExceptions.containsKey(path)) {
         throw stubbedStatExceptions.get(path);
       }
-      return super.stat(path, followSymlinks);
+      return super.statIfFound(path, followSymlinks);
     }
   }
 }
