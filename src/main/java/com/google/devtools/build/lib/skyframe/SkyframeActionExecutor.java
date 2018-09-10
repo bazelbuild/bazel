@@ -660,6 +660,11 @@ public final class SkyframeActionExecutor {
             clientEnv,
             env,
             actionFileSystem);
+    if (actionFileSystem != null) {
+      // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
+      // streams is sufficient.
+      setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
+    }
     try {
       actionExecutionContext.getEventBus().post(ActionStatusMessage.analysisStrategy(action));
       return action.discoverInputs(actionExecutionContext);
@@ -863,6 +868,18 @@ public final class SkyframeActionExecutor {
     return progressSupplier.getProgressString() + " " + message;
   }
 
+  private static void setupActionFsFileOutErr(FileOutErr fileOutErr, Action action)
+      throws ActionExecutionException {
+    try {
+      fileOutErr.getOutputPath().getParentDirectory().createDirectoryAndParents();
+      fileOutErr.getErrorPath().getParentDirectory().createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new ActionExecutionException(
+          "failed to create output directory for output streams'" + fileOutErr.getErrorPath() + "'",
+          e, action, false);
+    }
+  }
+
   /**
    * Prepare, schedule, execute, and then complete the action. When this function is called, we know
    * that this action needs to be executed. This function will prepare for the action's execution
@@ -891,15 +908,7 @@ public final class SkyframeActionExecutor {
       if (!usesActionFileSystem()) {
         action.prepare(context.getFileSystem(), context.getExecRoot());
       } else {
-        try {
-          context.getFileOutErr().getOutputPath().getParentDirectory().createDirectoryAndParents();
-          context.getFileOutErr().getErrorPath().getParentDirectory().createDirectoryAndParents();
-        } catch (IOException e) {
-          throw new ActionExecutionException(
-              "failed to create output directory for output streams'"
-                  + context.getFileOutErr().getErrorPath() + "'",
-              e, action, false);
-        }
+        setupActionFsFileOutErr(context.getFileOutErr(), action);
       }
       createOutputDirectories(action, context);
     } catch (IOException e) {
