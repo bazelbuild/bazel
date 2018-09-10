@@ -515,6 +515,28 @@ provider).
   yet have a modern provider equivalent. If you need it, you cannot yet migrate
   away from legacy providers.
 
+In [`provides`](lib/globals.html#rule.provides) declarations of rules, and in
+[`providers`](lib/attr.html#label_list.providers) declarations of dependency
+attributes, legacy providers are passed in as strings and modern providers are
+passed in by their `*Info` symbol. Be sure to change from strings to symbols
+when migrating. For complex or large rule sets where it is difficult to update
+all rules atomically, you may have an easier time if you follow this sequence of
+steps:
+
+1. Modify the rules that produce the legacy provider to produce both the legacy
+   and modern providers, using the above syntax. For rules that declare they
+   return the legacy provider, update that declaration to include both the
+   legacy and modern providers.
+
+2. Modify the rules that consume the legacy provider to instead consume the
+   modern provider. If any attribute declarations require the legacy provider,
+   also update them to instead require the modern provider. Optionally, you can
+   interleave this work with step 1 by having consumers accept/require either
+   provider: Test for the presence of the legacy provider using
+   `hasattr(target, 'foo')`, or the new provider using `FooInfo in target`.
+
+3. Fully remove the legacy provider from all rules.
+
 ## Runfiles
 
 Runfiles are a set of files used by the (often executable) output of a rule

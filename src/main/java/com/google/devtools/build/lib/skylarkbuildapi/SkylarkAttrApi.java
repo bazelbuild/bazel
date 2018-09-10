@@ -125,10 +125,14 @@ public interface SkylarkAttrApi extends SkylarkValue {
 
   static final String PROVIDERS_ARG = "providers";
   static final String PROVIDERS_DOC =
-      "Mandatory providers list. It should be either a list of providers, or a "
-          + "list of lists of providers. Every dependency should provide ALL providers "
-          + "from at least ONE of these lists. A single list of providers will be "
-          + "automatically converted to a list containing one list of providers.";
+      "The providers that must be given by any dependency appearing in this attribute."
+          + ""
+          + "<p>The format of this argument is a list of lists of providers -- <code>*Info</code> "
+          + "objects returned by <a href='globals.html#provider'><code>provider()</code></a> (or "
+          + "in the case of a legacy provider, its string name). The dependency must return ALL "
+          + "providers mentioned in at least ONE of the inner lists. As a convenience, this "
+          + "argument may also be a single-level list of providers, in which case it is wrapped in "
+          + "an outer list with one element.";
 
   static final String SINGLE_FILE_ARG = "single_file";
   static final String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
