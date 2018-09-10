@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -24,11 +25,14 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -71,6 +75,15 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
         for (ActionAnalysisMetadata action : actions) {
           writeAction(action, printStream);
         }
+        if (options.useAspects) {
+          if (configuredTargetValue.getConfiguredTarget() instanceof RuleConfiguredTarget) {
+            for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
+              for (int i = 0; i < aspectValue.getNumActions(); i++) {
+                writeAction(aspectValue.getAction(i), printStream);
+              }
+            }
+          }
+        }
       }
     } catch (CommandLineExpansionException e) {
       throw new IOException(e.getMessage());
@@ -99,6 +112,38 @@ public class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCall
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
           .append('\n');
+      ImmutableList<AspectDescriptor> aspectDescriptors = actionOwner.getAspectDescriptors();
+      if (!aspectDescriptors.isEmpty()) {
+        stringBuilder
+            .append("  AspectDescriptors: [")
+            .append(
+                Streams.stream(aspectDescriptors)
+                    .map(
+                        aspectDescriptor -> {
+                          StringBuilder aspectDescription = new StringBuilder();
+                          aspectDescription
+                              .append(aspectDescriptor.getAspectClass().getName())
+                              .append('(')
+                              .append(
+                                  Streams.stream(
+                                          aspectDescriptor
+                                              .getParameters()
+                                              .getAttributes()
+                                              .entries())
+                                      .map(
+                                          parameter ->
+                                              parameter.getKey()
+                                                  + "='"
+                                                  + parameter.getValue()
+                                                  + "'")
+                                      .collect(Collectors.joining(", ")))
+                              .append(')');
+                          return aspectDescription.toString();
+                        })
+                    .sorted()
+                    .collect(Collectors.joining(",\n")))
+            .append("]\n");
+      }
     }
 
     if (action instanceof ActionExecutionMetadata) {

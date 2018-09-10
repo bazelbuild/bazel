@@ -85,7 +85,6 @@ public class ActionGraphQueryEnvironment
         pkgPath,
         walkableGraphSupplier,
         settings);
-    this.accessor = new ConfiguredTargetValueAccessor(walkableGraphSupplier.get());
     this.configuredTargetKeyExtractor =
         configuredTargetValue -> {
           try {
@@ -100,6 +99,9 @@ public class ActionGraphQueryEnvironment
             throw new IllegalStateException("Interruption unexpected in configured query");
           }
         };
+    this.accessor =
+        new ConfiguredTargetValueAccessor(
+            walkableGraphSupplier.get(), this.configuredTargetKeyExtractor);
   }
 
   public ActionGraphQueryEnvironment(

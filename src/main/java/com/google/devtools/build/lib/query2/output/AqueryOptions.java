@@ -35,4 +35,12 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Includes the content of the action command lines in the output (potentially large).")
   public boolean includeCommandline;
+
+  @Option(
+      name = "include_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether to include aspect generated actions in the output.")
+  public boolean useAspects;
 }
