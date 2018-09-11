@@ -253,9 +253,8 @@ public final class TestActionBuilder {
         extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
 
-      if (ruleContext.getConfiguration().useGcovCoverage()) {
-        extraTestEnv.put("GCOV_COVERAGE", "1");
-      }
+      extraTestEnv.put("BAZEL_CC_COVERAGE_TOOL",
+          ruleContext.getConfiguration().useGcovCoverage() ? "gcov" : "lcov");
 
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
