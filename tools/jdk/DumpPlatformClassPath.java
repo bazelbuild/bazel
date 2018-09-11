@@ -31,10 +31,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -71,12 +73,29 @@ public class DumpPlatformClassPath {
     if (javaHome.endsWith("jre")) {
       javaHome = javaHome.getParent();
     }
-    for (String jar :
-        Arrays.asList("rt.jar", "resources.jar", "jsse.jar", "jce.jar", "charsets.jar")) {
-      Path path = javaHome.resolve("jre/lib").resolve(jar);
-      if (!Files.exists(path)) {
-        continue;
+
+    List<Path> jars = new ArrayList<>();
+
+    Path extDir = javaHome.resolve("jre/lib/ext");
+    if (Files.exists(extDir)) {
+      for (Path extJar : Files.newDirectoryStream(extDir, "*.jar")) {
+        jars.add(extJar);
       }
+    }
+
+    for (String jar : Arrays.asList(
+        "rt.jar",
+        "resources.jar",
+        "jsse.jar",
+        "jce.jar",
+        "charsets.jar")) {
+      Path path = javaHome.resolve("jre/lib").resolve(jar);
+      if (Files.exists(path)) {
+        jars.add(path);
+      }
+    }
+
+    for (Path path : jars) {
       try (JarFile jf = new JarFile(path.toFile())) {
         jf.stream()
             .forEachOrdered(
