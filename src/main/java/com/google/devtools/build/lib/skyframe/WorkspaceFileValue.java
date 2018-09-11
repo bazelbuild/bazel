@@ -101,24 +101,29 @@ public class WorkspaceFileValue implements SkyValue {
   // type in the Environment class (that would ease the serialization of this object).
   private final ImmutableMap<String, Object> bindings;
   private final ImmutableMap<String, Extension> importMap;
+  private final ImmutableMap<String, Integer> importToChunkMap;
 
   /**
    * Create a WorkspaceFileValue containing the various values necessary to compute the split
    * WORKSPACE file.
+   *
    * @param pkg Package built by agreggating all parts of the split WORKSPACE file up to this one.
    * @param importMap List of imports (i.e., load statements) present in all parts of the split
-   * WORKSPACE file up to this one.
-   * @param bindings List of top-level variable bindings from the all parts of the split
-   * WORKSPACE file up to this one. The key is the name of the bindings and the value is the actual
-   * object.
+   *     WORKSPACE file up to this one.
+   * @param importToChunkMap Map of all load statements encountered so far to the chunk they
+   *     initially appeared in.
+   * @param bindings List of top-level variable bindings from the all parts of the split WORKSPACE
+   *     file up to this one. The key is the name of the bindings and the value is the actual
+   *     object.
    * @param path The rooted path to workspace file to parse.
    * @param idx The index of this part of the split WORKSPACE file (0 for the first one, 1 for the
-   * second one and so on).
+   *     second one and so on).
    * @param hasNext Is there a next part in the WORKSPACE file or this part the last one?
    */
   public WorkspaceFileValue(
       Package pkg,
       Map<String, Extension> importMap,
+      Map<String, Integer> importToChunkMap,
       Map<String, Object> bindings,
       RootedPath path,
       int idx,
@@ -129,6 +134,7 @@ public class WorkspaceFileValue implements SkyValue {
     this.hasNext = hasNext;
     this.bindings = ImmutableMap.copyOf(bindings);
     this.importMap = ImmutableMap.copyOf(importMap);
+    this.importToChunkMap = ImmutableMap.copyOf(importToChunkMap);
   }
 
   /**
@@ -200,5 +206,9 @@ public class WorkspaceFileValue implements SkyValue {
 
   public ImmutableMap<String, Extension> getImportMap() {
     return importMap;
+  }
+
+  public ImmutableMap<String, Integer> getImportToChunkMap() {
+    return importToChunkMap;
   }
 }
