@@ -198,8 +198,7 @@ public class ActionMetadataHandler implements MetadataHandler {
         return metadataFromValue(value);
       }
       value = FileArtifactValue.DEFAULT_MIDDLEMAN;
-      FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
-      checkInconsistentData(artifact, oldValue, value);
+      additionalOutputData.put(artifact, value);
       return metadataFromValue(value);
     } else if (artifact.isTreeArtifact()) {
       TreeArtifactValue setValue = getTreeArtifactValue((SpecialArtifact) artifact);
@@ -234,21 +233,6 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   /**
-   * Check that the new {@code data} we just calculated for an {@link Artifact} agrees with the
-   * {@code oldData} (presumably calculated concurrently), if it was present.
-   */
-  // Not private only because used by SkyframeActionExecutor's metadata handler.
-  static void checkInconsistentData(Artifact artifact,
-      @Nullable Object oldData, Object data) throws IOException {
-    if (oldData != null && !oldData.equals(data)) {
-      // Another thread checked this file since we looked at the map, and got a different answer
-      // than we did. Presumably the user modified the file between reads.
-      throw new IOException("Data for " + artifact.prettyPrint() + " changed to " + data
-          + " after it was calculated as " + oldData);
-    }
-  }
-
-  /**
    * See {@link #getAdditionalOutputData} for why we sometimes need to store additional data, even
    * for normal (non-middleman) artifacts.
    */
@@ -272,8 +256,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     // Use the FileValue's digest if no digest was injected, or if the file can't be digested.
     injectedDigest = injectedDigest != null || !isFile ? injectedDigest : data.getDigest();
     FileArtifactValue value = FileArtifactValue.create(artifact, data, injectedDigest);
-    FileArtifactValue oldValue = additionalOutputData.putIfAbsent(artifact, value);
-    checkInconsistentData(artifact, oldValue, value);
+    additionalOutputData.put(artifact, value);
     return metadataFromValue(value);
   }
 
@@ -350,8 +333,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       value = constructTreeArtifactValueFromFilesystem(artifact);
     }
 
-    TreeArtifactValue oldValue = outputTreeArtifactData.putIfAbsent(artifact, value);
-    checkInconsistentData(artifact, oldValue, value);
+    outputTreeArtifactData.put(artifact, value);
     return value;
   }
 
@@ -437,7 +419,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       final Artifact artifact = (Artifact) output;
       // We have to add the artifact to injectedFiles before calling constructFileValue to avoid
       // duplicate chmod calls.
-      Preconditions.checkState(injectedFiles.add(artifact), artifact);
+      injectedFiles.add(artifact);
       FileValue fileValue;
       try {
         // This call may do an unnecessary call to Path#getFastDigest to see if the digest is
@@ -494,24 +476,17 @@ public class ActionMetadataHandler implements MetadataHandler {
     // would need to be cleaned up.
     // 2. Instead of creating an `additionalOutputData` entry, we could add the extra
     // `locationIndex` to `FileStateValue`.
-    try {
-      injectOutputData(
-          output, new FileArtifactValue.RemoteFileArtifactValue(digest, size, locationIndex));
-    } catch (IOException e) {
-      throw new IllegalStateException(e); // Should never happen.
-    }
+    injectOutputData(
+        output, new FileArtifactValue.RemoteFileArtifactValue(digest, size, locationIndex));
   }
 
-  public void injectOutputData(Artifact output, FileArtifactValue artifactValue)
-      throws IOException {
-    Preconditions.checkState(injectedFiles.add(output), output);
+  public void injectOutputData(Artifact output, FileArtifactValue artifactValue) {
+    injectedFiles.add(output);
     // While `artifactValue` carries the important information, the control flow of `getMetadata`
     // requires an entry in `outputArtifactData` to access `additionalOutputData`, so a
     // `PLACEHOLDER` is added to `outputArtifactData`.
-    FileValue oldFileValue = outputArtifactData.putIfAbsent(output, FileValue.PLACEHOLDER);
-    checkInconsistentData(output, oldFileValue, FileValue.PLACEHOLDER);
-    FileArtifactValue oldArtifactValue = additionalOutputData.putIfAbsent(output, artifactValue);
-    checkInconsistentData(output, oldArtifactValue, artifactValue);
+    outputArtifactData.put(output, FileValue.PLACEHOLDER);
+    additionalOutputData.put(output, artifactValue);
   }
 
   @Override
@@ -592,8 +567,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
     FileValue value = fileValueFromArtifact(artifact, artifactPathResolver, statNoFollow,
         getTimestampGranularityMonitor(artifact));
-    FileValue oldFsValue = outputArtifactData.putIfAbsent(artifact, value);
-    checkInconsistentData(artifact, oldFsValue, value);
+    outputArtifactData.put(artifact, value);
     return value;
   }
 
