@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -86,6 +87,7 @@ public class WorkspaceFileFunction implements SkyFunction {
             /* importMap = */ ImmutableMap.<String, Extension>of(),
             /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
+            /* repositoryMapping = */ ImmutableMap.<RepositoryName, RepositoryName>of(),
             workspaceRoot,
             /* idx = */ 0, // first fragment
             /* hasNext = */ false);
@@ -138,6 +140,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           parser.getImportMap(),
           createImportToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
+          /* NEED TO CHANGE THIS TO THE REAL THING */ ImmutableMap.of(),
           workspaceRoot,
           key.getIndex(),
           key.getIndex() < workspaceASTValue.getASTs().size() - 1);
