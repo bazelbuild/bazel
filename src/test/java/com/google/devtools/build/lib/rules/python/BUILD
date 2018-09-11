@@ -13,6 +13,8 @@ test_suite(
     name = "PythonTests",
     tests = [
         ":BazelPythonConfigurationTest",
+        ":PyBinaryConfiguredTargetTest",
+        ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
     ],
 )
@@ -40,5 +42,39 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "PyExecutableTestBase",
+    srcs = ["PyExecutableConfiguredTargetTestBase.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyBinaryConfiguredTargetTest",
+    srcs = ["PyBinaryConfiguredTargetTest.java"],
+    deps = [
+        ":PyExecutableTestBase",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PyTestConfiguredTargetTest",
+    srcs = ["PyTestConfiguredTargetTest.java"],
+    deps = [
+        ":PyExecutableTestBase",
+        "//third_party:junit4",
     ],
 )
