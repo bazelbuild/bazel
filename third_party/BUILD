@@ -380,6 +380,11 @@ java_import(
 )
 
 java_import(
+    name = "flogger",
+    jars = ["flogger/flogger-0.3.1.jar"]
+)
+
+java_import(
     name = "instrumentation",
     jars = [
         "instrumentation/instrumentation-api-0.4.3.jar",
