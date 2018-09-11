@@ -608,9 +608,10 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   // Provide terminal options as coming from the least important rc file.
   std::vector<std::string> result = {
       "--rc_source=client",
-      "--default_override=0:common=--isatty=" + ToString(IsStandardTerminal()),
+      "--default_override=0:common=--isatty=" +
+          ToString(IsStderrStandardTerminal()),
       "--default_override=0:common=--terminal_columns=" +
-          ToString(GetTerminalColumns())};
+          ToString(GetStderrTerminalColumns())};
   if (IsEmacsTerminal()) {
     result.push_back("--default_override=0:common=--emacs");
   }
