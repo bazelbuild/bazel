@@ -21,13 +21,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function setup_cc_test() {
-  local -r LCOV=$(which lcov)
-  if [[ ! -x ${LCOV:-/usr/bin/lcov} ]]; then
-    echo "lcov not installed. Skipping test."
-    return
-  fi
-
+function setup_cc_source_files() {
   cat << EOF > BUILD
 cc_library(
     name = "a",
@@ -68,29 +62,105 @@ int main(void) {
 EOF
 }
 
-function assert_cc_test() {
-  ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
+# Returns the expected coverage result for a given source file and format.
+#
+# - source_file The name of the source file for which the expected coverage
+#               should be returned. The accepted values are a.cc and t.cc.
+#               For other values the method fails.
+function get_expected_coverage() {
+    local source_file="${1}"
 
-  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
-  [ -e $coverage_file_path ] || fail "Coverage output file does not exist!"
+    # The expected results can be constructed manually by following the lcov
+    # documentation and manually checking what lines of code are covered when
+    # running the test.
+    # For details about the lcov format see
+    # http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php
+    # The newlines are replaced with commas to facilitate comparing the
+    # expected values with the actual results.
 
-  # Check if a.cc is in the coverage file
-  assert_contains "^SF:.*a.cc$" "$coverage_file_path"
-  # Check if the only branch in a() has correct coverage:
-  assert_contains "^DA:5,1$" "$coverage_file_path"  # true branch should be taken
-  assert_contains "^DA:7,0$" "$coverage_file_path"  # false branch should not be
+    # The expected coverage result for a.cc in lcov format.
+    local expected_result_a_cc="TN:
+SF:coverage_srcs/a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:7,0
+LF:4
+LH:3
+end_of_record"
 
+    # The expected coverage result for t.cc in lcov format.
+    local expected_result_t_cc="TN:
+SF:coverage_srcs/t.cc
+FN:4,main
+FNDA:1,main
+FNF:1
+FNH:1
+DA:4,1
+DA:5,1
+DA:6,1
+LF:3
+LH:3
+end_of_record"
 
-
+    # Return the expected result for the given source file.
+    case "$source_file" in
+        ("a.cc") echo "$expected_lcov_result_a_cc" ;;
+        ("t.cc") echo "$expected_lcov_result_t_cc" ;;
+        (*) fail "Coverage cannot be requested for file $source_file" ;;
+    esac
 }
 
-function test_cc_test_coverage() {
-  setup_cc_test
+# Asserts if the given expected coverage result is included in the given output
+# file.
+#
+# - expected_coverage The expected result that must be included in the output.
+# - output_file       The location of the coverage output file.
+function assert_coverage_result() {
+    local expected_coverage="${1}"
+    local output_file="${2}"
+
+    # Replace newlines with commas to facilitate the assertion.
+    local expected_coverage_no_newlines=$( echo "$expected_coverage" | tr '\n' ',' )
+    local output_file_no_newlines=$( cat "$output_file" | tr '\n' ',' )
+
+    ( echo $output_file_no_newlines | grep  $expected_coverage_no_newlines ) \
+        || fail "Expected coverage result
+<$expected_coverage>
+was not found in actual coverage report:
+<$( cat $output_file )>"
+}
+
+function get_coverage_file() {
+  local ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
+
+  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  [ -e $coverage_file_path ] || fail "Coverage output file does not exist!"
+  echo "$coverage_file_path"
+}
+
+function test_cc_test_coverage_lcov() {
+  local -r lcov_location=$(which lcov)
+  if [[ ! -x ${lcov_location:-/usr/bin/lcov} ]]; then
+    echo "lcov not installed. Skipping test."
+    return
+  fi
+
+  setup_cc_source_files
 
   bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
       &>$TEST_log || fail "Coverage for //:t failed"
 
-  assert_cc_test
+  local coverage_output_file=$( get_coverage_file )
+
+  # Check the expected coverage for a.cc in the coverage file.
+  assert_coverage_result "$(get_expected_coverage a.cc)" "$coverage_output_file"
+  # Check the expected coverage for a.cc in the coverage file.
+  assert_coverage_result "$(get_expected_coverage t.cc)" "$coverage_output_file"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
@@ -102,12 +172,22 @@ function test_cc_test_coverage() {
 }
 
 function test_cc_test_coverage_gcov() {
-  setup_cc_test
+  local -r lcov_location=$(which lcov)
+  if [[ ! -x ${lcov_location:-/usr/bin/lcov} ]]; then
+    echo "lcov not installed. Skipping test."
+    return
+  fi
 
-  bazel coverage --experimental_use_gcov_coverage --test_output=all --build_event_text_file=bep.txt //:t \
-      &>$TEST_log || fail "Coverage for //:t failed"
+  setup_cc_source_files
 
-  assert_cc_test
+  bazel coverage --experimental_use_gcov_coverage --test_output=all \
+     --build_event_text_file=bep.txt //:t &>$TEST_log || fail "Coverage for //:t failed"
+
+  local coverage_file_path=$( get_coverage_file )
+  # Check the expected coverage for a.cc in the coverage file.
+  assert_coverage_result "$(get_expected_coverage a.cc)" "$coverage_file_path"
+  # Check the expected coverage for a.cc in the coverage file.
+  assert_coverage_result "$(get_expected_coverage t.cc)" "$coverage_file_path"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage --experimental_use_gcov_coverage --test_output=all --build_event_text_file=bep.txt //:t \
@@ -161,7 +241,7 @@ int main(void) {
 EOF
 
   bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
-      &>$TEST_log && fail "Expected test failure" || :
+      &>$TEST_log && fail "Expected test failure"
 
   # Verify that coverage data is still reported.
   assert_contains 'name: "test.lcov"' bep.txt
@@ -225,10 +305,7 @@ EOF
 
   bazel coverage --test_output=all //:test &>$TEST_log || fail "Coverage for //:test failed"
   cat $TEST_log
-  ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
-
-  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
-  [ -e $coverage_file_path ] || fail "Coverage output file does not exist!"
+  local coverage_file_path=$( get_coverage_file )
 
   cat <<EOF > result.dat
 SF:com/example/Collatz.java
@@ -409,10 +486,7 @@ public class TestCollatz {
 EOF
 
   bazel coverage --test_output=all --experimental_java_coverage //:test &>$TEST_log || fail "Coverage for //:test failed"
-  ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
-
-  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
-  [ -e $coverage_file_path ] || fail "Coverage output file not exists!"
+  local coverage_file_path=$( get_coverage_file )
 
   cat <<EOF > result.dat
 SF:src/main/com/example/Collatz.java
@@ -497,10 +571,7 @@ EOF
 
   bazel coverage --test_output=all //:orange-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
 
-  ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
-
-  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
-  [ -e $coverage_file_path ] || fail "Coverage output file not exists!"
+  local coverage_file_path=$( get_coverage_file )
 
   cat <<EOF > result.dat
 SF:com/google/orange/orangeBin.java
