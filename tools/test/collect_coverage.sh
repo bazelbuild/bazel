@@ -108,7 +108,6 @@ fi
 cd $ROOT
 
 if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
-    export CC_COVERAGE_OUTPUT_FILE=$COVERAGE_DIR/lcov-cov.dat
     eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
 
