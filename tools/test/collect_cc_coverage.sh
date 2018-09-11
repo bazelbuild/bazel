@@ -151,14 +151,14 @@ function gcov_coverage() {
         # --instrumentation_filter.
 
         local gcov_file=$(get_source_file $gcno)
-        if [ -f $gcov_file ]; then
+        if [ -f "$gcov_file" ]; then
             cat "$gcov_file" >> "${output_file}"
             # We don't need this file anymore.
             rm -f "$gcov_file"
         fi
 
         gcov_file=$(get_header_file $gcno)
-        if [ -f $gcov_file ]; then
+        if [ -f "$gcov_file" ]; then
             cat "$gcov_file" >> "${output_file}"
             # We don't need this file anymore.
             rm -f "$gcov_file"
@@ -173,33 +173,26 @@ function gcov_coverage() {
 # - gcno_file    The .gcno filename.
 function get_source_file() {
     local gcno_file="${1}"
+
     # gcov places results in the current working dir. The gcov documentation
     # doesn't provide much details about how the name of the output file is
     # generated, other than hinting at it being named  <source file name>.gcov.
     # Since we only know the gcno filename, we try and see which of the following
     # extensions the source file had.
-    local gcov_file="$(basename ${gcno} .gcno).gcov"
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .gcno).cc.gcov"
-    fi
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .gcno).cpp.gcov"
-    fi
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .gcno).c.gcov"
-    fi
-    # If we still haven't found it, try to find the files with
-    # the .pic extensions.
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .pic.gcno).cc.gcov"
-    fi
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .pic.gcno).cpp.gcov"
-    fi
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .pic.gcno).c.gcov"
-    fi
-    echo "$gcov_file"
+    declare -a source_extensions=("" ".cc" ".cpp" ".c")
+    declare -a is_pic_extensions=("" ".pic")
+
+    local gcov_file=""
+    for ext in "${source_extensions[@]}"
+    do
+      for pic_ext in "${is_pic_extensions[@]}"
+      do
+        gcov_file="$(basename ${gcno} $pic_ext.gcno)$ext.gcov"
+        if [ -f "$gcov_file" ]; then
+          echo "$gcov_file" && return
+        fi
+      done
+    done
 }
 
 # Returns a .gcov corresponding to a C++ header file, that could have been
@@ -213,21 +206,20 @@ function get_header_file() {
     # generated, other than hinting at it being named  <source file name>.gcov.
     # Since we only know the gcno filename, we try and see which of the following
     # extensions the header file has.
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .gcno).h.gcov"
-    fi
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .gcno).hh.gcov"
-    fi
-    # If we still haven't found it, try to find the files with
-    # the .pic extensions.
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .pic.gcno).h.gcov"
-    fi
-    if [ ! -f "$gcov_file" ]; then
-        gcov_file="$(basename ${gcno} .pic.gcno).hh.gcov"
-    fi
-    echo "$gcov_file"
+    declare -a header_extensions=("" ".h" ".hh")
+    declare -a is_pic_extensions=("" ".pic")
+
+    local gcov_file=""
+    for ext in "${header_extensions[@]}"
+    do
+      for pic_ext in "${is_pic_extensions[@]}"
+      do
+        gcov_file="$(basename ${gcno} $pic_ext.gcno)$ext.gcov"
+        if [ -f "$gcov_file" ]; then
+          echo "$gcov_file" && return
+        fi
+      done
+    done
 }
 
 function main() {
