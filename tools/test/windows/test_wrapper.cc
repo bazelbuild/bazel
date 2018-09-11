@@ -55,7 +55,7 @@ class Path {
   Path(const Path& other) = delete;
   Path& operator=(const Path& other) = delete;
   Path(const wchar_t* value);
-  Path& operator=(std::wstring&& value);
+  Path& operator=(const std::wstring& value);
   const std::wstring& Get() const { return path_; }
 
  private:
@@ -175,7 +175,7 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
     LogError(__LINE__, error.c_str());
     return false;
   }
-  *result = std::move(wpath);
+  *result = wpath;
   return true;
 }
 
@@ -228,8 +228,8 @@ Path::Path(const wchar_t* value) {
   AsWindowsPath(&path_);
 }
 
-Path& Path::operator=(std::wstring&& value) {
-  path_ == std::move(value);
+Path& Path::operator=(const std::wstring& value) {
+  path_ = value;
   return *this;
 }
 
