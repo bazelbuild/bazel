@@ -165,7 +165,6 @@ genrule(name = 'histodump',
         srcs = glob(["*.in"]),
         outs = ['histo.txt'],
         local = 1,
-        tools = [':cclib'],
         cmd = 'server_pid=\$\$(cat $server_pid_fifo) ; ' +
               '${bazel_javabase}/bin/jmap -histo:live \$\$server_pid > ' +
               '\$(location histo.txt) ' +
