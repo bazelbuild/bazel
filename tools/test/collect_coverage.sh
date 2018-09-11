@@ -112,8 +112,22 @@ if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
     eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
 
+# Export the command line that invokes LcovMerger with the flags:
+# --coverage_dir      The absolute path of the directory where the intermediate
+#                     coverage reports are located. LcovMerger will search for
+#                     files with the .dat and .gcov extension under this directory
+#                     and will merge everything it found in the output report.
+# --output_file       The absolute path of the merged coverage report.
+# --filter_sources    Filters out the sources that match the given regexes
+#                     from the final coverage report. This is needed because
+#                     some coverage tools (e.g. gcov) do not have any way of
+#                     specifying what sources to exclude when generating the
+#                     code coverage report (in this case the syslib sources).
 export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
---output_file=${COVERAGE_OUTPUT_FILE} --filter_sources=/usr/.+ --filter_sources=.*external/.+"
+--output_file=${COVERAGE_OUTPUT_FILE} \
+--filter_sources=/usr/bin/.+ \
+--filter_sources=/usr/lib/.+ \
+--filter_sources=.*external/.+"
 
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then
