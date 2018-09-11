@@ -254,7 +254,7 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public boolean areOutputsValid(Set<String> outputFiles) {
+    public boolean areOutputsValid(Path root) {
       return true;
     }
   }

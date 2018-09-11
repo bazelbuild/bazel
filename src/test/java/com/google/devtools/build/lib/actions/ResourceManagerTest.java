@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import java.util.Set;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -593,7 +593,7 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public boolean areOutputsValid(Set<String> outputFiles) {
+    public boolean areOutputsValid(Path root) {
       throw new IllegalStateException();
     }
   }
