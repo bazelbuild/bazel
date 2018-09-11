@@ -172,25 +172,32 @@ function run_coverage() {
    "$COLLECT_CC_COVERAGE_SCRIPT")
 }
 
-# Returns the expected coverage result for a given source file and format.
+# Asserts if the given expected coverage result is included in the given output
+# file.
 #
-# - source_file The name of the source file for which the expected coverage
-#               should be returned. The accepted values are coverage_srcs/a.cc
-#               and coverage_srcs/t.cc. For other values the method fails.
-# - format      The coverage format of the returned expected coverage result.
-#               Accepted values are lcov and gcov. For other values the method
-#               fails.
-function get_expected_coverage() {
-    local source_file="${1}"
-    local format="${2}"
+# - expected_coverage The expected result that must be included in the output.
+# - output_file       The location of the coverage output file.
+function assert_coverage_entry_in_file() {
+    local expected_coverage="${1}"
+    local output_file="${2}"
 
-    # The expected results can be constructed manually by following the lcov
-    # documentation and manually checking what lines of code are covered when
-    # running the test.
-    # For details about the lcov format see
-    # http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php
-    # The newlines are replaced with commas to facilitate comparing the
-    # expected values with the actual results.
+    # Replace newlines with commas to facilitate the assertion.
+    local expected_coverage_no_newlines=$( echo "$expected_coverage" | tr '\n' ',' )
+    local output_file_no_newlines=$( cat "$output_file" | tr '\n' ',' )
+
+    ( echo $output_file_no_newlines | grep  $expected_coverage_no_newlines ) \
+        || fail "Expected coverage result
+<$expected_coverage>
+was not found in actual coverage report:
+<$( cat $output_file )>"
+}
+
+# Asserts if coverage result in lcov format for coverage_srcs/a.cc is included
+# in the given output file.
+#
+# - output_file    The location of the coverage output file.
+function assert_lcov_coverage_srcs_a_cc() {
+    local output_file="${1}"
 
     # The expected coverage result for coverage_srcs/a.cc in lcov format.
     local expected_lcov_result_a_cc="TN:
@@ -206,16 +213,15 @@ DA:7,0
 LF:4
 LH:3
 end_of_record"
+    assert_coverage_entry_in_file "$expected_lcov_result_a_cc" "$output_file"
+}
 
-    # The expected coverage result for coverage_srcs/a.cc in gcov format.
-    local expected_gcov_result_a_cc="file:coverage_srcs/a.cc
-function:3,1,_Z1ab
-lcount:3,1
-lcount:4,1
-branch:4,taken
-branch:4,nottaken
-lcount:5,1
-lcount:7,0"
+# Asserts if coverage result in lcov format for coverage_srcs/t.cc is included
+# in the given output file.
+#
+# - output_file    The location of the coverage output file.
+function assert_lcov_coverage_srcs_t_cc() {
+    local output_file="${1}"
 
     # The expected coverage result for coverage_srcs/t.cc in lcov format.
     local expected_lcov_result_t_cc="TN:
@@ -230,6 +236,35 @@ DA:6,1
 LF:3
 LH:3
 end_of_record"
+    assert_coverage_entry_in_file "$expected_lcov_result_t_cc" "$output_file"
+}
+
+# Asserts if coverage result in gcov format for coverage_srcs/a.cc is included
+# in the given output file.
+#
+# - output_file    The location of the coverage output file.
+function assert_gcov_coverage_srcs_a_cc() {
+    local output_file="${1}"
+
+    # The expected coverage result for coverage_srcs/a.cc in gcov format.
+    local expected_gcov_result_a_cc="file:coverage_srcs/a.cc
+function:3,1,_Z1ab
+lcount:3,1
+lcount:4,1
+branch:4,taken
+branch:4,nottaken
+lcount:5,1
+lcount:7,0"
+    assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
+}
+
+
+# Asserts if coverage result in gcov format for coverage_srcs/t.cc is included
+# in the given output file.
+#
+# - output_file    The location of the coverage output file.
+function assert_gcov_coverage_srcs_t_cc() {
+    local output_file="${1}"
 
     # The expected coverage result for coverage_srcs/t.cc in gcov format.
     local expected_gcov_result_t_cc="file:coverage_srcs/t.cc
@@ -237,45 +272,7 @@ function:4,1,main
 lcount:4,1
 lcount:5,1
 lcount:6,1"
-
-    # Return the expected result according to the given format and source file.
-    case "$format" in
-        ("lcov")
-            case "$source_file" in
-                ("coverage_srcs/a.cc") echo "$expected_lcov_result_a_cc" ;;
-                ("coverage_srcs/t.cc") echo "$expected_lcov_result_t_cc" ;;
-                (*) fail "Coverage cannot be requested for file $source_file" ;;
-            esac
-            ;;
-       ("gcov")
-            case "$source_file" in
-                ("coverage_srcs/a.cc") echo "$expected_gcov_result_a_cc" ;;
-                ("coverage_srcs/t.cc") echo "$expected_gcov_result_t_cc" ;;
-                (*) fail "Coverage cannot be requested for file $source_file" ;;
-            esac
-            ;;
-        (*) fail "Coverage cannot be requested for format $format" ;;
-    esac
-}
-
-# Asserts if the given expected coverage result is included in the given output
-# file.
-#
-# - expected_coverage The expected result that must be included in the output.
-# - output_file       The location of the coverage output file.
-function assert_coverage_result() {
-    local expected_coverage="${1}"
-    local output_file="${2}"
-
-    # Replace newlines with commas to facilitate the assertion.
-    local expected_coverage_no_newlines=$( echo "$expected_coverage" | tr '\n' ',' )
-    local output_file_no_newlines=$( cat "$output_file" | tr '\n' ',' )
-
-    ( echo $output_file_no_newlines | grep  $expected_coverage_no_newlines ) \
-        || fail "Expected coverage result
-<$expected_coverage>
-was not found in actual coverage report:
-<$( cat $output_file )>"
+    assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
 }
 
 function test_cc_test_coverage_lcov() {
@@ -294,16 +291,15 @@ function test_cc_test_coverage_lcov() {
       fail "Number of lines in C++ lcov coverage output file is \
 $(wc -l < "$output_file") and different than 25"
 
+
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
     # The result for each source file must be asserted separately because the
     # coverage lcov does not guarantee any particular order.
     # The order can differ for example based on OS or version. The source files
     # order in the coverage report is not relevant.
-    assert_coverage_result \
-        "$(get_expected_coverage coverage_srcs/a.cc lcov)" "$output_file"
-    assert_coverage_result \
-        "$(get_expected_coverage coverage_srcs/t.cc lcov)" "$output_file"
+    assert_lcov_coverage_srcs_a_cc "$output_file"
+    assert_lcov_coverage_srcs_t_cc "$output_file"
 }
 
 function test_cc_test_coverage_gcov() {
@@ -325,10 +321,8 @@ $(wc -l < "$output_file") and different than 13"
     # coverage gcov does not guarantee any particular order.
     # The order can differ for example based on OS or version. The source files
     # order in the coverage report is not relevant.
-    assert_coverage_result \
-        "$(get_expected_coverage coverage_srcs/a.cc gcov)" "$output_file"
-    assert_coverage_result \
-        "$(get_expected_coverage coverage_srcs/t.cc gcov)" "$output_file"
+    assert_gcov_coverage_srcs_a_cc "$output_file"
+    assert_gcov_coverage_srcs_t_cc "$output_file"
 }
 
 run_suite "Testing tools/test/collect_cc_coverage.sh"

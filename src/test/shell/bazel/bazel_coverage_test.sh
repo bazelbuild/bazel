@@ -23,7 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 # Writes the C++ source files and a corresponding BUILD file for which to
 # collect code coverage. The sources are a.cc, a.h and t.cc.
-function setup_a_cc_and_t_cc_sources() {
+function setup_a_cc_lib_and_t_cc_test() {
   cat << EOF > BUILD
 cc_library(
     name = "a",
@@ -153,7 +153,7 @@ function test_cc_test_coverage_lcov() {
     return
   fi
 
-  setup_a_cc_and_t_cc_sources
+  setup_a_cc_lib_and_t_cc_test
 
   bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
       &>$TEST_log || fail "Coverage for //:t failed"
@@ -181,7 +181,7 @@ function test_cc_test_coverage_gcov() {
     return
   fi
 
-  setup_a_cc_and_t_cc_sources
+  setup_a_cc_lib_and_t_cc_test
 
   bazel coverage --experimental_use_gcov_coverage --test_output=all \
      --build_event_text_file=bep.txt //:t &>$TEST_log \
