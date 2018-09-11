@@ -71,6 +71,8 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static void setAppleCrosstoolTransitionConfiguration(BuildOptions from,
       BuildOptions to, String cpu) {
     Label crosstoolTop = from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+    Label libcTop = from.get(AppleCommandLineOptions.class).appleLibcTop;
+    String cppCompiler = from.get(AppleCommandLineOptions.class).cppCompiler;
 
     BuildConfiguration.Options toOptions = to.get(BuildConfiguration.Options.class);
     CppOptions toCppOptions = to.get(CppOptions.class);
@@ -89,14 +91,8 @@ public class AppleCrosstoolTransition implements PatchTransition {
     toCppOptions.crosstoolTop = crosstoolTop;
     to.get(AppleCommandLineOptions.class).configurationDistinguisher =
         ConfigurationDistinguisher.APPLE_CROSSTOOL;
-
-    // --compiler = "compiler" for all OSX toolchains.  We do not support asan/tsan, cfi, etc. on
-    // darwin.
-    to.get(CppOptions.class).cppCompiler = "compiler";
-
-    // OSX toolchains always use the runtime of the platform they are targeting (i.e. we do not
-    // support custom production environments).
-    to.get(CppOptions.class).libcTopLabel = null;
+    to.get(CppOptions.class).cppCompiler = cppCompiler;
+    to.get(CppOptions.class).libcTopLabel = libcTop;
 
     // OSX toolchains do not support fission.
     to.get(CppOptions.class).fissionModes = ImmutableList.of();

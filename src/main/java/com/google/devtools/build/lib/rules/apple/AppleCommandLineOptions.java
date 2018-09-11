@@ -180,6 +180,34 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public String iosCpu;
 
   @Option(
+    name = "apple_compiler",
+    defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS,
+      OptionEffectTag.LOSES_INCREMENTAL_STATE,
+    },
+    help = "The Apple target compiler. Useful for selecting variants of a toolchain "
+               + "(e.g. xcode-beta)."
+  )
+  public String cppCompiler;
+
+  @Option(
+    name = "apple_grte_top",
+    defaultValue = "null",
+    converter = LabelConverter.class,
+    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+    effectTags = {
+      OptionEffectTag.CHANGES_INPUTS,
+      OptionEffectTag.LOADING_AND_ANALYSIS,
+      OptionEffectTag.LOSES_INCREMENTAL_STATE,
+    },
+    help = "The Apple target grte_top."
+  )
+  public Label appleLibcTop;
+
+  @Option(
     name = "apple_crosstool_top",
     defaultValue = "@bazel_tools//tools/cpp:toolchain",
     converter = LabelConverter.class,
