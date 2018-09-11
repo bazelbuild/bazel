@@ -3608,8 +3608,7 @@ adb -s deadbeef install ...
 <p>
   Specifies the Java virtual machine in which <i>Bazel itself</i> runs. The value must be a path to
   the directory containing a JDK or JRE. It should not be a label.
-  This option should appear before any bazel command, and not be confused with the build option
-  <a href='#flag--server_javabase'>--server_javabase</a>, for example:
+  This option should appear before any Bazel command, for example:
 </p>
 <pre>
   % bazel --server_javabase=/usr/local/buildtools/java/jdk9 build //foo
