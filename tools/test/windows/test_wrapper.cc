@@ -23,6 +23,7 @@
 #include <string.h>
 #include <wchar.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
@@ -41,6 +42,24 @@ class Defer {
 
  private:
   std::function<void()> f_;
+};
+
+// A lightweight path abstraction that stores a Unicode Windows path.
+//
+// The class allows extracting the underlying path as a (immutable) string so
+// it's easy to pass the path to WinAPI functions, but the class does not allow
+// mutating the unterlying path so it's safe to pass around Path objects.
+class Path {
+ public:
+  Path() {}
+  Path(const Path& other) = delete;
+  Path& operator=(const Path& other) = delete;
+  Path(const wchar_t* value);
+  Path& operator=(std::wstring&& value);
+  const std::wstring& Get() const { return path_; }
+
+ private:
+  std::wstring path_;
 };
 
 void LogError(const int line, const char* msg) {
@@ -64,6 +83,10 @@ void LogErrorWithArgAndValue(const int line, const char* msg,
   fprintf(stderr,
           "ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %ls: %s\n",
           line, error_code, error_code, arg, msg);
+}
+
+inline void AsWindowsPath(std::wstring* path) {
+  std::replace(path->begin(), path->end(), L'/', L'\\');
 }
 
 bool GetEnv(const wchar_t* name, std::wstring* result) {
@@ -105,14 +128,13 @@ inline void StripLeadingDotSlash(std::wstring* s) {
   }
 }
 
-bool FindTestBinary(const std::wstring& argv0, std::wstring test_path,
-                    std::wstring* result) {
+bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
     uint32_t err;
-    if (!blaze_util::WcsToAcp(argv0, &argv0_acp, &err)) {
+    if (!blaze_util::WcsToAcp(argv0.Get(), &argv0_acp, &err)) {
       LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
-                              argv0.c_str(), err);
+                              argv0.Get().c_str(), err);
       return false;
     }
 
@@ -148,20 +170,22 @@ bool FindTestBinary(const std::wstring& argv0, std::wstring test_path,
   }
 
   std::string error;
-  if (!blaze_util::AsWindowsPath(test_path, result, &error)) {
+  std::wstring wpath;
+  if (!blaze_util::AsWindowsPath(test_path, &wpath, &error)) {
     LogError(__LINE__, error.c_str());
     return false;
   }
+  *result = std::move(wpath);
   return true;
 }
 
-bool StartSubprocess(const wchar_t* path, HANDLE* process) {
+bool StartSubprocess(const Path& path, HANDLE* process) {
   // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
   static constexpr size_t kMaxCmdline = 32768;
 
   std::unique_ptr<WCHAR[]> cmdline(new WCHAR[kMaxCmdline]);
-  size_t len = wcslen(path);
-  wcsncpy(cmdline.get(), path, len + 1);
+  size_t len = path.Get().size();
+  wcsncpy(cmdline.get(), path.Get().c_str(), len + 1);
 
   PROCESS_INFORMATION processInfo;
   STARTUPINFOW startupInfo = {0};
@@ -199,13 +223,23 @@ int WaitForSubprocess(HANDLE process) {
   }
 }
 
+Path::Path(const wchar_t* value) {
+  path_ = value;
+  AsWindowsPath(&path_);
+}
+
+Path& Path::operator=(std::wstring&& value) {
+  path_ == std::move(value);
+  return *this;
+}
+
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
   // TODO(laszlocsomor): Implement the functionality described in
   // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
 
-  const wchar_t* argv0 = argv[0];
+  const Path argv0 = argv[0];
   argc--;
   argv++;
   bool suppress_output = false;
@@ -233,13 +267,13 @@ int wmain(int argc, wchar_t** argv) {
   }
 
   const wchar_t* test_path_arg = argv[0];
-  std::wstring test_path;
+  Path test_path;
   if (!FindTestBinary(argv0, test_path_arg, &test_path)) {
     return 1;
   }
 
   HANDLE process;
-  if (!StartSubprocess(test_path.c_str(), &process)) {
+  if (!StartSubprocess(test_path, &process)) {
     return 1;
   }
   Defer close_process([process]() { CloseHandle(process); });
