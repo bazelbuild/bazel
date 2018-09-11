@@ -1112,7 +1112,14 @@ public final class Environment implements Freezable, Debuggable {
   /** Returns the value of a variable defined in the Universe scope (builtins). */
   public Object universeLookup(String varname) {
     // TODO(laurentlb): look only at globalFrame.parent.
-    return globalFrame.get(varname);
+    Object result = globalFrame.get(varname);
+
+    if (result == null) {
+      // TODO(laurentlb): Remove once PACKAGE_NAME and REPOSITOYRY_NAME are removed (they are the
+      // only two user-visible values that use the dynamicFrame).
+      return dynamicLookup(varname);
+    }
+    return result;
   }
 
   /** Returns the value of a variable defined with setupDynamic. */
