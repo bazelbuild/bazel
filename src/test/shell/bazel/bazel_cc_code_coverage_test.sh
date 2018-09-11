@@ -37,8 +37,6 @@ readonly COVERAGE_GCOV_PATH_VAR="${PWD}/mygcov"
 readonly ROOT_VAR="${PWD}"
 # Location of the instrumented file manifest.
 readonly COVERAGE_MANIFEST_VAR="${PWD}/coverage_manifest.txt"
-# Location of the final coverage report.
-#readonly CC_COVERAGE_OUTPUT_FILE_VAR=
 
 # Path to the canonical C++ coverage script.
 readonly COLLECT_CC_COVERAGE_SCRIPT=tools/test/collect_cc_coverage.sh
