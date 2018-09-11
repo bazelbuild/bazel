@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -1182,7 +1182,7 @@ public final class PackageFactory {
     public Runtime.NoneType invoke(
         Map<String, Object> kwargs, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
-      env.checkLoadingOrWorkspacePhase(ruleClassName, ast.getLocation());
+      SkylarkUtils.checkLoadingOrWorkspacePhase(env, ruleClassName, ast.getLocation());
       try {
         addRule(getContext(env, ast.getLocation()), kwargs, ast, env);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -1624,8 +1624,8 @@ public final class PackageFactory {
               .setSemantics(skylarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
-              .setPhase(Phase.LOADING)
               .build();
+      SkylarkUtils.setPhase(pkgEnv, Phase.LOADING);
       SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       pkgBuilder.setFilename(buildFilePath)

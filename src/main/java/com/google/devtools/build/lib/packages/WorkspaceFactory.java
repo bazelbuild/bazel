@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
-import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
@@ -51,6 +50,8 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.util.HashMap;
@@ -200,8 +201,8 @@ public class WorkspaceFactory {
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(localReporter)
             .setImportedExtensions(importMap)
-            .setPhase(Phase.WORKSPACE)
             .build();
+    SkylarkUtils.setPhase(workspaceEnv, Phase.WORKSPACE);
     addWorkspaceFunctions(workspaceEnv, localReporter);
     for (Map.Entry<String, Object> binding : parentVariableBindings.entrySet()) {
       try {

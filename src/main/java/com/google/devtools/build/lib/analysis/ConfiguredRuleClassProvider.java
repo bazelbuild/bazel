@@ -60,10 +60,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
-import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.OptionsProvider;
 import java.lang.reflect.Constructor;
@@ -825,10 +825,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
             .setImportedExtensions(importMap)
-            .setPhase(Phase.LOADING)
             .build();
     SkylarkUtils.setToolsRepository(env, toolsRepository);
     SkylarkUtils.setFragmentMap(env, configurationFragmentMap);
+    SkylarkUtils.setPhase(env, Phase.LOADING);
     return env;
   }
 

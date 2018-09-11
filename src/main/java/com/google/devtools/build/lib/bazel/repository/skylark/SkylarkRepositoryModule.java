@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import java.util.Map;
 
 /**
@@ -61,7 +62,7 @@ public class SkylarkRepositoryModule implements RepositoryModuleApi {
       FuncallExpression ast,
       com.google.devtools.build.lib.syntax.Environment funcallEnv)
       throws EvalException {
-    funcallEnv.checkLoadingOrWorkspacePhase("repository_rule", ast.getLocation());
+    SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "repository_rule", ast.getLocation());
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 

@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
-import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -75,7 +75,6 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                     getSkylarkGlobals()
                         .withLabel(
                             Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false)))
-                .setPhase(Phase.LOADING)
                 .build()
                 .setupDynamic(
                     PackageFactory.PKG_CONTEXT,
@@ -83,6 +82,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
                     // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
                     new PackageContext(null, null, getEventHandler(), null));
         SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+        SkylarkUtils.setPhase(env, Phase.LOADING);
         return env;
       }
     };

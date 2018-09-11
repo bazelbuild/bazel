@@ -81,13 +81,6 @@ import javax.annotation.Nullable;
  */
 public final class Environment implements Freezable, Debuggable {
 
-  /** A phase for enabling or disabling certain builtin functions */
-  public enum Phase {
-    WORKSPACE,
-    LOADING,
-    ANALYSIS
-  }
-
   /**
    * A mapping of bindings, either mutable or immutable according to an associated {@link
    * Mutability}. The order of the bindings within a single {@link Frame} is deterministic but
@@ -697,12 +690,6 @@ public final class Environment implements Freezable, Debuggable {
   private final Map<String, Extension> importedExtensions;
 
   /**
-   * Is this Environment being executed during the loading phase? Many builtin functions are only
-   * enabled during the loading phase, and check this flag. TODO(laurentlb): Remove from Environment
-   */
-  private final Phase phase;
-
-  /**
    * When in a lexical (Skylark) Frame, this set contains the variable names that are global, as
    * determined not by global declarations (not currently supported), but by previous lookups that
    * ended being global or dynamic. This is necessary because if in a function definition something
@@ -755,30 +742,6 @@ public final class Environment implements Freezable, Debuggable {
   }
 
   private final String transitiveHashCode;
-
-  /**
-   * Checks that the current Environment is in the loading or the workspace phase. TODO(laurentlb):
-   * Move to SkylarkUtils
-   *
-   * @param symbol name of the function being only authorized thus.
-   */
-  public void checkLoadingOrWorkspacePhase(String symbol, Location loc) throws EvalException {
-    if (phase == Phase.ANALYSIS) {
-      throw new EvalException(loc, symbol + "() cannot be called during the analysis phase");
-    }
-  }
-
-  /**
-   * Checks that the current Environment is in the loading phase. TODO(laurentlb): Move to
-   * SkylarkUtils
-   *
-   * @param symbol name of the function being only authorized thus.
-   */
-  public void checkLoadingPhase(String symbol, Location loc) throws EvalException {
-    if (phase != Phase.LOADING) {
-      throw new EvalException(loc, symbol + "() can only be called during the loading phase");
-    }
-  }
 
   /**
    * Is this a global Environment?
@@ -850,7 +813,6 @@ public final class Environment implements Freezable, Debuggable {
    * @param eventHandler an EventHandler for warnings, errors, etc
    * @param importedExtensions Extension-s from which to import bindings with load()
    * @param fileContentHashCode a hash for the source file being evaluated, if any
-   * @param phase the current phase
    * @param callerLabel the label this environment came from
    */
   private Environment(
@@ -860,7 +822,6 @@ public final class Environment implements Freezable, Debuggable {
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
       @Nullable String fileContentHashCode,
-      Phase phase,
       @Nullable Label callerLabel) {
     this.lexicalFrame = Preconditions.checkNotNull(globalFrame);
     this.globalFrame = Preconditions.checkNotNull(globalFrame);
@@ -870,7 +831,6 @@ public final class Environment implements Freezable, Debuggable {
     this.semantics = semantics;
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
-    this.phase = phase;
     this.callerLabel = callerLabel;
     this.transitiveHashCode =
         computeTransitiveContentHashCode(fileContentHashCode, importedExtensions);
@@ -884,7 +844,6 @@ public final class Environment implements Freezable, Debuggable {
    */
   public static class Builder {
     private final Mutability mutability;
-    private Phase phase = Phase.ANALYSIS;
     @Nullable private GlobalFrame parent;
     @Nullable private SkylarkSemantics semantics;
     @Nullable private EventHandler eventHandler;
@@ -894,13 +853,6 @@ public final class Environment implements Freezable, Debuggable {
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
-    }
-
-    /** Enables loading or workspace phase only functions in this Environment. */
-    public Builder setPhase(Phase phase) {
-      Preconditions.checkState(this.phase == Phase.ANALYSIS);
-      this.phase = phase;
-      return this;
     }
 
     /** Inherits global bindings from the given parent Frame. */
@@ -973,7 +925,6 @@ public final class Environment implements Freezable, Debuggable {
           eventHandler,
           importedExtensions,
           fileContentHashCode,
-          phase,
           label);
     }
 
