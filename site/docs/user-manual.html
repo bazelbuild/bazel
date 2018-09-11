@@ -1483,6 +1483,12 @@ the compilation of binaries during the build.
 <p>
 
 </p>
+<p>
+  Note that a particular combination of crosstool version, compiler version,
+  and target CPU is allowed only if it has been specified in the currently
+  used CROSSTOOL file.
+</p>
+
 
 <h4 id='flag--experimental_action_listener'>
   <code class='flag'>--experimental_action_listener=<var>label</var></code>
@@ -1531,13 +1537,6 @@ the compilation of binaries during the build.
 <pre>% bazel build --experimental_action_listener=//test:al //foo/... \
   --experimental_extra_action_filter=.*/bar/.*
 </pre>
-
-<h3 id='strategy-options'>Build strategy options</h3>
-<p>
-  Note that a particular combination of crosstool version, compiler version,
-  and target CPU is allowed only if it has been specified in the currently
-  used CROSSTOOL file.
-</p>
 
 <h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
 <p>
