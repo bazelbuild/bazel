@@ -14,7 +14,6 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedFunctionsExecution;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLineNumbers;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLines;
@@ -76,10 +75,4 @@ public class SourceFileCoverageTest {
         SourceFileCoverage.merge(sourceFile1, sourceFile2), linesExecution1, linesExecution2);
   }
 
-  @Test
-  public void testConstructorWithVirtualIncludeFile() {
-    assertThat(new SourceFileCoverage(
-        "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h")
-        .sourceFileName()).isEqualTo("include/common/strategy.h");
-  }
 }
