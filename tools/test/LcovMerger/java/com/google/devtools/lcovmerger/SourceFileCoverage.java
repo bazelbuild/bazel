@@ -35,7 +35,8 @@ class SourceFileCoverage {
   private final TreeMap<Integer, LineCoverage> lines; // line number to line execution
 
   SourceFileCoverage(String sourcefile) {
-    this.sourceFileName = sourcefile;
+    this.sourceFileName = sourcefile.contains("_virtual_includes")
+        ? getVirtualIncludeSourceFilename(sourcefile) : sourcefile;
     this.functionsExecution = new TreeMap<>();
     this.lineNumbers = new TreeMap<>();
     this.lines = new TreeMap<>();
@@ -75,16 +76,16 @@ class SourceFileCoverage {
   static TreeMap<String, Integer> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(
-            s1.functionsExecution, s2.functionsExecution)
-            .map(Map::entrySet)
-            .flatMap(Collection::stream)
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
-                    Integer::sum,
-                    TreeMap::new
-                ));
+        s1.functionsExecution, s2.functionsExecution)
+        .map(Map::entrySet)
+        .flatMap(Collection::stream)
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                Integer::sum,
+                TreeMap::new
+            ));
   }
 
   /*
@@ -99,10 +100,10 @@ class SourceFileCoverage {
         .flatMap(Collection::stream)
         .collect(
             Collectors.toMap(
-              Map.Entry::getKey,
-              Map.Entry::getValue,
-              BranchCoverage::merge,
-              TreeMap::new
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                BranchCoverage::merge,
+                TreeMap::new
             )
         );
   }
@@ -120,16 +121,16 @@ class SourceFileCoverage {
   static TreeMap<Integer, LineCoverage> mergeLines(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.lines, s2.lines)
-            .map(Map::entrySet)
-            .flatMap(Collection::stream)
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
-                    LineCoverage::merge,
-                    TreeMap::new
-                )
-            );
+        .map(Map::entrySet)
+        .flatMap(Collection::stream)
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                LineCoverage::merge,
+                TreeMap::new
+            )
+        );
   }
 
   private static int getNumberOfExecutedLines(SourceFileCoverage sourceFileCoverage) {
@@ -259,5 +260,27 @@ class SourceFileCoverage {
   void addAllLines(TreeMap<Integer, LineCoverage> lines) {
     this.lines.putAll(lines);
   }
-}
 
+  private static String getVirtualIncludeSourceFilename(String virtualInclude) {
+    if (!virtualInclude.contains("_virtual_includes")) {
+      return virtualInclude;
+    }
+    int index1 = 0;
+    int countSlashes = 0;
+    for (int i = 0; i < virtualInclude.length(); i++) {
+      if (virtualInclude.charAt(i) == '/') {
+        countSlashes++;
+      }
+      if (countSlashes == 3) {
+        index1 = i;
+        break;
+      }
+    }
+
+    int index2 = virtualInclude.indexOf("_virtual_include");
+
+    String pkg = virtualInclude.substring(index1 + 1, index2 - 1);
+    String sourceFile = virtualInclude.substring(virtualInclude.lastIndexOf("/"));
+    return pkg + sourceFile;
+  }
+}
