@@ -51,6 +51,12 @@ public final class FdoProfileRule implements RuleDefinition {
         that holds an LLVM profraw profile, or .afdo for AutoFDO profile.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("absolute_path_profile", Type.STRING))
+        /* <!-- #BLAZE_RULE(fdo_profile).ATTRIBUTE(proto_profile) -->
+        Label of the protobuf profile.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("proto_profile", LABEL)
+            .allowedFileTypes(FileTypeSet.ANY_FILE)
+            .singleArtifact())
         .advertiseProvider(FdoProfileProvider.class)
         .build();
   }

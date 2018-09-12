@@ -57,15 +57,27 @@ public class FdoProvider implements TransitiveInfoProvider {
   private final String fdoInstrument;
   private final Artifact profileArtifact;
   private final Artifact prefetchHintsArtifact;
+  private final Artifact protoProfileArtifact;
+  // If true, proto.profile location is inferred from AFDO profile.
+  // TODO(seongkim): remove it after transtition to fdo_profile rule completes.
+  private final boolean allowInference;
 
   @AutoCodec.Instantiator
-  public FdoProvider(Path fdoProfilePath, FdoMode fdoMode, String fdoInstrument,
-      Artifact profileArtifact, Artifact prefetchHintsArtifact) {
+  public FdoProvider(
+      Path fdoProfilePath,
+      FdoMode fdoMode,
+      String fdoInstrument,
+      Artifact profileArtifact,
+      Artifact prefetchHintsArtifact,
+      Artifact protoProfileArtifact,
+      boolean allowInference) {
     this.fdoProfilePath = fdoProfilePath;
     this.fdoMode = fdoMode;
     this.fdoInstrument = fdoInstrument;
     this.profileArtifact = profileArtifact;
     this.prefetchHintsArtifact = prefetchHintsArtifact;
+    this.protoProfileArtifact = protoProfileArtifact;
+    this.allowInference = allowInference;
   }
 
   /** <b>DO NOT EVER USE PATHS IN THE ANALYSIS PHASE!
@@ -94,5 +106,13 @@ public class FdoProvider implements TransitiveInfoProvider {
 
   public Artifact getPrefetchHintsArtifact() {
     return prefetchHintsArtifact;
+  }
+
+  public Artifact getProtoProfileArtifact() {
+    return protoProfileArtifact;
+  }
+
+  public boolean allowInference() {
+    return allowInference;
   }
 }

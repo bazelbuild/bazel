@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -20,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /** Implementation for the {@code fdo_profile} rule. */
@@ -34,8 +36,14 @@ public final class FdoProfile implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    Artifact protoProfileArtifact =
+        ruleContext.getPrerequisiteArtifact("proto_profile", Mode.TARGET);
+    if (protoProfileArtifact != null && !protoProfileArtifact.isSourceArtifact()) {
+      ruleContext.attributeError("proto_profile", "the target is not an input file");
+    }
+
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addNativeDeclaredProvider(new FdoProfileProvider(inputFile))
+        .addNativeDeclaredProvider(new FdoProfileProvider(inputFile, protoProfileArtifact))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }

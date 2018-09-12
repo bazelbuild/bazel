@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Provider that contains the profile used for FDO. */
 @Immutable
@@ -25,13 +27,25 @@ public final class FdoProfileProvider extends NativeInfo {
       new NativeProvider<FdoProfileProvider>(FdoProfileProvider.class, "FdoProfileInfo") {};
 
   private final FdoInputFile fdoInputFile;
+  private final Artifact protoProfileArtifact;
 
-  public FdoProfileProvider(FdoInputFile fdoInputFile) {
+  public FdoProfileProvider(FdoInputFile fdoInputFile, Artifact protoProfileArtifact) {
     super(PROVIDER);
     this.fdoInputFile = fdoInputFile;
+    this.protoProfileArtifact = protoProfileArtifact;
   }
 
   public FdoInputFile getInputFile() {
     return fdoInputFile;
+  }
+
+  public PathFragment getProfilePathFragment() {
+    return fdoInputFile.getAbsolutePath() != null
+        ? fdoInputFile.getAbsolutePath()
+        : fdoInputFile.getArtifact().getPath().asFragment();
+  }
+
+  public Artifact getProtoProfileArtifact() {
+    return protoProfileArtifact;
   }
 }
