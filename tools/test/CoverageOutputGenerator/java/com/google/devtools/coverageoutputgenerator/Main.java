@@ -19,8 +19,6 @@ import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EX
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
