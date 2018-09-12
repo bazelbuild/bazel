@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.shell.TerminationStatus;
@@ -344,6 +345,9 @@ public interface SpawnResult {
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
         explanation += " Action tagged as local was forcibly run remotely and failed - it's "
             + "possible that the action simply doesn't work remotely";
+      }
+      if (!Strings.isNullOrEmpty(failureMessage)) {
+        explanation += " " + failureMessage;
       }
       return messagePrefix + " failed" + reason + explanation;
     }
