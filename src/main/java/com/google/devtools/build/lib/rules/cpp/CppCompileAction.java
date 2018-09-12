@@ -1011,7 +1011,7 @@ public class CppCompileAction extends AbstractAction
      * any of the fields that affect whether {@link #validateInclusions} will report an error or
      * warning have changed, otherwise we might miss some errors.
      */
-    fp.addPaths(ccCompilationContext.getDeclaredIncludeDirs());
+    actionKeyContext.addNestedSetToFingerprint(fp, ccCompilationContext.getDeclaredIncludeDirs());
     fp.addPaths(builtInIncludeDirectories);
   }
 
