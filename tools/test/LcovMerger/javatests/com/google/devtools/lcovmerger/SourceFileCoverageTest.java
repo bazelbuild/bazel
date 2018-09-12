@@ -84,4 +84,10 @@ public class SourceFileCoverageTest {
         "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h")
         .sourceFileName()).isEqualTo("include/common/strategy.h");
   }
+
+  @Test
+  public void testConstructorWithoutVirtualIncludeFile() {
+    assertThat(new SourceFileCoverage("include/common/strategy.h")
+        .sourceFileName()).isEqualTo("include/common/strategy.h");
+  }
 }
