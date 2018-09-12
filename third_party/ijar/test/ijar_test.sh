@@ -521,9 +521,14 @@ function test_method_parameters_attribute() {
 function test_nestmates_attribute() {
   # Check that Java 11 NestMates attributes are preserved
   $IJAR $NESTMATES_JAR $NESTMATES_IJAR || fail "ijar failed"
+
   $JAVAP -classpath $NESTMATES_IJAR -v NestTest >& $TEST_log \
     || fail "javap failed"
   expect_log "NestMembers" "NestMembers not preserved!"
+
+  $JAVAP -classpath $NESTMATES_IJAR -v 'NestTest$P' >& $TEST_log \
+    || fail "javap failed"
+  expect_log "NestHost" "NestHost not preserved!"
 }
 
 function test_source_debug_extension_attribute() {
