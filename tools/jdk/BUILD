@@ -207,6 +207,7 @@ RELEASES = (8, 9)
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac -source 8 -target 8 \
+    -Xlint:-options \
     -cp $(JAVABASE)/lib/tools.jar \
     -d $$TMPDIR $<
 $(JAVA) -XX:+IgnoreUnrecognizedVMOptions \

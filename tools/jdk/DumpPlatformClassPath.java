@@ -138,7 +138,10 @@ public class DumpPlatformClassPath {
       StandardJavaFileManager fileManager =
           (StandardJavaFileManager) context.get(JavaFileManager.class);
 
-      if (isJdk9OrEarlier()) {
+      int majorVersion = majorVersion();
+      if (majorVersion == 9 && release == 8) {
+        // Work-around: when running on a JDK 9 host_javabase with --release 8, the ct.sym
+        // handling isn't compatible with the FileManager#list code path in the branch below.
         for (Path path : getLocationAsPaths(fileManager)) {
           Files.walkFileTree(
               path,
@@ -188,6 +191,12 @@ public class DumpPlatformClassPath {
               return super.visitFile(path, attrs);
             }
           });
+    }
+
+    if (!entries.containsKey("java/lang/Object.class")) {
+      throw new AssertionError(
+          "\nCould not find java.lang.Object on bootclasspath; something has gone terribly wrong.\n"
+              + "Please file a bug: https://github.com/bazelbuild/bazel/issues");
     }
 
     try (OutputStream os = Files.newOutputStream(output);
@@ -247,14 +256,19 @@ public class DumpPlatformClassPath {
     }
   }
 
-  static boolean isJdk9OrEarlier() {
+  static int majorVersion() {
     try {
       Method versionMethod = Runtime.class.getMethod("version");
       Object version = versionMethod.invoke(null);
-      int majorVersion = (int) version.getClass().getMethod("major").invoke(version);
-      return majorVersion <= 9;
+      return (int) version.getClass().getMethod("major").invoke(version);
     } catch (ReflectiveOperationException e) {
-      return true;
+      // Runtime.version() isn't available on JDK 8; continue below
     }
+    int version = (int) Double.parseDouble(System.getProperty("java.class.version"));
+    if (49 <= version && version <= 52) {
+      return version - (49 - 5);
+    }
+    throw new IllegalStateException(
+        "Unknown Java version: " + System.getProperty("java.specification.version"));
   }
 }
