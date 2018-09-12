@@ -25,6 +25,9 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.cr
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -163,5 +166,37 @@ public class CoverageTest {
   @Test(expected = IllegalArgumentException.class)
   public void testFilterSourcesNullRegex() {
     Coverage.filterOutMatchingSources(new Coverage(), null);
+  }
+
+  private List<String> getSourceFileNames(Collection<SourceFileCoverage> sourceFileCoverageCollection) {
+    ImmutableList.Builder<String> sourceFilenames = ImmutableList.builder();
+    for (SourceFileCoverage sourceFileCoverage : sourceFileCoverageCollection) {
+      sourceFilenames.add(sourceFileCoverage.sourceFileName());
+    }
+    return sourceFilenames.build();
+  }
+
+  @Test
+  public void testGetOnlyTheseSources() {
+    Coverage coverage = new Coverage();
+    coverage.add(new SourceFileCoverage("source/common/protobuf/utility.cc"));
+    coverage.add(new SourceFileCoverage("source/common/grpc/common.cc"));
+    coverage.add(new SourceFileCoverage("source/server/options.cc"));
+    coverage.add(new SourceFileCoverage("source/server/manager.cc"));
+    coverage.add(new SourceFileCoverage(
+        "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h"));
+    coverage.add(new SourceFileCoverage(
+        "bazel-out/k8-fastbuild/bin/source/common/api/_virtual_includes/api_lib/api/api.h"));
+
+    Set<String> sourcesToKeep = new HashSet<>();
+    sourcesToKeep.add("source/common/protobuf/utility.cc");
+    sourcesToKeep.add("source/common/grpc/common.cc");
+    sourcesToKeep.add("source/common/api/api.h");
+
+    assertThat(getSourceFileNames(coverage.getOnlyTheseSources(sourcesToKeep).getAllSourceFiles()))
+        .containsExactly(
+            "source/common/protobuf/utility.cc",
+            "source/common/grpc/common.cc",
+            "source/common/api/api.h");
   }
 }

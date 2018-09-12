@@ -35,7 +35,8 @@ class SourceFileCoverage {
   private final TreeMap<Integer, LineCoverage> lines; // line number to line execution
 
   SourceFileCoverage(String sourcefile) {
-    this.sourceFileName = sourcefile;
+    this.sourceFileName = sourcefile.contains("_virtual_includes")
+        ? getVirtualIncludeSourceFilename(sourcefile) : sourcefile;
     this.functionsExecution = new TreeMap<>();
     this.lineNumbers = new TreeMap<>();
     this.lines = new TreeMap<>();
@@ -241,5 +242,28 @@ class SourceFileCoverage {
 
   void addAllLines(TreeMap<Integer, LineCoverage> lines) {
     this.lines.putAll(lines);
+  }
+
+  private static String getVirtualIncludeSourceFilename(String virtualInclude) {
+    if (!virtualInclude.contains("_virtual_includes")) {
+      return virtualInclude;
+    }
+    int index1 = 0;
+    int countSlashes = 0;
+    for (int i = 0; i < virtualInclude.length(); i++) {
+      if (virtualInclude.charAt(i) == '/') {
+        countSlashes++;
+      }
+      if (countSlashes == 3) {
+        index1 = i;
+        break;
+      }
+    }
+
+    int index2 = virtualInclude.indexOf("_virtual_include");
+
+    String pkg = virtualInclude.substring(index1 + 1, index2 - 1);
+    String sourceFile = virtualInclude.substring(virtualInclude.lastIndexOf("/"));
+    return pkg + sourceFile;
   }
 }
