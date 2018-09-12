@@ -256,6 +256,7 @@ class RemoteSpawnRunner implements SpawnRunner {
                 throw new SpawnExecException(
                     String.format("A cachedResult entry contained invalid outputs: %s => %s", actionKey, reply.getCachedResult()),
                     new SpawnResult.Builder()
+                        .setRunnerName(getName())
                         .setStatus(Status.REMOTE_CACHE_FAILED)
                         .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
                         .build(),
