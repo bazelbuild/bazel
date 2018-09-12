@@ -149,6 +149,8 @@ class OptionProcessor {
   // ParseOptions.
   std::unique_ptr<StartupOptions> parsed_startup_options_;
 
+  // Path to the system-wide bazelrc configuration file.
+  // This is configurable for testing purposes only.
   const std::string system_bazelrc_path_;
 };
 
