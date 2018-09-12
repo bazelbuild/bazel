@@ -73,7 +73,12 @@ public final class ConstraintCollection
   @Nullable
   @Override
   public ConstraintValueInfo get(ConstraintSettingInfo constraint) {
-    return constraints.get(constraint);
+    if (constraints.containsKey(constraint)) {
+      return constraints.get(constraint);
+    }
+
+    // Since this constraint isn't set, fall back to the default.
+    return constraint.defaultConstraintValue();
   }
 
   @Override
