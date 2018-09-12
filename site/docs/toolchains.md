@@ -95,7 +95,8 @@ toolchain rule, first determine the information that the new rule will require.
 
 In the example below, we are adding support for a new programming language, so
 we need to specify paths to the compiler and the system libraries, plus a flag
-that determines the CPU architecture for which Bazel builds the output.
+that determines the CPU architecture for which Bazel builds the output. Let's
+call this file `my_toolchain.bzl`.
 
 ```python
 def _my_toolchain_impl(ctx):
@@ -115,9 +116,12 @@ my_toolchain = rule(
   })
 ```
 
-An example invocation of the rule looks as follows:
+An example invocation of the rule that should go in a `BUILD` file looks as
+follows:
 
 ```python
+load('//path/to:my_toolchain.bzl', 'my_toolchain')
+
 my_toolchain(
   name = 'linux_toolchain_impl',
   compiler = '@remote_linux_repo//compiler:compiler_binary',
@@ -146,7 +150,7 @@ the toolchain type, execution and target constraints, and the label of the
 actual rule-specific toolchain. The use of the `toolchain()` rule enables the
 lazy loading of toolchains.
 
-Below is an example toolchain definition:
+Below is an example toolchain definition which should go in a `BUILD` file:
 
 ```python
 toolchain_type(name = 'my_toolchain_type')
@@ -182,18 +186,19 @@ register_toolchains(
 ## Using a toolchain in a rule
 
 To use a toolchain in a rule, add the toolchain type to the rule
-definition. For example:
+definition. For example add the following in your `my_toolchain.bzl`:
 
 ```python
 my_library = rule(
   ...
-  toolchains = ['//path/to:my_toolchain_type']
+  toolchains = ['//path/to:my_toolchain_type'],
+  implementation = _my_library_impl,
   ...)
 ```
 
 When using the `ctx.toolchains` rule, Bazel checks the execution and target
 platforms, and select the first toolchain that matches. The rule implementation
-can then access the toolchain as follows:
+which should go in `my_toolchain.bzl` can then access the toolchain as follows:
 
 ```python
 def _my_library_impl(ctx):
