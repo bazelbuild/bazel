@@ -136,16 +136,13 @@ class OutputFileSystem extends ReadonlyFileSystem {
   private boolean outputDirectoriesContains(PathFragment fragment, boolean matchesDirectory, boolean followSymlinks) {
     // symlinks?
     Stack<String> relative = new Stack<>();
-    while (!fragment.toString().isEmpty()) {
-      relative.push(fragment.getBaseName());
-      fragment = fragment.getParentDirectory();
-      if (fragment == null) {
-        return false;
-      }
+    while (fragment != null && !fragment.toString().isEmpty()) {
       Directory directory = outputDirectories.get(fragment.toString());
       if (directory != null) {
         return directoryContains(directory, matchesDirectory, relative);
       }
+      relative.push(fragment.getBaseName());
+      fragment = fragment.getParentDirectory();
     }
     return false;
   }

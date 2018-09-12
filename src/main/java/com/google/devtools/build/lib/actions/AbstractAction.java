@@ -595,6 +595,6 @@ public abstract class AbstractAction implements Action, ActionApi {
   public boolean areOutputsValid(Path root) {
     return Iterables.all(
         getRequiredOutputs(),
-        (path) -> root.getRelative(path).isFile());
+        (path) -> root.getRelative(path).exists());
   }
 }
