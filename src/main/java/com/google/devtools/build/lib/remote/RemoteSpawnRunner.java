@@ -200,11 +200,12 @@ class RemoteSpawnRunner implements SpawnRunner {
                   .setCacheHit(true)
                   .setRunnerName("remote cache hit")
                   .build();
-            } else {
-              report(Event.warn(String.format(
-                  "A cachedResult entry contained invalid outputs: %s => %s", actionKey, cachedResult)));
-              acceptCachedResult = false;
             }
+            report(Event.warn(String.format(
+                "A cachedResult entry contained invalid outputs: %s => %s",
+                digestUtil.toString(actionKey.getDigest()),
+                cachedResult)));
+            acceptCachedResult = false;
           } catch (RetryException e) {
             if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
               throw e;
@@ -254,7 +255,10 @@ class RemoteSpawnRunner implements SpawnRunner {
                   directories.build());
               if (!context.areOutputsValid(outputFileSystem.getPath("/"))) {
                 throw new SpawnExecException(
-                    String.format("A cachedResult entry contained invalid outputs: %s => %s", actionKey, reply.getCachedResult()),
+                    String.format(
+                        "A cachedResult entry contained invalid outputs: %s => %s",
+                        digestUtil.toString(actionKey.getDigest()),
+                        result),
                     new SpawnResult.Builder()
                         .setRunnerName(getName())
                         .setStatus(Status.REMOTE_CACHE_FAILED)

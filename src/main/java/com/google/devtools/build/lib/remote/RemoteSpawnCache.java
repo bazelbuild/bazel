@@ -136,23 +136,25 @@ final class RemoteSpawnCache implements SpawnCache {
           // For now, download all outputs locally; in the future, we can reuse the digests to
           // just update the TreeNodeRepository and continue the build.
           remoteCache.download(result, execRoot, outputDirectories, directories, context.getFileOutErr());
-          SpawnResult spawnResult =
-              new SpawnResult.Builder()
-                  .setStatus(Status.SUCCESS)
-                  .setExitCode(result.getExitCode())
-                  .setCacheHit(true)
-                  .setRunnerName("remote cache hit")
-                  .build();
           FileSystem outputFileSystem = new OutputFileSystem(
               digestUtil.getDigestFunction(),
               Iterables.transform(result.getOutputFilesList(), (file) -> file.getPath()),
               outputDirectories.build(),
               directories.build());
           if (context.areOutputsValid(outputFileSystem.getPath("/"))) {
+            SpawnResult spawnResult =
+                new SpawnResult.Builder()
+                    .setStatus(Status.SUCCESS)
+                    .setExitCode(result.getExitCode())
+                    .setCacheHit(true)
+                    .setRunnerName("remote cache hit")
+                    .build();
             return SpawnCache.success(spawnResult);
           }
           report(Event.warn(String.format(
-              "A cachedResult entry contained invalid outputs: %s => %s", actionKey, result)));
+              "A cachedResult entry contained invalid outputs: %s => %s",
+              digestUtil.toString(actionKey.getDigest()),
+              result)));
         }
       } catch (RetryException e) {
         if (!AbstractRemoteActionCache.causedByCacheMiss(e)) {
