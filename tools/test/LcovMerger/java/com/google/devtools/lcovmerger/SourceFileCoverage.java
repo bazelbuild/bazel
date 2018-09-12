@@ -76,16 +76,16 @@ class SourceFileCoverage {
   static TreeMap<String, Integer> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(
-        s1.functionsExecution, s2.functionsExecution)
-        .map(Map::entrySet)
-        .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                Integer::sum,
-                TreeMap::new
-            ));
+          s1.functionsExecution, s2.functionsExecution)
+          .map(Map::entrySet)
+          .flatMap(Collection::stream)
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  Map.Entry::getValue,
+                  Integer::sum,
+                  TreeMap::new
+              ));
   }
 
   /*
@@ -99,12 +99,12 @@ class SourceFileCoverage {
         .map(Map::entrySet)
         .flatMap(Collection::stream)
         .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                BranchCoverage::merge,
-                TreeMap::new
-            )
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  Map.Entry::getValue,
+                  BranchCoverage::merge,
+                  TreeMap::new
+              )
         );
   }
 
