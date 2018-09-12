@@ -76,16 +76,16 @@ class SourceFileCoverage {
   static TreeMap<String, Integer> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(
-          s1.functionsExecution, s2.functionsExecution)
-          .map(Map::entrySet)
-          .flatMap(Collection::stream)
-          .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  Map.Entry::getValue,
-                  Integer::sum,
-                  TreeMap::new
-              ));
+            s1.functionsExecution, s2.functionsExecution)
+            .map(Map::entrySet)
+            .flatMap(Collection::stream)
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    Integer::sum,
+                    TreeMap::new
+                ));
   }
 
   /*
@@ -121,16 +121,16 @@ class SourceFileCoverage {
   static TreeMap<Integer, LineCoverage> mergeLines(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.lines, s2.lines)
-        .map(Map::entrySet)
-        .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                LineCoverage::merge,
-                TreeMap::new
-            )
-        );
+            .map(Map::entrySet)
+            .flatMap(Collection::stream)
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    LineCoverage::merge,
+                    TreeMap::new
+                )
+            );
   }
 
   private static int getNumberOfExecutedLines(SourceFileCoverage sourceFileCoverage) {
