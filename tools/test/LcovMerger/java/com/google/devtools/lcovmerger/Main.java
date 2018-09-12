@@ -19,6 +19,8 @@ import static com.google.devtools.lcovmerger.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,7 +32,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -69,6 +73,11 @@ public class Main {
       coverage = Coverage.filterOutMatchingSources(coverage, flags.filterSources());
     }
 
+    if (flags.hasSourceFileManifest()) {
+      coverage = coverage.getOnlyTheseSources(
+          getSourcesFromSourceFileManifest(flags.sourceFileManifest()));
+    }
+
     int exitStatus = 0;
     String outputFile = flags.outputFile();
     try {
@@ -80,6 +89,23 @@ public class Main {
       exitStatus = 1;
     }
     System.exit(exitStatus);
+  }
+
+  private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
+    Set<String> sourceFiles = new HashSet<>();
+    try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest))) {
+      InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
+      BufferedReader reader = new BufferedReader(inputStreamReader);
+      for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+        if (!line.endsWith(".em") && !line.endsWith(".gcno")) {
+          sourceFiles.add(line);
+        }
+      }
+    } catch (IOException e) {
+      logger.log(
+          Level.SEVERE, "Error reading file " + sourceFileManifest + ": " + e.getMessage());
+    }
+    return sourceFiles;
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {

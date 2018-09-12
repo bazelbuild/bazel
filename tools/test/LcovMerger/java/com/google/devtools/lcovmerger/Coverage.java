@@ -16,6 +16,7 @@ package com.google.devtools.lcovmerger;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeMap;
 
 class Coverage {
@@ -44,6 +45,16 @@ class Coverage {
       merged.add(sourceFile);
     }
     return merged;
+  }
+
+  Coverage getOnlyTheseSources(Set<String> sourcesToKeep) {
+    Coverage finalCoverage = new Coverage();
+    for (SourceFileCoverage source : this.getAllSourceFiles()) {
+      if (sourcesToKeep.contains(source.sourceFileName())) {
+        finalCoverage.add(source);
+      }
+    }
+    return finalCoverage;
   }
 
   static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)
