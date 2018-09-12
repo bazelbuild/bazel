@@ -70,8 +70,8 @@ public class Main {
     }
 
     if (flags.hasSourceFileManifest()) {
-      coverage = coverage.getOnlyTheseSources(
-          getSourcesFromSourceFileManifest(flags.sourceFileManifest()));
+      coverage = Coverage.getOnlyTheseSources(
+          coverage, getSourcesFromSourceFileManifest(flags.sourceFileManifest()));
     }
 
     int exitStatus = 0;

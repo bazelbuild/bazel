@@ -188,7 +188,8 @@ public class CoverageTest {
     sourcesToKeep.add("source/common/protobuf/utility.cc");
     sourcesToKeep.add("source/common/grpc/common.cc");
 
-    assertThat(getSourceFileNames(coverage.getOnlyTheseSources(sourcesToKeep).getAllSourceFiles()))
+    assertThat(getSourceFileNames(
+        Coverage.getOnlyTheseSources(coverage, sourcesToKeep).getAllSourceFiles()))
         .containsExactly(
             "source/common/protobuf/utility.cc",
             "source/common/grpc/common.cc");

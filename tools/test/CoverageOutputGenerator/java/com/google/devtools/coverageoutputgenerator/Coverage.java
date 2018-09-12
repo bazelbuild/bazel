@@ -47,9 +47,9 @@ class Coverage {
     return merged;
   }
 
-  Coverage getOnlyTheseSources(Set<String> sourcesToKeep) {
+  static Coverage getOnlyTheseSources(Coverage coverage, Set<String> sourcesToKeep) {
     Coverage finalCoverage = new Coverage();
-    for (SourceFileCoverage source : this.getAllSourceFiles()) {
+    for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
       if (sourcesToKeep.contains(source.sourceFileName())) {
         finalCoverage.add(source);
       }
