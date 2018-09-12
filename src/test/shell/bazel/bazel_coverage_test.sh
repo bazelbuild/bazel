@@ -290,7 +290,7 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main --combined_report=lcov &>$TEST_log \
+  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
   cat <<EOF > result.dat

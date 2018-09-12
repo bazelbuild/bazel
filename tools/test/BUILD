@@ -35,7 +35,7 @@ filegroup(
 
 filegroup(
     name = "coverage_report_generator",
-    srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
+    srcs = ["@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"],
 )
 
 cc_binary(
@@ -88,7 +88,7 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
-        "//tools/test/LcovMerger/javatests/com/google/devtools/lcovmerger:all_windows_tests",
+        "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:all_windows_tests",
     ],
     visibility = ["//tools:__pkg__"],
 )
