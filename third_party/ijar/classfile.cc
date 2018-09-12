@@ -1201,7 +1201,7 @@ struct NestHostAttribute : Attribute {
   }
 
   void Write(u1 *&p) {
-    WriteProlog(p, -1);
+    WriteProlog(p, 2);
     put_u2be(p, host_class_index_->slot());
   }
 
