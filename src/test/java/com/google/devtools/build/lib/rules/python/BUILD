@@ -14,6 +14,7 @@ test_suite(
     tests = [
         ":BazelPythonConfigurationTest",
         ":PyBinaryConfiguredTargetTest",
+        ":PyLibraryConfiguredTargetTest",
         ":PyTestConfiguredTargetTest",
         ":PythonConfigurationTest",
     ],
@@ -76,5 +77,17 @@ java_test(
     deps = [
         ":PyExecutableTestBase",
         "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "PyLibraryConfiguredTargetTest",
+    srcs = ["PyLibraryConfiguredTargetTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )

@@ -227,15 +227,15 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void srcsPackageNameCannotHaveHyphen() throws Exception {
-    scratch.file("pkg-hyphenated/subpkg/BUILD",
+    scratch.file("pkg-hyphenated/BUILD",
         "exports_files(['bar.py'])");
-    checkError("pkg-hyphenated", "foo",
+    checkError("otherpkg", "foo",
         // error:
         "paths to Python packages may not contain '-'",
         // build file:
         "py_binary(",
         "    name = 'foo',",
-        "    srcs = ['foo.py', '//pkg-hyphenated/subpkg:bar.py'])");
+        "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'])");
   }
 
   // TODO(brandjon): Add tests for content of stub Python script (particularly for choosing python
