@@ -67,8 +67,8 @@ void *Concatenator::OutputEntry(bool compress) {
   lh->signature();
   lh->version(20);
   lh->bit_flag(0x0);
-  lh->last_mod_file_time(1);   // 00:00:01
-  lh->last_mod_file_date(33);  // 1980-01-01
+  lh->last_mod_file_time(1);                     // 00:00:01
+  lh->last_mod_file_date(30 << 9 | 1 << 5 | 1);  // 2010-01-01
   lh->crc32(0x12345678);
   lh->compressed_file_size32(0);
   lh->file_name(filename_.c_str(), filename_.size());
