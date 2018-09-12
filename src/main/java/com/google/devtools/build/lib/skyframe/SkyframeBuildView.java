@@ -220,7 +220,6 @@ public final class SkyframeBuildView {
     } else if (this.areConfigurationsDifferent(configurations)) {
       // Clearing cached ConfiguredTargets when the configuration changes is not required for
       // correctness, but prevents unbounded memory usage.
-      eventHandler.handle(Event.info("Build options have changed, discarding analysis cache."));
       skyframeExecutor.handleConfiguredTargetChange();
     }
     skyframeAnalysisWasDiscarded = false;
