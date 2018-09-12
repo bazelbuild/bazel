@@ -294,4 +294,15 @@ public final class SkylarkCallableProcessorTest {
         .withErrorContaining(
             "Containing class has more than one selfCall method defined.");
   }
+
+  @Test
+  public void testEnablingAndDisablingFlag() throws Exception {
+    assertAbout(javaSource())
+        .that(getFile("EnablingAndDisablingFlag.java"))
+        .processedWith(new SkylarkCallableProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Only one of @SkylarkCallable.enablingFlag and @SkylarkCallable.disablingFlag may be "
+                + "specified.");
+  }
 }

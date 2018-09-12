@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -108,8 +109,10 @@ public class ApiExporter {
       } else {
         SkylarkModule typeModule = SkylarkInterfaceUtils.getSkylarkModule(obj.getClass());
         if (typeModule != null) {
-          if (FuncallExpression.hasSelfCallMethod(obj.getClass())) {
-            value = collectFunctionInfo(FuncallExpression.getSelfCallMethod(obj));
+          if (FuncallExpression.hasSelfCallMethod(
+              SkylarkSemantics.DEFAULT_SEMANTICS, obj.getClass())) {
+            value = collectFunctionInfo(
+                FuncallExpression.getSelfCallMethod(SkylarkSemantics.DEFAULT_SEMANTICS, obj));
           } else {
             value.setName(entry.getKey());
             value.setType(entry.getKey());

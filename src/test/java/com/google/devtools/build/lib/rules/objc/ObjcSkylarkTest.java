@@ -1494,6 +1494,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testDisableObjcProviderResourcesRead() throws Exception {
+    reporter.removeHandler(failFastHandler);
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1522,9 +1523,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     setSkylarkSemanticsOptions("--incompatible_disable_objc_provider_resources=true");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    assertThat(skylarkTarget.get("strings")).isEqualTo("depset([])");
+    getConfiguredTarget("//examples/apple_skylark:my_target");
+
+    assertContainsEvent("object of type 'ObjcProvider' has no field 'strings'");
   }
 
   @Test

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skylarkinterface.processor;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -111,12 +112,24 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
         verifyNumberOfParameters(methodElement, annotation);
         verifyExtraInterpreterParams(methodElement, annotation);
         verifyIfSelfCall(methodElement, annotation);
+        verifyFlagToggles(methodElement, annotation);
       } catch (SkylarkCallableProcessorException exception) {
         error(exception.methodElement, exception.errorMessage);
       }
     }
 
     return true;
+  }
+
+  private void verifyFlagToggles(ExecutableElement methodElement, SkylarkCallable annotation)
+      throws SkylarkCallableProcessorException {
+    if (annotation.enableOnlyWithFlag() != FlagIdentifier.NONE
+        && annotation.disableWithFlag() != FlagIdentifier.NONE) {
+      throw new SkylarkCallableProcessorException(
+          methodElement,
+          "Only one of @SkylarkCallable.enablingFlag and @SkylarkCallable.disablingFlag may be "
+              + "specified.");
+    }
   }
 
   private void verifyNameNotEmpty(ExecutableElement methodElement, SkylarkCallable annotation)

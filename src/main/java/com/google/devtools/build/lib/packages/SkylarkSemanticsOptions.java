@@ -49,6 +49,10 @@ import java.util.List;
  *
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
+ *
+ *   <li>Boolean semantic flags can toggle Skylark methods on or off. To do this, add a new entry
+ *       to {@link SkylarkSemantics#FlagIdentifier}. Then, specify the identifier in
+ *       {@code SkylarkCallable.enableOnlyWithFlag} or {@code SkylarkCallable.disableWithFlag}.
  * </ul>
  * For both readability and correctness, the relative order of the options in all of these locations
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating

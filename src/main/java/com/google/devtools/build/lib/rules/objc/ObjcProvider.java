@@ -682,10 +682,6 @@ public final class ObjcProvider extends Info implements ObjcProviderApi<Artifact
   public <E> NestedSet<E> get(Key<E> key) {
     Preconditions.checkNotNull(key);
     NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
-    if (semantics.incompatibleDisableObjcProviderResources()
-        && ObjcProvider.isDeprecatedResourceKey(key)) {
-      return builder.build();
-    }
     if (strictDependencyItems.containsKey(key)) {
       builder.addTransitive((NestedSet<E>) strictDependencyItems.get(key));
     }
