@@ -100,10 +100,7 @@ java_library(
 java_library(
     name = "Coverage",
     srcs = ["Coverage.java"],
-    deps = [
-        ":SourceFileCoverage",
-        "//third_party:guava",
-    ],
+    deps = [":SourceFileCoverage"],
 )
 
 java_library(
