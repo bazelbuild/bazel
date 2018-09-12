@@ -99,12 +99,12 @@ class SourceFileCoverage {
         .map(Map::entrySet)
         .flatMap(Collection::stream)
         .collect(
-              Collectors.toMap(
-                  Map.Entry::getKey,
-                  Map.Entry::getValue,
-                  BranchCoverage::merge,
-                  TreeMap::new
-              )
+            Collectors.toMap(
+              Map.Entry::getKey,
+              Map.Entry::getValue,
+              BranchCoverage::merge,
+              TreeMap::new
+            )
         );
   }
 
