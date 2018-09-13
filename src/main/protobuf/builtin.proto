@@ -99,4 +99,10 @@ message Param {
 
   // Whether the param is mandatory or optional.
   bool is_mandatory = 5;
+
+  // Whether the param is a star argument.
+  bool is_star_arg = 6;
+
+  // Whether the param is a star-star argument.
+  bool is_star_star_arg = 7;
 }

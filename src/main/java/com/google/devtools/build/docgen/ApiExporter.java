@@ -168,12 +168,14 @@ public class ApiExporter {
       Param.Builder param = Param.newBuilder();
       param.setName("*" + paramNames.get(nameIndex));
       param.setIsMandatory(false);
+      param.setIsStarArg(true);
       nameIndex++;
       callable.addParam(param);
     }
     if (func.getSignature().getSignature().getShape().hasKwArg()) {
       Param.Builder param = Param.newBuilder();
       param.setIsMandatory(false);
+      param.setIsStarStarArg(true);
       param.setName("**" + paramNames.get(nameIndex));
       callable.addParam(param);
     }
