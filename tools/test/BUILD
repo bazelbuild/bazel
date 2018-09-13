@@ -44,11 +44,18 @@ cc_binary(
         "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
         "//conditions:default": ["empty_test_wrapper.cc"],
     }),
+    linkopts = select({
+        "//src/conditions:windows": [
+            "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:private"],
     deps = select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:strings",
+            "//src/main/native/windows:lib-file",
             "@bazel_tools//tools/cpp/runfiles",
         ],
         "//conditions:default": [],

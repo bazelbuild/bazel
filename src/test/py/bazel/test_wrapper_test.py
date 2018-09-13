@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 from src.test.py.bazel import test_base
@@ -37,7 +38,14 @@ class TestWrapperTest(test_base.TestBase):
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
-    self.ScratchFile('foo/printing.bat', ['@echo lorem ipsum'], executable=True)
+    self.ScratchFile(
+        'foo/printing.bat', [
+            '@echo lorem ipsum',
+            '@echo TEST_SRCDIR=%TEST_SRCDIR%',
+            '@echo TEST_TMPDIR=%TEST_TMPDIR%',
+            '@echo USER=%USER%',
+        ],
+        executable=True)
 
   def _AssertPassingTest(self, flag):
     exit_code, _, stderr = self.RunBazel([
@@ -66,11 +74,29 @@ class TestWrapperTest(test_base.TestBase):
         flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)
-    found = False
+    lorem = False
     for line in stdout + stderr:
       if 'lorem ipsum' in line:
-        found = True
-    if not found:
+        lorem = True
+      if 'TEST_SRCDIR=' in line:
+        srcdir = line[len('TEST_SRCDIR='):]
+      if 'TEST_TMPDIR=' in line:
+        tmpdir = line[len('TEST_TMPDIR='):]
+      if 'USER=' in line:
+        user = line[len('USER='):]
+    if not lorem:
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isdir(srcdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isfile(srcdir + '/MANIFEST'):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isabs(srcdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isdir(tmpdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isabs(tmpdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not user:
       self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
 
   def testTestExecutionWithTestSetupShAndWithTestWrapperExe(self):
@@ -79,8 +105,9 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
-    # As of 2018-08-30, the Windows native test runner can run simple tests,
-    # though it does not set up the test's environment yet.
+    # As of 2018-09-11, the Windows native test runner can run simple tests and
+    # export a few envvars, though it does not completely set up the test's
+    # environment yet.
     flag = '--windows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
