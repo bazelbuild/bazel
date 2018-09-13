@@ -91,9 +91,13 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label sysrootLabel;
     protected final CpuTransformer cpuTransformer;
     protected final CcToolchainConfigInfo ccToolchainConfigInfo;
+    protected final String transformedCpu;
+    protected final String compiler;
 
     CppConfigurationParameters(
-        CrosstoolConfigurationLoader.CrosstoolFile crosstoolFile,
+        String transformedCpu,
+        String compiler,
+        CrosstoolFile crosstoolFile,
         String cacheKeySuffix,
         BuildOptions buildOptions,
         PathFragment fdoPath,
@@ -104,6 +108,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         Label sysrootLabel,
         CpuTransformer cpuTransformer,
         CcToolchainConfigInfo ccToolchainConfigInfo) {
+      this.transformedCpu = transformedCpu;
+      this.compiler = compiler;
       this.crosstoolFile = crosstoolFile;
       this.cacheKeySuffix = cacheKeySuffix;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
@@ -169,19 +175,23 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     // select the toolchain by its identifier if "toolchain_identifier" attribute is present.
     // Otherwise, we fall back to going through the CROSSTOOL file to select the toolchain using
     // the legacy selection mechanism.
-    String identifier =
+    String identifierAttribute =
         NonconfigurableAttributeMapper.of((Rule) ccToolchain)
             .get("toolchain_identifier", Type.STRING);
-    CToolchain cToolchain;
-    if (!identifier.isEmpty()) {
-      cToolchain =
-          CrosstoolConfigurationLoader.getToolchainByIdentifier(
-              file.getProto(), identifier, transformedCpu, cppOptions.cppCompiler);
-    } else {
-      cToolchain =
-          CrosstoolConfigurationLoader.selectToolchain(
-              file.getProto(), options, cpuTransformer.getTransformer());
-    }
+    String cpuAttribute =
+        NonconfigurableAttributeMapper.of((Rule) ccToolchain).get("cpu", Type.STRING);
+    String compilerAttribute =
+        NonconfigurableAttributeMapper.of((Rule) ccToolchain).get("compiler", Type.STRING);
+
+    CToolchain cToolchain =
+        CToolchainSelectionUtils.selectCToolchain(
+            identifierAttribute,
+            cpuAttribute,
+            compilerAttribute,
+            transformedCpu,
+            cppOptions.cppCompiler,
+            file.getProto(),
+            cpuTransformer.getTransformer());
 
     cToolchain =
         CppToolchainInfo.addLegacyFeatures(
@@ -219,6 +229,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     }
 
     return new CppConfigurationParameters(
+        transformedCpu,
+        cppOptions.cppCompiler,
         file,
         file.getMd5(),
         options,

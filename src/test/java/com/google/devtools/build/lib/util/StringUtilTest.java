@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtil.capitalize;
+import static com.google.devtools.build.lib.util.StringUtil.emptyToNull;
 import static com.google.devtools.build.lib.util.StringUtil.indent;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
 import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
@@ -88,5 +89,13 @@ public class StringUtilTest {
     assertThat(capitalize("Joe")).isEqualTo("Joe");
     assertThat(capitalize("o")).isEqualTo("O");
     assertThat(capitalize("O")).isEqualTo("O");
+  }
+
+  @Test
+  public void testEmptyToNull() {
+    assertThat(emptyToNull(null)).isNull();
+    assertThat(emptyToNull("")).isNull();
+    assertThat(emptyToNull("a")).isEqualTo("a");
+    assertThat(emptyToNull(" ")).isEqualTo(" ");
   }
 }

@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.io.BaseEncoding;
@@ -44,9 +43,6 @@ import com.google.protobuf.TextFormat.ParseException;
 import com.google.protobuf.UninitializedMessageException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -294,182 +290,7 @@ public class CrosstoolConfigurationLoader {
       throws InvalidConfigurationException {
     CrosstoolConfigurationIdentifier config =
         CrosstoolConfigurationIdentifier.fromOptions(options);
-    return selectToolchain(release, config, cpuTransformer);
-  }
-
-  /**
-   * Selects a crosstool toolchain corresponding to the given crosstool configuration options. If
-   * all of these options are null, it returns the default toolchain specified in the crosstool
-   * release. If only cpu is non-null, it returns the default toolchain for that cpu, as specified
-   * in the crosstool release. Otherwise, all values must be non-null, and this method returns the
-   * toolchain which matches all of the values.
-   *
-   * @throws NullPointerException if {@code release} is null
-   * @throws InvalidConfigurationException if no matching toolchain can be found, or if the input
-   *     parameters do not obey the constraints described above
-   */
-  public static CrosstoolConfig.CToolchain selectToolchain(
-      CrosstoolConfig.CrosstoolRelease release,
-      CrosstoolConfigurationIdentifier config,
-      Function<String, String> cpuTransformer)
-      throws InvalidConfigurationException {
-    if (config.getCompiler() != null) {
-      ArrayList<CrosstoolConfig.CToolchain> candidateToolchains = new ArrayList<>();
-      for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
-        if (config.isCandidateToolchain(toolchain)) {
-          candidateToolchains.add(toolchain);
-        }
-      }
-      switch (candidateToolchains.size()) {
-        case 0: {
-          StringBuilder message = new StringBuilder();
-          message.append("No toolchain found for");
-          message.append(config.describeFlags());
-          message.append(". Valid toolchains are: ");
-          describeToolchainList(message, release.getToolchainList());
-          throw new InvalidConfigurationException(message.toString());
-        }
-        case 1:
-          return candidateToolchains.get(0);
-        default: {
-          StringBuilder message = new StringBuilder();
-          message.append("Multiple toolchains found for");
-          message.append(config.describeFlags());
-          message.append(": ");
-          describeToolchainList(message, candidateToolchains);
-          throw new InvalidConfigurationException(message.toString());
-        }
-      }
-    }
-    String selectedIdentifier = null;
-    // We use fake CPU values to allow cross-platform builds for other languages that use the
-    // C++ toolchain. Translate to the actual target architecture.
-    String desiredCpu = cpuTransformer.apply(config.getCpu());
-    for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
-      if (selector.getCpu().equals(desiredCpu)) {
-        selectedIdentifier = selector.getToolchainIdentifier();
-        break;
-      }
-    }
-
-    if (selectedIdentifier == null) {
-      HashSet<String> seenCpus = new HashSet<>();
-      StringBuilder cpuBuilder = new StringBuilder();
-      for (CrosstoolConfig.DefaultCpuToolchain selector : release.getDefaultToolchainList()) {
-        if (seenCpus.add(selector.getCpu())) {
-          cpuBuilder.append("  ").append(selector.getCpu()).append(",\n");
-        }
-      }
-      throw new InvalidConfigurationException(
-          "No default_toolchain found for cpu '"
-              + desiredCpu
-              + "'. Valid cpus are: [\n"
-              + cpuBuilder
-              + "]");
-    }
-    checkToolchain(selectedIdentifier, desiredCpu);
-
-    for (CrosstoolConfig.CToolchain toolchain : release.getToolchainList()) {
-      if (toolchain.getToolchainIdentifier().equals(selectedIdentifier)) {
-        return toolchain;
-      }
-    }
-
-    throw new InvalidConfigurationException("Inconsistent crosstool configuration; no toolchain "
-        + "corresponding to '" + selectedIdentifier + "' found for cpu '" + config.getCpu() + "'");
-  }
-
-  /**
-   * Appends a series of toolchain descriptions (as the blaze command line flags
-   * that would specify that toolchain) to 'message'.
-   */
-  private static void describeToolchainList(StringBuilder message,
-      Collection<CrosstoolConfig.CToolchain> toolchains) {
-    message.append("[\n");
-    for (CrosstoolConfig.CToolchain toolchain : toolchains) {
-      message.append("  ");
-      message.append(toolchain.getToolchainIdentifier());
-      message.append(": ");
-      message.append(
-          CrosstoolConfigurationIdentifier.fromToolchain(toolchain).describeFlags().trim());
-      message.append(",\n");
-    }
-    message.append("]");
-  }
-
-  /**
-   * Makes sure that {@code selectedIdentifier} is a valid identifier for a toolchain, i.e. it
-   * starts with a letter or an underscore and continues with only dots, dashes, spaces, letters,
-   * digits or underscores (i.e. matches the following regular expression: "[a-zA-Z_][\.\- \w]*").
-   *
-   * @throws InvalidConfigurationException if selectedIdentifier does not match the aforementioned
-   *     regular expression.
-   */
-  private static void checkToolchain(String selectedIdentifier, String cpu)
-      throws InvalidConfigurationException {
-    // If you update this regex, please do so in the javadoc comment too, and also in the
-    // crosstool_config.proto file.
-    String rx = "[a-zA-Z_][\\.\\- \\w]*";
-    if (!selectedIdentifier.matches(rx)) {
-      throw new InvalidConfigurationException(String.format(
-          "Toolchain identifier '%s' for cpu '%s' is illegal (does not match '%s')",
-          selectedIdentifier, cpu, rx));
-    }
-  }
-
-  protected static CrosstoolConfig.CrosstoolRelease getCrosstoolReleaseProto(
-      ConfigurationEnvironment env,
-      BuildOptions options,
-      Label crosstoolTop,
-      Function<String, String> cpuTransformer)
-      throws InvalidConfigurationException, InterruptedException {
-    CrosstoolConfigurationLoader.CrosstoolFile file =
-        readCrosstool(env, crosstoolTop);
-    // Make sure that we have the requested toolchain in the result. Throw an exception if not.
-    selectToolchain(file.getProto(), options, cpuTransformer);
-    return file.getProto();
-  }
-
-  /**
-   * Selects a crosstool toolchain based on the toolchain identifier.
-   *
-   * @throws InvalidConfigurationException if no matching toolchain can be found, if multiple
-   *     toolchains with the same identifier are found, or if the target_cpu or compiler of the
-   *     selected toolchain are not the same as --cpu and --compiler options.
-   */
-  public static CrosstoolConfig.CToolchain getToolchainByIdentifier(
-      CrosstoolConfig.CrosstoolRelease proto,
-      String toolchainIdentifier,
-      String cpu,
-      @Nullable String compiler)
-      throws InvalidConfigurationException {
-    checkToolchain(toolchainIdentifier, cpu);
-    CrosstoolConfig.CToolchain selectedToolchain = null;
-    for (CrosstoolConfig.CToolchain toolchain : proto.getToolchainList()) {
-      if (toolchain.getToolchainIdentifier().equals(toolchainIdentifier)) {
-        if (selectedToolchain != null) {
-          throw new InvalidConfigurationException(
-              String.format("Multiple toolchains with '%s' identifier", toolchainIdentifier));
-        }
-        selectedToolchain = toolchain;
-      }
-    }
-    if (selectedToolchain == null) {
-      throw new InvalidConfigurationException(
-          String.format("Toolchain identifier '%s' was not found", toolchainIdentifier));
-    }
-    if ((compiler != null && !selectedToolchain.getCompiler().equals(compiler))
-        || !selectedToolchain.getTargetCpu().equals(cpu)) {
-      throw new InvalidConfigurationException(
-          String.format(
-              "The selected toolchain's cpu and compiler must match the command line options:\n"
-                  + "  --cpu: %s, toolchain.target_cpu: %s\n"
-                  + "  --compiler: %s, toolchain.compiler: %s",
-              cpu,
-              selectedToolchain.getTargetCpu(),
-              Strings.nullToEmpty(compiler),
-              selectedToolchain.getCompiler()));
-    }
-    return selectedToolchain;
+    return CToolchainSelectionUtils.selectToolchainUsingCpuAndMaybeCompiler(
+        release, config, cpuTransformer);
   }
 }

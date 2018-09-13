@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -175,6 +176,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
   private final Label crosstoolTop;
+  private final String transformedCpuFromOptions;
+  private final String compilerFromOptions;
   private final CrosstoolFile crosstoolFile;
   // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
   // that the CPU we get from the toolchain matches BuildConfiguration.Options.cpu . So we store
@@ -263,6 +266,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     return new CppConfiguration(
         params.crosstoolTop,
+        params.transformedCpu,
+        params.compiler,
         params.crosstoolFile,
         Preconditions.checkNotNull(params.commonOptions.cpu),
         crosstoolTopPathFragment,
@@ -299,6 +304,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   private CppConfiguration(
       Label crosstoolTop,
+      String transformedCpuFromOptions,
+      String compilerFromOptions,
       CrosstoolFile crosstoolFile,
       String desiredCpu,
       PathFragment crosstoolTopPathFragment,
@@ -327,6 +334,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       boolean shouldProvideMakeVariables,
       CppToolchainInfo cppToolchainInfo) {
     this.crosstoolTop = crosstoolTop;
+    this.transformedCpuFromOptions = transformedCpuFromOptions;
+    this.compilerFromOptions = compilerFromOptions;
     this.crosstoolFile = crosstoolFile;
     this.desiredCpu = desiredCpu;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -896,6 +905,20 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** Returns true if --start_end_lib is set on this build. */
   public boolean startEndLibIsRequested() {
     return cppOptions.useStartEndLib;
+  }
+
+  /**
+   * @return value from the --cpu option transformed using {@link CpuTransformer}. If it was not
+   *     passed explicitly, {@link AutoCpuConverter} will try to guess something reasonable.
+   */
+  public String getTransformedCpuFromOptions() {
+    return transformedCpuFromOptions;
+  }
+
+  /** @return value from --compiler option, null if the option was not passed. */
+  @Nullable
+  public String getCompilerFromOptions() {
+    return compilerFromOptions;
   }
 
   public boolean legacyWholeArchive() {

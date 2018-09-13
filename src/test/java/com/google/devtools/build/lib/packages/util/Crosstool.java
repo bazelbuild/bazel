@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
@@ -114,17 +115,20 @@ final class Crosstool {
     TextFormat.merge(crosstoolFileContents, configBuilder);
     StringBuilder compilerMap = new StringBuilder();
     // Remove duplicates
-    Set<String> keys = new LinkedHashSet<>();
+    Set<Pair<String, String>> keys = new LinkedHashSet<>();
     for (CrosstoolConfig.CToolchain toolchain : configBuilder.build().getToolchainList()) {
-      String key = String.format("%s|%s", toolchain.getTargetCpu(), toolchain.getCompiler());
+      Pair<String, String> key = Pair.of(toolchain.getTargetCpu(), toolchain.getCompiler());
       if (!keys.contains(key)) {
         keys.add(key);
         compilerMap.append(
-            String.format("'%s': ':cc-compiler-%s',\n", key, toolchain.getTargetCpu()));
+            String.format(
+                "'%s|%s': ':cc-compiler-%s-%s',\n", key.first, key.second, key.first, key.second));
       }
     }
 
-    for (String arch : archs) {
+    for (Pair<String, String> key : keys) {
+      String cpu = key.first;
+      String compiler = key.second;
       String compilerRule;
       String staticRuntimesString =
           staticRuntimesLabel == null ? "" : ", '" + staticRuntimesLabel + "'";
@@ -135,28 +139,28 @@ final class Crosstool {
           Joiner.on("\n")
               .join(
                   "cc_toolchain(",
-                  "    name = 'cc-compiler-" + arch + "',",
+                  "    name = 'cc-compiler-" + cpu + "-" + compiler + "',",
                   "    output_licenses = ['unencumbered'],",
                   addModuleMap ? "    module_map = 'crosstool.cppmap'," : "",
-                  "    cpu = '" + arch + "',",
-                  "    compiler = 'gcc-4.4.0',",
-                  "    ar_files = 'ar-" + arch + "',",
-                  "    as_files = 'as-" + arch + "',",
-                  "    compiler_files = 'compile-" + arch + "',",
-                  "    dwp_files = 'dwp-" + arch + "',",
-                  "    linker_files = 'link-" + arch + "',",
+                  "    cpu = '" + cpu + "',",
+                  "    compiler = '" + compiler + "',",
+                  "    ar_files = 'ar-" + cpu + "',",
+                  "    as_files = 'as-" + cpu + "',",
+                  "    compiler_files = 'compile-" + cpu + "',",
+                  "    dwp_files = 'dwp-" + cpu + "',",
+                  "    linker_files = 'link-" + cpu + "',",
                   "    strip_files = ':every-file',",
-                  "    objcopy_files = 'objcopy-" + arch + "',",
+                  "    objcopy_files = 'objcopy-" + cpu + "',",
                   "    all_files = ':every-file',",
                   "    licenses = ['unencumbered'],",
                   supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
                   "    dynamic_runtime_libs = ['dynamic-runtime-libs-"
-                      + arch
+                      + cpu
                       + "'"
                       + dynamicRuntimesString
                       + "],",
                   "    static_runtime_libs = ['static-runtime-libs-"
-                      + arch
+                      + cpu
                       + "'"
                       + staticRuntimesString
                       + "])");

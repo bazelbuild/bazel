@@ -22,11 +22,6 @@ default_toolchain {
 }
 
 default_toolchain {
-  cpu: "local"
-  toolchain_identifier: "stub_armeabi-v7a"
-}
-
-default_toolchain {
   cpu: "armeabi-v7a"
   toolchain_identifier: "stub_armeabi-v7a"
 }

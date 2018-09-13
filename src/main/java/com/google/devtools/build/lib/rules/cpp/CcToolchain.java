@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -689,11 +688,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // Attempt to find a toolchain based on the target attributes, not the configuration.
     CToolchain toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
 
-    if (toolchain == null) {
-      // Fall back to the toolchain info in the current configuration.
-      return cppConfiguration.getCppToolchainInfo();
-    }
-
     // If we found a toolchain, use it.
     try {
       toolchain =
@@ -770,13 +764,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Nullable
   private CToolchain getToolchainFromAttributes(
       RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
-    PlatformConfiguration platformConfig =
-        Preconditions.checkNotNull(ruleContext.getFragment(PlatformConfiguration.class));
-
-    if (!platformConfig.isToolchainTypeEnabled(
-        CppHelper.getToolchainTypeFromRuleClass(ruleContext))) {
-      return null;
-    }
 
     // Is there a toolchain proto available on the target directly?
     CToolchain toolchain = parseToolchainFromAttributes(ruleContext);
@@ -784,27 +771,21 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return toolchain;
     }
 
-    // Use the attributes to find the proper toolchain from the CROSSTOOL.
-    if (ruleContext.attributes().get("cpu", Type.STRING).isEmpty()) {
-      ruleContext.throwWithRuleError("Using cc_toolchain target requires the attribute 'cpu' "
-          + "to be present");
-    }
-
+    String toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
     String cpu = ruleContext.attributes().get("cpu", Type.STRING);
     String compiler = ruleContext.attributes().get("compiler", Type.STRING);
-    if (compiler.isEmpty()) {
-      compiler = null;
-    }
-    CrosstoolConfigurationIdentifier config = new CrosstoolConfigurationIdentifier(cpu, compiler);
-
     try {
-      return CrosstoolConfigurationLoader.selectToolchain(
+      return CToolchainSelectionUtils.selectCToolchain(
+          toolchainIdentifier,
+          cpu,
+          compiler,
+          cppConfiguration.getTransformedCpuFromOptions(),
+          cppConfiguration.getCompilerFromOptions(),
           cppConfiguration.getCrosstoolFile().getProto(),
-          config,
           cppConfiguration.getCpuTransformer());
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(
-          String.format("Error while using cc_toolchain: %s", e.getMessage()));
+          String.format("Error while selecting cc_toolchain: %s", e.getMessage()));
       return null;
     }
   }
