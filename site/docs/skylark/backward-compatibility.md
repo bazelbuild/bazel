@@ -49,6 +49,8 @@ guarded behind flags in the current release:
 *   [Static Name Resolution](#static-name-resolution)
 *   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
+*   [Disable depsets in C++ toolchain API in user
+    flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
 
 
 ### Dictionary concatenation
@@ -439,8 +441,8 @@ The proposal is not fully implemented yet.
 
 ### Disable InMemory Tools Defaults Package
 
-If false, Bazel constructs an in-memory //tools/defaults package based on the
-command line options. If true, //tools/defaults:* is resolved from file system
+If false, Bazel constructs an in-memory `//tools/defaults` package based on the
+command line options. If true, `//tools/defaults:*` is resolved from file system
 as a regular package.
 
 *   Flag: `--incompatible_disable_tools_defaults_package`
@@ -475,9 +477,10 @@ Please replace all occurrences:
 *   `//tools/defaults:crosstool`
     *   by `@bazel_tools//tools/cpp:current_cc_toolchain`
     *   or/and `@bazel_tools//tools/cpp:current_cc_host_toolchain`
-    *   if you need reference to libc_top, then `@bazel_tools//tools/cpp:current_libc_top`
+    *   if you need reference to `libc_top`, then `@bazel_tools//tools/cpp:current_libc_top`
 
 These targets will not be supported any more:
+
 *   `//tools/defaults:coverage_report_generator`
 *   `//tools/defaults:coverage_support`
 
@@ -517,4 +520,17 @@ config_setting(
 *   Default: `false`
 *   Introduced in: `0.18.0`
 
+### Disable depsets in C++ toolchain API in user flags
+
+If true, Bazel will no longer accept depsets in `user_compile_flags` for
+[create\_compile\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_compile_variables),
+and in `user_link_flags` for
+[create\_link\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_link_variables).
+Use plain lists instead.
+
+*   Flag: `--incompatible_disable_depset_in_cc_user_flags`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
 <!-- Add new options here -->
+
