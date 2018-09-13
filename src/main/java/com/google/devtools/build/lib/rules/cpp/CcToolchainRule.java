@@ -109,8 +109,8 @@ public final class CcToolchainRule implements RuleDefinition {
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
         .add(attr("output_licenses", LICENSE))
-        .add(attr("cpu", STRING).mandatory())
-        .add(attr("compiler", STRING))
+        .add(attr("cpu", STRING).nonconfigurable("Used in configuration creation").mandatory())
+        .add(attr("compiler", STRING).nonconfigurable("Used in configuration creation"))
         .add(
             attr("all_files", LABEL)
                 .legacyAllowAnyFileType()
