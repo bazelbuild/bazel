@@ -56,10 +56,8 @@ class Path {
   Path() {}
   Path(const Path& other) = delete;
   Path& operator=(const Path& other) = delete;
-  Path(const wchar_t* value);
-  Path& operator=(const wchar_t* value);
-  Path& operator=(const std::wstring& value);
   const std::wstring& Get() const { return path_; }
+  bool Set(const std::wstring& path);
   void Absolutize(const Path& cwd);
 
  private:
@@ -91,19 +89,6 @@ inline void CreateDirectories(const Path& path) {
   blaze_util::MakeDirectoriesW(L"\\\\?\\" + path.Get(), 0777);
 }
 
-inline void AsWindowsPath(wchar_t* path) {
-  while (*path) {
-    if (*path == L'/') {
-      *path = L'\\';
-    }
-    path++;
-  }
-}
-
-inline void AsWindowsPath(std::wstring* path) {
-  std::replace(path->begin(), path->end(), L'/', L'\\');
-}
-
 bool GetEnv(const wchar_t* name, std::wstring* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
@@ -131,9 +116,7 @@ bool GetPathEnv(const wchar_t* name, Path* result) {
   if (!GetEnv(name, &value)) {
     return false;
   }
-  AsWindowsPath(&value);
-  *result = value;
-  return true;
+  return result->Set(value);
 }
 
 bool SetEnv(const wchar_t* name, const std::wstring& value) {
@@ -152,16 +135,11 @@ bool GetCwd(Path* result) {
   DWORD size = GetCurrentDirectoryW(kSmallBuf, value);
   DWORD err = GetLastError();
   if (size > 0 && size < kSmallBuf) {
-    AsWindowsPath(value);
-    *result = value;
-    return true;
+    return result->Set(value);
   } else if (size >= kSmallBuf) {
     std::unique_ptr<WCHAR[]> value_big(new WCHAR[size]);
     GetCurrentDirectoryW(size, value_big.get());
-    *result = value_big.get();
-    AsWindowsPath(value_big.get());
-    *result = value_big.get();
-    return true;
+    return result->Set(value_big.get());
   } else {
     LogErrorWithValue(__LINE__, "Failed to get current directory", err);
     return false;
@@ -272,14 +250,7 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
     }
   }
 
-  std::string error;
-  std::wstring wpath;
-  if (!blaze_util::AsWindowsPath(test_path, &wpath, &error)) {
-    LogError(__LINE__, error.c_str());
-    return false;
-  }
-  *result = wpath;
-  return true;
+  return result->Set(test_path);
 }
 
 bool StartSubprocess(const Path& path, HANDLE* process) {
@@ -326,19 +297,15 @@ int WaitForSubprocess(HANDLE process) {
   }
 }
 
-Path::Path(const wchar_t* value) {
-  path_ = value;
-  AsWindowsPath(&path_);
-}
-
-Path& Path::operator=(const wchar_t* value) {
-  path_ = value;
-  return *this;
-}
-
-Path& Path::operator=(const std::wstring& value) {
-  path_ = value;
-  return *this;
+bool Path::Set(const std::wstring& path) {
+  std::wstring result;
+  std::string error;
+  if (!blaze_util::AsWindowsPath(path, &result, &error)) {
+    LogError(__LINE__, error.c_str());
+    return false;
+  }
+  path_ = result;
+  return true;
 }
 
 void Path::Absolutize(const Path& cwd) {
@@ -353,7 +320,10 @@ int wmain(int argc, wchar_t** argv) {
   // TODO(laszlocsomor): Implement the functionality described in
   // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
 
-  const Path argv0 = argv[0];
+  Path argv0;
+  if (!argv0.Set(argv[0])) {
+    return 1;
+  }
   argc--;
   argv++;
   bool suppress_output = false;
