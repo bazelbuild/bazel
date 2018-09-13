@@ -262,7 +262,6 @@ public final class PackageFactory {
 
   public static final String PKG_CONTEXT = "$pkg_context";
 
-  // Used outside of Bazel!
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
     private final GlobCache globCache;
