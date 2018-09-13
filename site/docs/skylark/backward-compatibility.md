@@ -51,6 +51,7 @@ guarded behind flags in the current release:
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
 *   [Disable depsets in C++ toolchain API in user
     flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
+*   [Disallow using CROSSTOOL to select the cc_toolchain label](#disable-cc-toolchain-label-from-crosstool-proto)
 
 
 ### Dictionary concatenation
@@ -529,6 +530,57 @@ and in `user_link_flags` for
 Use plain lists instead.
 
 *   Flag: `--incompatible_disable_depset_in_cc_user_flags`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
+### Disallow using CROSSTOOL to select the cc_toolchain label
+
+Currently Bazel selects the `cc_toolchain` to use from the `toolchains`
+dictionary attribute of `cc_toolchain_suite`. The key it uses is constructed
+the following way:
+
+*   If `--compiler` option is specified, the key is `--cpu|--compiler`. Bazel
+     errors out if the entry doesn't exist.
+*   If `--compiler` option was not specified on command line, Bazel checks if
+     an entry with the key `--cpu` exists, and uses it if it does. If such an
+     entry doesn't exist, it loops through the `default_toolchain` list in the
+     CROSSTOOL file, selects the first one that matches the `--cpu` option,
+     finds the `CToolchain` whose identifier matches the
+     `default_toolchain.toolchain_identifier` field, and then uses the key
+     `CToolchain.targetCpu|Ctoolchain.compiler`. It errors out if the entry
+     doesn't exist.
+
+We're making selection of the `cc_toolchain` label independent of the
+CROSSTOOL file: when the flag is set to True, Bazel will no longer loop
+through the `default_toolchain` list in order to construct a key for selecting
+a `cc_toolchain` label from `cc_toolchain_suite.toolchains`, but throw an error
+instead.
+
+In order to not be affected by this change, one should add entries in the
+`cc_toolchain_suite.toolchains` for the potential values of `--cpu`:
+
+```python
+# Before
+cc_toolchain_suite(
+    toolchains = {
+        'cpu1|compiler1' : ':cc_toolchain_label1',
+        'cpu2|compiler2' : ':cc_tolchain_label2',
+    }
+)
+
+# After
+cc_toolchain_suite(
+    toolchains = {
+        'cpu1|compiler1' : ':cc_toolchain_label1',
+        'cpu2|compiler2' : ':cc_toolchain_label2',
+        'cpu1' : ':cc_toolchain_label3',
+        'cpu2' : ':cc_tolchain_label4',
+    }
+)
+
+```
+
+*   Flag: `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
 *   Default: `false`
 *   Introduced in: `0.18.0`
 
