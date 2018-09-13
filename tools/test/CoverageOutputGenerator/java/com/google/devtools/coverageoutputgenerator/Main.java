@@ -14,7 +14,6 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.devtools.coverageoutputgenerator.Constants.COVERAGE_METADATA_FILE_EXTENSIONS;
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -99,18 +98,12 @@ public class Main {
    */
   private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
     Set<String> sourceFiles = new HashSet<>();
-    try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest))) {
-      InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
-      BufferedReader reader = new BufferedReader(inputStreamReader);
+    try (
+        FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest));
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
+        BufferedReader reader = new BufferedReader(inputStreamReader)) {
       for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-        boolean isMetadataFile = false;
-        for (String metadataFileExt : COVERAGE_METADATA_FILE_EXTENSIONS) {
-          if (line.endsWith(metadataFileExt)) {
-            isMetadataFile = true;
-            break;
-          }
-        }
-        if (!isMetadataFile) {
+        if (!isMetadataFile(line)) {
           sourceFiles.add(line);
         }
       }
@@ -119,6 +112,10 @@ public class Main {
           Level.SEVERE, "Error reading file " + sourceFileManifest + ": " + e.getMessage());
     }
     return sourceFiles;
+  }
+
+  private static boolean isMetadataFile(String filename) {
+    return filename.endsWith(".gcno") || filename.endsWith(".em");
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {

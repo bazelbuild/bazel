@@ -48,8 +48,8 @@ class Coverage {
   }
 
   /**
-   * Returns {@link Coverage} only for the given source filenames, filtering out everything else in
-   * the given coverage away.
+   * <p> Returns {@link Coverage} only for the given source filenames, filtering out everything
+   * else in the given coverage.
    *
    * @param coverage The initial coverage.
    * @param sourcesToKeep The filenames of the sources to keep from the initial coverage.
