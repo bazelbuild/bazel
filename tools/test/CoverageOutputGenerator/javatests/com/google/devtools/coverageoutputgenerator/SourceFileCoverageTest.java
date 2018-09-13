@@ -74,5 +74,4 @@ public class SourceFileCoverageTest {
     assertMergedSourceFile(
         SourceFileCoverage.merge(sourceFile1, sourceFile2), linesExecution1, linesExecution2);
   }
-
 }
