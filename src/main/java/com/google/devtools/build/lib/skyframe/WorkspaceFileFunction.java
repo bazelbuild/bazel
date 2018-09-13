@@ -87,7 +87,7 @@ public class WorkspaceFileFunction implements SkyFunction {
             /* importMap = */ ImmutableMap.<String, Extension>of(),
             /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
-            /* repositoryMapping = */ ImmutableMap.<RepositoryName, RepositoryName>of(),
+            /* repositoryMapping = */ ImmutableMap.<RepositoryName, Map<RepositoryName, RepositoryName>>of(),
             workspaceRoot,
             /* idx = */ 0, // first fragment
             /* hasNext = */ false);
@@ -119,7 +119,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         if (prevValue.next() == null) {
           return prevValue;
         }
-        parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
+        parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings(), prevValue.getRepositoryMapping());
       }
       BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
       PackageFunction.SkylarkImportResult importResult = PackageFunction.fetchImportsFromBuildFile(
@@ -140,7 +140,7 @@ public class WorkspaceFileFunction implements SkyFunction {
           parser.getImportMap(),
           createImportToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
-          /* NEED TO CHANGE THIS TO THE REAL THING */ ImmutableMap.of(),
+          parser.getRepositoryMappings(),
           workspaceRoot,
           key.getIndex(),
           key.getIndex() < workspaceASTValue.getASTs().size() - 1);

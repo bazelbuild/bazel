@@ -29,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 /**
@@ -103,7 +104,7 @@ public class WorkspaceFileValue implements SkyValue {
   private final ImmutableMap<String, Object> bindings;
   private final ImmutableMap<String, Extension> importMap;
   private final ImmutableMap<String, Integer> importToChunkMap;
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> repositoryMapping;
 
   /**
    * Create a WorkspaceFileValue containing the various values necessary to compute the split
@@ -117,6 +118,8 @@ public class WorkspaceFileValue implements SkyValue {
    * @param bindings List of top-level variable bindings from the all parts of the split WORKSPACE
    *     file up to this one. The key is the name of the bindings and the value is the actual
    *     object.
+   * @param repositoryMapping Repository name remappings for all repositories found in the
+   *     WORKSPACE file so far.
    * @param path The rooted path to workspace file to parse.
    * @param idx The index of this part of the split WORKSPACE file (0 for the first one, 1 for the
    *     second one and so on).
@@ -127,7 +130,7 @@ public class WorkspaceFileValue implements SkyValue {
       Map<String, Extension> importMap,
       Map<String, Integer> importToChunkMap,
       Map<String, Object> bindings,
-      Map<RepositoryName, RepositoryName> repositoryMapping,
+      Map<RepositoryName, Map<RepositoryName, RepositoryName>> repositoryMapping,
       RootedPath path,
       int idx,
       boolean hasNext) {
@@ -138,7 +141,11 @@ public class WorkspaceFileValue implements SkyValue {
     this.bindings = ImmutableMap.copyOf(bindings);
     this.importMap = ImmutableMap.copyOf(importMap);
     this.importToChunkMap = ImmutableMap.copyOf(importToChunkMap);
-    this.repositoryMapping = ImmutableMap.copyOf(repositoryMapping);
+    ImmutableMap.Builder builder = ImmutableMap.builder();
+    for (Map.Entry<RepositoryName, Map<RepositoryName, RepositoryName>> e : repositoryMapping.entrySet()) {
+      builder.put(e.getKey(), ImmutableMap.copyOf(e.getValue()));
+    }
+    this.repositoryMapping = builder.build();
   }
 
   /**
@@ -216,7 +223,7 @@ public class WorkspaceFileValue implements SkyValue {
     return importToChunkMap;
   }
 
-  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+  public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> getRepositoryMapping() {
     return repositoryMapping;
   }
 }

@@ -102,6 +102,8 @@ public class WorkspaceFactory {
   private ImmutableMap<String, Extension> importMap = ImmutableMap.of();
   // List of top level variable bindings
   private ImmutableMap<String, Object> variableBindings = ImmutableMap.of();
+  // Repository name remappings for all external repositories declared in this chunk
+  private static Map<RepositoryName, Map<RepositoryName, RepositoryName>> repositoryMappings;
 
   private final SkylarkSemantics skylarkSemantics;
 
@@ -136,6 +138,7 @@ public class WorkspaceFactory {
     this.workspaceFunctions = WorkspaceFactory.createWorkspaceFunctions(
         allowOverride, ruleFactory);
     this.skylarkSemantics = skylarkSemantics;
+    this.repositoryMappings = new HashMap<RepositoryName, Map<RepositoryName, RepositoryName>>();
   }
 
   /**
@@ -258,7 +261,8 @@ public class WorkspaceFactory {
   public void setParent(
       Package aPackage,
       ImmutableMap<String, Extension> importMap,
-      ImmutableMap<String, Object> bindings)
+      ImmutableMap<String, Object> bindings,
+      ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> repositoryMappings)
       throws NameConflictException, InterruptedException {
     this.parentVariableBindings = bindings;
     this.parentImportMap = importMap;
@@ -290,6 +294,13 @@ public class WorkspaceFactory {
         // This rule has already been created once, so it should have worked the second time, too
         throw new IllegalStateException(e);
       }
+    }
+
+    // add repository mappings from all previous chunks to this chunk
+    for (Map.Entry<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>> e : repositoryMappings.entrySet()) {
+      Map<RepositoryName, RepositoryName> mapping = new HashMap<RepositoryName, RepositoryName>();
+      mapping.putAll(e.getValue());
+      this.repositoryMappings.put(e.getKey(), mapping);
     }
   }
 
@@ -500,23 +511,29 @@ public class WorkspaceFactory {
                   RepositoryName.MAIN);
             }
           }
-          if (env.getSemantics().experimentalEnableRepoMapping()) {
-            if (kwargs.containsKey("repo_mapping")) {
-              if (!(kwargs.get("repo_mapping") instanceof Map)) {
-                throw new EvalException(
-                    ast.getLocation(),
-                    "Invalid value for 'repo_mapping': '"
-                        + kwargs.get("repo_mapping")
-                        + "'. Value must be a map.");
-              }
-              @SuppressWarnings("unchecked")
-              Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
-              for (Map.Entry<String, String> e : map.entrySet()) {
-                builder.addRepositoryMappingEntry(
-                    RepositoryName.createFromValidStrippedName(externalRepoName),
-                    RepositoryName.create((String) e.getKey()),
-                    RepositoryName.create((String) e.getValue()));
-              }
+          if (env.getSemantics().experimentalEnableRepoMapping() && kwargs.containsKey("repo_mapping")) {
+            if (!(kwargs.get("repo_mapping") instanceof Map)) {
+              throw new EvalException(
+                  ast.getLocation(),
+                  "Invalid value for 'repo_mapping': '"
+                      + kwargs.get("repo_mapping")
+                      + "'. Value must be a map.");
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, String> map = (Map<String, String>) kwargs.get("repo_mapping");
+            for (Map.Entry<String, String> e : map.entrySet()) {
+              RepositoryName repoWithin = RepositoryName.createFromValidStrippedName(externalRepoName);
+              RepositoryName localName = RepositoryName.create((String) e.getKey());
+              RepositoryName mappedName = RepositoryName.create((String) e.getValue());
+
+              // add to package builder
+              builder.addRepositoryMappingEntry(repoWithin, localName, mappedName);
+
+              // add to workspace factory map too
+              Map<RepositoryName, RepositoryName> mapping =
+                  repositoryMappings
+                      .computeIfAbsent(repoWithin, (RepositoryName k) -> new HashMap<>());
+              mapping.put(localName, mappedName);
             }
           }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
@@ -646,5 +663,9 @@ public class WorkspaceFactory {
 
   public Map<String, Object> getVariableBindings() {
     return variableBindings;
+  }
+
+  public Map<RepositoryName, Map<RepositoryName, RepositoryName>> getRepositoryMappings() {
+    return repositoryMappings;
   }
 }
