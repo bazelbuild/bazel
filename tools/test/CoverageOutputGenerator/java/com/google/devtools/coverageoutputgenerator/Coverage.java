@@ -48,7 +48,7 @@ class Coverage {
   }
 
   /**
-   * <p> Returns {@link Coverage} only for the given source filenames, filtering out everything
+   * Returns {@link Coverage} only for the given source filenames, filtering out everything
    * else in the given coverage.
    *
    * @param coverage The initial coverage.

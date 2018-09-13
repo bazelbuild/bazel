@@ -90,10 +90,10 @@ public class Main {
   /**
    * Returns a set of source file names from the given manifest.
    *
-   * The manifest contains file names line by line. Each file can either be a source file (e.g.
+   * <p> The manifest contains file names line by line. Each file can either be a source file (e.g.
    * .java, .cc) or a coverage metadata file (e.g. .gcno, .em).
    *
-   * This method only returns the source files, ignoring the coverage metadata files as they are
+   * <p> This method only returns the source files, ignoring the coverage metadata files as they are
    * not relevant when putting together the final coverage report.
    */
   private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
