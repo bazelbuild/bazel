@@ -301,7 +301,8 @@ static bool NormalizeWindowsPath(const std::basic_string<char_type>& path,
                 : path.substr(seg_start, i - seg_start);
         if (seg == kDotDot) {
           if (segments.empty() || segments.back() == kDotDot) {
-            // Preserve ".." if the path is relative and ".." is at the front.
+            // Preserve ".." if the path is relative and there are only ".."
+            // segment(s) at the front.
             segments.push_back(seg);
             total_len += 2;
           } else if (segments.size() == 1 && segments.back() == kDot) {
