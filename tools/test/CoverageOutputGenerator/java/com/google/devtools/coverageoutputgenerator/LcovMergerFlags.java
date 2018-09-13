@@ -32,12 +32,23 @@ abstract class LcovMergerFlags {
 
   abstract List<String> filterSources();
 
+  /**
+   * The path to a source file manifest. This file contains multiple lines that represent file names
+   * of the sources that the final coverage report must include. Additionally this file can also
+   * contain coverage metadata files (e.g. gcno, .em), which can be ignored.
+   *
+   * @return
+   */
+  @Nullable
+  abstract String sourceFileManifest();
+
   /** Parse flags in the form of "--coverage_dir=... -output_file=..." */
   static LcovMergerFlags parseFlags(String[] args) {
     ImmutableList.Builder<String> filterSources = new ImmutableList.Builder<>();
     String coverageDir = null;
     String reportsFile = null;
     String outputFile = null;
+    String sourceFileManifest = null;
 
     for (String arg : args) {
       if (!arg.startsWith("--")) {
@@ -60,6 +71,9 @@ abstract class LcovMergerFlags {
         case "filter_sources":
           filterSources.add(parts[1]);
           break;
+        case "source_file_manifest":
+          sourceFileManifest = parts[1];
+          break;
         default:
           throw new IllegalArgumentException("Unknown flag " + arg);
       }
@@ -77,6 +91,10 @@ abstract class LcovMergerFlags {
       throw new IllegalArgumentException("--output_file was not specified.");
     }
     return new AutoValue_LcovMergerFlags(
-        coverageDir, reportsFile, outputFile, filterSources.build());
+        coverageDir, reportsFile, outputFile, filterSources.build(), sourceFileManifest);
+  }
+
+  boolean hasSourceFileManifest() {
+    return sourceFileManifest() != null;
   }
 }

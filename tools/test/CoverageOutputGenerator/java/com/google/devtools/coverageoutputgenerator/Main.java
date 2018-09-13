@@ -30,7 +30,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -67,6 +69,12 @@ public class Main {
       coverage = Coverage.filterOutMatchingSources(coverage, flags.filterSources());
     }
 
+    if (flags.hasSourceFileManifest()) {
+      coverage =
+          Coverage.getOnlyTheseSources(
+              coverage, getSourcesFromSourceFileManifest(flags.sourceFileManifest()));
+    }
+
     int exitStatus = 0;
     String outputFile = flags.outputFile();
     try {
@@ -78,6 +86,35 @@ public class Main {
       exitStatus = 1;
     }
     System.exit(exitStatus);
+  }
+
+  /**
+   * Returns a set of source file names from the given manifest.
+   *
+   * <p>The manifest contains file names line by line. Each file can either be a source file (e.g.
+   * .java, .cc) or a coverage metadata file (e.g. .gcno, .em).
+   *
+   * <p>This method only returns the source files, ignoring the coverage metadata files as they are
+   * not relevant when putting together the final coverage report.
+   */
+  private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
+    Set<String> sourceFiles = new HashSet<>();
+    try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest));
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
+        BufferedReader reader = new BufferedReader(inputStreamReader)) {
+      for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+        if (!isMetadataFile(line)) {
+          sourceFiles.add(line);
+        }
+      }
+    } catch (IOException e) {
+      logger.log(Level.SEVERE, "Error reading file " + sourceFileManifest + ": " + e.getMessage());
+    }
+    return sourceFiles;
+  }
+
+  private static boolean isMetadataFile(String filename) {
+    return filename.endsWith(".gcno") || filename.endsWith(".em");
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
