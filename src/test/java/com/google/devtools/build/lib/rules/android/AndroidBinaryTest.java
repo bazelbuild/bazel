@@ -1250,7 +1250,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_binary(name = 'r',",
         "  manifest = 'AndroidManifest.xml',",
         "  resource_files = ['res/" + badQualifierDir + "/foo.xml'],",
-        "  prefilter_resources = 1,",
         "  resource_configuration_filters = ['en'])");
   }
 
