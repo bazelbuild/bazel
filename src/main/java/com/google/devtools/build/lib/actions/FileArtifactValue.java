@@ -168,11 +168,12 @@ public abstract class FileArtifactValue implements SkyValue {
   }
 
   public static FileArtifactValue create(
-      Artifact artifact, FileValue fileValue, @Nullable byte[] injectedDigest) throws IOException {
+      Artifact artifact, ArtifactPathResolver resolver, FileValue fileValue,
+      @Nullable byte[] injectedDigest) throws IOException {
     boolean isFile = fileValue.isFile();
     FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
     return create(
-        artifact.getPath(), isFile, isFile ? fileValue.getSize() : 0, proxy, injectedDigest);
+        resolver.toPath(artifact), isFile, isFile ? fileValue.getSize() : 0, proxy, injectedDigest);
   }
 
   @VisibleForTesting
