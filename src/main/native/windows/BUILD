@@ -36,6 +36,7 @@ cc_library(
         "//src/main/cpp:__subpackages__",
         "//src/test/cpp:__subpackages__",
         "//src/test/native:__subpackages__",
+        "//tools/test:__pkg__",
     ],
     deps = [":lib-util"],
 )

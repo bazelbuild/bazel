@@ -18,6 +18,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <lmcons.h>  // UNLEN
 
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows/file.h"
 #include "tools/cpp/runfiles/runfiles.h"
 
 namespace {
@@ -54,39 +56,41 @@ class Path {
   Path() {}
   Path(const Path& other) = delete;
   Path& operator=(const Path& other) = delete;
-  Path(const wchar_t* value);
-  Path& operator=(const std::wstring& value);
   const std::wstring& Get() const { return path_; }
+  bool Set(const std::wstring& path);
+  void Absolutize(const Path& cwd);
 
  private:
   std::wstring path_;
 };
 
 void LogError(const int line, const char* msg) {
-  fprintf(stderr, "ERROR(" __FILE__ ":%d) %s\n", line, msg);
+  printf("ERROR(" __FILE__ ":%d) %s\n", line, msg);
 }
 
 void LogErrorWithValue(const int line, const char* msg, DWORD error_code) {
-  fprintf(stderr, "ERROR(" __FILE__ ":%d) error code: %d (0x%08x): %s\n", line,
+  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x): %s\n", line,
           error_code, error_code, msg);
 }
 
 void LogErrorWithArgAndValue(const int line, const char* msg, const char* arg,
                              DWORD error_code) {
-  fprintf(stderr,
-          "ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %s: %s\n",
-          line, error_code, error_code, arg, msg);
+  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %s: %s\n",
+         line, error_code, error_code, arg, msg);
 }
 
 void LogErrorWithArgAndValue(const int line, const char* msg,
                              const wchar_t* arg, DWORD error_code) {
-  fprintf(stderr,
-          "ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %ls: %s\n",
-          line, error_code, error_code, arg, msg);
+  printf("ERROR(" __FILE__ ":%d) error code: %d (0x%08x), argument: %ls: %s\n",
+         line, error_code, error_code, arg, msg);
 }
 
-inline void AsWindowsPath(std::wstring* path) {
-  std::replace(path->begin(), path->end(), L'/', L'\\');
+inline void CreateDirectories(const Path& path) {
+  blaze_util::MakeDirectoriesW(
+      bazel::windows::HasUncPrefix(path.Get().c_str())
+          ? path.Get()
+          : L"\\\\?\\" + path.Get(),
+      0777);
 }
 
 bool GetEnv(const wchar_t* name, std::wstring* result) {
@@ -109,6 +113,87 @@ bool GetEnv(const wchar_t* name, std::wstring* result) {
     LogErrorWithArgAndValue(__LINE__, "Failed to read envvar", name, err);
     return false;
   }
+}
+
+bool GetPathEnv(const wchar_t* name, Path* result) {
+  std::wstring value;
+  if (!GetEnv(name, &value)) {
+    return false;
+  }
+  return result->Set(value);
+}
+
+bool SetEnv(const wchar_t* name, const std::wstring& value) {
+  if (SetEnvironmentVariableW(name, value.c_str()) != 0) {
+    return true;
+  } else {
+    LogErrorWithArgAndValue(__LINE__, "Failed to set envvar", name,
+                            GetLastError());
+    return false;
+  }
+}
+
+bool GetCwd(Path* result) {
+  static constexpr size_t kSmallBuf = MAX_PATH;
+  WCHAR value[kSmallBuf];
+  DWORD size = GetCurrentDirectoryW(kSmallBuf, value);
+  DWORD err = GetLastError();
+  if (size > 0 && size < kSmallBuf) {
+    return result->Set(value);
+  } else if (size >= kSmallBuf) {
+    std::unique_ptr<WCHAR[]> value_big(new WCHAR[size]);
+    GetCurrentDirectoryW(size, value_big.get());
+    return result->Set(value_big.get());
+  } else {
+    LogErrorWithValue(__LINE__, "Failed to get current directory", err);
+    return false;
+  }
+}
+
+bool ExportUserName() {
+  std::wstring value;
+  if (!GetEnv(L"USER", &value)) {
+    return false;
+  }
+  if (!value.empty()) {
+    // Respect the value passed by Bazel via --test_env.
+    return true;
+  }
+  WCHAR buffer[UNLEN + 1];
+  DWORD len = UNLEN + 1;
+  if (GetUserNameW(buffer, &len) == 0) {
+    LogErrorWithValue(__LINE__, "Failed to query user name", GetLastError());
+    return false;
+  }
+  return SetEnv(L"USER", buffer);
+}
+
+bool ExportSrcPath(const Path& cwd, Path* result) {
+  if (!GetPathEnv(L"TEST_SRCDIR", result)) {
+    return false;
+  }
+  if (blaze_util::IsAbsolute(result->Get())) {
+    return true;
+  } else {
+    result->Absolutize(cwd);
+    return SetEnv(L"TEST_SRCDIR", result->Get());
+  }
+}
+
+bool ExportTmpPath(const Path& cwd, Path* result) {
+  if (!GetPathEnv(L"TEST_TMPDIR", result)) {
+    return false;
+  }
+  if (!blaze_util::IsAbsolute(result->Get())) {
+    result->Absolutize(cwd);
+    if (!SetEnv(L"TEST_TMPDIR", result->Get())) {
+      return false;
+    }
+  }
+  // Create the test temp directory, which may not exist on the remote host when
+  // doing a remote build.
+  CreateDirectories(*result);
+  return true;
 }
 
 inline void PrintTestLogStartMarker() {
@@ -169,14 +254,7 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
     }
   }
 
-  std::string error;
-  std::wstring wpath;
-  if (!blaze_util::AsWindowsPath(test_path, &wpath, &error)) {
-    LogError(__LINE__, error.c_str());
-    return false;
-  }
-  *result = wpath;
-  return true;
+  return result->Set(test_path);
 }
 
 bool StartSubprocess(const Path& path, HANDLE* process) {
@@ -223,14 +301,21 @@ int WaitForSubprocess(HANDLE process) {
   }
 }
 
-Path::Path(const wchar_t* value) {
-  path_ = value;
-  AsWindowsPath(&path_);
+bool Path::Set(const std::wstring& path) {
+  std::wstring result;
+  std::string error;
+  if (!blaze_util::AsWindowsPath(path, &result, &error)) {
+    LogError(__LINE__, error.c_str());
+    return false;
+  }
+  path_ = result;
+  return true;
 }
 
-Path& Path::operator=(const std::wstring& value) {
-  path_ = value;
-  return *this;
+void Path::Absolutize(const Path& cwd) {
+  if (!path_.empty() && !blaze_util::IsAbsolute(path_)) {
+    path_ = cwd.path_ + L"\\" + path_;
+  }
 }
 
 }  // namespace
@@ -239,7 +324,10 @@ int wmain(int argc, wchar_t** argv) {
   // TODO(laszlocsomor): Implement the functionality described in
   // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
 
-  const Path argv0 = argv[0];
+  Path argv0;
+  if (!argv0.Set(argv[0])) {
+    return 1;
+  }
   argc--;
   argv++;
   bool suppress_output = false;
@@ -264,6 +352,17 @@ int wmain(int argc, wchar_t** argv) {
 
   if (!suppress_output) {
     PrintTestLogStartMarker();
+  }
+
+  Path exec_root;
+  if (!GetCwd(&exec_root)) {
+    return 1;
+  }
+
+  Path srcdir, tmpdir, xml_output;
+  if (!ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
+      !ExportTmpPath(exec_root, &tmpdir)) {
+    return 1;
   }
 
   const wchar_t* test_path_arg = argv[0];
