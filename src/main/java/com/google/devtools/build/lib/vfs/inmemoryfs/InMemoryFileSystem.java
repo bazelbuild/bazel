@@ -713,9 +713,9 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public byte[] getxattr(Path path, String name) throws IOException {
+  public byte[] getxattr(Path path, String name, boolean followSymlinks) throws IOException {
     synchronized (this) {
-      InMemoryContentInfo status = inodeStat(path, true);
+      InMemoryContentInfo status = inodeStat(path, followSymlinks);
       if (status.isDirectory()) {
         throw Error.EISDIR.exception(path);
       }

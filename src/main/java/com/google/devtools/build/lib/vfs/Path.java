@@ -731,11 +731,21 @@ public class Path
   }
 
   /**
-   * Returns value of the given extended attribute name or null if attribute does not exist or file
-   * system does not support extended attributes. Follows symlinks.
+   * Returns the value of the given extended attribute name or null if the attribute does not exist
+   * or the file system does not support extended attributes. Follows symlinks.
    */
   public byte[] getxattr(String name) throws IOException {
-    return fileSystem.getxattr(this, name);
+    return getxattr(name, Symlinks.FOLLOW);
+  }
+
+  /**
+   * Returns the value of the given extended attribute name or null if the attribute does not exist
+   * or the file system does not support extended attributes.
+   *
+   * @param followSymlinks whether to follow symlinks or not
+   */
+  public byte[] getxattr(String name, Symlinks followSymlinks) throws IOException {
+    return fileSystem.getxattr(this, name, followSymlinks.toBoolean());
   }
 
   /**
