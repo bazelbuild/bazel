@@ -75,11 +75,11 @@ export BULK_COVERAGE_RUN=1
 
 
 for name in "$LCOV_MERGER"; do
-if [[ ! -e $name ]]; then
-  echo --
-  echo Coverage runner: cannot locate file $name
-  exit 1
-fi
+  if [[ ! -e $name ]]; then
+    echo --
+    echo Coverage runner: cannot locate file $name
+    exit 1
+  fi
 done
 
 # Setting up the environment for executing the C++ tests.
@@ -123,10 +123,10 @@ fi
 #                     specifying what sources to exclude when generating the
 #                     code coverage report (in this case the syslib sources).
 export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
---output_file=${COVERAGE_OUTPUT_FILE} \
---filter_sources=/usr/bin/.+ \
---filter_sources=/usr/lib/.+ \
---filter_sources=.*external/.+"
+  --output_file=${COVERAGE_OUTPUT_FILE} \
+  --filter_sources=/usr/bin/.+ \
+  --filter_sources=/usr/lib/.+ \
+  --filter_sources=.*external/.+"
 
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then

@@ -590,7 +590,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public boolean experimentalJavaCoverage;
 
     @Option(
-        name = "experimental_use_gcov_coverage",
+        name = "experimental_cc_coverage",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {

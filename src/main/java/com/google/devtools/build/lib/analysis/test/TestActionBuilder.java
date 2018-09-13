@@ -55,6 +55,8 @@ public final class TestActionBuilder {
 
   private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
   private static final String LCOV_MERGER = "LCOV_MERGER";
+  private static final String GCOV_COVERAGE = "gcov";
+  private static final String DEFAULT_BAZEL_CC_COVERAGE_TOOL = "lcov";
 
   private final RuleContext ruleContext;
   private RunfilesSupport runfilesSupport;
@@ -253,8 +255,10 @@ public final class TestActionBuilder {
         extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
 
+      // lcov is the default CC coverage tool unless otherwise specified on the command line.
       extraTestEnv.put("BAZEL_CC_COVERAGE_TOOL",
-          ruleContext.getConfiguration().useGcovCoverage() ? "gcov" : "lcov");
+          ruleContext.getConfiguration().useGcovCoverage()
+              ? GCOV_COVERAGE : DEFAULT_BAZEL_CC_COVERAGE_TOOL);
 
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {

@@ -49,7 +49,7 @@ readonly COLLECT_CC_COVERAGE_SCRIPT=tools/test/collect_cc_coverage.sh
 #
 # - file   The absolute path of the file.
 function get_file_id() {
-  local file="${1}"
+  local file="${1}"; shift
   stat -c "%d:%i" ${file}
 }
 
@@ -71,8 +71,8 @@ function set_up() {
 
   # All generated .gcno files need to be in the manifest otherwise
   # the coverage report will be incomplete.
-  echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
   echo "coverage_srcs/t.gcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "coverage_srcs/a.gcno" >> "$COVERAGE_MANIFEST_VAR"
 
   # Create the CC sources.
   mkdir -p "$ROOT_VAR/coverage_srcs/"
@@ -164,7 +164,7 @@ function tear_down() {
 # - coverage_tool           The tool to be used when computing the code
 #                           coverage report. Can be lcov or gcov.
 function run_coverage() {
-   local coverage_tool="${1}"
+   local coverage_tool="${1}"; shift
   (COVERAGE_DIR="$COVERAGE_DIR_VAR" \
    COVERAGE_GCOV_PATH="$COVERAGE_GCOV_PATH_VAR" \
    ROOT="$ROOT_VAR" COVERAGE_MANIFEST="$COVERAGE_MANIFEST_VAR" \
@@ -178,14 +178,14 @@ function run_coverage() {
 # - expected_coverage The expected result that must be included in the output.
 # - output_file       The location of the coverage output file.
 function assert_coverage_entry_in_file() {
-    local expected_coverage="${1}"
-    local output_file="${2}"
+    local expected_coverage="${1}"; shift
+    local output_file="${1}"; shift
 
     # Replace newlines with commas to facilitate the assertion.
-    local expected_coverage_no_newlines=$( echo "$expected_coverage" | tr '\n' ',' )
-    local output_file_no_newlines=$( cat "$output_file" | tr '\n' ',' )
+    local expected_coverage_no_newlines="$( echo "$expected_coverage" | tr '\n' ',' )"
+    local output_file_no_newlines="$( cat "$output_file" | tr '\n' ',' )"
 
-    ( echo $output_file_no_newlines | grep  $expected_coverage_no_newlines ) \
+    ( echo "$output_file_no_newlines" | grep  "$expected_coverage_no_newlines" ) \
         || fail "Expected coverage result
 <$expected_coverage>
 was not found in actual coverage report:
@@ -197,7 +197,7 @@ was not found in actual coverage report:
 #
 # - output_file    The location of the coverage output file.
 function assert_lcov_coverage_srcs_a_cc() {
-    local output_file="${1}"
+    local output_file="${1}"; shift
 
     # The expected coverage result for coverage_srcs/a.cc in lcov format.
     local expected_lcov_result_a_cc="TN:
@@ -221,7 +221,7 @@ end_of_record"
 #
 # - output_file    The location of the coverage output file.
 function assert_lcov_coverage_srcs_t_cc() {
-    local output_file="${1}"
+    local output_file="${1}"; shift
 
     # The expected coverage result for coverage_srcs/t.cc in lcov format.
     local expected_lcov_result_t_cc="TN:
@@ -244,7 +244,7 @@ end_of_record"
 #
 # - output_file    The location of the coverage output file.
 function assert_gcov_coverage_srcs_a_cc() {
-    local output_file="${1}"
+    local output_file="${1}"; shift
 
     # The expected coverage result for coverage_srcs/a.cc in gcov format.
     local expected_gcov_result_a_cc="file:coverage_srcs/a.cc
@@ -264,7 +264,7 @@ lcount:7,0"
 #
 # - output_file    The location of the coverage output file.
 function assert_gcov_coverage_srcs_t_cc() {
-    local output_file="${1}"
+    local output_file="${1}"; shift
 
     # The expected coverage result for coverage_srcs/t.cc in gcov format.
     local expected_gcov_result_t_cc="file:coverage_srcs/t.cc
@@ -287,9 +287,9 @@ function test_cc_test_coverage_lcov() {
     # The expected total number of lines of output file is 25. This assertion
     # is needed to make sure no other source files are included in the output
     # file.
-    [[ $(wc -l < "$output_file") == 25 ]] || \
-      fail "Number of lines in C++ lcov coverage output file is \
-$(wc -l < "$output_file") and different than 25"
+    [[ "$(wc -l < "$output_file")" == 25 ]] || \
+      fail "Number of lines in C++ lcov coverage output file is"\
+      "$(wc -l < "$output_file") and different than 25"
 
 
     # Assert that the coverage output file contains the coverage data for the
@@ -311,9 +311,9 @@ function test_cc_test_coverage_gcov() {
     # The expected total number of lines of output file is 13. This assertion
     # is needed to make sure no other source files are included in the output
     # file.
-    [[ $(wc -l < "$output_file") == 13 ]] || \
-      fail "Number of lines in C++ gcov coverage output file is \
-$(wc -l < "$output_file") and different than 13"
+    [[ "$(wc -l < "$output_file")" == 13 ]] || \
+      fail "Number of lines in C++ gcov coverage output file is"\
+      "$(wc -l < "$output_file") and different than 13"
 
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
