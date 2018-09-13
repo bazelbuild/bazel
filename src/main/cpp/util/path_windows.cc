@@ -301,34 +301,46 @@ static bool NormalizeWindowsPath(const std::basic_string<char_type>& path,
                 : path.substr(seg_start, i - seg_start);
         if (seg == kDotDot) {
           if (segments.empty() || segments.back() == kDotDot) {
+            // Preserve ".." if the path is relative and ".." is at the front.
             segments.push_back(seg);
             total_len += 2;
           } else if (segments.size() == 1 && segments.back() == kDot) {
+            // Replace the existing "." if that was the only path segment.
             segments[0] = seg;
             total_len = 2;
           } else if (segments.size() > 1 ||
                      !HasDriveSpecifierPrefix(segments.back().c_str())) {
+            // Remove the last segment unless the path is already at the root
+            // directory.
             total_len -= segments.back().size();
             segments.pop_back();
           }
         } else if (seg == kDot) {
           if (segments.empty()) {
+            // Preserve "." if and only if it's the first path segment.
+            // Subsequent segments may replace this segment.
             segments.push_back(seg);
             total_len = 1;
           }
         } else {
+          // This is a normal path segment, i.e. neither "." nor ".."
           if (segments.size() == 1 && segments[0] == kDot) {
+            // Replace the only path segment if it was "."
             segments[0] = seg;
             total_len = seg.size();
           } else {
+            // Store the current segment.
             segments.push_back(seg);
             total_len += seg.size();
           }
         }
       }
+      // Indicate that there's no segment started.
       seg_start = path.size();
     } else {
+      // The current character starts a new segment, or is inside one.
       if (seg_start == path.size()) {
+        // The current character starts the segment.
         seg_start = i;
       }
     }
