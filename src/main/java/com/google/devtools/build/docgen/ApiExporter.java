@@ -140,11 +140,41 @@ public class ApiExporter {
     Value.Builder value = Value.newBuilder();
     value.setName(func.getName());
     Callable.Builder callable = Callable.newBuilder();
-    ImmutableList<String> paramNames = func.getSignature().getSignature().getNames();
 
-    for (int i = 0; i < paramNames.size(); i++) {
+    ImmutableList<String> paramNames = func.getSignature().getSignature().getNames();
+    List<Object> defaultValues = func.getSignature().getDefaultValues();
+    int positionals = func.getSignature().getSignature().getShape().getMandatoryPositionals();
+    int optionals = func.getSignature().getSignature().getShape().getOptionals();
+    int nameIndex = 0;
+
+    for (int i = 0; i < positionals; i++) {
       Param.Builder param = Param.newBuilder();
-      param.setName(paramNames.get(i));
+      param.setName(paramNames.get(nameIndex));
+      param.setIsMandatory(true);
+      callable.addParam(param);
+      nameIndex++;
+    }
+
+    for (int i = 0; i < optionals; i++) {
+      Param.Builder param = Param.newBuilder();
+      param.setName(paramNames.get(nameIndex));
+      param.setIsMandatory(false);
+      param.setDefaultValue(defaultValues.get(i).toString());
+      callable.addParam(param);
+      nameIndex++;
+    }
+
+    if (func.getSignature().getSignature().getShape().hasStarArg()) {
+      Param.Builder param = Param.newBuilder();
+      param.setName("*" + paramNames.get(nameIndex));
+      param.setIsMandatory(false);
+      nameIndex++;
+      callable.addParam(param);
+    }
+    if (func.getSignature().getSignature().getShape().hasKwArg()) {
+      Param.Builder param = Param.newBuilder();
+      param.setIsMandatory(false);
+      param.setName("**" + paramNames.get(nameIndex));
       callable.addParam(param);
     }
     if (func.getObjectType() != null) {
@@ -165,6 +195,7 @@ public class ApiExporter {
         param.setName(par.getName());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());
+        param.setIsMandatory(par.getDefaultValue().isEmpty());
         param.setDefaultValue(par.getDefaultValue());
         callable.addParam(param);
       }
@@ -185,6 +216,7 @@ public class ApiExporter {
     for (RuleDocumentationAttribute attr : rule.getAttributes()) {
       Param.Builder param = Param.newBuilder();
       param.setName(attr.getAttributeName());
+      param.setIsMandatory(attr.isMandatory());
       callable.addParam(param);
     }
     value.setCallable(callable);

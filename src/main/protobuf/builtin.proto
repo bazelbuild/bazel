@@ -96,4 +96,7 @@ message Param {
   // Default value for the parameter, written as Skylark expression (e.g.
   // "False", "True", "[]", "None")
   string default_value = 4;
+
+  // Whether the param is mandatory or optional.
+  bool is_mandatory = 5;
 }
