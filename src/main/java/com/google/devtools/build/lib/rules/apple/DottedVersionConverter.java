@@ -20,12 +20,12 @@ import com.google.devtools.common.options.OptionsParsingException;
 /**
  * Converter for options representing {@link DottedVersion} values.
  */
-public class DottedVersionConverter implements Converter<DottedVersion> {
+public class DottedVersionConverter implements Converter<DottedVersion.Option> {
 
   @Override
-  public DottedVersion convert(String input) throws OptionsParsingException {
+  public DottedVersion.Option convert(String input) throws OptionsParsingException {
     try {
-      return DottedVersion.fromString(input);
+      return DottedVersion.option(DottedVersion.fromString(input));
     } catch (IllegalArgumentException e) {
       throw new OptionsParsingException(e.getMessage());
     }
