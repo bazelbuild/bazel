@@ -14,6 +14,8 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * Stores markers used by the lcov tracefile and gcov intermediate format file. See <a
  * href="http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php">lcov documentation</a> and the flag
@@ -47,4 +49,6 @@ class Constants {
   static final String GCOV_BRANCH_NOTEXEC = "notexec";
   static final String GCOV_BRANCH_NOTTAKEN = "taken";
   static final String GCOV_BRANCH_TAKEN = "nottaken";
+  static final ImmutableList<String> COVERAGE_METADATA_FILE_EXTENSIONS =
+      ImmutableList.of(".em", ".gcno");
 }

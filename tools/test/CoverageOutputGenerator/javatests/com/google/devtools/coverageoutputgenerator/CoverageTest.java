@@ -194,4 +194,26 @@ public class CoverageTest {
             "source/common/protobuf/utility.cc",
             "source/common/grpc/common.cc");
   }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetOnlyTheseSourcesNullCoverage() {
+    Coverage.getOnlyTheseSources(null, new HashSet<>());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetOnlyTheseSourcesNullSources() {
+    Coverage.getOnlyTheseSources(new Coverage(), null);
+  }
+
+  @Test
+  public void testGetOnlyTheseSourcesEmptySources() {
+    Coverage coverage = new Coverage();
+    coverage.add(new SourceFileCoverage("source/common/protobuf/utility.cc"));
+    coverage.add(new SourceFileCoverage("source/common/grpc/common.cc"));
+    coverage.add(new SourceFileCoverage("source/server/options.cc"));
+    coverage.add(new SourceFileCoverage("source/server/manager.cc"));
+
+    assertThat(
+        Coverage.getOnlyTheseSources(coverage, new HashSet<>()).getAllSourceFiles()).isEmpty();
+  }
 }

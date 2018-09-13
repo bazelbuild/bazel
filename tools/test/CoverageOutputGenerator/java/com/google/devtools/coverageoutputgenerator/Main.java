@@ -14,6 +14,7 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.devtools.coverageoutputgenerator.Constants.COVERAGE_METADATA_FILE_EXTENSIONS;
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -87,13 +88,29 @@ public class Main {
     System.exit(exitStatus);
   }
 
+  /**
+   * Returns a set of source file names from the given manifest.
+   *
+   * The manifest contains file names line by line. Each file can either be a source file (e.g.
+   * .java, .cc) or a coverage metadata file (e.g. .gcno, .em).
+   *
+   * This method only returns the source files, ignoring the coverage metadata files as they are
+   * not relevant when putting together the final coverage report.
+   */
   private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
     Set<String> sourceFiles = new HashSet<>();
     try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest))) {
       InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
       BufferedReader reader = new BufferedReader(inputStreamReader);
       for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-        if (!line.endsWith(".em") && !line.endsWith(".gcno")) {
+        boolean isMetadataFile = false;
+        for (String metadataFileExt : COVERAGE_METADATA_FILE_EXTENSIONS) {
+          if (line.endsWith(metadataFileExt)) {
+            isMetadataFile = true;
+            break;
+          }
+        }
+        if (!isMetadataFile) {
           sourceFiles.add(line);
         }
       }

@@ -47,7 +47,23 @@ class Coverage {
     return merged;
   }
 
+  /**
+   * Returns {@link Coverage} only for the given source filenames, filtering out everything else in
+   * the given coverage away.
+   *
+   * @param coverage The initial coverage.
+   * @param sourcesToKeep The filenames of the sources to keep from the initial coverage.
+   */
   static Coverage getOnlyTheseSources(Coverage coverage, Set<String> sourcesToKeep) {
+    if (coverage == null || sourcesToKeep == null) {
+      throw new IllegalArgumentException("Coverage and sourcesToKeep should not be null.");
+    }
+    if (coverage.isEmpty()) {
+      return coverage;
+    }
+    if (sourcesToKeep.isEmpty()) {
+      return new Coverage();
+    }
     Coverage finalCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
       if (sourcesToKeep.contains(source.sourceFileName())) {
