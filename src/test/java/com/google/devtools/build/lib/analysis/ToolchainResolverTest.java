@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.auto.value.AutoValue;
@@ -26,12 +27,15 @@ import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchai
 import com.google.devtools.build.lib.analysis.ToolchainResolver.UnresolvedToolchainsException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -431,6 +435,102 @@ public class ToolchainResolverTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .isInstanceOf(NoMatchingPlatformException.class);
+  }
+
+  @Test
+  public void unloadedToolchainContext_load() throws Exception {
+    addToolchain(
+        "extra",
+        "extra_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_linux')",
+        "register_execution_platforms('//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create("test", ImmutableSet.of(testToolchainType), targetConfigKey);
+
+    // Create the UnloadedToolchainContext.
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // Create the prerequisites.
+    ConfiguredTargetAndData toolchain = getConfiguredTargetAndData(
+        Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap = OrderedSetMultimap.create();
+    prerequisiteMap.put(Attribute.attr(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST).build(), toolchain);
+
+    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
+    assertThat(toolchainContext).isNotNull();
+    assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
+    assertThat(toolchainContext.forToolchainType(testToolchainType).hasField("data")).isTrue();
+    assertThat(toolchainContext.forToolchainType(testToolchainType).getValue("data")).isEqualTo("baz");
+  }
+
+  @Test
+  public void unloadedToolchainContext_load_withTemplateVariables() throws Exception {
+    // Add new toolchain rule that provides template variables.
+    Label variableToolchainType =
+        Label.parseAbsoluteUnchecked("//variable:variable_toolchain_type");
+    scratch.file(
+        "variable/variable_toolchain_def.bzl",
+        "def _impl(ctx):",
+        "  value = ctx.attr.value",
+        "  toolchain = platform_common.ToolchainInfo()",
+        "  template_variables = platform_common.TemplateVariableInfo({'VALUE': value})",
+        "  return [toolchain, template_variables]",
+        "variable_toolchain = rule(",
+        "    implementation = _impl,",
+        "    attrs = {'value': attr.string()})");
+
+    scratch.file("variable/BUILD", "toolchain_type(name = 'variable_toolchain_type')");
+
+    // Create instance of new toolchain and register it.
+    scratch.appendFile(
+        "BUILD",
+        "load('//variable:variable_toolchain_def.bzl', 'variable_toolchain')",
+        "toolchain(",
+        "    name = 'variable_toolchain',",
+        "    toolchain_type = '//variable:variable_toolchain_type',",
+        "    exec_compatible_with = [],",
+        "    target_compatible_with = [],",
+        "    toolchain = ':variable_toolchain_impl')",
+        "variable_toolchain(",
+        "  name='variable_toolchain_impl',",
+        "  value = 'foo')");
+
+    rewriteWorkspace("register_toolchains('//:variable_toolchain')");
+
+    ResolveToolchainsKey key =
+        ResolveToolchainsKey.create(
+            "test", ImmutableSet.of(variableToolchainType), targetConfigKey);
+
+    // Create the UnloadedToolchainContext.
+    EvaluationResult<ResolveToolchainsValue> result = createToolchainContextBuilder(key);
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key).unloadedToolchainContext();
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    // Create the prerequisites.
+    ConfiguredTargetAndData toolchain =
+        getConfiguredTargetAndData(
+            Label.parseAbsoluteUnchecked("//:variable_toolchain_impl"), targetConfig);
+    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
+        OrderedSetMultimap.create();
+    prerequisiteMap.put(
+        Attribute.attr(PlatformSemantics.RESOLVED_TOOLCHAINS_ATTR, LABEL_LIST).build(), toolchain);
+
+    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
+    assertThat(toolchainContext).isNotNull();
+    assertThat(toolchainContext.forToolchainType(variableToolchainType)).isNotNull();
+    assertThat(toolchainContext.templateVariableProviders()).hasSize(1);
+    assertThat(toolchainContext.templateVariableProviders().get(0).getVariables())
+        .containsExactly("VALUE", "foo");
   }
 
   private static final SkyFunctionName RESOLVE_TOOLCHAINS_FUNCTION =
