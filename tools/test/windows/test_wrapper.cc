@@ -86,7 +86,11 @@ void LogErrorWithArgAndValue(const int line, const char* msg,
 }
 
 inline void CreateDirectories(const Path& path) {
-  blaze_util::MakeDirectoriesW(L"\\\\?\\" + path.Get(), 0777);
+  blaze_util::MakeDirectoriesW(
+      bazel::windows::HasUncPrefix(path.Get().c_str())
+          ? path.Get()
+          : L"\\\\?\\" + path.Get(),
+      0777);
 }
 
 bool GetEnv(const wchar_t* name, std::wstring* result) {
