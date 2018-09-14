@@ -44,9 +44,6 @@ using std::string;
 using std::unique_ptr;
 using std::wstring;
 
-// Methods defined in file_windows.cc that are only visible for testing.
-string NormalizeWindowsPath(string path);
-
 class FileWindowsTest : public ::testing::Test {
  public:
   void TearDown() override { DeleteAllUnder(GetTestTmpDirW()); }
