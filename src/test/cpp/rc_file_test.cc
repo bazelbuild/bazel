@@ -38,8 +38,6 @@ constexpr const char* kNullDevice = "NUL";
 constexpr const char* kNullDevice = "/dev/null";
 #endif
 
-extern const char* system_bazelrc_path;
-
 class RcFileTest : public ::testing::Test {
  protected:
   RcFileTest()
@@ -49,20 +47,9 @@ class RcFileTest : public ::testing::Test {
         binary_dir_(
             blaze_util::JoinPath(blaze::GetEnv("TEST_TMPDIR"), "bazeldir")),
         binary_path_(blaze_util::JoinPath(binary_dir_, "bazel")),
-        workspace_layout_(new WorkspaceLayout()),
-        old_system_bazelrc_path_(system_bazelrc_path) {}
+        workspace_layout_(new WorkspaceLayout()) {}
 
   void SetUp() override {
-    // We modify the global system_bazelrc_path to be a relative path.
-    // This test allows us to verify that the global bazelrc is read correctly,
-    // in the right order relative to the other files.
-    //
-    // However, this does not test the default path of this file, nor does it
-    // test that absolute paths are accepted properly. This is an unfortunate
-    // limitation of our testing - within the sandboxed environment of a test,
-    // we cannot place a file in arbitrary locations.
-    system_bazelrc_path = "bazel.bazelrc";
-
     ASSERT_TRUE(blaze_util::MakeDirectories(workspace_, 0755));
     ASSERT_TRUE(blaze_util::MakeDirectories(cwd_, 0755));
     ASSERT_TRUE(blaze_util::ChangeDirectory(cwd_));
@@ -81,7 +68,8 @@ class RcFileTest : public ::testing::Test {
     option_processor_.reset(new OptionProcessor(
         workspace_layout_.get(),
         std::unique_ptr<StartupOptions>(
-            new BazelStartupOptions(workspace_layout_.get()))));
+            new BazelStartupOptions(workspace_layout_.get())),
+        "bazel.bazelrc"));
   }
 
   void TearDown() override {
@@ -102,7 +90,6 @@ class RcFileTest : public ::testing::Test {
     for (const std::string& file : files) {
       blaze_util::UnlinkPath(file);
     }
-    system_bazelrc_path = old_system_bazelrc_path_.c_str();
   }
 
   bool SetUpSystemRcFile(const std::string& contents,

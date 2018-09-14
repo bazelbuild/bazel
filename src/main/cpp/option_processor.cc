@@ -49,15 +49,21 @@ constexpr char WorkspaceLayout::WorkspacePrefix[];
 static constexpr const char* kRcBasename = ".bazelrc";
 static std::vector<std::string> GetProcessedEnv();
 
-// Path to the system-wide bazelrc configuration file.
-// This is a mutable global for testing purposes only.
-const char* system_bazelrc_path = BAZEL_SYSTEM_BAZELRC_PATH;
-
 OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
     std::unique_ptr<StartupOptions> default_startup_options)
     : workspace_layout_(workspace_layout),
-      parsed_startup_options_(std::move(default_startup_options)) {
+      parsed_startup_options_(std::move(default_startup_options)),
+      system_bazelrc_path_(BAZEL_SYSTEM_BAZELRC_PATH) {
+}
+
+OptionProcessor::OptionProcessor(
+    const WorkspaceLayout* workspace_layout,
+    std::unique_ptr<StartupOptions> default_startup_options,
+    const std::string& system_bazelrc_path)
+    : workspace_layout_(workspace_layout),
+      parsed_startup_options_(std::move(default_startup_options)),
+      system_bazelrc_path_(system_bazelrc_path) {
 }
 
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
@@ -169,7 +175,8 @@ std::string FindLegacyUserBazelrc(const char* cmd_line_rc_file,
 std::set<std::string> GetOldRcPaths(
     const WorkspaceLayout* workspace_layout, const std::string& workspace,
     const std::string& cwd, const std::string& path_to_binary,
-    const std::vector<std::string>& startup_args) {
+    const std::vector<std::string>& startup_args,
+    const std::string& system_bazelrc_path) {
   // Find the old list of rc files that would have been loaded here, so we can
   // provide a useful warning about old rc files that might no longer be read.
   std::vector<std::string> candidate_bazelrc_paths;
@@ -178,8 +185,7 @@ std::set<std::string> GetOldRcPaths(
         workspace_layout->GetWorkspaceRcPath(workspace, startup_args);
     const std::string binary_rc =
         internal::FindRcAlongsideBinary(cwd, path_to_binary);
-    const std::string system_rc = internal::FindSystemWideRc();
-    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_rc};
+    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
   const std::vector<std::string> deduped_blazerc_paths =
       internal::DedupeBlazercPaths(candidate_bazelrc_paths);
@@ -210,7 +216,7 @@ std::vector<std::string> DedupeBlazercPaths(
   return result;
 }
 
-std::string FindSystemWideRc() {
+std::string FindSystemWideRc(const std::string& system_bazelrc_path) {
   const std::string path =
       blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path);
   if (blaze_util::CanReadFile(path)) {
@@ -307,7 +313,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     // provided path. This also means we accept relative paths, which is
     // is convenient for testing.
     const std::string system_rc =
-        blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path);
+        blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path_);
     rc_files.push_back(system_rc);
   }
 
@@ -391,7 +397,8 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // the transition period has passed.
   const std::set<std::string> old_files =
       internal::GetOldRcPaths(workspace_layout, workspace, cwd,
-                              cmd_line->path_to_binary, cmd_line->startup_args);
+                              cmd_line->path_to_binary, cmd_line->startup_args,
+                              internal::FindSystemWideRc(system_bazelrc_path_));
 
   //   std::vector<std::string> old_files = internal::GetOldRcPathsInOrder(
   //       workspace_layout, workspace, cwd, cmd_line->path_to_binary,
