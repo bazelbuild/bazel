@@ -193,11 +193,9 @@ public class ApiExporter {
     if (meth.isCallable()) {
       Callable.Builder callable = Callable.newBuilder();
       for (SkylarkParamDoc par : meth.getParams()) {
-        Param.Builder param = Param.newBuilder();
-        param.setName(par.getName());
+        Param.Builder param = newParam(par.getName(), par.getDefaultValue().isEmpty());
         param.setType(par.getType());
         param.setDoc(par.getDocumentation());
-        param.setIsMandatory(par.getDefaultValue().isEmpty());
         param.setDefaultValue(par.getDefaultValue());
         callable.addParam(param);
       }
@@ -209,17 +207,24 @@ public class ApiExporter {
     return field;
   }
 
+  private static Param.Builder newParam(String name, Boolean isMandatory) {
+    Param.Builder param = Param.newBuilder();
+    param.setName(name);
+    param.setIsMandatory(isMandatory);
+    return param;
+  }
+
   private static Value.Builder collectRuleInfo(RuleDocumentation rule)
       throws BuildEncyclopediaDocException {
     Value.Builder value = Value.newBuilder();
     value.setName(rule.getRuleName());
     value.setDoc(rule.getHtmlDocumentation());
     Callable.Builder callable = Callable.newBuilder();
+    // All native rules have attribute "name". It is not included in the attributes list and needs
+    // to be added separately.
+    callable.addParam(newParam("name", true));
     for (RuleDocumentationAttribute attr : rule.getAttributes()) {
-      Param.Builder param = Param.newBuilder();
-      param.setName(attr.getAttributeName());
-      param.setIsMandatory(attr.isMandatory());
-      callable.addParam(param);
+      callable.addParam(newParam(attr.getAttributeName(), attr.isMandatory()));
     }
     value.setCallable(callable);
     return value;
