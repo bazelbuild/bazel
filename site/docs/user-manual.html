@@ -287,6 +287,21 @@ title: User Manual
   build:memcheck --strip=never --test_timeout=3600
 </pre>
 
+
+<h3 id='startup files'>
+  Other files governing Bazel's behavior
+</h3>
+
+<h4 id='.bazelignore'><code>.bazelignore</code>
+<p>
+  You can specify directories within the workspace
+  that you want Bazel to ignore, such as related projects
+  that use other build systems. Place a file called
+  <code>.bazelignore</code> at the root of the workspace
+  and add the directories you want Bazel to ignore, one per
+  line. Entries are relative to the workspace root.
+</p>
+
 <h2 id='build'>Building programs with Bazel</h2>
 <h3>The <code>build</code> command</h3>
 
