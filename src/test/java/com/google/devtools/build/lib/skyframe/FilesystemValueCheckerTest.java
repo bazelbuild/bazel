@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -733,14 +734,14 @@ public class FilesystemValueCheckerTest {
   // Presently these appear to be untested.
 
   private ActionExecutionValue actionValue(Action action, boolean forceDigest) {
-    Map<Artifact, FileValue> artifactData = new HashMap<>();
+    Map<Artifact, ArtifactFileMetadata> artifactData = new HashMap<>();
     for (Artifact output : action.getOutputs()) {
       try {
         Path path = output.getPath();
         FileStatusWithDigest stat =
             forceDigest ? statWithDigest(path, path.statIfFound(Symlinks.NOFOLLOW)) : null;
-        artifactData.put(output,
-            ActionMetadataHandler.fileValueFromArtifact(output, stat, null));
+        artifactData.put(
+            output, ActionMetadataHandler.fileMetadataFromArtifact(output, stat, null));
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
@@ -759,7 +760,7 @@ public class FilesystemValueCheckerTest {
         (ImmutableMap.<TreeFileArtifact, FileArtifactValue>of());
 
     return ActionExecutionValue.create(
-        ImmutableMap.<Artifact, FileValue>of(),
+        ImmutableMap.of(),
         ImmutableMap.of(emptyDir, emptyValue),
         ImmutableMap.<Artifact, FileArtifactValue>of(),
         /*outputSymlinks=*/ null,
@@ -768,7 +769,7 @@ public class FilesystemValueCheckerTest {
   }
 
   private ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents) {
-    Map<Artifact, FileValue> fileData = new HashMap<>();
+    Map<Artifact, ArtifactFileMetadata> fileData = new HashMap<>();
     Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
 
     for (TreeFileArtifact output : contents) {
@@ -779,7 +780,8 @@ public class FilesystemValueCheckerTest {
           dirDatum = new HashMap<>();
           directoryData.put(output.getParent(), dirDatum);
         }
-        FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(output, null, null);
+        ArtifactFileMetadata fileValue =
+            ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
         dirDatum.put(output, FileArtifactValue.create(output, fileValue));
         fileData.put(output, fileValue);
       } catch (IOException e) {

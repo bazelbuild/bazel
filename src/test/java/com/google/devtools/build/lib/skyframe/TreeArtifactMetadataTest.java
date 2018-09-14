@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -251,7 +251,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      Map<Artifact, FileValue> fileData = new HashMap<>();
+      Map<Artifact, ArtifactFileMetadata> fileData = new HashMap<>();
       Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
@@ -261,8 +261,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       for (PathFragment subpath : testTreeArtifactContents) {
         try {
           TreeFileArtifact suboutput = ActionInputHelper.treeFileArtifact(output, subpath);
-          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(
-              suboutput, null, null);
+          ArtifactFileMetadata fileValue =
+              ActionMetadataHandler.fileMetadataFromArtifact(suboutput, null, null);
           fileData.put(suboutput, fileValue);
           treeArtifactData.put(suboutput, FileArtifactValue.create(suboutput, fileValue));
         } catch (IOException e) {

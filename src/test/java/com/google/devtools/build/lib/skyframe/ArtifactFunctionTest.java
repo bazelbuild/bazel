@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -401,7 +401,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private static class SimpleActionExecutionFunction implements SkyFunction {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-      Map<Artifact, FileValue> artifactData = new HashMap<>();
+      Map<Artifact, ArtifactFileMetadata> artifactData = new HashMap<>();
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
       Map<Artifact, FileArtifactValue> additionalOutputData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
@@ -421,7 +421,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               treeFileArtifact2, FileArtifactValue.create(treeFileArtifact2)));
           treeArtifactData.put(output, treeArtifactValue);
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
-          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(output, null, null);
+          ArtifactFileMetadata fileValue =
+              ActionMetadataHandler.fileMetadataFromArtifact(output, null, null);
           artifactData.put(output, fileValue);
           additionalOutputData.put(output, FileArtifactValue.create(output, fileValue));
        } else {

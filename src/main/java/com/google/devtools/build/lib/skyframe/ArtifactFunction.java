@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -271,7 +272,7 @@ class ArtifactFunction implements SkyFunction {
     // Middleman artifacts have no corresponding files, so their ArtifactValues should have already
     // been constructed during execution of the action.
     Preconditions.checkState(!artifact.isMiddlemanArtifact(), artifact);
-    FileValue data =
+    ArtifactFileMetadata data =
         Preconditions.checkNotNull(actionValue.getData(artifact), "%s %s", artifact, actionValue);
     Preconditions.checkNotNull(
         data.getDigest(), "Digest should already have been calculated for %s (%s)", artifact, data);

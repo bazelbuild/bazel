@@ -167,9 +167,24 @@ public abstract class FileArtifactValue implements SkyValue {
         isFile ? fileValue.getDigest() : null);
   }
 
+  public static FileArtifactValue create(Artifact artifact, ArtifactFileMetadata metadata)
+      throws IOException {
+    boolean isFile = metadata.isFile();
+    FileContentsProxy proxy = getProxyFromFileStateValue(metadata.realFileStateValue());
+    return create(
+        artifact.getPath(),
+        isFile,
+        isFile ? metadata.getSize() : 0,
+        proxy,
+        isFile ? metadata.getDigest() : null);
+  }
+
   public static FileArtifactValue create(
-      Artifact artifact, ArtifactPathResolver resolver, FileValue fileValue,
-      @Nullable byte[] injectedDigest) throws IOException {
+      Artifact artifact,
+      ArtifactPathResolver resolver,
+      ArtifactFileMetadata fileValue,
+      @Nullable byte[] injectedDigest)
+      throws IOException {
     boolean isFile = fileValue.isFile();
     FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
     return create(
@@ -217,9 +232,10 @@ public abstract class FileArtifactValue implements SkyValue {
     return new RegularFileArtifactValue(digest, proxy, size);
   }
 
-  public static FileArtifactValue createNormalFile(FileValue fileValue) {
-    FileContentsProxy proxy = getProxyFromFileStateValue(fileValue.realFileStateValue());
-    return new RegularFileArtifactValue(fileValue.getDigest(), proxy, fileValue.getSize());
+  public static FileArtifactValue createNormalFile(ArtifactFileMetadata artifactMetadata) {
+    FileContentsProxy proxy = getProxyFromFileStateValue(artifactMetadata.realFileStateValue());
+    return new RegularFileArtifactValue(
+        artifactMetadata.getDigest(), proxy, artifactMetadata.getSize());
   }
 
   @VisibleForTesting
