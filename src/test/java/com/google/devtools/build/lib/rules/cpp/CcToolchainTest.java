@@ -72,7 +72,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     ConfiguredTarget b = getConfiguredTarget("//a:b");
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(b)))
-        .containsExactly("banana1", "banana2");
+        .containsExactly("a_Cbanana");
   }
 
   @Test

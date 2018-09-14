@@ -628,7 +628,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .setFilesToBuild(crosstool)
+            .setFilesToBuild(crosstoolMiddleman)
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     // If output_license is specified on the cc_toolchain rule, override the transitive licenses
