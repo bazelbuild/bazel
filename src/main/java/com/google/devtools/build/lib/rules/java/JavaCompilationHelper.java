@@ -374,6 +374,16 @@ public final class JavaCompilationHelper {
                   javaToolchain.getToolchainLabel()));
       return false;
     }
+    if (getJavaConfiguration().requireJavaToolchainHeaderCompilerDirect()
+        && javaToolchain.getHeaderCompilerDirect() == null) {
+      getRuleContext()
+          .ruleError(
+              String.format(
+                  "header compilation was requested but it is not supported by the current Java"
+                      + " toolchain '%s'; see the java_toolchain.header_compiler_direct attribute",
+                  javaToolchain.getToolchainLabel()));
+      return false;
+    }
     return true;
   }
 

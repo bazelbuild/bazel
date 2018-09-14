@@ -174,6 +174,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean jplPropagateCcLinkParamsStore;
   private final boolean addTestSupportToCompileTimeDeps;
   private final ImmutableList<Label> pluginList;
+  private final boolean requireJavaToolchainHeaderCompilerDirect;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -232,6 +233,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     }
     this.bytecodeOptimizers = optimizersBuilder.build();
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
+    this.requireJavaToolchainHeaderCompilerDirect =
+        javaOptions.requireJavaToolchainHeaderCompilerDirect;
   }
 
   @Override
@@ -452,5 +455,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public List<Label> getPlugins() {
     return pluginList;
+  }
+
+  public boolean requireJavaToolchainHeaderCompilerDirect() {
+    return requireJavaToolchainHeaderCompilerDirect;
   }
 }
