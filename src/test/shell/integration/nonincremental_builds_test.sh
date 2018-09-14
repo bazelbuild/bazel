@@ -67,6 +67,7 @@ fi
 
 function tear_down() {
     bazel shutdown || fail "Failed to shut down bazel"
+    testenv_tear_down
 }
 
 #### TESTS #############################################################

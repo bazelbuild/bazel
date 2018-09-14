@@ -28,6 +28,7 @@ source "${CURRENT_DIR}/discard_graph_edges_lib.sh" \
 set -e
 
 function set_up() {
+  testenv_set_up
   mkdir -p testing || fail "Couldn't create directory"
   echo "cc_test(name='mytest', srcs=['mytest.cc'], malloc=':system_malloc')" > testing/BUILD || fail
   echo "cc_library(name='system_malloc', srcs=[])"                           >> testing/BUILD || fail

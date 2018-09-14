@@ -57,6 +57,7 @@ function get_file_id() {
 
 # Setup to be run for every test.
 function set_up() {
+   testenv_set_up
    mkdir -p "${COVERAGE_DIR_VAR}"
 
   # COVERAGE_DIR has to be different than ROOT and PWD for the test to be
@@ -158,6 +159,7 @@ function tear_down() {
   rm -f "$COVERAGE_OUTPUT_FILE_VAR"
   rm -rf "$COVERAGE_DIR_VAR"
   rm -rf coverage_srcs/
+  testenv_tear_down
 }
 
 # Runs the script that computes the code coverage report for CC code.

@@ -43,6 +43,7 @@ source "$(rlocation "io_bazel/src/test/shell/unittest.bash")" \
   || { echo "Could not source unittest.bash" >&2; exit 1; }
 
 function set_up() {
+  testenv_set_up
   tmp_TEST_TMPDIR=$TEST_TMPDIR
   TEST_TMPDIR=$TEST_TMPDIR/$TEST_name
   mkdir -p $TEST_TMPDIR
@@ -50,6 +51,7 @@ function set_up() {
 
 function tear_down() {
   TEST_TMPDIR=$tmp_TEST_TMPDIR
+  testenv_tear_down
 }
 
 function test_1() {

@@ -67,6 +67,7 @@ EOF
 function tear_down() {
   bazel shutdown
   rm -rf x
+  testenv_tear_down
 }
 
 function assert_sigint_stops_build() {

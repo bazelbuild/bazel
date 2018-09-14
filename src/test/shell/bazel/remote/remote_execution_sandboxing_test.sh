@@ -25,6 +25,7 @@ source "${CURRENT_DIR}/../../sandboxing_test_utils.sh" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  testenv_set_up
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   writable_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   readonly_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
@@ -80,6 +81,7 @@ function tear_down() {
   fi
   rm -rf "${pid_file}"
   rm -rf "${work_path}"
+  testenv_tear_down
 }
 
 function test_genrule() {

@@ -24,6 +24,7 @@ log="$(bazel --batch info command_log)"
 function tear_down() {
   # Clean up after ourselves.
   bazel --nobatch shutdown
+  testenv_tear_down
 }
 
 function strip_lines_from_bazel_cc() {

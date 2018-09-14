@@ -23,6 +23,7 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  testenv_set_up
   work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   attempts=1
@@ -57,6 +58,7 @@ function tear_down() {
   fi
   rm -rf "${pid_file}"
   rm -rf "${work_path}"
+  testenv_tear_down
 }
 
 function test_cc_binary_http_cache() {

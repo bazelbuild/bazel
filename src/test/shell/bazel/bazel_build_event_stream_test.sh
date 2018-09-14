@@ -47,6 +47,8 @@ export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 
 function set_up() {
+  testenv_set_up
+
   mkdir -p pkg
   touch remote_file
   if is_windows; then

@@ -32,6 +32,7 @@ if ! is_windows; then
 fi
 
 function set_up() {
+  testenv_set_up
   copy_examples
   setup_bazelrc
   cat >>"$TEST_TMPDIR/bazelrc" <<EOF

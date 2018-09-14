@@ -27,6 +27,7 @@ function bazel() {
 }
 
 function set_up() {
+  testenv_set_up
   # TODO(philwo) remove this when the testenv improvement change is in
   if is_windows; then
     export PATH=/c/python_27_amd64/files:$PATH

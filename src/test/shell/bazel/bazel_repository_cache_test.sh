@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  testenv_set_up
   bazel clean --expunge >& $TEST_log
   repo_cache_dir=$TEST_TMPDIR/repository_cache
   # TODO(b/37617303): make test UI-independent
@@ -34,6 +35,7 @@ function set_up() {
 function tear_down() {
   shutdown_server
   rm -rf "$repo_cache_dir"
+  testenv_tear_down
 }
 
 function setup_repository() {

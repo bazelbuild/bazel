@@ -23,6 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
+  testenv_set_up
   copy_examples
   cat > WORKSPACE <<EOF
 workspace(name = "io_bazel")

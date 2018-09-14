@@ -37,6 +37,7 @@ readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
 SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
 function set_up {
+  testenv_set_up
   rm -rf $OUT_DIR
   mkdir -p $SANDBOX_DIR
 }

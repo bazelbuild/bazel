@@ -39,6 +39,7 @@ add_to_bazelrc "build --debug_print_action_contexts"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
+  testenv_set_up
   # Run each test in a separate folder so that their output files don't get cached.
   WORKSPACE_SUBDIR=$(basename $(mktemp -d ${WORKSPACE_DIR}/testXXXXXX))
   cd ${WORKSPACE_SUBDIR}

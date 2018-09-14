@@ -25,6 +25,7 @@ source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
 function set_up {
+  testenv_set_up
   mkdir -p examples/cpp/{bin,lib}
   cat << 'EOF' > examples/cpp/BUILD
 cc_library(

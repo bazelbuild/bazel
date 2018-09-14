@@ -35,6 +35,7 @@ fi
 #### HELPER FUNCTIONS ##################################################
 
 function set_up() {
+  testenv_set_up
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
 java_binary(name = "javabin",
@@ -97,6 +98,7 @@ EOF
 
 function tear_down() {
   rm -rf pkg pkg/java
+  testenv_tear_down
 }
 
 #### TESTS #############################################################

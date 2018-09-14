@@ -78,6 +78,7 @@ EOF
 
 function tear_down() {
   shutdown_server
+  testenv_tear_down
 }
 
 function test_maven_jar_skylark() {
