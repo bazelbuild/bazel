@@ -454,7 +454,11 @@ bool AsAbsoluteWindowsPath(const std::basic_string<char_type>& path,
     return false;
   }
   if (!IsRootOrAbsolute(*result, /* must_be_root */ false)) {
-    *result = GetCwdW() + L"\\" + *result;
+    if (result->empty() || (result->size() == 1 && (*result)[0] == '.')) {
+      *result = GetCwdW();
+    } else {
+      *result = GetCwdW() + L"\\" + *result;
+    }
   }
   if (!HasUncPrefix(result->c_str())) {
     *result = std::wstring(L"\\\\?\\") + *result;
