@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -187,22 +188,19 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       createProtoCompileAction(supportData, outputs);
 
       CompilationInfo compilationInfo = compilationHelper.compile();
+      CcLinkingHelper ccLinkingHelper = initializeLinkingHelper(featureConfiguration);
+      CcLinkingOutputs ccLinkingOutputs =
+          ccLinkingHelper.link(compilationInfo.getCcCompilationOutputs());
       LinkingInfo linkingInfo =
-          initializeLinkingHelper(featureConfiguration)
-              .link(
-                  compilationInfo.getCcCompilationOutputs(),
-                  compilationInfo.getCcCompilationContext());
+          ccLinkingHelper.buildLinkingProviders(
+              ccLinkingOutputs, compilationInfo.getCcCompilationContext());
 
       ccLibraryProviders =
           new TransitiveInfoProviderMapBuilder()
               .addAll(compilationInfo.getProviders())
               .addAll(linkingInfo.getProviders())
               .build();
-      outputGroups =
-          ImmutableMap.copyOf(
-              CcCommon.mergeOutputGroups(
-                  ImmutableList.of(
-                      compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups())));
+      outputGroups = ImmutableMap.copyOf(compilationInfo.getOutputGroups());
       // On Windows, dynamic library is not built by default, so don't add them to filesToBuild.
       linkingInfo.addLinkingOutputsTo(
           filesBuilder, !featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));

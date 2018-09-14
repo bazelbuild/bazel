@@ -546,7 +546,8 @@ public class CcModule
             .addCcLinkingInfos(skylarkCcLinkingInfos)
             .setNeverLink(neverLink);
     try {
-      return helper.link(ccCompilationOutputs, CcCompilationContext.EMPTY);
+      CcLinkingOutputs ccLinkingOutputs = helper.link(ccCompilationOutputs);
+      return helper.buildLinkingProviders(ccLinkingOutputs, CcCompilationContext.EMPTY);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
     }
