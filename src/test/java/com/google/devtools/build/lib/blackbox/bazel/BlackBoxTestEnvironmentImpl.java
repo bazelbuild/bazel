@@ -27,7 +27,7 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * Implementation of {@link BlackBoxTestEnvironment} with the code of initializing Bazel blackbox
- * test environment
+ * test environment.
  */
 public class BlackBoxTestEnvironmentImpl extends BlackBoxTestEnvironment {
   @Override
@@ -39,7 +39,7 @@ public class BlackBoxTestEnvironmentImpl extends BlackBoxTestEnvironment {
     BlackBoxTestContext testContext =
         new BlackBoxTestContext(
             testName, "bazel", binaryPath, Collections.emptyMap(), executorService);
-    // any Bazel command requires that workspace is already set up
+    // Any Bazel command requires that workspace is already set up.
     testContext.write("WORKSPACE", "workspace(name = 'main')");
 
     List<ToolsSetup> allTools = Lists.newArrayList(new DefaultToolsSetup());
