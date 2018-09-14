@@ -272,7 +272,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
     // output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-    if (linkCompileOutputSeparately) {
+    if (linkCompileOutputSeparately && !ccCompilationOutputs.isEmpty()) {
       CcLinkingHelper linkingHelper =
           new CcLinkingHelper(
                   ruleContext,

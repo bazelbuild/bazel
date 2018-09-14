@@ -462,8 +462,11 @@ public class CompilationSupport {
     CcCompilationOutputs.Builder compilationOutputsBuilder = new CcCompilationOutputs.Builder();
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
+    CcCompilationOutputs compilationOutputs = compilationOutputsBuilder.build();
 
-    resultLink.link(compilationOutputsBuilder.build());
+    if (!compilationOutputs.isEmpty()) {
+      resultLink.link(compilationOutputs);
+    }
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =
         CcCommon.mergeOutputGroups(

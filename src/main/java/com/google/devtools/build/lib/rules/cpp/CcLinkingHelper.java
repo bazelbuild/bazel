@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -63,11 +62,13 @@ import javax.annotation.Nullable;
 public final class CcLinkingHelper {
 
   /** Contains the providers as well as the linking outputs. */
+  // TODO(plf): Only used by Skylark API. Remove after migrating.
+  @Deprecated
   public static final class LinkingInfo implements LinkingInfoApi {
     private final TransitiveInfoProviderMap providers;
     private final CcLinkingOutputs linkingOutputs;
 
-    private LinkingInfo(TransitiveInfoProviderMap providers, CcLinkingOutputs linkingOutputs) {
+    public LinkingInfo(TransitiveInfoProviderMap providers, CcLinkingOutputs linkingOutputs) {
       this.providers = providers;
       this.linkingOutputs = linkingOutputs;
     }
@@ -84,28 +85,6 @@ public final class CcLinkingHelper {
     @Override
     public CcLinkingOutputs getCcLinkingOutputs() {
       return linkingOutputs;
-    }
-
-    /**
-     * Adds the static, pic-static libraries to the given builder. If addDynamicLibraries parameter
-     * is true, it also adds dynamic(both compile-time and execution-time) libraries.
-     */
-    public void addLinkingOutputsTo(
-        NestedSetBuilder<Artifact> filesBuilder, boolean addDynamicLibraries) {
-      filesBuilder
-          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getStaticLibraries()))
-          .addAll(LinkerInputs.toLibraryArtifacts(linkingOutputs.getPicStaticLibraries()));
-      if (addDynamicLibraries) {
-        filesBuilder
-            .addAll(
-                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibrariesForLinking()))
-            .addAll(
-                LinkerInputs.toNonSolibArtifacts(linkingOutputs.getDynamicLibrariesForRuntime()));
-      }
-    }
-
-    public void addLinkingOutputsTo(NestedSetBuilder<Artifact> filesBuilder) {
-      addLinkingOutputsTo(filesBuilder, true);
     }
   }
 
@@ -126,8 +105,6 @@ public final class CcLinkingHelper {
   private boolean neverlink;
 
   private boolean checkDepsGenerateCpp = true;
-  private boolean emitLinkActionsIfEmpty;
-  private boolean emitCcNativeLibrariesProvider;
   private boolean emitInterfaceSharedObjects;
   private boolean shouldCreateDynamicLibrary = true;
   private boolean shouldCreateStaticLibraries = true;
@@ -303,24 +280,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /** This adds the {@link CcNativeLibraryProvider} to the providers created by this class. */
-  public CcLinkingHelper enableCcNativeLibrariesProvider() {
-    this.emitCcNativeLibrariesProvider = true;
-    return this;
-  }
-
-  /**
-   * Enables or disables generation of link actions if there are no object files. Some rules declare
-   * a <code>.a</code> or <code>.so</code> implicit output, which requires that these files are
-   * created even if there are no object files, so be careful when calling this.
-   *
-   * <p>This is disabled by default.
-   */
-  public CcLinkingHelper setGenerateLinkActionsIfEmpty(boolean emitLinkActionsIfEmpty) {
-    this.emitLinkActionsIfEmpty = emitLinkActionsIfEmpty;
-    return this;
-  }
-
   /**
    * Enables the optional generation of interface dynamic libraries - this is only used when the
    * linker generates a dynamic library, and only if the crosstool supports it. The default is not
@@ -373,35 +332,26 @@ public final class CcLinkingHelper {
 
     // Create link actions (only if there are object files or if explicitly requested).
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-    if (emitLinkActionsIfEmpty || !ccOutputs.isEmpty()) {
-      // On some systems, the linker gives an error message if there are no input files. Even with
-      // the check above, this can still happen if there is a .nopic.o or .o files in srcs, but no
-      // other files. To fix that, we'd have to check for each link action individually.
-      //
-      // An additional pre-existing issue is that the header check tokens are dropped if we don't
-      // generate any link actions, effectively disabling header checking in some cases.
-      if (linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
-        // TODO(bazel-team): This can't create the link action for a cc_binary yet.
-        ccLinkingOutputs = createCcLinkActions(ccOutputs);
-      }
+    // On some systems, the linker gives an error message if there are no input files. Even with
+    // the check above, this can still happen if there is a .nopic.o or .o files in srcs, but no
+    // other files. To fix that, we'd have to check for each link action individually.
+    //
+    // An additional pre-existing issue is that the header check tokens are dropped if we don't
+    // generate any link actions, effectively disabling header checking in some cases.
+    if (linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
+      // TODO(bazel-team): This can't create the link action for a cc_binary yet.
+      ccLinkingOutputs = createCcLinkActions(ccOutputs);
     }
     return ccLinkingOutputs;
   }
 
-  public LinkingInfo buildLinkingProviders(
+  public CcLinkingInfo buildCcLinkingInfo(
       CcLinkingOutputs ccLinkingOutputs, CcCompilationContext ccCompilationContext) {
     Preconditions.checkNotNull(ccCompilationContext);
 
     // Be very careful when adding new providers here - it can potentially affect a lot of rules.
     // We should consider merging most of these providers into a single provider.
     TransitiveInfoProviderMapBuilder providers = new TransitiveInfoProviderMapBuilder();
-
-    // TODO(bazel-team): Maybe we can infer these from other data at the places where they are
-    // used.
-    if (emitCcNativeLibrariesProvider) {
-      providers.add(new CcNativeLibraryProvider(collectNativeCcLibraries(ccLinkingOutputs)));
-    }
-
 
     final CcLinkingOutputs ccLinkingOutputsFinalized = ccLinkingOutputs;
     BiFunction<Boolean, Boolean, CcLinkParams> createParams =
@@ -443,19 +393,9 @@ public final class CcLinkingHelper {
             .setDynamicModeParamsForExecutable(
                 createParams.apply(/* staticMode= */ false, /* forDynamicLibrary= */ false));
     providers.put(ccLinkingInfoBuilder.build());
-    return new LinkingInfo(providers.build(), ccLinkingOutputs);
+    return ccLinkingInfoBuilder.build();
   }
 
-  private NestedSet<LinkerInput> collectNativeCcLibraries(CcLinkingOutputs ccLinkingOutputs) {
-    NestedSetBuilder<LinkerInput> result = NestedSetBuilder.linkOrder();
-    result.addAll(ccLinkingOutputs.getDynamicLibrariesForLinking());
-    for (CcNativeLibraryProvider dep :
-        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {
-      result.addTransitive(dep.getTransitiveCcNativeLibraries());
-    }
-
-    return result.build();
-  }
 
   /**
    * Constructs the C++ linker actions. It generally generates two actions, one for a static library
@@ -555,7 +495,7 @@ public final class CcLinkingHelper {
     if (createNoPicAction) {
       staticLibrary =
           registerActionForStaticLibrary(
-                  linkType, ccOutputs, /* usePic */ false, libraryIdentifier, env)
+                  linkType, ccOutputs, /* usePic= */ false, libraryIdentifier, env)
               .getOutputLibrary();
     }
 

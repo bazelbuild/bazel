@@ -811,4 +811,14 @@ public class CppHelper {
     return toolchain.supportsInterfaceSharedObjects() && config.getUseInterfaceSharedObjects();
   }
 
+  public static CcNativeLibraryProvider collectNativeCcLibraries(
+      List<? extends TransitiveInfoCollection> deps, CcLinkingOutputs ccLinkingOutputs) {
+    NestedSetBuilder<LinkerInput> result = NestedSetBuilder.linkOrder();
+    result.addAll(ccLinkingOutputs.getDynamicLibrariesForLinking());
+    for (CcNativeLibraryProvider dep :
+        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {
+      result.addTransitive(dep.getTransitiveCcNativeLibraries());
+    }
+    return new CcNativeLibraryProvider(result.build());
+  }
 }

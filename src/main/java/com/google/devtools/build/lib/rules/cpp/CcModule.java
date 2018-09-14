@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -546,8 +547,15 @@ public class CcModule
             .addCcLinkingInfos(skylarkCcLinkingInfos)
             .setNeverLink(neverLink);
     try {
-      CcLinkingOutputs ccLinkingOutputs = helper.link(ccCompilationOutputs);
-      return helper.buildLinkingProviders(ccLinkingOutputs, CcCompilationContext.EMPTY);
+      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      if (!ccCompilationOutputs.isEmpty()) {
+        ccLinkingOutputs = helper.link(ccCompilationOutputs);
+      }
+      CcLinkingInfo ccLinkingInfo =
+          helper.buildCcLinkingInfo(ccLinkingOutputs, CcCompilationContext.EMPTY);
+      TransitiveInfoProviderMapBuilder providers = new TransitiveInfoProviderMapBuilder();
+      providers.put(ccLinkingInfo);
+      return new LinkingInfo(providers.build(), ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
     }
