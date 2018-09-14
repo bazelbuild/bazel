@@ -20,19 +20,16 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@code py_library}. */
 @RunWith(JUnit4.class)
-public class PyLibraryConfiguredTargetTest extends BuildViewTestCase {
+public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBase {
 
-  @Before
-  public final void setUpPython() throws Exception  {
-    analysisMock.pySupport().setup(mockToolsConfig);
+  public PyLibraryConfiguredTargetTest() {
+    super("py_library");
   }
 
   @Test
@@ -85,30 +82,6 @@ public class PyLibraryConfiguredTargetTest extends BuildViewTestCase {
           // build file:
           lines);
     }
-  }
-
-  @Test
-  public void packageNameCannotHaveHyphen() throws Exception {
-    checkError("pkg-hyphenated", "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
-        "py_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-  }
-
-  @Test
-  public void srcsPackageNameCannotHaveHyphen() throws Exception {
-    scratch.file("pkg-hyphenated/BUILD",
-        "exports_files(['bar.py'])");
-    checkError("otherpkg", "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
-        "py_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'])");
   }
 
   @Test

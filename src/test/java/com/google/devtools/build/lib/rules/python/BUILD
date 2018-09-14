@@ -47,13 +47,26 @@ java_test(
 )
 
 java_library(
-    name = "PyExecutableTestBase",
-    srcs = ["PyExecutableConfiguredTargetTestBase.java"],
+    name = "PyBaseTestBase",
+    srcs = ["PyBaseConfiguredTargetTestBase.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "PyExecutableTestBase",
+    srcs = ["PyExecutableConfiguredTargetTestBase.java"],
+    deps = [
+        ":PyBaseTestBase",
+        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:python-rules",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -84,6 +97,7 @@ java_test(
     name = "PyLibraryConfiguredTargetTest",
     srcs = ["PyLibraryConfiguredTargetTest.java"],
     deps = [
+        ":PyBaseTestBase",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",

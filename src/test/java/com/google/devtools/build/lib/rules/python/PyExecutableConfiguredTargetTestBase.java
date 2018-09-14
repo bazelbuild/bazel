@@ -16,31 +16,33 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import org.junit.Before;
 import org.junit.Test;
 
 /** Tests that are common to {@code py_binary} and {@code py_test}. */
-public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTestCase {
+public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfiguredTargetTestBase {
 
   private final String ruleName;
 
   protected PyExecutableConfiguredTargetTestBase(String ruleName) {
+    super(ruleName);
     this.ruleName = ruleName;
   }
 
-  @Before
-  public final void setUpPython() throws Exception {
-    analysisMock.pySupport().setup(mockToolsConfig);
-  }
-
-  private PythonVersion getPythonVersion(ConfiguredTarget ct) {
-    return getConfiguration(ct).getOptions().get(PythonOptions.class).getPythonVersion();
+  @Test
+  public void unknownDefaultPythonVersionValue() throws Exception {
+    checkError("pkg", "foo",
+        // error:
+        "invalid value in 'default_python_version' attribute: "
+            + "has to be one of 'PY2' or 'PY3' instead of 'doesnotexist'",
+        // build file:
+        ruleName + "(",
+        "     name = 'foo',",
+        "     default_python_version = 'doesnotexist',",
+        "     srcs = ['foo.py'])");
   }
 
   @Test
-  public void badDefaultPythonVersion() throws Exception {
+  public void badDefaultPythonVersionValue() throws Exception {
     checkError("pkg", "foo",
         // error:
         "invalid value in 'default_python_version' attribute: "
@@ -53,7 +55,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void goodDefaultPythonVersion() throws Exception {
+  public void goodDefaultPythonVersionValue() throws Exception {
     scratch.file("foo/BUILD",
         ruleName + "(",
         "     name = 'foo',",
@@ -64,32 +66,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void badSrcsVersion() throws Exception {
-    checkError("pkg", "foo",
-        // error:
-        "invalid value in 'srcs_version' attribute: "
-            + "has to be one of 'PY2', 'PY3', 'PY2AND3', 'PY2ONLY' "
-            + "or 'PY3ONLY' instead of 'invalid'",
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs_version = 'invalid',",
-        "    srcs = ['foo.py'])");
-  }
-
-  @Test
-  public void goodSrcsVersion() throws Exception {
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs_version = 'PY2',",
-        "    srcs = ['foo.py'])");
-    getConfiguredTarget("//foo:foo");
-    assertNoEvents();
-  }
-
-  @Test
-  public void pythonVersionWith3AsDefault() throws Exception {
+  public void versionIs3WhenSetByDefaultPythonVersion() throws Exception {
     scratch.file("foo/BUILD",
         ruleName + "(",
         "    name = 'foo',",
@@ -99,7 +76,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void pythonVersionWith2AsDefault() throws Exception {
+  public void versionIs2WhenSetByDefaultPythonVersion() throws Exception {
     scratch.file("foo/BUILD",
         ruleName + "(",
         "    name = 'foo',",
@@ -109,16 +86,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void pythonVersionDefaultForBuildIs2() throws Exception {
-    scratch.file("foo/BUILD",
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-    assertThat(getPythonVersion(getConfiguredTarget("//foo:foo"))).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
-  public void pythonVersionsWithMixedDefaults() throws Exception {
+  public void canBuildTwoTargetsSpecifyingDifferentVersions() throws Exception {
     scratch.file("foo/BUILD",
         ruleName + "(",
         "    name = 'foo_v2',",
@@ -134,7 +102,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void forcePython3Version() throws Exception {
+  public void flagOverridesDefaultPythonVersionFrom2To3() throws Exception {
     useConfiguration("--force_python=PY3");
     scratch.file("foo/BUILD",
         ruleName + "(",
@@ -145,7 +113,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void forcePython2Version() throws Exception {
+  public void flagOverridesDefaultPythonVersionFrom3To2() throws Exception {
     useConfiguration("--force_python=PY2");
     scratch.file("foo/BUILD",
         ruleName + "(",
@@ -156,7 +124,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void forcePython2VersionMultiple() throws Exception {
+  public void canBuildTwoTargetsSpecifyingDifferentVersions_ForcedTo2() throws Exception {
     useConfiguration("--force_python=PY2");
     scratch.file("foo/BUILD",
         ruleName + "(",
@@ -172,7 +140,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
   }
 
   @Test
-  public void forcePython3VersionMultiple() throws Exception {
+  public void canBuildTwoTargetsSpecifyingDifferentVersions_ForcedTo3() throws Exception {
     useConfiguration("--force_python=PY3");
     scratch.file("foo/BUILD",
         ruleName + "(",
@@ -187,4 +155,34 @@ public abstract class PyExecutableConfiguredTargetTestBase extends BuildViewTest
     assertThat(getPythonVersion(getConfiguredTarget("//foo:foo_v3"))).isEqualTo(PythonVersion.PY3);
   }
 
+  @Test
+  public void srcsVersionClashesWithDefaultVersionAttr() throws Exception {
+    checkError("pkg", "foo",
+        // error:
+        "'//pkg:foo' can only be used with Python 2",
+        // build file:
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = [':foo.py'],",
+        "    srcs_version = 'PY2ONLY',",
+        "    default_python_version = 'PY3')");
+  }
+
+  @Test
+  public void srcsVersionClashesWithDefaultVersionAttr_Implicitly() throws Exception {
+    // Canary assertion: This'll fail when we flip the default to PY3. At that point change this
+    // test to use srcs_version = 'PY2ONLY' instead.
+    assertThat(PythonVersion.defaultTargetPythonVersion()).isEqualTo(PythonVersion.PY2);
+
+    // Fails because default_python_version is PY2 by default, so the config is set to PY2
+    // regardless of srcs_version.
+    checkError("pkg", "foo",
+        // error:
+        "'//pkg:foo' can only be used with Python 3",
+        // build file:
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = [':foo.py'],",
+        "    srcs_version = 'PY3ONLY')");
+  }
 }

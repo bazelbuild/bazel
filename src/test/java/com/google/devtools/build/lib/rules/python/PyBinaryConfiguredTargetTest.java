@@ -101,7 +101,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
-  public void emptySrcsNotAllowed() throws Exception {
+  public void srcsIsMandatory() throws Exception {
+    // This case is somewhat dominated by the test that the default main must be in srcs, but the
+    // error message is different here.
     checkError("pkg", "foo",
         // error:
         "missing value for mandatory attribute 'srcs'",
@@ -212,30 +214,6 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "    name = 'foo/bar',",
         "    srcs = ['foo/bar.py'])");
     getConfiguredTarget("//pkg:foo/bar");  // should not fail
-  }
-
-  @Test
-  public void packageNameCannotHaveHyphen() throws Exception {
-    checkError("pkg-hyphenated", "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-  }
-
-  @Test
-  public void srcsPackageNameCannotHaveHyphen() throws Exception {
-    scratch.file("pkg-hyphenated/BUILD",
-        "exports_files(['bar.py'])");
-    checkError("otherpkg", "foo",
-        // error:
-        "paths to Python packages may not contain '-'",
-        // build file:
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'])");
   }
 
   // TODO(brandjon): Add tests for content of stub Python script (particularly for choosing python
