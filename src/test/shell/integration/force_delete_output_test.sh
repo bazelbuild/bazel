@@ -27,6 +27,7 @@ function tear_down() {
   bazel clean
   bazel shutdown
   rm -rf x
+  testenv_tear_down
 }
 
 function test_delete_in_unwritable_dir() {

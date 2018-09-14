@@ -28,7 +28,7 @@ add_to_bazelrc "build --experimental_build_event_upload_strategy=local"
 set -e
 
 function set_up() {
-  create_new_workspace
+  testenv_set_up
 
   mkdir -p pkg
   touch pkg/somesourcefile

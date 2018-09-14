@@ -67,6 +67,16 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "foo_test",
+    srcs = ["foo.sh"],
+    shard_count = 2,
+    data = [
+        ":bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 test_suite(
     name = "windows_tests",
     tags = [

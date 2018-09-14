@@ -450,9 +450,31 @@ function cleanup() {
   fi
 }
 
+function set_up() {
+  create_and_cd_client
+}
+
 function tear_down() {
   cleanup_workspace
 }
+
+# Define testenv_set_up and testenv_tear_down as copies of set_up/tear_down.
+#
+# Tests that define "set_up" will override the existing set_up definition.
+# For correct behavior they should explicitly call "testenv_set_up" at the
+# start of their "set_up" implementation. Similarly, tests that define
+# "tear_down" should call "testenv_tear_down" at the end of their "tear_down".
+#
+# Tests that do not define "set_up" (or "tear_down") will inherit the existing 
+# the definition and the test framework will run that for them.
+function declare_testenv_setup_teardown() {
+  for func in set_up tear_down; do
+    local function_definition=$(declare -f $func)
+    function_definition="testenv_${function_definition}"
+    eval "$function_definition"
+  done
+}
+declare_testenv_setup_teardown
 
 #
 # Simples assert to make the tests more readable
@@ -529,7 +551,3 @@ function create_and_cd_client() {
   echo "workspace(name = '$WORKSPACE_NAME')" >WORKSPACE
   touch .bazelrc
 }
-
-################### Extra ############################
-# Functions that need to be called before each test.
-create_and_cd_client

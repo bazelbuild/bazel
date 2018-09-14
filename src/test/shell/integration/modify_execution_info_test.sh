@@ -25,10 +25,12 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function set_up() {
     cd ${WORKSPACE_DIR}
+    testenv_set_up
 }
 
 function tear_down() {
     bazel shutdown
+    testenv_tear_down
 }
 
 #### TESTS #############################################################

@@ -66,11 +66,13 @@ TEST_stderr=$(dirname $TEST_log)/stderr
 #### HELPER FUNCTIONS ##################################################
 
 function set_up() {
+    testenv_set_up
     cd ${WORKSPACE_DIR}
 }
 
 function tear_down() {
     bazel shutdown
+    testenv_tear_down
 }
 
 #### TESTS #############################################################

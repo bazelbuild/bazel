@@ -35,6 +35,7 @@ build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
 EOF
 
 function set_up {
+  testenv_set_up
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
   export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
 

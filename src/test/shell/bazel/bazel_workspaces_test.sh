@@ -313,7 +313,7 @@ function tear_down() {
   if [ -d "${TEST_TMPDIR}/server_dir" ]; then
     rm -fr "${TEST_TMPDIR}/server_dir"
   fi
-  true
+  testenv_tear_down
 }
 
 run_suite "workspaces_tests"

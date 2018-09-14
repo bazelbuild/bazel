@@ -21,6 +21,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 
 function set_up() {
+  testenv_set_up
   write_default_bazelrc
   # Print client log statements to stderr so they get picked up by the test log
   # in the event of a failure.
@@ -30,6 +31,7 @@ function set_up() {
 
 function tear_down() {
   bazel --nobatch shutdown
+  testenv_set_up
 }
 
 #### TESTS #############################################################

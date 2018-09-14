@@ -26,6 +26,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 #
 # Unpacks the test Git repositories in the test temporary directory.
 function set_up() {
+  testenv_set_up
+
   bazel clean --expunge
   local repos_dir=$TEST_TMPDIR/repos
   if [ -e "$repos_dir" ]; then

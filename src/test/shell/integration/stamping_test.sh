@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 set -e
 
 function set_up() {
+  testenv_set_up
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(

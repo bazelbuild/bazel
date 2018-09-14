@@ -28,6 +28,7 @@ if [ "${PLATFORM}" != "darwin" ]; then
 fi
 
 function set_up() {
+  testenv_set_up
   copy_examples
   setup_objc_test_support
 

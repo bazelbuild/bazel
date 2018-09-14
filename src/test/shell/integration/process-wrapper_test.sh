@@ -34,6 +34,7 @@ readonly ERR="${OUT_DIR}/errfile"
 readonly EXIT_STATUS_SIGALRM=$((128 + 14))
 
 function set_up() {
+  testenv_set_up
   rm -rf $OUT_DIR
   mkdir -p $OUT_DIR
 }

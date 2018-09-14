@@ -41,6 +41,7 @@ readonly CPU_TIME_SPENDER="${CURRENT_DIR}/../../../test/shell/integration/spend_
 SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 
 function set_up {
+  testenv_set_up
   rm -rf $OUT_DIR
   mkdir -p $SANDBOX_DIR
 }

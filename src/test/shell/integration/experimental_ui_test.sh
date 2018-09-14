@@ -61,6 +61,7 @@ add_to_bazelrc "build --genrule_strategy=local"
 add_to_bazelrc "test --test_strategy=standalone"
 
 function set_up() {
+  testenv_set_up
   if [[ -d pkg ]]; then
     # All tests share these scratch packages. No need to recreate them if they
     # already exist.

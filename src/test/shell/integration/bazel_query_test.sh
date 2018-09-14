@@ -499,6 +499,7 @@ EOF
 
 function tear_down() {
   bazel shutdown
+  testenv_tear_down
 }
 
 run_suite "${PRODUCT_NAME} query tests"
