@@ -94,8 +94,11 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     /**
-     * Returns artifact if it present in the cache and was created during this build, otherwise
-     * null.
+     * Returns artifact if it is present in the cache and has been verified to be valid for this
+     * build, otherwise null. Note that if the artifact's package is not part of the current build,
+     * our differing methods of validating source roots (via {@link PackageRootResolver} and via
+     * {@link #findSourceRoot}) may disagree. In that case, the artifact will be valid, but unusable
+     * by any action (since no action has properly declared it as an input).
      */
     @ThreadSafe
     Artifact getArtifactIfValid(PathFragment execPath) {
@@ -354,20 +357,13 @@ public class ArtifactFactory implements ArtifactResolver {
     if (isDerivedArtifact(execPath)) {
       return null;
     }
+    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
+    if (artifact != null) {
+      return artifact;
+    }
     Root sourceRoot =
         findSourceRoot(
             execPath, baseExecPath, baseRoot == null ? null : baseRoot.getRoot(), repositoryName);
-    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
-    if (artifact != null) {
-      ArtifactRoot artifactRoot = artifact.getRoot();
-      Preconditions.checkState(
-          sourceRoot == null || sourceRoot.equals(artifactRoot.getRoot()),
-          "roots mismatch: %s %s %s",
-          sourceRoot,
-          artifactRoot,
-          artifact);
-      return artifact;
-    }
     return createArtifactIfNotValid(sourceRoot, execPath);
   }
 
