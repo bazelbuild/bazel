@@ -874,6 +874,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         binaryOutput,
         workspaceOnly,
         outputsDefaultExecutable,
+        /* hasFunctionTransitionWhitelist=*/ false,
         implicitOutputsFunction,
         /*isConfigMatcher=*/ false,
         transitionFactory,

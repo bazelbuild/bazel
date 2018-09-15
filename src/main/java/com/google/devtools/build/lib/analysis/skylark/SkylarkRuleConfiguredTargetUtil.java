@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
@@ -34,10 +35,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.InfoInterface;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -99,6 +102,12 @@ public final class SkylarkRuleConfiguredTargetUtil {
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,
       // so we do *not* setLoadingPhase().
+
+      RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
+      if (ruleClass.hasFunctionTransitionWhitelist()
+          && !Whitelist.isAvailable(ruleContext, FunctionSplitTransitionWhitelist.WHITELIST_NAME)) {
+          ruleContext.ruleError("Non-whitelisted use of function-base split transition");
+      }
 
       Object target =
           ruleImplementation.call(

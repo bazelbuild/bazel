@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -629,10 +630,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             + "', test rule class names must end with '_test' and other rule classes must not");
       }
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
+        String name = attribute.getFirst();
         SkylarkAttr.Descriptor descriptor = attribute.getSecond();
 
-        addAttribute(definitionLocation, builder,
-            descriptor.build(attribute.getFirst()));
+        addAttribute(definitionLocation, builder, descriptor.build(name));
+
+        // Check for existence of the function transition whitelist attribute.
+        if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
+          builder.setHasFunctionTransitionWhitelist();
+        }
       }
       try {
         this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);
