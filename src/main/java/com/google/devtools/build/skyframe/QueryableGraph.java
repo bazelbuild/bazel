@@ -60,6 +60,12 @@ public interface QueryableGraph {
     return InterruptibleSupplier.Memoize.of(() -> getBatch(requestor, reason, keys));
   }
 
+  /** Optimistically prefetches dependencies. */
+  default void prefetchDeps(@Nullable SkyKey requestor, Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    getBatchAsync(requestor, Reason.PREFETCH, depKeys);
+  }
+
   /**
    * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
    * currently available to be fetched.
