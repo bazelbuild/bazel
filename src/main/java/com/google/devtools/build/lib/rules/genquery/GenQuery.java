@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.genquery;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -81,6 +82,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -89,8 +91,6 @@ import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -151,7 +151,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
 
-    ByteString result = executeQuery(ruleContext, queryOptions, getScope(ruleContext), query);
+    ByteString result =
+        executeQuery(
+            ruleContext,
+            queryOptions,
+            ruleContext.attributes().get("scope", BuildType.LABEL_LIST),
+            query);
     if (result == null || ruleContext.hasErrors()) {
       return null;
     }
@@ -170,29 +175,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  // The transitive closure of these targets is an upper estimate on the labels
-  // the query will touch
-  private static Set<Target> getScope(RuleContext context) throws InterruptedException {
-    List<Label> scopeLabels = context.attributes().get("scope", BuildType.LABEL_LIST);
-    Set<Target> scope = Sets.newHashSetWithExpectedSize(scopeLabels.size());
-    for (Label scopePart : scopeLabels) {
-      SkyFunction.Environment env = context.getAnalysisEnvironment().getSkyframeEnv();
-      PackageValue packageNode =
-          (PackageValue) env.getValue(PackageValue.key(scopePart.getPackageIdentifier()));
-      Preconditions.checkNotNull(
-          packageNode,
-          "Packages in transitive closure of scope '%s'"
-              + "were already loaded during the loading phase",
-          scopePart);
-      try {
-        scope.add(packageNode.getPackage().getTarget(scopePart.getName()));
-      } catch (NoSuchTargetException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-    return scope;
-  }
-
 
   /**
    * DO NOT USE! We should get rid of this method: errors reported directly to this object don't set
@@ -209,19 +191,20 @@ public class GenQuery implements RuleConfiguredTargetFactory {
    */
   @Nullable
   private static Pair<ImmutableMap<PackageIdentifier, Package>, ImmutableMap<Label, Target>>
-      constructPackageMap(SkyFunction.Environment env, Collection<Target> scope)
+      constructPackageMap(SkyFunction.Environment env, Collection<Label> scope)
           throws InterruptedException, BrokenQueryScopeException {
     // It is not necessary for correctness to construct intermediate NestedSets; we could iterate
     // over individual targets in scope immediately. However, creating a composite NestedSet first
     // saves us from iterating over the same sub-NestedSets multiple times.
     NestedSetBuilder<Label> validTargets = NestedSetBuilder.stableOrder();
-    Set<PackageIdentifier> successfulPackageNames = new LinkedHashSet<>();
-    for (Target target : scope) {
-      SkyKey key = TransitiveTargetKey.of(target.getLabel());
-      TransitiveTargetValue transNode = (TransitiveTargetValue) env.getValue(key);
-      if (transNode == null) {
-        return null;
-      }
+    Set<SkyKey> successfulPackageKeys = Sets.newHashSetWithExpectedSize(scope.size());
+    Map<SkyKey, SkyValue> transitiveTargetValues =
+        env.getValues(Collections2.transform(scope, TransitiveTargetKey::of));
+    if (env.valuesMissing()) {
+      return null;
+    }
+    for (SkyValue value : transitiveTargetValues.values()) {
+      TransitiveTargetValue transNode = (TransitiveTargetValue) value;
       if (transNode.getTransitiveRootCauses() != null) {
         // This should only happen if the unsuccessful package was loaded in a non-selected
         // path, as otherwise this configured target would have failed earlier. See b/34132681.
@@ -230,19 +213,24 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       validTargets.addTransitive(transNode.getTransitiveTargets());
       for (Label transitiveLabel : transNode.getTransitiveTargets()) {
-        successfulPackageNames.add(transitiveLabel.getPackageIdentifier());
+        successfulPackageKeys.add(PackageValue.key(transitiveLabel.getPackageIdentifier()));
       }
     }
 
     // Construct the package id to package map for all successful packages.
+    Map<SkyKey, SkyValue> transitivePackages = env.getValues(successfulPackageKeys);
+    if (env.valuesMissing()) {
+      // Packages from an untaken select branch could be missing: analysis avoids these, but query
+      // does not.
+      return null;
+    }
     ImmutableMap.Builder<PackageIdentifier, Package> packageMapBuilder = ImmutableMap.builder();
-    for (PackageIdentifier pkgId : successfulPackageNames) {
-      PackageValue pkg = (PackageValue) env.getValue(PackageValue.key(pkgId));
-      Preconditions.checkNotNull(pkg, "package %s not preloaded", pkgId);
+    for (Map.Entry<SkyKey, SkyValue> pkgEntry : transitivePackages.entrySet()) {
+      PackageValue pkg = (PackageValue) pkgEntry.getValue();
       Preconditions.checkState(
           !pkg.getPackage().containsErrors(),
           "package %s was found to both have and not have errors.",
-          pkgId);
+          pkgEntry);
       packageMapBuilder.put(pkg.getPackage().getPackageIdentifier(), pkg.getPackage());
     }
     ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.build();
@@ -260,7 +248,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
   @Nullable
   private ByteString executeQuery(
-      RuleContext ruleContext, QueryOptions queryOptions, Set<Target> scope, String query)
+      RuleContext ruleContext, QueryOptions queryOptions, Collection<Label> scope, String query)
       throws InterruptedException {
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     Pair<ImmutableMap<PackageIdentifier, Package>, ImmutableMap<Label, Target>> closureInfo;
