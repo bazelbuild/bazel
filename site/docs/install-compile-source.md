@@ -5,11 +5,17 @@ title: Compiling Bazel from Source
 
 # <a name="compiling-from-source"></a>Compiling Bazel from Source (bootstrapping)
 
-You can build Bazel from source without using an existing Bazel binary.
+To build Bazel from source, you can do one of the following:
+
+*   Build it using an existing Bazel Binary
+
+*   Build it without an existing Bazel binary, which is known as _bootstraping_
+
+This document describes how to bootstrap Bazel.
 
 ### 1.  Install the prerequisites
 
-#### Unix-like systems
+#### Ubuntu Linux, macOS, and other Unix-like systems
 
 Ensure you have installed:
 
@@ -74,9 +80,7 @@ We recommend to also verify the signature made by our
 
 ### 3.  Bootstrap Bazel
 
-#### Unix-like systems
-
-On Unix-like systems such as Ubuntu Linux or macOS, do the following:
+#### Ubuntu Linux, macOS, and other Unix-like systems
 
 1.  Open a shell or Terminal window.
 
