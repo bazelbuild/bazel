@@ -279,18 +279,10 @@ function test_cc_test_coverage_lcov() {
     # Run the C++ coverage script with the environment setup accordingly.
     # This will get coverage results for coverage_srcs/a.cc and
     # coverage_srcs/t.cc.
-    run_coverage lcov > "$TEST_log"
+    run_coverage "LCOV" > "$TEST_log"
 
     # Location of the output file of the C++ coverage script when lcov is used.
     local output_file="$COVERAGE_DIR_VAR/_cc_coverage.dat"
-
-    # The expected total number of lines of output file is 25. This assertion
-    # is needed to make sure no other source files are included in the output
-    # file.
-    [[ "$(wc -l < "$output_file")" == 25 ]] || \
-      fail "Number of lines in C++ lcov coverage output file is"\
-      "$(wc -l < "$output_file") and different than 25"
-
 
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
@@ -300,10 +292,18 @@ function test_cc_test_coverage_lcov() {
     # order in the coverage report is not relevant.
     assert_lcov_coverage_srcs_a_cc "$output_file"
     assert_lcov_coverage_srcs_t_cc "$output_file"
+
+    # The expected total number of lines of output file is 25. This assertion
+    # is needed to make sure no other source files are included in the output
+    # file.
+    local nr_lines="$(wc -l < "$output_file")"
+    [[ "$nr_lines" == 25 ]] || \
+      fail "Number of lines in C++ lcov coverage output file is "\
+      "$nr_lines and different than 25"
 }
 
 function test_cc_test_coverage_gcov() {
-    run_coverage gcov > "$TEST_log"
+    run_coverage "GCOV" > "$TEST_log"
 
     # Location of the output file of the C++ coverage script when gcov is used.
     local output_file="$COVERAGE_DIR_VAR/_cc_coverage.gcov"
@@ -311,9 +311,10 @@ function test_cc_test_coverage_gcov() {
     # The expected total number of lines of output file is 13. This assertion
     # is needed to make sure no other source files are included in the output
     # file.
-    [[ "$(wc -l < "$output_file")" == 13 ]] || \
-      fail "Number of lines in C++ gcov coverage output file is"\
-      "$(wc -l < "$output_file") and different than 13"
+    local nr_lines="$(wc -l < "$output_file")"
+    [[ "$nr_lines" == 13 ]] || \
+      fail "Number of lines in C++ gcov coverage output file is "\
+      "$nr_lines and different than 13"
 
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.

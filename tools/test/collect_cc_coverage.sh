@@ -76,8 +76,8 @@ function lcov_coverage() {
     cp "${ROOT}/${gcno}" "${COVERAGE_DIR}/${gcno}"
   done
 
-  local lcov_tool=$(which lcov)
-  if [[ ! -x $lcov_tool ]]; then
+  local lcov_tool="$(which lcov)"
+  if [[ ! -x "$lcov_tool" ]]; then
     lcov_tool=/usr/bin/lcov
   fi
 
@@ -224,8 +224,8 @@ function main() {
   # content will be converted and/or merged with other reports to an lcov
   # format, generating the final code coverage report.
   case "$BAZEL_CC_COVERAGE_TOOL" in
-        ("gcov") gcov_coverage "$COVERAGE_DIR/_cc_coverage.gcov" ;;
-        ("lcov") lcov_coverage "$COVERAGE_DIR/_cc_coverage.dat" ;;
+        ("GCOV") gcov_coverage "$COVERAGE_DIR/_cc_coverage.gcov" ;;
+        ("LCOV") lcov_coverage "$COVERAGE_DIR/_cc_coverage.dat" ;;
         (*) echo "Coverage tool $BAZEL_CC_COVERAGE_TOOL not supported" && exit 1
   esac
 }
