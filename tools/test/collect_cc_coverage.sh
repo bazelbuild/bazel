@@ -58,19 +58,21 @@ function init_gcov() {
   ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
 }
 
-# Computes code coverage data using the clang generated metadata found under $COVERAGE_DIR.
+# Computes code coverage data using the clang generated metadata found under
+# $COVERAGE_DIR.
 # Writes the collected coverage into the given output file.
 function llvm_coverage() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" "${COVERAGE_DIR}"/*.profraw
+  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
+      "${COVERAGE_DIR}"/*.profraw
 }
 
 # Computes code coverage data using gcda files found under $COVERAGE_DIR.
 # Writes the collected coverage into the given output file in lcov format.
 function lcov_coverage() {
   local output_file="${1}"; shift
-  
+
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno; do
     mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno})"
     cp "${ROOT}/${gcno}" "${COVERAGE_DIR}/${gcno}"
@@ -84,7 +86,8 @@ function lcov_coverage() {
   # Run lcov over the .gcno and .gcda files to generate the lcov tracefile.
   # -c                    - Collect coverage data
   # --no-external         - Do not collect coverage data for system files
-  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments some files
+  # --ignore-errors graph - Ignore missing .gcno files; Bazel only instruments
+  #                         some files
   # -q                    - Quiet mode
   # --gcov-tool "${GCOV}" - Pass the local symlink to be uses as gcov by lcov
   # -b /proc/self/cwd     - Use this as a prefix for all source files instead of
@@ -117,7 +120,8 @@ function gcov_coverage() {
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno_path; do
 
     local gcda="${COVERAGE_DIR}/$(dirname ${gcno_path})/$(basename ${gcno_path} .gcno).gcda"
-    # If the gcda file was not found we generate empty coverage from the gcno file.
+    # If the gcda file was not found we generate empty coverage from the gcno
+    # file.
     if [ -f "$gcda" ]; then
         # gcov expects both gcno and gcda files to be in the same directory.
         # We overcome this by copying the gcno to $COVERAGE_DIR where the gcda
@@ -180,8 +184,8 @@ function get_source_file() {
     # gcov places results in the current working dir. The gcov documentation
     # doesn't provide much details about how the name of the output file is
     # generated, other than hinting at it being named  <source file name>.gcov.
-    # Since we only know the gcno filename, we try and see which of the following
-    # extensions the source file had.
+    # Since we only know the gcno filename, we try and see which of the
+    # following extensions the source file had.
     declare -a source_extensions
 
     case "$filetype" in
@@ -226,7 +230,8 @@ function main() {
   case "$BAZEL_CC_COVERAGE_TOOL" in
         ("GCOV") gcov_coverage "$COVERAGE_DIR/_cc_coverage.gcov" ;;
         ("LCOV") lcov_coverage "$COVERAGE_DIR/_cc_coverage.dat" ;;
-        (*) echo "Coverage tool $BAZEL_CC_COVERAGE_TOOL not supported" && exit 1
+        (*) echo "Coverage tool $BAZEL_CC_COVERAGE_TOOL not supported" \
+            && exit 1
   esac
 }
 
