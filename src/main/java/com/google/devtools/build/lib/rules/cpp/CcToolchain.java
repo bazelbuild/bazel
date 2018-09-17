@@ -781,8 +781,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
           compiler,
           cppConfiguration.getTransformedCpuFromOptions(),
           cppConfiguration.getCompilerFromOptions(),
-          cppConfiguration.getCrosstoolFile().getProto(),
-          cppConfiguration.getCpuTransformer());
+          cppConfiguration.getCrosstoolFile().getProto());
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(
           String.format("Error while selecting cc_toolchain: %s", e.getMessage()));

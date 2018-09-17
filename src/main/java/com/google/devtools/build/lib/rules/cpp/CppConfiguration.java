@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -214,7 +213,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> ltobackendOptions;
 
   private final CppOptions cppOptions;
-  private final CpuTransformer cpuTransformerEnum;
 
   // The dynamic mode for linking.
   private final boolean stripBinaries;
@@ -293,7 +291,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         ImmutableList.copyOf(cppOptions.ltoindexoptList),
         ImmutableList.copyOf(cppOptions.ltobackendoptList),
         cppOptions,
-        params.cpuTransformer,
         (cppOptions.stripBinaries == StripMode.ALWAYS
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD)),
@@ -328,7 +325,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> ltoindexOptions,
       ImmutableList<String> ltobackendOptions,
       CppOptions cppOptions,
-      CpuTransformer cpuTransformerEnum,
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean shouldProvideMakeVariables,
@@ -358,7 +354,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.ltoindexOptions = ltoindexOptions;
     this.ltobackendOptions = ltobackendOptions;
     this.cppOptions = cppOptions;
-    this.cpuTransformerEnum = cpuTransformerEnum;
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
     this.shouldProvideMakeVariables = shouldProvideMakeVariables;
@@ -403,11 +398,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** Returns the label of the CROSSTOOL for this configuration. */
   public Label getCrosstoolTop() {
     return crosstoolTop;
-  }
-
-  /** Returns the transformer that should be applied to cpu names in toolchain selection. */
-  public Function<String, String> getCpuTransformer() {
-    return cpuTransformerEnum.getTransformer();
   }
 
   /**

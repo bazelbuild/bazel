@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.rules.cpp;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -270,27 +268,5 @@ public class CrosstoolConfigurationLoader {
     } catch (IOException e) {
       throw new InvalidConfigurationException(e);
     }
-  }
-
-  /**
-   * Selects a crosstool toolchain corresponding to the given crosstool configuration options. If
-   * all of these options are null, it returns the default toolchain specified in the crosstool
-   * release. If only cpu is non-null, it returns the default toolchain for that cpu, as specified
-   * in the crosstool release. Otherwise, all values must be non-null, and this method returns the
-   * toolchain which matches all of the values.
-   *
-   * @throws NullPointerException if {@code release} is null
-   * @throws InvalidConfigurationException if no matching toolchain can be found, or if the input
-   *     parameters do not obey the constraints described above
-   */
-  public static CrosstoolConfig.CToolchain selectToolchain(
-      CrosstoolConfig.CrosstoolRelease release,
-      BuildOptions options,
-      Function<String, String> cpuTransformer)
-      throws InvalidConfigurationException {
-    CrosstoolConfigurationIdentifier config =
-        CrosstoolConfigurationIdentifier.fromOptions(options);
-    return CToolchainSelectionUtils.selectToolchainUsingCpuAndMaybeCompiler(
-        release, config, cpuTransformer);
   }
 }

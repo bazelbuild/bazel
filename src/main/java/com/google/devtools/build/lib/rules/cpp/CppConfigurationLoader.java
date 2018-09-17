@@ -89,7 +89,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final PathFragment fdoPath;
     protected final Label fdoOptimizeLabel;
     protected final Label sysrootLabel;
-    protected final CpuTransformer cpuTransformer;
     protected final CcToolchainConfigInfo ccToolchainConfigInfo;
     protected final String transformedCpu;
     protected final String compiler;
@@ -106,7 +105,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         Label ccToolchainLabel,
         Label stlLabel,
         Label sysrootLabel,
-        CpuTransformer cpuTransformer,
         CcToolchainConfigInfo ccToolchainConfigInfo) {
       this.transformedCpu = transformedCpu;
       this.compiler = compiler;
@@ -120,7 +118,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.ccToolchainLabel = ccToolchainLabel;
       this.stlLabel = stlLabel;
       this.sysrootLabel = sysrootLabel;
-      this.cpuTransformer = cpuTransformer;
       this.ccToolchainConfigInfo = ccToolchainConfigInfo;
     }
   }
@@ -164,7 +161,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         transformedCpu + (cppOptions.cppCompiler == null ? "" : ("|" + cppOptions.cppCompiler));
     Label ccToolchainLabel =
         selectCcToolchainLabel(
-            options, cppOptions, crosstoolTopLabel, (Rule) crosstoolTop, file, transformedCpu, key);
+            cppOptions, crosstoolTopLabel, (Rule) crosstoolTop, file, transformedCpu, key);
 
     Target ccToolchain = loadCcToolchainTarget(env, ccToolchainLabel);
     if (ccToolchain == null) {
@@ -190,8 +187,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
             compilerAttribute,
             transformedCpu,
             cppOptions.cppCompiler,
-            file.getProto(),
-            cpuTransformer.getTransformer());
+            file.getProto());
 
     cToolchain =
         CppToolchainInfo.addLegacyFeatures(
@@ -240,7 +236,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         ccToolchainLabel,
         stlLabel,
         sysrootLabel,
-        cpuTransformer,
         ccToolchainConfigInfo);
   }
 
@@ -265,7 +260,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
   }
 
   private Label selectCcToolchainLabel(
-      BuildOptions options,
       CppOptions cppOptions,
       Label crosstoolTopLabel,
       Rule crosstoolTop,
@@ -277,8 +271,9 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         String.format(
             "cc_toolchain_suite '%s' does not contain a toolchain for CPU '%s'",
             crosstoolTopLabel, transformedCpu);
-    if (cppOptions.cppCompiler != null) {
-      errorMessage = errorMessage + " and compiler " + cppOptions.cppCompiler;
+    String compiler = cppOptions.cppCompiler;
+    if (compiler != null) {
+      errorMessage = errorMessage + " and compiler " + compiler;
     }
 
     Map<String, Label> toolchains =
@@ -292,8 +287,13 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       // present). Then we use the toolchain.target_cpu|toolchain.compiler key to get the
       // cc_toolchain label.
       CToolchain toolchain =
-          CrosstoolConfigurationLoader.selectToolchain(
-              file.getProto(), options, cpuTransformer.getTransformer());
+          CToolchainSelectionUtils.selectCToolchain(
+              /* identifierAttribute= */ null,
+              /* cpuAttribute= */ null,
+              /* compilerAttribute= */ null,
+              transformedCpu,
+              compiler,
+              file.getProto());
       ccToolchainLabel = toolchains.get(toolchain.getTargetCpu() + "|" + toolchain.getCompiler());
       if (cppOptions.disableCcToolchainFromCrosstool) {
         throw new InvalidConfigurationException(
