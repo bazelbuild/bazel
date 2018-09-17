@@ -104,6 +104,7 @@ public class CppCompileAction extends AbstractAction
   private final NestedSet<Artifact> additionalPrunableHeaders;
 
   @Nullable private final Artifact grepIncludes;
+  private final boolean shareable;
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
   private final boolean usePic;
@@ -200,6 +201,7 @@ public class CppCompileAction extends AbstractAction
       CcToolchainVariables variables,
       Artifact sourceFile,
       CppConfiguration cppConfiguration,
+      boolean shareable,
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
       boolean usePic,
@@ -236,6 +238,7 @@ public class CppCompileAction extends AbstractAction
     Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceFile = sourceFile;
+    this.shareable = shareable;
     this.cppConfiguration = cppConfiguration;
     // We do not need to include the middleman artifact since it is a generated artifact and will
     // definitely exist prior to this action execution.
@@ -981,6 +984,11 @@ public class CppCompileAction extends AbstractAction
     // but there is still significant CPU; hence we estimate 50% cpu usage.
     return ResourceSet.createWithRamCpuIo(
         /* memoryMb= */ 200, /* cpuUsage= */ 0.5, /* ioUsage= */ 0.0);
+  }
+
+  @Override
+  public boolean isShareable() {
+    return shareable;
   }
 
   @Override

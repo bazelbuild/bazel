@@ -31,6 +31,14 @@ public interface ActionAnalysisMetadata {
   ActionOwner getOwner();
 
   /**
+   * Returns true if the action can be shared, i.e. multiple configured targets can create the same
+   * action.
+   *
+   * <p>In theory, these should not exist, but in practice, they do.
+   */
+  boolean isShareable();
+
+  /**
    * Returns a mnemonic (string constant) for this kind of action; written into
    * the master log so that the appropriate parser can be invoked for the output
    * of the action. Effectively a public method as the value is used by the
