@@ -426,7 +426,9 @@ static vector<string> GetArgumentArray(
     // see: https://github.com/google/protobuf/issues/3781
 
     // quiet warnings from com.google.protobuf.UnsafeUtil,
+    // see: https://github.com/google/protobuf/issues/3781
     result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
+    result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
   }
 
   result.push_back("-Xverify:none");
