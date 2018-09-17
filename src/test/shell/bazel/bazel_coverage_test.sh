@@ -214,6 +214,65 @@ end_of_record"
   assert_contains 'name: "baseline.lcov"' bep.txt
 }
 
+function test_cc_test_llvm_coverage_doesnt_fail() {
+  local -r llvmprofdata=$(which llvm-profdata)
+  if [[ ! -x ${llvmprofdata:-/usr/bin/llvm-profdata} ]]; then
+    echo "llvm-profdata not installed. Skipping test."
+    return
+  fi
+
+  local -r clang_tool=$(which clang)
+  if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
+    echo "clang not installed. Skipping test."
+    return
+  fi
+
+  cat << EOF > BUILD
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+)
+
+cc_test(
+    name = "t",
+    srcs = ["t.cc"],
+    deps = [":a"],
+)
+EOF
+
+  cat << EOF > a.h
+int a(bool what);
+EOF
+
+  cat << EOF > a.cc
+#include "a.h"
+
+int a(bool what) {
+  if (what) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
+  cat << EOF > t.cc
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+
+  # Only test that bazel coverage doesn't crash when invoked for llvm native
+  # coverage.
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata CC=clang bazel coverage //:t \
+      &>$TEST_log || fail "Coverage for //:t failed"
+}
+
+
 function test_failed_coverage() {
   local -r LCOV=$(which lcov)
   if [[ ! -x ${LCOV:-/usr/bin/lcov} ]]; then

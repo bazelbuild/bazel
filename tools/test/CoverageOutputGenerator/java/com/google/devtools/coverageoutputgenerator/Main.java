@@ -15,6 +15,7 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSION;
+import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -61,6 +62,12 @@ public class Main {
             parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
 
     if (coverage.isEmpty()) {
+      if (!getProfdataFiles(filesInCoverageDir).isEmpty()) {
+        // Coverage generated some profdata reports. Bazel doesn't support yet parsing these kind
+        // of reports, so CoverageOutputGenerator will just ignore them for now.
+        logger.log(Level.SEVERE, "Only profdata files were found. Skipping converting to lcov");
+        System.exit(0);
+      }
       logger.log(Level.SEVERE, "There was no coverage found.");
       System.exit(1);
     }
@@ -120,11 +127,21 @@ public class Main {
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
     List<File> gcovFiles = getFilesWithExtension(filesInCoverageDir, GCOV_EXTENSION);
     if (gcovFiles.isEmpty()) {
-      logger.log(Level.SEVERE, "No gcov info file found.");
+      logger.log(Level.INFO, "No gcov info file found.");
     } else {
       logger.log(Level.INFO, "Found " + gcovFiles.size() + " gcov info files.");
     }
     return gcovFiles;
+  }
+
+  private static List<File> getProfdataFiles(List<File> filesInCoverageDir) {
+    List<File> profdataFiles = getFilesWithExtension(filesInCoverageDir, PROFDATA_EXTENSION);
+    if (profdataFiles.isEmpty()) {
+      logger.log(Level.INFO, "No .profdata file found.");
+    } else {
+      logger.log(Level.INFO, "Found " + profdataFiles.size() + " .profdata files.");
+    }
+    return profdataFiles;
   }
 
   private static List<File> getTracefiles(LcovMergerFlags flags, List<File> filesInCoverageDir) {
@@ -135,7 +152,7 @@ public class Main {
       lcovTracefiles = getTracefilesFromFile(flags.reportsFile());
     }
     if (lcovTracefiles.isEmpty()) {
-      logger.log(Level.SEVERE, "No lcov file found.");
+      logger.log(Level.INFO, "No lcov file found.");
     } else {
       logger.log(Level.INFO, "Found " + lcovTracefiles.size() + " tracefiles.");
     }
