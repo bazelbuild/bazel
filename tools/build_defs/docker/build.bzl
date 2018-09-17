@@ -41,7 +41,7 @@ load(
     _join_path = "join",
 )
 load(":serialize.bzl", _serialize_dict = "dict_to_associative_list")
-load("//third_party/bazel_skylib:lib.bzl", "collections")
+load("//third_party/bazel_skylib/lib:collections.bzl", "collections")
 
 def _build_layer(ctx):
     """Build the current layer for appending it the base layer."""
