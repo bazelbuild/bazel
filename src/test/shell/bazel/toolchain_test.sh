@@ -998,4 +998,74 @@ EOF
   expect_log 'toolchain extra_str: "bar"'
 }
 
+function test_make_variables_custom_rule() {
+  # Create a toolchain rule that also exposes make variables.
+  mkdir -p toolchain
+  touch toolchain/BUILD
+  cat >> toolchain/toolchain_var.bzl <<EOF
+def _impl(ctx):
+  toolchain = platform_common.ToolchainInfo()
+  value = ctx.attr.value
+  templates = platform_common.TemplateVariableInfo({'VALUE': value})
+  return [toolchain, templates]
+
+toolchain_var = rule(
+    implementation = _impl,
+    attrs = {
+        'value': attr.string(mandatory = True),
+    }
+)
+EOF
+
+  # Create a rule that consumes the toolchain.
+  cat >> toolchain/rule_var.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//toolchain:toolchain_var']
+  value = ctx.var['VALUE']
+  print('Using toolchain: value "%s"' % value)
+  return []
+
+rule_var = rule(
+    implementation = _impl,
+    toolchains = ['//toolchain:toolchain_var'],
+)
+EOF
+
+  # Create and register a toolchain
+  cat >> WORKSPACE <<EOF
+register_toolchains('//:toolchain_var_1')
+EOF
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_var.bzl', 'toolchain_var')
+
+# Define the toolchain.
+toolchain_var(
+    name = 'toolchain_var_impl_1',
+    value = 'foo',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'toolchain_var_1',
+    toolchain_type = '//toolchain:toolchain_var',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':toolchain_var_impl_1',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Instantiate the rule and verify the output.
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_var.bzl', 'rule_var')
+rule_var(name = 'demo')
+EOF
+
+  bazel build //demo:demo &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: value "foo"'
+}
+
+# TODO(katre): Test using toolchain-provided make variables from a genrule.
+
 run_suite "toolchain tests"

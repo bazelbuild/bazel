@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -61,6 +62,9 @@ public abstract class ToolchainContext implements ToolchainContextApi {
     /** Sets the map from toolchain type to toolchain provider. */
     Builder setToolchains(ImmutableMap<Label, ToolchainInfo> toolchains);
 
+    /** Sets the template variables that these toolchains provide. */
+    Builder setTemplateVariableProviders(ImmutableList<TemplateVariableInfo> providers);
+
     /** Sets the labels of the specific toolchains being used. */
     Builder setResolvedToolchainLabels(ImmutableSet<Label> resolvedToolchainLabels);
 
@@ -81,6 +85,9 @@ public abstract class ToolchainContext implements ToolchainContextApi {
   public abstract ImmutableSet<Label> requiredToolchainTypes();
 
   abstract ImmutableMap<Label, ToolchainInfo> toolchains();
+
+  /** Returns the template variables that these toolchains provide. */
+  public abstract ImmutableList<TemplateVariableInfo> templateVariableProviders();
 
   /** Returns the labels of the specific toolchains being used. */
   public abstract ImmutableSet<Label> resolvedToolchainLabels();
