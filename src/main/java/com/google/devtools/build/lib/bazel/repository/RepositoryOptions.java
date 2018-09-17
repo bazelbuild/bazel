@@ -104,6 +104,14 @@ public class RepositoryOptions extends OptionsBase {
               + " --experimental_respository_hash_file.")
   public List<String> experimentalVerifyRepositoryRules;
 
+  @Option(
+      name = "experimental_resolved_file_instead_of_workspace",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help = "If non-empty read the specifed resolved file instead of the WORKSPACE file")
+  public String experimentalResolvedFileInsteadOfWorkspace;
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */

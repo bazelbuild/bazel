@@ -509,6 +509,53 @@ EOF
   expect_not_log 'fn_name'
 }
 
+test_resolved_file_reading() {
+  # Verify that the option to read a resolved file instead of the WORKSPACE
+  # file works as expected.
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  mkdir extgit
+  (cd extgit && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello World > extgit/hello.txt
+  (cd extgit
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'initial commit'
+   git tag mytag)
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/extgit/.git",
+  branch="master",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  bazel sync --experimental_repository_resolved_file=resolved.bzl
+  echo; cat resolved.bzl; echo
+
+  bazel clean --expunge
+  echo 'Do not use any more' > WORKSPACE
+  bazel build \
+        --experimental_resolved_file_instead_of_workspace=`pwd`/resolved.bzl \
+        :out || fail "Expected success with resolved file replacing WORKSPACE"
+  grep 'Hello World' `bazel info bazel-genfiles`/out.txt \
+      || fail "Did not find the expected output"
+}
+
 create_sample_repository() {
   # Create, in the current direcotry, a repository that creates an external
   # repository `foo` containing

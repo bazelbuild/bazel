@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -183,6 +185,10 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
                 SkyKey key = (SkyKey) invocation.getArguments()[0];
                 if (key.equals(PrecomputedValue.SKYLARK_SEMANTICS.getKeyForTesting())) {
                   return new PrecomputedValue(SkylarkSemantics.DEFAULT_SEMANTICS);
+                } else if (key.equals(
+                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
+                        .getKeyForTesting())) {
+                  return new PrecomputedValue(Optional.<RootedPath>absent());
                 } else {
                   return null;
                 }

@@ -70,6 +70,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Set<String>> OUTPUT_VERIFICATION_REPOSITORY_RULES =
       new Precomputed<>(PrecomputedValue.Key.create("output_verification_repository_rules"));
 
+  public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
+      new Precomputed<>(PrecomputedValue.Key.create("resolved_file_instead_of_workspace"));
+
   public static final String DONT_FETCH_UNCONDITIONALLY = "";
 
   // The marker file version is inject in the rule key digest so the rule key is always different
