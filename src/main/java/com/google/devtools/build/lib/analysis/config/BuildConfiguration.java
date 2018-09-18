@@ -891,18 +891,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     public TriState enableRunfiles;
 
     @Option(
-      name = "windows_exe_launcher",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = { OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS },
-      deprecationWarning = "This flag is no longer supported and will go away soon.",
-      help =
-          "Build a Windows exe launcher for sh_binary rule, "
-              + "it has no effect on other platforms than Windows"
-    )
-    public boolean windowsExeLauncher;
-
-    @Option(
         name = "modify_execution_info",
         converter = ExecutionInfoModifier.Converter.class,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -937,7 +925,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.isHost = true;
       host.configsMode = configsMode;
       host.enableRunfiles = enableRunfiles;
-      host.windowsExeLauncher = windowsExeLauncher;
       host.executionInfoModifier = executionInfoModifier;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
@@ -1835,10 +1822,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       default:
         return OS.getCurrent() != OS.WINDOWS;
     }
-  }
-
-  public boolean enableWindowsExeLauncher() {
-    return options.windowsExeLauncher;
   }
 
   /**

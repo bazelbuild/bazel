@@ -60,8 +60,6 @@ import java.util.List;
 public class BazelPythonSemantics implements PythonSemantics {
   private static final Template STUB_TEMPLATE =
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
-  private static final Template STUB_TEMPLATE_WINDOWS =
-      Template.forResource(BazelPythonSemantics.class, "python_stub_template_windows.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
       FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
       "srcs", "deps", "data");
@@ -145,8 +143,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     if (!ruleContext.getFragment(PythonConfiguration.class).buildPythonZip()) {
       Artifact stubOutput = executable;
-      if (OS.getCurrent() == OS.WINDOWS
-          && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+      if (OS.getCurrent() == OS.WINDOWS) {
         // On Windows, use a Windows native binary to launch the python launcher script (stub file).
         stubOutput = common.getPythonLauncherArtifact(executable);
         executable =
@@ -202,18 +199,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                 .setMnemonic("BuildBinary")
                 .build(ruleContext));
       } else {
-        if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
-          return createWindowsExeLauncher(ruleContext, pythonBinary, executable, true);
-        }
-
-        ruleContext.registerAction(
-            new TemplateExpansionAction(
-                ruleContext.getActionOwner(),
-                executable,
-                STUB_TEMPLATE_WINDOWS,
-                ImmutableList.of(Substitution.of("%python_path%", pythonBinary)),
-                true));
-        return executable;
+        return createWindowsExeLauncher(ruleContext, pythonBinary, executable, true);
       }
     }
 

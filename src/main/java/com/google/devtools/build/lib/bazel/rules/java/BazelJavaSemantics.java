@@ -85,8 +85,6 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final Template STUB_SCRIPT =
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
-  private static final Template STUB_SCRIPT_WINDOWS =
-      Template.forResource(BazelJavaSemantics.class, "java_stub_template_windows.txt");
   private static final String CLASSPATH_PLACEHOLDER = "%classpath%";
   private static final String RELATIVE_CLASSPATHS_PLACEHOLDER = "%relative_classpath%";
   private static final Template CLASSPATH_FILE_TEMPLATE =
@@ -375,8 +373,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     ImmutableList<String> jvmFlagsList = ImmutableList.copyOf(jvmFlags);
     arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
 
-    if (OS.getCurrent() == OS.WINDOWS
-        && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+    if (OS.getCurrent() == OS.WINDOWS) {
       return createWindowsExeLauncher(
           ruleContext,
           javaExecutable,
@@ -388,25 +385,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     ruleContext.registerAction(new TemplateExpansionAction(
         ruleContext.getActionOwner(), executable, STUB_SCRIPT, arguments, true));
-    if (OS.getCurrent() == OS.WINDOWS) {
-      Artifact newExecutable =
-          ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
-      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-      ruleContext.registerAction(
-          new TemplateExpansionAction(
-              ruleContext.getActionOwner(),
-              newExecutable,
-              STUB_SCRIPT_WINDOWS,
-              ImmutableList.of(
-                  Substitution.of("%bash_exe_path%", shExecutable.getPathString()),
-                  Substitution.of(
-                      "%cygpath_exe_path%",
-                      shExecutable.replaceName("cygpath.exe").getPathString())),
-              true));
-      return newExecutable;
-    } else {
-      return executable;
-    }
+    return executable;
   }
 
   private static Artifact createWindowsExeLauncher(
