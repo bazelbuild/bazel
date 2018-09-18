@@ -18,8 +18,11 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -199,24 +202,34 @@ public class ToolchainResolutionFunction implements SkyFunction {
   }
 
   /**
-   * Returns {@code true} iff all constraints set by the toolchain are present in the {@link
-   * PlatformInfo}.
+   * Returns {@code true} iff all constraints set by the toolchain and in the {@link PlatformInfo}
+   * match.
    */
   private static boolean checkConstraints(
       @Nullable EventHandler eventHandler,
-      Iterable<ConstraintValueInfo> toolchainConstraints,
+      ConstraintCollection toolchainConstraints,
       String platformType,
       PlatformInfo platform) {
 
-    for (ConstraintValueInfo constraint : toolchainConstraints) {
-      ConstraintValueInfo found = platform.getConstraint(constraint.constraint());
-      if (!constraint.equals(found)) {
+    // Check every constraint_setting in either the toolchain or the platform.
+    ImmutableSet<ConstraintSettingInfo> constraints =
+        new ImmutableSet.Builder<ConstraintSettingInfo>()
+            .addAll(toolchainConstraints.constraintSettings())
+            .addAll(platform.constraints().constraintSettings())
+            .build();
+    for (ConstraintSettingInfo constraintSetting : constraints) {
+      ConstraintValueInfo toolchainConstraint = toolchainConstraints.get(constraintSetting);
+      ConstraintValueInfo found = platform.constraints().get(constraintSetting);
+
+      // Does the toolchain care about this constraint (possibly due to a default), and is it
+      // different?
+      if (toolchainConstraint != null && !toolchainConstraint.equals(found)) {
         debugMessage(
             eventHandler,
             "    Toolchain constraint %s has value %s, "
                 + "which does not match value %s from the %s platform %s",
-            constraint.constraint().label(),
-            constraint.label(),
+            constraintSetting.label(),
+            toolchainConstraint != null ? toolchainConstraint.label() : "<missing>",
             found != null ? found.label() : "<missing>",
             platformType,
             platform.label());

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
@@ -101,7 +102,9 @@ public abstract class TestStrategy implements TestActionContext {
     SHORT, // Print information only about tests.
     TERSE, // Like "SHORT", but even shorter: Do not print PASSED and NO STATUS tests.
     DETAILED, // Print information only about failed test cases.
-    NONE; // Do not print summary.
+    NONE, // Do not print summary.
+    TESTCASE; // Print summary in test case resolution, do not print detailed information about
+    // failed test cases.
 
     /** Converts to {@link TestSummaryFormat}. */
     public static class Converter extends EnumConverter<TestSummaryFormat> {
@@ -148,7 +151,7 @@ public abstract class TestStrategy implements TestActionContext {
     if (executedOnWindows && !useTestWrapper) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
-      args.add("$0 $*");
+      args.add("$0 \"$@\"");
     }
 
     Artifact testSetup = testAction.getTestSetupScript();
@@ -243,7 +246,10 @@ public abstract class TestStrategy implements TestActionContext {
    */
   protected final Duration getTimeout(TestRunnerAction testAction) {
     BuildConfiguration configuration = testAction.getConfiguration();
-    return configuration.getTestTimeout().get(testAction.getTestProperties().getTimeout());
+    return configuration
+        .getFragment(TestConfiguration.class)
+        .getTestTimeout()
+        .get(testAction.getTestProperties().getTimeout());
   }
 
   /*
@@ -286,7 +292,8 @@ public abstract class TestStrategy implements TestActionContext {
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
     a large amount of memory. */
-    if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
+    if ((executionOptions.testSummary != TestSummaryFormat.DETAILED)
+        && (executionOptions.testSummary != TestSummaryFormat.TESTCASE)) {
       return null;
     }
 

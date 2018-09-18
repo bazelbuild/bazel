@@ -24,4 +24,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 public interface KeyExtractor<T, K> {
   /** Extracts an unique key that can be used to dedupe the given {@code element}. */
   K extractKey(T element);
+
+  static <T1, T2, K> KeyExtractor<T1, K> compose(
+      KeyExtractor<T1, ? extends T2> inner, KeyExtractor<T2, K> outer) {
+    return t1 -> outer.extractKey(inner.extractKey(t1));
+  }
 }

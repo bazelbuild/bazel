@@ -504,7 +504,7 @@ TEST_F(OutputJarSimpleTest, Normalize) {
                 "--classpath_resources", cp_resource_path});
 
   // Scan all entries, verify that *.class entries have timestamp
-  // 01/01/1980 00:00:02 and the rest have the timestamp of 01/01/1980 00:00:00.
+  // 01/01/2010 00:00:02 and the rest have the timestamp of 01/01/2010 00:00:00.
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
@@ -515,8 +515,8 @@ TEST_F(OutputJarSimpleTest, Normalize) {
         << entry_name << " modification date";
     EXPECT_EQ(lh->last_mod_file_time(), cdh->last_mod_file_time())
         << entry_name << " modification time";
-    EXPECT_EQ(33, cdh->last_mod_file_date())
-        << entry_name << " modification date should be 01/01/1980";
+    EXPECT_EQ(15393, cdh->last_mod_file_date())
+        << entry_name << " modification date should be 01/01/2010";
     auto n = entry_name.size() - strlen(".class");
     if (0 == strcmp(entry_name.c_str() + n, ".class")) {
       EXPECT_EQ(1, cdh->last_mod_file_time())

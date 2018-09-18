@@ -528,6 +528,17 @@ public class ExperimentalEventHandler implements EventHandler {
       // deduplication disabled
       return false;
     }
+    if (event.getKind() == EventKind.DEBUG) {
+      String message = event.getMessage();
+      synchronized (this) {
+        if (messagesSeen.contains(message)) {
+          deduplicateCount++;
+          return true;
+        } else {
+          messagesSeen.add(message);
+        }
+      }
+    }
     if (event.getKind() != EventKind.INFO) {
       // only deduplicate INFO messages
       return false;

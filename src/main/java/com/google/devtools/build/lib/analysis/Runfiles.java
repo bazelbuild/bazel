@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -427,11 +429,12 @@ public final class Runfiles implements RunfilesApi {
    *     normal source tree entries, or runfile conflicts. May be null, in which case obscuring
    *     symlinks are silently discarded, and conflicts are overwritten.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
+   * @param resolver The {@link ArtifactPathResolver} to use for the pruning manifest, if present.
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
-  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler, Location location)
-      throws IOException {
+  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler, Location location,
+      ArtifactPathResolver resolver) throws IOException {
     ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
@@ -447,7 +450,7 @@ public final class Runfiles implements RunfilesApi {
         allowedRunfiles.put(artifact.getRootRelativePath().getPathString(), artifact);
       }
       try (BufferedReader reader = new BufferedReader(
-          new InputStreamReader(pruningManifest.getManifestFile().getPath().getInputStream()))) {
+          new InputStreamReader(resolver.toPath(pruningManifest.getManifestFile()).getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
           Artifact artifact = allowedRunfiles.get(line);
@@ -1160,5 +1163,30 @@ public final class Runfiles implements RunfilesApi {
     builder.merge(this);
     builder.merge((Runfiles) other);
     return builder.build();
+  }
+
+  /**
+   * Fingerprint this {@link Runfiles} tree.
+   */
+  public void fingerprint(Fingerprint fp) {
+    fp.addBoolean(getLegacyExternalRunfiles());
+    fp.addPath(getSuffix());
+    Map<PathFragment, Artifact> symlinks = getSymlinksAsMap(null);
+    fp.addInt(symlinks.size());
+    for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
+      fp.addPath(symlink.getKey());
+      fp.addPath(symlink.getValue().getExecPath());
+    }
+    Map<PathFragment, Artifact> rootSymlinks = getRootSymlinksAsMap(null);
+    fp.addInt(rootSymlinks.size());
+    for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
+      fp.addPath(rootSymlink.getKey());
+      fp.addPath(rootSymlink.getValue().getExecPath());
+    }
+
+    for (Artifact artifact : getArtifacts()) {
+      fp.addPath(artifact.getRootRelativePath());
+      fp.addPath(artifact.getExecPath());
+    }
   }
 }

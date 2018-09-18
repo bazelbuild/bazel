@@ -233,12 +233,13 @@ std::string GetUserName();
 // Returns true iff the current terminal is running inside an Emacs.
 bool IsEmacsTerminal();
 
-// Returns true iff the current terminal can support color and cursor movement.
-bool IsStandardTerminal();
+// Returns true if stderr is connected to a terminal that can support color
+// and cursor movement.
+bool IsStderrStandardTerminal();
 
-// Returns the number of columns of the terminal to which stdout is
+// Returns the number of columns of the terminal to which stderr is
 // connected, or 80 if there is no such terminal.
-int GetTerminalColumns();
+int GetStderrTerminalColumns();
 
 // Gets the system-wide explicit limit for the given resource.
 //
@@ -255,6 +256,12 @@ int32_t GetExplicitSystemLimit(const int resource);
 // implemented for a given platform. Returns true if all limits were properly
 // raised; false otherwise.
 bool UnlimitResources();
+
+// Raises the soft coredump limit to the hard limit in an attempt to let
+// coredumps work. This is a best-effort operation and may or may not be
+// implemented for a given platform. Returns true if all limits were properly
+// raised; false otherwise.
+bool UnlimitCoredumps();
 
 void DetectBashOrDie();
 

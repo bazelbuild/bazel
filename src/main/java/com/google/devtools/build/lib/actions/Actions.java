@@ -58,6 +58,10 @@ public final class Actions {
    */
   public static boolean canBeShared(
       ActionKeyContext actionKeyContext, ActionAnalysisMetadata a, ActionAnalysisMetadata b) {
+    if (!a.isShareable() || !b.isShareable()) {
+      return false;
+    }
+
     if (!a.getMnemonic().equals(b.getMnemonic())) {
       return false;
     }

@@ -45,6 +45,13 @@ guarded behind flags in the current release:
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
 *   [Disallow tools in action inputs](#disallow-tools-in-action-inputs)
+*   [Expand directories in Args](#expand-directories-in-args)
+*   [Static Name Resolution](#static-name-resolution)
+*   [Disable InMemory Tools Defaults Package](#disable-inmemory-tools-defaults-package)
+*   [Disable late bound option defaults](#disable-late-bound-option-defaults)
+*   [Disable depsets in C++ toolchain API in user
+    flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
+*   [Disallow using CROSSTOOL to select the cc_toolchain label](#disable-cc-toolchain-label-from-crosstool-proto)
 
 
 ### Dictionary concatenation
@@ -69,11 +76,16 @@ appear at the beginning of the file, i.e. before any other non-`load` statement.
 
 ### Depset is no longer iterable
 
-When the flag is set to true, `depset` objects are not treated as iterable. If
-you need an iterable, call the `.to_list()` method. This affects `for` loops and
-many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, and `any`.
+When the flag is set to true, `depset` objects are not treated as iterable. This
+prohibits directly iterating over depsets in `for` loops, taking its size via
+`len()`, and passing it to many functions such as `list`, `tuple`, `min`, `max`,
+`sorted`, `all`, and `any`. It does not prohibit checking for emptiness by
+converting the depset to a boolean.
+
 The goal of this change is to avoid accidental iteration on `depset`, which can
-be expensive.
+be [expensive](performance.md#avoid-calling-depsetto-list). If you really need
+to iterate over a depset, you can call the `.to_list()` method to obtain a
+flattened list of its contents.
 
 ``` python
 deps = depset()
@@ -387,4 +399,190 @@ have been migrated from `inputs`.
 *   Flag: `--incompatible_no_support_tools_in_action_inputs`
 *   Default: `false`
 
+
+### Expand directories in Args
+
+Previously, directories created by
+[`ctx.actions.declare_directory`](lib/actions.html#declare_directory) expanded
+to the path of the directory when added to an [`Args`](lib/Args.html) object.
+
+With this flag enabled, directories are instead replaced by the full file
+contents of that directory when passed to `args.add_all()` or
+`args.add_joined()`. (Directories may not be passed to `args.add()`.)
+
+If you want the old behavior on a case-by-case basis (perhaps your tool can
+handle directories on the command line), you can pass `expand_directories=False`
+to the `args.add_all()` or `args.add_joined()` call.
+
+```
+d = ctx.action.declare_directory(“dir”)
+# ... Some action runs and produces [“dir/file1”, “dir/file2”] ...
+f = ctx.action.declare_file(“file”)
+args = ctx.action.args()
+args.add_all([d, f])
+  -> Used to expand to ["dir", "file"]
+     Now expands to [“dir/file1”, “dir/file2”, “file”]
+```
+
+*   Flag: `--incompatible_expand_directories`
+*   Default: `false`
+
+
+### Static Name Resolution
+
+When the flag is set, use a saner way to resolve variables. The previous
+behavior was buggy in a number of subtle ways. See [the
+proposal](https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md)
+for background and examples.
+
+The proposal is not fully implemented yet.
+
+*   Flag: `--incompatible_static_name_resolution`
+*   Default: `false`
+
+### Disable InMemory Tools Defaults Package
+
+If false, Bazel constructs an in-memory `//tools/defaults` package based on the
+command line options. If true, `//tools/defaults:*` is resolved from file system
+as a regular package.
+
+*   Flag: `--incompatible_disable_tools_defaults_package`
+*   Default: `false`
+
+#### Motivation:
+
+`//tools/default` was initially created as virtual in-memory package. It
+generates content dynamically based on current configuration. There is no need
+of having `//tools/defaults` any more as LateBoundAlias can do dynamic
+configuration-based label resolving.  Also, having `//tools/default` makes
+negative impact on performance, and introduces unnecessary code complexity.
+
+All references to `//tools/defaults:*` targets should be removed or replaced
+to corresponding target in `@bazel_tools//tools/jdk:` and
+`@bazel_tools//tools/cpp:` packages.
+
+#### Scope of changes and impact:
+
+Targets in `//tools/default` will not exist any more. If you have any references
+inside your BUILD or *.bzl files to any of its, then bazel will fail to resolve.
+
+#### Migration plan:
+
+Please replace all occurrences:
+
+*   `//tools/defaults:jdk`
+    *   by `@bazel_tools//tools/jdk:current_java_runtime`
+    *   or/and `@bazel_tools//tools/jdk:current_host_java_runtime`
+*   `//tools/defaults:java_toolchain`
+    *   by `@bazel_tools//tools/jdk:current_java_toolchain`
+*   `//tools/defaults:crosstool`
+    *   by `@bazel_tools//tools/cpp:current_cc_toolchain`
+    *   or/and `@bazel_tools//tools/cpp:current_cc_host_toolchain`
+    *   if you need reference to `libc_top`, then `@bazel_tools//tools/cpp:current_libc_top`
+
+These targets will not be supported any more:
+
+*   `//tools/defaults:coverage_report_generator`
+*   `//tools/defaults:coverage_support`
+
+### Disable late bound option defaults
+
+If true, Bazel will stop retrieving the value of `compiler` from the cpp configuration when
+`--compiler` is not specified. This will cause a `config_setting` that have
+`values = {"compiler": "x"}` to not work properly when `--compiler` is not specified at command
+line.
+
+The former behavior can be achieved by changing the `config_setting` to use
+`flag_values = {"@bazel_tools/tools/cpp:compiler": "x"}` instead:
+
+```python
+# Before
+config_setting(
+    name = "cpu_x_compiler_y",
+    values = {
+        "cpu": "x",
+        "compiler": "y",
+    },
+)
+
+# After
+config_setting(
+    name = "cpu_x_compiler_y",
+    values = {
+        "cpu": "x",
+    },
+    flag_values = {
+        "@bazel_tools/tools/cpp:compiler": "y",
+    },
+)
+```
+
+*   Flag: `--incompatible_disable_late_bound_option_defaults`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
+### Disable depsets in C++ toolchain API in user flags
+
+If true, Bazel will no longer accept depsets in `user_compile_flags` for
+[create\_compile\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_compile_variables),
+and in `user_link_flags` for
+[create\_link\_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_link_variables).
+Use plain lists instead.
+
+*   Flag: `--incompatible_disable_depset_in_cc_user_flags`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
+### Disallow using CROSSTOOL to select the cc_toolchain label
+
+Currently Bazel selects the `cc_toolchain` to use from the `toolchains`
+dictionary attribute of `cc_toolchain_suite`. The key it uses is constructed
+the following way:
+
+*   If `--compiler` option is specified, the key is `--cpu|--compiler`. Bazel
+     errors out if the entry doesn't exist.
+*   If `--compiler` option was not specified on command line, Bazel checks if
+     an entry with the key `--cpu` exists, and uses it if it does. If such an
+     entry doesn't exist, it loops through the `default_toolchain` list in the
+     CROSSTOOL file, selects the first one that matches the `--cpu` option,
+     finds the `CToolchain` whose identifier matches the
+     `default_toolchain.toolchain_identifier` field, and then uses the key
+     `CToolchain.targetCpu|Ctoolchain.compiler`. It errors out if the entry
+     doesn't exist.
+
+We're making selection of the `cc_toolchain` label independent of the
+CROSSTOOL file: when the flag is set to True, Bazel will no longer loop
+through the `default_toolchain` list in order to construct a key for selecting
+a `cc_toolchain` label from `cc_toolchain_suite.toolchains`, but throw an error
+instead.
+
+In order to not be affected by this change, one should add entries in the
+`cc_toolchain_suite.toolchains` for the potential values of `--cpu`:
+
+```python
+# Before
+cc_toolchain_suite(
+    toolchains = {
+        'cpu1|compiler1' : ':cc_toolchain_label1',
+        'cpu2|compiler2' : ':cc_tolchain_label2',
+    }
+)
+
+# After
+cc_toolchain_suite(
+    toolchains = {
+        'cpu1|compiler1' : ':cc_toolchain_label1',
+        'cpu2|compiler2' : ':cc_toolchain_label2',
+        'cpu1' : ':cc_toolchain_label3',
+        'cpu2' : ':cc_tolchain_label4',
+    }
+)
+
+```
+
+*   Flag: `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
 <!-- Add new options here -->
+

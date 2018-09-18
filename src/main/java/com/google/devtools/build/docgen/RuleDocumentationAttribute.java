@@ -147,6 +147,14 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
     return expandedHtmlDoc;
   }
 
+  /** Returns whether the param is required or optional. */
+  public boolean isMandatory() {
+    if (attribute == null) {
+      return false;
+    }
+    return attribute.isMandatory();
+  }
+
   private String getDefaultValue() {
     if (attribute == null) {
       return "";

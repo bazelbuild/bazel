@@ -350,6 +350,7 @@ filegroup(
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/execlog:srcs",
+        "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/skylint:srcs",

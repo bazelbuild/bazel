@@ -49,6 +49,10 @@ import java.util.List;
  *
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
+ *
+ *   <li>Boolean semantic flags can toggle Skylark methods on or off. To do this, add a new entry
+ *       to {@link SkylarkSemantics#FlagIdentifier}. Then, specify the identifier in
+ *       {@code SkylarkCallable.enableOnlyWithFlag} or {@code SkylarkCallable.disableWithFlag}.
  * </ul>
  * For both readability and correctness, the relative order of the options in all of these locations
  * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
@@ -269,6 +273,21 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleDisallowOldStyleArgsAdd;
 
   @Option(
+      name = "incompatible_expand_directories",
+      defaultValue = "false",
+      category = "incompatible changes",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Controls whether directories are expanded to the list of files under that directory "
+              + "when added to Args, instead of replaced by the path of the directory.")
+  public boolean incompatibleExpandDirectories;
+
+  @Option(
       name = "incompatible_new_actions_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -310,8 +329,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       },
       help =
           "If set to true, the values PACKAGE_NAME and REPOSITORY_NAME are not available. "
-              + "Use the package_name() or repository_name() functions instead."
-  )
+              + "Use the package_name() or repository_name() functions instead.")
   public boolean incompatiblePackageNameIsAFunction;
 
   @Option(
@@ -358,6 +376,21 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleRemoveNativeHttpArchive;
 
   @Option(
+      name = "incompatible_static_name_resolution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, the interpreter follows the semantics related to name resolution, "
+              + "scoping, and shadowing, as defined in "
+              + "https://github.com/bazelbuild/proposals/blob/master/docs/2018-06-18-name-resolution.md")
+  public boolean incompatibleStaticNameResolution;
+
+  @Option(
       name = "incompatible_string_is_not_iterable",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -381,6 +414,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean internalSkylarkFlagTestCanary;
 
+  @Option(
+      name = "incompatible_never_use_embedded_jdk_for_javabase",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Don't use the embedded JDK as a fall-back --javabase if we can't find a locally"
+              + " installed JDK (using JAVA_HOME or `which javac`).")
+  public boolean incompatibleNeverUseEmbeddedJDKForJavabase;
+
   /** Constructs a {@link SkylarkSemantics} object corresponding to this set of option values. */
   public SkylarkSemantics toSkylarkSemantics() {
     return SkylarkSemantics.builder()
@@ -400,6 +447,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleDisallowLegacyJavaInfo(incompatibleDisallowLegacyJavaInfo)
         .incompatibleDisallowOldStyleArgsAdd(incompatibleDisallowOldStyleArgsAdd)
         .incompatibleDisallowSlashOperator(incompatibleDisallowSlashOperator)
+        .incompatibleExpandDirectories(incompatibleExpandDirectories)
         .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
@@ -407,8 +455,10 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)
         .incompatibleRemoveNativeHttpArchive(incompatibleRemoveNativeHttpArchive)
+        .incompatibleStaticNameResolution(incompatibleStaticNameResolution)
         .incompatibleStringIsNotIterable(incompatibleStringIsNotIterable)
         .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
+        .incompatibleNeverUseEmbeddedJDKForJavabase(incompatibleNeverUseEmbeddedJDKForJavabase)
         .build();
   }
 }

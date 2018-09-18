@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
@@ -32,7 +33,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 
   /** Skylark constructor and identifier for this provider. */
-  public static final NativeProvider<ConstraintValueInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<ConstraintValueInfo> PROVIDER =
       new NativeProvider<ConstraintValueInfo>(ConstraintValueInfo.class, SKYLARK_NAME) {};
 
   private final ConstraintSettingInfo constraint;
@@ -40,9 +41,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @VisibleForSerialization
   ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
-    super(
-        SKYLARK_CONSTRUCTOR,
-        location);
+    super(PROVIDER, location);
 
     this.constraint = constraint;
     this.label = label;
@@ -56,6 +55,12 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
   @Override
   public Label label() {
     return label;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.format(
+        "ConstraintValueInfo(setting=%s, %s)", constraint.label().toString(), label.toString());
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */

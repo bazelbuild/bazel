@@ -631,6 +631,7 @@ public class RuleClass {
     private boolean workspaceOnly = false;
     private boolean isExecutableSkylark = false;
     private boolean isConfigMatcher = false;
+    private boolean hasFunctionTransitionWhitelist = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private RuleTransitionFactory transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
@@ -765,6 +766,9 @@ public class RuleClass {
                 .nonconfigurable("Used in toolchain resolution")
                 .value(ImmutableList.of()));
       }
+      if (skylark) {
+        assertSkylarkRuleClassProperFunctionTransitionUsage();
+      }
 
       return new RuleClass(
           name,
@@ -777,6 +781,7 @@ public class RuleClass {
           binaryOutput,
           workspaceOnly,
           isExecutableSkylark,
+          hasFunctionTransitionWhitelist,
           implicitOutputsFunction,
           isConfigMatcher,
           transitionFactory,
@@ -819,7 +824,29 @@ public class RuleClass {
           type);
     }
 
-    /**
+    private void assertSkylarkRuleClassProperFunctionTransitionUsage() {
+      boolean hasFunctionTransitionAttribute =
+          attributes.entrySet()
+          .stream()
+          .map(entry -> entry.getValue().hasFunctionTransition())
+          .reduce(false, (a, b) -> a || b);
+
+      if (hasFunctionTransitionAttribute) {
+        Preconditions.checkState(
+            hasFunctionTransitionWhitelist,
+            "Use of function based split transition without whitelist: %s %s",
+            ruleDefinitionEnvironmentLabel,
+            type);
+      } else {
+        Preconditions.checkState(
+            !hasFunctionTransitionWhitelist,
+            "Unused function based split transition whitelist: %s %s",
+            ruleDefinitionEnvironmentLabel,
+            type);
+      }
+    }
+
+      /**
      * Declares that the implementation of the associated rule class requires the given
      * fragments to be present in this rule's host and target configurations.
      *
@@ -1142,6 +1169,15 @@ public class RuleClass {
     }
 
     /**
+     * This rule class has the _whitelist_function_transition attribute.  Intended only for Skylark
+     * rules.
+     */
+    public <TYPE> Builder setHasFunctionTransitionWhitelist() {
+      this.hasFunctionTransitionWhitelist = true;
+      return this;
+    }
+
+    /**
      * Sets the kind of output files this rule creates.
      * DO NOT USE! This only exists to support the non-open-sourced {@code fileset} rule.
      * {@see OutputFile.Kind}.
@@ -1314,6 +1350,7 @@ public class RuleClass {
   private final boolean workspaceOnly;
   private final boolean isExecutableSkylark;
   private final boolean isConfigMatcher;
+  private final boolean hasFunctionTransitionWhitelist;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1433,6 +1470,7 @@ public class RuleClass {
       boolean binaryOutput,
       boolean workspaceOnly,
       boolean isExecutableSkylark,
+      boolean hasFunctionTransitionWhitelist,
       ImplicitOutputsFunction implicitOutputsFunction,
       boolean isConfigMatcher,
       RuleTransitionFactory transitionFactory,
@@ -1479,6 +1517,7 @@ public class RuleClass {
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
     this.isExecutableSkylark = isExecutableSkylark;
+    this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
@@ -2302,6 +2341,13 @@ public class RuleClass {
    */
   public boolean isExecutableSkylark() {
     return isExecutableSkylark;
+  }
+
+  /**
+   * Returns true if this rule class has the _whitelist_function_transition attribute.
+   */
+  public boolean hasFunctionTransitionWhitelist() {
+    return hasFunctionTransitionWhitelist;
   }
 
   public ImmutableSet<Label> getRequiredToolchains() {

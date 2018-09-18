@@ -85,15 +85,16 @@ public class NamingConventionsChecker extends AstVisitorWithNameResolution {
     super.visit(node);
   }
 
-  private void checkSnakeCase(String name, Location location) {
-    if (!isSnakeCase(name)) {
+  private void checkIdentifier(String name, Location location) {
+    if (!isSnakeCase(name) && !(isUpperCamelCase(name) && name.endsWith("Info"))) {
       issues.add(
           Issue.create(
               NAME_WITH_WRONG_CASE_CATEGORY,
               "identifier '"
                   + name
                   + "' should be lower_snake_case (for variables)"
-                  + " or UPPER_SNAKE_CASE (for constants)",
+                  + " or UPPER_SNAKE_CASE (for constants)"
+                  + " or UpperCamelCase and end in \"Info\" (for providers; example: FizzBuzzInfo)",
               location));
     }
   }
@@ -175,7 +176,7 @@ public class NamingConventionsChecker extends AstVisitorWithNameResolution {
     if (nameInfo.kind == Kind.PARAMETER || nameInfo.kind == Kind.FUNCTION) {
       checkLowerSnakeCase(nameInfo.name, node.getLocation());
     } else {
-      checkSnakeCase(nameInfo.name, node.getLocation());
+      checkIdentifier(nameInfo.name, node.getLocation());
     }
   }
 

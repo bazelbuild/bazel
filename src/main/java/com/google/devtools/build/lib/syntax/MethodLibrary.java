@@ -47,19 +47,18 @@ public class MethodLibrary {
   private MethodLibrary() {}
 
   @SkylarkSignature(
-    name = "min",
-    returnType = Object.class,
-    doc =
-        "Returns the smallest one of all given arguments. "
-            + "If only one argument is provided, it must be a non-empty iterable. "
-            + "It is an error if elements are not comparable (for example int with string). "
-            + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
-            + "min([5, 6, 3]) == 3</pre>",
-    extraPositionals =
-        @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "min",
+      returnType = Object.class,
+      doc =
+          "Returns the smallest one of all given arguments. "
+              + "If only one argument is provided, it must be a non-empty iterable. "
+              + "It is an error if elements are not comparable (for example int with string). "
+              + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
+              + "min([5, 6, 3]) == 3</pre>",
+      extraPositionals =
+          @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction min =
       new BuiltinFunction("min") {
         @SuppressWarnings("unused") // Accessed via Reflection.
@@ -74,19 +73,18 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "max",
-    returnType = Object.class,
-    doc =
-        "Returns the largest one of all given arguments. "
-            + "If only one argument is provided, it must be a non-empty iterable."
-            + "It is an error if elements are not comparable (for example int with string). "
-            + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
-            + "max([5, 6, 3]) == 6</pre>",
-    extraPositionals =
-        @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "max",
+      returnType = Object.class,
+      doc =
+          "Returns the largest one of all given arguments. "
+              + "If only one argument is provided, it must be a non-empty iterable."
+              + "It is an error if elements are not comparable (for example int with string). "
+              + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
+              + "max([5, 6, 3]) == 6</pre>",
+      extraPositionals =
+          @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction max =
       new BuiltinFunction("max") {
         @SuppressWarnings("unused") // Accessed via Reflection.
@@ -115,19 +113,21 @@ public class MethodLibrary {
   }
 
   @SkylarkSignature(
-    name = "all",
-    returnType = Boolean.class,
-    doc =
-        "Returns true if all elements evaluate to True or if the collection is empty. "
-            + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
-            + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
-            + "all([-1, 0, 1]) == False</pre>",
-    parameters = {
-      @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "all",
+      returnType = Boolean.class,
+      doc =
+          "Returns true if all elements evaluate to True or if the collection is empty. "
+              + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
+              + "<pre class=\"language-python\">all([\"hello\", 3, True]) == True\n"
+              + "all([-1, 0, 1]) == False</pre>",
+      parameters = {
+        @Param(
+            name = "elements",
+            type = Object.class,
+            doc = "A string or a collection of elements.")
+      },
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction all =
       new BuiltinFunction("all") {
         @SuppressWarnings("unused") // Accessed via Reflection.
@@ -138,19 +138,21 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "any",
-    returnType = Boolean.class,
-    doc =
-        "Returns true if at least one element evaluates to True. "
-            + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
-            + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
-            + "any([False, 0, \"\"]) == False</pre>",
-    parameters = {
-      @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "any",
+      returnType = Boolean.class,
+      doc =
+          "Returns true if at least one element evaluates to True. "
+              + "Elements are converted to boolean using the <a href=\"#bool\">bool</a> function."
+              + "<pre class=\"language-python\">any([-1, 0, 1]) == True\n"
+              + "any([False, 0, \"\"]) == False</pre>",
+      parameters = {
+        @Param(
+            name = "elements",
+            type = Object.class,
+            doc = "A string or a collection of elements.")
+      },
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction any =
       new BuiltinFunction("any") {
         @SuppressWarnings("unused") // Accessed via Reflection.
@@ -173,17 +175,16 @@ public class MethodLibrary {
 
   // supported list methods
   @SkylarkSignature(
-    name = "sorted",
-    returnType = MutableList.class,
-    doc =
-        "Sort a collection. Elements should all belong to the same orderable type, they are sorted "
-            + "by their value (in ascending order). "
-            + "It is an error if elements are not comparable (for example int with string)."
-            + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
-    parameters = {@Param(name = "self", type = Object.class, doc = "This collection.")},
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "sorted",
+      returnType = MutableList.class,
+      doc =
+          "Sort a collection. Elements should all belong to the same orderable type, they are "
+              + "sorted by their value (in ascending order). "
+              + "It is an error if elements are not comparable (for example int with string)."
+              + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
+      parameters = {@Param(name = "self", type = Object.class, doc = "This collection.")},
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction sorted =
       new BuiltinFunction("sorted") {
         public MutableList<?> invoke(Object self, Location loc, Environment env)
@@ -199,21 +200,19 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "reversed",
-    returnType = MutableList.class,
-    doc =
-        "Returns a list that contains the elements of the original sequence in reversed order."
-            + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
-    parameters = {
-      @Param(
-        name = "sequence",
-        type = Object.class,
-        doc = "The sequence to be reversed (string, list or tuple)."
-      )
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "reversed",
+      returnType = MutableList.class,
+      doc =
+          "Returns a list that contains the elements of the original sequence in reversed order."
+              + "<pre class=\"language-python\">reversed([3, 5, 4]) == [4, 5, 3]</pre>",
+      parameters = {
+        @Param(
+            name = "sequence",
+            type = Object.class,
+            doc = "The sequence to be reversed (string, list or tuple).")
+      },
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction reversed =
       new BuiltinFunction("reversed") {
         @SuppressWarnings("unused") // Accessed via Reflection.
@@ -236,17 +235,16 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "tuple",
-    returnType = Tuple.class,
-    doc =
-        "Converts a collection (e.g. list, tuple or dictionary) to a tuple."
-            + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
-            + "tuple((2, 3, 2)) == (2, 3, 2)\n"
-            + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "tuple",
+      returnType = Tuple.class,
+      doc =
+          "Converts a collection (e.g. list, tuple or dictionary) to a tuple."
+              + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
+              + "tuple((2, 3, 2)) == (2, 3, 2)\n"
+              + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction tuple =
       new BuiltinFunction("tuple") {
         public Tuple<?> invoke(Object x, Location loc, Environment env) throws EvalException {
@@ -255,17 +253,16 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "list",
-    returnType = MutableList.class,
-    doc =
-        "Converts a collection (e.g. list, tuple or dictionary) to a list."
-            + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
-            + "list((2, 3, 2)) == [2, 3, 2]\n"
-            + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "list",
+      returnType = MutableList.class,
+      doc =
+          "Converts a collection (e.g. list, tuple or dictionary) to a list."
+              + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
+              + "list((2, 3, 2)) == [2, 3, 2]\n"
+              + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction list =
       new BuiltinFunction("list") {
         public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
@@ -274,13 +271,12 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "len",
-    returnType = Integer.class,
-    doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
-    parameters = {@Param(name = "x", doc = "The object to check length of.")},
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "len",
+      returnType = Integer.class,
+      doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
+      parameters = {@Param(name = "x", doc = "The object to check length of.")},
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction len =
       new BuiltinFunction("len") {
         public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
@@ -302,14 +298,13 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "str",
-    returnType = String.class,
-    doc =
-        "Converts any object to string. This is useful for debugging."
-            + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
-            + "str(8) == \"8\"</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")}
-  )
+      name = "str",
+      returnType = String.class,
+      doc =
+          "Converts any object to string. This is useful for debugging."
+              + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
+              + "str(8) == \"8\"</pre>",
+      parameters = {@Param(name = "x", doc = "The object to convert.")})
   private static final BuiltinFunction str =
       new BuiltinFunction("str") {
         public String invoke(Object x) {
@@ -318,13 +313,12 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "repr",
-    returnType = String.class,
-    doc =
-        "Converts any object to a string representation. This is useful for debugging.<br>"
-            + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")}
-  )
+      name = "repr",
+      returnType = String.class,
+      doc =
+          "Converts any object to a string representation. This is useful for debugging.<br>"
+              + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
+      parameters = {@Param(name = "x", doc = "The object to convert.")})
   private static final BuiltinFunction repr =
       new BuiltinFunction("repr") {
         public String invoke(Object x) {
@@ -333,16 +327,15 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "bool",
-    returnType = Boolean.class,
-    doc =
-        "Constructor for the bool type. "
-            + "It returns <code>False</code> if the object is <code>None</code>, <code>False"
-            + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
-            + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
-            + "Otherwise, it returns <code>True</code>.",
-    parameters = {@Param(name = "x", doc = "The variable to convert.")}
-  )
+      name = "bool",
+      returnType = Boolean.class,
+      doc =
+          "Constructor for the bool type. "
+              + "It returns <code>False</code> if the object is <code>None</code>, <code>False"
+              + "</code>, an empty string (<code>\"\"</code>), the number <code>0</code>, or an "
+              + "empty collection (e.g. <code>()</code>, <code>[]</code>). "
+              + "Otherwise, it returns <code>True</code>.",
+      parameters = {@Param(name = "x", doc = "The variable to convert.")})
   private static final BuiltinFunction bool =
       new BuiltinFunction("bool") {
         public Boolean invoke(Object x) throws EvalException {
@@ -351,58 +344,58 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "int",
-    returnType = Integer.class,
-    doc =
-        "Returns x as an int value."
-            + "<ul>"
-            + "<li>If <code>x</code> is already an int, it is returned as-is."
-            + "<li>If <code>x</code> is a boolean, a true value returns 1 and a false value "
-            + "    returns 0."
-            + "<li>If <code>x</code> is a string, it must have the format "
-            + "    <code>&lt;sign&gt;&lt;prefix&gt;&lt;digits&gt;</code>. "
-            + "    <code>&lt;sign&gt;</code> is either <code>\"+\"</code>, <code>\"-\"</code>, or "
-            + "    empty (interpreted as positive). <code>&lt;digits&gt;</code> are a sequence of "
-            + "    digits from 0 up to <code>base</code> - 1, where the letters a-z (or "
-            + "    equivalently, A-Z) are used as digits for 10-35. In the case where "
-            + "    <code>base</code> is 2/8/16, <code>&lt;prefix&gt;</code> is optional and may be "
-            + "    0b/0o/0x (or equivalently, 0B/0O/0X) respectively; if the <code>base</code> is "
-            + "    any other value besides these bases or the special value 0, the prefix must be "
-            + "    empty. In the case where <code>base</code> is 0, the string is interpreted as "
-            + "    an integer literal, in the sense that one of the bases 2/8/10/16 is chosen "
-            + "    depending on which prefix if any is used. If <code>base</code> is 0, no prefix "
-            + "    is used, and there is more than one digit, the leading digit cannot be 0; this "
-            + "    is to avoid confusion between octal and decimal. The magnitude of the number "
-            + "    represented by the string must be within the allowed range for the int type."
-            + "</ul>"
-            + "This function fails if <code>x</code> is any other type, or if the value is a "
-            + "string not satisfying the above format. Unlike Python's <code>int()</code> "
-            + "function, this function does not allow zero arguments, and does not allow "
-            + "extraneous whitespace for string arguments."
-            + "<p>Examples:"
-            + "<pre class=\"language-python\">"
-            + "int(\"123\") == 123\n"
-            + "int(\"-123\") == -123\n"
-            + "int(\"+123\") == 123\n"
-            + "int(\"FF\", 16) == 255\n"
-            + "int(\"0xFF\", 16) == 255\n"
-            + "int(\"10\", 0) == 10\n"
-            + "int(\"-0x10\", 0) == -16"
-            + "</pre>",
-    parameters = {
-      @Param(name = "x", type = Object.class, doc = "The string to convert."),
-      @Param(
-        name = "base",
-        type = Object.class,
-        defaultValue = "unbound",
-        doc =
-            "The base used to interpret a string value; defaults to 10. Must be between 2 and 36 "
-                + "(inclusive), or 0 to detect the base as if <code>x</code> were an integer "
-                + "literal. This parameter must not be supplied if the value is not a string."
-      )
-    },
-    useLocation = true
-  )
+      name = "int",
+      returnType = Integer.class,
+      doc =
+          "Returns x as an int value."
+              + "<ul>"
+              + "<li>If <code>x</code> is already an int, it is returned as-is."
+              + "<li>If <code>x</code> is a boolean, a true value returns 1 and a false value "
+              + "    returns 0."
+              + "<li>If <code>x</code> is a string, it must have the format "
+              + "    <code>&lt;sign&gt;&lt;prefix&gt;&lt;digits&gt;</code>. "
+              + "    <code>&lt;sign&gt;</code> is either <code>\"+\"</code>, <code>\"-\"</code>, "
+              + "    or empty (interpreted as positive). <code>&lt;digits&gt;</code> are a "
+              + "    sequence of digits from 0 up to <code>base</code> - 1, where the letters a-z "
+              + "    (or equivalently, A-Z) are used as digits for 10-35. In the case where "
+              + "    <code>base</code> is 2/8/16, <code>&lt;prefix&gt;</code> is optional and may "
+              + "    be 0b/0o/0x (or equivalently, 0B/0O/0X) respectively; if the "
+              + "    <code>base</code> is any other value besides these bases or the special value "
+              + "    0, the prefix must be empty. In the case where <code>base</code> is 0, the "
+              + "    string is interpreted as an integer literal, in the sense that one of the "
+              + "    bases 2/8/10/16 is chosen depending on which prefix if any is used. If "
+              + "    <code>base</code> is 0, no prefix is used, and there is more than one digit, "
+              + "    the leading digit cannot be 0; this is to avoid confusion between octal and "
+              + "    decimal. The magnitude of the number represented by the string must be within "
+              + "    the allowed range for the int type."
+              + "</ul>"
+              + "This function fails if <code>x</code> is any other type, or if the value is a "
+              + "string not satisfying the above format. Unlike Python's <code>int()</code> "
+              + "function, this function does not allow zero arguments, and does not allow "
+              + "extraneous whitespace for string arguments."
+              + "<p>Examples:"
+              + "<pre class=\"language-python\">"
+              + "int(\"123\") == 123\n"
+              + "int(\"-123\") == -123\n"
+              + "int(\"+123\") == 123\n"
+              + "int(\"FF\", 16) == 255\n"
+              + "int(\"0xFF\", 16) == 255\n"
+              + "int(\"10\", 0) == 10\n"
+              + "int(\"-0x10\", 0) == -16"
+              + "</pre>",
+      parameters = {
+        @Param(name = "x", type = Object.class, doc = "The string to convert."),
+        @Param(
+            name = "base",
+            type = Object.class,
+            defaultValue = "unbound",
+            doc =
+                "The base used to interpret a string value; defaults to 10. Must be between 2 "
+                    + "and 36 (inclusive), or 0 to detect the base as if <code>x</code> were an "
+                    + "integer literal. This parameter must not be supplied if the value is not a "
+                    + "string.")
+      },
+      useLocation = true)
   private static final BuiltinFunction int_ =
       new BuiltinFunction("int") {
         private final ImmutableMap<String, Integer> intPrefixes =
@@ -438,8 +431,7 @@ public class MethodLibrary {
           boolean isNegative = false;
           if (string.isEmpty()) {
             throw new EvalException(
-                loc,
-                Printer.format("string argument to int() cannot be empty"));
+                loc, Printer.format("string argument to int() cannot be empty"));
           }
           char c = string.charAt(0);
           if (c == '+') {
@@ -510,28 +502,26 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "dict",
-    returnType = SkylarkDict.class,
-    doc =
-        "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
-            + "argument and an optional set of keyword arguments. In the case where the same key "
-            + "is given multiple times, the last value will be used. Entries supplied via keyword "
-            + "arguments are considered to come after entries supplied via the positional "
-            + "argument.",
-    parameters = {
-      @Param(
-        name = "args",
-        type = Object.class,
-        defaultValue = "[]",
-        doc =
-            "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-                + "exactly two elements: key, value."
-      ),
-    },
-    extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "dict",
+      returnType = SkylarkDict.class,
+      doc =
+          "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
+              + "argument and an optional set of keyword arguments. In the case where the same key "
+              + "is given multiple times, the last value will be used. Entries supplied via "
+              + "keyword arguments are considered to come after entries supplied via the "
+              + "positional argument.",
+      parameters = {
+        @Param(
+            name = "args",
+            type = Object.class,
+            defaultValue = "[]",
+            doc =
+                "Either a dictionary or a list of entries. Entries must be tuples or lists with "
+                    + "exactly two elements: key, value."),
+      },
+      extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction dict =
       new BuiltinFunction("dict") {
         public SkylarkDict<?, ?> invoke(
@@ -577,15 +567,14 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "enumerate",
-    returnType = MutableList.class,
-    doc =
-        "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
-            + " the input list.\n<pre class=\"language-python\">"
-            + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
-    parameters = {@Param(name = "list", type = SkylarkList.class, doc = "input list.")},
-    useEnvironment = true
-  )
+      name = "enumerate",
+      returnType = MutableList.class,
+      doc =
+          "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
+              + " the input list.\n<pre class=\"language-python\">"
+              + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
+      parameters = {@Param(name = "list", type = SkylarkList.class, doc = "input list.")},
+      useEnvironment = true)
   private static final BuiltinFunction enumerate =
       new BuiltinFunction("enumerate") {
         public MutableList<?> invoke(SkylarkList<?> input, Environment env) throws EvalException {
@@ -600,18 +589,17 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "hash",
-    returnType = Integer.class,
-    doc =
-        "Return a hash value for a string. This is computed deterministically using the same "
-            + "algorithm as Java's <code>String.hashCode()</code>, namely: "
-            + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[n-1]"
-            + "</pre> Hashing of values besides strings is not currently supported.",
-    // Deterministic hashing is important for the consistency of builds, hence why we
-    // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
-    // Python, which promise stable hashing only within a given execution of the program.
-    parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")}
-  )
+      name = "hash",
+      returnType = Integer.class,
+      doc =
+          "Return a hash value for a string. This is computed deterministically using the same "
+              + "algorithm as Java's <code>String.hashCode()</code>, namely: "
+              + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + "
+              + "s[n-1]</pre> Hashing of values besides strings is not currently supported.",
+      // Deterministic hashing is important for the consistency of builds, hence why we
+      // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
+      // Python, which promise stable hashing only within a given execution of the program.
+      parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")})
   private static final BuiltinFunction hash =
       new BuiltinFunction("hash") {
         public Integer invoke(String value) throws EvalException {
@@ -676,18 +664,17 @@ public class MethodLibrary {
 
   /** Returns true if the object has a field of the given name, otherwise false. */
   @SkylarkSignature(
-    name = "hasattr",
-    returnType = Boolean.class,
-    doc =
-        "Returns True if the object <code>x</code> has an attribute or method of the given "
-            + "<code>name</code>, otherwise False. Example:<br>"
-            + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
-    parameters = {
-      @Param(name = "x", doc = "The object to check."),
-      @Param(name = "name", type = String.class, doc = "The name of the attribute.")
-    },
-    useEnvironment = true
-  )
+      name = "hasattr",
+      returnType = Boolean.class,
+      doc =
+          "Returns True if the object <code>x</code> has an attribute or method of the given "
+              + "<code>name</code>, otherwise False. Example:<br>"
+              + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
+      parameters = {
+        @Param(name = "x", doc = "The object to check."),
+        @Param(name = "name", type = String.class, doc = "The name of the attribute.")
+      },
+      useEnvironment = true)
   private static final BuiltinFunction hasattr =
       new BuiltinFunction("hasattr") {
         @SuppressWarnings("unused")
@@ -696,34 +683,32 @@ public class MethodLibrary {
             return true;
           }
           // shouldn't this filter things with struct_field = false?
-          return DotExpression.hasMethod(obj, name);
+          return DotExpression.hasMethod(env.getSemantics(), obj, name);
         }
       };
 
   @SkylarkSignature(
-    name = "getattr",
-    doc =
-        "Returns the struct's field of the given name if it exists. If not, it either returns "
-            + "<code>default</code> (if specified) or raises an error. Built-in methods cannot "
-            + "currently be retrieved in this way; doing so will result in an error if a "
-            + "<code>default</code> is not given. <code>getattr(x, \"foobar\")</code> is "
-            + "equivalent to <code>x.foobar</code>."
-            + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
-            + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
-    parameters = {
-      @Param(name = "x", doc = "The struct whose attribute is accessed."),
-      @Param(name = "name", doc = "The name of the struct attribute."),
-      @Param(
-        name = "default",
-        defaultValue = "unbound",
-        doc =
-            "The default value to return in case the struct "
-                + "doesn't have an attribute of the given name."
-      )
-    },
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "getattr",
+      doc =
+          "Returns the struct's field of the given name if it exists. If not, it either returns "
+              + "<code>default</code> (if specified) or raises an error. Built-in methods cannot "
+              + "currently be retrieved in this way; doing so will result in an error if a "
+              + "<code>default</code> is not given. <code>getattr(x, \"foobar\")</code> is "
+              + "equivalent to <code>x.foobar</code>."
+              + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
+              + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
+      parameters = {
+        @Param(name = "x", doc = "The struct whose attribute is accessed."),
+        @Param(name = "name", doc = "The name of the struct attribute."),
+        @Param(
+            name = "default",
+            defaultValue = "unbound",
+            doc =
+                "The default value to return in case the struct "
+                    + "doesn't have an attribute of the given name.")
+      },
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction getattr =
       new BuiltinFunction("getattr") {
         @SuppressWarnings("unused")
@@ -735,22 +720,22 @@ public class MethodLibrary {
             if (defaultValue != Runtime.UNBOUND) {
               return defaultValue;
             }
-            throw DotExpression.getMissingFieldException(obj, name, loc, "attribute");
+            throw DotExpression.getMissingFieldException(
+                obj, name, loc, env.getSemantics(), "attribute");
           }
           return result;
         }
       };
 
   @SkylarkSignature(
-    name = "dir",
-    returnType = MutableList.class,
-    doc =
-        "Returns a list of strings: the names of the attributes and "
-            + "methods of the parameter object.",
-    parameters = {@Param(name = "x", doc = "The object to check.")},
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "dir",
+      returnType = MutableList.class,
+      doc =
+          "Returns a list of strings: the names of the attributes and "
+              + "methods of the parameter object.",
+      parameters = {@Param(name = "x", doc = "The object to check.")},
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction dir =
       new BuiltinFunction("dir") {
         public MutableList<?> invoke(Object object, Location loc, Environment env)
@@ -761,35 +746,32 @@ public class MethodLibrary {
             fields.addAll(((ClassObject) object).getFieldNames());
           }
           fields.addAll(Runtime.getBuiltinRegistry().getFunctionNames(object.getClass()));
-          fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
+          fields.addAll(FuncallExpression.getMethodNames(env.getSemantics(), object.getClass()));
           return MutableList.copyOf(env, fields);
         }
       };
 
   @SkylarkSignature(
-    name = "fail",
-    doc =
-        "Raises an error that cannot be intercepted. It can be used anywhere, "
-            + "both in the loading phase and in the analysis phase.",
-    returnType = Runtime.NoneType.class,
-    parameters = {
-      @Param(
-        name = "msg",
-        type = Object.class,
-        doc = "Error to display for the user. The object is converted to a string."
-      ),
-      @Param(
-        name = "attr",
-        type = String.class,
-        noneable = true,
-        defaultValue = "None",
-        doc =
-            "The name of the attribute that caused the error. This is used only for "
-                + "error reporting."
-      )
-    },
-    useLocation = true
-  )
+      name = "fail",
+      doc =
+          "Raises an error that cannot be intercepted. It can be used anywhere, "
+              + "both in the loading phase and in the analysis phase.",
+      returnType = Runtime.NoneType.class,
+      parameters = {
+        @Param(
+            name = "msg",
+            type = Object.class,
+            doc = "Error to display for the user. The object is converted to a string."),
+        @Param(
+            name = "attr",
+            type = String.class,
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "The name of the attribute that caused the error. This is used only for "
+                    + "error reporting.")
+      },
+      useLocation = true)
   private static final BuiltinFunction fail =
       new BuiltinFunction("fail") {
         public Runtime.NoneType invoke(Object msg, Object attr, Location loc) throws EvalException {
@@ -802,33 +784,31 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "print",
-    returnType = Runtime.NoneType.class,
-    doc =
-        "Prints <code>args</code> as debug output. It will be prefixed with the string <code>"
-            + "\"DEBUG\"</code> and the location (file and line number) of this call. The "
-            + "exact way in which the arguments are converted to strings is unspecified and may "
-            + "change at any time. In particular, it may be different from (and more detailed "
-            + "than) the formatting done by <a href='#str'><code>str()</code></a> and <a "
-            + "href='#repr'><code>repr()</code></a>."
-            + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
-            + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
-            + "<code>fail()</code></a> whenever possible.",
-    parameters = {
-      @Param(
-        name = "sep",
-        type = String.class,
-        defaultValue = "\" \"",
-        named = true,
-        positional = false,
-        doc = "The separator string between the objects, default is space (\" \")."
-      )
-    },
-    // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
-    extraPositionals = @Param(name = "args", doc = "The objects to print."),
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "print",
+      returnType = Runtime.NoneType.class,
+      doc =
+          "Prints <code>args</code> as debug output. It will be prefixed with the string <code>"
+              + "\"DEBUG\"</code> and the location (file and line number) of this call. The "
+              + "exact way in which the arguments are converted to strings is unspecified and may "
+              + "change at any time. In particular, it may be different from (and more detailed "
+              + "than) the formatting done by <a href='#str'><code>str()</code></a> and <a "
+              + "href='#repr'><code>repr()</code></a>."
+              + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
+              + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
+              + "<code>fail()</code></a> whenever possible.",
+      parameters = {
+        @Param(
+            name = "sep",
+            type = String.class,
+            defaultValue = "\" \"",
+            named = true,
+            positional = false,
+            doc = "The separator string between the objects, default is space (\" \").")
+      },
+      // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
+      extraPositionals = @Param(name = "args", doc = "The objects to print."),
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction print =
       new BuiltinFunction("print") {
         public Runtime.NoneType invoke(
@@ -872,64 +852,64 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "depset",
-    returnType = SkylarkNestedSet.class,
-    doc =
-        "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a list "
-            + "of direct elements of the depset, and <code>transitive</code> parameter is "
-            + "a list of depsets whose elements become indirect elements of the created depset. "
-            + "The order in which elements are returned when the depset is converted to a list "
-            + "is specified by the <code>order</code> parameter. "
-            + "See the <a href=\"../depsets.md\">Depsets overview</a> for more information. "
-            + "<p> All elements (direct and indirect) of a depset must be of the same type. "
-            + "<p> The order of the created depset should be <i>compatible</i> with the order of "
-            + "its <code>transitive</code> depsets. <code>\"default\"</code> order is compatible "
-            + "with any other order, all other orders are only compatible with themselves."
-            + "<p> Note on backward/forward compatibility. This function currently accepts a "
-            + "positional <code>items</code> parameter. It is deprecated and will be removed "
-            + "in the future, and after its removal <code>direct</code> will become a sole "
-            + "positional parameter of the <code>depset</code> function. Thus, both of the "
-            + "following calls are equivalent and future-proof:<br>"
-            + "<pre class=language-python>"
-            + "depset(['a', 'b'], transitive = [...])\n"
-            + "depset(direct = ['a', 'b'], transitive = [...])\n"
-            + "</pre>",
-    parameters = {
-      @Param(
-          name = "items",
-          type = Object.class,
-          defaultValue = "[]",
-          doc =
-              "Deprecated: Either an iterable whose items become the direct elements of "
-                  + "the new depset, in left-to-right order, or else a depset that becomes "
-                  + "a transitive element of the new depset. In the latter case, "
-                  + "<code>transitive</code> cannot be specified."),
-      @Param(
-          name = "order",
-          type = String.class,
-          defaultValue = "\"default\"",
-          doc =
-              "The traversal strategy for the new depset. See <a href=\"depset.html\">here</a> for "
-                  + "the possible values."),
-      @Param(
-          name = "direct",
-          type = SkylarkList.class,
-          defaultValue = "None",
-          positional = false,
-          named = true,
-          noneable = true,
-          doc = "A list of <i>direct</i> elements of a depset."),
-      @Param(
-          name = "transitive",
-          named = true,
-          positional = false,
-          type = SkylarkList.class,
-          generic1 = SkylarkNestedSet.class,
-          noneable = true,
-          doc = "A list of depsets whose elements will become indirect elements of the depset.",
-          defaultValue = "None")
-    },
-    useLocation = true)
+      name = "depset",
+      returnType = SkylarkNestedSet.class,
+      doc =
+          "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a "
+              + "list of direct elements of the depset, and <code>transitive</code> parameter is "
+              + "a list of depsets whose elements become indirect elements of the created depset. "
+              + "The order in which elements are returned when the depset is converted to a list "
+              + "is specified by the <code>order</code> parameter. "
+              + "See the <a href=\"../depsets.md\">Depsets overview</a> for more information. "
+              + "<p> All elements (direct and indirect) of a depset must be of the same type. "
+              + "<p> The order of the created depset should be <i>compatible</i> with the order of "
+              + "its <code>transitive</code> depsets. <code>\"default\"</code> order is compatible "
+              + "with any other order, all other orders are only compatible with themselves."
+              + "<p> Note on backward/forward compatibility. This function currently accepts a "
+              + "positional <code>items</code> parameter. It is deprecated and will be removed "
+              + "in the future, and after its removal <code>direct</code> will become a sole "
+              + "positional parameter of the <code>depset</code> function. Thus, both of the "
+              + "following calls are equivalent and future-proof:<br>"
+              + "<pre class=language-python>"
+              + "depset(['a', 'b'], transitive = [...])\n"
+              + "depset(direct = ['a', 'b'], transitive = [...])\n"
+              + "</pre>",
+      parameters = {
+        @Param(
+            name = "items",
+            type = Object.class,
+            defaultValue = "[]",
+            doc =
+                "Deprecated: Either an iterable whose items become the direct elements of "
+                    + "the new depset, in left-to-right order, or else a depset that becomes "
+                    + "a transitive element of the new depset. In the latter case, "
+                    + "<code>transitive</code> cannot be specified."),
+        @Param(
+            name = "order",
+            type = String.class,
+            defaultValue = "\"default\"",
+            doc =
+                "The traversal strategy for the new depset. See "
+                    + "<a href=\"depset.html\">here</a> for the possible values."),
+        @Param(
+            name = "direct",
+            type = SkylarkList.class,
+            defaultValue = "None",
+            positional = false,
+            named = true,
+            noneable = true,
+            doc = "A list of <i>direct</i> elements of a depset."),
+        @Param(
+            name = "transitive",
+            named = true,
+            positional = false,
+            type = SkylarkList.class,
+            generic1 = SkylarkNestedSet.class,
+            noneable = true,
+            doc = "A list of depsets whose elements will become indirect elements of the depset.",
+            defaultValue = "None")
+      },
+      useLocation = true)
   private static final BuiltinFunction depset =
       new BuiltinFunction("depset") {
         public SkylarkNestedSet invoke(
@@ -989,19 +969,21 @@ public class MethodLibrary {
    * package context.
    */
   @SkylarkSignature(
-    name = "select",
-    doc = "<code>select()</code> is the helper function that makes a rule attribute "
-        + "<a href=\"$BE_ROOT/common-definitions.html#configurable-attributes\">configurable</a>. "
-        + "See <a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
-    parameters = {
+      name = "select",
+      doc =
+          "<code>select()</code> is the helper function that makes a rule attribute "
+              + "<a href=\"$BE_ROOT/common-definitions.html#configurable-attributes\">"
+              + "configurable</a>. See "
+              + "<a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
+      parameters = {
         @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
         @Param(
             name = "no_match_error",
             type = String.class,
             defaultValue = "''",
             doc = "Optional custom error to report if no condition matches.")
-    },
-    useLocation = true)
+      },
+      useLocation = true)
   private static final BuiltinFunction select =
       new BuiltinFunction("select") {
         public Object invoke(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
@@ -1017,22 +999,21 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "zip",
-    doc =
-        "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
-            + "the i-th element from each of the argument sequences or iterables. The list has the "
-            + "size of the shortest input. With a single iterable argument, it returns a list of "
-            + "1-tuples. With no arguments, it returns an empty list. Examples:"
-            + "<pre class=\"language-python\">"
-            + "zip()  # == []\n"
-            + "zip([1, 2])  # == [(1,), (2,)]\n"
-            + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
-            + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
-    extraPositionals = @Param(name = "args", doc = "lists to zip."),
-    returnType = MutableList.class,
-    useLocation = true,
-    useEnvironment = true
-  )
+      name = "zip",
+      doc =
+          "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
+              + "the i-th element from each of the argument sequences or iterables. The list has "
+              + "the size of the shortest input. With a single iterable argument, it returns a "
+              + "list of 1-tuples. With no arguments, it returns an empty list. Examples:"
+              + "<pre class=\"language-python\">"
+              + "zip()  # == []\n"
+              + "zip([1, 2])  # == [(1,), (2,)]\n"
+              + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
+              + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
+      extraPositionals = @Param(name = "args", doc = "lists to zip."),
+      returnType = MutableList.class,
+      useLocation = true,
+      useEnvironment = true)
   private static final BuiltinFunction zip =
       new BuiltinFunction("zip") {
         public MutableList<?> invoke(SkylarkList<?> args, Location loc, Environment env)
@@ -1063,35 +1044,33 @@ public class MethodLibrary {
 
   /** Skylark int type. */
   @SkylarkModule(
-    name = "int",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "A type to represent integers. It can represent any number between -2147483648 and "
-            + "2147483647 (included). "
-            + "Examples of int values:<br>"
-            + "<pre class=\"language-python\">"
-            + "153\n"
-            + "0x2A  # hexadecimal literal\n"
-            + "054  # octal literal\n"
-            + "23 * 2 + 5\n"
-            + "100 / -7\n"
-            + "100 % -7  # -5 (unlike in some other languages)\n"
-            + "int(\"18\")\n"
-            + "</pre>"
-  )
+      name = "int",
+      category = SkylarkModuleCategory.BUILTIN,
+      doc =
+          "A type to represent integers. It can represent any number between -2147483648 and "
+              + "2147483647 (included). "
+              + "Examples of int values:<br>"
+              + "<pre class=\"language-python\">"
+              + "153\n"
+              + "0x2A  # hexadecimal literal\n"
+              + "054  # octal literal\n"
+              + "23 * 2 + 5\n"
+              + "100 / -7\n"
+              + "100 % -7  # -5 (unlike in some other languages)\n"
+              + "int(\"18\")\n"
+              + "</pre>")
   public static final class IntModule {}
 
   /** Skylark bool type. */
   @SkylarkModule(
-    name = "bool",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "A type to represent booleans. There are only two possible values: "
-            + "<a href=\"globals.html#True\">True</a> and "
-            + "<a href=\"globals.html#False\">False</a>. "
-            + "Any value can be converted to a boolean using the "
-            + "<a href=\"globals.html#bool\">bool</a> function."
-  )
+      name = "bool",
+      category = SkylarkModuleCategory.BUILTIN,
+      doc =
+          "A type to represent booleans. There are only two possible values: "
+              + "<a href=\"globals.html#True\">True</a> and "
+              + "<a href=\"globals.html#False\">False</a>. "
+              + "Any value can be converted to a boolean using the "
+              + "<a href=\"globals.html#bool\">bool</a> function.")
   public static final class BoolModule {}
 
   /** Adds bindings for all the builtin functions of this class to the given map builder. */

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -103,9 +104,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private final Map<SkyKey, SkyValue> newlyRequestedDepsValues = new HashMap<>();
 
   /**
-   * Keys of dependencies registered via {@link #registerDependencies}.
+   * Keys of dependencies registered via {@link #registerDependencies} if not using {@link
+   * EvaluationVersionBehavior#MAX_CHILD_VERSIONS}.
    *
-   * <p>The {@link #registerDependencies} method is hacky. Deps registered through it will not have
+   * <p>The {@link #registerDependencies} method is hacky. Deps registered through it may not have
    * entries in {@link #newlyRequestedDepsValues}, but they are expected to be done. This set tracks
    * those keys so that they aren't removed when {@link #removeUndoneNewlyRequestedDeps} is called.
    */
@@ -210,10 +212,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         depKeysAsSet = depKeys.toSet();
         evaluatorContext
             .getGraph()
-            .getBatchAsync(
-                requestor,
-                Reason.PREFETCH,
-                Iterables.filter(oldDeps, Predicates.not(Predicates.in(depKeysAsSet))));
+            .prefetchDeps(
+                requestor, Iterables.filter(oldDeps, Predicates.not(Predicates.in(depKeysAsSet))));
       }
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =
@@ -814,15 +814,28 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   @Override
-  public void registerDependencies(Iterable<SkyKey> keys) {
+  public void registerDependencies(Iterable<SkyKey> keys) throws InterruptedException {
+    if (EvaluationVersionBehavior.MAX_CHILD_VERSIONS.equals(
+        evaluatorContext.getEvaluationVersionBehavior())) {
+      // Need versions when doing MAX_CHILD_VERSIONS, so can't use optimization. To use the
+      // optimization, the caller would have to know the versions of the passed-in keys. Extensions
+      // of the SkyFunction.Environment interface to make that possible could happen.
+      Map<SkyKey, SkyValue> checkSizeMap = getValues(keys);
+      ImmutableSet<SkyKey> keysSet = ImmutableSet.copyOf(keys);
+      if (checkSizeMap.size() != keysSet.size()) {
+        throw new IllegalStateException(
+            "Missing keys when checking dependencies for "
+                + skyKey
+                + ": "
+                + Sets.difference(keysSet, checkSizeMap.keySet()));
+      }
+      return;
+    }
     newlyRequestedDeps.startGroup();
     for (SkyKey key : keys) {
       if (!previouslyRequestedDepsValues.containsKey(key)) {
         newlyRequestedDeps.add(key);
         newlyRegisteredDeps.add(key);
-        // Be conservative with these value-not-retrieved deps: assume they have the highest
-        // possible version.
-        maxChildVersion = evaluatorContext.getGraphVersion();
       }
     }
     newlyRequestedDeps.endGroup();

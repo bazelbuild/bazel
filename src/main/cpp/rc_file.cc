@@ -30,6 +30,9 @@ using std::deque;
 using std::string;
 using std::vector;
 
+static constexpr const char* kCommandImport = "import";
+static constexpr const char* kCommandTryImport = "try-import";
+
 RcFile::RcFile(string filename, const WorkspaceLayout* workspace_layout,
                string workspace)
     : filename_(std::move(filename)),
@@ -57,9 +60,12 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
         "Unexpected error reading .blazerc file '%s'", filename.c_str());
     return ParseError::UNREADABLE_FILE;
   }
+  const std::string canonical_filename =
+      blaze_util::MakeCanonical(filename.c_str());
 
-  rcfile_paths_.push_back(filename);
-  // Keep a pointer to the filename string in rcfile_paths_ for the RcOptions.
+  rcfile_paths_.push_back(canonical_filename);
+  // Keep a pointer to the canonical_filename string in rcfile_paths_ for the
+  // RcOptions.
   string* filename_ptr = &rcfile_paths_.back();
 
   // A '\' at the end of a line continues the line.
@@ -91,7 +97,7 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
 
     string command = words[0];
 
-    if (command == "import") {
+    if (command == kCommandImport || command == kCommandTryImport) {
       if (words.size() != 2 ||
           (words[1].compare(0, workspace_layout_->WorkspacePrefixLength,
                             workspace_layout_->WorkspacePrefix) == 0 &&
@@ -101,7 +107,7 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
             error_text,
             "Invalid import declaration in .blazerc file '%s': '%s'"
             " (are you in your source checkout/WORKSPACE?)",
-            filename.c_str(), line.c_str());
+            canonical_filename.c_str(), line.c_str());
         return ParseError::INVALID_FORMAT;
       }
       if (std::find(import_stack->begin(), import_stack->end(), words[1]) !=
@@ -119,7 +125,19 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
       import_stack->push_back(words[1]);
       ParseError parse_error = ParseFile(words[1], import_stack, error_text);
       if (parse_error != ParseError::NONE) {
-        return parse_error;
+        if (parse_error == ParseError::UNREADABLE_FILE &&
+            command == kCommandTryImport) {
+          // For try-import, we ignore it if we couldn't find a file.
+          BAZEL_LOG(INFO) << "Skipped optional import of " << words[1]
+                          << ", the specified rc file either does not exist or "
+                             "is not readable.";
+          *error_text = "";
+        } else {
+          // Files that are there but are malformed or introduce a loop are
+          // still a problem, though, so perpetuate those errors as we would
+          // for a normal import statement.
+          return parse_error;
+        }
       }
       import_stack->pop_back();
     } else {

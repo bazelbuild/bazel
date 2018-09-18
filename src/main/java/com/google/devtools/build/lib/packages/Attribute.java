@@ -248,6 +248,11 @@ public final class Attribute implements Comparable<Attribute> {
      * Whether we should use output_licenses to check the licences on this attribute.
      */
     OUTPUT_LICENSES,
+
+    /**
+     * Has a function-based split transition.
+     */
+    HAS_FUNCTION_TRANSITION,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -590,6 +595,14 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> useOutputLicenses() {
       Preconditions.checkState(BuildType.isLabelType(type), "must be a label type");
       return setPropertyFlag(PropertyFlag.OUTPUT_LICENSES, "output_license");
+    }
+
+    /**
+     * Indicate the attribute uses function-based split transition.
+     */
+    public Builder<TYPE> hasFunctionTransition() {
+      return setPropertyFlag(PropertyFlag.HAS_FUNCTION_TRANSITION,
+          "function-based split transition");
     }
 
     /**
@@ -1973,6 +1986,19 @@ public final class Attribute implements Comparable<Attribute> {
           "a late bound default value using the host configuration must use the host transition");
     }
 
+    if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
+      Preconditions.checkArgument(
+          BuildType.isLabelType(type),
+          "_whitelist_function_transition attribute must be a label");
+      Preconditions.checkArgument(
+          defaultValue != null,
+          "_whitelist_function_transition attribute must have a default value");
+      Preconditions.checkArgument(
+          ((Label) defaultValue).equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL),
+          "_whitelist_function_transition attribute does not have the expected value "
+          + FunctionSplitTransitionWhitelist.WHITELIST_LABEL);
+    }
+
     this.name = name;
     this.type = type;
     this.propertyFlags = propertyFlags;
@@ -2081,6 +2107,14 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public boolean useOutputLicenses() {
     return getPropertyFlag(PropertyFlag.OUTPUT_LICENSES);
+  }
+
+  /**
+   * Returns true if this attribute uses a function-based split transition provider.  See
+   * {@link FunctionSplitTransitionProvider}.
+   */
+  public boolean hasFunctionTransition() {
+    return getPropertyFlag(PropertyFlag.HAS_FUNCTION_TRANSITION);
   }
 
   /**

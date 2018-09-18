@@ -257,6 +257,7 @@ public abstract class ValueWithMetadata implements SkyValue {
     }
   }
 
+  @Nullable
   public static SkyValue justValue(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return ((ValueWithMetadata) value).getValue();

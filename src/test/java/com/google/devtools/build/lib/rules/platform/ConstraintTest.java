@@ -18,9 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.syntax.Runtime;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,22 +52,172 @@ public class ConstraintTest extends BuildViewTestCase {
   public void testConstraint() throws Exception {
     ConfiguredTarget setting = getConfiguredTarget("//constraint:basic");
     assertThat(setting).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintSetting(setting).label())
+
+    ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(constraintSettingInfo).isNotNull();
+    assertThat(constraintSettingInfo).isNotNull();
+    assertThat(constraintSettingInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
+    assertThat(constraintSettingInfo.defaultConstraintValue()).isNull();
+
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint:foo");
     assertThat(fooValue).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(fooValue)).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(fooValue).constraint().label())
+
+    ConstraintValueInfo fooConstraintValueInfo = PlatformProviderUtils.constraintValue(fooValue);
+    assertThat(fooConstraintValueInfo).isNotNull();
+    assertThat(fooConstraintValueInfo.constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
-    assertThat(PlatformProviderUtils.constraintValue(fooValue).label())
+    assertThat(fooConstraintValueInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:foo", ImmutableMap.of()));
+
     ConfiguredTarget barValue = getConfiguredTarget("//constraint:bar");
     assertThat(barValue).isNotNull();
-    assertThat(PlatformProviderUtils.constraintValue(barValue).constraint().label())
+
+    ConstraintValueInfo barConstraintValueInfo = PlatformProviderUtils.constraintValue(barValue);
+    assertThat(barConstraintValueInfo.constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
-    assertThat(PlatformProviderUtils.constraintValue(barValue).label())
+    assertThat(barConstraintValueInfo.label())
         .isEqualTo(Label.parseAbsolute("//constraint:bar", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testConstraint_defaultValue() throws Exception {
+    scratch.file(
+        "constraint_default/BUILD",
+        "constraint_setting(name = 'basic',",
+        "    default_constraint_value = ':foo',",
+        ")",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        ")",
+        "constraint_value(name = 'bar',",
+        "    constraint_setting = ':basic',",
+        ")");
+
+    ConfiguredTarget setting = getConfiguredTarget("//constraint_default:basic");
+    assertThat(setting).isNotNull();
+    ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(constraintSettingInfo).isNotNull();
+
+    ConfiguredTarget fooValue = getConfiguredTarget("//constraint_default:foo");
+    assertThat(fooValue).isNotNull();
+    ConstraintValueInfo fooConstraintValueInfo = PlatformProviderUtils.constraintValue(fooValue);
+    assertThat(fooConstraintValueInfo).isNotNull();
+
+    assertThat(constraintSettingInfo.defaultConstraintValue()).isEqualTo(fooConstraintValueInfo);
+  }
+
+  @Test
+  public void testConstraint_defaultValue_differentPackageFails() throws Exception {
+    scratch.file(
+        "other/BUILD",
+        "constraint_value(name = 'other',",
+        "    constraint_setting = '//constraint_default:basic',",
+        ")");
+    checkError(
+        "constraint_default",
+        "basic",
+        "same package",
+        "constraint_setting(name = 'basic',",
+        "    default_constraint_value = '//other:other',",
+        ")");
+  }
+
+  @Test
+  public void testConstraint_defaultValue_nonExistentTargetFails() throws Exception {
+    checkError(
+        "constraint_default",
+        "basic",
+        "default constraint value '//constraint_default:food' does not exist",
+        "constraint_setting(name = 'basic',",
+        "    default_constraint_value = ':food',",
+        "    )",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        ")");
+  }
+
+  @Test
+  public void testConstraint_defaultValue_starlark() throws Exception {
+    scratch.file(
+        "constraint_default/BUILD",
+        "constraint_setting(name = 'basic',",
+        "    default_constraint_value = ':foo',",
+        ")",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        ")");
+
+    scratch.file(
+        "verify/verify.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
+        "  default_value = constraint_setting.default_constraint_value",
+        "  return [result(default_value = default_value)]",
+        "verify = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'constraint_setting': attr.label(",
+        "        providers = [platform_common.ConstraintSettingInfo]),",
+        "  },",
+        ")");
+    scratch.file(
+        "verify/BUILD",
+        "load(':verify.bzl', 'verify')",
+        "verify(name = 'verify',",
+        "  constraint_setting = '//constraint_default:basic',",
+        ")");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+
+    @SuppressWarnings("unchecked")
+    ConstraintValueInfo defaultConstraintValue =
+        (ConstraintValueInfo) info.getValue("default_value");
+    assertThat(defaultConstraintValue).isNotNull();
+    assertThat(defaultConstraintValue.label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint_default:foo"));
+    assertThat(defaultConstraintValue.constraint().label())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint_default:basic"));
+  }
+
+  @Test
+  public void testConstraint_defaultValue_notSet_starlark() throws Exception {
+    scratch.file("constraint_default/BUILD", "constraint_setting(name = 'basic')");
+
+    scratch.file(
+        "verify/verify.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
+        "  default_value = constraint_setting.default_constraint_value",
+        "  return [result(default_value = default_value)]",
+        "verify = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'constraint_setting': attr.label(",
+        "        providers = [platform_common.ConstraintSettingInfo]),",
+        "  },",
+        ")");
+    scratch.file(
+        "verify/BUILD",
+        "load(':verify.bzl', 'verify')",
+        "verify(name = 'verify',",
+        "  constraint_setting = '//constraint_default:basic',",
+        ")");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new SkylarkKey(
+                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+
+    assertThat(info.getValue("default_value")).isEqualTo(Runtime.NONE);
   }
 }

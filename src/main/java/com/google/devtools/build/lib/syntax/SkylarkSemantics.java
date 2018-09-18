@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Options that affect Skylark semantics.
@@ -30,6 +32,50 @@ import java.util.List;
 // parser's annotation mechanism.
 @AutoValue
 public abstract class SkylarkSemantics {
+
+  /** Enum where each element represents a skylark semantics flag. */
+  public enum FlagIdentifier {
+    INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
+        SkylarkSemantics::incompatibleDisableObjcProviderResources),
+    NONE(null);
+
+    // Using a Function here makes the enum definitions far cleaner, and, since this is
+    // a private field, and we can ensure no callers treat this field as mutable.
+    @SuppressWarnings("ImmutableEnumChecker")
+    private final Function<SkylarkSemantics, Boolean> semanticsFunction;
+
+    FlagIdentifier(Function<SkylarkSemantics, Boolean> semanticsFunction) {
+      this.semanticsFunction = semanticsFunction;
+    }
+  }
+
+  /**
+   * Returns true if a feature attached to the given toggling flags should be enabled.
+   *
+   * <ul>
+   *   <li>If both parameters are {@code NONE}, this indicates the feature is not
+   *       controlled by flags, and should thus be enabled.</li>
+   *   <li>If the {@code enablingFlag} parameter is non-{@code NONE}, this returns
+   *       true if and only if that flag is true. (This represents a feature that is only on
+   *       if a given flag is *on*).</li>
+   *   <li>If the {@code disablingFlag} parameter is non-{@code NONE}, this returns
+   *       true if and only if that flag is false. (This represents a feature that is only on
+   *       if a given flag is *off*).</li>
+   *   <li>It is illegal to pass both parameters as non-{@code NONE}.</li>
+   * </ul>
+   */
+  public boolean isFeatureEnabledBasedOnTogglingFlags(
+      FlagIdentifier enablingFlag,
+      FlagIdentifier disablingFlag) {
+    Preconditions.checkArgument(enablingFlag == FlagIdentifier.NONE
+        || disablingFlag == FlagIdentifier.NONE,
+        "at least one of 'enablingFlag' or 'disablingFlag' must be NONE");
+    if (enablingFlag != FlagIdentifier.NONE) {
+      return enablingFlag.semanticsFunction.apply(this);
+    } else {
+      return disablingFlag == FlagIdentifier.NONE || !disablingFlag.semanticsFunction.apply(this);
+    }
+  }
 
   /**
    * The AutoValue-generated concrete class implementing this one.
@@ -71,6 +117,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleDisallowSlashOperator();
 
+  public abstract boolean incompatibleExpandDirectories();
+
   public abstract boolean incompatibleGenerateJavaCommonSourceJar();
 
   public abstract boolean incompatibleNewActionsApi();
@@ -85,9 +133,13 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleRemoveNativeHttpArchive();
 
+  public abstract boolean incompatibleStaticNameResolution();
+
   public abstract boolean incompatibleStringIsNotIterable();
 
   public abstract boolean internalSkylarkFlagTestCanary();
+
+  public abstract boolean incompatibleNeverUseEmbeddedJDKForJavabase();
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public abstract Builder toBuilder();
@@ -119,6 +171,7 @@ public abstract class SkylarkSemantics {
           .incompatibleDisallowLegacyJavaInfo(false)
           .incompatibleDisallowOldStyleArgsAdd(false)
           .incompatibleDisallowSlashOperator(false)
+          .incompatibleExpandDirectories(false)
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
@@ -126,8 +179,10 @@ public abstract class SkylarkSemantics {
           .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
           .incompatibleRemoveNativeHttpArchive(false)
+          .incompatibleStaticNameResolution(false)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)
+          .incompatibleNeverUseEmbeddedJDKForJavabase(false)
           .build();
 
   /** Builder for {@link SkylarkSemantics}. All fields are mandatory. */
@@ -165,6 +220,8 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleDisallowSlashOperator(boolean value);
 
+    public abstract Builder incompatibleExpandDirectories(boolean value);
+
     public abstract Builder incompatibleGenerateJavaCommonSourceJar(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
@@ -179,9 +236,13 @@ public abstract class SkylarkSemantics {
 
     public abstract Builder incompatibleRemoveNativeHttpArchive(boolean value);
 
+    public abstract Builder incompatibleStaticNameResolution(boolean value);
+
     public abstract Builder incompatibleStringIsNotIterable(boolean value);
 
     public abstract Builder internalSkylarkFlagTestCanary(boolean value);
+
+    public abstract Builder incompatibleNeverUseEmbeddedJDKForJavabase(boolean value);
 
     public abstract SkylarkSemantics build();
   }

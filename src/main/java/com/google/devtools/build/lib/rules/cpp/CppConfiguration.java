@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.MakeVariableSource;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -79,7 +78,6 @@ import javax.annotation.Nullable;
  *       --compiler values, and construct the key as follows: <toolchain.cpu>|<toolchain.compiler>.
  * </ul>
  */
-@AutoCodec
 @Immutable
 public final class CppConfiguration extends BuildConfiguration.Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
@@ -91,22 +89,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
-
-  public boolean disableLegacyCrosstoolFields() {
-    return cppOptions.disableLegacyCrosstoolFields;
-  }
-
-  public boolean disableCompilationModeFlags() {
-    return cppOptions.disableCompilationModeFlags;
-  }
-
-  public boolean disableLinkingModeFlags() {
-    return cppOptions.disableLinkingModeFlags;
-  }
-
-  public boolean enableLinkoptsInUserLinkFlags() {
-    return cppOptions.enableLinkoptsInUserLinkFlags;
-  }
 
   /**
    * An enumeration of all the tools that comprise a toolchain.
@@ -193,6 +175,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
   private final Label crosstoolTop;
+  private final String transformedCpuFromOptions;
+  private final String compilerFromOptions;
   private final CrosstoolFile crosstoolFile;
   // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
   // that the CPU we get from the toolchain matches BuildConfiguration.Options.cpu . So we store
@@ -229,7 +213,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   private final ImmutableList<String> ltobackendOptions;
 
   private final CppOptions cppOptions;
-  private final CpuTransformer cpuTransformerEnum;
 
   // The dynamic mode for linking.
   private final boolean stripBinaries;
@@ -281,6 +264,8 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     return new CppConfiguration(
         params.crosstoolTop,
+        params.transformedCpu,
+        params.compiler,
         params.crosstoolFile,
         Preconditions.checkNotNull(params.commonOptions.cpu),
         crosstoolTopPathFragment,
@@ -306,7 +291,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         ImmutableList.copyOf(cppOptions.ltoindexoptList),
         ImmutableList.copyOf(cppOptions.ltobackendoptList),
         cppOptions,
-        params.cpuTransformer,
         (cppOptions.stripBinaries == StripMode.ALWAYS
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
                 && compilationMode == CompilationMode.FASTBUILD)),
@@ -315,9 +299,10 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
         cppToolchainInfo);
   }
 
-  @AutoCodec.Instantiator
-  CppConfiguration(
+  private CppConfiguration(
       Label crosstoolTop,
+      String transformedCpuFromOptions,
+      String compilerFromOptions,
       CrosstoolFile crosstoolFile,
       String desiredCpu,
       PathFragment crosstoolTopPathFragment,
@@ -340,12 +325,13 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> ltoindexOptions,
       ImmutableList<String> ltobackendOptions,
       CppOptions cppOptions,
-      CpuTransformer cpuTransformerEnum,
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean shouldProvideMakeVariables,
       CppToolchainInfo cppToolchainInfo) {
     this.crosstoolTop = crosstoolTop;
+    this.transformedCpuFromOptions = transformedCpuFromOptions;
+    this.compilerFromOptions = compilerFromOptions;
     this.crosstoolFile = crosstoolFile;
     this.desiredCpu = desiredCpu;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -368,7 +354,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     this.ltoindexOptions = ltoindexOptions;
     this.ltobackendOptions = ltobackendOptions;
     this.cppOptions = cppOptions;
-    this.cpuTransformerEnum = cpuTransformerEnum;
     this.stripBinaries = stripBinaries;
     this.compilationMode = compilationMode;
     this.shouldProvideMakeVariables = shouldProvideMakeVariables;
@@ -413,11 +398,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   /** Returns the label of the CROSSTOOL for this configuration. */
   public Label getCrosstoolTop() {
     return crosstoolTop;
-  }
-
-  /** Returns the transformer that should be applied to cpu names in toolchain selection. */
-  public Function<String, String> getCpuTransformer() {
-    return cpuTransformerEnum.getTransformer();
   }
 
   /**
@@ -469,17 +449,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public String getTargetCpu() throws EvalException {
     checkForToolchainSkylarkApiAvailability();
     return cppToolchainInfo.getTargetCpu();
-  }
-
-  /**
-   * Unused, for compatibility with things internal to Google.
-   *
-   * <p>Deprecated: Use platforms.
-   */
-  // TODO(b/64384912): Remove once c++ platforms are in use.
-  @Deprecated
-  public String getTargetOS() {
-    return cppToolchainInfo.getTargetOS();
   }
 
   /**
@@ -928,6 +897,20 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useStartEndLib;
   }
 
+  /**
+   * @return value from the --cpu option transformed using {@link CpuTransformer}. If it was not
+   *     passed explicitly, {@link AutoCpuConverter} will try to guess something reasonable.
+   */
+  public String getTransformedCpuFromOptions() {
+    return transformedCpuFromOptions;
+  }
+
+  /** @return value from --compiler option, null if the option was not passed. */
+  @Nullable
+  public String getCompilerFromOptions() {
+    return compilerFromOptions;
+  }
+
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
   }
@@ -1106,7 +1089,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (!cppOptions.enableMakeVariables) {
+    if (cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables) {
       return;
     }
 
@@ -1150,8 +1133,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public Map<String, Object> lateBoundOptionDefaults() {
     // --compiler initially defaults to null because its *actual* default isn't known
     // until it's read from the CROSSTOOL. Feed the CROSSTOOL defaults in here.
-    return ImmutableMap.<String, Object>of(
-        "compiler", cppToolchainInfo.getCompiler());
+    return ImmutableMap.of("compiler", cppToolchainInfo.getCompiler());
   }
 
   public String getFdoInstrument() {
@@ -1182,15 +1164,43 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
-  /** Returns true if the deprecated CcDynamicLibrariesForRuntime class should be used */
-  public boolean enableCcDynamicLibrariesForRuntime() {
-    return cppOptions.enableCcDynamicLibrariesForRuntime;
+  public boolean disableLegacyCrosstoolFields() {
+    return cppOptions.disableLegacyCrosstoolFields;
+  }
+
+  public boolean disableCompilationModeFlags() {
+    return cppOptions.disableCompilationModeFlags;
+  }
+
+  public boolean disableLinkingModeFlags() {
+    return cppOptions.disableLinkingModeFlags;
+  }
+
+  public boolean disableMakeVariables() {
+    return cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables;
+  }
+
+  public boolean enableLinkoptsInUserLinkFlags() {
+    return cppOptions.enableLinkoptsInUserLinkFlags;
+  }
+
+  public boolean disableEmittingStaticLibgcc() {
+    return cppOptions.disableEmittingStaticLibgcc;
+  }
+
+  public boolean disableDepsetInUserFlags() {
+    return cppOptions.disableDepsetInUserFlags;
   }
 
   private void checkForToolchainSkylarkApiAvailability() throws EvalException {
-    if (!cppOptions.enableLegacyToolchainSkylarkApi) {
-      throw new EvalException(null, "Information about the C++ toolchain API is not accessible "
-          + "anymore through ctx.fragments.cpp . Use CcToolchainInfo instead.");
+    if (cppOptions.disableLegacyToolchainSkylarkApi
+        || !cppOptions.enableLegacyToolchainSkylarkApi) {
+      throw new EvalException(
+          null,
+          "Information about the C++ toolchain API is not accessible "
+              + "anymore through ctx.fragments.cpp "
+              + "(See --incompatible_disable_legacy_cpp_toolchain_skylark_api). "
+              + "Use CcToolchainInfo instead.");
     }
   }
 
@@ -1224,5 +1234,12 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   boolean enableCcToolchainConfigInfoFromSkylark() {
     return cppOptions.enableCcToolchainConfigInfoFromSkylark;
+  }
+
+  /**
+   * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
+   */
+  public Label getLibcTopLabel() {
+    return cppOptions.libcTopLabel;
   }
 }

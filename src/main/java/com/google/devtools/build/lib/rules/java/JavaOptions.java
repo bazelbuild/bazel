@@ -127,6 +127,17 @@ public class JavaOptions extends FragmentOptions {
   public List<String> javacOpts;
 
   @Option(
+      name = "host_javacopt",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Additional options to pass to javac when building tools that are executed during a"
+              + " build.")
+  public List<String> hostJavacOpts;
+
+  @Option(
     name = "jvmopt",
     allowMultiple = true,
     defaultValue = "",
@@ -538,6 +549,16 @@ public class JavaOptions extends FragmentOptions {
   public boolean allowRuntimeDepsOnNeverLink;
 
   @Option(
+      name = "experimental_add_test_support_to_compile_time_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Flag to help transition away from adding test support libraries to the compile-time"
+              + " deps of Java test rules.")
+  public boolean addTestSupportToCompileTimeDeps;
+
+  @Option(
     name = "jplPropagateCcLinkParamsStore",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -562,6 +583,20 @@ public class JavaOptions extends FragmentOptions {
   )
   public List<Label> pluginList;
 
+  @Option(
+      name = "incompatible_require_java_toolchain_header_compiler_direct",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, java_toolchains.header_compilation_direct must be set when "
+              + "--java_header_compilation is enabled.")
+  public boolean requireJavaToolchainHeaderCompilerDirect;
+
   @Override
   public FragmentOptions getHost() {
     JavaOptions host = (JavaOptions) getDefault();
@@ -569,7 +604,7 @@ public class JavaOptions extends FragmentOptions {
     host.javaBase = hostJavaBase;
     host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
 
-    host.javacOpts = javacOpts;
+    host.javacOpts = hostJavacOpts;
     host.javaToolchain = hostJavaToolchain;
 
     host.javaLauncher = hostJavaLauncher;
@@ -578,7 +613,6 @@ public class JavaOptions extends FragmentOptions {
     // incremental build performance is important.
     host.useIjars = useIjars;
     host.headerCompilation = headerCompilation;
-    host.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
@@ -591,10 +625,13 @@ public class JavaOptions extends FragmentOptions {
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
+    host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
     host.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
+
+    host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
     return host;
   }

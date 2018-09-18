@@ -738,25 +738,27 @@ bool IsEmacsTerminal() {
   return emacs == "t" || !inside_emacs.empty();
 }
 
-// Returns true iff both stdout and stderr are connected to a
-// terminal, and it can support color and cursor movement
-// (this is computed heuristically based on the values of
-// environment variables).
-bool IsStandardTerminal() {
+// Returns true if stderr is connected to a terminal, and it can support color
+// and cursor movement (this is computed heuristically based on the values of
+// environment variables).  The only file handle into which Blaze outputs
+// control characters is stderr, so we only care for the stderr descriptor type.
+bool IsStderrStandardTerminal() {
   string term = GetEnv("TERM");
   if (term.empty() || term == "dumb" || term == "emacs" ||
       term == "xterm-mono" || term == "symbolics" || term == "9term" ||
       IsEmacsTerminal()) {
     return false;
   }
-  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
+  return isatty(STDERR_FILENO);
 }
 
-// Returns the number of columns of the terminal to which stdout is
-// connected, or $COLUMNS (default 80) if there is no such terminal.
-int GetTerminalColumns() {
+// Returns the number of columns of the terminal to which stderr is connected,
+// or $COLUMNS (default 80) if there is no such terminal.  The only file handle
+// into which Blaze outputs formatted messages is stderr, so we only care for
+// width of a terminal connected to the stderr descriptor.
+int GetStderrTerminalColumns() {
   struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
+  if (ioctl(STDERR_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
   string columns_env = GetEnv("COLUMNS");
@@ -773,13 +775,13 @@ int GetTerminalColumns() {
 // Raises a resource limit to the maximum allowed value.
 //
 // This function raises the limit of the resource given in "resource" from its
-// soft limit to its hard limit. If the hard limit is unlimited, uses the
-// kernel-level limit fetched from the sysctl property given in "sysctl_name"
-// because setting the soft limit to unlimited may not work.
+// soft limit to its hard limit. If the hard limit is unlimited and
+// allow_infinity is false, uses the kernel-level limit because setting the
+// soft limit to unlimited may not work.
 //
 // Note that this is a best-effort operation. Any failure during this process
 // will result in a warning but execution will continue.
-static bool UnlimitResource(const int resource) {
+static bool UnlimitResource(const int resource, const bool allow_infinity) {
   struct rlimit rl;
   if (getrlimit(resource, &rl) == -1) {
     BAZEL_LOG(WARNING) << "failed to get resource limit " << resource << ": "
@@ -795,7 +797,7 @@ static bool UnlimitResource(const int resource) {
   }
 
   rl.rlim_cur = rl.rlim_max;
-  if (rl.rlim_cur == RLIM_INFINITY) {
+  if (rl.rlim_cur == RLIM_INFINITY && !allow_infinity) {
     const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
     if (explicit_limit <= 0) {
       // If not implemented (-1) or on an error (0), do nothing and try to
@@ -819,9 +821,13 @@ static bool UnlimitResource(const int resource) {
 
 bool UnlimitResources() {
   bool success = true;
-  success &= UnlimitResource(RLIMIT_NOFILE);
-  success &= UnlimitResource(RLIMIT_NPROC);
+  success &= UnlimitResource(RLIMIT_NOFILE, false);
+  success &= UnlimitResource(RLIMIT_NPROC, false);
   return success;
+}
+
+bool UnlimitCoredumps() {
+  return UnlimitResource(RLIMIT_CORE, true);
 }
 
 void DetectBashOrDie() {

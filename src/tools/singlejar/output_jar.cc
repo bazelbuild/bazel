@@ -26,7 +26,14 @@
 
 #ifndef _WIN32
 #include <unistd.h>
-#endif
+#else
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif  // WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#endif  // _WIN32
 
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
@@ -291,6 +298,9 @@ bool OutputJar::Open() {
   return true;
 }
 
+// January 1, 2010 as a DOS date
+static const uint16_t kDefaultDate = 30 << 9 | 1 << 5 | 1;
+
 bool OutputJar::AddJar(int jar_path_index) {
   const std::string &input_jar_path =
       options_->input_jars[jar_path_index].first;
@@ -443,7 +453,7 @@ bool OutputJar::AddJar(int jar_path_index) {
     off64_t local_header_offset = Position();
 
     // When normalize_timestamps is set, entry's timestamp is to be set to
-    // 01/01/1980 00:00:00 (or to 01/01/1980 00:00:02, if an entry is a .class
+    // 01/01/2010 00:00:00 (or to 01/01/2010 00:00:02, if an entry is a .class
     // file). This is somewhat expensive because we have to copy the local
     // header to memory as input jar is memory mapped as read-only. Try to copy
     // as little as possible.
@@ -455,7 +465,7 @@ bool OutputJar::AddJar(int jar_path_index) {
         normalized_time = 1;
       }
       lh_field_to_remove = lh->unix_time_extra_field();
-      fix_timestamp = jar_entry->last_mod_file_date() != 33 ||
+      fix_timestamp = jar_entry->last_mod_file_date() != kDefaultDate ||
                       jar_entry->last_mod_file_time() != normalized_time ||
                       lh_field_to_remove != nullptr;
     }
@@ -482,7 +492,7 @@ bool OutputJar::AddJar(int jar_path_index) {
       } else {
         memcpy(lh_new, lh, lh_size);
       }
-      lh_new->last_mod_file_date(33);
+      lh_new->last_mod_file_date(kDefaultDate);
       lh_new->last_mod_file_time(normalized_time);
       // Now write these few bytes and adjust read/write positions accordingly.
       if (!WriteBytes(lh_new, lh_new->size())) {
@@ -542,9 +552,9 @@ void OutputJar::WriteEntry(void *buffer) {
   // https://msdn.microsoft.com/en-us/library/9kkf9tah.aspx
   // ("32-Bit Windows Time/Date Formats")
   if (options_->normalize_timestamps) {
-    // Regular "normalized" timestamp is 01/01/1980 00:00:00, while for the
-    // .class file it is 01/01/1980 00:00:02
-    entry->last_mod_file_date(33);
+    // Regular "normalized" timestamp is 01/01/2010 00:00:00, while for the
+    // .class file it is 01/01/2010 00:00:02
+    entry->last_mod_file_date(kDefaultDate);
     entry->last_mod_file_time(
         ends_with(entry->file_name(), entry->file_name_length(), ".class") ? 1
                                                                            : 0);
@@ -750,7 +760,7 @@ void OutputJar::AppendToDirectoryBuffer(const CDH *cdh, off64_t lh_pos,
   out_cdh->local_header_offset32(lh_pos_needs64 ? 0xFFFFFFFF : lh_pos);
   if (fix_timestamp) {
     out_cdh->last_mod_file_time(normalized_time);
-    out_cdh->last_mod_file_date(33);
+    out_cdh->last_mod_file_date(kDefaultDate);
   }
 }
 
@@ -911,6 +921,23 @@ ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
   }
   ssize_t total_written = 0;
 
+#ifdef _WIN32
+  HANDLE hFile = reinterpret_cast<HANDLE>(_get_osfhandle(in_fd));
+  while (static_cast<size_t>(total_written) < count) {
+    ssize_t len = std::min(kBufferSize, count - total_written);
+    DWORD n_read;
+    if (!::ReadFile(hFile, buffer.get(), len, &n_read, NULL)) {
+      return -1;
+    }
+    if (n_read == 0) {
+      break;
+    }
+    if (!WriteBytes(buffer.get(), n_read)) {
+      return -1;
+    }
+    total_written += n_read;
+  }
+#else
   while (static_cast<size_t>(total_written) < count) {
     size_t len = std::min(kBufferSize, count - total_written);
     ssize_t n_read = pread(in_fd, buffer.get(), len, offset + total_written);
@@ -925,6 +952,7 @@ ssize_t OutputJar::AppendFile(int in_fd, off64_t offset, size_t count) {
       return -1;
     }
   }
+#endif  // _WIN32
 
   return total_written;
 }

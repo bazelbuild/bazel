@@ -103,14 +103,13 @@ public class Main {
     public List<Path> bootclasspath;
 
     @Option(
-      name = "output",
-      defaultValue = "null",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = PathConverter.class,
-      help = "Output path to save the result."
-    )
+        name = "output",
+        defaultValue = "null",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = PathConverter.class,
+        help = "Output path to save the result.")
     public Path output;
 
     @Option(
@@ -154,7 +153,7 @@ public class Main {
   static int checkDeps(String[] args) throws IOException {
     Options options = parseCommandLineOptions(args);
 
-    if (!Files.exists(options.output)) {
+    if (options.output != null && !Files.exists(options.output)) {
       Files.createFile(options.output); // Make sure the output file always exists.
     }
 
@@ -173,7 +172,9 @@ public class Main {
         checkState(!result.isEmpty(), "The result should NOT be empty.");
         exitCode = options.checkingMode == CheckingMode.ERROR ? DEPS_ERROR_EXIT_CODE : 0;
         printErrorMessage(result, options);
-        asCharSink(options.output, StandardCharsets.UTF_8).write(result);
+        if (options.output != null) {
+          asCharSink(options.output, StandardCharsets.UTF_8).write(result);
+        }
       }
       if (options.jdepsOutput != null) {
         Dependencies dependencies = checker.emitJdepsProto(options.ruleLabel);
@@ -211,12 +212,11 @@ public class Main {
     Options options = optionsParser.getOptions(Options.class);
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
-    checkArgument(options.output != null, "--output is required");
     checkArgument(!options.bootclasspath.isEmpty(), "--bootclasspath_entry is required");
-    checkArgument(
-        options.jdepsOutput == null || !Files.isDirectory(options.jdepsOutput),
-        "Invalid value of --jdeps_output: '%s'",
-        options.jdepsOutput);
+    // TODO(cushon): make --jdeps_output mandatory
+    // checkArgument(
+    //     options.jdepsOutput != null, "Invalid value of --jdeps_output: '%s'",
+    //     options.jdepsOutput);
     if (!options.fullClasspath.containsAll(options.directClasspath)) {
       ArrayList<Path> missing = Lists.newArrayList(options.directClasspath);
       missing.removeAll(options.fullClasspath);

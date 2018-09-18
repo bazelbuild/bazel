@@ -216,21 +216,22 @@ public abstract class FileSystem {
   public abstract void setLastModifiedTime(Path path, long newTime) throws IOException;
 
   /**
-   * Returns value of the given extended attribute name or null if attribute
-   * does not exist or file system does not support extended attributes. Follows symlinks.
-   * <p>Default implementation assumes that file system does not support
-   * extended attributes and always returns null. Specific file system
-   * implementations should override this method if they do provide support
-   * for extended attributes.
+   * Returns value of the given extended attribute name or null if attribute does not exist or file
+   * system does not support extended attributes. Follows symlinks.
+   *
+   * <p>Default implementation assumes that file system does not support extended attributes and
+   * always returns null. Specific file system implementations should override this method if they
+   * do provide support for extended attributes.
    *
    * @param path the file whose extended attribute is to be returned.
    * @param name the name of the extended attribute key.
-   * @return the value of the extended attribute associated with 'path', if
-   *   any, or null if no such attribute is defined (ENODATA) or file
-   *   system does not support extended attributes at all.
+   * @param followSymlinks whether to follow symlinks or not; if false, returns the xattr of the
+   *     link itself, not its target.
+   * @return the value of the extended attribute associated with 'path', if any, or null if no such
+   *     attribute is defined (ENODATA) or file system does not support extended attributes at all.
    * @throws IOException if the call failed for any other reason.
    */
-  public byte[] getxattr(Path path, String name) throws IOException {
+  public byte[] getxattr(Path path, String name, boolean followSymlinks) throws IOException {
     return null;
   }
 

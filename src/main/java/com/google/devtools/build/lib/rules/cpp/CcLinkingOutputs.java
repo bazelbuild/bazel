@@ -98,6 +98,13 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
     return dynamicLibrariesForRuntime;
   }
 
+  public boolean isEmpty() {
+    return staticLibraries.isEmpty()
+        && picStaticLibraries.isEmpty()
+        && dynamicLibrariesForLinking.isEmpty()
+        && dynamicLibrariesForRuntime.isEmpty();
+  }
+
   /**
    * Returns a map from library identifiers to sets of LibraryToLink from this CcLinkingOutputs
    * which share that library identifier.

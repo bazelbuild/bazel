@@ -23,7 +23,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-function test_execute() {
+# Sets up a workspace with the given commands inserted into the repository rule
+# that will be executed when doing bazel build //:test
+function set_workspace_command() {
   create_new_workspace
   cat > BUILD <<'EOF'
 genrule(
@@ -35,7 +37,7 @@ genrule(
 EOF
   cat >> repos.bzl <<EOF
 def _executeMe(repository_ctx):
-  repository_ctx.execute(["echo", "testing!"])
+  $1
   build_contents = "package(default_visibility = ['//visibility:public'])\n\n"
   build_contents += "exports_files([\"t.txt\"])\n"
   repository_ctx.file("BUILD", build_contents, False)
@@ -50,24 +52,42 @@ EOF
 load("//:repos.bzl", "ex_repo")
 ex_repo(name = "repo")
 EOF
+}
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test"
-  executes=`grep "location: .*repos.bzl:2:3" $TEST_log | wc -l`
-  if [ "$executes" -ne "1" ]
-  then
-    fail "Expected exactly 1 occurrence of the given command, got $executes"
-  fi
+function build_and_process_log() {
+  bazel build //:test --experimental_workspace_rules_log_file=output 2>&1 >> $TEST_log || fail "could not build //:test"
+  ${BAZEL_RUNFILES}/src/tools/workspacelog/parser --log_path=output > output.log.txt "$@" || fail "error parsing output"
+}
 
-  # Cached executions are not replayed
-  bazel build //:test --experimental_workspace_rules_logging=yes &> output || fail "could not build //:test"
-  cat output >> $TEST_log
-  executes=`grep "location: .*repos.bzl:2:3" output | wc -l`
-  if [ "$executes" -ne "0" ]
+function ensure_contains_exactly() {
+  num=`grep "${1}" output.log.txt | wc -l`
+  if [ "$num" -ne $2 ]
   then
-    fail "Expected exactly 0 occurrence of the given command, got $executes"
+    fail "Expected exactly $2 occurences of $1, got $num: " `cat output.log.txt`
   fi
 }
 
+function ensure_contains_atleast() {
+  num=`grep "${1}" output.log.txt | wc -l`
+  if [ "$num" -lt $2 ]
+  then
+    fail "Expected at least $2 occurences of $1, got $num: " `cat output.log.txt`
+  fi
+}
+
+function test_execute() {
+  set_workspace_command 'repository_ctx.execute(["echo", "testing!"])'
+  build_and_process_log
+
+  ensure_contains_exactly "location: .*repos.bzl:2:3" 1
+
+  # Cached executions are not replayed
+  build_and_process_log
+  ensure_contains_exactly "location: .*repos.bzl:2:3" 0
+}
+
+# The workspace is set up so that the function is interrupted and re-executed.
+# The log should contain both instances.
 function test_reexecute() {
   create_new_workspace
   cat > BUILD <<'EOF'
@@ -108,60 +128,46 @@ ex_repo(name = "repo")
 a_repo(name = "another")
 EOF
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test"
-  executes=`grep "location: .*repos.bzl:2:3" $TEST_log | wc -l`
-  if [ "$executes" -le "2" ]
-  then
-    fail "Expected at least 2 occurrences of the given command, got $executes"
-  fi
+  build_and_process_log
+
+  ensure_contains_atleast "location: .*repos.bzl:2:3" 2
 }
 
-# Sets up a workspace with the given commands inserted into the repository rule
-# that will be executed when doing bazel build //:test
-function set_workspace_command() {
-  create_new_workspace
-  cat > BUILD <<'EOF'
-genrule(
-   name="test",
-   srcs=["@repo//:t.txt"],
-   outs=["out.txt"],
-   cmd="echo Result > $(location out.txt)"
-)
-EOF
-  cat >> repos.bzl <<EOF
-def _executeMe(repository_ctx):
-  $1
-  build_contents = "package(default_visibility = ['//visibility:public'])\n\n"
-  build_contents += "exports_files([\"t.txt\"])\n"
-  repository_ctx.file("BUILD", build_contents, False)
-  repository_ctx.file("t.txt", "HELLO!\n", False)
-
-ex_repo = repository_rule(
-  implementation = _executeMe,
-  local = True,
-)
-EOF
-  cat >> WORKSPACE <<EOF
-load("//:repos.bzl", "ex_repo")
-ex_repo(name = "repo")
-EOF
-}
 
 # Ensure details of the specific functions are present
 function test_execute2() {
   set_workspace_command 'repository_ctx.execute(["echo", "test_contents"], 21, {"Arg1": "Val1"}, True)'
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> ${TEST_log} || fail "could not build //:test\n"
-  expect_log "location: .*repos.bzl:2:3"
-  expect_log "arguments: \"echo\""
-  expect_log "arguments: \"test_contents\""
-  expect_log "timeout_seconds: 21"
-  expect_log "quiet: true"
-  expect_log "key: \"Arg1\""
-  expect_log "value: \"Val1\""
-  expect_log "rule: \"//external:repo\""
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'arguments: "echo"' 1
+  ensure_contains_exactly 'arguments: "test_contents"' 1
+  ensure_contains_exactly 'timeout_seconds: 21' 1
+  ensure_contains_exactly 'quiet: true' 1
+  ensure_contains_exactly 'key: "Arg1"' 1
+  ensure_contains_exactly 'value: "Val1"' 1
+  # Workspace contains 2 file commands
+  ensure_contains_atleast 'rule: "//external:repo"' 3
 }
 
+function test_execute_quiet2() {
+  set_workspace_command 'repository_ctx.execute(["echo", "test2"], 32, {"A1": "V1"}, False)'
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_exactly 'arguments: "echo"' 1
+  ensure_contains_exactly 'arguments: "test2"' 1
+  ensure_contains_exactly 'timeout_seconds: 32' 1
+  # quiet: false does not show up when printing protos
+  # since it's the default value
+  ensure_contains_exactly 'quiet: ' 0
+  ensure_contains_exactly 'key: "A1"' 1
+  ensure_contains_exactly 'value: "V1"' 1
+  # Workspace contains 2 file commands
+  ensure_contains_atleast 'rule: "//external:repo"' 3
+}
 
 function test_download() {
   # Prepare HTTP server with Python
@@ -176,13 +182,14 @@ function test_download() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", \"${file_sha256}\")"
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> ${TEST_log} && shutdown_server || fail "could not build //:test\n"
-  expect_log "location: .*repos.bzl:2:3"
-  expect_log "rule: \"//external:repo\""
-  expect_log "download_event"
-  expect_log "url: \"http://localhost:${fileserver_port}/file.txt\""
-  expect_log "output: \"file.txt\""
-  expect_log "sha256: \"${file_sha256}\""
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
+  ensure_contains_exactly 'output: "file.txt"' 1
+  ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
 }
 
 function test_download_multiple() {
@@ -197,13 +204,14 @@ function test_download_multiple() {
 
   set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\")"
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log && shutdown_server || fail "could not build //:test\n"
-  expect_log "location: .*repos.bzl:2:3"
-  expect_log "rule: \"//external:repo\""
-  expect_log "download_event"
-  expect_log "url: \"http://localhost:${fileserver_port}/file1.txt\""
-  expect_log "url: \"http://localhost:${fileserver_port}/file2.txt\""
-  expect_log "output: \"out_for_list.txt\""
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file1.txt\"" 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file2.txt\"" 1
+  ensure_contains_exactly 'output: "out_for_list.txt"' 1
 }
 
 function test_download_and_extract() {
@@ -223,74 +231,81 @@ function test_download_and_extract() {
 
   set_workspace_command "repository_ctx.download_and_extract(\"http://localhost:${fileserver_port}/download_and_extract.zip\", \"out_dir\", \"${file_sha256}\", \"zip\", \"server_dir/\")"
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> ${TEST_log} && shutdown_server || fail "could not build //:test\n"
+  build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  expect_log "location: .*repos.bzl:2:3"
-  expect_log "rule: \"//external:repo\""
-  expect_log "download_and_extract_event"
-  expect_log "url: \"http://localhost:${fileserver_port}/download_and_extract.zip\""
-  expect_log "output: \"out_dir\""
-  expect_log "sha256: \"${file_sha256}\""
-  expect_log "type: \"zip\""
-  expect_log "strip_prefix: \"server_dir/\""
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'download_and_extract_event' 1
+  ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_and_extract.zip\"" 1
+  ensure_contains_exactly 'output: "out_dir"' 1
+  ensure_contains_exactly "sha256: \"${file_sha256}\"" 1
+  ensure_contains_exactly 'type: "zip"' 1
+  ensure_contains_exactly 'strip_prefix: "server_dir/"' 1
 }
 
 function test_file() {
   set_workspace_command 'repository_ctx.file("filefile.sh", "echo filefile", True)'
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
-  expect_log 'location: .*repos.bzl:2:3'
-  expect_log 'rule: "//external:repo"'
-  expect_log 'file_event'
-  expect_log 'path: ".*filefile.sh"'
-  expect_log 'content: "echo filefile"'
-  expect_log 'executable: true'
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+
+  # There are 3 file_event in external:repo as it is currently set up
+  ensure_contains_exactly 'file_event' 3
+  ensure_contains_exactly 'path: ".*filefile.sh"' 1
+  ensure_contains_exactly 'content: "echo filefile"' 1
+  ensure_contains_exactly 'executable: true' 1
 }
 
 function test_os() {
   set_workspace_command 'print(repository_ctx.os.name)'
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
-  expect_log 'location: .*repos.bzl:2:9'
-  expect_log 'rule: "//external:repo"'
-  expect_log 'os_event'
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'os_event' 1
 }
 
 function test_symlink() {
   set_workspace_command 'repository_ctx.file("symlink.txt", "something")
   repository_ctx.symlink("symlink.txt", "symlink_out.txt")'
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
-  expect_log 'location: .*repos.bzl:3:3'
-  expect_log 'rule: "//external:repo"'
-  expect_log 'symlink_event'
-  expect_log 'from: ".*symlink.txt"'
-  expect_log 'to: ".*symlink_out.txt"'
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'symlink_event' 1
+  ensure_contains_exactly 'from: ".*symlink.txt"' 1
+  ensure_contains_exactly 'to: ".*symlink_out.txt"' 1
 }
 
 function test_template() {
-  set_workspace_command 'repository_ctx.file("template_in.txt", "%{subKey}")
+  set_workspace_command 'repository_ctx.file("template_in.txt", "%{subKey}", False)
   repository_ctx.template("template_out.txt", "template_in.txt", {"subKey": "subVal"}, True)'
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
-  expect_log 'location: .*repos.bzl:3:3'
-  expect_log 'rule: "//external:repo"'
-  expect_log 'template_event'
-  expect_log 'path: ".*template_out.txt"'
-  expect_log 'template: ".*template_in.txt"'
-  expect_log 'key: "subKey"'
-  expect_log 'value: "subVal"'
-  expect_log 'executable: true'
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:3' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'template_event' 1
+  ensure_contains_exactly 'path: ".*template_out.txt"' 1
+  ensure_contains_exactly 'template: ".*template_in.txt"' 1
+  ensure_contains_exactly 'key: "subKey"' 1
+  ensure_contains_exactly 'value: "subVal"' 1
+  ensure_contains_exactly 'executable: true' 1
 }
 
 function test_which() {
   set_workspace_command 'print(repository_ctx.which("which_prog"))'
 
-  bazel build //:test --experimental_workspace_rules_logging=yes &> $TEST_log || fail "could not build //:test\n"
-  expect_log 'location: .*repos.bzl:2:9'
-  expect_log 'rule: "//external:repo"'
-  expect_log 'which_event'
-  expect_log 'program: "which_prog"'
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:2:9' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 1
+  ensure_contains_exactly 'which_event' 1
+  ensure_contains_exactly 'program: "which_prog"' 1
 }
 
 function tear_down() {
@@ -302,3 +317,4 @@ function tear_down() {
 }
 
 run_suite "workspaces_tests"
+

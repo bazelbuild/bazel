@@ -79,6 +79,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Listens for {@link BuildEvent}s and streams them to the provided {@link BuildEventTransport}s.
@@ -136,8 +138,12 @@ public class BuildEventStreamer implements EventHandler {
     String getErr();
   }
 
+  @ThreadSafe
   private static class CountingArtifactGroupNamer implements ArtifactGroupNamer {
+    @GuardedBy("this")
     private final Map<Object, Long> reportedArtifactNames = new HashMap<>();
+
+    @GuardedBy("this")
     private long nextArtifactName;
 
     @Override

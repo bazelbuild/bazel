@@ -14,15 +14,23 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
+
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -35,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A SkyFunction to parse WORKSPACE files into a BuildFileAST.
@@ -50,9 +59,24 @@ public class WorkspaceASTFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, WorkspaceASTFunctionException {
     RootedPath workspaceRoot = (RootedPath) skyKey.argument();
-    FileValue workspaceFileValue = (FileValue) env.getValue(FileValue.key(workspaceRoot));
-    if (workspaceFileValue == null) {
+
+    Optional<RootedPath> resolvedFile =
+        RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.get(env);
+    if (resolvedFile == null) {
       return null;
+    }
+    String newWorkspaceFileContents = null;
+    FileValue workspaceFileValue = null;
+    if (resolvedFile.isPresent()) {
+      newWorkspaceFileContents = workspaceFromResolvedValue(resolvedFile.get(), env);
+      if (newWorkspaceFileContents == null) {
+        return null;
+      }
+    } else {
+      workspaceFileValue = (FileValue) env.getValue(FileValue.key(workspaceRoot));
+      if (workspaceFileValue == null) {
+        return null;
+      }
     }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
@@ -67,7 +91,15 @@ public class WorkspaceASTFunction implements SkyFunction {
                 Label.EXTERNAL_PACKAGE_IDENTIFIER, "Failed to parse default WORKSPACE file"),
             Transience.PERSISTENT);
       }
-      if (workspaceFileValue.exists()) {
+      if (newWorkspaceFileContents != null) {
+        ast =
+            BuildFileAST.parseBuildFile(
+                ParserInputSource.create(
+                    newWorkspaceFileContents, resolvedFile.get().asPath().asFragment()),
+                ast.getStatements(),
+                /* repositoryMapping= */ ImmutableMap.of(),
+                env.getListener());
+      } else if (workspaceFileValue.exists()) {
         byte[] bytes =
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         ast =
@@ -101,6 +133,76 @@ public class WorkspaceASTFunction implements SkyFunction {
     } catch (IOException ex) {
       throw new WorkspaceASTFunctionException(ex, Transience.TRANSIENT);
     }
+  }
+
+  private static WorkspaceASTFunctionException resolvedValueError(String message) {
+    return new WorkspaceASTFunctionException(
+        new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER, message),
+        Transience.PERSISTENT);
+  }
+
+  /**
+   * Return the contents of the WORKSPACE file that is implicitly represented by the resolved value
+   * found in the given file.
+   *
+   * <p>TODO(aehlig): at the moment we serialize the value as a string just to re-parse it
+   * immediately again; we probably should construct the statements directly out of the value to
+   * improve performance.
+   */
+  private static String workspaceFromResolvedValue(RootedPath resolvedPath, Environment env)
+      throws WorkspaceASTFunctionException, InterruptedException {
+    ResolvedFileValue resolvedValue =
+        (ResolvedFileValue) env.getValue(ResolvedFileValue.key(resolvedPath));
+    if (resolvedValue == null) {
+      return null;
+    }
+    List<Map<String, Object>> resolved = resolvedValue.getResolvedValue();
+    StringBuilder builder = new StringBuilder();
+    for (Map<String, Object> entry : resolved) {
+      Object repositories = entry.get(REPOSITORIES);
+      if (!(repositories instanceof List)) {
+        throw resolvedValueError(
+            "In 'resolved' the "
+                + REPOSITORIES
+                + " entry is missing or not a list for item "
+                + entry);
+      }
+      for (Object repo : (List) repositories) {
+        if (!(repo instanceof Map)) {
+          throw resolvedValueError("A description of an individual repository is not a map");
+        }
+        Object rule = ((Map) repo).get(RULE_CLASS);
+        if (!(rule instanceof String)) {
+          throw resolvedValueError("Expected " + RULE_CLASS + " to be a string.");
+        }
+        int separatorPosition = ((String) rule).lastIndexOf('%');
+        if (separatorPosition < 0) {
+          throw resolvedValueError("Malformed rule class: " + ((String) rule));
+        }
+        String fileName = ((String) rule).substring(0, separatorPosition);
+        String symbol = ((String) rule).substring(separatorPosition + 1);
+
+        Object args = ((Map) repo).get(ATTRIBUTES);
+        if (!(args instanceof Map)) {
+          throw resolvedValueError("Arguments for " + ((String) rule) + " not a dict.");
+        }
+
+        builder.append("load(\"").append(fileName).append("\", \"").append(symbol).append("\")\n");
+        builder.append(symbol).append("(\n");
+        for (Map.Entry<Object, Object> arg : ((Map<Object, Object>) args).entrySet()) {
+          Object key = arg.getKey();
+          if (!(key instanceof String)) {
+            throw resolvedValueError(
+                "In arguments to " + ((String) rule) + " found a non-string key.");
+          }
+          builder.append("    ").append((String) key).append(" = ");
+          builder.append(Printer.getPrinter().repr(arg.getValue()).toString());
+          builder.append(",\n");
+        }
+        builder.append(")\n\n");
+      }
+    }
+    return builder.toString();
   }
 
   /**

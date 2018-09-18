@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -273,7 +274,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       FuncallExpression ast,
       Environment funcallEnv)
       throws EvalException, ConversionException {
-    funcallEnv.checkLoadingOrWorkspacePhase("rule", ast.getLocation());
+    SkylarkUtils.checkLoadingOrWorkspacePhase(funcallEnv, "rule", ast.getLocation());
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
     RuleClass parent =
         test
@@ -573,7 +574,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
     // to be a PackageContext
     public Object call(Object[] args, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException, ConversionException {
-      env.checkLoadingPhase(getName(), ast.getLocation());
+      SkylarkUtils.checkLoadingPhase(env, getName(), ast.getLocation());
       if (ruleClass == null) {
         throw new EvalException(ast.getLocation(),
             "Invalid rule class hasn't been exported by a Skylark file");
@@ -599,7 +600,7 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
       try {
-        PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
+        PackageContext pkgContext = (PackageContext) env.dynamicLookup(PackageFactory.PKG_CONTEXT);
         if (pkgContext == null) {
           throw new EvalException(ast.getLocation(),
               "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "
@@ -629,10 +630,15 @@ public class SkylarkRuleClassFunctions implements SkylarkRuleFunctionsApi<Artifa
             + "', test rule class names must end with '_test' and other rule classes must not");
       }
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
+        String name = attribute.getFirst();
         SkylarkAttr.Descriptor descriptor = attribute.getSecond();
 
-        addAttribute(definitionLocation, builder,
-            descriptor.build(attribute.getFirst()));
+        addAttribute(definitionLocation, builder, descriptor.build(name));
+
+        // Check for existence of the function transition whitelist attribute.
+        if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
+          builder.setHasFunctionTransitionWhitelist();
+        }
       }
       try {
         this.ruleClass = builder.build(ruleClassName, skylarkLabel + "%" + ruleClassName);

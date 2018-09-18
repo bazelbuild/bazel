@@ -39,7 +39,8 @@ public class EmptyRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
+  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings(
+      ArtifactPathResolver resolver) {
     return ImmutableMap.of();
   }
 

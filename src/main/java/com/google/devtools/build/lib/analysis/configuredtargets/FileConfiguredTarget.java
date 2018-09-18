@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.util.FileType;
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFileType, LicensesProvider {
 
-  private final Artifact artifact;
   private final TransitiveInfoProviderMap providers;
 
   FileConfiguredTarget(
@@ -51,7 +50,6 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
       Artifact artifact) {
     super(label, configurationKey, visibility);
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
-    this.artifact = artifact;
     FileProvider fileProvider = new FileProvider(filesToBuild);
     FilesToRunProvider filesToRunProvider =
         FilesToRunProvider.fromSingleExecutableArtifact(artifact);
@@ -67,9 +65,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     this.providers = builder.build();
   }
 
-  public Artifact getArtifact() {
-    return artifact;
-  }
+  public abstract Artifact getArtifact();
 
   /**
    *  Returns the file name of this file target.

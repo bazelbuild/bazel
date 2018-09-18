@@ -56,4 +56,21 @@ test_symlink_loop_ignored() {
         || fail "directory mentioned in .bazelignore not ignored as it should"
 }
 
+test_build_specific_target() {
+    rm -rf work && mkdir work && cd work
+    touch WORKSPACE
+    mkdir -p ignoreme
+    echo Not a valid BUILD file > ignoreme/BUILD
+    mkdir -p foo/bar
+    cat > foo/bar/BUILD <<'EOI'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  cmd = "echo Hello World > $@",
+)
+EOI
+    echo ignoreme > .bazelignore
+    bazel build //foo/bar/... || fail "Could not build valid target"
+}
+
 run_suite "Integration tests for .bazelignore"

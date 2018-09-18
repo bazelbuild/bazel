@@ -44,8 +44,11 @@ import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
+import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper.LinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -53,6 +56,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
@@ -66,6 +70,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /** Part of the implementation of cc_proto_library. */
 public abstract class CcProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -187,25 +192,45 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       createProtoCompileAction(supportData, outputs);
 
       CompilationInfo compilationInfo = compilationHelper.compile();
-      LinkingInfo linkingInfo =
-          initializeLinkingHelper(featureConfiguration)
-              .link(
-                  compilationInfo.getCcCompilationOutputs(),
-                  compilationInfo.getCcCompilationContext());
+      CcCompilationOutputs ccCompilationOutputs = compilationInfo.getCcCompilationOutputs();
+      ImmutableList.Builder<TransitiveInfoCollection> depsBuilder =
+          ImmutableList.<TransitiveInfoCollection>builder();
+      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+      if (runtime != null) {
+        depsBuilder.add(runtime);
+      }
+      depsBuilder.addAll(ruleContext.getPrerequisites("deps", TARGET));
+      ImmutableList<TransitiveInfoCollection> deps = depsBuilder.build();
+      CcLinkingHelper ccLinkingHelper = initializeLinkingHelper(featureConfiguration, deps);
+      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      if (!ccCompilationOutputs.isEmpty()) {
+        ccLinkingOutputs = ccLinkingHelper.link(ccCompilationOutputs);
+      }
+      CcNativeLibraryProvider ccNativeLibraryProvider =
+          CppHelper.collectNativeCcLibraries(deps, ccLinkingOutputs);
+      CcLinkingInfo ccLinkingInfo =
+          ccLinkingHelper.buildCcLinkingInfo(
+              ccLinkingOutputs, compilationInfo.getCcCompilationContext());
 
       ccLibraryProviders =
           new TransitiveInfoProviderMapBuilder()
               .addAll(compilationInfo.getProviders())
-              .addAll(linkingInfo.getProviders())
+              .put(ccLinkingInfo)
+              .add(ccNativeLibraryProvider)
               .build();
-      outputGroups =
-          ImmutableMap.copyOf(
-              CcCommon.mergeOutputGroups(
-                  ImmutableList.of(
-                      compilationInfo.getOutputGroups(), linkingInfo.getOutputGroups())));
+      outputGroups = ImmutableMap.copyOf(compilationInfo.getOutputGroups());
       // On Windows, dynamic library is not built by default, so don't add them to filesToBuild.
-      linkingInfo.addLinkingOutputsTo(
-          filesBuilder, !featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
+
+      filesBuilder
+          .addAll(LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getStaticLibraries()))
+          .addAll(LinkerInputs.toLibraryArtifacts(ccLinkingOutputs.getPicStaticLibraries()));
+      if (!featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+        filesBuilder
+            .addAll(
+                LinkerInputs.toNonSolibArtifacts(ccLinkingOutputs.getDynamicLibrariesForLinking()))
+            .addAll(
+                LinkerInputs.toNonSolibArtifacts(ccLinkingOutputs.getDynamicLibrariesForRuntime()));
+      }
     }
 
     private boolean areSrcsBlacklisted() {
@@ -237,13 +262,14 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     private CcCompilationHelper initializeCompilationHelper(
         FeatureConfiguration featureConfiguration) {
+      CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcCompilationHelper helper =
           new CcCompilationHelper(
               ruleContext,
               cppSemantics,
               featureConfiguration,
-              ccToolchain(ruleContext),
-              CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
+              toolchain,
+              toolchain.getFdoProvider());
       TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
       if (runtime != null) {
         helper.addDeps(ImmutableList.of(runtime));
@@ -256,24 +282,21 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       return helper;
     }
 
-    private CcLinkingHelper initializeLinkingHelper(FeatureConfiguration featureConfiguration) {
+    private CcLinkingHelper initializeLinkingHelper(
+        FeatureConfiguration featureConfiguration, List<TransitiveInfoCollection> deps) {
+      CcToolchainProvider toolchain = ccToolchain(ruleContext);
       CcLinkingHelper helper =
           new CcLinkingHelper(
-                  ruleContext,
-                  cppSemantics,
-                  featureConfiguration,
-                  ccToolchain(ruleContext),
-                  CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext),
-                  ruleContext.getConfiguration())
-              .enableCcNativeLibrariesProvider();
-      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
-      if (runtime != null) {
-        helper.addDeps(ImmutableList.of(runtime));
-      }
-      helper.addDeps(ruleContext.getPrerequisites("deps", TARGET));
+              ruleContext,
+              cppSemantics,
+              featureConfiguration,
+              toolchain,
+              toolchain.getFdoProvider(),
+              ruleContext.getConfiguration());
+      helper.addDeps(deps);
       // TODO(dougk): Configure output artifact with action_config
       // once proto compile action is configurable from the crosstool.
-      if (!ccToolchain(ruleContext).supportsDynamicLinker()) {
+      if (!toolchain.supportsDynamicLinker()) {
         helper.setShouldCreateDynamicLibrary(false);
       }
       return helper;

@@ -29,12 +29,16 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 /** A provider that supplies resource information from its transitive closure. */
 @SkylarkModule(
     name = "AndroidResourcesInfo",
-    doc = "Android resources provided by a rule",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Android resources provided by a rule",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidResourcesInfoApi<
         FileT extends FileApi,
         ValidatedAndroidDataT extends ValidatedAndroidDataApi,
-        AndroidManifestT extends AndroidManifestApi>
+        AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
     extends StructApi {
 
   /**
@@ -46,11 +50,12 @@ public interface AndroidResourcesInfoApi<
   @SkylarkCallable(
       name = "label",
       doc = "Returns the label that is associated with this piece of information.",
+      documented = false,
       structField = true)
   Label getLabel();
 
   @SkylarkCallable(name = "manifest", doc = "", documented = false, structField = true)
-  AndroidManifestT getManifest();
+  AndroidManifestInfoT getManifest();
 
   /** Returns the compiletime r.txt file for the target. */
   @SkylarkCallable(
@@ -59,6 +64,7 @@ public interface AndroidResourcesInfoApi<
           "A txt file containing compiled resource file information for this target. This is a"
               + " stubbed out compiletime file and should not be built into APKs, inherited from"
               + " dependencies, or used at runtime.",
+      documented = false,
       structField = true)
   FileT getRTxt();
 
@@ -66,6 +72,7 @@ public interface AndroidResourcesInfoApi<
   @SkylarkCallable(
       name = "transitive_android_resources",
       doc = "Returns the transitive ResourceContainers for the label.",
+      documented = false,
       structField = true)
   NestedSet<ValidatedAndroidDataT> getTransitiveAndroidResources();
 
@@ -73,6 +80,7 @@ public interface AndroidResourcesInfoApi<
   @SkylarkCallable(
       name = "direct_android_resources",
       doc = "Returns the immediate ResourceContainers for the label.",
+      documented = false,
       structField = true)
   NestedSet<ValidatedAndroidDataT> getDirectAndroidResources();
 
@@ -110,15 +118,21 @@ public interface AndroidResourcesInfoApi<
   NestedSet<FileT> getTransitiveRTxt();
 
   /** Provider for {@link AndroidResourcesInfoApi}. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface AndroidResourcesInfoApiProvider<
           FileT extends FileApi,
           ValidatedAndroidDataT extends ValidatedAndroidDataApi,
-          AndroidManifestT extends AndroidManifestApi>
+          AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
       extends ProviderApi {
 
     @SkylarkCallable(
         name = "AndroidResourcesInfo",
+        doc = "The <code>AndroidResourcesInfo</code> constructor.",
         documented = false,
         parameters = {
           @Param(
@@ -131,7 +145,7 @@ public interface AndroidResourcesInfoApi<
               name = "manifest",
               positional = true,
               named = false,
-              type = AndroidManifestApi.class),
+              type = AndroidManifestInfoApi.class),
           @Param(name = "r_txt", positional = true, named = false, type = FileApi.class),
           @Param(
               name = "transitive_android_resources",
@@ -203,9 +217,9 @@ public interface AndroidResourcesInfoApi<
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidResourcesInfoApi.class, receiverNameForDoc = NAME)
-    AndroidResourcesInfoApi<FileT, ValidatedAndroidDataT, AndroidManifestT> createInfo(
+    AndroidResourcesInfoApi<FileT, ValidatedAndroidDataT, AndroidManifestInfoT> createInfo(
         Label label,
-        AndroidManifestT manifest,
+        AndroidManifestInfoT manifest,
         FileT rTxt,
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactSkyKey;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -51,6 +53,12 @@ import javax.annotation.Nullable;
 /** A builder of values for {@link ArtifactSkyKey} keys. */
 class ArtifactFunction implements SkyFunction {
 
+  private final Supplier<Boolean> usesActionFS;
+
+  public ArtifactFunction(Supplier<Boolean> usesActionFS) {
+    this.usesActionFS = usesActionFS;
+  }
+  
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
@@ -87,16 +95,18 @@ class ArtifactFunction implements SkyFunction {
     // actions, execute those actions in parallel and then aggregate the action execution results.
     if (artifact.isTreeArtifact() && actionLookupValue.isActionTemplate(actionIndex)) {
       // Create the directory structures for the output TreeArtifact first.
-      try {
-        artifact.getPath().createDirectoryAndParents();
-      } catch (IOException e) {
-        env.getListener()
-            .handle(
-                Event.error(
-                    String.format(
-                        "Failed to create output directory for TreeArtifact %s: %s",
-                        artifact, e.getMessage())));
-        throw new ArtifactFunctionException(e, Transience.TRANSIENT);
+      if (!usesActionFS.get()) {
+        try {
+          artifact.getPath().createDirectoryAndParents();
+        } catch (IOException e) {
+          env.getListener()
+              .handle(
+                  Event.error(
+                      String.format(
+                          "Failed to create output directory for TreeArtifact %s: %s",
+                          artifact, e.getMessage())));
+          throw new ArtifactFunctionException(e, Transience.TRANSIENT);
+        }
       }
 
       return createTreeArtifactValueFromActionKey(actionLookupKey, actionIndex, artifact, env);
@@ -262,7 +272,7 @@ class ArtifactFunction implements SkyFunction {
     // Middleman artifacts have no corresponding files, so their ArtifactValues should have already
     // been constructed during execution of the action.
     Preconditions.checkState(!artifact.isMiddlemanArtifact(), artifact);
-    FileValue data =
+    ArtifactFileMetadata data =
         Preconditions.checkNotNull(actionValue.getData(artifact), "%s %s", artifact, actionValue);
     Preconditions.checkNotNull(
         data.getDigest(), "Digest should already have been calculated for %s (%s)", artifact, data);

@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 import com.google.api.client.util.Preconditions;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
-import com.google.devtools.build.lib.remote.blobstore.http.HttpBlobStoreTest.NotAuthorizedHandler.ErrorType;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -296,11 +295,14 @@ public class HttpBlobStoreTest {
 
   @Test
   public void expiredAuthTokensShouldBeRetried_get() throws Exception {
-    expiredAuthTokensShouldBeRetried_get(ErrorType.UNAUTHORIZED);
-    expiredAuthTokensShouldBeRetried_get(ErrorType.INVALID_TOKEN);
+    expiredAuthTokensShouldBeRetried_get(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
+    expiredAuthTokensShouldBeRetried_get(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
   }
 
-  private void expiredAuthTokensShouldBeRetried_get(ErrorType errorType) throws Exception {
+  private void expiredAuthTokensShouldBeRetried_get(
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
@@ -324,11 +326,14 @@ public class HttpBlobStoreTest {
 
   @Test
   public void expiredAuthTokensShouldBeRetried_put() throws Exception {
-    expiredAuthTokensShouldBeRetried_put(ErrorType.UNAUTHORIZED);
-    expiredAuthTokensShouldBeRetried_put(ErrorType.INVALID_TOKEN);
+    expiredAuthTokensShouldBeRetried_put(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
+    expiredAuthTokensShouldBeRetried_put(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_TOKEN);
   }
 
-  private void expiredAuthTokensShouldBeRetried_put(ErrorType errorType) throws Exception {
+  private void expiredAuthTokensShouldBeRetried_put(
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) throws Exception {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
@@ -350,11 +355,14 @@ public class HttpBlobStoreTest {
 
   @Test
   public void errorCodesThatShouldNotBeRetried_get() {
-    errorCodeThatShouldNotBeRetried_get(ErrorType.INSUFFICIENT_SCOPE);
-    errorCodeThatShouldNotBeRetried_get(ErrorType.INVALID_REQUEST);
+    errorCodeThatShouldNotBeRetried_get(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
+    errorCodeThatShouldNotBeRetried_get(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
   }
 
-  private void errorCodeThatShouldNotBeRetried_get(ErrorType errorType) {
+  private void errorCodeThatShouldNotBeRetried_get(
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));
@@ -375,11 +383,14 @@ public class HttpBlobStoreTest {
 
   @Test
   public void errorCodesThatShouldNotBeRetried_put() {
-    errorCodeThatShouldNotBeRetried_put(ErrorType.INSUFFICIENT_SCOPE);
-    errorCodeThatShouldNotBeRetried_put(ErrorType.INVALID_REQUEST);
+    errorCodeThatShouldNotBeRetried_put(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INSUFFICIENT_SCOPE);
+    errorCodeThatShouldNotBeRetried_put(
+        HttpBlobStoreTest.NotAuthorizedHandler.ErrorType.INVALID_REQUEST);
   }
 
-  private void errorCodeThatShouldNotBeRetried_put(ErrorType errorType) {
+  private void errorCodeThatShouldNotBeRetried_put(
+      HttpBlobStoreTest.NotAuthorizedHandler.ErrorType errorType) {
     ServerChannel server = null;
     try {
       server = testServer.start(new NotAuthorizedHandler(errorType));

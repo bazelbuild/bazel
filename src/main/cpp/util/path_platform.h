@@ -82,28 +82,11 @@ std::pair<std::wstring, std::wstring> SplitPathW(const std::wstring &path);
 
 bool IsRootDirectoryW(const std::wstring &path);
 
-// Returns a normalized form of the input `path`.
-//
-// `path` must be a relative or absolute Windows path, it may use "/" instead of
-// "\" but must not be a Unix-style (MSYS) path.
-// The result won't have a UNC prefix, even if `path` did.
-//
-// Normalization means removing "." references, resolving ".." references, and
-// deduplicating "/" characters while converting them to "\".
-// For example if `path` is "foo/../bar/.//qux", the result is "bar\qux".
-//
-// Uplevel references that cannot go any higher in the directory tree are simply
-// ignored, e.g. "c:/.." is normalized to "c:\" and "../../foo" is normalized to
-// "foo".
-//
-// Visible for testing, would be static otherwise.
-template <typename char_type>
-std::basic_string<char_type> NormalizeWindowsPath(
-    std::basic_string<char_type> path);
+namespace testing {
 
-template <typename char_type>
-std::basic_string<char_type> NormalizeWindowsPath(const char_type *path) {
-  return NormalizeWindowsPath(std::basic_string<char_type>(path));
+bool TestOnly_NormalizeWindowsPath(const std::string &path,
+                                   std::string *result);
+
 }
 
 // Converts a UTF8-encoded `path` to a normalized, widechar Windows path.

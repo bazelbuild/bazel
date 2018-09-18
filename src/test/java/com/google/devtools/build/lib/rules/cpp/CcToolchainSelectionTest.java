@@ -58,6 +58,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   @Test
   public void testResolvedCcToolchain() throws Exception {
     useConfiguration(
+        "--enabled_toolchain_types=" + CPP_TOOLCHAIN_TYPE,
         "--experimental_platforms=//mock_platform:mock-piii-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-piii");
     ConfiguredTarget target =
@@ -82,6 +83,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
         .setList("srcs", "a.cc")
         .write();
+    assertNoEvents();
     CppCompileAction compileAction = getCppCompileAction("//lib");
     boolean isPiii =
         ImmutableList.copyOf(compileAction.getInputs())

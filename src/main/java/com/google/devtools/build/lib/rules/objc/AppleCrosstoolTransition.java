@@ -44,17 +44,11 @@ public class AppleCrosstoolTransition implements PatchTransition {
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
     BuildConfiguration.Options configOptions = buildOptions.get(BuildConfiguration.Options.class);
 
-    if (appleOptions.appleCrosstoolInOutputDirectoryName) {
-      if (appleOptions.configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
-        // The configuration distinguisher is only set by AppleCrosstoolTransition and
-        // AppleBinaryTransition, both of which also set the Crosstool and the CPU to Apple ones.
-        // So we are fine not doing anything.
-        return buildOptions;
-      }
-    } else {
-      if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
-        return buildOptions;
-      }
+    if (appleOptions.configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
+      // The configuration distinguisher is only set by AppleCrosstoolTransition and
+      // AppleBinaryTransition, both of which also set the Crosstool and the CPU to Apple ones.
+      // So we are fine not doing anything.
+      return buildOptions;
     }
 
     String cpu =
@@ -77,47 +71,31 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static void setAppleCrosstoolTransitionConfiguration(BuildOptions from,
       BuildOptions to, String cpu) {
     Label crosstoolTop = from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+    Label libcTop = from.get(AppleCommandLineOptions.class).appleLibcTop;
+    String cppCompiler = from.get(AppleCommandLineOptions.class).cppCompiler;
 
     BuildConfiguration.Options toOptions = to.get(BuildConfiguration.Options.class);
     CppOptions toCppOptions = to.get(CppOptions.class);
 
-    if (toOptions.cpu.equals(cpu) && toCppOptions.crosstoolTop.equals(crosstoolTop)
-        && from.get(AppleCommandLineOptions.class).appleCrosstoolInOutputDirectoryName) {
+    if (toOptions.cpu.equals(cpu) && toCppOptions.crosstoolTop.equals(crosstoolTop)) {
       // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
       // Objective-C dependencies work if the top-level configuration is already an Apple one.
-      // This is arguably a hack, but it helps with rolling out
-      // --apple_crosstool_in_output_directory_name, which in turn helps with removing the
-      // configuration distinguisher (which can't be set from the command line) and putting the
-      // platform type in the output directory name, which would obviate the need for this hack.
+      // Removing the configuration distinguisher (which can't be set from the command line) and
+      // putting the platform type in the output directory name, which would obviate the need for
+      // this hack.
       // TODO(b/112834725): Remove this branch by unifying the distinguisher and the platform type.
       return;
     }
 
     toOptions.cpu = cpu;
     toCppOptions.crosstoolTop = crosstoolTop;
-    to.get(AppleCommandLineOptions.class).targetUsesAppleCrosstool = true;
-    if (from.get(AppleCommandLineOptions.class).appleCrosstoolInOutputDirectoryName) {
-      to.get(AppleCommandLineOptions.class).configurationDistinguisher =
-          ConfigurationDistinguisher.APPLE_CROSSTOOL;
-    }
-
-    // --compiler = "compiler" for all OSX toolchains.  We do not support asan/tsan, cfi, etc. on
-    // darwin.
-    to.get(CppOptions.class).cppCompiler = "compiler";
-
-    // OSX toolchains always use the runtime of the platform they are targeting (i.e. we do not
-    // support custom production environments).
-    to.get(CppOptions.class).libcTopLabel = null;
+    to.get(AppleCommandLineOptions.class).configurationDistinguisher =
+        ConfigurationDistinguisher.APPLE_CROSSTOOL;
+    to.get(CppOptions.class).cppCompiler = cppCompiler;
+    to.get(CppOptions.class).libcTopLabel = libcTop;
 
     // OSX toolchains do not support fission.
     to.get(CppOptions.class).fissionModes = ImmutableList.of();
-  }
-
-  /**
-   * Returns true if the given options imply use of AppleCrosstoolTransition for all apple targets.
-   */
-  public static boolean appleCrosstoolTransitionIsAppliedForAllObjc(BuildOptions options) {
-    return options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition;
   }
 
   /**

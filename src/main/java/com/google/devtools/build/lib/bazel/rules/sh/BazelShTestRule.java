@@ -40,7 +40,7 @@ public final class BazelShTestRule implements RuleDefinition {
         attr("$lcov_merger", LABEL)
             .value(
                 Label.parseAbsoluteUnchecked(
-                    "@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main")));
+                    "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main")));
     return builder.build();
   }
 

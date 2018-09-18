@@ -22,10 +22,12 @@ import com.google.devtools.common.options.OptionsBase;
 /** Options for debugging and verbosity tools. */
 public final class DebuggingOptions extends OptionsBase {
   @Option(
-      name = "experimental_workspace_rules_logging",
+      name = "experimental_workspace_rules_log_file",
       defaultValue = "null",
+      category = "verbosity",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Log certain Workspace Rules events")
-  public String workspaceRulesLogging;
+      help =
+          "Log certain Workspace Rules events into this file as delimited WorkspaceEvent protos.")
+  public String workspaceRulesLogFile;
 }

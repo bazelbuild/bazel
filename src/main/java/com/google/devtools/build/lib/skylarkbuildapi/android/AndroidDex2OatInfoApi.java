@@ -20,5 +20,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
  * Supplies the pregenerate_oat_files_for_tests attribute of type boolean provided by android_device
  * rule.
  */
-@SkylarkModule(name = "AndroidDex2OatInfo", doc = "", documented = false)
+@SkylarkModule(
+    name = "AndroidDex2OatInfo",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed.",
+    documented = false)
 public interface AndroidDex2OatInfoApi extends StructApi {}

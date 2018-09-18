@@ -29,7 +29,12 @@ import javax.annotation.Nullable;
  * Configured targets implementing this provider can contribute Android Sdk information to the
  * compilation.
  */
-@SkylarkModule(name = "AndroidSdkInfo", doc = "", documented = false)
+@SkylarkModule(
+    name = "AndroidSdkInfo",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed.",
+    documented = false)
 public interface AndroidSdkProviderApi<
         FileT extends FileApi,
         FilesToRunProviderT extends FilesToRunProviderApi<FileT>,
@@ -121,7 +126,12 @@ public interface AndroidSdkProviderApi<
   FilesToRunProviderT getZipalign();
 
   /** The provider implementing this can construct the AndroidSdkInfo provider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface Provider<
           FileT extends FileApi,
           FilesToRunProviderT extends FilesToRunProviderApi<FileT>,
@@ -131,6 +141,7 @@ public interface AndroidSdkProviderApi<
     @SkylarkCallable(
         name = NAME,
         doc = "The <code>AndroidSdkInfo</code> constructor.",
+        documented = false,
         parameters = {
           @Param(
               name = "build_tools_version",

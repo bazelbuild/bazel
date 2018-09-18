@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 /**
@@ -39,14 +40,14 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
       FuncallExpression ast,
       Environment env)
       throws EvalException, ConversionException, InterruptedException {
-    env.checkLoadingPhase("native.glob", ast.getLocation());
+    SkylarkUtils.checkLoadingPhase(env, "native.glob", ast.getLocation());
     return PackageFactory.callGlob(null, include, exclude, excludeDirectories != 0, ast, env);
   }
 
   @Override
   public Object existingRule(String name, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    env.checkLoadingOrWorkspacePhase("native.existing_rule", ast.getLocation());
+    SkylarkUtils.checkLoadingOrWorkspacePhase(env, "native.existing_rule", ast.getLocation());
     SkylarkDict<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
     if (rule != null) {
       return rule;
@@ -63,7 +64,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   public SkylarkDict<String, SkylarkDict<String, Object>> existingRules(
       FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    env.checkLoadingOrWorkspacePhase("native.existing_rules", ast.getLocation());
+    SkylarkUtils.checkLoadingOrWorkspacePhase(env, "native.existing_rules", ast.getLocation());
     return PackageFactory.callGetRulesFunction(ast, env);
   }
 
@@ -71,7 +72,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   public Runtime.NoneType packageGroup(String name, SkylarkList<?> packages,
       SkylarkList<?> includes,
       FuncallExpression ast, Environment env) throws EvalException {
-    env.checkLoadingPhase("native.package_group", ast.getLocation());
+    SkylarkUtils.checkLoadingPhase(env, "native.package_group", ast.getLocation());
     return PackageFactory.callPackageFunction(name, packages, includes, ast, env);
   }
 
@@ -79,14 +80,14 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   public Runtime.NoneType exportsFiles(SkylarkList<?> srcs, Object visibility, Object licenses,
       FuncallExpression ast, Environment env)
       throws EvalException {
-    env.checkLoadingPhase("native.exports_files", ast.getLocation());
+    SkylarkUtils.checkLoadingPhase(env, "native.exports_files", ast.getLocation());
     return PackageFactory.callExportsFiles(srcs, visibility, licenses, ast, env);
   }
 
   @Override
   public String packageName(FuncallExpression ast, Environment env)
       throws EvalException {
-    env.checkLoadingPhase("native.package_name", ast.getLocation());
+    SkylarkUtils.checkLoadingPhase(env, "native.package_name", ast.getLocation());
     PackageIdentifier packageId =
         PackageFactory.getContext(env, ast.getLocation()).getBuilder().getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
@@ -95,7 +96,7 @@ public class SkylarkNativeModule implements SkylarkNativeModuleApi {
   @Override
   public String repositoryName(Location location, Environment env)
       throws EvalException {
-    env.checkLoadingPhase("native.repository_name", location);
+    SkylarkUtils.checkLoadingPhase(env, "native.repository_name", location);
     PackageIdentifier packageId =
         PackageFactory.getContext(env, location).getBuilder().getPackageIdentifier();
     return packageId.getRepository().toString();

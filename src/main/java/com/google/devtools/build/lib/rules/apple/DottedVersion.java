@@ -73,6 +73,54 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class DottedVersion implements DottedVersionApi<DottedVersion> {
+  /** Wrapper class for {@link DottedVersion} whose {@link #equals(Object)} method is string
+   * equality.
+   *
+   * <p>This is necessary because Bazel assumes that
+   * {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} that are equal yield
+   * fragments that are the same. However, this does not hold if the options hold a
+   * {@link DottedVersion} because trailing zeroes are not considered significant when comparing
+   * them, but they do matter in configuration fragments (for example, they end up in output
+   * directory names)</p>
+   * */
+  @Immutable
+  public static final class Option {
+    private final DottedVersion version;
+
+    private Option(DottedVersion version) {
+      this.version = Preconditions.checkNotNull(version);
+    }
+
+    public DottedVersion get() {
+      return version;
+    }
+
+    @Override
+    public int hashCode() {
+      return version.stringRepresentation.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+
+      if (!(o instanceof Option)) {
+        return false;
+      }
+
+      return version.stringRepresentation.equals(((Option) o).version.stringRepresentation);
+    }
+  }
+
+  public static DottedVersion maybeUnwrap(DottedVersion.Option option) {
+    return option != null ? option.get() : null;
+  }
+
+  public static Option option(DottedVersion version) {
+    return version == null ? null : new Option(version);
+  }
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
   private static final String ILLEGAL_VERSION =

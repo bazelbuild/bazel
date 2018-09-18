@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -50,7 +49,7 @@ public class ActionExecutionContext implements Closeable {
     private final boolean shouldShowSubcommands;
     private final boolean prettyPrintArgs;
 
-    private ShowSubcommands(boolean shouldShowSubcommands, boolean prettyPrintArgs) {
+    ShowSubcommands(boolean shouldShowSubcommands, boolean prettyPrintArgs) {
       this.shouldShowSubcommands = shouldShowSubcommands;
       this.prettyPrintArgs = prettyPrintArgs;
     }
@@ -63,7 +62,7 @@ public class ActionExecutionContext implements Closeable {
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
   private final ImmutableMap<String, String> clientEnv;
-  private final ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets;
+  private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets;
   @Nullable private final ArtifactExpander artifactExpander;
   @Nullable private final Environment env;
 
@@ -82,7 +81,7 @@ public class ActionExecutionContext implements Closeable {
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env,
       @Nullable FileSystem actionFileSystem,
@@ -112,7 +111,7 @@ public class ActionExecutionContext implements Closeable {
       MetadataHandler metadataHandler,
       FileOutErr fileOutErr,
       Map<String, String> clientEnv,
-      ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult) {
@@ -187,8 +186,8 @@ public class ActionExecutionContext implements Closeable {
    * <p>Notably, in the future, we want any action-scoped artifacts to resolve paths using this
    * method instead of {@link Artifact#getPath} because that does not allow filesystem injection.
    *
-   * <p>TODO(shahan): cleanup {@link Action}-scoped references to {@link Artifact.getPath} and
-   * {@link Artifact.getRoot}.
+   * <p>TODO(shahan): cleanup {@link Action}-scoped references to {@link Artifact#getPath} and
+   * {@link Artifact#getRoot}.
    */
   public Path getInputPath(ActionInput input) {
     return pathResolver.toPath(input);
@@ -228,7 +227,7 @@ public class ActionExecutionContext implements Closeable {
     return executor.getEventHandler();
   }
 
-  public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getTopLevelFilesets() {
+  public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getTopLevelFilesets() {
     return topLevelFilesets;
   }
 

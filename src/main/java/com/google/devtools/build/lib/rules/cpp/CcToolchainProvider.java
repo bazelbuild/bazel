@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoMode;
+import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
@@ -54,33 +54,35 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
           /* cppConfiguration= */ null,
           /* toolchainInfo= */ null,
           /* crosstoolTopPathFragment= */ null,
-          /* crosstool= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* crosstoolMiddleman= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* compile= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* strip= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* objCopy= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* as= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* ar= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* link= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          /* crosstool= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* crosstoolMiddleman= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* compile= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* compileWithoutIncludes= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* strip= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* objCopy= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* as= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* ar= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* link= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* interfaceSoBuilder= */ null,
-          /* dwp= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* coverage= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* libcLink= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          /* staticRuntimeLinkInputs= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          /* dwp= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* coverage= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* libcLink= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* staticRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* staticRuntimeLinkMiddleman= */ null,
-          /* dynamicRuntimeLinkInputs= */ NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          /* dynamicRuntimeLinkInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /* dynamicRuntimeLinkMiddleman= */ null,
           /* dynamicRuntimeSolibDir= */ PathFragment.EMPTY_FRAGMENT,
           CcCompilationContext.EMPTY,
           /* supportsParamFiles= */ false,
           /* supportsHeaderParsing= */ false,
           CcToolchainVariables.EMPTY,
-          /* builtinIncludeFiles= */ ImmutableList.<Artifact>of(),
+          /* builtinIncludeFiles= */ ImmutableList.of(),
           /* coverageEnvironment= */ NestedSetBuilder.emptySet(Order.COMPILE_ORDER),
           /* linkDynamicLibraryTool= */ null,
-          /* builtInIncludeDirectories= */ ImmutableList.<PathFragment>of(),
+          /* builtInIncludeDirectories= */ ImmutableList.of(),
           /* sysroot= */ null,
           FdoMode.OFF,
+          /* fdoProvider= */ null,
           /* useLLVMCoverageMapFormat= */ false,
           /* codeCoverageEnabled= */ false,
           /* isHostConfiguration= */ false);
@@ -91,6 +93,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   private final NestedSet<Artifact> crosstool;
   private final NestedSet<Artifact> crosstoolMiddleman;
   private final NestedSet<Artifact> compile;
+  private final NestedSet<Artifact> compileWithoutIncludes;
   private final NestedSet<Artifact> strip;
   private final NestedSet<Artifact> objCopy;
   private final NestedSet<Artifact> as;
@@ -120,6 +123,12 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
   private final boolean isHostConfiguration;
   private final boolean forcePic;
   private final boolean shouldStripBinaries;
+  /**
+   * WARNING: We don't like {@link FdoProvider}. Its {@link FdoProvider#fdoProfilePath} is pure
+   * path and that is horrible as it breaks many Bazel assumptions! Don't do bad stuff with it,
+   * don't take inspiration from it.
+   */
+  private final FdoProvider fdoProvider;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
@@ -129,6 +138,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
       NestedSet<Artifact> crosstool,
       NestedSet<Artifact> crosstoolMiddleman,
       NestedSet<Artifact> compile,
+      NestedSet<Artifact> compileWithoutIncludes,
       NestedSet<Artifact> strip,
       NestedSet<Artifact> objCopy,
       NestedSet<Artifact> as,
@@ -153,6 +163,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
       FdoMode fdoMode,
+      FdoProvider fdoProvider,
       boolean useLLVMCoverageMapFormat,
       boolean codeCoverageEnabled,
       boolean isHostConfiguration) {
@@ -163,6 +174,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
     this.compile = Preconditions.checkNotNull(compile);
+    this.compileWithoutIncludes = Preconditions.checkNotNull(compileWithoutIncludes);
     this.strip = Preconditions.checkNotNull(strip);
     this.objCopy = Preconditions.checkNotNull(objCopy);
     this.as = Preconditions.checkNotNull(as);
@@ -188,6 +200,7 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
     this.fdoMode = fdoMode;
+    this.fdoProvider = fdoProvider;
     this.useLLVMCoverageMapFormat = useLLVMCoverageMapFormat;
     this.codeCoverageEnabled = codeCoverageEnabled;
     this.isHostConfiguration = isHostConfiguration;
@@ -264,8 +277,9 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    *
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
+  @Override
   public boolean usePicForDynamicLibraries() {
-    return getCppConfiguration().forcePic() || toolchainNeedsPic();
+    return forcePic || toolchainNeedsPic();
   }
 
   /**
@@ -354,6 +368,18 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    */
   public NestedSet<Artifact> getCompile() {
     return compile;
+  }
+
+  /**
+   * Returns the files necessary for compilation excluding headers, assuming that included files
+   * will be discovered by input discovery. If the toolchain does not provide this fileset, falls
+   * back to {@link #getCompile()}.
+   */
+  public NestedSet<Artifact> getCompileWithoutIncludes() {
+    if (compileWithoutIncludes.isEmpty()) {
+      return getCompile();
+    }
+    return compileWithoutIncludes;
   }
 
   /**
@@ -691,6 +717,10 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return toolchainInfo.getAdditionalMakeVariables();
+  }
+
+  public FdoProvider getFdoProvider() {
+    return fdoProvider;
   }
 
   /**

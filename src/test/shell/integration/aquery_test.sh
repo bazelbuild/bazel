@@ -115,8 +115,156 @@ EOF
   else
     assert_contains "Command Line: (" output
   fi
-  assert_contains "Environment: \[" output
 
+  assert_contains "echo unused" output
+  bazel aquery --noinclude_commandline "//$pkg:bar" > output \
+    2> "$TEST_log" || fail "Expected success"
+  assert_not_contains "echo unused" output
+}
+
+function test_aquery_skylark_env() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+    output = ctx.outputs.out
+    input = ctx.file.source
+    env = {}
+    env["foo"] = "bar"
+
+    ctx.actions.run_shell(
+        inputs = [input],
+        outputs = [output],
+        command = "cat '%s' > '%s'" % (input.path, output.path),
+        env = env,
+    )
+
+copy = rule(
+    implementation = _impl,
+    attrs = {"source": attr.label(mandatory = True, allow_single_file = True)},
+    outputs = {"out": "%{name}.copy"},
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "copy")
+copy(
+    name = "goo",
+    source = "dummy.txt",
+)
+EOF
+  echo "hello aquery" > "$pkg/dummy.txt"
+
+  bazel aquery --output=text "//$pkg:goo" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Mnemonic: SkylarkAction" output
+  assert_contains "Owner: //$pkg:goo" output
+  assert_contains "Environment: \[.*foo=bar" output
+}
+
+function test_aquery_aspect() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/foobar.bzl" <<'EOF'
+DummyProvider = provider(fields = {'dummies' : 'files'})
+
+def _aspect_impl(target, ctx):
+    ins = []
+    if hasattr(ctx.rule.attr, 'srcs'):
+        ins = depset(transitive = [src.files for src in ctx.rule.attr.srcs]).to_list()
+    dummy = ctx.actions.declare_file("%s-aspect" % (target.label.name))
+    all_dummies = depset([dummy], transitive = [dep[DummyProvider].dummies for dep in ctx.rule.attr.deps])
+    ctx.actions.run_shell(inputs = ins, outputs = [dummy], command = "echo {} > {}".format(ctx.attr.bar, dummy.path))
+    return [DummyProvider(dummies = all_dummies)]
+
+bar_aspect = aspect(implementation = _aspect_impl,
+    attr_aspects = ['deps'],
+    attrs = {
+        'bar' : attr.string(values = ['one', 'two', 'three']),
+    }
+)
+
+def _bar_impl(ctx):
+    ctx.file_action(content = "hello world", output = ctx.outputs.out)
+    return struct(files = depset(transitive = [dep[DummyProvider].dummies for dep in ctx.attr.deps]))
+
+bar_rule = rule(
+    implementation = _bar_impl,
+    attrs = {
+        'deps' : attr.label_list(aspects = [bar_aspect]),
+        'bar' : attr.string(default = 'two'),
+    },
+    outputs = {"out": "%{name}.count"},
+)
+
+def _foo_library_impl(ctx):
+    ctx.actions.run_shell(
+        command = "touch {}".format(ctx.outputs.out.path),
+        inputs = ctx.files.srcs,
+        outputs = [ctx.outputs.out],
+    )
+
+foo_library = rule(
+    implementation = _foo_library_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "deps": attr.label_list(),
+    },
+    outputs = {"out": "%{name}.foo_object"},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":foobar.bzl", "bar_rule", "foo_library")
+
+foo_library(
+    name = "a",
+    srcs = ["a.foo"],
+)
+
+foo_library(
+    name = "b",
+    srcs = ["b.foo"],
+    deps = [":a"],
+)
+
+foo_library(
+    name = "c",
+    srcs = ["c.foo"],
+    deps = [":b"],
+)
+
+bar_rule(
+    name = 'bar',
+    deps = [':c'],
+    bar = 'three',
+)
+EOF
+
+  # Test without considering aspects.
+  bazel aquery --output=text "//$pkg:a" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  expect_log_n "^action '" 1 "Expected exactly one action when not considering aspects."
+  assert_not_contains "AspectDescriptors" output
+
+  # Test considering aspects but without triggering it.
+  bazel aquery --include_aspects --output=text "//$pkg:a" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  expect_log_n "^action '" 1 "Expected exactly one action without universe scope."
+  assert_not_contains "AspectDescriptors" output
+
+  # Trigger the aspect.
+  bazel aquery --include_aspects --output=text "//$pkg:a" --universe_scope="//$pkg:bar" \
+    > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  expect_log_n "^action '" 2 "Expected exactly two actions."
+
+  assert_contains "AspectDescriptors: \[.*foobar.bzl%bar_aspect.*bar='three'" output
+  assert_contains "Outputs: \[.*a.foo_object" output
+  assert_contains "Outputs: \[.*a-aspect" output
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

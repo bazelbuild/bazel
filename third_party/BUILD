@@ -532,6 +532,15 @@ java_import(
     jars = ["objenesis/objenesis-1_3.jar"],
 )
 
+filegroup(
+    name = "turbine_direct",
+    srcs = select({
+        "//src/conditions:darwin": ["turbine/turbine_direct.darwin"],
+        "//src/conditions:darwin_x86_64": ["turbine/turbine_direct.darwin"],
+        "//src/conditions:linux_x86_64": ["turbine/turbine_direct.linux"],
+        "//conditions:default": [],
+    }),
+)
 java_import(
     name = "turbine",
     jars = ["turbine/turbine.jar"],

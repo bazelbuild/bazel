@@ -145,7 +145,8 @@ public class BazelBuildEventServiceModuleTest {
         reporter,
         /* buildRequestId= */ "foo",
         /* invocationId= */ "bar",
-        commandName);
+        commandName,
+        /*eventbus=*/ new EventBus());
   }
 
   @Test

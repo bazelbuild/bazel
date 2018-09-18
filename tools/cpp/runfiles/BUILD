@@ -16,17 +16,32 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "runfiles.cc",
-        "runfiles.h",
+        ":srcs_for_embedded_tools",
     ],
     visibility = ["//tools:__pkg__"],
+)
+
+genrule(
+    name = "srcs_for_embedded_tools",
+    srcs = [
+        "runfiles_src.cc",
+        "runfiles_src.h",
+    ],
+    outs = [
+        "generated_runfiles.cc",
+        "generated_runfiles.h",
+    ],
+    cmd = ("sed " +
+           "  's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' " +
+           "  $(location runfiles_src.cc) > $(location generated_runfiles.cc) && " +
+           "cp $(location runfiles_src.h) $(location generated_runfiles.h)"),
 )
 
 cc_library(
     name = "runfiles",
     testonly = 1,
-    srcs = ["runfiles.cc"],
-    hdrs = ["runfiles.h"],
+    srcs = ["runfiles_src.cc"],
+    hdrs = ["runfiles_src.h"],
 )
 
 cc_test(

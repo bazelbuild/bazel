@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.ToolchainResolver;
+import com.google.devtools.build.lib.analysis.ToolchainResolver.UnloadedToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -75,9 +77,11 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -219,7 +223,7 @@ public class BuildViewForTesting {
       ConfiguredTarget ct,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-          InconsistentAspectOrderException {
+      InconsistentAspectOrderException {
     return Collections2.transform(
         getConfiguredTargetAndDataDirectPrerequisitesForTesting(eventHandler, ct, configurations),
         ConfiguredTargetAndData::getConfiguredTarget);
@@ -227,24 +231,24 @@ public class BuildViewForTesting {
 
   // TODO(janakr): pass the configuration in as a parameter here and above.
   private Collection<ConfiguredTargetAndData>
-      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-          ExtendedEventHandler eventHandler,
-          ConfiguredTarget ct,
-          BuildConfigurationCollection configurations)
-          throws EvalException, InvalidConfigurationException, InterruptedException,
-              InconsistentAspectOrderException {
+  getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+      ExtendedEventHandler eventHandler,
+      ConfiguredTarget ct,
+      BuildConfigurationCollection configurations)
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+      InconsistentAspectOrderException {
     return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
         eventHandler, ct, ct.getConfigurationKey(), configurations);
   }
 
   @VisibleForTesting
   public Collection<ConfiguredTargetAndData>
-      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-          ExtendedEventHandler eventHandler,
-          ConfiguredTargetAndData ct,
-          BuildConfigurationCollection configurations)
-          throws EvalException, InvalidConfigurationException, InterruptedException,
-              InconsistentAspectOrderException {
+  getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+      ExtendedEventHandler eventHandler,
+      ConfiguredTargetAndData ct,
+      BuildConfigurationCollection configurations)
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+      InconsistentAspectOrderException {
     return getConfiguredTargetAndDataDirectPrerequisitesForTesting(
         eventHandler,
         ct.getConfiguredTarget(),
@@ -253,19 +257,19 @@ public class BuildViewForTesting {
   }
 
   private Collection<ConfiguredTargetAndData>
-      getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-          ExtendedEventHandler eventHandler,
-          ConfiguredTarget ct,
-          BuildConfigurationValue.Key configuration,
-          BuildConfigurationCollection configurations)
-          throws EvalException, InvalidConfigurationException, InterruptedException,
-              InconsistentAspectOrderException {
+  getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+      ExtendedEventHandler eventHandler,
+      ConfiguredTarget ct,
+      BuildConfigurationValue.Key configuration,
+      BuildConfigurationCollection configurations)
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+      InconsistentAspectOrderException {
     return skyframeExecutor.getConfiguredTargetsForTesting(
         eventHandler,
         configuration,
         ImmutableSet.copyOf(
             getDirectPrerequisiteDependenciesForTesting(
-                    eventHandler, ct, configurations, /*toolchainLabels=*/ ImmutableSet.of())
+                eventHandler, ct, configurations, /*toolchainLabels=*/ ImmutableSet.of())
                 .values()));
   }
 
@@ -276,7 +280,7 @@ public class BuildViewForTesting {
       BuildConfigurationCollection configurations,
       ImmutableSet<Label> toolchainLabels)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-          InconsistentAspectOrderException {
+      InconsistentAspectOrderException {
 
     Target target = null;
     try {
@@ -403,7 +407,7 @@ public class BuildViewForTesting {
       BuildConfigurationCollection configurations,
       ImmutableSet<Label> toolchainLabels)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-          InconsistentAspectOrderException {
+      InconsistentAspectOrderException {
     OrderedSetMultimap<Attribute, Dependency> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainLabels);
@@ -430,6 +434,11 @@ public class BuildViewForTesting {
       Thread.currentThread().interrupt();
       throw new AssertionError("Configuration of " + label + " interrupted");
     }
+    // Return early if a rule target is in error. We don't want whatever caused the rule error to
+    // also cause problems in computing the transition (e.g. an unchecked exception).
+    if (target instanceof Rule && ((Rule) target).containsErrors()) {
+      return null;
+    }
     return TransitionResolver.evaluateTopLevelTransition(
         new TargetAndConfiguration(target, config),
         ruleClassProvider.getTrimmingTransitionFactory());
@@ -445,15 +454,25 @@ public class BuildViewForTesting {
   @VisibleForTesting
   public ConfiguredTarget getConfiguredTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config) {
+    ConfigurationTransition transition =
+        getTopLevelTransitionForTarget(label, config, eventHandler);
+    if (transition == null) {
+      return null;
+    }
     return skyframeExecutor.getConfiguredTargetForTesting(
-        eventHandler, label, config, getTopLevelTransitionForTarget(label, config, eventHandler));
+        eventHandler, label, config, transition);
   }
 
   @VisibleForTesting
   public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config) {
+    ConfigurationTransition transition =
+        getTopLevelTransitionForTarget(label, config, eventHandler);
+    if (transition == null) {
+      return null;
+    }
     return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-        eventHandler, label, config, getTopLevelTransitionForTarget(label, config, eventHandler));
+        eventHandler, label, config, transition);
   }
 
   /**
@@ -465,7 +484,7 @@ public class BuildViewForTesting {
       StoredEventHandler eventHandler,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-          InconsistentAspectOrderException, ToolchainException {
+      InconsistentAspectOrderException, ToolchainException {
     BuildConfiguration targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, target.getConfigurationKey());
     CachingAnalysisEnvironment env =
@@ -476,8 +495,7 @@ public class BuildViewForTesting {
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             eventHandler,
-            /*env=*/ null,
-            /*sourceDependencyListener=*/ unused -> {});
+            /*env=*/ null);
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 
@@ -492,7 +510,7 @@ public class BuildViewForTesting {
       AnalysisEnvironment env,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-          InconsistentAspectOrderException, ToolchainException {
+      InconsistentAspectOrderException, ToolchainException {
     BuildConfiguration targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
     Target target = null;
@@ -504,27 +522,31 @@ public class BuildViewForTesting {
           Event.error("Failed to get target when trying to get rule context for testing"));
       throw new IllegalStateException(e);
     }
-    Set<Label> requiredToolchains =
+    ImmutableSet<Label> requiredToolchains =
         target.getAssociatedRule().getRuleClassObject().getRequiredToolchains();
-    ToolchainContext toolchainContext =
-        skyframeExecutor.getToolchainContextForTesting(
-            requiredToolchains, targetConfig, eventHandler);
+    SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
+        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+    UnloadedToolchainContext unloadedToolchainContext =
+        new ToolchainResolver(skyfunctionEnvironment, BuildConfigurationValue.key(targetConfig))
+            .setRequiredToolchainTypes(requiredToolchains)
+            .resolve();
+
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
             eventHandler,
             configuredTarget,
             configurations,
-            toolchainContext.resolvedToolchainLabels());
-    toolchainContext.resolveToolchains(prerequisiteMap);
+            unloadedToolchainContext.resolvedToolchainLabels());
+    ToolchainContext toolchainContext = unloadedToolchainContext.load(prerequisiteMap);
 
     return new RuleContext.Builder(
-            env,
-            target,
-            ImmutableList.of(),
-            targetConfig,
-            configurations.getHostConfiguration(),
-            ruleClassProvider.getPrerequisiteValidator(),
-            target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
+        env,
+        target,
+        ImmutableList.of(),
+        targetConfig,
+        configurations.getHostConfiguration(),
+        ruleClassProvider.getPrerequisiteValidator(),
+        target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
@@ -534,7 +556,7 @@ public class BuildViewForTesting {
                 eventHandler,
                 configuredTarget,
                 configurations,
-                toolchainContext.resolvedToolchainLabels()))
+                unloadedToolchainContext.resolvedToolchainLabels()))
         .setConfigConditions(ImmutableMap.<Label, ConfigMatchingProvider>of())
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContext(toolchainContext)
@@ -553,13 +575,13 @@ public class BuildViewForTesting {
       Label desiredTarget,
       BuildConfigurationCollection configurations)
       throws EvalException, InvalidConfigurationException, InterruptedException,
-             InconsistentAspectOrderException {
+      InconsistentAspectOrderException {
     Collection<ConfiguredTargetAndData> configuredTargets =
         getPrerequisiteMapForTesting(
-                eventHandler,
-                dependentTarget,
-                configurations,
-                /*toolchainLabels=*/ ImmutableSet.of())
+            eventHandler,
+            dependentTarget,
+            configurations,
+            /*toolchainLabels=*/ ImmutableSet.of())
             .values();
     for (ConfiguredTargetAndData ct : configuredTargets) {
       if (ct.getTarget().getLabel().equals(desiredTarget)) {
@@ -567,5 +589,11 @@ public class BuildViewForTesting {
       }
     }
     return null;
+  }
+
+  /** Clears the analysis cache as in --discard_analysis_cache. */
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    skyframeBuildView.clearAnalysisCache(topLevelTargets, topLevelAspects);
   }
 }

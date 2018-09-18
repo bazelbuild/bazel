@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
@@ -64,7 +63,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -549,20 +547,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public List<Map.Entry<String, String>> testEnvironment;
 
-    @Option(
-        name = "test_timeout",
-        defaultValue = "-1",
-        converter = TestTimeout.TestTimeoutConverter.class,
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Override the default test timeout values for test timeouts (in secs). If a single "
-                + "positive integer value is specified it will override all categories.  If 4 "
-                + "comma-separated integers are specified, they will override the timeouts for "
-                + "short, moderate, long and eternal (in that order). In either form, a value of "
-                + "-1 tells blaze to use its default timeouts for that category.")
-    public Map<TestTimeout, Duration> testTimeout;
-
     // TODO(bazel-team): The set of available variables from the client environment for actions
     // is computed independently in CommandEnvironment to inject a more restricted client
     // environment to skyframe.
@@ -851,9 +835,25 @@ public class BuildConfiguration implements BuildConfigurationApi {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
         help =
-            "Allow using late bound option defaults. The purpose of this option is to help with "
-                + "removal of late bound option defaults.")
+            "Do not use this flag. Use --incompatible_disable_late_bound_option_defaults instead.")
     public boolean useLateBoundOptionDefaults;
+
+    @Option(
+        name = "incompatible_disable_late_bound_option_defaults",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "When true, Bazel will not allow late bound values read from the CROSSTOOL file "
+                + "to be used in config_settings. The CROSSTOOL field used in this manner is "
+                + "'compiler'. Instead of config_setting(values = {'compiler': 'x'}), "
+                + "config_setting(flag_values = {'@bazel_tools/tools/cpp:compiler': 'x'}) should "
+                + "be used.")
+    public boolean incompatibleDisableLateBoundOptionDefaults;
 
     /**
      * Converter for --experimental_dynamic_configs.
@@ -895,11 +895,38 @@ public class BuildConfiguration implements BuildConfigurationApi {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = { OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS },
+      deprecationWarning = "This flag is no longer supported and will go away soon.",
       help =
           "Build a Windows exe launcher for sh_binary rule, "
               + "it has no effect on other platforms than Windows"
     )
     public boolean windowsExeLauncher;
+
+    @Option(
+        name = "modify_execution_info",
+        converter = ExecutionInfoModifier.Converter.class,
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        defaultValue = "null",
+        help =
+            "Add or remove keys from an action's execution info based on action mnemonic.  "
+                + "Applies only to actions which support execution info. Many common actions "
+                + "support execution info, e.g. Genrule, CppCompile, Javac, SkylarkAction, "
+                + "TestRunner. When specifying multiple values, order matters because "
+                + "many regexes may apply to the same mnemonic.\n\n"
+                + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"
+                + "Examples:\n"
+                + "  '.*=+x,.*=-y,.*=+z' adds 'x' and 'z' to, and removes 'y' from, "
+                + "the execution info for all actions.\n"
+                + "  'Genrule=+requires-x' adds 'requires-x' to the execution info for "
+                + "all Genrule actions.\n"
+                + "  '(?!Genrule).*=-requires-x' removes 'requires-x' from the execution info for "
+                + "all non-Genrule actions.\n")
+    public ExecutionInfoModifier executionInfoModifier;
 
     @Override
     public FragmentOptions getHost() {
@@ -911,6 +938,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       host.configsMode = configsMode;
       host.enableRunfiles = enableRunfiles;
       host.windowsExeLauncher = windowsExeLauncher;
+      host.executionInfoModifier = executionInfoModifier;
       host.commandLineBuildVariables = commandLineBuildVariables;
       host.enforceConstraints = enforceConstraints;
       host.separateGenfilesDirectory = separateGenfilesDirectory;
@@ -1061,7 +1089,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   private final ActionEnvironment actionEnv;
   private final ActionEnvironment testEnv;
-  private final ImmutableMap<TestTimeout, Duration> testTimeout;
 
   private final BuildOptions buildOptions;
   private final BuildOptions.OptionsDiffForReconstruction buildOptionsDiff;
@@ -1147,10 +1174,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   public void reportInvalidOptions(EventHandler reporter) {
     for (Fragment fragment : fragments.values()) {
       fragment.reportInvalidOptions(reporter, this.buildOptions);
-    }
-
-    if (OS.getCurrent() == OS.WINDOWS && runfilesEnabled()) {
-      reporter.handle(Event.error("building runfiles is not supported on Windows"));
     }
 
     if (options.outputDirectoryName != null) {
@@ -1250,10 +1273,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
     this.testEnv = setupTestEnvironment();
 
-    this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
-
     this.transitiveOptionDetails =
-        computeOptionsMap(buildOptions, fragments.values(), options.useLateBoundOptionDefaults);
+        computeOptionsMap(
+            buildOptions,
+            fragments.values(),
+            (options.useLateBoundOptionDefaults
+                && !options.incompatibleDisableLateBoundOptionDefaults));
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
@@ -1685,11 +1710,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return testEnv.getFixedEnv();
   }
 
-  /** Returns test timeout mapping as set by --test_timeout options. */
-  public ImmutableMap<TestTimeout, Duration> getTestTimeout() {
-    return testTimeout;
-  }
-
   /**
    * Returns user-specified test environment variables and their values, as set by the
    * {@code --test_env} options. It is incomplete in that it is not a superset of the
@@ -1822,8 +1842,27 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * @return the list of default features used for all packages.
+   * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
+   * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.
    */
+  public ImmutableMap<String, String> modifiedExecutionInfo(
+      ImmutableMap<String, String> executionInfo, String mnemonic) {
+    if (options.executionInfoModifier == null || !options.executionInfoModifier.matches(mnemonic)) {
+      return executionInfo;
+    }
+    HashMap<String, String> mutableCopy = new HashMap<>(executionInfo);
+    modifyExecutionInfo(mutableCopy, mnemonic);
+    return ImmutableMap.copyOf(mutableCopy);
+  }
+
+  /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
+  public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
+    if (options.executionInfoModifier != null) {
+      options.executionInfoModifier.apply(mnemonic, executionInfo);
+    }
+  }
+
+  /** @return the list of default features used for all packages. */
   public List<String> getDefaultFeatures() {
     return options.defaultFeatures;
   }
@@ -1878,5 +1917,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
+  }
+
+  public boolean disableLateBoundOptionDefaults() {
+    return options.incompatibleDisableLateBoundOptionDefaults
+        || !options.useLateBoundOptionDefaults;
   }
 }

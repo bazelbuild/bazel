@@ -35,7 +35,7 @@ filegroup(
 
 filegroup(
     name = "coverage_report_generator",
-    srcs = ["@bazel_tools//tools/test/LcovMerger/java/com/google/devtools/lcovmerger:Main"],
+    srcs = ["@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"],
 )
 
 cc_binary(
@@ -44,7 +44,22 @@ cc_binary(
         "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
         "//conditions:default": ["empty_test_wrapper.cc"],
     }),
+    linkopts = select({
+        "//src/conditions:windows": [
+            "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:private"],
+    deps = select({
+        "@bazel_tools//src/conditions:windows": [
+            "//src/main/cpp/util:filesystem",
+            "//src/main/cpp/util:strings",
+            "//src/main/native/windows:lib-file",
+            "@bazel_tools//tools/cpp/runfiles",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 filegroup(
@@ -80,7 +95,7 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
-        "//tools/test/LcovMerger/javatests/com/google/devtools/lcovmerger:all_windows_tests",
+        "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:all_windows_tests",
     ],
     visibility = ["//tools:__pkg__"],
 )

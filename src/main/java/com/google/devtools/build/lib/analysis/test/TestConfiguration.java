@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -39,13 +39,13 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /** Test-related options. */
-@AutoCodec
 public class TestConfiguration extends Fragment {
   public static final OptionsDiffPredicate HAVE_OPTIONS_AFFECTING_NON_TEST_TARGETS_CHANGED =
       (diff, options) -> {
@@ -77,6 +77,20 @@ public class TestConfiguration extends Fragment {
             .stream()
             .filter(definition -> definition.getOptionName().equals("trim_test_configuration"))
             .collect(MoreCollectors.onlyElement());
+
+    @Option(
+        name = "test_timeout",
+        defaultValue = "-1",
+        converter = TestTimeout.TestTimeoutConverter.class,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Override the default test timeout values for test timeouts (in secs). If a single "
+                + "positive integer value is specified it will override all categories.  If 4 "
+                + "comma-separated integers are specified, they will override the timeouts for "
+                + "short, moderate, long and eternal (in that order). In either form, a value of "
+                + "-1 tells blaze to use its default timeouts for that category.")
+    public Map<TestTimeout, Duration> testTimeout;
 
     @Option(
       name = "test_filter",
@@ -274,9 +288,11 @@ public class TestConfiguration extends Fragment {
   }
 
   private final TestOptions options;
+  private final ImmutableMap<TestTimeout, Duration> testTimeout;
 
-  TestConfiguration(TestOptions options) {
+  private TestConfiguration(TestOptions options) {
     this.options = options;
+    this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
   }
 
   @Override
@@ -289,6 +305,11 @@ public class TestConfiguration extends Fragment {
                   + "benefit from sharding certain tests. Please don't keep this option in your "
                   + ".blazerc or continuous build"));
     }
+  }
+
+  /** Returns test timeout mapping as set by --test_timeout options. */
+  public ImmutableMap<TestTimeout, Duration> getTestTimeout() {
+    return testTimeout;
   }
 
   public String getTestFilter() {

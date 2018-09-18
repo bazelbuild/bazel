@@ -165,7 +165,8 @@ string GetSystemJavabase() {
     return java_home;
   }
 
-  FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");
+  // java_home will print a warning if no JDK could be found
+  FILE *output = popen("/usr/libexec/java_home -v 1.8+ 2> /dev/null", "r");
   if (output == NULL) {
     return "";
   }

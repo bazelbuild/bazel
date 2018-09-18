@@ -345,7 +345,11 @@ public class Retrier {
       try {
         ListenableScheduledFuture<?> sf =
             retryService.schedule(
-                () -> executeAsync(call, outerF, backoff), waitMillis, TimeUnit.MILLISECONDS);
+                () -> {
+                  executeAsync(call, outerF, backoff);
+                },
+                waitMillis,
+                TimeUnit.MILLISECONDS);
         Futures.addCallback(
             sf,
             new FutureCallback<Object>() {
@@ -373,7 +377,7 @@ public class Retrier {
       String message =
           waitMillis >= 0
               ? "Status not retriable."
-              : "Exhaused retry attempts (" + backoff.getRetryAttempts() + ")";
+              : "Exhausted retry attempts (" + backoff.getRetryAttempts() + ")";
       RetryException error = new RetryException(message, backoff.getRetryAttempts(), e);
       outerF.setException(error);
     }

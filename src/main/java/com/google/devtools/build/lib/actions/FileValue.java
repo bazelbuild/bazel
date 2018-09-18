@@ -52,16 +52,6 @@ public abstract class FileValue implements SkyValue {
   // Depends non-hermetically on package path.
   public static final SkyFunctionName FILE = SkyFunctionName.createNonHermetic("FILE");
 
-  /**
-   * Exists to accommodate the control flow of {@link ActionMetadataHandler#getMetadata}.
-   *
-   * <p>{@link ActionMetadataHandler#getMetadata} always checks {@link
-   * ActionMetadataHandler#outputArtifactData} before checking {@link
-   * ActionMetadataHandler#additionalOutputData} so some placeholder value is needed to allow an
-   * injected {@link FileArtifactValue} to be returned.
-   */
-  @AutoCodec public static final FileValue PLACEHOLDER = new PlaceholderFileValue();
-
   public boolean exists() {
     return realFileStateValue().getType() != FileStateType.NONEXISTENT;
   }
@@ -325,20 +315,6 @@ public abstract class FileValue implements SkyValue {
       return String.format(
           "symlink (real_path=%s, real_state=%s, link_value=%s)",
           realRootedPath, realFileStateValue, linkTarget);
-    }
-  }
-
-  private static final class PlaceholderFileValue extends FileValue {
-    private PlaceholderFileValue() {}
-
-    @Override
-    public RootedPath realRootedPath() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FileStateValue realFileStateValue() {
-      throw new UnsupportedOperationException();
     }
   }
 }

@@ -30,6 +30,7 @@ import java.io.OutputStreamWriter;
 import java.lang.management.ManagementFactory;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.ParsePosition;
@@ -758,7 +759,7 @@ public final class SimpleLogHandler extends Handler {
       // as fatal.
       try {
         checkState(symlinkPath.getParent().equals(output.getPath().getParent()));
-        if (Files.exists(symlinkPath)) {
+        if (Files.exists(symlinkPath, LinkOption.NOFOLLOW_LINKS)) {
           Files.delete(symlinkPath);
         }
         Files.createSymbolicLink(symlinkPath, output.getPath().getFileName());

@@ -17,9 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.output.AqueryOptions;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
@@ -29,7 +31,7 @@ import java.io.OutputStream;
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCallback {
 
-  final ActionGraphDump actionGraphDump;
+  private final ActionGraphDump actionGraphDump;
 
   ActionGraphProtoOutputFormatterCallback(
       Reporter reporter,
@@ -38,8 +40,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<ConfiguredTargetValue> accessor) {
     super(reporter, options, out, skyframeExecutor, accessor);
-    // TODO(twerth): Allow users to include action command lines.
-    actionGraphDump = new ActionGraphDump(/* includeActionCmdLine */ false);
+    actionGraphDump = new ActionGraphDump(options.includeCommandline);
   }
 
   @Override
@@ -48,10 +49,18 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTargetValue> partialResult) throws IOException {
+  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
+      throws IOException, InterruptedException {
     try {
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         actionGraphDump.dumpConfiguredTarget(configuredTargetValue);
+        if (options.useAspects) {
+          if (configuredTargetValue.getConfiguredTarget() instanceof RuleConfiguredTarget) {
+            for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
+              actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+            }
+          }
+        }
       }
     } catch (CommandLineExpansionException e) {
       throw new IOException(e.getMessage());

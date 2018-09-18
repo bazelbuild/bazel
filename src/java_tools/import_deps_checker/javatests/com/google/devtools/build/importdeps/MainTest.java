@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import java.nio.file.Path;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -29,6 +30,7 @@ public final class MainTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
+  @Ignore // TODO(cushon): re-enable after cl/210237269
   @Test
   public void usage() throws Exception {
     Path lib = tempFolder.newFile("lib.jar").toPath();
@@ -46,6 +48,6 @@ public final class MainTest {
                       "--input",
                       in.toString()
                     }));
-    assertThat(thrown).hasMessageThat().contains("--output");
+    assertThat(thrown).hasMessageThat().contains("--jdeps_output");
   }
 }

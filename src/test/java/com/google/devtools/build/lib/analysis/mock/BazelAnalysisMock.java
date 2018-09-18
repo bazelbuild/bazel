@@ -24,7 +24,9 @@ import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
+import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -136,7 +138,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
 
     config.create(
-        "/bazel_tools_workspace/tools/test/LcovMerger/java/com/google/devtools/lcovmerger/BUILD",
+        "/bazel_tools_workspace/tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/BUILD",
         "filegroup(name='srcs', srcs = glob(['**']))",
         "filegroup(name='Main', srcs = ['Main.java'])");
 
@@ -197,6 +199,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("/bazel_tools_workspace/objcproto/well_known_type.proto");
 
     ccSupport().setup(config);
+    pySupport().setup(config);
   }
 
   /** Contents of {@code //tools/android/emulator/BUILD.tools}. */
@@ -333,5 +336,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public MockCcSupport ccSupport() {
     return BazelMockCcSupport.INSTANCE;
+  }
+
+  @Override
+  public MockPythonSupport pySupport() {
+    return BazelMockPythonSupport.INSTANCE;
   }
 }

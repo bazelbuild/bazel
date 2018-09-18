@@ -45,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -54,14 +55,56 @@ import javax.annotation.Nullable;
 /** Syntax node for a function call expression. */
 public final class FuncallExpression extends Expression {
 
-  private static final LoadingCache<Class<?>, Optional<MethodDescriptor>> selfCallCache =
+  /**
+   * Cache key for callable method lookup of skylark types. The key consists of the class of the
+   * skylark type, and a skylark semantics object. The semantics object is required as part of the
+   * key as certain methods of the class may be unavailable if certain semantics flags are flipped.
+   */
+  private static final class MethodDescriptorKey {
+    private final Class<?> clazz;
+    private final SkylarkSemantics semantics;
+
+    private MethodDescriptorKey(Class<?> clazz, SkylarkSemantics semantics) {
+      this.clazz = clazz;
+      this.semantics = semantics;
+    }
+
+    public Class<?> getClazz() {
+      return clazz;
+    }
+
+    public SkylarkSemantics getSemantics() {
+      return semantics;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      MethodDescriptorKey that = (MethodDescriptorKey) o;
+      return Objects.equals(clazz, that.clazz) && Objects.equals(semantics, that.semantics);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(clazz, semantics);
+    }
+  }
+
+  private static final LoadingCache<MethodDescriptorKey, Optional<MethodDescriptor>> selfCallCache =
       CacheBuilder.newBuilder()
           .build(
-              new CacheLoader<Class<?>, Optional<MethodDescriptor>>() {
+              new CacheLoader<MethodDescriptorKey, Optional<MethodDescriptor>>() {
                 @Override
-                public Optional<MethodDescriptor> load(Class<?> key) throws Exception {
+                public Optional<MethodDescriptor> load(MethodDescriptorKey key) throws Exception {
+                  Class<?> keyClass = key.getClazz();
+                  SkylarkSemantics semantics = key.getSemantics();
                   MethodDescriptor returnValue = null;
-                  for (Method method : key.getMethods()) {
+                  for (Method method : keyClass.getMethods()) {
                     // Synthetic methods lead to false multiple matches
                     if (method.isSynthetic()) {
                       continue;
@@ -71,62 +114,70 @@ public final class FuncallExpression extends Expression {
                       if (returnValue != null) {
                         throw new IllegalArgumentException(
                             String.format(
-                                "Class %s has two selfCall methods defined", key.getName()));
+                                "Class %s has two selfCall methods defined", keyClass.getName()));
                       }
-                      returnValue = MethodDescriptor.of(method, callable);
+                      if (semantics.isFeatureEnabledBasedOnTogglingFlags(
+                          callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
+                        returnValue = MethodDescriptor.of(method, callable);
+                      }
                     }
                   }
                   return Optional.ofNullable(returnValue);
                 }
               });
 
-  private static final LoadingCache<Class<?>, Map<String, List<MethodDescriptor>>> methodCache =
+  private static final LoadingCache<MethodDescriptorKey, Map<String, List<MethodDescriptor>>>
+      methodCache =
+          CacheBuilder.newBuilder()
+              .build(
+                  new CacheLoader<MethodDescriptorKey, Map<String, List<MethodDescriptor>>>() {
+
+                    @Override
+                    public Map<String, List<MethodDescriptor>> load(MethodDescriptorKey key)
+                        throws Exception {
+                      Class<?> keyClass = key.getClazz();
+                      SkylarkSemantics semantics = key.getSemantics();
+                      Map<String, List<MethodDescriptor>> methodMap = new HashMap<>();
+                      for (Method method : keyClass.getMethods()) {
+                        // Synthetic methods lead to false multiple matches
+                        if (method.isSynthetic()) {
+                          continue;
+                        }
+                        SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
+                        if (callable == null) {
+                          continue;
+                        }
+                        if (callable.selfCall()) {
+                          // Self-call java methods are not treated as methods of the skylark value.
+                          continue;
+                        }
+                        if (semantics.isFeatureEnabledBasedOnTogglingFlags(
+                            callable.enableOnlyWithFlag(), callable.disableWithFlag())) {
+                          String name = callable.name();
+                          if (methodMap.containsKey(name)) {
+                            methodMap.get(name).add(MethodDescriptor.of(method, callable));
+                          } else {
+                            methodMap.put(
+                                name, Lists.newArrayList(MethodDescriptor.of(method, callable)));
+                          }
+                        }
+                      }
+                      return ImmutableMap.copyOf(methodMap);
+                    }
+                  });
+
+  private static final LoadingCache<MethodDescriptorKey, Map<String, MethodDescriptor>> fieldCache =
       CacheBuilder.newBuilder()
           .build(
-              new CacheLoader<Class<?>, Map<String, List<MethodDescriptor>>>() {
+              new CacheLoader<MethodDescriptorKey, Map<String, MethodDescriptor>>() {
 
                 @Override
-                public Map<String, List<MethodDescriptor>> load(Class<?> key) throws Exception {
-                  Map<String, List<MethodDescriptor>> methodMap = new HashMap<>();
-                  for (Method method : key.getMethods()) {
-                    // Synthetic methods lead to false multiple matches
-                    if (method.isSynthetic()) {
-                      continue;
-                    }
-                    SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
-                    if (callable == null) {
-                      continue;
-                    }
-                    if (callable.selfCall()) {
-                      // Self-call java methods are not treated as methods of the skylark value.
-                      continue;
-                    }
-                    String name = callable.name();
-                    if (methodMap.containsKey(name)) {
-                      methodMap.get(name).add(MethodDescriptor.of(method, callable));
-                    } else {
-                      methodMap.put(
-                          name, Lists.newArrayList(MethodDescriptor.of(method, callable)));
-                    }
-                  }
-                  return ImmutableMap.copyOf(methodMap);
-                }
-              });
-
-  private static final LoadingCache<Class<?>, Map<String, MethodDescriptor>> fieldCache =
-      CacheBuilder.newBuilder()
-          .build(
-              new CacheLoader<Class<?>, Map<String, MethodDescriptor>>() {
-
-                @Override
-                public Map<String, MethodDescriptor> load(Class<?> key) throws Exception {
+                public Map<String, MethodDescriptor> load(MethodDescriptorKey key)
+                    throws Exception {
                   ImmutableMap.Builder<String, MethodDescriptor> fieldMap = ImmutableMap.builder();
                   HashSet<String> fieldNamesForCollisions = new HashSet<>();
                   List<MethodDescriptor> fieldMethods =
-                      methodCache
-                          .get(key)
-                          .values()
-                          .stream()
+                      methodCache.get(key).values().stream()
                           .flatMap(List::stream)
                           .filter(MethodDescriptor::isStructField)
                           .collect(Collectors.toList());
@@ -138,7 +189,7 @@ public final class FuncallExpression extends Expression {
                       throw new IllegalArgumentException(
                           String.format(
                               "Class %s has two structField methods named %s defined",
-                              key.getName(), name));
+                              key.getClazz().getName(), name));
                     }
                     fieldMap.put(name, fieldMethod);
                   }
@@ -285,28 +336,66 @@ public final class FuncallExpression extends Expression {
         : clazz;
   }
 
-  /** Returns the Skylark callable Method of objClass with structField=true and the given name. */
+  /**
+   * Returns the Skylark callable Method of objClass with structField=true and the given name.
+   *
+   * @deprecated use {@link #getStructField(SkylarkSemantics, Class, String)} instead
+   */
+  @Deprecated
   public static MethodDescriptor getStructField(Class<?> objClass, String methodName) {
+    return getStructField(SkylarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
+  }
+
+  /** Returns the Skylark callable Method of objClass with structField=true and the given name. */
+  public static MethodDescriptor getStructField(
+      SkylarkSemantics semantics, Class<?> objClass, String methodName) {
     try {
-      return fieldCache.get(getClassOrProxyClass(objClass)).get(methodName);
+      return fieldCache
+          .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
+          .get(methodName);
     } catch (ExecutionException e) {
       throw new IllegalStateException("Method loading failed: " + e);
     }
   }
 
-  /** Returns the list of names of Skylark callable Methods of objClass with structField=true. */
+  /**
+   * Returns the list of names of Skylark callable Methods of objClass with structField=true.
+   *
+   * @deprecated use {@link #getStructFieldNames(SkylarkSemantics, Class)} instead
+   */
+  @Deprecated
   public static Set<String> getStructFieldNames(Class<?> objClass) {
+    return getStructFieldNames(SkylarkSemantics.DEFAULT_SEMANTICS, objClass);
+  }
+  
+  /** Returns the list of names of Skylark callable Methods of objClass with structField=true. */
+  public static Set<String> getStructFieldNames(SkylarkSemantics semantics, Class<?> objClass) {
     try {
-      return fieldCache.get(getClassOrProxyClass(objClass)).keySet();
+      return fieldCache
+          .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
+          .keySet();
     } catch (ExecutionException e) {
       throw new IllegalStateException("Method loading failed: " + e);
     }
+  }
+
+  /**
+   * Returns the list of Skylark callable Methods of objClass with the given name.
+   *
+   * @deprecated use {@link #getMethods(SkylarkSemantics, Class, String)} instead
+   */
+  @Deprecated
+  public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName) {
+    return getMethods(SkylarkSemantics.DEFAULT_SEMANTICS, objClass, methodName);
   }
 
   /** Returns the list of Skylark callable Methods of objClass with the given name. */
-  public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName) {
+  public static List<MethodDescriptor> getMethods(
+      SkylarkSemantics semantics, Class<?> objClass, String methodName) {
     try {
-      return methodCache.get(getClassOrProxyClass(objClass)).get(methodName);
+      return methodCache
+          .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
+          .get(methodName);
     } catch (ExecutionException e) {
       throw new IllegalStateException("Method loading failed: " + e);
     }
@@ -315,37 +404,51 @@ public final class FuncallExpression extends Expression {
   /**
    * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
    * objClass}.
+   *
+   * @deprecated use {@link #getMethodNames(SkylarkSemantics, Class)} instead
    */
+  @Deprecated
   public static Set<String> getMethodNames(Class<?> objClass) {
-    try {
-      return methodCache.get(getClassOrProxyClass(objClass)).keySet();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Method loading failed: " + e);
-    }
+    return getMethodNames(SkylarkSemantics.DEFAULT_SEMANTICS, objClass);
   }
 
   /**
-   * Returns true if the given class has a method annotated with {@link SkylarkCallable}
-   * with {@link SkylarkCallable#selfCall()} set to true.
+   * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
+   * objClass}.
    */
-  public static boolean hasSelfCallMethod(Class<?> objClass) {
+  public static Set<String> getMethodNames(SkylarkSemantics semantics, Class<?> objClass) {
     try {
-      return selfCallCache.get(objClass).isPresent();
+      return methodCache
+          .get(new MethodDescriptorKey(getClassOrProxyClass(objClass), semantics))
+          .keySet();
     } catch (ExecutionException e) {
       throw new IllegalStateException("Method loading failed: " + e);
     }
   }
 
   /**
-   * Returns a {@link BuiltinCallable} object representing a function which calls the selfCall
-   * java method of the given object (the {@link SkylarkCallable} method with
-   * {@link SkylarkCallable#selfCall()} set to true).
+   * Returns true if the given class has a method annotated with {@link SkylarkCallable} with {@link
+   * SkylarkCallable#selfCall()} set to true.
+   */
+  public static boolean hasSelfCallMethod(SkylarkSemantics semantics, Class<?> objClass) {
+    try {
+      return selfCallCache.get(new MethodDescriptorKey(objClass, semantics)).isPresent();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("Method loading failed: " + e);
+    }
+  }
+
+  /**
+   * Returns a {@link BuiltinCallable} object representing a function which calls the selfCall java
+   * method of the given object (the {@link SkylarkCallable} method with {@link
+   * SkylarkCallable#selfCall()} set to true).
    *
    * @throws IllegalStateException if no such method exists for the object
    */
-  public static BuiltinCallable getSelfCallMethod(Object obj) {
+  public static BuiltinCallable getSelfCallMethod(SkylarkSemantics semantics, Object obj) {
     try {
-      Optional<MethodDescriptor> selfCallDescriptor = selfCallCache.get(obj.getClass());
+      Optional<MethodDescriptor> selfCallDescriptor =
+          selfCallCache.get(new MethodDescriptorKey(obj.getClass(), semantics));
       if (!selfCallDescriptor.isPresent()) {
         throw new IllegalStateException("Class " + obj.getClass() + " has no selfCall method");
       }
@@ -692,18 +795,18 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Checks whether the given object is callable, either by being a {@link BaseFunction} or having
-   * a {@link SkylarkCallable}-annotated method with selfCall = true.
+   * Checks whether the given object is callable, either by being a {@link BaseFunction} or having a
+   * {@link SkylarkCallable}-annotated method with selfCall = true.
    *
    * @return a BaseFunction object representing the callable function this object represents
    * @throws EvalException if the object is not callable.
    */
-  private static BaseFunction checkCallable(Object functionValue, Location location)
-      throws EvalException {
+  private static BaseFunction checkCallable(
+      SkylarkSemantics semantics, Object functionValue, Location location) throws EvalException {
     if (functionValue instanceof BaseFunction) {
       return (BaseFunction) functionValue;
-    } else if (hasSelfCallMethod(functionValue.getClass())) {
-      return getSelfCallMethod(functionValue);
+    } else if (hasSelfCallMethod(semantics, functionValue.getClass())) {
+      return getSelfCallMethod(semantics, functionValue);
     } else {
       throw new EvalException(
           location, "'" + EvalUtils.getDataTypeName(functionValue) + "' object is not callable");
@@ -900,7 +1003,7 @@ public final class FuncallExpression extends Expression {
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new LinkedHashMap<>();
-    BaseFunction function = checkCallable(funcValue, getLocation());
+    BaseFunction function = checkCallable(env.getSemantics(), funcValue, getLocation());
     evalArguments(posargs, kwargs, env);
     return function.call(posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
   }

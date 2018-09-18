@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestApi;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
@@ -32,7 +32,7 @@ public class FakeAndroidResourcesInfo extends NativeInfo
     implements AndroidResourcesInfoApi<
         FileApi,
         FakeAndroidResourcesInfo.FakeValidatedAndroidDataApi,
-        FakeAndroidResourcesInfo.FakeAndroidManifestApi> {
+        FakeAndroidResourcesInfo.FakeAndroidManifestInfoApi> {
 
   public static final String PROVIDER_NAME = "FakeAndroidResourcesInfo";
   public static final FakeAndroidResourcesInfoProvider PROVIDER =
@@ -48,7 +48,7 @@ public class FakeAndroidResourcesInfo extends NativeInfo
   }
 
   @Override
-  public FakeAndroidManifestApi getManifest() {
+  public FakeAndroidManifestInfoApi getManifest() {
     return null;
   }
 
@@ -121,7 +121,7 @@ public class FakeAndroidResourcesInfo extends NativeInfo
       implements AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<
           FileApi,
           FakeAndroidResourcesInfo.FakeValidatedAndroidDataApi,
-          FakeAndroidResourcesInfo.FakeAndroidManifestApi> {
+          FakeAndroidResourcesInfo.FakeAndroidManifestInfoApi> {
 
     public FakeAndroidResourcesInfoProvider() {
       super(PROVIDER_NAME, FakeAndroidResourcesInfo.class);
@@ -130,7 +130,7 @@ public class FakeAndroidResourcesInfo extends NativeInfo
     @Override
     public FakeAndroidResourcesInfo createInfo(
         Label label,
-        FakeAndroidManifestApi manifest,
+        FakeAndroidManifestInfoApi manifest,
         FileApi rTxt,
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,
@@ -152,6 +152,35 @@ public class FakeAndroidResourcesInfo extends NativeInfo
   /** Fake implementation of {@link ValidatedAndroidDataApi}. */
   public static class FakeValidatedAndroidDataApi implements ValidatedAndroidDataApi {}
 
-  /** Fake implementation of {@link AndroidManifestApi}. */
-  public static class FakeAndroidManifestApi implements AndroidManifestApi {}
+  /** Fake implementation of {@link AndroidManifestInfoApi}. */
+  public static class FakeAndroidManifestInfoApi implements AndroidManifestInfoApi<FileApi> {
+
+    @Override
+    public FileApi getManifest() {
+      return null;
+    }
+
+    @Override
+    public boolean exportsManifest() {
+      return false;
+    }
+
+    @Override
+    public String getPackage() {
+      return null;
+    }
+
+    @Override
+    public String toProto(Location loc) throws EvalException {
+      return "";
+    }
+
+    @Override
+    public String toJson(Location loc) throws EvalException {
+      return "";
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {}
+  }
 }

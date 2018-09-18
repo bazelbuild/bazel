@@ -1239,7 +1239,7 @@ public class CcToolchainFeatures implements Serializable {
       return envBuilder.build();
     }
 
-    String getToolPathForAction(String actionName) {
+    public String getToolPathForAction(String actionName) {
       Preconditions.checkArgument(
           actionConfigByActionName.containsKey(actionName),
           "Action %s does not have an enabled configuration in the toolchain.",

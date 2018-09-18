@@ -316,8 +316,12 @@ java_test(
     srcs = [
         "DesugarCoreLibraryFunctionalTest.java",
     ],
-    # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
-    jvm_flags = ["-Xbootclasspath/p:$(location :testdata_desugared_core_library):$(location //third_party/java/jacoco:blaze-agent)"],
+    jvm_flags = [
+        # TODO (b/72181101): -Xbootclasspath/p is removed in JDK 9.
+        "-XX:+IgnoreUnrecognizedVMOptions",
+        "-Xbootclasspath/a:$(location :testdata_desugared_core_library):$(location //third_party/java/jacoco:blaze-agent)",
+        "--patch-module=java.base=$(location :testdata_desugared_core_library)",
+    ],
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared_core_library",  # Make tests run against desugared library

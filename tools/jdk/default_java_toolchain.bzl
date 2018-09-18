@@ -14,7 +14,11 @@
 
 """Bazel rules for creating Java toolchains."""
 
-JVM_OPTS = [
+JDK8_JVM_OPTS = [
+    "-Xbootclasspath/p:$(location @bazel_tools//third_party/java/jdk/langtools:javac_jar)",
+]
+
+JDK9_JVM_OPTS = [
     # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
     # G1 collector and having compact strings enabled.
     "-XX:+UseParallelOldGC",
@@ -70,7 +74,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = {
         "@bazel_tools//third_party/java/jdk/langtools:jdk_compiler_jar",
     ],
     "javac_supports_workers": 1,
-    "jvm_opts": JVM_OPTS,
+    "jvm_opts": JDK8_JVM_OPTS,
     "misc": DEFAULT_JAVACOPTS,
     "compatible_javacopts": COMPATIBLE_JAVACOPTS,
     "singlejar": ["@bazel_tools//tools/jdk:singlejar"],
@@ -97,8 +101,8 @@ def java_runtime_files(name, srcs):
     for src in srcs:
         native.genrule(
             name = "gen_%s" % src,
-            srcs = ["//tools/jdk:current_java_runtime"],
-            toolchains = ["//tools/jdk:current_java_runtime"],
+            srcs = ["@bazel_tools//tools/jdk:current_java_runtime"],
+            toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
             cmd = "cp $(JAVABASE)/%s $@" % src,
             outs = [src],
         )

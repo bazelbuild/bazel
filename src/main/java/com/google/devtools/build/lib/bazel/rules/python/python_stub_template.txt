@@ -55,10 +55,10 @@ def FindPythonBinary(module_space):
     # Case 1: Path is a label. Not supported yet.
     raise AssertionError(
       'Bazel does not support execution of Python interpreters via labels yet')
-  elif PYTHON_BINARY.startswith('/'):
+  elif os.path.isabs(PYTHON_BINARY):
     # Case 2: Absolute path.
     return PYTHON_BINARY
-  elif '/' in PYTHON_BINARY:
+  elif os.sep in PYTHON_BINARY:
     # Case 3: Path is relative to the repo root.
     return os.path.join(module_space, PYTHON_BINARY)
   else:
@@ -72,7 +72,7 @@ def CreatePythonPathEntries(python_imports, module_space):
 # Find the runfiles tree
 def FindModuleSpace():
   stub_filename = os.path.abspath(sys.argv[0])
-  module_space = stub_filename + '.runfiles'
+  module_space = stub_filename + ('.exe' if IsWindows() else '') + '.runfiles'
   if os.path.isdir(module_space):
     return module_space
 
@@ -190,7 +190,12 @@ def Main():
       shutil.rmtree(os.path.dirname(module_space), True)
       exit(retCode)
     else:
-      os.execv(args[0], args)
+      if IsWindows():
+        # On Windows, os.execv doesn't handle arguments with spaces correctly,
+        # and it actually starts a subprocess just like subprocess.call.
+        exit(subprocess.call(args))
+      else:
+        os.execv(args[0], args)
   except EnvironmentError:
     # This works from Python 2.4 all the way to 3.x.
     e = sys.exc_info()[1]

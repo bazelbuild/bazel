@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -262,7 +262,6 @@ public final class PackageFactory {
 
   public static final String PKG_CONTEXT = "$pkg_context";
 
-  // Used outside of Bazel!
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
     private final GlobCache globCache;
@@ -1142,7 +1141,7 @@ public final class PackageFactory {
    */
   public static PackageContext getContext(Environment env, Location location)
       throws EvalException {
-    PackageContext value = (PackageContext) env.lookup(PKG_CONTEXT);
+    PackageContext value = (PackageContext) env.dynamicLookup(PKG_CONTEXT);
     if (value == null) {
       // if PKG_CONTEXT is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
@@ -1182,7 +1181,7 @@ public final class PackageFactory {
     public Runtime.NoneType invoke(
         Map<String, Object> kwargs, FuncallExpression ast, Environment env)
         throws EvalException, InterruptedException {
-      env.checkLoadingOrWorkspacePhase(ruleClassName, ast.getLocation());
+      SkylarkUtils.checkLoadingOrWorkspacePhase(env, ruleClassName, ast.getLocation());
       try {
         addRule(getContext(env, ast.getLocation()), kwargs, ast, env);
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -1229,8 +1228,7 @@ public final class PackageFactory {
    * <p>Executes {@code globber.onCompletion()} on completion and executes {@code
    * globber.onInterrupt()} on an {@link InterruptedException}.
    */
-  // Used outside of bazel!
-  public Package.Builder createPackage(
+  private Package.Builder createPackage(
       String workspaceName,
       PackageIdentifier packageId,
       Path buildFile,
@@ -1624,8 +1622,8 @@ public final class PackageFactory {
               .setSemantics(skylarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
-              .setPhase(Phase.LOADING)
               .build();
+      SkylarkUtils.setPhase(pkgEnv, Phase.LOADING);
       SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       pkgBuilder.setFilename(buildFilePath)

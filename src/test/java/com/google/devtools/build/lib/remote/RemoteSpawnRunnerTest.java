@@ -42,6 +42,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -926,7 +927,7 @@ public class RemoteSpawnRunnerTest {
             logDir);
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
-    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException());
+    when(executor.executeRemotely(any(ExecuteRequest.class))).thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -937,6 +938,7 @@ public class RemoteSpawnRunnerTest {
     } catch (SpawnExecException e) {
       assertThat(e.getSpawnResult().exitCode())
           .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+      assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
     }
   }
 
@@ -963,7 +965,7 @@ public class RemoteSpawnRunnerTest {
             digestUtil,
             logDir);
 
-    when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException());
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = new FakeSpawnExecutionContext(spawn);
@@ -974,6 +976,7 @@ public class RemoteSpawnRunnerTest {
     } catch (SpawnExecException e) {
       assertThat(e.getSpawnResult().exitCode())
           .isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+      assertThat(e.getSpawnResult().getDetailMessage("", "", false, false)).contains("reasons");
     }
   }
 
@@ -1094,9 +1097,11 @@ public class RemoteSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        boolean expandTreeArtifactsInRunfiles) throws IOException {
       return new SpawnInputExpander(execRoot, /*strict*/ false)
-          .getInputMapping(spawn, artifactExpander, fakeFileCache);
+          .getInputMapping(spawn, artifactExpander, ArtifactPathResolver.IDENTITY, fakeFileCache,
+              true);
     }
 
     @Override

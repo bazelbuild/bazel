@@ -20,16 +20,20 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
 import com.google.devtools.common.options.OptionsBase;
+import java.io.IOException;
 
 /** A module for logging workspace rule events */
 public final class WorkspaceRuleModule extends BlazeModule {
   private Reporter reporter;
   private EventBus eventBus;
+  private AsynchronousFileOutputStream outFileStream;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-
     reporter = env.getReporter();
     eventBus = env.getEventBus();
 
@@ -38,8 +42,31 @@ public final class WorkspaceRuleModule extends BlazeModule {
       return;
     }
 
-    if (env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogging != null) {
+    String logFile = env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
+    if (logFile != null && !logFile.isEmpty()) {
+      try {
+        outFileStream = new AsynchronousFileOutputStream(logFile);
+      } catch (IOException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    "Error initializing workspace rule log file.", ExitCode.COMMAND_LINE_ERROR));
+      }
       eventBus.register(this);
+    }
+  }
+
+  @Override
+  public void afterCommand() {
+    if (outFileStream != null) {
+      try {
+        outFileStream.close();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      } finally {
+        outFileStream = null;
+      }
     }
   }
 
@@ -50,6 +77,8 @@ public final class WorkspaceRuleModule extends BlazeModule {
 
   @Subscribe
   public void workspaceRuleEventReceived(WorkspaceRuleEvent event) {
-    reporter.handle(Event.info(event.logMessage()));
+    if (outFileStream != null) {
+      outFileStream.write(event.getLogEvent());
+    }
   }
 }

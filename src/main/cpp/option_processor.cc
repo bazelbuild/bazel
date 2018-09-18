@@ -49,16 +49,20 @@ constexpr char WorkspaceLayout::WorkspacePrefix[];
 static constexpr const char* kRcBasename = ".bazelrc";
 static std::vector<std::string> GetProcessedEnv();
 
-// Path to the system-wide bazelrc configuration file.
-// This is a mutable global for testing purposes only.
-const char* system_bazelrc_path = BAZEL_SYSTEM_BAZELRC_PATH;
-
 OptionProcessor::OptionProcessor(
     const WorkspaceLayout* workspace_layout,
     std::unique_ptr<StartupOptions> default_startup_options)
     : workspace_layout_(workspace_layout),
-      parsed_startup_options_(std::move(default_startup_options)) {
-}
+      parsed_startup_options_(std::move(default_startup_options)),
+      system_bazelrc_path_(BAZEL_SYSTEM_BAZELRC_PATH) {}
+
+OptionProcessor::OptionProcessor(
+    const WorkspaceLayout* workspace_layout,
+    std::unique_ptr<StartupOptions> default_startup_options,
+    const std::string& system_bazelrc_path)
+    : workspace_layout_(workspace_layout),
+      parsed_startup_options_(std::move(default_startup_options)),
+      system_bazelrc_path_(system_bazelrc_path) {}
 
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
     const vector<string>& args, string* error) const {
@@ -169,7 +173,8 @@ std::string FindLegacyUserBazelrc(const char* cmd_line_rc_file,
 std::set<std::string> GetOldRcPaths(
     const WorkspaceLayout* workspace_layout, const std::string& workspace,
     const std::string& cwd, const std::string& path_to_binary,
-    const std::vector<std::string>& startup_args) {
+    const std::vector<std::string>& startup_args,
+    const std::string& system_bazelrc_path) {
   // Find the old list of rc files that would have been loaded here, so we can
   // provide a useful warning about old rc files that might no longer be read.
   std::vector<std::string> candidate_bazelrc_paths;
@@ -178,8 +183,7 @@ std::set<std::string> GetOldRcPaths(
         workspace_layout->GetWorkspaceRcPath(workspace, startup_args);
     const std::string binary_rc =
         internal::FindRcAlongsideBinary(cwd, path_to_binary);
-    const std::string system_rc = internal::FindSystemWideRc();
-    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_rc};
+    candidate_bazelrc_paths = {workspace_rc, binary_rc, system_bazelrc_path};
   }
   const std::vector<std::string> deduped_blazerc_paths =
       internal::DedupeBlazercPaths(candidate_bazelrc_paths);
@@ -210,7 +214,7 @@ std::vector<std::string> DedupeBlazercPaths(
   return result;
 }
 
-std::string FindSystemWideRc() {
+std::string FindSystemWideRc(const std::string& system_bazelrc_path) {
   const std::string path =
       blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path);
   if (blaze_util::CanReadFile(path)) {
@@ -237,13 +241,53 @@ blaze_exit_code::ExitCode ParseErrorToExitCode(RcFile::ParseError parse_error) {
     case RcFile::ParseError::NONE:
       return blaze_exit_code::SUCCESS;
     case RcFile::ParseError::UNREADABLE_FILE:
-      // We check readability before parsing, so this is unexpected.
+      // We check readability before parsing, so this is unexpected for
+      // top-level rc files, so is an INTERNAL_ERROR. It can happen for imported
+      // files, however, which should be BAD_ARGV, but we don't currently
+      // differentiate.
+      // TODO(bazel-team): fix RcFile to reclassify unreadable files that were
+      // read from a recursive call due to a malformed import.
       return blaze_exit_code::INTERNAL_ERROR;
     case RcFile::ParseError::INVALID_FORMAT:
     case RcFile::ParseError::IMPORT_LOOP:
       return blaze_exit_code::BAD_ARGV;
     default:
       return blaze_exit_code::INTERNAL_ERROR;
+  }
+}
+
+void WarnAboutDuplicateRcFiles(const std::set<std::string>& read_files,
+                               const std::deque<std::string>& loaded_rcs) {
+  // The first rc file in the queue is the top-level one, the one that would
+  // have imported all the others in the queue. The top-level rc is one of the
+  // default locations (system, workspace, home) or the explicit path passed by
+  // --bazelrc.
+  const std::string& top_level_rc = loaded_rcs.front();
+
+  const std::set<std::string> unique_loaded_rcs(loaded_rcs.begin(),
+                                                loaded_rcs.end());
+  // First check if each of the newly loaded rc files was already read.
+  for (const std::string& loaded_rc : unique_loaded_rcs) {
+    if (read_files.count(loaded_rc) > 0) {
+      if (loaded_rc == top_level_rc) {
+        BAZEL_LOG(WARNING)
+            << "Duplicate rc file: " << loaded_rc
+            << " is read multiple times, it is a standard rc file location "
+               "but must have been unnecessarilly imported earlier.";
+      } else {
+        BAZEL_LOG(WARNING)
+            << "Duplicate rc file: " << loaded_rc
+            << " is read multiple times, most recently imported from "
+            << top_level_rc;
+      }
+    }
+    // Now check if the top-level rc file loads up its own duplicates (it can't
+    // be a cycle, since that would be an error and we would have already
+    // exited, but it could have a diamond dependency of some sort.)
+    if (std::count(loaded_rcs.begin(), loaded_rcs.end(), loaded_rc) > 1) {
+      BAZEL_LOG(WARNING) << "Duplicate rc file: " << loaded_rc
+                         << " is imported multiple times from " << top_level_rc;
+    }
   }
 }
 
@@ -267,7 +311,7 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
     // provided path. This also means we accept relative paths, which is
     // is convenient for testing.
     const std::string system_rc =
-        blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path);
+        blaze_util::MakeAbsoluteAndResolveWindowsEnvvars(system_bazelrc_path_);
     rc_files.push_back(system_rc);
   }
 
@@ -320,18 +364,26 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // It's possible that workspace == home, that files are symlinks for each
   // other, or that the --bazelrc flag is a duplicate. Dedupe them to minimize
   // the likelihood of repeated options. Since bazelrcs can include one another,
-  // this isn't sufficient to prevent duplicate options, but it's good enough.
-  // This also has the effect of removing paths that don't point to real files.
+  // this isn't sufficient to prevent duplicate options, so we also warn if we
+  // discover duplicate loads later. This also has the effect of removing paths
+  // that don't point to real files.
   rc_files = internal::DedupeBlazercPaths(rc_files);
 
+  std::set<std::string> read_files;
   // Parse these potential files, in priority order;
-  for (const auto& bazelrc_path : rc_files) {
+  for (const std::string& top_level_bazelrc_path : rc_files) {
     std::unique_ptr<RcFile> parsed_rc;
     blaze_exit_code::ExitCode parse_rcfile_exit_code = ParseRcFile(
-        workspace_layout, workspace, bazelrc_path, &parsed_rc, error);
+        workspace_layout, workspace, top_level_bazelrc_path, &parsed_rc, error);
     if (parse_rcfile_exit_code != blaze_exit_code::SUCCESS) {
       return parse_rcfile_exit_code;
     }
+
+    // Check that none of the rc files loaded this time are duplicate.
+    const std::deque<std::string>& sources = parsed_rc->sources();
+    internal::WarnAboutDuplicateRcFiles(read_files, sources);
+    read_files.insert(sources.begin(), sources.end());
+
     result_rc_files->push_back(std::move(parsed_rc));
   }
 
@@ -341,15 +393,9 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   // TODO(b/36168162): Remove this warning along with
   // internal::GetOldRcPaths and internal::FindLegacyUserBazelrc after
   // the transition period has passed.
-  std::set<std::string> read_files;
-  for (auto& result_rc : *result_rc_files) {
-    const std::deque<std::string>& sources = result_rc->sources();
-    read_files.insert(sources.begin(), sources.end());
-  }
-
-  const std::set<std::string> old_files =
-      internal::GetOldRcPaths(workspace_layout, workspace, cwd,
-                              cmd_line->path_to_binary, cmd_line->startup_args);
+  const std::set<std::string> old_files = internal::GetOldRcPaths(
+      workspace_layout, workspace, cwd, cmd_line->path_to_binary,
+      cmd_line->startup_args, internal::FindSystemWideRc(system_bazelrc_path_));
 
   //   std::vector<std::string> old_files = internal::GetOldRcPathsInOrder(
   //       workspace_layout, workspace, cwd, cmd_line->path_to_binary,
@@ -566,9 +612,10 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   // Provide terminal options as coming from the least important rc file.
   std::vector<std::string> result = {
       "--rc_source=client",
-      "--default_override=0:common=--isatty=" + ToString(IsStandardTerminal()),
+      "--default_override=0:common=--isatty=" +
+          ToString(IsStderrStandardTerminal()),
       "--default_override=0:common=--terminal_columns=" +
-          ToString(GetTerminalColumns())};
+          ToString(GetStderrTerminalColumns())};
   if (IsEmacsTerminal()) {
     result.push_back("--default_override=0:common=--emacs");
   }

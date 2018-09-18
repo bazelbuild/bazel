@@ -143,7 +143,7 @@ class RemoteSpawnRunner implements SpawnRunner {
     // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
     MetadataProvider inputFileCache = context.getMetadataProvider();
     TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache, digestUtil);
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
+    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
     TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
     repository.computeMerkleDigests(inputRoot);
     maybeWriteParamFilesLocally(spawn);
@@ -354,6 +354,7 @@ class RemoteSpawnRunner implements SpawnRunner {
             .setRunnerName(getName())
             .setStatus(status)
             .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
+            .setFailureMessage(exception.getMessage())
             .build(),
         /* forciblyRunRemotely= */ false);
   }

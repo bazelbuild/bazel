@@ -227,7 +227,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     LinkingMode linkingMode = getLinkStaticness(ruleContext, cppConfiguration);
-    FdoSupportProvider fdoSupport = common.getFdoSupport();
+    FdoProvider fdoProvider = common.getFdoProvider();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
@@ -243,7 +243,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
-                ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
+                ruleContext, semantics, featureConfiguration, ccToolchain, fdoProvider)
             .fromCommon(common, /* additionalCopts= */ ImmutableList.of())
             .addPrivateHeaders(common.getPrivateHeaders())
             .addSources(common.getSources())
@@ -272,21 +272,20 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
     // output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-    if (linkCompileOutputSeparately) {
+    if (linkCompileOutputSeparately && !ccCompilationOutputs.isEmpty()) {
       CcLinkingHelper linkingHelper =
           new CcLinkingHelper(
                   ruleContext,
                   semantics,
                   featureConfiguration,
                   ccToolchain,
-                  fdoSupport,
+                  fdoProvider,
                   ruleContext.getConfiguration())
               .fromCommon(common)
               .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
               .enableInterfaceSharedObjects()
               .setAlwayslink(false);
-      ccLinkingOutputs =
-          linkingHelper.link(ccCompilationOutputs, ccCompilationContext).getCcLinkingOutputs();
+      ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }
 
     CcLinkParams linkParams =
@@ -300,7 +299,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             ccToolchain,
             featureConfiguration,
-            fdoSupport,
+            fdoProvider,
             common,
             precompiledFiles,
             ccCompilationOutputs,
@@ -322,11 +321,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
           ArtifactCategory.STATIC_LIBRARY,
           ccToolchain.getStaticRuntimeLinkMiddleman(featureConfiguration),
           ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
-      // Only force a static link of libgcc if static runtime linking is enabled (which
-      // can't be true if runtimeInputs is empty).
-      // TODO(bazel-team): Move this to CcToolchain.
-      if (!ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration).isEmpty()) {
-        linkActionBuilder.addLinkopt("-static-libgcc");
+      if (!cppConfiguration.disableEmittingStaticLibgcc()) {
+        // Only force a static link of libgcc if static runtime linking is enabled (which
+        // can't be true if runtimeInputs is empty).
+        // TODO(bazel-team): Move this to CcToolchain.
+        if (!ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration).isEmpty()) {
+          linkActionBuilder.addLinkopt("-static-libgcc");
+        }
       }
     }
 
@@ -380,7 +381,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               ruleContext.getConfiguration(),
               LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
           linkActionBuilder.setInterfaceOutput(interfaceLibrary);
-          linkActionBuilder.addActionOutput(interfaceLibrary);
         }
       }
     }
@@ -554,7 +554,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext context,
       CcToolchainProvider toolchain,
       FeatureConfiguration featureConfiguration,
-      FdoSupportProvider fdoSupport,
+      FdoProvider fdoProvider,
       CcCommon common,
       PrecompiledFiles precompiledFiles,
       CcCompilationOutputs compilationOutputs,
@@ -565,10 +565,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       CcLinkParams linkParams,
       boolean linkCompileOutputSeparately,
       CppSemantics cppSemantics)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
-                context, binary, toolchain, fdoSupport, featureConfiguration, cppSemantics)
+                context, binary, toolchain, fdoProvider, featureConfiguration, cppSemantics)
             .setCrosstoolInputs(toolchain.getLink())
             .addNonCodeInputs(compilationPrerequisites);
 
@@ -874,28 +874,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCompilationInfo.Builder ccCompilationInfoBuilder = CcCompilationInfo.Builder.create();
     ccCompilationInfoBuilder.setCcCompilationContext(ccCompilationContext);
 
-    CcLinkingInfo.Builder ccLinkingInfoBuilder = CcLinkingInfo.Builder.create();
-    // TODO(b/111289526): Remove CcLinkingInfo provider from cc_binary as soon as the flag
-    // --experimental_enable_cc_dynlibs_for_runtime is flipped. An empty CcLinkParamsStore is not
-    // needed, but here we set it to avoid a null pointer exception in places where we're expecting
-    // it. In the future CcLinkParamsStore will be obligatory.
-    ccLinkingInfoBuilder.setCcLinkParamsStore(
-        new CcLinkParamsStore(
-            /* staticModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
-            /* staticModeParamsForExecutable= */ CcLinkParams.EMPTY,
-            /* dynamicModeParamsForDynamicLibrary= */ CcLinkParams.EMPTY,
-            /* dynamicModeParamsForExecutable= */ CcLinkParams.EMPTY));
-    if (cppConfiguration.enableCcDynamicLibrariesForRuntime()) {
-      ccLinkingInfoBuilder.setCcDynamicLibrariesForRuntime(
-          new CcDynamicLibrariesForRuntime(
-              collectDynamicLibrariesForRuntimeArtifacts(
-                  ruleContext, linkingOutputs.getDynamicLibrariesForRuntime())));
-    }
-
     builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(ccCompilationInfoBuilder.build())
-        .addNativeDeclaredProvider(ccLinkingInfoBuilder.build())
         .addProvider(
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(
@@ -917,27 +898,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
 
     CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);
-  }
-
-  private static NestedSet<Artifact> collectDynamicLibrariesForRuntimeArtifacts(
-      RuleContext ruleContext, List<LibraryToLink> dynamicLibrariesForRuntime) {
-    Iterable<Artifact> artifacts = LinkerInputs.toLibraryArtifacts(dynamicLibrariesForRuntime);
-    if (!Iterables.isEmpty(artifacts)) {
-      return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
-    }
-
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (CcLinkingInfo ccLinkingInfo :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkingInfo.PROVIDER)) {
-      CcDynamicLibrariesForRuntime ccDynamicLibrariesForRuntime =
-          ccLinkingInfo.getCcDynamicLibrariesForRuntime();
-      if (ccDynamicLibrariesForRuntime != null) {
-        builder.addTransitive(
-            ccDynamicLibrariesForRuntime.getDynamicLibrariesForRuntimeArtifacts());
-      }
-    }
-
-    return builder.build();
   }
 
   private static NestedSet<LinkerInput> collectTransitiveCcNativeLibraries(

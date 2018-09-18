@@ -13,15 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -32,9 +42,14 @@ import java.util.Set;
 class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
 
   private final WalkableGraph walkableGraph;
+  private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
+      configuredTargetKeyExtractor;
 
-  ConfiguredTargetValueAccessor(WalkableGraph walkableGraph) {
+  ConfiguredTargetValueAccessor(
+      WalkableGraph walkableGraph,
+      KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey> configuredTargetKeyExtractor) {
     this.walkableGraph = walkableGraph;
+    this.configuredTargetKeyExtractor = configuredTargetKeyExtractor;
   }
 
   @Override
@@ -117,5 +132,24 @@ class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetVa
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
     return ConfiguredTargetAccessor.getTargetFromConfiguredTarget(
         configuredTargetValue.getConfiguredTarget(), walkableGraph);
+  }
+
+  /** Returns the AspectValues that are attached to the given configuredTarget. */
+  public Collection<AspectValue> getAspectValues(ConfiguredTargetValue configuredTargetValue)
+      throws InterruptedException {
+    Set<AspectValue> result = new HashSet<>();
+    SkyKey skyKey = configuredTargetKeyExtractor.extractKey(configuredTargetValue);
+    Iterable<SkyKey> revDeps =
+        Iterables.concat(walkableGraph.getReverseDeps(ImmutableList.of(skyKey)).values());
+    for (SkyKey revDep : revDeps) {
+      SkyFunctionName skyFunctionName = revDep.functionName();
+      if (SkyFunctions.ASPECT.equals(skyFunctionName)) {
+        AspectValue aspectValue = (AspectValue) walkableGraph.getValue(revDep);
+        if (aspectValue.getLabel().equals(configuredTargetValue.getConfiguredTarget().getLabel())) {
+          result.add(aspectValue);
+        }
+      }
+    }
+    return result;
   }
 }

@@ -14,17 +14,27 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /** Rule definition for {@link ConstraintSetting}. */
 public class ConstraintSettingRule implements RuleDefinition {
   public static final String RULE_NAME = "constraint_setting";
+  public static final String DEFAULT_CONSTRAINT_VALUE_ATTR = "default_constraint_value";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    return builder.build();
+    return builder
+        /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(default_constraint_value) -->
+        The label of the default value for the setting, to be used if no value is given. The default
+        value must be in the same package as the setting itself.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL))
+        .build();
   }
 
   @Override

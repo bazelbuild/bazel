@@ -38,7 +38,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         "The version of iOS to run on the simulator when running or testing. This is ignored "
             + "for ios_test rules if a target device is specified in the rule."
   )
-  public DottedVersion iosSimulatorVersion;
+  public DottedVersion.Option iosSimulatorVersion;
 
   @Option(
     name = "ios_simulator_device",
@@ -60,7 +60,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.TEST_RUNNER},
     help = "The version of watchOS to run on the simulator when running or testing."
   )
-  public DottedVersion watchosSimulatorVersion;
+  public DottedVersion.Option watchosSimulatorVersion;
 
   @Option(
     name = "watchos_simulator_device",
@@ -82,7 +82,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.TEST_RUNNER},
     help = "The version of tvOS to run on the simulator when running or testing."
   )
-  public DottedVersion tvosSimulatorVersion;
+  public DottedVersion.Option tvosSimulatorVersion;
 
   @Option(
     name = "tvos_simulator_device",

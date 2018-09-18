@@ -114,8 +114,13 @@ public final class CompileCommandLine {
         out.addAll(pair.getSecond());
         continue;
       }
-
-      pair.getSecond().stream().filter(coptsFilter::passesFilter).forEachOrdered(out::add);
+      // We do not uses Java's stream API here as it causes a substantial overhead compared to the
+      // very little work that this is actually doing.
+      for (String flag : pair.getSecond()) {
+        if (coptsFilter.passesFilter(flag)) {
+          out.add(flag);
+        }
+      }
     }
   }
 

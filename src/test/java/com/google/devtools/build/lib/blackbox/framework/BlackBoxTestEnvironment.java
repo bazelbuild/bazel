@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /**
  * Abstract class for setting up the blackbox test environment, returns {@link BlackBoxTestContext}
@@ -33,15 +34,15 @@ import java.util.concurrent.TimeUnit;
  * <p>See {@link com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest}
  */
 public abstract class BlackBoxTestEnvironment {
-  private final ExecutorService executorService;
-  // to control that the executor service is not used after it is shut down
-  private boolean isDisposed;
-
-  protected BlackBoxTestEnvironment() {
-    executorService =
-        MoreExecutors.getExitingExecutorService(
-            (ThreadPoolExecutor) Executors.newFixedThreadPool(2), 1, TimeUnit.SECONDS);
-  }
+  /**
+   * Executor service for reading stdout and stderr streams of the process. Has exactly two threads
+   * since there are two streams.
+   */
+  @Nullable
+  private ExecutorService executorService =
+      MoreExecutors.getExitingExecutorService(
+          (ThreadPoolExecutor) Executors.newFixedThreadPool(2),
+          1, TimeUnit.SECONDS);
 
   protected abstract BlackBoxTestContext prepareEnvironment(
       String testName, ImmutableList<ToolsSetup> tools, ExecutorService executorService)
@@ -59,16 +60,17 @@ public abstract class BlackBoxTestEnvironment {
    */
   public BlackBoxTestContext prepareEnvironment(String testName, ImmutableList<ToolsSetup> tools)
       throws Exception {
-    Preconditions.checkState(!isDisposed);
+    Preconditions.checkNotNull(executorService);
     return prepareEnvironment(testName, tools, executorService);
   }
 
   /**
    * This method must be called when the test group execution is finished, for example, from
-   * &#64;AfterClass method
+   * &#64;AfterClass method.
    */
   public final void dispose() {
+    Preconditions.checkNotNull(executorService);
     MoreExecutors.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
-    isDisposed = true;
+    executorService = null;
   }
 }

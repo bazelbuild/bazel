@@ -914,4 +914,158 @@ EOF
     expect_log "Selected execution platform //platforms:platform2_4"
 }
 
+function test_default_constraint_values {
+  # Add test constraints and platforms.
+  mkdir -p platforms
+  cat >> platforms/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+constraint_setting(name = 'setting1', default_constraint_value = ':value_foo')
+constraint_value(name = 'value_foo', constraint_setting = ':setting1')
+constraint_value(name = 'value_bar', constraint_setting = ':setting1')
+
+platform(
+    name = 'platform_default',
+    constraint_values = [])
+platform(
+    name = 'platform_no_default',
+    constraint_values = [':value_bar'])
+EOF
+
+  # Add test toolchains using the constraints.
+  write_test_toolchain
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+# Define the toolchains.
+test_toolchain(
+    name = 'test_toolchain_impl_foo',
+    extra_str = 'foo',
+    visibility = ['//visibility:public'])
+
+test_toolchain(
+    name = 'test_toolchain_impl_bar',
+    extra_str = 'bar',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchains.
+toolchain(
+    name = 'test_toolchain_foo',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [
+      # No constraint set, takes the default.
+    ],
+    toolchain = ':test_toolchain_impl_foo',
+    visibility = ['//visibility:public'])
+toolchain(
+    name = 'test_toolchain_bar',
+    toolchain_type = '//toolchain:test_toolchain',
+    exec_compatible_with = [],
+    target_compatible_with = [
+      # Explicitly sets a non-default value.
+      '//platforms:value_bar',
+    ],
+    toolchain = ':test_toolchain_impl_bar',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Register the toolchains
+  cat >> WORKSPACE <<EOF
+register_toolchains('//:test_toolchain_foo', '//:test_toolchain_bar')
+EOF
+
+  write_test_rule
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  # Test some builds and verify which was used.
+  # This should use the default value.
+  bazel build \
+    --platforms=//platforms:platform_default \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'toolchain extra_str: "foo"'
+
+  # This should use the explicit value.
+  bazel build \
+    --platforms=//platforms:platform_no_default \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'toolchain extra_str: "bar"'
+}
+
+function test_make_variables_custom_rule() {
+  # Create a toolchain rule that also exposes make variables.
+  mkdir -p toolchain
+  touch toolchain/BUILD
+  cat >> toolchain/toolchain_var.bzl <<EOF
+def _impl(ctx):
+  toolchain = platform_common.ToolchainInfo()
+  value = ctx.attr.value
+  templates = platform_common.TemplateVariableInfo({'VALUE': value})
+  return [toolchain, templates]
+
+toolchain_var = rule(
+    implementation = _impl,
+    attrs = {
+        'value': attr.string(mandatory = True),
+    }
+)
+EOF
+
+  # Create a rule that consumes the toolchain.
+  cat >> toolchain/rule_var.bzl <<EOF
+def _impl(ctx):
+  toolchain = ctx.toolchains['//toolchain:toolchain_var']
+  value = ctx.var['VALUE']
+  print('Using toolchain: value "%s"' % value)
+  return []
+
+rule_var = rule(
+    implementation = _impl,
+    toolchains = ['//toolchain:toolchain_var'],
+)
+EOF
+
+  # Create and register a toolchain
+  cat >> WORKSPACE <<EOF
+register_toolchains('//:toolchain_var_1')
+EOF
+
+  cat >> BUILD <<EOF
+load('//toolchain:toolchain_var.bzl', 'toolchain_var')
+
+# Define the toolchain.
+toolchain_var(
+    name = 'toolchain_var_impl_1',
+    value = 'foo',
+    visibility = ['//visibility:public'])
+
+# Declare the toolchain.
+toolchain(
+    name = 'toolchain_var_1',
+    toolchain_type = '//toolchain:toolchain_var',
+    exec_compatible_with = [],
+    target_compatible_with = [],
+    toolchain = ':toolchain_var_impl_1',
+    visibility = ['//visibility:public'])
+EOF
+
+  # Instantiate the rule and verify the output.
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_var.bzl', 'rule_var')
+rule_var(name = 'demo')
+EOF
+
+  bazel build //demo:demo &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: value "foo"'
+}
+
+# TODO(katre): Test using toolchain-provided make variables from a genrule.
+
 run_suite "toolchain tests"

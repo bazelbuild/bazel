@@ -28,7 +28,12 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
  * APK.
  */
-@SkylarkModule(name = "AndroidNativeLibsInfo", doc = "", documented = false)
+@SkylarkModule(
+    name = "AndroidNativeLibsInfo",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed.",
+    documented = false)
 public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructApi {
 
   /**
@@ -39,24 +44,30 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
   @SkylarkCallable(
       name = "native_libs",
       doc = "Returns the native libraries produced by the rule.",
+      documented = false,
       structField = true)
   NestedSet<FileT> getNativeLibs();
 
   /** Provider for {@link AndroidNativeLibsInfoApi}. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface AndroidNativeLibsInfoApiProvider extends ProviderApi {
 
     @SkylarkCallable(
         name = "AndroidNativeLibsInfo",
         doc = "The <code>AndroidNativeLibsInfo</code> constructor.",
+        documented = false,
         parameters = {
-            @Param(
-                name = "native_libs",
-                type = SkylarkNestedSet.class,
-                generic1 = FileApi.class,
-                named = true,
-                doc = "The native libraries produced by the rule."
-            ),
+          @Param(
+              name = "native_libs",
+              type = SkylarkNestedSet.class,
+              generic1 = FileApi.class,
+              named = true,
+              doc = "The native libraries produced by the rule."),
         },
         selfCall = true)
     @SkylarkConstructor(objectType = AndroidNativeLibsInfoApi.class)

@@ -5,11 +5,17 @@ title: Compiling Bazel from Source
 
 # <a name="compiling-from-source"></a>Compiling Bazel from Source (bootstrapping)
 
-You can build Bazel from source without using an existing Bazel binary.
+To build Bazel from source, you can do one of the following:
+
+*   Build it using an existing Bazel Binary
+
+*   Build it without an existing Bazel binary, which is known as _bootstraping_
+
+This document describes how to bootstrap Bazel.
 
 ### 1.  Install the prerequisites
 
-#### Unix-like systems
+#### Ubuntu Linux, macOS, and other Unix-like systems
 
 Ensure you have installed:
 
@@ -56,8 +62,11 @@ Ensure you have installed:
 
 ### 2.  Download and unpack Bazel's source files (distribution archive)
 
-Download `bazel-<version>-dist.zip` from [GitHub](https://github.com/bazelbuild/bazel/releases),
-e.g. `bazel-0.15.2-dist.zip`.
+Download `bazel-<version>-dist.zip` from [GitHub](https://github.com/bazelbuild/bazel/releases)
+(for example, `bazel-0.15.2-dist.zip`). If you want to build a development snapshot of
+Bazel, download the archive for the latest release before the snapshot
+you are interested in as you need to bootstrap that version of Bazel
+first in order to build the snapshot version.
 
 **Note:** There is a **single, architecture-independent** distribution archive. There are no architecture-specific or OS-specific distribution archives.
 
@@ -71,9 +80,7 @@ We recommend to also verify the signature made by our
 
 ### 3.  Bootstrap Bazel
 
-#### Unix-like systems
-
-On Unix-like systems such as Ubuntu Linux or macOS, do the following:
+#### Ubuntu Linux, macOS, and other Unix-like systems
 
 1.  Open a shell or Terminal window.
 
@@ -126,3 +133,9 @@ Bazel binary, without an embedded JDK. You can copy it to a directory within the
 
 You don't need to run Bazel from the MSYS2 shell. You can run Bazel from the
 Command Prompt (`cmd.exe`) or PowerShell.
+
+### 4. Development snapshots of Bazel
+
+Once you have a reasonably new working `bazel` binary, you can also build
+snapshot versions of Bazel by checking out the commit you're interested in
+and build a new version of Bazel by `bazel build //src:bazel`.

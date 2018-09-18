@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.Objects;
 
@@ -39,16 +36,6 @@ public final class CrosstoolConfigurationIdentifier implements CrosstoolConfigur
   CrosstoolConfigurationIdentifier(String cpu, String compiler) {
     this.cpu = Preconditions.checkNotNull(cpu);
     this.compiler = compiler;
-  }
-
-  /**
-   * Creates a new crosstool configuration from the given crosstool release and
-   * configuration options.
-   */
-  public static CrosstoolConfigurationIdentifier fromOptions(BuildOptions buildOptions) {
-    Options options = buildOptions.get(BuildConfiguration.Options.class);
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
-    return new CrosstoolConfigurationIdentifier(options.cpu, cppOptions.cppCompiler);
   }
 
   public static CrosstoolConfigurationIdentifier fromToolchain(CToolchain toolchain) {

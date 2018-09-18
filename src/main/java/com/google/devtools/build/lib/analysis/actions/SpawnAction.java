@@ -363,7 +363,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   Spawn getSpawn(
       ArtifactExpander artifactExpander,
       Map<String, String> clientEnv,
-      Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings)
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings)
       throws CommandLineExpansionException {
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
@@ -501,7 +501,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   private class ActionSpawn extends BaseSpawn {
 
     private final ImmutableList<ActionInput> inputs;
-    private final Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings;
+    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
 
     /**
@@ -514,7 +514,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ImmutableList<String> arguments,
         Map<String, String> clientEnv,
         Iterable<? extends ActionInput> additionalInputs,
-        Map<PathFragment, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
       super(
           arguments,
           ImmutableMap.<String, String>of(),
@@ -543,7 +543,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     @Override
-    public ImmutableMap<PathFragment, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
+    public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
       return ImmutableMap.copyOf(filesetMappings);
     }
 
@@ -667,7 +667,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               ? configuration.getActionEnvironment()
               : ActionEnvironment.create(environment, inheritedEnvironment);
       Action spawnAction =
-          buildSpawnAction(owner, commandLines, configuration.getCommandLineLimits(), env);
+          buildSpawnAction(
+              owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
       actions[0] = spawnAction;
       return actions;
     }
@@ -684,6 +685,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           owner,
           result.build(),
           CommandLineLimits.UNLIMITED,
+          null,
           ActionEnvironment.create(environment, inheritedEnvironment));
     }
 
@@ -772,6 +774,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ActionOwner owner,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
+        @Nullable BuildConfiguration configuration,
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
 
@@ -800,7 +803,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           commandLineLimits,
           isShellCommand,
           env,
-          ImmutableMap.copyOf(executionInfo),
+          configuration == null
+              ? executionInfo
+              : configuration.modifiedExecutionInfo(executionInfo, mnemonic),
           progressMessage,
           new CompositeRunfilesSupplier(
               Iterables.concat(this.inputRunfilesSuppliers, this.toolRunfilesSuppliers)),

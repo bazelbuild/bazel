@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -64,7 +64,7 @@ public abstract class AbstractParallelEvaluator {
   final ProcessableGraph graph;
   final ParallelEvaluatorContext evaluatorContext;
   protected final CycleDetector cycleDetector;
-  @Nullable private final AtomicInteger globalEnqueuedIndex;
+  private final AtomicInteger globalEnqueuedIndex;
 
   AbstractParallelEvaluator(
       ProcessableGraph graph,
@@ -103,7 +103,7 @@ public abstract class AbstractParallelEvaluator {
                     progressReceiver,
                     (skyKey, evaluationPriority) -> new Evaluate(evaluationPriority, skyKey)),
             evaluationVersionBehavior);
-    this.globalEnqueuedIndex = null;
+    this.globalEnqueuedIndex = new AtomicInteger();
   }
 
   /**
@@ -292,9 +292,7 @@ public abstract class AbstractParallelEvaluator {
           continue;
         }
         handleKnownChildrenForDirtyNode(
-            unknownStatusDeps,
-            state,
-            globalEnqueuedIndex != null ? globalEnqueuedIndex.incrementAndGet() : 0);
+            unknownStatusDeps, state, globalEnqueuedIndex.incrementAndGet());
         return DirtyOutcome.ALREADY_PROCESSED;
       }
       switch (state.getDirtyState()) {
@@ -634,8 +632,7 @@ public abstract class AbstractParallelEvaluator {
         Set<SkyKey> newDepsThatWereInTheLastEvaluation =
             Sets.difference(uniqueNewDeps, newDepsThatWerentInTheLastEvaluation);
 
-        int childEvaluationPriority =
-            globalEnqueuedIndex != null ? globalEnqueuedIndex.incrementAndGet() : 0;
+        int childEvaluationPriority = globalEnqueuedIndex.incrementAndGet();
         InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>>
             newDepsThatWerentInTheLastEvaluationNodes =
                 graph.createIfAbsentBatchAsync(

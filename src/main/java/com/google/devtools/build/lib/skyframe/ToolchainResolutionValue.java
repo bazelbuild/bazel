@@ -48,7 +48,7 @@ public abstract class ToolchainResolutionValue implements SkyValue {
   @AutoCodec
   @AutoCodec.VisibleForSerialization
   @AutoValue
-  abstract static class Key implements SkyKey {
+  public abstract static class Key implements SkyKey {
 
     @Override
     public SkyFunctionName functionName() {

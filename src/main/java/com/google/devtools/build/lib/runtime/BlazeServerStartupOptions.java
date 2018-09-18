@@ -441,4 +441,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
       },
       help = "Run System.gc() when the server is idle")
   public boolean idleServerTasks;
+
+  @Option(
+      name = "unlimit_coredumps",
+      defaultValue = "false", // NOTE: purely decorative, rc files are read by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+      },
+      help = "Raises the soft coredump limit to the hard limit to make coredumps of the server"
+          + " (including the JVM) and the client possible under common conditions. Stick this"
+          + " flag in your bazelrc once and forget about it so that you get coredumps when you"
+          + " actually encounter a condition that triggers them.")
+  public boolean unlimitCoredumps;
 }

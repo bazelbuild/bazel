@@ -224,6 +224,22 @@ public final class SimpleLogHandlerTest {
   }
 
   @Test
+  public void testSymbolicLinkInitiallyInvalidReplaced() throws Exception {
+    Path symlinkPath = Paths.get(tmp.getRoot().toString(), "hello");
+    Files.createSymbolicLink(symlinkPath, Paths.get("no-such-file"));
+
+    // Expected to delete the (invalid) symlink and replace with a symlink to the log
+    SimpleLogHandler handler =
+        SimpleLogHandler.builder().setPrefix(symlinkPath.toString()).build();
+    handler.publish(new LogRecord(Level.SEVERE, "Hello world")); // To open the log file.
+
+    assertThat(handler.getSymbolicLinkPath().toString()).isEqualTo(symlinkPath.toString());
+    assertThat(Files.isSymbolicLink(handler.getSymbolicLinkPath())).isTrue();
+    assertThat(Files.readSymbolicLink(handler.getSymbolicLinkPath()).toString())
+        .isEqualTo(handler.getCurrentLogFilePath().get().getFileName().toString());
+  }
+
+  @Test
   public void testLogLevelEqualPublished() throws Exception {
     SimpleLogHandler handler =
         SimpleLogHandler.builder()

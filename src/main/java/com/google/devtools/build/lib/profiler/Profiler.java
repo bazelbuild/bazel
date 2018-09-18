@@ -898,7 +898,7 @@ public final class Profiler {
 
     FileWriter() {
       this.queue = new LinkedBlockingDeque<>();
-      this.thread = new Thread(this);
+      this.thread = new Thread(this, "profile-writer-thread");
     }
 
     public void shutdown() throws IOException {

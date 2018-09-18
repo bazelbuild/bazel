@@ -287,6 +287,21 @@ title: User Manual
   build:memcheck --strip=never --test_timeout=3600
 </pre>
 
+
+<h3 id='startup files'>
+  Other files governing Bazel's behavior
+</h3>
+
+<h4 id='.bazelignore'><code>.bazelignore</code></h4>
+<p>
+  You can specify directories within the workspace
+  that you want Bazel to ignore, such as related projects
+  that use other build systems. Place a file called
+  <code>.bazelignore</code> at the root of the workspace
+  and add the directories you want Bazel to ignore, one per
+  line. Entries are relative to the workspace root.
+</p>
+
 <h2 id='build'>Building programs with Bazel</h2>
 <h3>The <code>build</code> command</h3>
 
@@ -1483,6 +1498,12 @@ the compilation of binaries during the build.
 <p>
 
 </p>
+<p>
+  Note that a particular combination of crosstool version, compiler version,
+  and target CPU is allowed only if it has been specified in the currently
+  used CROSSTOOL file.
+</p>
+
 
 <h4 id='flag--experimental_action_listener'>
   <code class='flag'>--experimental_action_listener=<var>label</var></code>
@@ -1531,13 +1552,6 @@ the compilation of binaries during the build.
 <pre>% bazel build --experimental_action_listener=//test:al //foo/... \
   --experimental_extra_action_filter=.*/bar/.*
 </pre>
-
-<h3 id='strategy-options'>Build strategy options</h3>
-<p>
-  Note that a particular combination of crosstool version, compiler version,
-  and target CPU is allowed only if it has been specified in the currently
-  used CROSSTOOL file.
-</p>
 
 <h4 id='flag--host_cpu'><code class='flag'>--host_cpu <var>cpu</var></code></h4>
 <p>
@@ -3416,6 +3430,8 @@ adb -s deadbeef install ...
   <li><code class='flag'>--action_graph:targets=target1,target2,...</code>
     filters the actions to the comma-separated list of targets when dumping the
     action graph.</li>
+  <li><code class='flag'>--action_graph:include_cmdline</code> Include the command lines of actions
+    in the action graph dump.</li>
 </ul>
 
   <h4 id='memory-tracking'>Memory tracking</h4>
@@ -3609,8 +3625,7 @@ adb -s deadbeef install ...
 <p>
   Specifies the Java virtual machine in which <i>Bazel itself</i> runs. The value must be a path to
   the directory containing a JDK or JRE. It should not be a label.
-  This option should appear before any bazel command, and not be confused with the build option
-  <a href='#flag--server_javabase'>--server_javabase</a>, for example:
+  This option should appear before any Bazel command, for example:
 </p>
 <pre>
   % bazel --server_javabase=/usr/local/buildtools/java/jdk9 build //foo

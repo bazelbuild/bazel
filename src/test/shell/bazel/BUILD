@@ -41,8 +41,7 @@ filegroup(
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
-        "@local_jdk//:bootclasspath",
-        "@local_jdk//:jdk",
+        "@bazel_tools//tools/jdk:current_java_runtime",
     ] + select({
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
         # is resolved, use cc implementation of singlejar on windows
@@ -447,7 +446,7 @@ sh_test(
     size = "medium",
     srcs = ["workspace_resolved_test.sh"],
     data = [":test-deps"],
-    shard_count = 10,
+    shard_count = 12,
     tags = ["no_windows"],
 )
 
@@ -654,6 +653,14 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "bazel_strategy_test",
+    size = "small",
+    srcs = ["bazel_strategy_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
@@ -679,6 +686,9 @@ test_suite(
 sh_test(
     name = "bazel_workspaces_test",
     srcs = ["bazel_workspaces_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/tools/workspacelog:parser",
+    ],
     tags = ["no_windows"],
 )

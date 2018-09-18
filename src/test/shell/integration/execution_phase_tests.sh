@@ -165,7 +165,8 @@ EOF
   assert_cache_stats "miss count" 1  # volatile-status.txt
 }
 
-function IGNORED_test_cache_computed_file_digests_uncaught_changes() {
+function DISABLED_test_cache_computed_file_digests_uncaught_changes() {
+  # Does not work on Windows, https://github.com/bazelbuild/bazel/issues/6098
   local timestamp=201703151112.13  # Fixed timestamp to mark our file with.
 
   mkdir -p package || fail "mkdir failed"

@@ -16,6 +16,13 @@ syntax = "proto3";
 
 package build.bazel.semver;
 
+option csharp_namespace = "Build.Bazel.Semver";
+option go_package = "semver";
+option java_multiple_files = true;
+option java_outer_classname = "SemverProto";
+option java_package = "build.bazel.semver";
+option objc_class_prefix = "SMV";
+
 message SemVer {
   int32 major = 1;
   int32 minor = 2;

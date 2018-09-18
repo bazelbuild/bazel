@@ -40,10 +40,19 @@ import javax.annotation.Nullable;
 @SkylarkModule(
     name = "ctx",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "The context of the rule containing helper functions and "
-        + "information about attributes, depending targets and outputs. "
-        + "You get a ctx object as an argument to the <code>implementation</code> function when "
-        + "you create a rule.")
+    doc = "A context object that is passed to the implementation function for a rule or aspect. "
+        + "It provides access to the information and methods needed to analyze the current target."
+        + ""
+        + "<p>In particular, it lets the implementation function access the current target's "
+        + "label, attributes, configuration, and the providers of its dependencies. It has methods "
+        + "for declaring output files and the actions that produce them."
+        + ""
+        + "<p>Context objects essentially live for the duration of the call to the implementation "
+        + "function. It is not useful to access these objects outside of their associated "
+        + "function."
+        + ""
+        + "See the <a href='../rules.$DOC_EXT#implementation-function'>Rules page</a> for more "
+        + "information.")
 public interface SkylarkRuleContextApi extends SkylarkValue {
 
   public static final String DOC_NEW_FILE_TAIL = "Does not actually create a file on the file "
@@ -123,10 +132,10 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
           + "labels given for that attribute in the target, or an empty list if the attribute was "
           + "not specified in the target."
           + "<li><b>(Deprecated)</b> If the rule is marked <a href='globals.html#rule.executable'>"
-          + "<code>executable</code></a> or <a href='globals.html#rule.test'><code>test</code></a>,"
-          + "there is a field named <code>\"executable\"</code>, which is the default executable. "
-          + "It is recommended that instead of using this, you pass another file (either "
-          + "predeclared or not) to the <code>executable</code> arg of "
+          + "<code>executable</code></a> or <a href='globals.html#rule.test'><code>test</code>"
+          + "</a>, there is a field named <code>\"executable\"</code>, which is the default "
+          + "executable. It is recommended that instead of using this, you pass another file "
+          + "(either predeclared or not) to the <code>executable</code> arg of "
           + "<a href='globals.html#DefaultInfo'><code>DefaultInfo</code></a>."
           + "</ul>";
 
@@ -140,7 +149,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   @SkylarkCallable(
     name = "actions",
     structField = true,
-    doc = "Functions to declare files and create actions."
+    doc = "Contains methods for declaring output files and the actions that produce them."
   )
   public SkylarkActionFactoryApi actions();
 
@@ -179,7 +188,11 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
   )
   public String getWorkspaceName() throws EvalException;
 
-  @SkylarkCallable(name = "label", structField = true, doc = "The label of this rule.")
+  @SkylarkCallable(
+    name = "label",
+    structField = true,
+    doc = "The label of the target currently being analyzed."
+  )
   public Label getLabel() throws EvalException;
 
   @SkylarkCallable(
@@ -219,8 +232,8 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
     doc = "Returns whether code coverage instrumentation should be generated when performing "
         + "compilation actions for this rule or, if <code>target</code> is provided, the rule "
         + "specified by that Target. (If a non-rule or a Skylark rule Target is provided, this "
-        + "returns False.) Checks if the sources of the current rule (if no Target is provided) or"
-        + "the sources of Target should be instrumented based on the --instrumentation_filter and"
+        + "returns False.) Checks if the sources of the current rule (if no Target is provided) or "
+        + "the sources of Target should be instrumented based on the --instrumentation_filter and "
         + "--instrument_test_targets config settings. "
         + "This differs from <code>coverage_enabled</code> in the <a href=\"configuration.html\">"
         + "configuration</a>, which notes whether coverage data collection is enabled for the "
@@ -489,7 +502,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
               + "instead.<br>Returns a string after expanding all references to \"Make "
               + "variables\". The "
               + "variables must have the following format: <code>$(VAR_NAME)</code>. Also, "
-              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>."
+              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. "
               + "Examples:"
               + "<pre class=language-python>\n"
               + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  "
@@ -726,7 +739,11 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
             + "<code>$(location ...)</code> will cause an error if the referenced target has "
             + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
             + "produces a space-separated list of output paths. It can be safely used for a "
-            + "single output file, too.",
+            + "single output file, too."
+            + "<br/><br/>"
+            + "This function is useful to let the user specify a command in a BUILD file (like "
+            + "for <code>genrule</code>). In other cases, it is often better to manipulate labels "
+            + "directly.",
     parameters = {
       @Param(name = "input", type = String.class, doc = "String to be expanded."),
       @Param(
@@ -931,7 +948,7 @@ public interface SkylarkRuleContextApi extends SkylarkValue {
     doc =
         "<i>(Experimental)</i> "
             + "Returns a tuple <code>(inputs, command, input_manifests)</code> of the list of "
-            + "resolved inputs, the argv list for the resolved command, and the runfiles metadata"
+            + "resolved inputs, the argv list for the resolved command, and the runfiles metadata "
             + "required to run the command, all of them suitable for passing as the same-named "
             + "arguments of the <code>ctx.action</code> method.",
     parameters = {

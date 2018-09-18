@@ -19,6 +19,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 /** Validated Android data which can be merged together with assets from dependencies. */
 @SkylarkModule(
     name = "ValidatedAndroidDataApi",
-    doc = "Validated Android data which can be merged together with assets from dependencies.",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Validated Android data which can be merged together with assets from dependencies.",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface ValidatedAndroidDataApi {}

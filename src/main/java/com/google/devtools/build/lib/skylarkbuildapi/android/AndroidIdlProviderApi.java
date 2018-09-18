@@ -31,7 +31,11 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
  */
 @SkylarkModule(
     name = "AndroidIdlInfo",
-    doc = "Information about Android IDLs",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed."
+            + "Information about Android IDLs",
+    documented = false,
     category = SkylarkModuleCategory.PROVIDER)
 public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi {
 
@@ -42,37 +46,47 @@ public interface AndroidIdlProviderApi<FileT extends FileApi> extends StructApi 
   @SkylarkCallable(
       name = "transitive_idl_import_roots",
       structField = true,
-      doc = "Returns a depset of strings of all the idl import roots.")
+      doc = "Returns a depset of strings of all the idl import roots.",
+      documented = false)
   NestedSet<String> getTransitiveIdlImportRoots();
 
   /** The IDL files in the transitive closure. */
   @SkylarkCallable(
       name = "transitive_idl_imports",
       structField = true,
-      doc = "Returns a depset of artifacts of all the idl imports.")
+      doc = "Returns a depset of artifacts of all the idl imports.",
+      documented = false)
   NestedSet<FileT> getTransitiveIdlImports();
 
   /** The IDL jars in the transitive closure, both class and source jars. */
   @SkylarkCallable(
       name = "transitive_idl_jars",
       structField = true,
-      doc = "Returns a depset of artifacts of all the idl class and source jars.")
+      doc = "Returns a depset of artifacts of all the idl class and source jars.",
+      documented = false)
   NestedSet<FileT> getTransitiveIdlJars();
 
   /** The preprocessed IDL files in the transitive closure. */
   @SkylarkCallable(
       name = "transitive_idl_preprocessed",
       structField = true,
-      doc = "Returns a depset of artifacts of all the idl preprocessed files.")
+      doc = "Returns a depset of artifacts of all the idl preprocessed files.",
+      documented = false)
   NestedSet<FileT> getTransitiveIdlPreprocessed();
 
   /** The provider implementing this can construct the AndroidIdlInfo provider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @SkylarkModule(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
   public interface Provider<FileT extends FileApi> extends ProviderApi {
 
     @SkylarkCallable(
         name = NAME,
         doc = "The <code>AndroidIdlInfo</code> constructor.",
+        documented = false,
         parameters = {
           @Param(
               name = "transitive_idl_import_roots",

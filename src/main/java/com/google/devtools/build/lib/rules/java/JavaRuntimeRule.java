@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
@@ -36,11 +37,15 @@ public final class JavaRuntimeRule implements RuleDefinition {
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java) -->
+        The path to the java executable.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("java", LABEL).singleArtifact().allowedFileTypes(FileTypeSet.ANY_FILE).exec())
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java_home) -->
         The path to the root of the runtime.
         Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
         If this path is absolute, the rule denotes a non-hermetic Java runtime with a well-known
-        path. In that case, the <code>srcs</code> attribute must be empty.
+        path. In that case, the <code>srcs</code> and <java></code> attributes must be empty.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("java_home", STRING))
         .add(attr("output_licenses", LICENSE))

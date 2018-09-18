@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 from src.test.py.bazel import test_base
@@ -19,49 +20,98 @@ from src.test.py.bazel import test_base
 
 class TestWrapperTest(test_base.TestBase):
 
-  def testTestExecutionWithTestSetupShAndWithTestWrapperExe(self):
+  def _CreateMockWorkspace(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
-        'py_test(',
-        '    name = "x_test",',
-        '    srcs = ["x_test.py"],',
+        'sh_test(',
+        '    name = "passing_test.bat",',
+        '    srcs = ["passing.bat"],',
+        ')',
+        'sh_test(',
+        '    name = "failing_test.bat",',
+        '    srcs = ["failing.bat"],',
+        ')',
+        'sh_test(',
+        '    name = "printing_test.bat",',
+        '    srcs = ["printing.bat"],',
         ')',
     ])
+    self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
+    self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
     self.ScratchFile(
-        'foo/x_test.py', [
-            'from __future__ import print_function',
-            'import unittest',
-            '',
-            'class XTest(unittest.TestCase):',
-            '    def testFoo(self):',
-            '        print("lorem ipsum")',
-            '',
-            'if __name__ == "__main__":',
-            '  unittest.main()',
+        'foo/printing.bat', [
+            '@echo lorem ipsum',
+            '@echo TEST_SRCDIR=%TEST_SRCDIR%',
+            '@echo TEST_TMPDIR=%TEST_TMPDIR%',
+            '@echo USER=%USER%',
         ],
         executable=True)
 
-    # Run test with test-setup.sh
-    exit_code, stdout, stderr = self.RunBazel([
-        'test', '//foo:x_test', '--test_output=streamed', '-t-',
-        '--nowindows_native_test_wrapper'
+  def _AssertPassingTest(self, flag):
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:passing_test.bat',
+        '-t-',
+        flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)
-    found = False
+
+  def _AssertFailingTest(self, flag):
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:failing_test.bat',
+        '-t-',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 3, stderr)
+
+  def _AssertPrintingTest(self, flag):
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:printing_test.bat',
+        '--test_output=streamed',
+        '-t-',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+    lorem = False
     for line in stdout + stderr:
       if 'lorem ipsum' in line:
-        found = True
-    if not found:
+        lorem = True
+      if 'TEST_SRCDIR=' in line:
+        srcdir = line[len('TEST_SRCDIR='):]
+      if 'TEST_TMPDIR=' in line:
+        tmpdir = line[len('TEST_TMPDIR='):]
+      if 'USER=' in line:
+        user = line[len('USER='):]
+    if not lorem:
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isdir(srcdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isfile(srcdir + '/MANIFEST'):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isabs(srcdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isdir(tmpdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not os.path.isabs(tmpdir):
+      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+    if not user:
       self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
 
-    # Run test with test_wrapper.exe
-    exit_code, _, stderr = self.RunBazel([
-        'test', '//foo:x_test', '--test_output=streamed', '-t-',
-        '--windows_native_test_wrapper'
-    ])
-
-    # As of 2018-08-17, test_wrapper.exe cannot yet run tests.
-    self.AssertExitCode(exit_code, 3, stderr)
+  def testTestExecutionWithTestSetupShAndWithTestWrapperExe(self):
+    self._CreateMockWorkspace()
+    flag = '--nowindows_native_test_wrapper'
+    self._AssertPassingTest(flag)
+    self._AssertFailingTest(flag)
+    self._AssertPrintingTest(flag)
+    # As of 2018-09-11, the Windows native test runner can run simple tests and
+    # export a few envvars, though it does not completely set up the test's
+    # environment yet.
+    flag = '--windows_native_test_wrapper'
+    self._AssertPassingTest(flag)
+    self._AssertFailingTest(flag)
+    self._AssertPrintingTest(flag)
 
 
 if __name__ == '__main__':

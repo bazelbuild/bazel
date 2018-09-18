@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
@@ -108,8 +109,6 @@ public interface JavaSemantics {
    */
   String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
 
-  /** The java_toolchain.compatible_javacopts key for Java 7 javacopts */
-  public static final String JAVA7_JAVACOPTS_KEY = "java7";
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
@@ -462,7 +461,7 @@ public interface JavaSemantics {
       List<String> jvmFlags,
       JavaTargetAttributes.Builder attributesBuilder,
       boolean shouldStrip)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Add a source artifact to a {@link JavaTargetAttributes.Builder}. It is called when a source

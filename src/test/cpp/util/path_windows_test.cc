@@ -41,30 +41,88 @@ using std::unique_ptr;
 using std::wstring;
 
 TEST(PathWindowsTest, TestNormalizeWindowsPath) {
-  ASSERT_EQ(string(""), NormalizeWindowsPath(""));
-  ASSERT_EQ(string(""), NormalizeWindowsPath("."));
-  ASSERT_EQ(string("foo"), NormalizeWindowsPath("foo"));
-  ASSERT_EQ(string("foo"), NormalizeWindowsPath("foo/"));
-  ASSERT_EQ(string("foo\\bar"), NormalizeWindowsPath("foo//bar"));
-  ASSERT_EQ(string("foo\\bar"), NormalizeWindowsPath("../..//foo/./bar"));
-  ASSERT_EQ(string("foo\\bar"), NormalizeWindowsPath("../foo/baz/../bar"));
-  ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:"));
-  ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:/"));
-  ASSERT_EQ(string("c:\\"), NormalizeWindowsPath("c:\\"));
-  ASSERT_EQ(string("c:\\foo\\bar"), NormalizeWindowsPath("c:\\..//foo/./bar/"));
+#define ASSERT_NORMALIZE(x, y)                                           \
+  {                                                                      \
+    std::string result;                                                  \
+    EXPECT_TRUE(                                                         \
+        blaze_util::testing::TestOnly_NormalizeWindowsPath(x, &result)); \
+    EXPECT_EQ(result, y);                                                \
+  }
 
-  ASSERT_EQ(wstring(L""), NormalizeWindowsPath(L""));
-  ASSERT_EQ(wstring(L""), NormalizeWindowsPath(L"."));
-  ASSERT_EQ(wstring(L"foo"), NormalizeWindowsPath(L"foo"));
-  ASSERT_EQ(wstring(L"foo"), NormalizeWindowsPath(L"foo/"));
-  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"foo//bar"));
-  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"../..//foo/./bar"));
-  ASSERT_EQ(wstring(L"foo\\bar"), NormalizeWindowsPath(L"../foo/baz/../bar"));
-  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:"));
-  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:/"));
-  ASSERT_EQ(wstring(L"c:\\"), NormalizeWindowsPath(L"c:\\"));
-  ASSERT_EQ(wstring(L"c:\\foo\\bar"),
-            NormalizeWindowsPath(L"c:\\..//foo/./bar/"));
+  ASSERT_NORMALIZE("", "");
+  ASSERT_NORMALIZE("a", "a");
+  ASSERT_NORMALIZE("foo/bar", "foo\\bar");
+  ASSERT_NORMALIZE("foo/../bar", "bar");
+  ASSERT_NORMALIZE("a/", "a");
+  ASSERT_NORMALIZE("foo", "foo");
+  ASSERT_NORMALIZE("foo/", "foo");
+  ASSERT_NORMALIZE(".", ".");
+  ASSERT_NORMALIZE("./", ".");
+  ASSERT_NORMALIZE("..", "..");
+  ASSERT_NORMALIZE("../", "..");
+  ASSERT_NORMALIZE("./..", "..");
+  ASSERT_NORMALIZE("./../", "..");
+  ASSERT_NORMALIZE("../.", "..");
+  ASSERT_NORMALIZE(".././", "..");
+  ASSERT_NORMALIZE("...", "...");
+  ASSERT_NORMALIZE(".../", "...");
+  ASSERT_NORMALIZE("a/", "a");
+  ASSERT_NORMALIZE(".a", ".a");
+  ASSERT_NORMALIZE("..a", "..a");
+  ASSERT_NORMALIZE("...a", "...a");
+  ASSERT_NORMALIZE("./a", "a");
+  ASSERT_NORMALIZE("././a", "a");
+  ASSERT_NORMALIZE("./../a", "..\\a");
+  ASSERT_NORMALIZE(".././a", "..\\a");
+  ASSERT_NORMALIZE("../../a", "..\\..\\a");
+  ASSERT_NORMALIZE("../.../a", "..\\...\\a");
+  ASSERT_NORMALIZE(".../../a", "a");
+  ASSERT_NORMALIZE("a/..", "");
+  ASSERT_NORMALIZE("a/../", "");
+  ASSERT_NORMALIZE("a/./../", "");
+
+  ASSERT_NORMALIZE("c:/", "c:\\");
+  ASSERT_NORMALIZE("c:/a", "c:\\a");
+  ASSERT_NORMALIZE("c:/foo/bar", "c:\\foo\\bar");
+  ASSERT_NORMALIZE("c:/foo/../bar", "c:\\bar");
+  ASSERT_NORMALIZE("d:/a/", "d:\\a");
+  ASSERT_NORMALIZE("D:/foo", "D:\\foo");
+  ASSERT_NORMALIZE("c:/foo/", "c:\\foo");
+  ASSERT_NORMALIZE("c:/.", "c:\\");
+  ASSERT_NORMALIZE("c:/./", "c:\\");
+  ASSERT_NORMALIZE("c:/..", "c:\\");
+  ASSERT_NORMALIZE("c:/../", "c:\\");
+  ASSERT_NORMALIZE("c:/./..", "c:\\");
+  ASSERT_NORMALIZE("c:/./../", "c:\\");
+  ASSERT_NORMALIZE("c:/../.", "c:\\");
+  ASSERT_NORMALIZE("c:/.././", "c:\\");
+  ASSERT_NORMALIZE("c:/...", "c:\\...");
+  ASSERT_NORMALIZE("c:/.../", "c:\\...");
+  ASSERT_NORMALIZE("c:/.a", "c:\\.a");
+  ASSERT_NORMALIZE("c:/..a", "c:\\..a");
+  ASSERT_NORMALIZE("c:/...a", "c:\\...a");
+  ASSERT_NORMALIZE("c:/./a", "c:\\a");
+  ASSERT_NORMALIZE("c:/././a", "c:\\a");
+  ASSERT_NORMALIZE("c:/./../a", "c:\\a");
+  ASSERT_NORMALIZE("c:/.././a", "c:\\a");
+  ASSERT_NORMALIZE("c:/../../a", "c:\\a");
+  ASSERT_NORMALIZE("c:/../.../a", "c:\\...\\a");
+  ASSERT_NORMALIZE("c:/.../../a", "c:\\a");
+  ASSERT_NORMALIZE("c:/a/..", "c:\\");
+  ASSERT_NORMALIZE("c:/a/../", "c:\\");
+  ASSERT_NORMALIZE("c:/a/./../", "c:\\");
+
+  ASSERT_NORMALIZE("foo", "foo");
+  ASSERT_NORMALIZE("foo/", "foo");
+  ASSERT_NORMALIZE("foo//bar", "foo\\bar");
+  ASSERT_NORMALIZE("../..//foo/./bar", "..\\..\\foo\\bar");
+  ASSERT_NORMALIZE("../foo/baz/../bar", "..\\foo\\bar");
+  ASSERT_NORMALIZE("c:", "c:\\");
+  ASSERT_NORMALIZE("c:/", "c:\\");
+  ASSERT_NORMALIZE("c:\\", "c:\\");
+  ASSERT_NORMALIZE("c:\\..//foo/./bar/", "c:\\foo\\bar");
+  ASSERT_NORMALIZE("../foo", "..\\foo");
+#undef ASSERT_NORMALIZE
 }
 
 TEST(PathWindowsTest, TestDirname) {

@@ -180,6 +180,23 @@ EOF
   # keep directories writable though, so that test clean up can work
   chmod 755 error
   chmod 755 pkg/errorAfterWarning
+  mkdir -p pkg/debugMessages
+  cat > pkg/debugMessages/rule.bzl <<'EOF'
+def _impl(ctx):
+  print("static debug message")
+  ctx.actions.write(ctx.outputs.out, "Hello World")
+
+withdebug = rule(
+  implementation = _impl,
+  attrs = {},
+  outputs = {"out" : "%{name}.txt"},
+)
+EOF
+  cat > pkg/debugMessages/BUILD <<'EOF'
+load("//pkg/debugMessages:rule.bzl", "withdebug")
+
+[ withdebug(name = "target%d" % (i,)) for i in range(50) ]
+EOF
 }
 
 #### TESTS #############################################################
@@ -384,6 +401,17 @@ function test_output_deduplicated {
     expect_log_once 'Build Warning'
     expect_log 'This is the error message'
     expect_log 'ERROR.*//pkg/errorAfterWarning:failing'
+    expect_log 'deduplicated.*events'
+}
+
+function test_debug_deduplicated {
+    # Verify that we suscessfully deduplicate identical debug statements
+    bazel clean --expunge
+    bazel version
+    bazel build --experimental_ui --curses=yes --color=yes \
+          --experimental_ui_deduplicate \
+          pkg/debugMessages/... >"${TEST_log}" 2>&1 || fail "Expected success"
+    expect_log_once 'static debug message'
     expect_log 'deduplicated.*events'
 }
 

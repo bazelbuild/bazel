@@ -63,7 +63,7 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
 
 is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
 is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
-is_absolute "$HOME" || HOME="$PWD/$TEST_TMPDIR"
+is_absolute "$HOME" || HOME="$TEST_TMPDIR"
 is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
 
 # Set USER to the current user, unless passed by Bazel via --test_env.
@@ -126,11 +126,11 @@ function rlocation() {
 
 export -f rlocation
 export -f is_absolute
-export RUNFILES_MANIFEST_FILE
-# If the runfiles manifest exist, then test programs should use it to find
+# If RUNFILES_MANIFEST_ONLY is set to 1, then test programs should use manifest file to find
 # runfiles.
-if [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
-  export RUNFILES_MANIFEST_ONLY=1
+if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" ]]; then
+  export RUNFILES_MANIFEST_FILE
+  export RUNFILES_MANIFEST_ONLY
 fi
 
 DIR="$TEST_SRCDIR"

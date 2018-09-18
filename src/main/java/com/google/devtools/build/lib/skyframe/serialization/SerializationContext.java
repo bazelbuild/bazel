@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 /**
  * Stateful class for providing additional context to a single serialization "session". This class
  * is thread-safe so long as {@link #serializer} is null (which also implies that {@link
- * #allowFuturesToBlockWritingOn) is false). If it is not null, this class is not thread-safe and
+ * #allowFuturesToBlockWritingOn}) is false). If it is not null, this class is not thread-safe and
  * should only be accessed on a single thread for serializing one object (that may involve
  * serializing other objects contained in it).
  */

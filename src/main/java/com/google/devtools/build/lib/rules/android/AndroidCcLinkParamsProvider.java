@@ -14,12 +14,9 @@
 
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Function;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.cpp.AbstractCcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -42,12 +39,6 @@ public final class AndroidCcLinkParamsProvider extends NativeInfo
   public CcLinkingInfo getLinkParams() {
     return ccLinkingInfo;
   }
-
-  public static final Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> TO_LINK_PARAMS =
-      (TransitiveInfoCollection input) -> {
-        AndroidCcLinkParamsProvider provider = input.get(AndroidCcLinkParamsProvider.PROVIDER);
-        return provider == null ? null : provider.getLinkParams().getCcLinkParamsStore();
-      };
 
   /** Provider class for {@link AndroidCcLinkParamsProvider} objects. */
   public static class Provider extends BuiltinProvider<AndroidCcLinkParamsProvider>

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -208,7 +209,7 @@ public class CcModule
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
         /* includes= */ ImmutableList.of(),
-        asStringNestedSet(userCompileFlags),
+        userFlagsToIterable(ccToolchainProvider.getCppConfiguration(), userCompileFlags),
         /* cppModuleMap= */ null,
         usePic,
         /* fakeOutputFile= */ null,
@@ -254,12 +255,12 @@ public class CcModule
         featureConfiguration,
         useTestOnlyFlags,
         /* isLtoIndexing= */ false,
-        asStringNestedSet(userLinkFlags),
+        userFlagsToIterable(ccToolchainProvider.getCppConfiguration(), userLinkFlags),
         /* interfaceLibraryBuilder= */ null,
         /* interfaceLibraryOutput= */ null,
         /* ltoOutputRootPrefix= */ null,
         convertFromNoneable(defFile, /* defaultValue= */ null),
-        /* fdoSupport= */ null,
+        /* fdoProvider= */ null,
         asStringNestedSet(runtimeLibrarySearchDirectories),
         /* librariesToLink= */ null,
         asStringNestedSet(librarySearchDirectories),
@@ -285,13 +286,46 @@ public class CcModule
     return (T) obj;
   }
 
-  /** Converts an object that can be the either SkylarkNestedSet or None into NestedSet. */
+  /** Converts an object that can be ether SkylarkNestedSet or None into NestedSet. */
   protected NestedSet<String> asStringNestedSet(Object o) {
     SkylarkNestedSet skylarkNestedSet = convertFromNoneable(o, /* defaultValue= */ null);
     if (skylarkNestedSet != null) {
       return skylarkNestedSet.getSet(String.class);
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+  }
+
+  /** Converts an object that can be either SkylarkList, or None into ImmutableList. */
+  protected ImmutableList<String> asStringImmutableList(Object o) {
+    SkylarkList skylarkList = convertFromNoneable(o, /* defaultValue= */ null);
+    if (skylarkList != null) {
+      return skylarkList.getImmutableList();
+    } else {
+      return ImmutableList.of();
+    }
+  }
+
+  /**
+   * Converts an object that represents user flags and can be either SkylarkNestedSet , SkylarkList,
+   * or None into Iterable.
+   */
+  protected Iterable<String> userFlagsToIterable(CppConfiguration cppConfiguration, Object o)
+      throws EvalException {
+    if (o instanceof SkylarkNestedSet) {
+      if (cppConfiguration.disableDepsetInUserFlags()) {
+        throw new EvalException(
+            Location.BUILTIN,
+            "Passing depset into user flags is deprecated (see "
+                + "--incompatible_disable_depset_in_cc_user_flags), use list instead.");
+      }
+      return asStringNestedSet(o);
+    } else if (o instanceof SkylarkList) {
+      return asStringImmutableList(o);
+    } else if (o instanceof NoneType) {
+      return ImmutableList.of();
+    } else {
+      throw new EvalException(Location.BUILTIN, "Only depset and list is allowed.");
     }
   }
 
@@ -418,8 +452,7 @@ public class CcModule
         convertFromNoneable(skylarkFeatureConfiguration, null);
     Pair<List<Artifact>, List<Artifact>> separatedHeadersAndSources =
         separateSourcesFromHeaders(sources);
-    FdoSupportProvider fdoSupport =
-        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = ccToolchainProvider.getFdoProvider();
     // TODO(plf): Need to flatten the nested set to convert the Strings to PathFragment. This could
     // be avoided if path fragments are ever added to Skylark or in the C++ code we take Strings
     // instead of PathFragments.
@@ -431,7 +464,7 @@ public class CcModule
                 featureConfiguration,
                 CcCompilationHelper.SourceCategory.CC,
                 ccToolchainProvider,
-                fdoSupport)
+                fdoProvider)
             .addPublicHeaders(headers)
             .addIncludeDirs(
                 includeDirs
@@ -497,8 +530,7 @@ public class CcModule
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
     FeatureConfiguration featureConfiguration =
         convertFromNoneable(skylarkFeatureConfiguration, null);
-    FdoSupportProvider fdoSupport =
-        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FdoProvider fdoProvider = ccToolchainProvider.getFdoProvider();
     NestedSet<String> linkopts =
         convertSkylarkListOrNestedSetToNestedSet(skylarkLinkopts, String.class);
     CcLinkingHelper helper =
@@ -507,7 +539,7 @@ public class CcModule
                 cppSemantics,
                 featureConfiguration,
                 ccToolchainProvider,
-                fdoSupport,
+                fdoProvider,
                 ruleContext.getConfiguration())
             .addLinkopts(linkopts)
             .setShouldCreateStaticLibraries(shouldCreateStaticLibraries)
@@ -515,7 +547,15 @@ public class CcModule
             .addCcLinkingInfos(skylarkCcLinkingInfos)
             .setNeverLink(neverLink);
     try {
-      return helper.link(ccCompilationOutputs, CcCompilationContext.EMPTY);
+      CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
+      if (!ccCompilationOutputs.isEmpty()) {
+        ccLinkingOutputs = helper.link(ccCompilationOutputs);
+      }
+      CcLinkingInfo ccLinkingInfo =
+          helper.buildCcLinkingInfo(ccLinkingOutputs, CcCompilationContext.EMPTY);
+      TransitiveInfoProviderMapBuilder providers = new TransitiveInfoProviderMapBuilder();
+      providers.put(ccLinkingInfo);
+      return new LinkingInfo(providers.build(), ccLinkingOutputs);
     } catch (RuleErrorException e) {
       throw new EvalException(ruleContext.getRule().getLocation(), e);
     }
@@ -606,59 +646,15 @@ public class CcModule
         @Param(
             name = "toolchain_identifier",
             positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            type = String.class,
             named = true),
-        @Param(
-            name = "host_system_name",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "target_system_name",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "target_cpu",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "target_libc",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "compiler",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "abi_version",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
-        @Param(
-            name = "abi_libc_version",
-            positional = false,
-            noneable = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
-            named = true),
+        @Param(name = "host_system_name", positional = false, type = String.class, named = true),
+        @Param(name = "target_system_name", positional = false, type = String.class, named = true),
+        @Param(name = "target_cpu", positional = false, type = String.class, named = true),
+        @Param(name = "target_libc", positional = false, type = String.class, named = true),
+        @Param(name = "compiler", positional = false, type = String.class, named = true),
+        @Param(name = "abi_version", positional = false, type = String.class, named = true),
+        @Param(name = "abi_libc_version", positional = false, type = String.class, named = true),
         @Param(
             name = "supports_gold_linker",
             positional = false,
@@ -849,14 +845,14 @@ public class CcModule
       SkylarkList<Object> actionConfigs,
       SkylarkList<Object> artifactNamePatterns,
       SkylarkList<String> cxxBuiltInIncludeDirectories,
-      Object toolchhainIdentifier,
-      Object hostSystemName,
-      Object targetSystemName,
-      Object targetCpu,
-      Object targetLibc,
-      Object compiler,
-      Object abiVersion,
-      Object abiLibcVersion,
+      String toolchainIdentifier,
+      String hostSystemName,
+      String targetSystemName,
+      String targetCpu,
+      String targetLibc,
+      String compiler,
+      String abiVersion,
+      String abiLibcVersion,
       Boolean supportsGoldLinker,
       Boolean supportsStartEndLib,
       Boolean supportsInterfaceSharedObjects,
@@ -892,6 +888,13 @@ public class CcModule
         skylarkRuleContext.getConfiguration().getFragment(CppConfiguration.class);
     if (!config.enableCcToolchainConfigInfoFromSkylark()) {
       throw new InvalidConfigurationException("Creating a CcToolchainConfigInfo is not enabled.");
+    }
+    if (!skylarkRuleContext.getConfiguration().disableLateBoundOptionDefaults()
+        || !config.disableMakeVariables()) {
+      throw new InvalidConfigurationException(
+          "--incompatible_disable_late_bound_option_defaults and "
+              + "--incompatible_disable_cc_configuration_make_variables must be set to true in "
+              + "order to configure the C++ toolchain from Starlark.");
     }
 
     ImmutableList.Builder<Feature> featureBuilder = ImmutableList.builder();
@@ -929,20 +932,20 @@ public class CcModule
         featureBuilder.build(),
         artifactNamePatternBuilder.build(),
         ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
-        convertFromNoneable(toolchhainIdentifier, /* defaultValue= */ null),
-        convertFromNoneable(hostSystemName, /* defaultValue= */ null),
-        convertFromNoneable(targetSystemName, /* defaultValue= */ null),
-        convertFromNoneable(targetCpu, /* defaultValue= */ null),
-        convertFromNoneable(targetLibc, /* defaultValue= */ null),
-        convertFromNoneable(compiler, /* defaultValue= */ null),
-        convertFromNoneable(abiVersion, /* defaultValue= */ null),
-        convertFromNoneable(abiLibcVersion, /* defaultValue= */ null),
+        toolchainIdentifier,
+        hostSystemName,
+        targetSystemName,
+        targetCpu,
+        targetLibc,
+        compiler,
+        abiVersion,
+        abiLibcVersion,
         supportsGoldLinker,
         supportsStartEndLib,
         supportsInterfaceSharedObjects,
         supportsEmbeddedRuntimes,
-        convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ null),
-        convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ null),
+        convertFromNoneable(staticRuntimesFilegroup, /* defaultValue= */ ""),
+        convertFromNoneable(dynamicRuntimesFilegroup, /* defaultValue= */ ""),
         supportsFission,
         supportsDsym,
         needsPic,
@@ -966,9 +969,9 @@ public class CcModule
         ImmutableList.copyOf(fullyStaticLinkingModeFlags),
         ImmutableList.copyOf(mostlyStaticLibrariesLinkingModeFlags),
         makeVariablePairs.build(),
-        convertFromNoneable(builtinSysroot, /* defaultValue= */ null),
-        convertFromNoneable(defaultLibcTop, /* defaultValue= */ null),
-        convertFromNoneable(ccTargetOs, /* defaultValue= */ null),
+        convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
+        convertFromNoneable(defaultLibcTop, /* defaultValue= */ ""),
+        convertFromNoneable(ccTargetOs, /* defaultValue= */ ""),
         hasDynamicLinkingModeFlags);
   }
 

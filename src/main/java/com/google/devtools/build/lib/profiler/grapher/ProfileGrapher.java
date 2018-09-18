@@ -37,11 +37,45 @@ import java.util.StringJoiner;
  * -- /path/to/command.profile > /tmp/tmp.csv
  *
  * <p>Plot the resulting CSV with gnuplot like so: gnuplot -p -e \
- * set datafile sep ','; plot for [col=1:3] '/tmp/tmp.csv' using col lw 2 with lines \
+ * "set datafile sep ','; plot for [col=1:3] '/tmp/tmp.csv' using col lw 2 with lines \
  * title columnheader"
  */
 public class ProfileGrapher {
   public static final long DEFAULT_BUCKET_SIZE_MILLIS = 1000;
+
+  // Decode a JSON object and flattens any nested JSON objects.
+  private static Map<String, Object> decodeJsonObject(JsonReader reader) throws IOException {
+    reader.beginObject();
+    Map<String, Object> data = new HashMap<>();
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      Object value;
+      switch (reader.peek()) {
+        case BOOLEAN:
+          value = reader.nextBoolean();
+          break;
+        case NUMBER:
+          value = reader.nextDouble();
+          break;
+        case STRING:
+          value = reader.nextString();
+          break;
+        case BEGIN_OBJECT:
+          value = null;
+          Map<String, Object> childData = decodeJsonObject(reader);
+          for (Map.Entry<String, Object> entry : childData.entrySet()) {
+            data.put(name + "." + entry.getKey(), entry.getValue());
+          }
+          break;
+        default:
+          reader.skipValue();
+          continue;
+      }
+      data.put(name, value);
+    }
+    reader.endObject();
+    return data;
+  }
 
   public static void main(String[] args) throws IOException {
     if (args.length != 1) {
@@ -70,36 +104,26 @@ public class ProfileGrapher {
                 new InputStreamReader(new FileInputStream(filename), StandardCharsets.UTF_8)))) {
       reader.beginArray();
       while (reader.hasNext()) {
-        reader.beginObject();
-        Map<String, Object> data = new HashMap<>();
-        while (reader.hasNext()) {
-          String name = reader.nextName();
-          Object value;
-          switch (reader.peek()) {
-            case BOOLEAN:
-              value = reader.nextBoolean();
-              break;
-            case NUMBER:
-              value = reader.nextDouble();
-              break;
-            case STRING:
-              value = reader.nextString();
-              break;
-            default:
-              reader.skipValue();
-              continue;
-          }
-          data.put(name, value);
-        }
-        Object cat = data.get("cat");
-        CpuUsageTimeSeries series = seriesMap.get(cat);
-        if (series != null) {
-          Long endTimeMillis = decodeAndAdd(series, data);
-          if (endTimeMillis != null) {
-            maxEndTime = Math.max(maxEndTime, endTimeMillis);
+        Map<String, Object> data = decodeJsonObject(reader);
+        Object name = data.get("name");
+        if ("cpu counters".equals(name)) {
+          seriesMap.putIfAbsent(
+              "cpu counters", new CpuUsageTimeSeries(0, DEFAULT_BUCKET_SIZE_MILLIS));
+          CpuUsageTimeSeries series = seriesMap.get(name);
+          Double ts = (Double) data.get("ts");
+          long startTimeMillis = Math.round(ts.doubleValue() / 1000);
+          Double cpuValue = Double.valueOf((String) data.get("args.cpu"));
+          series.addRange(startTimeMillis, startTimeMillis + DEFAULT_BUCKET_SIZE_MILLIS, cpuValue);
+        } else {
+          Object cat = data.get("cat");
+          CpuUsageTimeSeries series = seriesMap.get(cat);
+          if (series != null) {
+            Long endTimeMillis = decodeAndAdd(series, data);
+            if (endTimeMillis != null) {
+              maxEndTime = Math.max(maxEndTime, endTimeMillis);
+            }
           }
         }
-        reader.endObject();
       }
       reader.endArray();
     }

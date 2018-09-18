@@ -55,6 +55,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/objc:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
@@ -325,6 +326,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:mockito",
         "//third_party:truth8",
     ],
 )
@@ -818,6 +820,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:auto_value",
         "//third_party:jsr305",

@@ -107,6 +107,7 @@ function wrap_text() {
 # Baseline: BASELINE_COMMIT
 #
 # Cherry picks:
+#
 #    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
 #                    message will be wrapped into 70 columns.
 #    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
@@ -117,6 +118,7 @@ function __create_revision_information() {
   while [ -n "${1-}" ]; do
     if [[ "$first" -eq 1 ]]; then
       echo -e "\nCherry picks:"
+      echo
       first=0
     fi
     local hash="$(__git_commit_hash "${1}")"

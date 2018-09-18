@@ -27,13 +27,13 @@ import com.google.devtools.build.lib.packages.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.FailFastException;
-import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
+import com.google.devtools.build.lib.syntax.SkylarkUtils.Phase;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
@@ -66,9 +66,9 @@ public class EvaluationTestCase {
             .useDefaultSemantics()
             .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(getEventHandler())
-            .setPhase(Phase.LOADING)
             .build();
     SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+    SkylarkUtils.setPhase(env, Phase.LOADING);
     return env;
   }
 
@@ -167,7 +167,7 @@ public class EvaluationTestCase {
   }
 
   public Object lookup(String varname) throws Exception {
-    return env.lookup(varname);
+    return env.moduleLookup(varname);
   }
 
   public Object eval(String... input) throws Exception {

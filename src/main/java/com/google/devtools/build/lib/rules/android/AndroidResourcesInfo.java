@@ -27,8 +27,7 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 /** A provider that supplies ResourceContainers from its transitive closure. */
 @Immutable
 public class AndroidResourcesInfo extends NativeInfo
-    implements AndroidResourcesInfoApi<
-        Artifact, ValidatedAndroidResources, ProcessedAndroidManifest> {
+    implements AndroidResourcesInfoApi<Artifact, ValidatedAndroidResources, AndroidManifestInfo> {
 
   public static final String PROVIDER_NAME = "AndroidResourcesInfo";
   public static final Provider PROVIDER = new Provider();
@@ -44,7 +43,7 @@ public class AndroidResourcesInfo extends NativeInfo
 
   // An updated manifest - resource processing sometimes does additional manifest processing
   // TODO(b/30817309): Remove this once resource processing no longer does manifest processing
-  private final ProcessedAndroidManifest manifest;
+  private final AndroidManifestInfo manifest;
 
   // An R.txt file containing a list of all transitive resources this target expected
   private final Artifact rTxt;
@@ -65,7 +64,7 @@ public class AndroidResourcesInfo extends NativeInfo
 
   AndroidResourcesInfo(
       Label label,
-      ProcessedAndroidManifest manifest,
+      AndroidManifestInfo manifest,
       Artifact rTxt,
       NestedSet<ValidatedAndroidResources> transitiveAndroidResources,
       NestedSet<ValidatedAndroidResources> directAndroidResources,
@@ -97,7 +96,7 @@ public class AndroidResourcesInfo extends NativeInfo
   }
 
   @Override
-  public ProcessedAndroidManifest getManifest() {
+  public AndroidManifestInfo getManifest() {
     return manifest;
   }
 
@@ -154,7 +153,7 @@ public class AndroidResourcesInfo extends NativeInfo
   /** Provider for {@link AndroidResourcesInfo}. */
   public static class Provider extends BuiltinProvider<AndroidResourcesInfo>
       implements AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider<
-          Artifact, ValidatedAndroidResources, ProcessedAndroidManifest> {
+          Artifact, ValidatedAndroidResources, AndroidManifestInfo> {
 
     private Provider() {
       super(PROVIDER_NAME, AndroidResourcesInfo.class);
@@ -163,7 +162,7 @@ public class AndroidResourcesInfo extends NativeInfo
     @Override
     public AndroidResourcesInfo createInfo(
         Label label,
-        ProcessedAndroidManifest manifest,
+        AndroidManifestInfo manifest,
         Artifact rTxt,
         SkylarkNestedSet transitiveAndroidResources,
         SkylarkNestedSet directAndroidResources,

@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
+import javax.annotation.Nullable;
 
 /**
  * Various utility methods operating on strings.
@@ -133,5 +134,14 @@ public class StringUtil {
     char first = input.charAt(0);
     char capitalized = Character.toUpperCase(first);
     return first == capitalized ? input : capitalized + input.substring(1);
+  }
+
+  /** Convert empty string to null. */
+  @Nullable
+  public static String emptyToNull(@Nullable String input) {
+    if (input == null || input.isEmpty()) {
+      return null;
+    }
+    return input;
   }
 }

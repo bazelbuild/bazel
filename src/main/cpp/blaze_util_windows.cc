@@ -1230,28 +1230,28 @@ bool IsEmacsTerminal() {
   return emacs == "t" || !inside_emacs.empty();
 }
 
-// Returns true iff both stdout and stderr are connected to a
-// terminal, and it can support color and cursor movement
-// (this is computed heuristically based on the values of
-// environment variables).
-bool IsStandardTerminal() {
-  for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
-    DWORD mode = 0;
-    HANDLE handle = ::GetStdHandle(i);
-    // handle may be invalid when std{out,err} is redirected
-    if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
-        !(mode & ENABLE_PROCESSED_OUTPUT) ||
-        !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
-        !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-      return false;
-    }
+// Returns true if stderr is connected to a terminal, and it can support color
+// and cursor movement (this is computed heuristically based on the values of
+// environment variables).  Blaze only outputs control characters to stderr,
+// so we only care for the stderr descriptor type.
+bool IsStderrStandardTerminal() {
+  DWORD mode = 0;
+  HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
+  // handle may be invalid when stderr is redirected
+  if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
+      !(mode & ENABLE_PROCESSED_OUTPUT) ||
+      !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
+      !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+    return false;
   }
   return true;
 }
 
-// Returns the number of columns of the terminal to which stdout is
-// connected, or $COLUMNS (default 80) if there is no such terminal.
-int GetTerminalColumns() {
+// Returns the number of columns of the terminal to which stderr is connected,
+// or $COLUMNS (default 80) if there is no such terminal.  Blaze only outputs
+// formatted messages to stderr, so we only care for width of a terminal
+// connected to the stderr descriptor.
+int GetStderrTerminalColumns() {
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
     char* endptr;
@@ -1261,7 +1261,7 @@ int GetTerminalColumns() {
     }
   }
 
-  HANDLE stdout_handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+  HANDLE stdout_handle = ::GetStdHandle(STD_ERROR_HANDLE);
   if (stdout_handle != INVALID_HANDLE_VALUE) {
     // stdout_handle may be invalid when stdout is redirected.
     CONSOLE_SCREEN_BUFFER_INFO screen_info;
@@ -1277,6 +1277,10 @@ int GetTerminalColumns() {
 }
 
 bool UnlimitResources() {
+  return true;  // Nothing to do so assume success.
+}
+
+bool UnlimitCoredumps() {
   return true;  // Nothing to do so assume success.
 }
 

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestTargetExecutionSettings;
@@ -387,8 +388,11 @@ public class RunCommand implements BlazeCommand  {
       Path tmpDirRoot = TestStrategy.getTmpRoot(
           env.getWorkspace(), env.getExecRoot(), executionOptions);
       PathFragment relativeTmpDir = tmpDirRoot.relativeTo(env.getExecRoot());
-      Duration timeout = configuration.getTestTimeout().get(
-          testAction.getTestProperties().getTimeout());
+      Duration timeout =
+          configuration
+              .getFragment(TestConfiguration.class)
+              .getTestTimeout()
+              .get(testAction.getTestProperties().getTimeout());
       runEnvironment.putAll(testPolicy.computeTestEnvironment(
           testAction,
           env.getClientEnv(),

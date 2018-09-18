@@ -185,7 +185,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
 
     // TODO(plf): Ideally the two booleans above are removed from this Builder. We would pass the
     // specific instances of CcLinkParams that are needed from transitive dependencies instead of
-    // calling the convenience methods that dig them out from the CcLinkParamsStore using these
+    // calling the convenience methods that dig them out from the CcLinkingInfo using these
     // booleans.
     private boolean linkingStaticallyLinkSharedSet;
 
@@ -248,13 +248,13 @@ public final class CcLinkParams implements CcLinkParamsApi {
           nonCodeInputs);
     }
 
-    public boolean add(AbstractCcLinkParamsStore store) {
+    public boolean add(CcLinkingInfo ccLinkingInfo) {
       Preconditions.checkState(linkingStaticallyLinkSharedSet);
-      if (store != null) {
-        CcLinkParams args = store.get(linkingStatically, linkShared);
+      if (ccLinkingInfo != null) {
+        CcLinkParams args = ccLinkingInfo.getCcLinkParams(linkingStatically, linkShared);
         addTransitiveArgs(args);
       }
-      return store != null;
+      return ccLinkingInfo != null;
     }
 
     /**
@@ -270,15 +270,13 @@ public final class CcLinkParams implements CcLinkParamsApi {
     /**
      * Includes link parameters from a dependency target.
      *
-     * <p>The target should implement {@link CcLinkParamsStore}. If it does not, the method does not
-     * do anything.
+     * <p>The target should implement {@link CcLinkingInfo}. If it does not, the method does not do
+     * anything.
      */
     public Builder addTransitiveTarget(TransitiveInfoCollection target) {
       CcLinkingInfo ccLinkingInfo = target.get(CcLinkingInfo.PROVIDER);
-      CcLinkParamsStore ccLinkParamsStore =
-          ccLinkingInfo == null ? null : ccLinkingInfo.getCcLinkParamsStore();
-      if (ccLinkParamsStore != null) {
-        add(ccLinkParamsStore);
+      if (ccLinkingInfo != null) {
+        add(ccLinkingInfo);
       }
       return this;
     }
@@ -291,14 +289,13 @@ public final class CcLinkParams implements CcLinkParamsApi {
     @SafeVarargs
     public final Builder addTransitiveTarget(
         TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> firstMapping,
+        Function<TransitiveInfoCollection, CcLinkingInfo> firstMapping,
         @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
-            Function<TransitiveInfoCollection, AbstractCcLinkParamsStore>... remainingMappings) {
+            Function<TransitiveInfoCollection, CcLinkingInfo>... remainingMappings) {
       if (add(firstMapping.apply(target))) {
         return this;
       }
-      for (Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> mapping :
-          remainingMappings) {
+      for (Function<TransitiveInfoCollection, CcLinkingInfo> mapping : remainingMappings) {
         if (add(mapping.apply(target))) {
           return this;
         }
@@ -314,9 +311,9 @@ public final class CcLinkParams implements CcLinkParamsApi {
     @SafeVarargs
     public final Builder addTransitiveTargets(
         Iterable<? extends TransitiveInfoCollection> targets,
-        Function<TransitiveInfoCollection, AbstractCcLinkParamsStore> firstMapping,
+        Function<TransitiveInfoCollection, CcLinkingInfo> firstMapping,
         @SuppressWarnings("unchecked") // Java arrays don't preserve generic arguments.
-            Function<TransitiveInfoCollection, AbstractCcLinkParamsStore>... remainingMappings) {
+            Function<TransitiveInfoCollection, CcLinkingInfo>... remainingMappings) {
       for (TransitiveInfoCollection target : targets) {
         addTransitiveTarget(target, firstMapping, remainingMappings);
       }
@@ -412,7 +409,7 @@ public final class CcLinkParams implements CcLinkParamsApi {
     /** Processes typical dependencies of a C/C++ library. */
     public Builder addCcLibrary(RuleContext context) {
       addTransitiveTargets(
-          context.getPrerequisites("deps", Mode.TARGET), CcLinkParamsStore.TO_LINK_PARAMS);
+          context.getPrerequisites("deps", Mode.TARGET), x -> x.get(CcLinkingInfo.PROVIDER));
       return this;
     }
   }

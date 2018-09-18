@@ -55,6 +55,15 @@ public class BuildEncyclopediaOptions extends OptionsBase {
   public String provider;
 
   @Option(
+      name = "output_file",
+      abbrev = 'f',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An output file.")
+  public String outputFile;
+
+  @Option(
     name = "output_dir",
     abbrev = 'o',
     defaultValue = ".",

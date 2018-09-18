@@ -140,8 +140,11 @@ public interface CommandLineArgsApi extends SkylarkValue {
                 "The object to append. It will be converted to a string using the standard "
                     + "conversion mentioned above. Since there is no <code>map_each</code> "
                     + "parameter for this function, <code>value</code> should be either a "
-                    + "string or a <code>File</code>."
-                    + ""
+                    + "string or a <code>File</code>. A directory <code>File</code> must be "
+                    + "passed to <a href='#add_all'><code>add_all()</code> or "
+                    + "<a href='#add_joined'><code>add_joined()</code></a> instead of this method."
+                    + "<p><i>Deprecated behavior:</i> <code>value</code> may be a directory "
+                    + "unless --noincompatible_expand_directories is passed.</p>"
                     + "<p><i>Deprecated behavior:</i> <code>value</code> may also be a "
                     + "list, tuple, or depset of multiple items to append."),
         @Param(
@@ -213,7 +216,11 @@ public interface CommandLineArgsApi extends SkylarkValue {
               + "<p>Most of the processing occurs over a list of arguments to be appended, as per "
               + "the following steps:"
               + "<ol>"
-              + "<li>If <code>map_each</code> is given, it is applied to each input item, and the "
+              + "<li>Each directory <code>File</code> item is replaced by all <code>File</code>s "
+              + "recursively contained in that directory, unless "
+              + "<code>expand_directories=False</code> is specified."
+              + "</li>"
+              + "<li>If <code>map_each</code> is given, it is applied to each item, and the "
               + "    resulting lists of strings are concatenated to form the initial argument "
               + "    list. Otherwise, the initial argument list is the result of applying the "
               + "    standard conversion to each item."
@@ -325,6 +332,17 @@ public interface CommandLineArgsApi extends SkylarkValue {
                     + "but it can be useful if <code>map_each</code> emits the same string for "
                     + "multiple items."),
         @Param(
+            name = "expand_directories",
+            type = Boolean.class,
+            named = true,
+            positional = false,
+            defaultValue = "unbound",
+            doc =
+                "If true, any directories in <code>values</code> will be expanded to a flat list "
+                    + "of files. This happens before <code>map_each</code> is applied. "
+                    + "The default value of this flag is controlled by "
+                    + "--incompatible_expand_directories."),
+        @Param(
             name = "terminate_with",
             type = String.class,
             named = true,
@@ -346,6 +364,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
       Object beforeEach,
       Boolean omitIfEmpty,
       Boolean uniquify,
+      Object expandDirectories,
       Object terminateWith,
       Location loc)
       throws EvalException;
@@ -443,7 +462,14 @@ public interface CommandLineArgsApi extends SkylarkValue {
             named = true,
             positional = false,
             defaultValue = "False",
-            doc = "Same as for <a href='#add_all.uniquify'><code>add_all</code></a>.")
+            doc = "Same as for <a href='#add_all.uniquify'><code>add_all</code></a>."),
+        @Param(
+            name = "expand_directories",
+            type = Boolean.class,
+            named = true,
+            positional = false,
+            defaultValue = "unbound",
+            doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
       },
       useLocation = true)
   public Runtime.NoneType addJoined(
@@ -455,6 +481,7 @@ public interface CommandLineArgsApi extends SkylarkValue {
       Object formatJoined,
       Boolean omitIfEmpty,
       Boolean uniquify,
+      Object expandDirectories,
       Location loc)
       throws EvalException;
 
@@ -462,7 +489,11 @@ public interface CommandLineArgsApi extends SkylarkValue {
       name = "use_param_file",
       doc =
           "Spills the args to a params file, replacing them with a pointer to the param file. "
-              + "Use when your args may be too large for the system's command length limits ",
+              + "Use when your args may be too large for the system's command length limits."
+              + "<p>Bazel may choose to elide writing the params file to the output tree during "
+              + "execution for efficiency."
+              + "If you are debugging actions and want to inspect the param file, "
+              + "pass <code>--materialize_param_files</code> to your build.",
       parameters = {
         @Param(
             name = "param_file_arg",

@@ -59,10 +59,6 @@ inline tm* localtime_r(const time_t* tin, tm* tout) {
   return nullptr;
 }
 
-// Make sure that the file HANDLE associated with |fd| is created by CreateFile
-// with FILE_FLAG_OVERLAPPED flag for this function to work.
-ssize_t pread(int fd, void* buf, size_t count, off64_t offset);
-
 #endif  // _WIN32
 
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_PORT_H_

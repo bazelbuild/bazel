@@ -16,27 +16,29 @@ package com.google.devtools.build.lib.actions;
 
 /** This event is fired during the build, when a subprocess is executed. */
 public class SpawnExecutedEvent {
-  private final ActionAnalysisMetadata actionMetadata;
-  private final int exitCode;
+  private final Spawn spawn;
   private final SpawnResult result;
 
   public SpawnExecutedEvent(
-      ActionAnalysisMetadata actionMetadata,
-      int exitCode,
+      Spawn spawn,
       SpawnResult result) {
-    this.actionMetadata = actionMetadata;
-    this.exitCode = exitCode;
+    this.spawn = spawn;
     this.result = result;
+  }
+
+  /** Returns the Spawn. */
+  public Spawn getSpawn() {
+    return spawn;
   }
 
   /** Returns the action. */
   public ActionAnalysisMetadata getActionMetadata() {
-    return actionMetadata;
+    return spawn.getResourceOwner();
   }
 
   /** Returns the action exit code. */
   public int getExitCode() {
-    return exitCode;
+    return result.exitCode();
   }
 
   /** Returns the distributor reply. */

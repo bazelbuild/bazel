@@ -4,6 +4,8 @@ load(
     "//tools/jdk:default_java_toolchain.bzl",
     "default_java_toolchain",
     "java_runtime_files",
+    "JDK8_JVM_OPTS",
+    "JDK9_JVM_OPTS",
     "DEFAULT_JAVACOPTS",
 )
 
@@ -18,6 +20,16 @@ java_runtime_alias(name = "current_java_runtime")
 java_host_runtime_alias(name = "current_host_java_runtime")
 
 java_toolchain_alias(name = "current_java_toolchain")
+
+# Used to set --host_javabase or --javabase to a local JDK without having to define
+# a custom java_runtime rule.
+# E.g.:
+# bazel build --host_javabase=@bazel_tools//tools/jdk:absolute_javabase \
+#   --define=ABSOLUTE_JAVABASE=<path to JDK> ...
+java_runtime(
+    name = "absolute_javabase",
+    java_home = "$(ABSOLUTE_JAVABASE)",
+)
 
 filegroup(
     name = "BUILD-jdk",
@@ -93,8 +105,20 @@ filegroup(
 filegroup(
     name = "singlejar",
     srcs = select({
-        "//src/conditions:remote": ["//src/tools/singlejar:singlejar"],
+        "//src/conditions:remote": [":singlejar_remote"],
         "//conditions:default": glob(["singlejar/*"]),
+    }),
+)
+
+# This is a separate filegroup from :singlejar above since Bazel doesn't
+# support nested selects (we need a logical "remote AND windows" condition).
+filegroup(
+    name = "singlejar_remote",
+    srcs = select({
+        # TODO(jsharpe): Switch to //src/tools/singlejar:singlejar once
+        # native singlejar works on Windows.
+        "//src/conditions:windows": glob(["singlejar/*"]),
+        "//conditions:default": ["//src/tools/singlejar:singlejar"],
     }),
 )
 
@@ -169,56 +193,63 @@ alias(
     actual = "@embedded_jdk//:jdk",
 )
 
-genrule(
-    name = "platformclasspath",
-    srcs = ["DumpPlatformClassPath.java"],
-    outs = ["platformclasspath.jar"],
-    cmd = """
+RELEASES = (8, 9)
+
+# Create jars containing compile-time bootclasspaths for each Java version
+# in RELEASES, using javac to read those APIs via the infrastructure added
+# for the --release flag (see http://openjdk.java.net/jeps/247).
+[
+    genrule(
+        name = "platformclasspath%d" % release,
+        srcs = ["DumpPlatformClassPath.java"],
+        outs = ["platformclasspath%d.jar" % release],
+        cmd = """
 set -eu
 TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
 $(JAVABASE)/bin/javac -source 8 -target 8 \
+    -Xlint:-options \
     -cp $(JAVABASE)/lib/tools.jar \
     -d $$TMPDIR $<
 $(JAVA) -XX:+IgnoreUnrecognizedVMOptions \
     --add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED \
-    -cp $$TMPDIR DumpPlatformClassPath $@
+    -cp $$TMPDIR DumpPlatformClassPath %d $@
 rm -rf $$TMPDIR
-""",
-    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-    tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-)
+""" % release,
+        toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+        tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+    )
+    for release in RELEASES
+]
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    bootclasspath = [":platformclasspath"],
-    forcibly_disable_header_compilation = True,
-    javabuilder = [":vanillajavabuilder"],
-    jvm_opts = [],
+    bootclasspath = [":platformclasspath8"],
+    jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
     target_version = "8",
 )
 
-default_java_toolchain(
+# Default to the Java 8 language level.
+# TODO(cushon): consider if/when we should increment this?
+alias(
+    name = "toolchain_hostjdk9",
+    actual = "toolchain_java8",
+)
+
+[
+    default_java_toolchain(
+        name = "toolchain_java%d" % release,
+        bootclasspath = [":platformclasspath%d" % release],
+        jvm_opts = JDK9_JVM_OPTS,
+        source_version = "%s" % release,
+        target_version = "%s" % release,
+    )
+    for release in RELEASES
+]
+
+alias(
     name = "toolchain",
-    bootclasspath = [":platformclasspath"],
-    source_version = "8",
-    target_version = "8",
-)
-
-default_java_toolchain(
-    name = "toolchain_java9",
-    misc = DEFAULT_JAVACOPTS + [
-        "--release",
-        "9",
-    ],
-)
-
-default_java_toolchain(
-    name = "toolchain_java10",
-    misc = DEFAULT_JAVACOPTS + [
-        "--release",
-        "10",
-    ],
+    actual = "//external:java_toolchain",
 )
 
 filegroup(

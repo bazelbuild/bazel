@@ -1789,10 +1789,60 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testFunctionCallBadOrdering() throws Exception {
-    new SkylarkTest().testIfErrorContains("name 'foo' is not defined",
-         "def func(): return foo() * 2",
-         "x = func()",
-         "def foo(): return 2");
+    new SkylarkTest()
+        .testIfErrorContains(
+            "name 'foo' is not defined",
+            "def func(): return foo() * 2",
+            "x = func()",
+            "def foo(): return 2");
+  }
+
+  @Test
+  public void testLocalVariableDefinedBelow() throws Exception {
+    new SkylarkTest()
+        .setUp(
+            "def beforeEven(li):", // returns the value before the first even number
+            "    for i in li:",
+            "        if i % 2 == 0:",
+            "            return a",
+            "        else:",
+            "            a = i",
+            "res = beforeEven([1, 3, 4, 5])")
+        .testLookup("res", 3);
+  }
+
+  @Test
+  public void testShadowisNotInitialized() throws Exception {
+    new SkylarkTest("--incompatible_static_name_resolution=true")
+        .testIfErrorContains(
+            /* error message */ "local variable 'gl' is referenced before assignment",
+            "gl = 5",
+            "def foo():",
+            "    if False: gl = 2",
+            "    return gl",
+            "res = foo()");
+  }
+
+  @Test
+  public void testLegacyGlobalVariableNotShadowed() throws Exception {
+    new SkylarkTest("--incompatible_static_name_resolution=false")
+        .setUp(
+            "gl = 5",
+            "def foo():",
+            "    if False: gl = 2",
+            // The legacy behavior is that the global variable is returned.
+            // With --incompatible_static_name_resolution set to true, this becomes an error.
+            "    return gl",
+            "res = foo()")
+        .testLookup("res", 5);
+  }
+
+  @Test
+  public void testShadowBuiltin() throws Exception {
+    // TODO(laurentlb): Forbid this.
+    new SkylarkTest("--incompatible_static_name_resolution=false")
+        .setUp("x = len('abc')", "len = 2", "y = x + len")
+        .testLookup("y", 5);
   }
 
   @Test

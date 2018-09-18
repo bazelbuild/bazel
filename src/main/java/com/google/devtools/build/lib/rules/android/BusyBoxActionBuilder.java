@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -45,6 +46,11 @@ public final class BusyBoxActionBuilder {
   private static final ParamFileInfo FORCED_PARAM_FILE_INFO =
       ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED)
           .setUseAlways(OS.getCurrent() == OS.WINDOWS)
+          .build();
+
+  private static final ParamFileInfo WORKERS_FORCED_PARAM_FILE_INFO =
+      ParamFileInfo.builder(ParameterFileType.UNQUOTED)
+          .setUseAlways(true)
           .build();
 
   private final AndroidDataContext dataContext;
@@ -315,14 +321,22 @@ public final class BusyBoxActionBuilder {
    * @param mnemonic a mnemonic used to indicate the tool being run, for example, "BusyBoxTool".
    */
   public void buildAndRegister(String message, String mnemonic) {
-    dataContext.registerAction(
-        spawnActionBuilder
-            .useDefaultShellEnvironment()
-            .addTransitiveInputs(inputs.build())
-            .addOutputs(outputs.build())
-            .addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO)
-            .setExecutable(dataContext.getBusybox())
-            .setProgressMessage("%s for %s", message, dataContext.getLabel())
-            .setMnemonic(mnemonic));
+    spawnActionBuilder
+        .useDefaultShellEnvironment()
+        .addTransitiveInputs(inputs.build())
+        .addOutputs(outputs.build())
+        .setExecutable(dataContext.getBusybox())
+        .setProgressMessage("%s for %s", message, dataContext.getLabel())
+        .setMnemonic(mnemonic);
+
+    if (dataContext.isPersistentBusyboxToolsEnabled()) {
+      spawnActionBuilder
+          .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
+          .addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);
+    } else {
+      spawnActionBuilder.addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO);
+    }
+
+    dataContext.registerAction(spawnActionBuilder);
   }
 }

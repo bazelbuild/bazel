@@ -31,6 +31,8 @@ output_paths = [
     ('*tools/jdk/BUILD*', lambda x: 'tools/jdk/BUILD'),
     ('*tools/platforms/platforms.BUILD', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
+    ('*tools/cpp/runfiles/generated_*',
+     lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*JavaBuilder*_deploy.jar', lambda x: 'tools/jdk/' + os.path.basename(x)),
     ('*JacocoCoverage*_deploy.jar',
      lambda x: 'tools/jdk/JacocoCoverage_deploy.jar'),
@@ -44,7 +46,6 @@ output_paths = [
      lambda x: 'tools/jdk/ExperimentalTestRunner_deploy.jar'),
     ('*Runner_deploy.jar', lambda x: 'tools/jdk/TestRunner_deploy.jar'),
     ('*singlejar_local', lambda x: 'tools/jdk/singlejar/singlejar'),
-    ('src/tools/runfiles/runfiles.py', lambda x: 'tools/runfiles/runfiles.py'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*ijar.exe', lambda x: 'tools/jdk/ijar/ijar.exe'),
@@ -103,6 +104,7 @@ def get_input_files(argsfile):
 
 
 def copy_jdk_into_archive(output_zip, archive_file, input_file):
+  """Extract the JDK and adds it to the archive under jdk/*."""
 
   def _replace_dirname(filename):
     # Rename the first folder to 'jdk', because Bazel looks for a

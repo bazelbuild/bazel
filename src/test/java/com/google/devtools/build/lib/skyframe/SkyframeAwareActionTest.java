@@ -413,7 +413,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         executor,
         null,
         null,
-        false,
+        options,
         null,
         null);
 
@@ -442,7 +442,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         executor,
         null,
         null,
-        false,
+        options,
         null,
         null);
 
@@ -541,7 +541,17 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
             : ExpectActionIs.DIRTIED_BUT_VERIFIED_CLEAN);
   }
 
-  public void testActionWithNonChangingInput(final boolean unconditionalExecution)
+  @Test
+  public void testCacheCheckingActionWithNonChangingInput() throws Exception {
+    assertActionWithNonChangingInput(/* unconditionalExecution */ false);
+  }
+
+  @Test
+  public void testCacheBypassingActionWithNonChangingInput() throws Exception {
+    assertActionWithNonChangingInput(/* unconditionalExecution */ true);
+  }
+
+  private void assertActionWithNonChangingInput(final boolean unconditionalExecution)
       throws Exception {
     // Assert that a simple, non-skyframe-aware action is executed only once
     // if its input does not change at all between builds.
@@ -822,7 +832,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         executor,
         null,
         null,
-        false,
+        options,
         null,
         null);
   }

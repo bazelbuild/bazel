@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 
 /**
@@ -30,7 +31,8 @@ import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
  */
 public interface ExtraLinkTimeLibrary {
   /** Build the LibraryToLink inputs to pass to the C++ linker. */
-  NestedSet<LibraryToLink> buildLibraries(RuleContext context) throws InterruptedException;
+  NestedSet<LibraryToLink> buildLibraries(RuleContext context)
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Get a new Builder for this ExtraLinkTimeLibrary class.  This acts

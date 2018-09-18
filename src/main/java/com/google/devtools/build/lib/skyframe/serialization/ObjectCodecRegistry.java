@@ -41,7 +41,8 @@ import javax.annotation.Nullable;
  */
 public class ObjectCodecRegistry {
 
-  static Builder newBuilder() {
+  /** Creates a new, empty builder. */
+  public static Builder newBuilder() {
     return new Builder();
   }
 
@@ -105,7 +106,7 @@ public class ObjectCodecRegistry {
     }
     if (obj instanceof Enum) {
       // Enums must be serialized using declaring class.
-      type = ((Enum) obj).getDeclaringClass();
+      type = ((Enum<?>) obj).getDeclaringClass();
     }
     return getDynamicCodecDescriptor(type.getName(), type);
   }

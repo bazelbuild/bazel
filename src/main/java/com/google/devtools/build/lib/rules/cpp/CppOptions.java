@@ -722,17 +722,31 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean strictSystemIncludes;
 
- @Option(
+  @Option(
       name = "experimental_enable_cc_configuration_make_variables",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If enabled, the C++ configuration fragment supplies Make variables. This option "
-          + "is used in the migration to remove them in favor of requiring an explicit "
-          + "dependency on the C++ toolchain for rules that use them."
-  )
+      help =
+          "Do not use this flag. Use the --incompatible_disable_cc_configuration_make_variables "
+              + "instead.")
   public boolean enableMakeVariables;
+
+  @Option(
+      name = "incompatible_disable_cc_configuration_make_variables",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If enabled, the C++ configuration fragment supplies Make variables. This option "
+              + "is used in the migration to remove them in favor of requiring an explicit "
+              + "dependency on the C++ toolchain for rules that use them.")
+  public boolean disableMakeVariables;
 
   @Option(
     name = "experimental_use_llvm_covmap",
@@ -756,10 +770,25 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES},
-      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Do not use this flag. Use --incompatible_disable_legacy_cpp_toolchain_skylark_api "
+              + "instead.")
   public boolean enableLegacyToolchainSkylarkApi;
+
+  @Option(
+      name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+  public boolean disableLegacyToolchainSkylarkApi;
 
   @Option(
       name = "experimental_disable_legacy_cc_linking_api",
@@ -808,21 +837,10 @@ public class CppOptions extends FragmentOptions {
   public boolean disableLegacyCrosstoolFields;
 
   @Option(
-      name = "experimental_enable_cc_dynlibs_for_runtime",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If false, Blaze will not propagate runtime libs through CcDynamicLibrariesForRuntime "
-              + "field of CcLinkingInfo. See b/111289526.")
-  public boolean enableCcDynamicLibrariesForRuntime;
-
-  @Option(
       name = "experimental_linkopts_in_user_link_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, flags coming from --linkopt Bazel option will appear in user_link_flags "
@@ -830,13 +848,28 @@ public class CppOptions extends FragmentOptions {
   public boolean enableLinkoptsInUserLinkFlags;
 
   @Option(
-      name = "experimental_enable_cc_toolchain_label_from_crosstool_proto",
-      defaultValue = "true",
+      name = "experimental_dont_emit_static_libgcc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, bazel will not add --static-libgcc to the linking command line, it will be "
+              + "the responsibility of the C++ toolchain to append this flag.")
+  public boolean disableEmittingStaticLibgcc;
+
+  @Option(
+      name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If false, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
-  public boolean enableCcToolchainFromCrosstool;
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If true, Bazel will not use the CROSSTOOL file to select the cc_toolchain label.")
+  public boolean disableCcToolchainFromCrosstool;
 
   @Option(
       name = "experimental_enable_cc_toolchain_config_info",
@@ -859,6 +892,21 @@ public class CppOptions extends FragmentOptions {
               + "across subpackage boundaries.")
   public boolean experimentalIncludesAttributeSubpackageTraversal;
 
+  @Option(
+      name = "incompatible_disable_depset_in_cc_user_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If true, C++ toolchain Skylark API will not accept depset in `user_compile_flags` "
+              + "param of `create_compile_variables`, and in `user_link_flags` of "
+              + "`create_link_variables`. Use list instead.")
+  public boolean disableDepsetInUserFlags;
+
   @Override
   public FragmentOptions getHost() {
     CppOptions host = (CppOptions) getDefault();
@@ -872,6 +920,7 @@ public class CppOptions extends FragmentOptions {
     }
 
     host.enableMakeVariables = enableMakeVariables;
+    host.disableMakeVariables = disableMakeVariables;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.

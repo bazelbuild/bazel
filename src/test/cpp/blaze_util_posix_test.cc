@@ -179,4 +179,32 @@ TEST_F(UnlimitResourcesTest, SuccessWithPossiblyInfiniteLimits) {
   }
 }
 
+TEST_F(UnlimitResourcesTest, Coredumps) {
+  if (!IsChild()) return;
+  // The rest of this test runs in a subprocess.  See the fixture's docstring
+  // for details on what this implies.
+
+  // Lower only the soft limit to a very low value and assume that the hard
+  // limit is non-zero.
+  struct rlimit rl = GetrlimitOrDie(RLIMIT_CORE);
+  if (rl.rlim_max <= 1) {
+    fprintf(stderr, "Hard resource limit for RLIMIT_CORE is %" PRIuMAX
+            "; cannot test anything meaningful\n", rl.rlim_max);
+    return;
+  }
+  rl.rlim_cur = 1;
+  SetrlimitOrDie(RLIMIT_CORE, rl);
+
+  if (!blaze::UnlimitCoredumps()) {
+    Die("UnlimitCoredumps returned error; see output for diagnostics\n");
+  }
+
+  // Check that the soft limits were increased to a higher explicit number.
+  rl = GetrlimitOrDie(RLIMIT_CORE);
+  if (rl.rlim_cur == 1) {
+    Die("UnlimitCoredumps did not increase the soft RLIMIT_CORE to the system "
+        "limit\n");
+  }
+}
+
 }  // namespace blaze

@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
-@AutoCodec
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment
     implements ObjcConfigurationApi<PlatformType> {
@@ -77,15 +75,18 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     this.iosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.iosSimulatorDevice, "iosSimulatorDevice");
     this.iosSimulatorVersion =
-        Preconditions.checkNotNull(objcOptions.iosSimulatorVersion, "iosSimulatorVersion");
+        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion),
+            "iosSimulatorVersion");
     this.watchosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.watchosSimulatorDevice, "watchosSimulatorDevice");
     this.watchosSimulatorVersion =
-        Preconditions.checkNotNull(objcOptions.watchosSimulatorVersion, "watchosSimulatorVersion");
+        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion),
+            "watchosSimulatorVersion");
     this.tvosSimulatorDevice =
         Preconditions.checkNotNull(objcOptions.tvosSimulatorDevice, "tvosSimulatorDevice");
     this.tvosSimulatorVersion =
-        Preconditions.checkNotNull(objcOptions.tvosSimulatorVersion, "tvosSimulatorVersion");
+        Preconditions.checkNotNull(DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion),
+            "tvosSimulatorVersion");
     this.generateLinkmap = objcOptions.generateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
@@ -110,60 +111,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
     this.strictObjcModuleMaps = objcOptions.strictObjcModuleMaps;
-  }
-
-  @AutoCodec.Instantiator
-  ObjcConfiguration(
-      DottedVersion iosSimulatorVersion,
-      String iosSimulatorDevice,
-      DottedVersion watchosSimulatorVersion,
-      String watchosSimulatorDevice,
-      DottedVersion tvosSimulatorVersion,
-      String tvosSimulatorDevice,
-      boolean generateDsym,
-      boolean generateLinkmap,
-      boolean runMemleaks,
-      ImmutableList<String> copts,
-      CompilationMode compilationMode,
-      ImmutableList<String> fastbuildOptions,
-      boolean enableBinaryStripping,
-      boolean moduleMapsEnabled,
-      String signingCertName,
-      boolean debugWithGlibcxx,
-      Label extraEntitlements,
-      boolean deviceDebugEntitlements,
-      boolean enableAppleBinaryNativeProtos,
-      HeaderDiscovery.DotdPruningMode dotdPruningPlan,
-      boolean experimentalHeaderThinning,
-      int objcHeaderThinningPartitionSize,
-      Label objcHeaderScannerTool,
-      Label appleSdk,
-      boolean strictObjcModuleMaps) {
-    this.iosSimulatorVersion = iosSimulatorVersion;
-    this.iosSimulatorDevice = iosSimulatorDevice;
-    this.watchosSimulatorVersion = watchosSimulatorVersion;
-    this.watchosSimulatorDevice = watchosSimulatorDevice;
-    this.tvosSimulatorVersion = tvosSimulatorVersion;
-    this.tvosSimulatorDevice = tvosSimulatorDevice;
-    this.generateDsym = generateDsym;
-    this.generateLinkmap = generateLinkmap;
-    this.runMemleaks = runMemleaks;
-    this.copts = copts;
-    this.compilationMode = compilationMode;
-    this.fastbuildOptions = fastbuildOptions;
-    this.enableBinaryStripping = enableBinaryStripping;
-    this.moduleMapsEnabled = moduleMapsEnabled;
-    this.signingCertName = signingCertName;
-    this.debugWithGlibcxx = debugWithGlibcxx;
-    this.extraEntitlements = extraEntitlements;
-    this.deviceDebugEntitlements = deviceDebugEntitlements;
-    this.enableAppleBinaryNativeProtos = enableAppleBinaryNativeProtos;
-    this.dotdPruningPlan = dotdPruningPlan;
-    this.experimentalHeaderThinning = experimentalHeaderThinning;
-    this.objcHeaderThinningPartitionSize = objcHeaderThinningPartitionSize;
-    this.objcHeaderScannerTool = objcHeaderScannerTool;
-    this.appleSdk = appleSdk;
-    this.strictObjcModuleMaps = strictObjcModuleMaps;
   }
 
   /**

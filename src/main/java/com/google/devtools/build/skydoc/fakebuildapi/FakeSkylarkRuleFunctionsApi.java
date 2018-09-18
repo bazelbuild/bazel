@@ -81,6 +81,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
     attrInfos = attrsMapBuilder.build().entrySet().stream()
+        .filter(entry -> !entry.getKey().startsWith("_"))
         .map(entry -> new AttributeInfo(
             entry.getKey(),
             entry.getValue().getDocString(),
@@ -119,7 +120,7 @@ public class FakeSkylarkRuleFunctionsApi implements SkylarkRuleFunctionsApi<File
       Object attrs, SkylarkList<?> requiredAspectProvidersArg, SkylarkList<?> providesArg,
       SkylarkList<?> fragments, SkylarkList<?> hostFragments, SkylarkList<?> toolchains, String doc,
       FuncallExpression ast, Environment funcallEnv) throws EvalException {
-    return null;
+    return new FakeSkylarkAspect();
   }
 
   /**

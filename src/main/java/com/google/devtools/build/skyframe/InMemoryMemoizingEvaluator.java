@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -36,7 +37,9 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -157,6 +160,22 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       int numThreads,
       ExtendedEventHandler eventHandler)
       throws InterruptedException {
+    return evaluate(
+        roots,
+        version,
+        keepGoing,
+        () -> AbstractQueueVisitor.createExecutorService(numThreads),
+        eventHandler);
+  }
+
+  @Override
+  public <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<? extends SkyKey> roots,
+      Version version,
+      boolean keepGoing,
+      Supplier<ExecutorService> executorService,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     IntVersion intVersion = (IntVersion) version;
     Preconditions.checkState((lastGraphVersion == null && intVersion.getVal() == 0)
@@ -184,21 +203,23 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         injectValues(intVersion);
       }
 
-      ParallelEvaluator evaluator =
-          new ParallelEvaluator(
-              graph,
-              intVersion,
-              skyFunctions,
-              eventHandler,
-              emittedEventState,
-              eventFilter,
-              ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-              keepGoing,
-              numThreads,
-              progressReceiver,
-              graphInconsistencyReceiver);
       EvaluationResult<T> result;
       try (SilentCloseable c = Profiler.instance().profile("ParallelEvaluator.eval")) {
+        ParallelEvaluator evaluator =
+            new ParallelEvaluator(
+                graph,
+                version,
+                skyFunctions,
+                eventHandler,
+                emittedEventState,
+                eventFilter,
+                ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+                keepGoing,
+                progressReceiver,
+                graphInconsistencyReceiver,
+                executorService,
+                new SimpleCycleDetector(),
+                EvaluationVersionBehavior.MAX_CHILD_VERSIONS);
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()

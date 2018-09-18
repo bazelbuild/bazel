@@ -108,6 +108,9 @@ public final class BazelPyRuleClasses {
           .add(attr("srcs_version", STRING)
               .value(PythonVersion.defaultSrcsVersion().toString())
               .allowedValues(new AllowedValueSet(PythonVersion.getAllValues())))
+          // TODO(brandjon): Consider adding to py_interpreter a .mandatoryNativeProviders() of
+          // BazelPyRuntimeProvider. (Add a test case to PythonConfigurationTest for violations
+          // of this requirement.)
           .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.

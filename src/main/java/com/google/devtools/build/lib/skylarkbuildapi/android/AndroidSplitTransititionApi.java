@@ -17,5 +17,10 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /** Android configuration for properly handling native dependencies */
-@SkylarkModule(name = "android_split_transition", doc = "")
+@SkylarkModule(
+    name = "android_split_transition",
+    doc =
+        "Do not use this module. It is intended for migration purposes only. If you depend on it, "
+            + "you will be broken when it is removed.",
+    documented = false)
 public interface AndroidSplitTransititionApi extends SkylarkValue {}

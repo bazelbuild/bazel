@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** A provider of information about this target's manifest. */
-public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi {
+public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {
   private static final String SKYLARK_NAME = "AndroidManifestInfo";
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
