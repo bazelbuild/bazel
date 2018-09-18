@@ -167,8 +167,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (createExecutable) {
       // This artifact is named as the rule itself, e.g. //foo:bar_bin -> bazel-bin/foo/bar_bin
       // On Windows, it's going to be bazel-bin/foo/bar_bin.exe
-      if (OS.getCurrent() == OS.WINDOWS
-          && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+      if (OS.getCurrent() == OS.WINDOWS) {
         executableForRunfiles =
             ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
       } else {
