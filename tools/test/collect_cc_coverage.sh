@@ -169,6 +169,8 @@ function gcov_coverage() {
         fi
     fi
   done
+  echo "Coverage output file contains:"
+  cat "${output_file}"
 }
 
 # Returns a .gcov corresponding to either a C++ source file or a C++ header
