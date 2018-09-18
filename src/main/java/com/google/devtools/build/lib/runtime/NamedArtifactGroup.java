@@ -64,10 +64,7 @@ class NamedArtifactGroup implements BuildEvent {
       if (artifact.isMiddlemanArtifact()) {
         continue;
       }
-      artifacts.add(
-          new LocalFile(
-              pathResolver.toPath(artifact),
-              artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
+      artifacts.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
     }
     return artifacts.build();
   }
