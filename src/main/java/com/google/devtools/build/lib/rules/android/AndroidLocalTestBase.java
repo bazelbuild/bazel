@@ -187,8 +187,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     Artifact instrumentationMetadata =
         helper.createInstrumentationMetadata(classJar, javaArtifactsBuilder);
     Artifact executable; // the artifact for the rule itself
-    if (OS.getCurrent() == OS.WINDOWS
-        && ruleContext.getConfiguration().enableWindowsExeLauncher()) {
+    if (OS.getCurrent() == OS.WINDOWS) {
       executable =
           ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".exe");
     } else {

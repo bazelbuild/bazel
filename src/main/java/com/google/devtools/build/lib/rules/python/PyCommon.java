@@ -116,15 +116,9 @@ public final class PyCommon {
 
     validatePackageName();
     if (OS.getCurrent() == OS.WINDOWS) {
-      String executableSuffix;
-      if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
-        executableSuffix = ".exe";
-      } else {
-        executableSuffix = ".cmd";
-      }
       executable =
           ruleContext.getImplicitOutputArtifact(
-              ruleContext.getTarget().getName() + executableSuffix);
+              ruleContext.getTarget().getName() + ".exe");
     } else {
       executable = ruleContext.createOutputArtifact();
     }

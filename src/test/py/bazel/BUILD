@@ -106,7 +106,6 @@ py_test(
     name = "launcher_test",
     size = "medium",
     srcs = ["launcher_test.py"],
-    tags = ["manual"],  # TODO(b/72827255): Reenable once it works.
     deps = [":test_base"],
 )
 

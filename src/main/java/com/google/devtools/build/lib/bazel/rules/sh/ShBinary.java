@@ -44,8 +44,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * Implementation for the sh_binary rule.
  */
 public class ShBinary implements RuleConfiguredTargetFactory {
-  private static final Template STUB_SCRIPT_WINDOWS =
-      Template.forResource(ShBinary.class, "sh_stub_template_windows.txt");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -149,19 +147,6 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     }
 
     PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-    if (ruleContext.getConfiguration().enableWindowsExeLauncher()) {
-      return createWindowsExeLauncher(ruleContext, shExecutable);
-    }
-
-    Artifact wrapper =
-        ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
-    ruleContext.registerAction(
-        new TemplateExpansionAction(
-            ruleContext.getActionOwner(),
-            wrapper,
-            STUB_SCRIPT_WINDOWS,
-            ImmutableList.of(Substitution.of("%bash_exe_path%", shExecutable.getPathString())),
-            true));
-    return wrapper;
+    return createWindowsExeLauncher(ruleContext, shExecutable);
   }
 }
