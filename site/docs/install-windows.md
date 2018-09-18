@@ -17,11 +17,33 @@ title: Installing Bazel on Windows
 
 ### Getting Bazel
 
-[Download Bazel for Windows from GitHub](https://github.com/bazelbuild/bazel/releases).
-Look for `bazel-<version>-windows-x86_64.exe`, e.g. `bazel-0.15.2-windows-x86_64.exe`.
+1.  [Download Bazel for Windows from GitHub](https://github.com/bazelbuild/bazel/releases).
 
-**Tip:** Rename the binary to `bazel.exe` and move it to a directory on your
-`%PATH%`, so you can run Bazel by typing `bazel` in any directory.
+    Look for `bazel-<version>-windows-x86_64.exe`, for example
+    `bazel-0.16.1-windows-x86_64.exe`.
+
+    **Tip:** Rename the binary to `bazel.exe` and move it to a directory on your
+    `%PATH%` (for example to `c:\bazel`), so you can run Bazel by typing `bazel`
+    in any directory.
+
+1.  Edit environment variables.
+
+    Open the "Environment Variables" dialog box from Control Panel or Start
+    Menu, and add or edit the following variables under the "User variables"
+    section:
+    1.  **Edit `Path`**. Add new entries to the beginning of the list:
+        *   The directory of `bazel.exe`. (Example: `c:\bazel`).
+        *   The `usr\bin` directory of MSYS2. (Example: `c:\msys64\usr\bin`).
+        *   If you will build **Python** code: the directory of `python.exe`.
+            (Example: `c:\python3`).
+    1.  **Add `BAZEL_SH`**. Its value must be the path to MSYS2 Bash.
+        Example: `c:\msys64\usr\bin\bash.exe`
+    1.  **Add `JAVA_HOME`** (if you will build **Java** code). Its value must be
+        the directory where you installed the Java JDK 8, for example
+        `C:\Program Files\Java\jdk1.8.0_152`
+
+    **None of these paths should contain spaces or non-ASCII characters.**
+
 
 ### Other ways to get Bazel
 
