@@ -165,11 +165,24 @@ public final class CommandHelper {
     for (Iterable<? extends TransitiveInfoCollection> tools : toolsList) {
       for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
         Label label = AliasProvider.getDependencyLabel(dep);
+        MiddlemanProvider toolMiddleman = dep.getProvider(MiddlemanProvider.class);
+        if (toolMiddleman != null) {
+          resolvedToolsBuilder.addAll(toolMiddleman.getMiddlemanArtifact());
+          // It is not obviously correct to skip potentially adding getFilesToRun of the
+          // FilesToRunProvider. However, for all tools that we know of that provide a middleman,
+          // the middleman is equivalent to the list of files coming out of getFilesToRun().
+          // Just adding all the files creates a substantial performance bottleneck. E.g. a C++
+          // toolchain might consist of thousands of files and tracking them one by one for each
+          // action that uses them is inefficient.
+          continue;
+        }
+
         FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
         if (tool == null) {
           continue;
         }
 
+        // TODO(djasper): This is flattening the NestedSet coming out of getFilesToRun(). Don't.
         Iterable<Artifact> files = tool.getFilesToRun();
         resolvedToolsBuilder.addAll(files);
         Artifact executableArtifact = tool.getExecutable();
