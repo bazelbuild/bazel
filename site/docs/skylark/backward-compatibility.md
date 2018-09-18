@@ -51,7 +51,8 @@ guarded behind flags in the current release:
 *   [Disable late bound option defaults](#disable-late-bound-option-defaults)
 *   [Disable depsets in C++ toolchain API in user
     flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
-*   [Disallow using CROSSTOOL to select the cc_toolchain label](#disable-cc-toolchain-label-from-crosstool-proto)
+*   [Disallow using CROSSTOOL to select the cc_toolchain label](#disallow-using-crosstool-to-select-the-cc_toolchain-label)
+*   [Disallow using C++ Specific Make Variables from the configuration](#disallow-using-c-specific-make-variables-from-the-configuration)
 
 
 ### Dictionary concatenation
@@ -581,6 +582,83 @@ cc_toolchain_suite(
 ```
 
 *   Flag: `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
+### Disallow using C++ Specific Make Variables from the configuration
+
+Currently Bazel allows rule authors to access certain Make variables that are
+implicitly provided to every rule by the CppConfiguration. This causes every
+target to implicitly depend on CppConfiguration, which creates an undesirable
+number of extra, unused, dependencies.
+
+We are removing the implicit provision of these Make variables, and requiring
+rules and targets that use these Make variables to explicitly depend on a
+C++ toolchain in order to access them.
+
+The list of Make variables is:
+
+* CC
+* AR
+* NM
+* LD
+* OBJCOPY
+* STRIP
+* GCOVTOOL
+* GLIBC\_VERSION
+* C\_COMPILER
+* CROSSTOOLTOP
+* ABI\_GLIBC\_VERSION
+* ABI
+
+In order to not be affected by this change, one should add a
+C++ toolchain to the `toolchains` attribute for targets, or to the
+`_toolchains` attribute for Starlark rules. The best choice for this value is
+the alias target `@bazel_tools//tools/cpp:current_cc_toolchain`, which will
+always resolve to the currently selected C++ toolchain.
+
+For genrules and other targets using C++ Make Variables:
+
+```python
+# Before
+genrule(
+  cmd = '$(STRIP) file-to-be-stripped.o',
+)
+
+# After
+genrule(
+  cmd = '$(STRIP) file-to-be-stripped.o',
+  toolchains = ['@bazel_tools//tools/cpp:current_cc_toolchain'],
+)
+```
+
+For Starlark rules using C++ Make Variables:
+
+```python
+# Before
+def _impl(ctx):
+  strip = ctx.vars['STRIP']
+  ...
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+  },
+)
+
+# After
+def _impl(ctx):
+  strip = ctx.vars['STRIP']
+  ...
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+    '_toolchains': attr.label_list(default = [Label('@bazel_tools//tools/cpp:current_cc_toolchain')]),
+  },
+)
+```
+*   Flag: `--incompatible_disable_cc_configuration_make_variables`
 *   Default: `false`
 *   Introduced in: `0.18.0`
 
