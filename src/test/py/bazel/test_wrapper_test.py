@@ -17,8 +17,10 @@ import unittest
 
 from src.test.py.bazel import test_base
 
-
 class TestWrapperTest(test_base.TestBase):
+
+  def _FailWithOutput(self, stderr, stdout):
+    self.fail('FAIL: test.log:\n---\n | %s\n---' % '\n | '.join(stderr + stdout))
 
   def _CreateMockWorkspace(self):
     self.ScratchFile('WORKSPACE')
@@ -41,6 +43,7 @@ class TestWrapperTest(test_base.TestBase):
     self.ScratchFile(
         'foo/printing.bat', [
             '@echo lorem ipsum',
+            '@echo HOME=%HOME%',
             '@echo TEST_SRCDIR=%TEST_SRCDIR%',
             '@echo TEST_TMPDIR=%TEST_TMPDIR%',
             '@echo USER=%USER%',
@@ -69,15 +72,17 @@ class TestWrapperTest(test_base.TestBase):
     exit_code, stdout, stderr = self.RunBazel([
         'test',
         '//foo:printing_test.bat',
-        '--test_output=streamed',
         '-t-',
+        '--test_output=all',
         flag,
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     lorem = False
-    for line in stdout + stderr:
+    for line in stderr + stdout:
       if 'lorem ipsum' in line:
         lorem = True
+      if 'HOME=' in line:
+        home = line[len('HOME='):]
       if 'TEST_SRCDIR=' in line:
         srcdir = line[len('TEST_SRCDIR='):]
       if 'TEST_TMPDIR=' in line:
@@ -85,26 +90,35 @@ class TestWrapperTest(test_base.TestBase):
       if 'USER=' in line:
         user = line[len('USER='):]
     if not lorem:
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+      self._FailWithOutput(stderr, stdout)
+    if not home:
+      self._FailWithOutput(stderr, stdout)
+    if not os.path.isabs(home):
+      self._FailWithOutput(stderr, stdout)
+    if not os.path.isdir(home):
+      self._FailWithOutput(stderr, stdout)
     if not os.path.isdir(srcdir):
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
-    if not os.path.isfile(srcdir + '/MANIFEST'):
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+      self._FailWithOutput(stderr, stdout)
+    if not os.path.isfile(os.path.join(srcdir, 'MANIFEST')):
+      self._FailWithOutput(stderr, stdout)
     if not os.path.isabs(srcdir):
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+      self._FailWithOutput(stderr, stdout)
     if not os.path.isdir(tmpdir):
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+      self._FailWithOutput(stderr, stdout)
     if not os.path.isabs(tmpdir):
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+      self._FailWithOutput(stderr, stdout)
     if not user:
-      self.fail('FAIL: output:\n%s\n---' % '\n'.join(stderr + stdout))
+      self._FailWithOutput(stderr, stdout)
 
-  def testTestExecutionWithTestSetupShAndWithTestWrapperExe(self):
+  def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--nowindows_native_test_wrapper'
     self._AssertPassingTest(flag)
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
+
+  def testTestExecutionWithTestWrapperExe(self):
+    self._CreateMockWorkspace()
     # As of 2018-09-11, the Windows native test runner can run simple tests and
     # export a few envvars, though it does not completely set up the test's
     # environment yet.
