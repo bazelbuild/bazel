@@ -119,7 +119,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/skylark:test"));
     assertThat(noToolchainError)
         .hasMessageThat()
-        .contains("No default_toolchain found for cpu 'doesnotexist'");
+        .contains("No toolchain found for cpu 'doesnotexist'");
   }
 
   @Test
