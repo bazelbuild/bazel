@@ -56,6 +56,11 @@ class TestWrapperTest(test_base.TestBase):
         '    srcs = ["sharded.bat"],',
         '    shard_count = 2,',
         ')',
+        'sh_test(',
+        '    name = "unexported_test.bat",',
+        '    srcs = ["unexported.bat"],',
+        '    shard_count = 2,',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -79,6 +84,12 @@ class TestWrapperTest(test_base.TestBase):
         'foo/sharded.bat', [
             '@echo STATUS=%TEST_SHARD_STATUS_FILE%',
             '@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%',
+        ],
+        executable=True)
+    self.ScratchFile(
+        'foo/unexported.bat', [
+            '@echo GOOD=%HOME%',
+            '@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%',
         ],
         executable=True)
 
@@ -111,15 +122,15 @@ class TestWrapperTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     lorem = False
     for line in stderr + stdout:
-      if 'lorem ipsum' in line:
+      if line.startswith('lorem ipsum'):
         lorem = True
-      if 'HOME=' in line:
+      elif line.startswith('HOME='):
         home = line[len('HOME='):]
-      if 'TEST_SRCDIR=' in line:
+      elif line.startswith('TEST_SRCDIR='):
         srcdir = line[len('TEST_SRCDIR='):]
-      if 'TEST_TMPDIR=' in line:
+      elif line.startswith('TEST_TMPDIR='):
         tmpdir = line[len('TEST_TMPDIR='):]
-      if 'USER=' in line:
+      elif line.startswith('USER='):
         user = line[len('USER='):]
     if not lorem:
       self._FailWithOutput(stderr + stdout)
@@ -153,11 +164,11 @@ class TestWrapperTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     mf = mf_only = rf_dir = None
     for line in stderr + stdout:
-      if 'MF=' in line:
+      if line.startswith('MF='):
         mf = line[len('MF='):]
-      if 'ONLY=' in line:
+      elif line.startswith('ONLY='):
         mf_only = line[len('ONLY='):]
-      if 'DIR=' in line:
+      elif line.startswith('DIR='):
         rf_dir = line[len('DIR='):]
 
     if mf_only != '1':
@@ -187,9 +198,9 @@ class TestWrapperTest(test_base.TestBase):
     status = None
     index_lines = []
     for line in stderr + stdout:
-      if 'STATUS=' in line:
+      if line.startswith('STATUS='):
         status = line[len('STATUS='):]
-      if 'INDEX=' in line:
+      elif line.startswith('INDEX='):
         index_lines.append(line)
     if not status:
       self._FailWithOutput(stderr + stdout)
@@ -200,6 +211,24 @@ class TestWrapperTest(test_base.TestBase):
     if sorted(index_lines) != ['INDEX=0 TOTAL=2', 'INDEX=1 TOTAL=2']:
       self._FailWithOutput(stderr + stdout)
 
+  def _AssertUnexportsEnvvars(self, flag):
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:unexported_test.bat',
+        '-t-',
+        '--test_output=all',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+    good = bad = None
+    for line in stderr + stdout:
+      if line.startswith('GOOD='):
+        good = line[len('GOOD='):]
+      elif line.startswith('BAD='):
+        bad = line[len('BAD='):]
+    if not good or bad:
+      self._FailWithOutput(stderr + stdout)
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--nowindows_native_test_wrapper'
@@ -208,6 +237,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertPrintingTest(flag)
     self._AssertRunfiles(flag)
     self._AssertShardedTest(flag)
+    self._AssertUnexportsEnvvars(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -220,6 +250,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertPrintingTest(flag)
     self._AssertRunfiles(flag)
     self._AssertShardedTest(flag)
+    self._AssertUnexportsEnvvars(flag)
 
 
 if __name__ == '__main__':

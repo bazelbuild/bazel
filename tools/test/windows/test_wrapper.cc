@@ -143,6 +143,16 @@ bool SetEnv(const wchar_t* name, const std::wstring& value) {
   }
 }
 
+bool UnsetEnv(const wchar_t* name) {
+  if (SetEnvironmentVariableW(name, NULL) != 0) {
+    return true;
+  } else {
+    LogErrorWithArgAndValue(__LINE__, "Failed to unset envvar", name,
+                            GetLastError());
+    return false;
+  }
+}
+
 bool GetCwd(Path* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
@@ -298,6 +308,22 @@ bool ExportMiscEnvvars(const Path& cwd) {
       return false;
     }
   }
+  return true;
+}
+
+bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd, Path* zip,
+                                            Path* manifest, Path* annotations) {
+  if (!GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP", zip) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP") ||
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST", manifest) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST") ||
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS", annotations) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS")) {
+    return false;
+  }
+  zip->Absolutize(cwd);
+  manifest->Absolutize(cwd);
+  annotations->Absolutize(cwd);
   return true;
 }
 
@@ -482,11 +508,13 @@ int wmain(int argc, wchar_t** argv) {
     return 1;
   }
 
-  Path srcdir, tmpdir, xml_output;
+  Path srcdir, tmpdir, xml_output, undecl_zip, undecl_mf, undecl_annot;
   if (!ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
-      !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root)) {
+      !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
+      !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl_zip,
+                                              &undecl_mf, &undecl_annot)) {
     return 1;
   }
 
