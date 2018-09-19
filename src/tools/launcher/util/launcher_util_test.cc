@@ -75,6 +75,7 @@ TEST_F(LaunchUtilTest, GetBinaryPathWithExtensionTest) {
 }
 
 TEST_F(LaunchUtilTest, GetEscapedArgumentTest) {
+  ASSERT_EQ(L"\"\"", GetEscapedArgument(L"", true));
   ASSERT_EQ(L"foo", GetEscapedArgument(L"foo", true));
   ASSERT_EQ(L"\"foo bar\"", GetEscapedArgument(L"foo bar", true));
   ASSERT_EQ(L"\"\\\"foo bar\\\"\"", GetEscapedArgument(L"\"foo bar\"", true));

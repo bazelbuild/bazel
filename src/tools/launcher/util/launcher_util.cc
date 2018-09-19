@@ -134,6 +134,10 @@ wstring GetEscapedArgument(const wstring& argument, bool escape_backslash) {
   escaped_arg.reserve(argument.size());
   bool has_space = argument.find_first_of(L' ') != wstring::npos;
 
+  if (argument.empty()) {
+    return L"\"\"";
+  }
+
   if (has_space) {
     escaped_arg += L'\"';
   }
