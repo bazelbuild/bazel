@@ -233,8 +233,7 @@ public class CrosstoolConfigurationLoader {
 
     if (crosstoolProto == null) {
       throw new InvalidConfigurationException("The crosstool_top you specified was resolved to '" +
-          crosstoolTop + "', which does not contain a CROSSTOOL file. " +
-          "You can use a crosstool from the depot by specifying its label.");
+          crosstoolTop + "', which does not contain a CROSSTOOL file.");
     } else {
       // Do this before we read the data, so if it changes, we get a different MD5 the next time.
       // Alternatively, we could calculate the MD5 of the contents, which we also read, but this
