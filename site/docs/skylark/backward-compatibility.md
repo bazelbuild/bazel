@@ -686,8 +686,8 @@ Because this syntax is non-functional and confusing, it's being removed outright
 implies will be provided by
 [Starlark build configuration](https://github.com/bazelbuild/bazel/issues/5574).
 
-When `--incompatible_disallow_data_transition=true`, building rules with this syntax
-fails with an error.
+When `--incompatible_disallow_data_transition=true`, builds using this syntax
+fail with an error.
 
 *   Flag: `--incompatible_disallow_data_transition`
 *   Default: `false`
