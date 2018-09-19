@@ -993,7 +993,10 @@ public final class SkylarkRuleContext implements SkylarkRuleContextApi {
       command = expandMakeVariables(attribute, command, makeVariables);
     }
     List<Artifact> inputs = new ArrayList<>();
-    inputs.addAll(helper.getResolvedTools());
+    // TODO(lberki): This flattens a NestedSet.
+    // However, we can't turn this into a SkylarkNestedSet because it's an incompatible change to
+    // Skylark.
+    Iterables.addAll(inputs, helper.getResolvedTools());
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
