@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.syntax.Environment.Frame;
 import com.google.devtools.build.lib.syntax.Environment.GlobalFrame;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.protobuf.ByteString;
@@ -96,6 +97,12 @@ public class TestUtils {
     return TestUtils.roundTrip(value, ImmutableMap.of());
   }
 
+  public static void assertFramesEqual(Frame frame1, Frame frame2) {
+    assertThat(frame1.getTransitiveBindings())
+        .containsExactlyEntriesIn(frame2.getTransitiveBindings())
+        .inOrder();
+  }
+
   /**
    * Asserts that two {@link GlobalFrame}s have the same structure. Needed because
    * {@link GlobalFrame} doesn't override {@link Object#equals}.
@@ -110,7 +117,7 @@ public class TestUtils {
       assertThat(frame1.getParent()).isNull();
       assertThat(frame2.getParent()).isNull();
     } else {
-      assertGlobalFramesEqual(frame1.getParent(), frame2.getParent());
+      assertFramesEqual(frame1.getParent(), frame2.getParent());
     }
   }
 

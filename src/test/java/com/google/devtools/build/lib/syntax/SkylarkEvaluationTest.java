@@ -1839,7 +1839,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testShadowBuiltin() throws Exception {
-    // TODO(laurentlb): Forbid this.
+    new SkylarkTest("--incompatible_static_name_resolution=true")
+        .testIfErrorContains(
+            "global variable 'len' is referenced before assignment",
+            "x = len('abc')",
+            "len = 2",
+            "y = x + len");
+  }
+
+  @Test
+  public void testLegacyShadowBuiltin() throws Exception {
     new SkylarkTest("--incompatible_static_name_resolution=false")
         .setUp("x = len('abc')", "len = 2", "y = x + len")
         .testLookup("y", 5);
