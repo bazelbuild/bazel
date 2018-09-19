@@ -350,7 +350,7 @@ function run_bazel_jar() {
   local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_" && name ~ /^[A-Za-z0-9_]*$/) print name; } }' </dev/null)"
   for varname in $env_vars; do
     eval value=\$$varname
-    if [ "${PLATFORM}" = "windows" ] && echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\)$" ; then
+    if [ "${PLATFORM}" = "windows" ] && echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\|systemdrive\)$" ; then
       varname="$(echo "$varname" | tr [:lower:] [:upper:])"
     fi
     if [ "${value}" ]; then

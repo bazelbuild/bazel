@@ -45,7 +45,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     String argv0 = processArgv0(argv.get(0));
     String argvRest =
         argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
-    byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
+    byte[] env = convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
     String stderrPath = getRedirectPath(builder.getStderr(), builder.getStderrFile());
@@ -102,31 +102,29 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     }
   }
 
-  private String getSystemRoot(Map<String, String> env) {
-    // Windows environment variables are case-insensitive, so we can't just say
-    // System.getenv().get("SystemRoot")
-    for (String key : env.keySet()) {
-      if (key.toUpperCase().equals("SYSTEMROOT")) {
-        return env.get(key);
-      }
-    }
-
-    return null;
-  }
-
   /**
    * Converts an environment map to the format expected in lpEnvironment by CreateProcess().
    */
-  private byte[] convertEnvToNative(Map<String, String> env) throws IOException {
+  private byte[] convertEnvToNative(Map<String, String> envMap) throws IOException {
     Map<String, String> realEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-    realEnv.putAll(env == null ? System.getenv() : env);
-    if (getSystemRoot(realEnv) == null) {
-      // Some versions of MSVCRT.DLL require SystemRoot to be set. It's quite a common library to
-      // link in, so we add this environment variable regardless of whether the caller requested
-      // it or not.
-      String systemRoot = getSystemRoot(System.getenv());
-      if (systemRoot != null) {
-        realEnv.put("SystemRoot", systemRoot);
+    Map<String, String> systemEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    if (envMap != null) {
+      realEnv.putAll(envMap);
+    }
+    // It is fine to use System.getenv to get default SYSTEMROOT and SYSTEMDRIVE, because they are
+    // very special system environment variables and Bazel's client and server are running on the
+    // same machine, so it should be the same in client environment.
+    systemEnv.putAll(System.getenv());
+    // Some versions of MSVCRT.DLL and tools require SYSTEMROOT and SYSTEMDRIVE to be set. They are
+    // very common environment variables on Windows, so we add these environment variables
+    // regardless of whether the caller requested it or not.
+    String[] systemEnvironmentVars = {"SYSTEMROOT", "SYSTEMDRIVE"};
+    for (String env : systemEnvironmentVars) {
+      if (realEnv.getOrDefault(env, null) == null) {
+        String value = systemEnv.getOrDefault(env, null);
+        if (value != null) {
+          realEnv.put(env, value);
+        }
       }
     }
 

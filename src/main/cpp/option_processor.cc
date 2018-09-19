@@ -553,6 +553,7 @@ static bool IsValidEnvName(const char* p) {
 #if defined(_WIN32)
 static void PreprocessEnvString(string* env_str) {
   static constexpr const char* vars_to_uppercase[] = {"PATH", "SYSTEMROOT",
+                                                      "SYSTEMDRIVE",
                                                       "TEMP", "TEMPDIR", "TMP"};
 
   int pos = env_str->find_first_of('=');
