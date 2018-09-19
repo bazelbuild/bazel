@@ -145,7 +145,7 @@ public class CommonCommandOptions extends OptionsBase {
         UUID.fromString(input.substring(uuidStartIndex));
       } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
         throw new OptionsParsingException(
-            String.format("Value '%s' does end in a valid UUID.", input), e);
+            String.format("Value '%s' does not end in a valid UUID.", input), e);
       }
       return input;
     }
