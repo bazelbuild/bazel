@@ -96,6 +96,10 @@ inline void CreateDirectories(const Path& path) {
                                0777);
 }
 
+inline bool ToInt(const wchar_t* s, int* result) {
+  return swscanf_s(s, L"%d", result) == 1;
+}
+
 bool GetEnv(const wchar_t* name, std::wstring* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
@@ -206,6 +210,43 @@ bool ExportHome(const Path& test_tmpdir) {
     // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
     return SetEnv(L"HOME", test_tmpdir.Get());
   }
+}
+
+bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
+  Path runfiles_dir;
+  if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
+      (runfiles_dir.Absolutize(cwd) &&
+       !SetEnv(L"RUNFILES_DIR", runfiles_dir.Get()))) {
+    return false;
+  }
+
+  // TODO(ulfjack): Standardize on RUNFILES_DIR and remove the
+  // {JAVA,PYTHON}_RUNFILES vars.
+  Path java_rf, py_rf;
+  if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
+      (java_rf.Absolutize(cwd) && !SetEnv(L"JAVA_RUNFILES", java_rf.Get())) ||
+      !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
+      (py_rf.Absolutize(cwd) && !SetEnv(L"PYTHON_RUNFILES", py_rf.Get()))) {
+    return false;
+  }
+
+  std::wstring mf_only_str;
+  int mf_only_value = 0;
+  if (!GetEnv(L"RUNFILES_MANIFEST_ONLY", &mf_only_str) ||
+      (!mf_only_str.empty() && !ToInt(mf_only_str.c_str(), &mf_only_value))) {
+    return false;
+  }
+  if (mf_only_value == 1) {
+    // If RUNFILES_MANIFEST_ONLY is set to 1 then test programs should use the
+    // manifest file to find their runfiles.
+    Path runfiles_mf;
+    if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
+        !SetEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf.Get())) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 inline void PrintTestLogStartMarker() {
@@ -379,7 +420,8 @@ int wmain(int argc, wchar_t** argv) {
 
   Path srcdir, tmpdir, xml_output;
   if (!ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
-      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir)) {
+      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
+      !ExportRunfiles(exec_root, srcdir)) {
     return 1;
   }
 
