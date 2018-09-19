@@ -75,18 +75,6 @@ new_local_repository(
 )
 
 new_local_repository(
-    name = "com_google_protobuf_cc",
-    build_file = "./third_party/protobuf/3.6.1/BUILD",
-    path = "./third_party/protobuf/3.6.1/",
-)
-
-new_local_repository(
-    name = "com_google_protobuf_java",
-    build_file = "./third_party/protobuf/3.6.1/com_google_protobuf_java.BUILD",
-    path = "./third_party/protobuf/3.6.1/",
-)
-
-new_local_repository(
     name = "googleapis",
     build_file = "./third_party/googleapis/BUILD",
     path = "./third_party/googleapis/",
