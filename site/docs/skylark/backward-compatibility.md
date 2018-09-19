@@ -53,6 +53,7 @@ guarded behind flags in the current release:
     flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
 *   [Disallow using CROSSTOOL to select the cc_toolchain label](#disallow-using-crosstool-to-select-the-cc_toolchain-label)
 *   [Disallow using C++ Specific Make Variables from the configuration](#disallow-using-c-specific-make-variables-from-the-configuration)
+*   [Disallow `cfg = "data"`](#disallow-cfg--data)
 
 
 ### Dictionary concatenation
@@ -661,6 +662,30 @@ my_rule = rule(
 *   Flag: `--incompatible_disable_cc_configuration_make_variables`
 *   Default: `false`
 *   Introduced in: `0.18.0`
+
+### Disallow `cfg = "data"`
+
+`cfg = "data"` is a no-op that incorrectly gives the impression dependencies under
+it are built in some special "data" mode:
+
+```python
+my_rule = rule(
+    ...
+    "some_attr": attr.label_list(
+        cfg = "data"  # This line does nothing
+    )
+)
+```
+
+Because this is non-functional and confusing, it's being removed outright
+([#6153](https://github.com/bazelbuild/bazel/issues/6153)). The functionality this
+syntax implies will be provided by
+[Starlark build configuration](https://github.com/bazelbuild/bazel/issues/5574).
+
+
+*   Flag: `--incompatible_disallow_data_transition`
+*   Default: `false`
+*   Introduced in: `0.16.0`
 
 <!-- Add new options here -->
 
