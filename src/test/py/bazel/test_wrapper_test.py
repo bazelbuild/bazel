@@ -51,6 +51,11 @@ class TestWrapperTest(test_base.TestBase):
         '    srcs = ["runfiles.bat"],',
         '    data = ["passing.bat"],',
         ')',
+        'sh_test(',
+        '    name = "sharded_test.bat",',
+        '    srcs = ["sharded.bat"],',
+        '    shard_count = 2,',
+        ')',
     ])
     self.ScratchFile('foo/passing.bat', ['@exit /B 0'], executable=True)
     self.ScratchFile('foo/failing.bat', ['@exit /B 1'], executable=True)
@@ -68,6 +73,12 @@ class TestWrapperTest(test_base.TestBase):
             '@echo MF=%RUNFILES_MANIFEST_FILE%',
             '@echo ONLY=%RUNFILES_MANIFEST_ONLY%',
             '@echo DIR=%RUNFILES_DIR%',
+        ],
+        executable=True)
+    self.ScratchFile(
+        'foo/sharded.bat', [
+            '@echo STATUS=%TEST_SHARD_STATUS_FILE%',
+            '@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%',
         ],
         executable=True)
 
@@ -164,6 +175,31 @@ class TestWrapperTest(test_base.TestBase):
     if not os.path.isdir(rf_dir):
       self._FailWithOutput(stderr + stdout)
 
+  def _AssertShardedTest(self, flag):
+    exit_code, stdout, stderr = self.RunBazel([
+        'test',
+        '//foo:sharded_test.bat',
+        '-t-',
+        '--test_output=all',
+        flag,
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+    status = None
+    index_lines = []
+    for line in stderr + stdout:
+      if 'STATUS=' in line:
+        status = line[len('STATUS='):]
+      if 'INDEX=' in line:
+        index_lines.append(line)
+    if not status:
+      self._FailWithOutput(stderr + stdout)
+    # Test test-setup.sh / test wrapper only ensure that the directory of the
+    # shard status file exist, not that the file itself does too.
+    if not os.path.isdir(os.path.dirname(status)):
+      self._FailWithOutput(stderr + stdout)
+    if sorted(index_lines) != ['INDEX=0 TOTAL=2', 'INDEX=1 TOTAL=2']:
+      self._FailWithOutput(stderr + stdout)
+
   def testTestExecutionWithTestSetupSh(self):
     self._CreateMockWorkspace()
     flag = '--nowindows_native_test_wrapper'
@@ -171,6 +207,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
     self._AssertRunfiles(flag)
+    self._AssertShardedTest(flag)
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -182,6 +219,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertFailingTest(flag)
     self._AssertPrintingTest(flag)
     self._AssertRunfiles(flag)
+    self._AssertShardedTest(flag)
 
 
 if __name__ == '__main__':

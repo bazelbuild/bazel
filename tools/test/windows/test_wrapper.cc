@@ -54,7 +54,8 @@ class Defer {
 class Path {
  public:
   Path() {}
-  Path(const Path& other) = delete;
+  Path(const Path& other) : path_(other.path_) {}
+  Path(Path&& other) : path_(std::move(other.path_)) {}
   Path& operator=(const Path& other) = delete;
   const std::wstring& Get() const { return path_; }
   bool Set(const std::wstring& path);
@@ -63,6 +64,8 @@ class Path {
   // Returns true if the path was changed (i.e. was not absolute before).
   // Returns false and has no effect if this path was empty or already absolute.
   bool Absolutize(const Path& cwd);
+
+  Path Dirname() const;
 
  private:
   std::wstring path_;
@@ -249,6 +252,55 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   return true;
 }
 
+bool ExportShardStatusFile(const Path& cwd) {
+  Path status_file;
+  if (!GetPathEnv(L"TEST_SHARD_STATUS_FILE", &status_file) ||
+      (!status_file.Get().empty() && status_file.Absolutize(cwd) &&
+       !SetEnv(L"TEST_SHARD_STATUS_FILE", status_file.Get()))) {
+    return false;
+  }
+
+  if (!status_file.Get().empty()) {
+    // The test shard status file is only set for sharded tests.
+    CreateDirectories(status_file.Dirname());
+  }
+  return true;
+}
+
+bool ExportGtestVariables(const Path& test_tmpdir) {
+  // # Tell googletest about Bazel sharding.
+  std::wstring total_shards_str;
+  int total_shards_value = 0;
+  if (!GetEnv(L"TEST_TOTAL_SHARDS", &total_shards_str) ||
+      (!total_shards_str.empty() &&
+       !ToInt(total_shards_str.c_str(), &total_shards_value))) {
+    return false;
+  }
+  if (total_shards_value > 0) {
+    std::wstring shard_index;
+    if (!GetEnv(L"TEST_SHARD_INDEX", &shard_index) ||
+        !SetEnv(L"GTEST_SHARD_INDEX", shard_index) ||
+        !SetEnv(L"GTEST_TOTAL_SHARDS", total_shards_str)) {
+      return false;
+    }
+  }
+  return SetEnv(L"GTEST_TMP_DIR", test_tmpdir.Get());
+}
+
+bool ExportMiscEnvvars(const Path& cwd) {
+  for (const wchar_t* name :
+       {L"TEST_INFRASTRUCTURE_FAILURE_FILE", L"TEST_LOGSPLITTER_OUTPUT_FILE",
+        L"TEST_PREMATURE_EXIT_FILE", L"TEST_UNUSED_RUNFILES_LOG_FILE",
+        L"TEST_WARNINGS_OUTPUT_FILE"}) {
+    Path value;
+    if (!GetPathEnv(name, &value) ||
+        (value.Absolutize(cwd) && !SetEnv(name, value.Get()))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 inline void PrintTestLogStartMarker() {
   // This header marks where --test_output=streamed will start being printed.
   printf(
@@ -375,6 +427,12 @@ bool Path::Absolutize(const Path& cwd) {
   }
 }
 
+Path Path::Dirname() const {
+  Path result;
+  result.path_ = blaze_util::SplitPathW(path_).first;
+  return result;
+}
+
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
@@ -399,7 +457,13 @@ int wmain(int argc, wchar_t** argv) {
     if (!GetEnv(L"TEST_TARGET", &test_target)) {
       return 1;
     }
-    printf("Executing tests from %ls\n", test_target.c_str());
+    if (test_target.empty()) {
+      // According to the Bazel Test Encyclopedia, setting TEST_TARGET is
+      // optional.
+      wprintf(L"Executing tests from unknown target\n");
+    } else {
+      wprintf(L"Executing tests from %s\n", test_target.c_str());
+    }
   }
 
   if (argc < 1) {
@@ -421,7 +485,8 @@ int wmain(int argc, wchar_t** argv) {
   Path srcdir, tmpdir, xml_output;
   if (!ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
-      !ExportRunfiles(exec_root, srcdir)) {
+      !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
+      !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root)) {
     return 1;
   }
 
