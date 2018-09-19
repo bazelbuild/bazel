@@ -58,7 +58,11 @@ class Path {
   Path& operator=(const Path& other) = delete;
   const std::wstring& Get() const { return path_; }
   bool Set(const std::wstring& path);
-  void Absolutize(const Path& cwd);
+
+  // Makes this path absolute.
+  // Returns true if the path was changed (i.e. was not absolute before).
+  // Returns false and has no effect if this path was empty or already absolute.
+  bool Absolutize(const Path& cwd);
 
  private:
   std::wstring path_;
@@ -149,6 +153,7 @@ bool GetCwd(Path* result) {
   }
 }
 
+// Set USER as required by the Bazel Test Encyclopedia.
 bool ExportUserName() {
   std::wstring value;
   if (!GetEnv(L"USER", &value)) {
@@ -167,32 +172,40 @@ bool ExportUserName() {
   return SetEnv(L"USER", buffer);
 }
 
+// Set TEST_SRCDIR as required by the Bazel Test Encyclopedia.
 bool ExportSrcPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_SRCDIR", result)) {
     return false;
   }
-  if (blaze_util::IsAbsolute(result->Get())) {
-    return true;
-  } else {
-    result->Absolutize(cwd);
-    return SetEnv(L"TEST_SRCDIR", result->Get());
-  }
+  return !result->Absolutize(cwd) || SetEnv(L"TEST_SRCDIR", result->Get());
 }
 
+// Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
 bool ExportTmpPath(const Path& cwd, Path* result) {
-  if (!GetPathEnv(L"TEST_TMPDIR", result)) {
+  if (!GetPathEnv(L"TEST_TMPDIR", result) ||
+      (result->Absolutize(cwd) && !SetEnv(L"TEST_TMPDIR", result->Get()))) {
     return false;
-  }
-  if (!blaze_util::IsAbsolute(result->Get())) {
-    result->Absolutize(cwd);
-    if (!SetEnv(L"TEST_TMPDIR", result->Get())) {
-      return false;
-    }
   }
   // Create the test temp directory, which may not exist on the remote host when
   // doing a remote build.
   CreateDirectories(*result);
   return true;
+}
+
+// Set HOME as required by the Bazel Test Encyclopedia.
+bool ExportHome(const Path& test_tmpdir) {
+  Path home;
+  if (!GetPathEnv(L"HOME", &home)) {
+    return false;
+  }
+  if (blaze_util::IsAbsolute(home.Get())) {
+    // Respect the user-defined HOME in case they set passed it with
+    // --test_env=HOME or --test_env=HOME=C:\\foo
+    return true;
+  } else {
+    // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
+    return SetEnv(L"HOME", test_tmpdir.Get());
+  }
 }
 
 inline void PrintTestLogStartMarker() {
@@ -267,8 +280,9 @@ bool StartSubprocess(const Path& path, HANDLE* process) {
   PROCESS_INFORMATION processInfo;
   STARTUPINFOW startupInfo = {0};
 
-  if (CreateProcessW(NULL, cmdline.get(), NULL, NULL, FALSE, 0, NULL, NULL,
-                     &startupInfo, &processInfo) != 0) {
+  if (CreateProcessW(NULL, cmdline.get(), NULL, NULL, FALSE,
+                     CREATE_UNICODE_ENVIRONMENT, NULL, NULL, &startupInfo,
+                     &processInfo) != 0) {
     CloseHandle(processInfo.hThread);
     *process = processInfo.hProcess;
     return true;
@@ -311,9 +325,12 @@ bool Path::Set(const std::wstring& path) {
   return true;
 }
 
-void Path::Absolutize(const Path& cwd) {
+bool Path::Absolutize(const Path& cwd) {
   if (!path_.empty() && !blaze_util::IsAbsolute(path_)) {
     path_ = cwd.path_ + L"\\" + path_;
+    return true;
+  } else {
+    return false;
   }
 }
 
@@ -349,8 +366,10 @@ int wmain(int argc, wchar_t** argv) {
     return 1;
   }
 
-  if (!suppress_output) {
-    PrintTestLogStartMarker();
+  const wchar_t* test_path_arg = argv[0];
+  Path test_path;
+  if (!FindTestBinary(argv0, test_path_arg, &test_path)) {
+    return 1;
   }
 
   Path exec_root;
@@ -360,14 +379,12 @@ int wmain(int argc, wchar_t** argv) {
 
   Path srcdir, tmpdir, xml_output;
   if (!ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
-      !ExportTmpPath(exec_root, &tmpdir)) {
+      !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir)) {
     return 1;
   }
 
-  const wchar_t* test_path_arg = argv[0];
-  Path test_path;
-  if (!FindTestBinary(argv0, test_path_arg, &test_path)) {
-    return 1;
+  if (!suppress_output) {
+    PrintTestLogStartMarker();
   }
 
   HANDLE process;
