@@ -792,6 +792,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -2450,6 +2451,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -4115,6 +4117,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -5783,6 +5786,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -7478,6 +7482,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -9143,6 +9148,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -10796,6 +10802,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -12452,6 +12459,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -14135,6 +14143,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
@@ -15789,6 +15798,7 @@ toolchain {
       flag_group {
         flag: "-fprofile-generate=%{fdo_instrument_path}"
         flag: "-fno-data-sections"
+        expand_if_all_available: "fdo_instrument_path"
       }
     }
     provides: "profile"
