@@ -18,22 +18,22 @@ import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
 /**
- * {@link SimpleCriticalPathComponent} that clears its {@link Action} reference after the component
+ * {@link CriticalPathComponent} that clears its {@link Action} reference after the component
  * is finished running. This allows the action to be GC'ed, if other Bazel components are configured
  * to also release their references to the action.
  *
- * <p>This class is separate from {@link SimpleCriticalPathComponent} for memory reasons: the
+ * <p>This class is separate from {@link CriticalPathComponent} for memory reasons: the
  * additional references here add between 8 and 12 bytes per component instance with compressed OOPS
  * and 24 bytes without compressed OOPS, which is a price we'd rather not pay unless the user
  * explicitly enables this clearing of {@link Action} objects.
  */
-class ActionDiscardingCriticalPathComponent extends SimpleCriticalPathComponent {
+public class ActionDiscardingCriticalPathComponent extends CriticalPathComponent {
   @Nullable private final Label owner;
   private final String prettyPrint;
   private final String mnemonic;
 
-  ActionDiscardingCriticalPathComponent(Action action, long relativeStartNanos) {
-    super(action, relativeStartNanos);
+  public ActionDiscardingCriticalPathComponent(int id, Action action, long relativeStartNanos) {
+    super(id, action, relativeStartNanos);
     this.prettyPrint = super.prettyPrintAction();
     this.owner = super.getOwner();
     this.mnemonic = super.getMnemonic();

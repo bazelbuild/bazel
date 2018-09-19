@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -24,10 +25,12 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
- * This class records the critical path for the graph of actions executed.
+ * A component of the graph over which the critical path is computed. This may be identical to the
+ * action graph, but does not have to be - it may also take into account individual spawns run as
+ * part of an action.
  */
 @ThreadCompatible
-public class AbstractCriticalPathComponent<C extends AbstractCriticalPathComponent<C>> {
+public class CriticalPathComponent {
   /**
    * Converts from nanos to millis since the epoch. In particular, note that {@link System#nanoTime}
    * does not specify any particular time reference but only notes that returned values are only
@@ -59,13 +62,19 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   /** May be nulled out after finished running to allow the action to be GC'ed. */
   @Nullable protected Action action;
 
+  /** Spawn metrics for this action. */
+  private SpawnMetrics spawnMetrics = SpawnMetrics.EMPTY;
+  /** An unique identifier of the component for one build execution */
+  private final int id;
+
   /**
    * Child with the maximum critical path.
    */
   @Nullable
-  private C child;
+  private CriticalPathComponent child;
 
-  public AbstractCriticalPathComponent(Action action, long startNanos) {
+  public CriticalPathComponent(int id, Action action, long startNanos) {
+    this.id = id;
     this.action = action;
     this.startNanos = startNanos;
   }
@@ -98,6 +107,10 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     return action;
   }
 
+  public boolean isRunning() {
+    return isRunning;
+  }
+
   public String prettyPrintAction() {
     return getActionNotNull().prettyPrint();
   }
@@ -119,11 +132,33 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     return Preconditions.checkNotNull(action, this);
   }
 
+  /** An unique identifier of the component for one build execution */
+  public int getId() {
+    return id;
+  }
+
+  /**
+   * An action can run multiple spawns. Those calls can be sequential or parallel. Because we do not
+   * know in general how to aggregate the data (if it is a sequence of calls we should add, if they
+   * are run in parallel we should keep the maximum), we keep the maximum. This is better than just
+   * keeping the latest one.
+   */
+  public void addSpawnMetrics(SpawnMetrics spawnMetrics) {
+    if (spawnMetrics.totalTime().compareTo(this.spawnMetrics.totalTime()) > 0) {
+      this.spawnMetrics = spawnMetrics;
+    }
+  }
+
+  /** Returns spawn metrics for the execution of the action. */
+  public SpawnMetrics getSpawnMetrics() {
+    return spawnMetrics;
+  }
+
   /**
    * Add statistics for one dependency of this action. Caller should ensure {@code dep} not
    * running.
    */
-  synchronized void addDepInfo(C dep) {
+  synchronized void addDepInfo(CriticalPathComponent dep) {
     long childAggregatedWallTime = dep.getAggregatedElapsedTimeNanos();
     // Replace the child if its critical path had the maximum elapsed time.
     if (child == null || childAggregatedWallTime > this.childAggregatedElapsedTime) {
@@ -178,7 +213,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
    * <p>The component dependency with the maximum total critical path time.
    */
   @Nullable
-  public C getChild() {
+  public CriticalPathComponent getChild() {
     return child;
   }
 
@@ -189,15 +224,21 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   /**
-   * Returns a human readable representation of the critical path stats with all the details.
+   * Returns a user readable representation of the critical path stats with all the details.
    */
   @Override
   public String toString() {
-    String currentTime = "still running ";
+    StringBuilder sb = new StringBuilder();
+    String currentTime = "still running";
     if (!isRunning) {
-      currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s ";
+      currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
-    return currentTime + getActionString();
+    sb.append(currentTime);
+    sb.append(", Remote ");
+    sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
+    sb.append(" ");
+    sb.append(getActionString());
+    return sb.toString();
   }
 }
 

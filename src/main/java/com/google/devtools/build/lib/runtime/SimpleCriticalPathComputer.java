@@ -16,15 +16,16 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Computes the critical path during a build.
  */
-public class SimpleCriticalPathComputer
-    extends CriticalPathComputer<SimpleCriticalPathComponent,
-        AggregatedCriticalPath<SimpleCriticalPathComponent>> {
+public class SimpleCriticalPathComputer extends CriticalPathComputer {
+  private final AtomicInteger idGenerator = new AtomicInteger();
 
   SimpleCriticalPathComputer(
       ActionKeyContext actionKeyContext, Clock clock, boolean discardActions) {
@@ -32,10 +33,11 @@ public class SimpleCriticalPathComputer
   }
 
   @Override
-  public SimpleCriticalPathComponent createComponent(Action action, long relativeStartNanos) {
+  public CriticalPathComponent createComponent(Action action, long relativeStartNanos) {
+    int id = idGenerator.getAndIncrement();
     return discardActions
-        ? new ActionDiscardingCriticalPathComponent(action, relativeStartNanos)
-        : new SimpleCriticalPathComponent(action, relativeStartNanos);
+        ? new ActionDiscardingCriticalPathComponent(id, action, relativeStartNanos)
+        : new CriticalPathComponent(id, action, relativeStartNanos);
   }
 
   /**
@@ -45,19 +47,19 @@ public class SimpleCriticalPathComputer
    * avoiding the memory and cpu penalty for doing it for all the actions executed.
    */
   @Override
-  public AggregatedCriticalPath<SimpleCriticalPathComponent> aggregate() {
-    ImmutableList.Builder<SimpleCriticalPathComponent> components = ImmutableList.builder();
-    SimpleCriticalPathComponent maxCriticalPath = getMaxCriticalPath();
+  public AggregatedCriticalPath aggregate() {
+    ImmutableList.Builder<CriticalPathComponent> components = ImmutableList.builder();
+    CriticalPathComponent maxCriticalPath = getMaxCriticalPath();
     if (maxCriticalPath == null) {
-      return new AggregatedCriticalPath<>(Duration.ZERO, components.build());
+      return new AggregatedCriticalPath(Duration.ZERO, SpawnMetrics.EMPTY, components.build());
     }
-    SimpleCriticalPathComponent child = maxCriticalPath;
+    CriticalPathComponent child = maxCriticalPath;
     while (child != null) {
       components.add(child);
       child = child.getChild();
     }
-    return new AggregatedCriticalPath<>(
-        maxCriticalPath.getAggregatedElapsedTime(), components.build());
+    return new AggregatedCriticalPath(
+        maxCriticalPath.getAggregatedElapsedTime(), SpawnMetrics.EMPTY, components.build());
   }
 }
 

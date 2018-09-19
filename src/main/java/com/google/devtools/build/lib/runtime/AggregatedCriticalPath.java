@@ -16,19 +16,27 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import java.time.Duration;
 
 /**
  * Aggregates all the critical path components in one object. This allows us to easily access the
  * components data and have a proper toString().
  */
-public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent<?>> {
+public class AggregatedCriticalPath {
+  public static final AggregatedCriticalPath EMPTY =
+      new AggregatedCriticalPath(Duration.ZERO, SpawnMetrics.EMPTY, ImmutableList.of());
 
   private final Duration totalTime;
-  private final ImmutableList<T> criticalPathComponents;
+  private final SpawnMetrics aggregatedSpawnMetrics;
+  private final ImmutableList<CriticalPathComponent> criticalPathComponents;
 
-  protected AggregatedCriticalPath(Duration totalTime, ImmutableList<T> criticalPathComponents) {
+  public AggregatedCriticalPath(
+      Duration totalTime,
+      SpawnMetrics aggregatedSpawnMetrics,
+      ImmutableList<CriticalPathComponent> criticalPathComponents) {
     this.totalTime = totalTime;
+    this.aggregatedSpawnMetrics = aggregatedSpawnMetrics;
     this.criticalPathComponents = criticalPathComponents;
   }
 
@@ -37,8 +45,12 @@ public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent<?>> 
     return totalTime;
   }
 
+  public SpawnMetrics getSpawnMetrics() {
+    return aggregatedSpawnMetrics;
+  }
+
   /** Returns a list of all the component stats for the critical path. */
-  public ImmutableList<T> components() {
+  public ImmutableList<CriticalPathComponent> components() {
     return criticalPathComponents;
   }
 
@@ -58,7 +70,8 @@ public class AggregatedCriticalPath<T extends AbstractCriticalPathComponent<?>> 
   private String toString(boolean summary) {
     StringBuilder sb = new StringBuilder("Critical Path: ");
     sb.append(String.format("%.2f", totalTime.toMillis() / 1000.0));
-    sb.append("s");
+    sb.append("s, Remote ");
+    sb.append(getSpawnMetrics().toString(totalTime(), summary));
     if (summary || criticalPathComponents.isEmpty()) {
       return sb.toString();
     }

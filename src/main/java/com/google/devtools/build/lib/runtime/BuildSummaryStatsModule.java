@@ -103,7 +103,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
       if (criticalPathComputer != null) {
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
-          AggregatedCriticalPath<SimpleCriticalPathComponent> criticalPath =
+          AggregatedCriticalPath criticalPath =
               criticalPathComputer.aggregate();
           items.add(criticalPath.toStringSummary());
           statistics.add(
@@ -115,7 +115,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
           // We reverse the critical path because the profiler expect events ordered by the time
           // when the actions were executed while critical path computation is stored in the reverse
           // way.
-          for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
+          for (CriticalPathComponent stat : criticalPath.components().reverse()) {
             Profiler.instance()
                 .logSimpleTaskDuration(
                     stat.getStartTimeNanos(),
