@@ -1,0 +1,11 @@
+Important changes:
+
+  - In the future, Bazel will expand tree artifacts in runfiles, too,
+    which causes the sandbox to link each file individually into the
+    sandbox directory, instead of symlinking the entire directory. In
+    this release, the behavior is not enabled by default yet. Please
+    try it out via
+    --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfile
+    s_tree and let us know if it causes issues. If everything looks
+    good, this behavior will become the default in a following
+    release.
