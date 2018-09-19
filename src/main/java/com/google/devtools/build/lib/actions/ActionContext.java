@@ -19,4 +19,9 @@ package com.google.devtools.build.lib.actions;
  * <p>Interfaces extending this one should also be annotated with {@link ActionContextMarker}.
  */
 public interface ActionContext {
+  /**
+   * Called when the executor is constructed. The parameter contains all the contexts that were
+   * selected for this execution phase.
+   */
+  default void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {}
 }

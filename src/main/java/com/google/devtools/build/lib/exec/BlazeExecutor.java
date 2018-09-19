@@ -96,6 +96,9 @@ public final class BlazeExecutor implements Executor {
     for (ActionContextProvider factory : contextProviders) {
       factory.executorCreated(spawnActionContextMaps.allContexts());
     }
+    for (ActionContext context : spawnActionContextMaps.allContexts()) {
+      context.executorCreated(spawnActionContextMaps.allContexts());
+    }
   }
 
   @Override
