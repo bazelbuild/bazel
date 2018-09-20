@@ -71,8 +71,11 @@ public class Main {
         logger.log(Level.SEVERE, "There was no coverage found.");
         exitStatus = 1;
       } else {
-        // Coverage generated one profdata report. Bazel doesn't support yet parsing these kind
-        // of files, so CoverageOutputGenerator will only copy them to the output.
+        // Coverage generated one profdata report. Bazel doesn't support yet converting profdata
+        // files to lcov. We still want to output a coverage report so we copy the content of
+        // the profdata file to the output file. This is not ideal but it unblocks some Bazel C++
+        // coverage users.
+        // TODO(#5881): Add support for profdata files.
         logger.log(Level.INFO, "One profdata file was found. Skipping converting to lcov.");
         exitStatus = copy(profdataFile, outputFile) ? 0 : 1;
       }
@@ -80,6 +83,9 @@ public class Main {
     }
 
     if (!coverage.isEmpty() && profdataFile != null) {
+      // If there is one profdata file then there can't be other types of reports because there is
+      // no way to merge them.
+      // TODO(#5881): Add support for profdata files.
       logger.log(Level.SEVERE,
           "Bazel doesn't support LLVM profdata coverage amongst other coverage formats.");
       System.exit(1);
@@ -109,8 +115,9 @@ public class Main {
   }
 
   /**
-   * Exits with exit code 1 if the given coverage is empty and the number of profdata files is
-   * different than 1. If there is no coverage but there is one profdata file
+   * Copies the content of the source file into the destination file.
+   *
+   * <p> Returns true or false depending whether the copy operation was successful or not.
    */
   private static boolean copy(File source, File dest) {
     try (FileChannel sourceChannel = new FileInputStream(source).getChannel();
@@ -163,18 +170,22 @@ public class Main {
     return gcovFiles;
   }
 
-  private static File getProfdataFileOrNull(List<File> filesInCoverageDir) {
-    List<File> profdataFiles = getFilesWithExtension(filesInCoverageDir, PROFDATA_EXTENSION);
+  /**
+   * Returns a .profdata file from the given files or null if none or more profdata files were
+   * found.
+   */
+  private static File getProfdataFileOrNull(List<File> files) {
+    List<File> profdataFiles = getFilesWithExtension(files, PROFDATA_EXTENSION);
     if (profdataFiles.isEmpty()) {
       logger.log(Level.INFO, "No .profdata file found.");
       return null;
-    } else if (profdataFiles.size() > 1) {
-      logger.log(Level.SEVERE, "Bazel currently supports only one profdata file per test, but "
-          + profdataFiles.size() + " were found.");
-      System.exit(1);
-    } else {
-      logger.log(Level.INFO, "Found " + profdataFiles.size() + " .profdata files.");
     }
+    if (profdataFiles.size() > 1) {
+      logger.log(Level.SEVERE, "Bazel currently supports only one profdata file per test. "
+          + profdataFiles.size() + " .profadata files were found instead.");
+      return null;
+    }
+    logger.log(Level.INFO, "Found " + profdataFiles.size() + " .profdata files.");
     return profdataFiles.get(0);
   }
 
