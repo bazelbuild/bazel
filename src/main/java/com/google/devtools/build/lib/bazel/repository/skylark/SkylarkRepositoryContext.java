@@ -71,20 +71,28 @@ public class SkylarkRepositoryContext
   private final SkylarkOS osObject;
   private final Environment env;
   private final HttpDownloader httpDownloader;
+  private final double timeoutScaling;
   private final Map<String, String> markerData;
 
   /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
    * argument).
    */
-  SkylarkRepositoryContext(Rule rule, Path outputDirectory, Environment environment,
-      Map<String, String> env, HttpDownloader httpDownloader, Map<String, String> markerData)
+  SkylarkRepositoryContext(
+      Rule rule,
+      Path outputDirectory,
+      Environment environment,
+      Map<String, String> env,
+      HttpDownloader httpDownloader,
+      double timeoutScaling,
+      Map<String, String> markerData)
       throws EvalException {
     this.rule = rule;
     this.outputDirectory = outputDirectory;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
     this.httpDownloader = httpDownloader;
+    this.timeoutScaling = timeoutScaling;
     this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
@@ -276,7 +284,7 @@ public class SkylarkRepositoryContext
         .addArguments(arguments)
         .setDirectory(outputDirectory.getPathFile())
         .addEnvironmentVariables(environment)
-        .setTimeout(timeout.longValue() * 1000)
+        .setTimeout(Math.round(timeout.longValue() * 1000 * timeoutScaling))
         .setQuiet(quiet)
         .execute();
   }

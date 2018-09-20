@@ -99,6 +99,7 @@ public class SkylarkRepositoryContextTest {
             environment,
             ImmutableMap.of("FOO", "BAR"),
             downloader,
+            1.0,
             new HashMap<String, String>());
   }
 

@@ -48,9 +48,14 @@ import javax.annotation.Nullable;
 public class SkylarkRepositoryFunction extends RepositoryFunction {
 
   private final HttpDownloader httpDownloader;
+  private double timeoutScaling = 1.0;
 
   public SkylarkRepositoryFunction(HttpDownloader httpDownloader) {
     this.httpDownloader = httpDownloader;
+  }
+
+  public void setTimeoutScaling(double timeoutScaling) {
+    this.timeoutScaling = timeoutScaling;
   }
 
   @Nullable
@@ -87,7 +92,13 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
-              rule, outputDirectory, env, clientEnvironment, httpDownloader, markerData);
+              rule,
+              outputDirectory,
+              env,
+              clientEnvironment,
+              httpDownloader,
+              timeoutScaling,
+              markerData);
 
       // Since restarting a repository function can be really expensive, we first ensure that
       // all label-arguments can be resolved to paths.

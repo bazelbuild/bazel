@@ -81,6 +81,19 @@ public class RepositoryOptions extends OptionsBase {
   public List<RepositoryOverride> repositoryOverrides;
 
   @Option(
+      name = "experimental_scale_timeouts",
+      defaultValue = "1.0",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Scale all timeouts in Starlark repository rules by this factor."
+              + " In this way, external repositories can be made working on machines"
+              + " that are slower than the rule author expected, without changing the"
+              + " source code")
+  public double experimentalScaleTimeouts;
+
+  @Option(
       name = "experimental_repository_hash_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
