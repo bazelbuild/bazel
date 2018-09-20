@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -475,6 +476,9 @@ bool ToZipEntryPaths(const Path& root, const std::vector<FileInfo>& files,
                              .c_str());
       return false;
     }
+    if (e.IsDirectory()) {
+      acp_path += "/";
+    }
     acp_file_list.push_back(acp_path);
   }
 
@@ -568,6 +572,22 @@ bool ReadCompleteFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
   return true;
 }
 
+bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
+  // Write `size` many bytes to the output file.
+  DWORD total_written = 0;
+  while (total_written < size) {
+    DWORD written;
+    if (!WriteFile(output, static_cast<const uint8_t*>(buffer) + total_written,
+                   size - total_written, &written, NULL)) {
+      DWORD err = GetLastError();
+      LogErrorWithValue(__LINE__, "Failed to write file", err);
+      return false;
+    }
+    total_written += written;
+  }
+  return true;
+}
+
 // Returns the MIME type of the file name.
 // If the MIME type is unknown or an error occurs, the method returns
 // "application/octet-stream".
@@ -586,6 +606,58 @@ std::string GetMimeType(const std::string& filename) {
   // The file extension is unknown, or it does not have a "Content Type" value,
   // or the value is too long. We don't care; just return the default.
   return kDefaultMimeType;
+}
+
+bool CreateUndeclaredOutputsManifestContent(const std::vector<FileInfo>& files,
+                                            std::string* result) {
+  std::stringstream stm;
+  for (const auto& e : files) {
+    if (!e.IsDirectory()) {
+      // For each file, write a tab-separated line to the manifest with name
+      // (relative to TEST_UNDECLARED_OUTPUTS_DIR), size, and mime type.
+      // Example:
+      //   foo.txt<TAB>9<TAB>text/plain
+      //   bar/baz<TAB>2944<TAB>application/octet-stream
+      std::string acp_path;
+      if (!WcsToAcp(AsMixedPath(e.RelativePath()), &acp_path)) {
+        return false;
+      }
+
+      stm << acp_path << "\t" << e.Size() << "\t" << GetMimeType(acp_path)
+          << "\n";
+    }
+  }
+  *result = stm.str();
+  return true;
+}
+
+bool CreateUndeclaredOutputsManifest(const std::vector<FileInfo>& files,
+                                     const Path& output) {
+  std::string content;
+  if (!CreateUndeclaredOutputsManifestContent(files, &content)) {
+    LogError(__LINE__,
+             (std::wstring(L"Failed to create manifest content for file \"") +
+              output.Get() + L"\"")
+                 .c_str());
+    return false;
+  }
+
+  HANDLE handle;
+  if (!OpenFileForWriting(output.Get(), &handle)) {
+    LogError(__LINE__, (std::wstring(L"Failed to open file for writing \"") +
+                        output.Get() + L"\"")
+                           .c_str());
+    return false;
+  }
+  Defer close_file([handle]() { CloseHandle(handle); });
+
+  if (!WriteToFile(handle, content.c_str(), content.size())) {
+    LogError(__LINE__,
+             (std::wstring(L"Failed to write file \"") + output.Get() + L"\"")
+                 .c_str());
+    return false;
+  }
+  return true;
 }
 
 bool ExportXmlPath(const Path& cwd) {
@@ -930,6 +1002,19 @@ int WaitForSubprocess(HANDLE process) {
   }
 }
 
+bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
+  if (undecl.root.Get().empty()) {
+    // TEST_UNDECLARED_OUTPUTS_DIR was undefined, there's nothing to archive.
+    return true;
+  }
+
+  std::vector<FileInfo> files;
+  return GetFileListRelativeTo(undecl.root, &files) &&
+         (files.empty() ||
+          (CreateZip(undecl.root, files, undecl.zip) &&
+           CreateUndeclaredOutputsManifest(files, undecl.manifest)));
+}
+
 bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
                std::wstring* out_test_path_arg, bool* out_suppress_output,
                std::vector<const wchar_t*>* out_args) {
@@ -1078,7 +1163,11 @@ int Main(int argc, wchar_t** argv) {
     return 1;
   }
 
-  return RunSubprocess(test_path, args);
+  int result = RunSubprocess(test_path, args);
+  if (result != 0) {
+    return result;
+  }
+  return ArchiveUndeclaredOutputs(undecl) ? 0 : 1;
 }
 
 namespace testing {
@@ -1113,6 +1202,11 @@ bool TestOnly_CreateZip(const std::wstring& abs_root,
 
 std::string TestOnly_GetMimeType(const std::string& filename) {
   return GetMimeType(filename);
+}
+
+bool TestOnly_CreateUndeclaredOutputsManifest(
+    const std::vector<FileInfo>& files, std::string* result) {
+  return CreateUndeclaredOutputsManifestContent(files, result);
 }
 
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result) {

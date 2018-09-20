@@ -36,6 +36,8 @@ namespace {
 using bazel::tools::test_wrapper::FileInfo;
 using bazel::tools::test_wrapper::ZipEntryPaths;
 using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
+using bazel::tools::test_wrapper::testing::
+    TestOnly_CreateUndeclaredOutputsManifest;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateZip;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
 using bazel::tools::test_wrapper::testing::TestOnly_GetFileListRelativeTo;
@@ -194,16 +196,16 @@ TEST_F(TestWrapperWindowsTest, TestToZipEntryPaths) {
   ASSERT_EQ(actual.Size(), 9);
 
   std::vector<const char*> expected_abs_paths = {
-      "c:/nul/root/foo",           "c:/nul/root/foo/sub",
+      "c:/nul/root/foo/",          "c:/nul/root/foo/sub/",
       "c:/nul/root/foo/sub/file1", "c:/nul/root/foo/sub/file2",
       "c:/nul/root/foo/file1",     "c:/nul/root/foo/file2",
-      "c:/nul/root/foo/junc",      "c:/nul/root/foo/junc/file1",
+      "c:/nul/root/foo/junc/",     "c:/nul/root/foo/junc/file1",
       "c:/nul/root/foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
 
   std::vector<const char*> expected_entry_paths = {
-      "foo",       "foo/sub",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
-      "foo/file2", "foo/junc", "foo/junc/file1", "foo/junc/file2"};
+      "foo/",      "foo/sub/",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
+      "foo/file2", "foo/junc/", "foo/junc/file1", "foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
@@ -227,16 +229,16 @@ TEST_F(TestWrapperWindowsTest, TestToZipEntryPathsLongPathRoot) {
   ASSERT_EQ(actual.Size(), 9);
 
   std::vector<const char*> expected_abs_paths = {
-      "c:/nul/unc/foo",           "c:/nul/unc/foo/sub",
+      "c:/nul/unc/foo/",          "c:/nul/unc/foo/sub/",
       "c:/nul/unc/foo/sub/file1", "c:/nul/unc/foo/sub/file2",
       "c:/nul/unc/foo/file1",     "c:/nul/unc/foo/file2",
-      "c:/nul/unc/foo/junc",      "c:/nul/unc/foo/junc/file1",
+      "c:/nul/unc/foo/junc/",     "c:/nul/unc/foo/junc/file1",
       "c:/nul/unc/foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.AbsPathPtrs(), expected_abs_paths);
 
   std::vector<const char*> expected_entry_paths = {
-      "foo",       "foo/sub",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
-      "foo/file2", "foo/junc", "foo/junc/file1", "foo/junc/file2"};
+      "foo/",      "foo/sub/",  "foo/sub/file1",  "foo/sub/file2", "foo/file1",
+      "foo/file2", "foo/junc/", "foo/junc/file1", "foo/junc/file2"};
   COMPARE_ZIP_ENTRY_PATHS(actual.EntryPathPtrs(), expected_entry_paths);
 }
 
@@ -311,13 +313,13 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
 
   EXPECT_EQ(extracted.size(), 9);
 
-  EXPECT_EQ(extracted[0].path, std::string("foo"));
-  EXPECT_EQ(extracted[1].path, std::string("foo/sub"));
+  EXPECT_EQ(extracted[0].path, std::string("foo/"));
+  EXPECT_EQ(extracted[1].path, std::string("foo/sub/"));
   EXPECT_EQ(extracted[2].path, std::string("foo/sub/file1"));
   EXPECT_EQ(extracted[3].path, std::string("foo/sub/file2"));
   EXPECT_EQ(extracted[4].path, std::string("foo/file1"));
   EXPECT_EQ(extracted[5].path, std::string("foo/file2"));
-  EXPECT_EQ(extracted[6].path, std::string("foo/junc"));
+  EXPECT_EQ(extracted[6].path, std::string("foo/junc/"));
   EXPECT_EQ(extracted[7].path, std::string("foo/junc/file1"));
   EXPECT_EQ(extracted[8].path, std::string("foo/junc/file2"));
 
@@ -348,6 +350,25 @@ TEST_F(TestWrapperWindowsTest, TestGetMimeType) {
   EXPECT_EQ(TestOnly_GetMimeType("foo.bmp"), std::string("image/bmp"));
   EXPECT_EQ(TestOnly_GetMimeType("foo"),
             std::string("application/octet-stream"));
+}
+
+TEST_F(TestWrapperWindowsTest, TestUndeclaredOutputsManifest) {
+  // Pretend we already acquired a file list. The files don't have to exist.
+  // Assert that the root is allowed to have the `\\?\` prefix, but the zip
+  // entry paths won't have it.
+  std::vector<FileInfo> files = {FileInfo(L"foo"),
+                                 FileInfo(L"foo\\sub"),
+                                 FileInfo(L"foo\\sub\\file1.txt", 0),
+                                 FileInfo(L"foo\\sub\\file2.png", 5),
+                                 FileInfo(L"foo\\file1.exe", 3),
+                                 FileInfo(L"foo\\file2", 6)};
+
+  std::string content;
+  ASSERT_TRUE(TestOnly_CreateUndeclaredOutputsManifest(files, &content));
+  ASSERT_EQ(content, std::string("foo/sub/file1.txt\t0\ttext/plain\n"
+                                 "foo/sub/file2.png\t5\timage/png\n"
+                                 "foo/file1.exe\t3\tapplication/x-msdownload\n"
+                                 "foo/file2\t6\tapplication/octet-stream\n"));
 }
 
 }  // namespace
