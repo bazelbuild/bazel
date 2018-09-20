@@ -23,10 +23,27 @@ namespace bazel {
 namespace tools {
 namespace test_wrapper {
 
-// Info about a file in the results of TestOnly_GetFileListRelativeTo.
-struct FileInfo {
+// Info about a file/directory in the results of TestOnly_GetFileListRelativeTo.
+class FileInfo {
+ public:
+  // C'tor for a directory.
+  FileInfo(const std::wstring& rel_path)
+      : rel_path_(rel_path), size_(0), is_dir_(true) {}
+
+  // C'tor for a file.
+  // Marked "explicit" because `size` is just a `int`.
+  explicit FileInfo(const std::wstring& rel_path, int size)
+      : rel_path_(rel_path), size_(size), is_dir_(false) {}
+
+  inline const std::wstring& RelativePath() const { return rel_path_; }
+
+  inline int Size() const { return size_; }
+
+  inline bool IsDirectory() const { return is_dir_; }
+
+ private:
   // The file's path, relative to the traversal root.
-  std::wstring rel_path;
+  std::wstring rel_path_;
 
   // The file's size, in bytes.
   //
@@ -34,7 +51,10 @@ struct FileInfo {
   // to 2 GiB in size. The reason is, devtools_ijar::Stat::total_size is
   // declared as `int`, which is what we ultimately store the file size in,
   // therefore this field is also `int`.
-  int size;
+  int size_;
+
+  // Whether this is a directory (true) or a regular file (false).
+  bool is_dir_;
 };
 
 // Zip entry paths for devtools_ijar::ZipBuilder.
@@ -104,3 +124,4 @@ bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
 }  // namespace bazel
 
 #endif  // BAZEL_TOOLS_TEST_WINDOWS_TW_H_
+

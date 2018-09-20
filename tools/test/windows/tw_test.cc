@@ -78,16 +78,18 @@ void CompareFileInfos(std::vector<FileInfo> actual,
       << __FILE__ << "(" << line << "): assertion failed here";
   std::sort(actual.begin(), actual.end(),
             [](const FileInfo& a, const FileInfo& b) {
-              return a.rel_path > b.rel_path;
+              return a.RelativePath() > b.RelativePath();
             });
   std::sort(expected.begin(), expected.end(),
             [](const FileInfo& a, const FileInfo& b) {
-              return a.rel_path > b.rel_path;
+              return a.RelativePath() > b.RelativePath();
             });
   for (std::vector<FileInfo>::size_type i = 0; i < actual.size(); ++i) {
-    ASSERT_EQ(actual[i].rel_path, expected[i].rel_path)
+    ASSERT_EQ(actual[i].RelativePath(), expected[i].RelativePath())
         << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
-    ASSERT_EQ(actual[i].size, expected[i].size)
+    ASSERT_EQ(actual[i].Size(), expected[i].Size())
+        << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
+    ASSERT_EQ(actual[i].IsDirectory(), expected[i].IsDirectory())
         << __FILE__ << "(" << line << "): assertion failed here; index: " << i;
   }
 }
@@ -145,10 +147,15 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   std::vector<FileInfo> actual;
   ASSERT_TRUE(TestOnly_GetFileListRelativeTo(root, &actual));
 
-  std::vector<FileInfo> expected = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+  std::vector<FileInfo> expected = {FileInfo(L"foo"),
+                                    FileInfo(L"foo\\sub"),
+                                    FileInfo(L"foo\\sub\\file1", 0),
+                                    FileInfo(L"foo\\sub\\file2", 5),
+                                    FileInfo(L"foo\\file1", 3),
+                                    FileInfo(L"foo\\file2", 6),
+                                    FileInfo(L"foo\\junc"),
+                                    FileInfo(L"foo\\junc\\file1", 0),
+                                    FileInfo(L"foo\\junc\\file2", 5)};
   COMPARE_FILE_INFOS(actual, expected);
 
   // Assert traversal of "foo" -- should include all files, but now with paths
@@ -157,8 +164,14 @@ TEST_F(TestWrapperWindowsTest, TestGetFileListRelativeTo) {
   ASSERT_TRUE(
       TestOnly_GetFileListRelativeTo((root + L"\\foo").c_str(), &actual));
 
-  expected = {{L"sub\\file1", 0}, {L"sub\\file2", 5},  {L"file1", 3},
-              {L"file2", 6},      {L"junc\\file1", 0}, {L"junc\\file2", 5}};
+  expected = {FileInfo(L"sub"),
+              FileInfo(L"sub\\file1", 0),
+              FileInfo(L"sub\\file2", 5),
+              FileInfo(L"file1", 3),
+              FileInfo(L"file2", 6),
+              FileInfo(L"junc"),
+              FileInfo(L"junc\\file1", 0),
+              FileInfo(L"junc\\file2", 5)};
   COMPARE_FILE_INFOS(actual, expected);
 }
 
@@ -166,9 +179,9 @@ TEST_F(TestWrapperWindowsTest, TestToZipEntryPaths) {
   // Pretend we already acquired a file list. The files don't have to exist.
   std::wstring root = L"c:\\nul\\root";
   std::vector<FileInfo> files = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+      FileInfo(L"foo\\sub\\file1", 0),  FileInfo(L"foo\\sub\\file2", 5),
+      FileInfo(L"foo\\file1", 3),       FileInfo(L"foo\\file2", 6),
+      FileInfo(L"foo\\junc\\file1", 0), FileInfo(L"foo\\junc\\file2", 5)};
 
   ZipEntryPaths actual;
   ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
@@ -194,9 +207,9 @@ TEST_F(TestWrapperWindowsTest, TestToZipEntryPathsLongPathRoot) {
   // entry paths won't have it.
   std::wstring root = L"\\\\?\\c:\\nul\\unc";
   std::vector<FileInfo> files = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+      FileInfo(L"foo\\sub\\file1", 0),  FileInfo(L"foo\\sub\\file2", 5),
+      FileInfo(L"foo\\file1", 3),       FileInfo(L"foo\\file2", 6),
+      FileInfo(L"foo\\junc\\file1", 0), FileInfo(L"foo\\junc\\file2", 5)};
 
   ZipEntryPaths actual;
   ASSERT_TRUE(TestOnly_ToZipEntryPaths(root, files, &actual));
@@ -261,9 +274,9 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   CREATE_JUNCTION(root + L"\\foo\\junc", root + L"\\foo\\sub");
 
   std::vector<FileInfo> file_list = {
-      {L"foo\\sub\\file1", 0},  {L"foo\\sub\\file2", 5},
-      {L"foo\\file1", 3},       {L"foo\\file2", 6},
-      {L"foo\\junc\\file1", 0}, {L"foo\\junc\\file2", 5}};
+      FileInfo(L"foo\\sub\\file1", 0),  FileInfo(L"foo\\sub\\file2", 5),
+      FileInfo(L"foo\\file1", 3),       FileInfo(L"foo\\file2", 6),
+      FileInfo(L"foo\\junc\\file1", 0), FileInfo(L"foo\\junc\\file2", 5)};
 
   ASSERT_TRUE(TestOnly_CreateZip(root, file_list, root + L"\\x.zip"));
 
@@ -301,3 +314,4 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
 }
 
 }  // namespace
+
