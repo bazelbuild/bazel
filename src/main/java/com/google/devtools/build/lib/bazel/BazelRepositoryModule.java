@@ -308,11 +308,16 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (!Strings.isNullOrEmpty(repoOptions.experimentalResolvedFileInsteadOfWorkspace)) {
+        Path resolvedFile;
+        if (env.getWorkspace() != null) {
+          resolvedFile =
+              env.getWorkspace()
+                  .getRelative(repoOptions.experimentalResolvedFileInsteadOfWorkspace);
+        } else {
+          resolvedFile = filesystem.getPath(repoOptions.experimentalResolvedFileInsteadOfWorkspace);
+        }
         resolvedFileReplacingWorkspace =
-            Optional.of(
-                RootedPath.toRootedPath(
-                    Root.absoluteRoot(filesystem),
-                    filesystem.getPath(repoOptions.experimentalResolvedFileInsteadOfWorkspace)));
+            Optional.of(RootedPath.toRootedPath(Root.absoluteRoot(filesystem), resolvedFile));
       }
 
       if (repoOptions.experimentalVerifyRepositoryRules != null) {
