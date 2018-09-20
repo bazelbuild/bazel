@@ -1097,8 +1097,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -2784,8 +2784,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -4476,8 +4476,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -6167,8 +6167,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -7887,8 +7887,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -9577,8 +9577,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -11257,8 +11257,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -12936,8 +12936,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -14644,8 +14644,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
@@ -16323,8 +16323,8 @@ toolchain {
       action: "objc-executable"
       action: "objc++-executable"
       flag_group {
-        flag: "--dead_strip"
-        flag: "--no_dead_strip_inits_and_terms"
+        flag: "-dead_strip"
+        flag: "-no_dead_strip_inits_and_terms"
       }
     }
     requires {
