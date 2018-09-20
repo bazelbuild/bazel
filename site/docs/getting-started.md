@@ -12,6 +12,11 @@ not already done so, first read the [Bazel Overview](bazel-overview.html).
 
 To install Bazel, see [Installing Bazel](install.html).
 
+## Bazel container
+
+To try out Bazel inside a [Docker](https://www.docker.com/) container, check out
+our public Ubuntu Linux (16.04) based Bazel container in
+[Google Cloud Marketplace](https://console.cloud.google.com/marketplace/details/google/bazel).
 
 ## Tutorials
 
