@@ -36,6 +36,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -231,20 +232,23 @@ public class TestConfiguration extends Fragment {
     public Label coverageReportGenerator;
 
     @Option(
-        name = "windows_native_test_wrapper",
-        // Undocumented: this features is under development and not yet ready for production use.
-        // We define the flag to be able to test the feature.
+        name = "incompatible_windows_native_test_wrapper",
         // Design:
         // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        documentationCategory = OptionDocumentationCategory.TESTING,
         // Affects loading and analysis: this flag affects which target Bazel loads and creates test
         // actions with on Windows.
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.TEST_RUNNER,
+        },
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        },
         defaultValue = "false",
-        help =
-            "Do not use yet, this flag's functionality is not yet implemented. "
-                + "(On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
-                + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.)")
+        help = "On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
+                + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.")
     public boolean windowsNativeTestWrapper;
 
     @Override
