@@ -9,8 +9,9 @@ title: Starlark Language
 
 The page is an overview of [Starlark](https://github.com/bazelbuild/starlark)
 (formerly known as Skylark), the language used in Bazel. This should be
-enough to get you started, but you may be interested in a more complete
-[Starlark Language Specification](https://github.com/bazelbuild/starlark/blob/master/spec.md).
+enough to get you started. Please refer to the
+[Starlark repository on GitHub](https://github.com/bazelbuild/starlark/)
+for more information about the language.
 For a complete list of functions and types, please check the
 [API reference](lib/skylark-overview.html).
 
