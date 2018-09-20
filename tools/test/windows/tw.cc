@@ -639,20 +639,22 @@ bool CreateZip(const Path& root, const std::vector<FileInfo>& files,
   }
 
   for (size_t i = 0; i < files.size(); ++i) {
-    HANDLE handle;
+    HANDLE handle = INVALID_HANDLE_VALUE;
     Path path;
     if (!path.Set(root.Get() + L"\\" + files[i].RelativePath()) ||
-        !OpenExistingFileForRead(path, &handle)) {
+        (!files[i].IsDirectory() && !OpenExistingFileForRead(path, &handle))) {
       LogError(__LINE__,
                (std::wstring(L"Failed to open file \"") + path.Get() + L"\"")
                    .c_str());
       return false;
     }
     Defer close_file([handle]() { CloseHandle(handle); });
+
     devtools_ijar::u1* dest;
     if (!GetZipEntryPtr(zip_builder.get(), zip_entry_paths.EntryPathPtrs()[i],
                         GetZipAttr(files[i]), &dest) ||
-        !ReadCompleteFile(handle, dest, files[i].Size())) {
+        (!files[i].IsDirectory() &&
+         !ReadCompleteFile(handle, dest, files[i].Size()))) {
       LogError(__LINE__, (std::wstring(L"Failed to dump file \"") + path.Get() +
                           +L"\" into zip")
                              .c_str());

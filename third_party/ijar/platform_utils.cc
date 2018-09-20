@@ -46,6 +46,7 @@ bool stat_file(const char* path, Stat* result) {
     BAZEL_DIE(255) << "stat_file: AsAbsoluteWindowsPath(" << path
                    << ") failed: " << error;
   }
+
   bool success = false;
   BY_HANDLE_FILE_INFORMATION info;
   HANDLE handle = ::CreateFileW(
@@ -56,16 +57,30 @@ bool stat_file(const char* path, Stat* result) {
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL);
+
+  if (handle == INVALID_HANDLE_VALUE) {
+    // Opening it as a file failed, try opening it as a directory.
+    handle = ::CreateFileW(
+        /* lpFileName */ wpath.c_str(),
+        /* dwDesiredAccess */ GENERIC_READ,
+        /* dwShareMode */ FILE_SHARE_READ,
+        /* lpSecurityAttributes */ NULL,
+        /* dwCreationDisposition */ OPEN_EXISTING,
+        /* dwFlagsAndAttributes */ FILE_FLAG_BACKUP_SEMANTICS,
+        /* hTemplateFile */ NULL);
+  }
+
   if (handle != INVALID_HANDLE_VALUE &&
       ::GetFileInformationByHandle(handle, &info)) {
     success = true;
+    bool is_dir = (info.dwFileAttributes != INVALID_FILE_ATTRIBUTES) &&
+                  (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
     // TODO(laszlocsomor): use info.nFileSizeHigh after we updated total_size to
     // be u8 type.
-    result->total_size = info.nFileSizeLow;
+    result->total_size = is_dir ? 0 : info.nFileSizeLow;
     // TODO(laszlocsomor): query the actual permissions and write in file_mode.
     result->file_mode = 0777;
-    result->is_directory = (info.dwFileAttributes != INVALID_FILE_ATTRIBUTES) &&
-                           (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+    result->is_directory = is_dir;
   }
   ::CloseHandle(handle);
   return success;
@@ -108,3 +123,4 @@ bool make_dirs(const char* path, unsigned int mode) {
 }
 
 }  // namespace devtools_ijar
+
