@@ -149,18 +149,6 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
-  public void testNonExistentPackageWithKeepGoing() throws Exception {
-    tester.addFile("base/BUILD",
-        "filegroup(name = 'hello', srcs = ['foo.txt'])");
-    tester.loadKeepGoing("//base:hello", "//base:missing");
-    PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
-    assertThat(err.getPattern()).containsExactly("//base:missing");
-    TargetParsingCompleteEvent event = tester.findPostOnce(TargetParsingCompleteEvent.class);
-    assertThat(event.getOriginalTargetPattern()).containsExactly("//base:hello", "//base:missing");
-    assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
-  }
-
-  @Test
   public void testNonExistentPackageWithoutKeepGoing() throws Exception {
     try {
       tester.load("//does/not/exist");
@@ -183,6 +171,31 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsWarning("Target pattern parsing failed.");
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
     assertThat(err.getPattern()).containsExactly("//base:missing");
+  }
+
+  @Test
+  public void testExistingAndNonExistentTargetsWithKeepGoing() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    tester.loadKeepGoing("//base:hello", "//base:missing");
+    PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
+    assertThat(err.getPattern()).containsExactly("//base:missing");
+    TargetParsingCompleteEvent event = tester.findPostOnce(TargetParsingCompleteEvent.class);
+    assertThat(event.getOriginalTargetPattern()).containsExactly("//base:hello", "//base:missing");
+    assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
+  }
+
+  @Test
+  public void testNonExistentRecursive() throws Exception {
+    TargetPatternPhaseValue loadingResult = tester.loadKeepGoing("//base/...");
+    assertThat(loadingResult.hasError()).isTrue();
+    assertThat(loadingResult.hasPostExpansionError()).isFalse();
+    assertThat(loadingResult.getTargetLabels()).isEmpty();
+    assertThat(loadingResult.getTestsToRunLabels()).isNull();
+    tester.assertContainsError("Skipping '//base/...': no targets found beneath 'base'");
+    tester.assertContainsWarning("Target pattern parsing failed.");
+    PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
+    assertThat(err.getPattern()).containsExactly("//base/...");
   }
 
   @Test
@@ -724,6 +737,107 @@ public class LoadingPhaseRunnerTest {
     assertThat(tester.getOriginalPatternsToLabels()).isEmpty();
   }
 
+  @Test
+  public void testWildcardConflict() throws Exception {
+    tester.addFile("foo/lib/BUILD",
+        "cc_library(name = 'lib1')",
+        "cc_library(name = 'lib2')",
+        "cc_library(name = 'all-targets')",
+        "cc_library(name = 'all')");
+
+    assertWildcardConflict("//foo/lib:all", ":all");
+    assertWildcardConflict("//foo/lib:all-targets", ":all-targets");
+  }
+
+  private void assertWildcardConflict(String label, String suffix) throws Exception {
+    TargetPatternPhaseValue value = tester.load(label);
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels(label));
+    tester.assertContainsWarning(String.format("The target pattern '%s' is ambiguous: '%s' is both "
+        + "a wildcard, and the name of an existing cc_library rule; "
+        + "using the latter interpretation", label, suffix));
+  }
+
+  @Test
+  public void testAbsolutePatternEndsWithSlashAll() throws Exception {
+    tester.addFile("foo/all/BUILD", "cc_library(name = 'all')");
+    TargetPatternPhaseValue value = tester.load("//foo/all");
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//foo/all:all"));
+  }
+
+  @Test
+  public void testRelativeLabel() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    TargetPatternPhaseValue value = assertNoErrors(tester.load("base:hello"));
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:hello"));
+  }
+
+  @Test
+  public void testAbsoluteLabelWithOffset() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    tester.setRelativeWorkingDirectory("base");
+    TargetPatternPhaseValue value = assertNoErrors(tester.load("//base:hello"));
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:hello"));
+  }
+
+  @Test
+  public void testRelativeLabelWithOffset() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    tester.setRelativeWorkingDirectory("base");
+    TargetPatternPhaseValue value = assertNoErrors(tester.load(":hello"));
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:hello"));
+  }
+
+  @Test
+  public void testPatternWithSingleSlashIsError() throws Exception {
+    try {
+      tester.load("/single/slash");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains(
+          "not a valid absolute pattern (absolute target patterns must start with exactly "
+          + "two slashes): '/single/slash'");
+    }
+  }
+
+  @Test
+  public void testPatternWithSingleSlashIsErrorAndOffset() throws Exception {
+    tester.setRelativeWorkingDirectory("base");
+    try {
+      tester.load("/single/slash");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains(
+          "not a valid absolute pattern (absolute target patterns must start with exactly "
+              + "two slashes): '/single/slash'");
+    }
+  }
+
+  @Test
+  public void testPatternWithTripleSlashIsError() throws Exception {
+    try {
+      tester.load("///triple/slash");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains(
+          "not a valid absolute pattern (absolute target patterns must start with exactly "
+              + "two slashes): '///triple/slash'");
+    }
+  }
+
+  @Test
+  public void testPatternEndingWithSingleSlashIsError() throws Exception {
+    try {
+      tester.load("foo/");
+      fail();
+    } catch (TargetParsingException e) {
+      assertThat(e).hasMessageThat().contains(
+          "The package part of 'foo/' should not end in a slash");
+    }
+  }
+
   private static class LoadingPhaseTester {
     private final ManualClock clock = new ManualClock();
     private final Path workspace;
@@ -738,6 +852,7 @@ public class LoadingPhaseRunnerTest {
     private LoadingOptions options;
     private final StoredEventHandler storedErrors;
 
+    private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     private TargetParsingCompleteEvent targetParsingCompleteEvent;
     private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
 
@@ -823,6 +938,10 @@ public class LoadingPhaseRunnerTest {
       this.options = parser.getOptions(LoadingOptions.class);
     }
 
+    public void setRelativeWorkingDirectory(String relativeWorkingDirectory) {
+      this.relativeWorkingDirectory = PathFragment.create(relativeWorkingDirectory);
+    }
+
     public TargetPatternPhaseValue load(String... patterns) throws Exception {
       return loadWithFlags(/*keepGoing=*/false, /*determineTests=*/false, patterns);
     }
@@ -847,7 +966,7 @@ public class LoadingPhaseRunnerTest {
           skyframeExecutor.loadTargetPatterns(
               storedErrors,
               ImmutableList.copyOf(patterns),
-              PathFragment.EMPTY_FRAGMENT,
+              relativeWorkingDirectory,
               options,
               // We load very few packages, and everything is in memory; two should be plenty.
               /* threadCount= */ 2,

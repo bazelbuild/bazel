@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,7 +35,7 @@ import java.util.List;
  * means "all targets beneath <tt>foo</tt> except for those targets in
  * package <tt>foo/bar</tt>.
  */
-@ThreadSafety.ConditionallyThreadSafe // as long as you don't call updateOffset.
+// TODO(ulfjack): Delete this interface - it's only used in tests.
 public interface TargetPatternEvaluator {
   static FilteringPolicy DEFAULT_FILTERING_POLICY = FilteringPolicies.NO_FILTER;
 

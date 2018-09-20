@@ -49,7 +49,6 @@ final class SkyframeTargetPatternEvaluator
     this.skyframeExecutor = skyframeExecutor;
   }
 
-  // Only used by AnalyzeCommand at this point. All build commands use SkyframeLoadingPhaseRunner.
   @Override
   public ResolvedTargets<Target> parseTargetPatternList(
       PathFragment relativeWorkingDirectory,

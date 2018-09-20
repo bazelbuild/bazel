@@ -181,12 +181,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             false)));
   }
 
-  private Set<Label> parseListRelative(PathFragment offset, String... patterns)
-      throws TargetParsingException, InterruptedException {
-    return targetsToLabels(getFailFast(parseTargetPatternList(
-        offset, parser, parsingListener, Arrays.asList(patterns), false)));
-  }
-
   private Set<Label> parseListRelative(String... patterns)
       throws TargetParsingException, InterruptedException {
     return targetsToLabels(getFailFast(parseTargetPatternList(
@@ -216,11 +210,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     expectError(PathFragment.EMPTY_FRAGMENT, parser, expectedError, target);
   }
 
-  private void expectErrorRelative(String expectedError, String target)
-      throws InterruptedException {
-    expectError(fooOffset, parser, expectedError, target);
-  }
-
   private Label parseIndividualTarget(String targetLabel) throws Exception {
     return Iterables.getOnlyElement(
         getFailFast(
@@ -237,103 +226,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   @Test
-  public void testParsingStandardLabel() throws Exception {
-    assertThat(parseIndividualTarget("//foo:foo1").toString()).isEqualTo("//foo:foo1");
-  }
-
-  @Test
-  public void testAbsolutePatternEndsWithSlashAll() throws Exception {
-    scratch.file("foo/all/BUILD", "cc_library(name = 'all')");
-    assertThat(parseIndividualTarget("//foo/all").toString()).isEqualTo("//foo/all:all");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testWildcardConflict() throws Exception {
-    scratch.file("foo/lib/BUILD",
-        "cc_library(name = 'lib1')",
-        "cc_library(name = 'lib2')",
-        "cc_library(name = 'all-targets')",
-        "cc_library(name = 'all')");
-
-    assertWildcardConflict("//foo/lib:all", ":all");
-    eventCollector.clear();
-    assertWildcardConflict("//foo/lib:all-targets", ":all-targets");
-  }
-
-  private void assertWildcardConflict(String label, String suffix) throws Exception {
-    assertThat(parseIndividualTarget(label).toString()).isEqualTo(label);
-    assertThat(eventCollector.count()).isSameAs(1);
-    assertContainsEvent(String.format("The target pattern '%s' is ambiguous: '%s' is both "
-        + "a wildcard, and the name of an existing cc_library rule; "
-        + "using the latter interpretation", label, suffix));
-  }
-
-  @Test
-  public void testMissingPackage() throws Exception {
-    try {
-      parseIndividualTarget("//missing:foo1");
-      fail("TargetParsingException expected");
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().startsWith("no such package");
-    }
-  }
-
-  @Test
-  public void testParsingStandardLabelWithRelativeParser() throws Exception {
-    assertThat(parseIndividualTargetRelative("//foo:foo1").toString()).isEqualTo("//foo:foo1");
-  }
-
-  @Test
-  public void testMissingLabel() throws Exception {
-    try {
-      parseIndividualTarget("//foo:missing");
-      fail("TargetParsingException expected");
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().startsWith("no such target");
-    }
-  }
-
-  @Test
-  public void testParsingStandardLabelShorthand() throws Exception {
-    assertThat(parseIndividualTarget("foo:foo1").toString()).isEqualTo("//foo:foo1");
-  }
-
-  @Test
-  public void testParsingStandardLabelShorthandRelative() throws Exception {
-    assertThat(parseIndividualTargetRelative(":foo1").toString()).isEqualTo("//foo:foo1");
-  }
-
-  @Test
-  public void testSingleSlashPatternCantBeParsed() throws Exception {
-    expectError("not a valid absolute pattern (absolute target patterns must start with exactly "
-        + "two slashes): '/single/slash'",
-        "/single/slash");
-  }
-
-  @Test
-  public void testTripleSlashPatternCantBeParsed() throws Exception {
-    expectError("not a valid absolute pattern (absolute target patterns must start with exactly "
-        + "two slashes): '///triple/slash'",
-        "///triple/slash");
-  }
-
-  @Test
-  public void testSingleSlashPatternCantBeParsedWithRelativeParser() throws Exception {
-    expectErrorRelative("not a valid absolute pattern (absolute target patterns must start with "
-        + "exactly two slashes): '/single/slash'",
-        "/single/slash");
-  }
-
-  @Test
-  public void testUnsupportedTargets() throws Exception {
-    String expectedError = "no such target '//foo:foo': target 'foo' not declared in package 'foo'"
-        + " (did you mean 'foo1'?) defined by /workspace/foo/BUILD";
-    expectError(expectedError, "foo");
-    expectError("The package part of 'foo/' should not end in a slash", "foo/");
-  }
-
-  @Test
   public void testModifiedBuildFile() throws Exception {
     assertThat(parseList("foo:all")).containsExactlyElementsIn(rulesInFoo);
     assertNoEvents();
@@ -343,19 +235,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         "cc_library(name = 'foo2', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])");
     invalidate("foo/BUILD");
     assertThat(parseList("foo:all")).containsExactlyElementsIn(labels("//foo:foo1", "//foo:foo2"));
-  }
-
-  @Test
-  public void testParserOffsetUpdated() throws Exception {
-    scratch.file("nest/BUILD",
-        "cc_library(name = 'nested1', srcs = [ ])");
-    scratch.file("nest/nest/BUILD",
-        "cc_library(name = 'nested2', srcs = [ ])");
-
-    assertThat(parseListRelative(PathFragment.create("nest"), ":all"))
-        .containsExactlyElementsIn(labels("//nest:nested1"));
-    assertThat(parseListRelative(PathFragment.create("nest/nest"), ":all"))
-        .containsExactlyElementsIn(labels("//nest/nest:nested2"));
   }
 
   private void runFindTargetsInPackage(String suffix) throws Exception {
