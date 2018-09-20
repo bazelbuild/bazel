@@ -45,7 +45,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private static final Logger logger = Logger.getLogger(BuildSummaryStatsModule.class.getName());
 
   private ActionKeyContext actionKeyContext;
-  private SimpleCriticalPathComputer criticalPathComputer;
+  private CriticalPathComputer criticalPathComputer;
   private EventBus eventBus;
   private Reporter reporter;
   private boolean enabled;
@@ -80,7 +80,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void executionPhaseStarting(ExecutionStartingEvent event) {
     if (enabled) {
       criticalPathComputer =
-          new SimpleCriticalPathComputer(actionKeyContext, BlazeClock.instance(), discardActions);
+          new CriticalPathComputer(actionKeyContext, BlazeClock.instance(), discardActions);
       eventBus.register(criticalPathComputer);
     }
   }

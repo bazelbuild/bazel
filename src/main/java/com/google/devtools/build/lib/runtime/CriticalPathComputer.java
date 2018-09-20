@@ -27,12 +27,15 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.clock.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -41,10 +44,11 @@ import javax.annotation.concurrent.ThreadSafe;
  * <p>After instantiation, this object needs to be registered on the event bus to work.
  */
 @ThreadSafe
-public abstract class CriticalPathComputer {
-
+public class CriticalPathComputer {
   /** Number of top actions to record. */
   static final int SLOWEST_COMPONENTS_SIZE = 30;
+
+  private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
   protected final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
       Maps.newConcurrentMap();
@@ -82,7 +86,12 @@ public abstract class CriticalPathComputer {
    * @param relativeStartNanos time when the action started to run in nanos. Only mean to be used
    * for computing time differences.
    */
-  protected abstract CriticalPathComponent createComponent(Action action, long relativeStartNanos);
+  public CriticalPathComponent createComponent(Action action, long relativeStartNanos) {
+    int id = idGenerator.getAndIncrement();
+    return discardActions
+        ? new ActionDiscardingCriticalPathComponent(id, action, relativeStartNanos)
+        : new CriticalPathComponent(id, action, relativeStartNanos);
+  }
 
   /**
    * Return the critical path stats for the current command execution.
@@ -90,7 +99,20 @@ public abstract class CriticalPathComputer {
    * <p>This method allows us to calculate lazily the aggregate statistics of the critical path,
    * avoiding the memory and cpu penalty for doing it for all the actions executed.
    */
-  public abstract AggregatedCriticalPath aggregate();
+  public AggregatedCriticalPath aggregate() {
+    ImmutableList.Builder<CriticalPathComponent> components = ImmutableList.builder();
+    CriticalPathComponent maxCriticalPath = getMaxCriticalPath();
+    if (maxCriticalPath == null) {
+      return new AggregatedCriticalPath(Duration.ZERO, SpawnMetrics.EMPTY, components.build());
+    }
+    CriticalPathComponent child = maxCriticalPath;
+    while (child != null) {
+      components.add(child);
+      child = child.getChild();
+    }
+    return new AggregatedCriticalPath(
+        maxCriticalPath.getAggregatedElapsedTime(), SpawnMetrics.EMPTY, components.build());
+  }
 
   /**
    * Record an action that has started to run.

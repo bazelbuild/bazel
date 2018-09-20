@@ -219,7 +219,6 @@ public class CriticalPathComponent {
 
   /** Returns a string representation of the action. Only for use in crash messages and the like. */
   protected String getActionString() {
-    Action action = maybeGetAction();
     return (action == null ? "(null action)" : action.prettyPrint());
   }
 
