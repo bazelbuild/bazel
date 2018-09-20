@@ -1041,10 +1041,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return pkgLocator.get().getPathEntries();
   }
 
-  public AtomicReference<PathPackageLocator> getPackageLocator() {
-    return pkgLocator;
-  }
-
   protected abstract void invalidate(Predicate<SkyKey> pred);
 
   private static boolean compatibleFileTypes(Dirent.Type oldType, FileStateType newType) {

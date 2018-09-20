@@ -40,6 +40,7 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
      * associated files for.
      */
     public enum LocalFileType {
+      SOURCE,
       OUTPUT,
       SUCCESSFUL_TEST_OUTPUT,
       FAILED_TEST_OUTPUT,
