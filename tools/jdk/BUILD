@@ -236,6 +236,27 @@ alias(
     actual = "toolchain_java8",
 )
 
+# The 'vanilla' toolchain is an unsupported alternative to the default.
+#
+# It does not provider any of the following features:
+#   * Error Prone
+#   * Strict Java Deps
+#   * Header Compilation
+#   * Reduced Classpath Optimization
+#
+# It uses the version of javac from the `--host_javabase` instead of the
+# embedded javac, which may not be source- or bug-compatible with the embedded
+# javac.
+#
+# However it does allow using a wider range of `--host_javabase`s, including
+# versions newer than the current embedded JDK.
+default_java_toolchain(
+    name = "toolchain_vanilla",
+    forcibly_disable_header_compilation = True,
+    javabuilder = [":vanillajavabuilder"],
+    jvm_opts = [],
+)
+
 [
     default_java_toolchain(
         name = "toolchain_java%d" % release,
