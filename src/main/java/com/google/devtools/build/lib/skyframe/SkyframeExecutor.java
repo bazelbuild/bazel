@@ -1271,6 +1271,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<String> multiCpu,
       boolean keepGoing)
       throws InvalidConfigurationException {
+
+    if (configuredTargetProgress != null) {
+      configuredTargetProgress.reset();
+    }
+
     List<BuildConfiguration> topLevelTargetConfigs =
         getConfigurations(
             eventHandler,
