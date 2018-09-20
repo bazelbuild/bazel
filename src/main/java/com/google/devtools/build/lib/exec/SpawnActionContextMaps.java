@@ -97,8 +97,8 @@ public final class SpawnActionContextMaps {
       if (description != null) {
         for (RegexFilterSpawnActionContext entry : spawnStrategyRegexList) {
           if (entry.regexFilter().isIncluded(description) && entry.spawnActionContext() != null) {
-            reporter.handle(
-                Event.info(description + " with context " + entry.spawnActionContext().toString()));
+            reporter.handle(Event.progress(
+                description + " with context " + entry.spawnActionContext().toString()));
             return entry.spawnActionContext();
           }
         }
