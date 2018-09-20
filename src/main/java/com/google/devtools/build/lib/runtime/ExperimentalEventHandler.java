@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
@@ -590,6 +591,16 @@ public class ExperimentalEventHandler implements EventHandler {
   public void loadingStarted(LoadingPhaseStartedEvent event) {
     maybeAddDate();
     stateTracker.loadingStarted(event);
+    // As a new phase started, inform immediately.
+    ignoreRefreshLimitOnce();
+    refresh();
+    startUpdateThread();
+  }
+
+  @Subscribe
+  public void configurationStarted(ConfigurationPhaseStartedEvent event) {
+    maybeAddDate();
+    stateTracker.configurationStarted(event);
     // As a new phase started, inform immediately.
     ignoreRefreshLimitOnce();
     refresh();

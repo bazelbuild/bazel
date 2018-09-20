@@ -230,6 +230,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
+  @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -363,7 +364,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       BuildOptions defaultBuildOptions,
       @Nullable PackageProgressReceiver packageProgress,
-      MutableArtifactFactorySupplier artifactResolverSupplier) {
+      MutableArtifactFactorySupplier artifactResolverSupplier,
+      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -406,6 +408,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.buildFilesByPriority = buildFilesByPriority;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.packageProgress = packageProgress;
+    this.configuredTargetProgress = configuredTargetProgress;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -489,7 +492,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             cpuBoundSemaphore,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
-            defaultBuildOptions));
+            defaultBuildOptions,
+            configuredTargetProgress));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
@@ -1882,6 +1886,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (AspectValueKey aspectKey : aspectKeys) {
       keys.add(aspectKey);
     }
+    eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
     EvaluationResult<ActionLookupValue> result =
         buildDriver.evaluate(
             keys,
@@ -2353,6 +2358,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       throw new IllegalStateException(
           "Unknown error during configuration creation evaluation", e);
+    }
+
+    if (configuredTargetProgress != null) {
+      configuredTargetProgress.reset();
     }
 
     PrepareAnalysisPhaseValue prepareAnalysisPhaseValue = evalResult.get(key);

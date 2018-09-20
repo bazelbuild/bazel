@@ -171,7 +171,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         GraphInconsistencyReceiver.THROWING,
         defaultBuildOptions,
         new PackageProgressReceiver(),
-        mutableArtifactFactorySupplier);
+        mutableArtifactFactorySupplier,
+        new ConfiguredTargetProgressReceiver());
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }

@@ -129,6 +129,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private final RuleClassProvider ruleClassProvider;
   private final Semaphore cpuBoundSemaphore;
   private final BuildOptions defaultBuildOptions;
+  @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link
    * ConfiguredTargetValue} will be needed for package root resolution later in the build. If not,
@@ -144,7 +145,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Semaphore cpuBoundSemaphore,
       boolean storeTransitivePackagesForPackageRootResolution,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
-      BuildOptions defaultBuildOptions) {
+      BuildOptions defaultBuildOptions,
+      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -152,6 +154,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         storeTransitivePackagesForPackageRootResolution;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.defaultBuildOptions = defaultBuildOptions;
+    this.configuredTargetProgress = configuredTargetProgress;
   }
 
   @Override
@@ -329,6 +332,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContext,
               transitivePackagesForPackageRootResolution);
+      if (configuredTargetProgress != null) {
+        configuredTargetProgress.doneConfigureTarget();
+      }
       return ans;
     } catch (DependencyEvaluationException e) {
       if (e.getCause() instanceof ConfiguredValueCreationException) {

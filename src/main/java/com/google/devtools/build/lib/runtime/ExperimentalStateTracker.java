@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetProgressReceiver;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.util.Pair;
@@ -119,6 +121,7 @@ class ExperimentalStateTracker {
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
+  private ConfiguredTargetProgressReceiver configuredTargetProgressReceiver;
 
   // Set of build event protocol transports that need yet to be closed.
   private Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
@@ -164,6 +167,10 @@ class ExperimentalStateTracker {
     packageProgressReceiver = event.getPackageProgressReceiver();
   }
 
+  void configurationStarted(ConfigurationPhaseStartedEvent event) {
+    configuredTargetProgressReceiver = event.getConfiguredTargetProgressReceiver();
+  }
+
   void loadingComplete(LoadingPhaseCompleteEvent event) {
     int count = event.getLabels().size();
     status = "Analyzing";
@@ -182,11 +189,16 @@ class ExperimentalStateTracker {
     String workDone = "Analysed " + additionalMessage;
     if (packageProgressReceiver != null) {
       Pair<String, String> progress = packageProgressReceiver.progressState();
-      workDone += " (" + progress.getFirst() + ")";
+      workDone += " (" + progress.getFirst();
+      if (configuredTargetProgressReceiver != null) {
+        workDone += ", " + configuredTargetProgressReceiver.getProgressString();
+      }
+      workDone += ")";
     }
     workDone += ".";
     status = null;
     packageProgressReceiver = null;
+    configuredTargetProgressReceiver = null;
     return workDone;
   }
 
@@ -805,7 +817,11 @@ class ExperimentalStateTracker {
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
       if (packageProgressReceiver != null) {
         Pair<String, String> progress = packageProgressReceiver.progressState();
-        terminalWriter.append(" (" + progress.getFirst() + ")");
+        terminalWriter.append(" (" + progress.getFirst());
+        if (configuredTargetProgressReceiver != null) {
+          terminalWriter.append(", " + configuredTargetProgressReceiver.getProgressString());
+        }
+        terminalWriter.append(")");
         if (progress.getSecond().length() > 0 && !shortVersion) {
           terminalWriter.newline().append("    " + progress.getSecond());
         }
