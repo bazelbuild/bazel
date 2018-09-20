@@ -213,12 +213,8 @@ function get_source_or_header_file() {
 function main() {
   init_gcov
 
-  # If llvm code coverage is used, we output the raw code coverage report in
-  # the $COVERAGE_OUTPUT_FILE. This report will not be converted to any other
-  # format by LcovMerger.
-  # TODO(#5881): Convert profdata reports to lcov.
   if uses_llvm; then
-    llvm_coverage "$COVERAGE_OUTPUT_FILE" && exit 0
+    BAZEL_CC_COVERAGE_TOOL="PROFDATA"
   fi
 
   # When using either gcov or lcov, have an output file specific to the test
@@ -232,6 +228,7 @@ function main() {
   case "$BAZEL_CC_COVERAGE_TOOL" in
         ("GCOV") gcov_coverage "$COVERAGE_DIR/_cc_coverage.gcov" ;;
         ("LCOV") lcov_coverage "$COVERAGE_DIR/_cc_coverage.dat" ;;
+        ("PROFDATA") llvm_coverage "$COVERAGE_DIR/_cc_coverage.profdata" ;;
         (*) echo "Coverage tool $BAZEL_CC_COVERAGE_TOOL not supported" \
             && exit 1
   esac
