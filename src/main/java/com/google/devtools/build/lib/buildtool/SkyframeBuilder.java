@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -156,7 +155,7 @@ public class SkyframeBuilder implements Builder {
               targetsToBuild,
               aspects,
               parallelTests,
-              /*exclusiveTesting=*/ false,
+              exclusiveTests,
               options,
               actionCacheChecker,
               executionProgressReceiver,
@@ -191,14 +190,10 @@ public class SkyframeBuilder implements Builder {
         // Since only one artifact is being built at a time, we don't worry about an artifact being
         // built and then the build being interrupted.
         result =
-            skyframeExecutor.buildArtifacts(
+            skyframeExecutor.runExclusiveTest(
                 reporter,
                 executor,
-                ImmutableSet.<Artifact>of(),
-                targetsToBuild,
-                aspects,
-                ImmutableSet.of(exclusiveTest),
-                /*exclusiveTesting=*/ true,
+                exclusiveTest,
                 options,
                 actionCacheChecker,
                 null,

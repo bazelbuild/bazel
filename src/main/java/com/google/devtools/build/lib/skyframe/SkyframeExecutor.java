@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Range;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -1297,7 +1298,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /**
    * Asks the Skyframe evaluator to build the given artifacts and targets, and to test the given
-   * test targets.
+   * parallel test targets. Additionally, exclusive tests are built together with all the other
+   * tests but they are intentionally *not* run since they must be executed separately one-by-one.
    */
   public EvaluationResult<?> buildArtifacts(
       Reporter reporter,
@@ -1305,8 +1307,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<Artifact> artifactsToBuild,
       Collection<ConfiguredTarget> targetsToBuild,
       Collection<AspectValue> aspects,
-      Set<ConfiguredTarget> targetsToTest,
-      boolean exclusiveTesting,
+      Set<ConfiguredTarget> parallelTests,
+      Set<ConfiguredTarget> exclusiveTests,
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       @Nullable EvaluationProgressReceiver executionProgressReceiver,
@@ -1329,12 +1331,52 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try {
       progressReceiver.executionProgressReceiver = executionProgressReceiver;
       Iterable<TargetCompletionValue.TargetCompletionKey> targetKeys =
-          TargetCompletionValue.keys(targetsToBuild, topLevelArtifactContext, targetsToTest);
+          TargetCompletionValue.keys(
+              targetsToBuild, topLevelArtifactContext, Sets.union(parallelTests, exclusiveTests));
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
       Iterable<SkyKey> testKeys =
-          TestCompletionValue.keys(targetsToTest, topLevelArtifactContext, exclusiveTesting);
+          TestCompletionValue.keys(
+              parallelTests, topLevelArtifactContext, /*exclusiveTesting=*/ false);
       return buildDriver.evaluate(
           Iterables.concat(artifactsToBuild, targetKeys, aspectKeys, testKeys),
+          options.getOptions(KeepGoingOption.class).keepGoing,
+          options.getOptions(BuildRequestOptions.class).getJobs(),
+          reporter);
+    } finally {
+      progressReceiver.executionProgressReceiver = null;
+      // Also releases thread locks.
+      resourceManager.resetResourceUsage();
+      skyframeActionExecutor.executionOver();
+      actionExecutionFunction.complete();
+    }
+  }
+
+  /** Asks the Skyframe evaluator to run a single exclusive test. */
+  public EvaluationResult<?> runExclusiveTest(
+      Reporter reporter,
+      Executor executor,
+      ConfiguredTarget exclusiveTest,
+      OptionsProvider options,
+      ActionCacheChecker actionCacheChecker,
+      @Nullable EvaluationProgressReceiver executionProgressReceiver,
+      TopLevelArtifactContext topLevelArtifactContext)
+      throws InterruptedException {
+    checkActive();
+    Preconditions.checkState(actionLogBufferPathGenerator != null);
+
+    try (SilentCloseable c =
+        Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
+      skyframeActionExecutor.prepareForExecution(
+          reporter, executor, options, actionCacheChecker, outputService);
+    }
+
+    resourceManager.resetResourceUsage();
+    try {
+      Iterable<SkyKey> testKeys =
+          TestCompletionValue.keys(
+              ImmutableSet.of(exclusiveTest), topLevelArtifactContext, /*exclusiveTesting=*/ true);
+      return buildDriver.evaluate(
+          testKeys,
           options.getOptions(KeepGoingOption.class).keepGoing,
           options.getOptions(BuildRequestOptions.class).getJobs(),
           reporter);
