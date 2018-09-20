@@ -231,8 +231,9 @@ function test_cc_test_llvm_coverage_doesnt_fail() {
 
   # Only test that bazel coverage doesn't crash when invoked for llvm native
   # coverage.
-  (BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata CC=clang++ \
-    bazel coverage //:t) &>$TEST_log || fail "Coverage for //:t failed"
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvmprofdata CC=$clang_tool \
+      bazel coverage --dynamic_mode=off --test_output=all //:t &>$TEST_log \
+      || fail "Coverage for //:t failed"
 
   # Check to see if the coverage output file was created.
   [ -f "$(get_coverage_file_path_from_test_log)" ] \

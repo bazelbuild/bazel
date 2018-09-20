@@ -63,6 +63,8 @@ function init_gcov() {
 # Writes the collected coverage into the given output file.
 function llvm_coverage() {
   local output_file="${1}"; shift
+
+  touch "$output_file"
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
   "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw

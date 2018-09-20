@@ -107,7 +107,7 @@ public class Main {
         // of files, so CoverageOutputGenerator will only copy them to the output.
         logger.log(Level.INFO, "One profdata file was found. Skipping converting to lcov.");
         try (FileChannel profdataChannel = new FileInputStream(profdataFiles.get(0)).getChannel();
-            FileChannel outputChannel = new FileInputStream(outputFile).getChannel()) {
+            FileChannel outputChannel = new FileOutputStream(outputFile).getChannel()) {
           outputChannel.transferFrom(profdataChannel, 0, profdataChannel.size());
         } catch (IOException e) {
           logger.log(Level.SEVERE,
@@ -214,7 +214,8 @@ public class Main {
               .filter(
                   p ->
                       p.toString().endsWith(TRACEFILE_EXTENSION)
-                          || p.toString().endsWith(GCOV_EXTENSION))
+                          || p.toString().endsWith(GCOV_EXTENSION)
+                          || p.toString().endsWith(PROFDATA_EXTENSION))
               .map(path -> path.toFile())
               .collect(Collectors.toList());
     } catch (IOException ex) {
