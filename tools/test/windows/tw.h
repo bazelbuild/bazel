@@ -115,6 +115,9 @@ bool TestOnly_CreateZip(const std::wstring& abs_root,
                         const std::vector<FileInfo>& files,
                         const std::wstring& abs_zip);
 
+// Returns the MIME type of a file. The file does not need to exist.
+std::string TestOnly_GetMimeType(const std::string& filename);
+
 bool TestOnly_AsMixedPath(const std::wstring& path, std::string* result);
 
 }  // namespace testing

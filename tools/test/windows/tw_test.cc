@@ -39,6 +39,7 @@ using bazel::tools::test_wrapper::testing::TestOnly_AsMixedPath;
 using bazel::tools::test_wrapper::testing::TestOnly_CreateZip;
 using bazel::tools::test_wrapper::testing::TestOnly_GetEnv;
 using bazel::tools::test_wrapper::testing::TestOnly_GetFileListRelativeTo;
+using bazel::tools::test_wrapper::testing::TestOnly_GetMimeType;
 using bazel::tools::test_wrapper::testing::TestOnly_ToZipEntryPaths;
 
 class TestWrapperWindowsTest : public ::testing::Test {
@@ -334,6 +335,13 @@ TEST_F(TestWrapperWindowsTest, TestCreateZip) {
   EXPECT_EQ(memcmp(extracted[4].data.get(), "foo", 3), 0);
   EXPECT_EQ(memcmp(extracted[5].data.get(), "foobar", 6), 0);
   EXPECT_EQ(memcmp(extracted[8].data.get(), "hello", 5), 0);
+}
+
+TEST_F(TestWrapperWindowsTest, TestGetMimeType) {
+  EXPECT_EQ(TestOnly_GetMimeType("foo.txt"), std::string("text/plain"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo.png"), std::string("image/png"));
+  EXPECT_EQ(TestOnly_GetMimeType("foo"),
+            std::string("application/octet-stream"));
 }
 
 }  // namespace
