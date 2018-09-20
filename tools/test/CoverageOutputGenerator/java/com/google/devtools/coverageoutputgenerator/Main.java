@@ -64,7 +64,26 @@ public class Main {
             parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
             parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
 
-    maybeExitIfNoCoverage(coverage, filesInCoverageDir, outputFile);
+    File profdataFile = getProfdataFileOrNull(filesInCoverageDir);
+    if (coverage.isEmpty()) {
+      int exitStatus = 0;
+      if (profdataFile == null) {
+        logger.log(Level.SEVERE, "There was no coverage found.");
+        exitStatus = 1;
+      } else {
+        // Coverage generated one profdata report. Bazel doesn't support yet parsing these kind
+        // of files, so CoverageOutputGenerator will only copy them to the output.
+        logger.log(Level.INFO, "One profdata file was found. Skipping converting to lcov.");
+        exitStatus = copy(profdataFile, outputFile) ? 0 : 1;
+      }
+      System.exit(exitStatus);
+    }
+
+    if (!coverage.isEmpty() && profdataFile != null) {
+      logger.log(Level.SEVERE,
+          "Bazel doesn't support LLVM profdata coverage amongst other coverage formats.");
+      System.exit(1);
+    }
 
     if (!flags.filterSources().isEmpty()) {
       coverage = Coverage.filterOutMatchingSources(coverage, flags.filterSources());
@@ -89,34 +108,20 @@ public class Main {
     System.exit(exitStatus);
   }
 
-  private static void maybeExitIfNoCoverage(
-      Coverage coverage,
-      List<File> filesInCoverageDir,
-      File outputFile) {
-    List<File> profdataFiles = getProfdataFiles(filesInCoverageDir);
-    if (coverage.isEmpty()) {
-      if (profdataFiles.isEmpty()) {
-        logger.log(Level.SEVERE, "There was no coverage found.");
-        System.exit(1);
-      } else if (profdataFiles.size() != 1) {
-        logger.log(Level.SEVERE, "Bazel currently supports only one profdata file per test, but "
-            + profdataFiles.size() + " were found.");
-        System.exit(1);
-      } else {
-        // Coverage generated one profdata report. Bazel doesn't support yet parsing these kind
-        // of files, so CoverageOutputGenerator will only copy them to the output.
-        logger.log(Level.INFO, "One profdata file was found. Skipping converting to lcov.");
-        try (FileChannel profdataChannel = new FileInputStream(profdataFiles.get(0)).getChannel();
-            FileChannel outputChannel = new FileOutputStream(outputFile).getChannel()) {
-          outputChannel.transferFrom(profdataChannel, 0, profdataChannel.size());
-        } catch (IOException e) {
-          logger.log(Level.SEVERE,
-              "Could not copy profdata file to output file due to: " + e.getMessage());
-          System.exit(1);
-        }
-        System.exit(0);
-      }
+  /**
+   * Exits with exit code 1 if the given coverage is empty and the number of profdata files is
+   * different than 1. If there is no coverage but there is one profdata file
+   */
+  private static boolean copy(File source, File dest) {
+    try (FileChannel sourceChannel = new FileInputStream(source).getChannel();
+        FileChannel destChannel = new FileOutputStream(dest).getChannel()) {
+      destChannel.transferFrom(sourceChannel, 0, sourceChannel.size());
+    } catch (IOException e) {
+      logger.log(Level.SEVERE, "Could not copy file " + source.getName()
+          + " to output file " + dest.getName() + " due to: " + e.getMessage());
+      return false;
     }
+    return true;
   }
 
   /**
@@ -158,14 +163,19 @@ public class Main {
     return gcovFiles;
   }
 
-  private static List<File> getProfdataFiles(List<File> filesInCoverageDir) {
+  private static File getProfdataFileOrNull(List<File> filesInCoverageDir) {
     List<File> profdataFiles = getFilesWithExtension(filesInCoverageDir, PROFDATA_EXTENSION);
     if (profdataFiles.isEmpty()) {
       logger.log(Level.INFO, "No .profdata file found.");
+      return null;
+    } else if (profdataFiles.size() > 1) {
+      logger.log(Level.SEVERE, "Bazel currently supports only one profdata file per test, but "
+          + profdataFiles.size() + " were found.");
+      System.exit(1);
     } else {
       logger.log(Level.INFO, "Found " + profdataFiles.size() + " .profdata files.");
     }
-    return profdataFiles;
+    return profdataFiles.get(0);
   }
 
   private static List<File> getTracefiles(LcovMergerFlags flags, List<File> filesInCoverageDir) {
