@@ -45,8 +45,7 @@ public class BuildEventServiceOptions extends OptionsBase {
         "Specifies how long bazel should wait for the BES/BEP upload to complete after the "
             + "build and tests have finished. A valid timeout is a natural number followed by a "
             + "unit: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). The "
-            + "default value is '0' which means that there is no timeout and that the upload will "
-            + "continue in the background after a build has finished."
+            + "default value is '0' which means that there is no timeout."
   )
   public Duration besTimeout;
 
