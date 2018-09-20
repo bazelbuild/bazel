@@ -38,8 +38,6 @@ title: Build Encyclopedia
 <h3>Functions</h3>
 
 <ul class="be-toc">
-  <li><a href="$expander.expandRef("load")">load</a></li>
-
   <li><a href="$expander.expandRef("package")">package</a></li>
   <li><a href="$expander.expandRef("package_group")">package_group</a></li>
 
