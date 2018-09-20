@@ -126,7 +126,7 @@ public interface BazelCcModuleApi<
       Object skylarkIncludes,
       Object skylarkCopts,
       SkylarkList<CcCompilationInfoT> ccCompilationInfos)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @SkylarkCallable(
       name = "link",

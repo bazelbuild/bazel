@@ -63,7 +63,7 @@ public class BazelCcModule extends CcModule
       Object skylarkIncludes,
       Object skylarkCopts,
       SkylarkList<CcCompilationInfo> ccCompilationInfos)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     return BazelCcModule.compile(
         BazelCppSemantics.INSTANCE,
         skylarkRuleContext,

@@ -332,7 +332,7 @@ public class CcModule
   @Override
   public LibraryToLink createLibraryLinkerInput(
       SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     ArtifactCategory artifactCategory =
         ArtifactCategory.fromString(
@@ -364,7 +364,7 @@ public class CcModule
       Object skylarkLibrariesToLink,
       Object skylarkDynamicLibrariesForRuntime,
       Object skylarkUserLinkFlags)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
 
     SkylarkNestedSet librariesToLink = convertFromNoneable(skylarkLibrariesToLink, null);
@@ -387,7 +387,8 @@ public class CcModule
   }
 
   @Override
-  public CcSkylarkInfo createCcSkylarkInfo(Object skylarkRuleContextObject) throws EvalException {
+  public CcSkylarkInfo createCcSkylarkInfo(Object skylarkRuleContextObject)
+      throws EvalException, InterruptedException {
     SkylarkRuleContext skylarkRuleContext =
         convertFromNoneable(skylarkRuleContextObject, /* defaultValue= */ null);
     if (skylarkRuleContext != null) {
@@ -444,7 +445,7 @@ public class CcModule
       Object skylarkAdditionalIncludeScanningRoots,
       SkylarkList<CcCompilationInfo> ccCompilationInfos,
       Object purpose)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);
@@ -524,7 +525,7 @@ public class CcModule
       Object dynamicLibrary,
       SkylarkList<CcLinkingInfo> skylarkCcLinkingInfos,
       boolean neverLink)
-      throws InterruptedException, EvalException {
+      throws InterruptedException, EvalException, InterruptedException {
     CcCommon.checkRuleWhitelisted(skylarkRuleContext);
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     CcToolchainProvider ccToolchainProvider = convertFromNoneable(skylarkCcToolchainProvider, null);

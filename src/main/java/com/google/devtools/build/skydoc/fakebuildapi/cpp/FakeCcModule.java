@@ -112,7 +112,7 @@ public class FakeCcModule
   @Override
   public LibraryToLinkApi createLibraryLinkerInput(
       SkylarkRuleContext skylarkRuleContext, Artifact library, String skylarkArtifactCategory)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     return null;
   }
 
@@ -128,13 +128,13 @@ public class FakeCcModule
       Object skylarkLibrariesToLink,
       Object skylarkDynamicLibrariesForRuntime,
       Object skylarkUserLinkFlags)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     return null;
   }
 
   @Override
   public CcSkylarkInfoApi createCcSkylarkInfo(Object skylarkRuleContextObject)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     return null;
   }
 
