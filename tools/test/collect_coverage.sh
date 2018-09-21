@@ -127,7 +127,8 @@ export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --output_file=${COVERAGE_OUTPUT_FILE} \
   --filter_sources=/usr/bin/.+ \
   --filter_sources=/usr/lib/.+ \
-  --filter_sources=.*external/.+"
+  --filter_sources=.*external/.+ \
+  --source_file_manifest=${COVERAGE_MANIFEST}"
 
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then

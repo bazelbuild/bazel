@@ -60,24 +60,27 @@ public class Main {
             parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
             parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
 
-    if (coverage.isEmpty()) {
-      logger.log(Level.SEVERE, "There was no coverage found.");
-      System.exit(1);
-    }
-
     if (!flags.filterSources().isEmpty()) {
       coverage = Coverage.filterOutMatchingSources(coverage, flags.filterSources());
     }
 
     if (flags.hasSourceFileManifest()) {
-      coverage =
-          Coverage.getOnlyTheseSources(
-              coverage, getSourcesFromSourceFileManifest(flags.sourceFileManifest()));
+      Set<String> sources = getSourcesFromSourceFileManifest(flags.sourceFileManifest());
+      if (!sources.isEmpty()) {
+        // Only filter out coverage if there were C++ sources found in the coverage manifest.
+        coverage = Coverage.getOnlyTheseSources(coverage, sources);
+      }
+    }
+
+    if (coverage.isEmpty()) {
+      logger.log(Level.SEVERE, "There was no coverage found.");
+      System.exit(1);
     }
 
     int exitStatus = 0;
     String outputFile = flags.outputFile();
     try {
+      logger.log(Level.INFO, "Writing coverage to outputfile " + outputFile);
       LcovPrinter.print(new FileOutputStream(new File(outputFile)), coverage);
     } catch (IOException e) {
       logger.log(
@@ -99,22 +102,31 @@ public class Main {
    */
   private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
     Set<String> sourceFiles = new HashSet<>();
+    logger.log(Level.INFO, "Lines of source file manifest:");
     try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest));
         InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
         BufferedReader reader = new BufferedReader(inputStreamReader)) {
       for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-        if (!isMetadataFile(line)) {
+        logger.log(Level.INFO, line);
+        // The source file manifest is only required for C++ code coverage.
+        if (!isMetadataFile(line) && isCcFile(line)) {
           sourceFiles.add(line);
         }
       }
     } catch (IOException e) {
       logger.log(Level.SEVERE, "Error reading file " + sourceFileManifest + ": " + e.getMessage());
     }
+    logger.log(Level.INFO, "Found " + sourceFiles.size() + " source files in the coverage manifest.");
     return sourceFiles;
   }
 
   private static boolean isMetadataFile(String filename) {
     return filename.endsWith(".gcno") || filename.endsWith(".em");
+  }
+
+  private static boolean isCcFile(String filename) {
+    return filename.endsWith(".cc") || filename.endsWith(".c") || filename.endsWith(".cpp")
+        || filename.endsWith(".hh") || filename.endsWith(".h") || filename.endsWith(".hpp");
   }
 
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
