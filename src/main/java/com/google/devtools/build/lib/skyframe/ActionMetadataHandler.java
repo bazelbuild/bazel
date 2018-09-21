@@ -44,7 +44,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -277,17 +276,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   private Set<TreeFileArtifact> getTreeArtifactContents(Artifact artifact) {
     Preconditions.checkArgument(artifact.isTreeArtifact(), artifact);
-    Set<TreeFileArtifact> contents = outputDirectoryListings.get(artifact);
-    if (contents == null) {
-      // Unfortunately, there is no such thing as a ConcurrentHashSet.
-      contents = Collections.newSetFromMap(new ConcurrentHashMap<TreeFileArtifact, Boolean>());
-      Set<TreeFileArtifact> oldContents = outputDirectoryListings.putIfAbsent(artifact, contents);
-      // Avoid a race condition.
-      if (oldContents != null) {
-        contents = oldContents;
-      }
-    }
-    return contents;
+    return outputDirectoryListings.computeIfAbsent(artifact, unused -> Sets.newConcurrentHashSet());
   }
 
   private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
@@ -398,10 +387,9 @@ public class ActionMetadataHandler implements MetadataHandler {
     // If you're reading tree artifacts from disk while outputDirectoryListings are being injected,
     // something has gone terribly wrong.
     Object previousDirectoryListing =
-        outputDirectoryListings.put(artifact,
-            Collections.newSetFromMap(new ConcurrentHashMap<TreeFileArtifact, Boolean>()));
+        outputDirectoryListings.put(artifact, Sets.newConcurrentHashSet());
     Preconditions.checkState(previousDirectoryListing == null,
-        "Race condition while constructing TreArtifactValue: %s, %s",
+        "Race condition while constructing TreeArtifactValue: %s, %s",
         artifact, previousDirectoryListing);
     return constructTreeArtifactValue(ActionInputHelper.asTreeFileArtifacts(artifact, paths));
   }
