@@ -7,6 +7,7 @@ load(
     "JDK8_JVM_OPTS",
     "JDK9_JVM_OPTS",
     "DEFAULT_JAVACOPTS",
+    "bootclasspath",
 )
 
 # Used to distinguish toolchains used for Java development, ie the JavaToolchainProvider.
@@ -199,27 +200,22 @@ RELEASES = (8, 9)
 # in RELEASES, using javac to read those APIs via the infrastructure added
 # for the --release flag (see http://openjdk.java.net/jeps/247).
 [
-    genrule(
+    bootclasspath(
         name = "platformclasspath%d" % release,
-        srcs = ["DumpPlatformClassPath.java"],
-        outs = ["platformclasspath%d.jar" % release],
-        cmd = """
-set -eu
-TMPDIR=$$(mktemp -d -t tmp.XXXXXXXX)
-$(JAVABASE)/bin/javac -source 8 -target 8 \
-    -Xlint:-options \
-    -cp $(JAVABASE)/lib/tools.jar \
-    -d $$TMPDIR $<
-$(JAVA) -XX:+IgnoreUnrecognizedVMOptions \
-    --add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED \
-    -cp $$TMPDIR DumpPlatformClassPath %d $@
-rm -rf $$TMPDIR
-""" % release,
-        toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
-        tools = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
+        src = "DumpPlatformClassPath.java",
+        host_javabase = "current_java_runtime",
+        release = "%s" % release,
     )
     for release in RELEASES
 ]
+
+bootclasspath(
+    name = "platformclasspath",
+    src = "DumpPlatformClassPath.java",
+    host_javabase = "current_java_runtime",
+    release = "8",  # fall-back only
+    target_javabase = "current_java_runtime",
+)
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
@@ -231,9 +227,12 @@ default_java_toolchain(
 
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
-alias(
+default_java_toolchain(
     name = "toolchain_hostjdk9",
-    actual = "toolchain_java8",
+    bootclasspath = [":platformclasspath"],
+    jvm_opts = JDK9_JVM_OPTS,
+    source_version = "8",
+    target_version = "8",
 )
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.

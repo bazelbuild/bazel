@@ -72,7 +72,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         .add(
             attr("bootclasspath", LABEL_LIST)
                 .value(ImmutableList.of())
-                .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
         The Java target extdir entries. Corresponds to javac's -extdir flag.
@@ -80,7 +79,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         .add(
             attr("extclasspath", LABEL_LIST)
                 .value(ImmutableList.of())
-                .cfg(HostTransition.INSTANCE)
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(xlint) -->
         The list of warning to add or removes from default list. Precedes it with a dash to

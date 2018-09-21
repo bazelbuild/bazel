@@ -106,3 +106,73 @@ def java_runtime_files(name, srcs):
             cmd = "cp $(JAVABASE)/%s $@" % src,
             outs = [src],
         )
+
+def _bootclasspath(ctx):
+    host_javabase = ctx.attr.host_javabase[java_common.JavaRuntimeInfo]
+
+    class_dir = ctx.actions.declare_directory("%s_classes" % ctx.label.name)
+
+    args = ctx.actions.args()
+    args.add("-source")
+    args.add("8")
+    args.add("-target")
+    args.add("8")
+    args.add("-Xlint:-options")
+    args.add("-cp")
+    args.add("%s/lib/tools.jar" % host_javabase.java_home)
+    args.add("-d")
+    args.add(class_dir)
+    args.add(ctx.file.src)
+
+    ctx.actions.run(
+        executable = "%s/bin/javac" % host_javabase.java_home,
+        inputs = [ctx.file.src] + ctx.files.host_javabase,
+        outputs = [class_dir],
+        arguments = [args],
+    )
+
+    bootclasspath = ctx.outputs.jar
+
+    inputs = [class_dir] + ctx.files.host_javabase
+
+    args = ctx.actions.args()
+    args.add("-XX:+IgnoreUnrecognizedVMOptions")
+    args.add("--add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED")
+    args.add_joined(
+        "-cp",
+        [class_dir, "%s/lib/tools.jar" % host_javabase.java_home],
+        join_with = ctx.configuration.host_path_separator,
+    )
+    args.add("DumpPlatformClassPath")
+    args.add(ctx.attr.release)
+    args.add(bootclasspath)
+
+    if ctx.attr.target_javabase:
+        inputs.extend(ctx.files.target_javabase)
+        args.add(ctx.attr.target_javabase[java_common.JavaRuntimeInfo].java_home)
+
+    ctx.actions.run(
+        executable = str(host_javabase.java_executable_exec_path),
+        inputs = inputs,
+        outputs = [bootclasspath],
+        arguments = [args],
+    )
+
+bootclasspath = rule(
+    implementation = _bootclasspath,
+    attrs = {
+        "host_javabase": attr.label(
+            cfg = "host",
+            providers = [java_common.JavaRuntimeInfo],
+        ),
+        "release": attr.string(),
+        "src": attr.label(
+            cfg = "host",
+            allow_single_file = True,
+        ),
+        "target_javabase": attr.label(
+            providers = [java_common.JavaRuntimeInfo],
+        ),
+    },
+    outputs = {"jar": "%{name}.jar"},
+)

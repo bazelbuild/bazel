@@ -77,6 +77,15 @@ EOF
 function test_javabase() {
   mkdir -p zoo/bin
   cat << EOF > BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JDK9_JVM_OPTS")
+default_java_toolchain(
+    name = "toolchain",
+    # Implicitly use the host_javabase bootclasspath, since the target doesn't
+    # exist in this test.
+    bootclasspath = [],
+    jvm_opts = JDK9_JVM_OPTS,
+    visibility = ["//visibility:public"],
+)
 java_runtime(
     name = "javabase",
     java_home = "$PWD/zoo",
@@ -96,7 +105,7 @@ public class HelloWorld {}
 EOF
 
   # Check that the RHS javabase appears in the launcher.
-  bazel build --javabase=//:javabase //java:javabin
+  bazel build --java_toolchain=//:toolchain --javabase=//:javabase //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
   expect_log "JAVABIN=.*/zoo/bin/java"
 
