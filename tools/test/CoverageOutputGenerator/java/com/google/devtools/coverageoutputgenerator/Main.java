@@ -77,7 +77,6 @@ public class Main {
         // not ideal but it unblocks some Bazel C++
         // coverage users.
         // TODO(#5881): Add support for profdata files.
-        logger.log(Level.INFO, "One profdata file was found. Skipping converting to lcov.");
         try {
           Files.copy(profdataFile.toPath(), outputFile.toPath(), REPLACE_EXISTING);
         } catch (IOException e) {
@@ -175,7 +174,7 @@ public class Main {
           + profdataFiles.size() + " .profadata files were found instead.");
       return null;
     }
-    logger.log(Level.INFO, "Found one .profdata files.");
+    logger.log(Level.INFO, "Found one .profdata file.");
     return profdataFiles.get(0);
   }
 
