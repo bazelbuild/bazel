@@ -69,103 +69,24 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
 
   /** Provides an enumeration resource type and simple value validation. */
   public enum Type {
-    BOOL(TAG_BOOL) {
-      @Override
-      public boolean validate(String value) {
-        final String cleanValue = value.toLowerCase().trim();
-        return "true".equals(cleanValue) || "false".equals(cleanValue);
-      }
-    },
-    COLOR(TAG_COLOR) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the hex color.
-        return true;
-      }
-    },
-    DIMEN(TAG_DIMEN) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the dimension type.
-        return true;
-      }
-    },
-    DRAWABLE(TAG_DRAWABLE) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the drawable type.
-        return true;
-      }
-    },
-    FRACTION(TAG_FRACTION) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the fraction type.
-        return true;
-      }
-    },
-    INTEGER(TAG_INTEGER) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the integer type.
-        return true;
-      }
-    },
-    ITEM(TAG_ITEM) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the item type.
-        return true;
-      }
-    },
-    LAYOUT(TAG_LAYOUT) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the layout type.
-        return true;
-      }
-    },
-    MENU(TAG_MENU) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the menu type.
-        return true;
-      }
-    },
-    MIPMAP(TAG_MIPMAP) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the mipmap type.
-        return true;
-      }
-    },
-    PUBLIC(TAG_PUBLIC) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the public type.
-        return true;
-      }
-    },
-    RAW(TAG_RAW) {
-      @Override
-      public boolean validate(String value) {
-        // TODO(corysmith): Validate the raw type.
-        return true;
-      }
-    },
-    STRING(TAG_STRING) {
-      @Override
-      public boolean validate(String value) {
-        return true;
-      }
-    };
+    BOOL(TAG_BOOL),
+    COLOR(TAG_COLOR),
+    DIMEN(TAG_DIMEN),
+    DRAWABLE(TAG_DRAWABLE),
+    FRACTION(TAG_FRACTION),
+    INTEGER(TAG_INTEGER),
+    ITEM(TAG_ITEM),
+    LAYOUT(TAG_LAYOUT),
+    MENU(TAG_MENU),
+    MIPMAP(TAG_MIPMAP),
+    PUBLIC(TAG_PUBLIC),
+    RAW(TAG_RAW),
+    STRING(TAG_STRING);
     private final QName tagName;
 
     Type(QName tagName) {
       this.tagName = tagName;
     }
-
-    abstract boolean validate(String value);
 
     public static Type from(ResourceType resourceType) {
       for (Type valueType : values()) {
