@@ -18,6 +18,7 @@ import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSI
 import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.io.BufferedReader;
@@ -71,13 +72,19 @@ public class Main {
         logger.log(Level.SEVERE, "There was no coverage found.");
         exitStatus = 1;
       } else {
-        // Coverage generated one profdata report. Bazel doesn't support yet converting profdata
-        // files to lcov. We still want to output a coverage report so we copy the content of
-        // the profdata file to the output file. This is not ideal but it unblocks some Bazel C++
+        // Bazel doesn't support yet converting profdata files to lcov. We still want to output a
+        // coverage report so we copy the content of the profdata file to the output file. This is
+        // not ideal but it unblocks some Bazel C++
         // coverage users.
         // TODO(#5881): Add support for profdata files.
         logger.log(Level.INFO, "One profdata file was found. Skipping converting to lcov.");
-        exitStatus = copy(profdataFile, outputFile) ? 0 : 1;
+        try {
+          Files.copy(profdataFile.toPath(), outputFile.toPath(), REPLACE_EXISTING);
+        } catch (IOException e) {
+          logger.log(Level.SEVERE, "Could not copy file " + profdataFile.getName()
+              + " to output file " + outputFile.getName() + " due to: " + e.getMessage());
+          exitStatus = 1;
+        }
       }
       System.exit(exitStatus);
     }
@@ -112,23 +119,6 @@ public class Main {
       exitStatus = 1;
     }
     System.exit(exitStatus);
-  }
-
-  /**
-   * Copies the content of the source file into the destination file.
-   *
-   * <p> Returns true or false depending whether the copy operation was successful or not.
-   */
-  private static boolean copy(File source, File dest) {
-    try (FileChannel sourceChannel = new FileInputStream(source).getChannel();
-        FileChannel destChannel = new FileOutputStream(dest).getChannel()) {
-      destChannel.transferFrom(sourceChannel, 0, sourceChannel.size());
-    } catch (IOException e) {
-      logger.log(Level.SEVERE, "Could not copy file " + source.getName()
-          + " to output file " + dest.getName() + " due to: " + e.getMessage());
-      return false;
-    }
-    return true;
   }
 
   /**
@@ -185,7 +175,7 @@ public class Main {
           + profdataFiles.size() + " .profadata files were found instead.");
       return null;
     }
-    logger.log(Level.INFO, "Found " + profdataFiles.size() + " .profdata files.");
+    logger.log(Level.INFO, "Found one .profdata files.");
     return profdataFiles.get(0);
   }
 
