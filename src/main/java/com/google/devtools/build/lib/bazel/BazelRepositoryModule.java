@@ -236,6 +236,7 @@ public class BazelRepositoryModule extends BlazeModule {
     PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();
+    resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();
     outputVerificationRules = ImmutableSet.<String>of();
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);

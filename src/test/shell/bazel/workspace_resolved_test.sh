@@ -552,8 +552,66 @@ EOF
   bazel build \
         --experimental_resolved_file_instead_of_workspace=`pwd`/resolved.bzl \
         :out || fail "Expected success with resolved file replacing WORKSPACE"
+  rm WORKSPACE && touch WORKSPACE # bazel info needs a valid WORKSPACE
   grep 'Hello World' `bazel info bazel-genfiles`/out.txt \
       || fail "Did not find the expected output"
+}
+
+test_resolved_file_not_remembered() {
+  # Verify that the --experimental_resolved_file_instead_of_workspace option
+  # does not leak into a subsequent sync
+  EXTREPODIR=`pwd`
+  export GIT_CONFIG_NOSYSTEM=YES
+
+  rm -f gitdir
+  mkdir gitdir
+  (cd gitdir && git init \
+       && git config user.email 'me@example.com' \
+       && git config user.name 'E X Ample' )
+  echo Hello Stable World > gitdir/hello.txt
+  (cd gitdir
+   git checkout -b stable
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'stable commit')
+
+  # The project follows the stable branch of the git repository
+  mkdir followbranch
+  cat > followbranch/WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_git_repository(
+  name="ext",
+  remote="file://${EXTREPODIR}/gitdir/.git",
+  branch="stable",
+  build_file_content="exports_files([\"hello.txt\"])",
+)
+EOF
+  cat > followbranch/BUILD <<'EOF'
+genrule(
+  name = "out",
+  outs = ["out.txt"],
+  srcs = ["@ext//:hello.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  (cd followbranch \
+    && bazel sync --experimental_repository_resolved_file=resolved.bzl)
+  # New upstream commits on the branch followed
+  echo CHANGED > gitdir/hello.txt
+  (cd gitdir
+   git checkout stable
+   git add .
+   git commit --author="A U Thor <author@example.com>" -m 'stable commit')
+
+  cd followbranch
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl :out
+  cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}"
+  expect_log 'Hello Stable World'
+  expect_not_log 'CHANGED'
+  bazel sync --experimental_repository_resolved_file=resolved.bzl
+  bazel build --experimental_resolved_file_instead_of_workspace=resolved.bzl :out
+  cat `bazel info bazel-genfiles`/out.txt > "${TEST_log}"
+  expect_log 'CHANGED'
+  expect_not_log 'Hello Stable World'
 }
 
 create_sample_repository() {
