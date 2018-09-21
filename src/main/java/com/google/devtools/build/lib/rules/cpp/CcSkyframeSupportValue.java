@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -29,9 +28,9 @@ import java.util.Objects;
 /**
  * A container for the path to the FDO profile.
  *
- * <p>{@link CcSkyframeSupportValue} is created from {@link CcSkyframeSupportFunction} (a {@link
+ * <p>{@link CcSkyframeSupportValue} is created from {@link CcSupportFunction} (a {@link
  * SkyFunction}), which is requested from Skyframe by the {@code cc_toolchain}/{@code
- * cc_toolchain_suite} rules. It's done this way because the path depends on both a command line
+ * cc_toolchain_suite} rule. It's done this way because the path depends on both a command line
  * argument and the location of the workspace and the latter is not available either during
  * configuration creation or during the analysis phase.
  */
@@ -46,26 +45,20 @@ public class CcSkyframeSupportValue implements SkyValue {
   public static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private final PathFragment fdoZipPath;
-    private final PathFragment crosstoolPath;
+    private final PathFragment filePath;
 
-    private Key(PathFragment fdoZipPath, PathFragment crosstoolPath) {
-      this.fdoZipPath = fdoZipPath;
-      this.crosstoolPath = crosstoolPath;
+    private Key(PathFragment filePath) {
+      this.filePath = filePath;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(PathFragment fdoZipPath, PathFragment crosstoolPath) {
-      return interner.intern(new Key(fdoZipPath, crosstoolPath));
+    static Key of(PathFragment filePath) {
+      return interner.intern(new Key(filePath));
     }
 
-    public PathFragment getCrosstoolPath() {
-      return crosstoolPath;
-    }
-
-    public PathFragment getFdoZipPath() {
-      return fdoZipPath;
+    public PathFragment getFilePath() {
+      return filePath;
     }
 
     @Override
@@ -73,18 +66,18 @@ public class CcSkyframeSupportValue implements SkyValue {
       if (this == o) {
         return true;
       }
+
       if (!(o instanceof Key)) {
         return false;
       }
-      Key key = (Key) o;
-      return Objects.equals(fdoZipPath, key.fdoZipPath)
-          && Objects.equals(crosstoolPath, key.crosstoolPath);
+
+      Key that = (Key) o;
+      return Objects.equals(this.filePath, that.filePath);
     }
 
     @Override
     public int hashCode() {
-
-      return Objects.hash(fdoZipPath, crosstoolPath);
+      return Objects.hash(filePath);
     }
 
     @Override
@@ -95,26 +88,19 @@ public class CcSkyframeSupportValue implements SkyValue {
 
   /** Path of the profile file passed to {@code --fdo_optimize} */
   // TODO(lberki): This should be a PathFragment.
-  // Except that CcProtoProfileProvider#getProfile() calls #exists() on it,
-  // This is all ridiculously incorrect and should be removed asap.
-  private final Path fdoZipPath;
+  // Except that CcProtoProfileProvider#getProfile() calls #exists() on it, which is ridiculously
+  // incorrect.
+  private final Path filePath;
 
-  private final CrosstoolRelease crosstoolRelease;
-
-  CcSkyframeSupportValue(Path fdoZipPath, CrosstoolRelease crosstoolRelease) {
-    this.fdoZipPath = fdoZipPath;
-    this.crosstoolRelease = crosstoolRelease;
+  CcSkyframeSupportValue(Path filePath) {
+    this.filePath = filePath;
   }
 
-  public Path getFdoZipPath() {
-    return fdoZipPath;
+  public Path getFilePath() {
+    return filePath;
   }
 
-  public CrosstoolRelease getCrosstoolRelease() {
-    return crosstoolRelease;
-  }
-
-  public static SkyKey key(PathFragment fdoZipPath, PathFragment crosstoolPath) {
-    return Key.of(fdoZipPath, crosstoolPath);
+  public static SkyKey key(PathFragment fdoProfileArgument) {
+    return Key.of(fdoProfileArgument);
   }
 }

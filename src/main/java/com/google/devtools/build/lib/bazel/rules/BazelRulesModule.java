@@ -20,8 +20,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportValue;
+import com.google.devtools.build.lib.rules.cpp.CcSupportFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -99,8 +99,7 @@ public class BazelRulesModule extends BlazeModule {
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.addSkyFunction(
-        CcSkyframeSupportValue.SKYFUNCTION, new CcSkyframeSupportFunction(directories));
+    builder.addSkyFunction(CcSkyframeSupportValue.SKYFUNCTION, new CcSupportFunction(directories));
   }
 
   @Override

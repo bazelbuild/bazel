@@ -105,7 +105,6 @@ public class CcToolchainTest extends BuildViewTestCase {
                 .setSupportsInterfaceSharedObjects(false)
                 .buildPartial());
     useConfiguration();
-    invalidatePackages();
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider =
@@ -116,7 +115,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         .isFalse();
 
     useConfiguration("--interface_shared_objects");
-    invalidatePackages();
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
@@ -132,7 +130,6 @@ public class CcToolchainTest extends BuildViewTestCase {
                 .setSupportsInterfaceSharedObjects(true)
                 .buildPartial());
     useConfiguration();
-    invalidatePackages();
 
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
@@ -142,7 +139,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         .isTrue();
 
     useConfiguration("--nointerface_shared_objects");
-    invalidatePackages();
     target = getConfiguredTarget("//a:b");
     toolchainProvider = (CcToolchainProvider) target.get(ToolchainInfo.PROVIDER);
     assertThat(
@@ -488,7 +484,6 @@ public class CcToolchainTest extends BuildViewTestCase {
                   .buildPartial());
 
       useConfiguration();
-      invalidatePackages();
 
       ConfiguredTarget target = getConfiguredTarget("//a:b");
       CcToolchainProvider toolchainProvider =

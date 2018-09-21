@@ -34,13 +34,13 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
+import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -175,16 +175,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
   private final Label crosstoolTop;
-  /**
-   * cc_toolchain_suite allows to override CROSSTOOL by using proto attribute. This attribute value
-   * is stored here so cc_toolchain can access it in the analysis. Don't use this for anything, it
-   * will be removed when b/113849758 is fixed. If you do, I'll send bubo to take your keyboard
-   * away.
-   */
-  @Deprecated private final CrosstoolRelease crosstoolFromCcToolchainProtoAttribute;
-
   private final String transformedCpuFromOptions;
   private final String compilerFromOptions;
+  private final CrosstoolFile crosstoolFile;
   // TODO(lberki): desiredCpu *should* be always the same as targetCpu, except that we don't check
   // that the CPU we get from the toolchain matches BuildConfiguration.Options.cpu . So we store
   // it here so that the output directory doesn't depend on the CToolchain. When we will eventually
@@ -271,9 +264,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
     return new CppConfiguration(
         params.crosstoolTop,
-        params.crosstoolFromCcToolchainProtoAttribute,
         params.transformedCpu,
         params.compiler,
+        params.crosstoolFile,
         Preconditions.checkNotNull(params.commonOptions.cpu),
         crosstoolTopPathFragment,
         params.fdoPath,
@@ -308,9 +301,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   private CppConfiguration(
       Label crosstoolTop,
-      CrosstoolRelease crosstoolFromCcToolchainProtoAttribute,
       String transformedCpuFromOptions,
       String compilerFromOptions,
+      CrosstoolFile crosstoolFile,
       String desiredCpu,
       PathFragment crosstoolTopPathFragment,
       PathFragment fdoPath,
@@ -337,9 +330,9 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
       boolean shouldProvideMakeVariables,
       CppToolchainInfo cppToolchainInfo) {
     this.crosstoolTop = crosstoolTop;
-    this.crosstoolFromCcToolchainProtoAttribute = crosstoolFromCcToolchainProtoAttribute;
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.compilerFromOptions = compilerFromOptions;
+    this.crosstoolFile = crosstoolFile;
     this.desiredCpu = desiredCpu;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.fdoPath = fdoPath;
@@ -395,6 +388,11 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
    */
   public String getToolchainIdentifier() {
     return cppToolchainInfo.getToolchainIdentifier();
+  }
+
+  /** Returns the contents of the CROSSTOOL for this configuration. */
+  public CrosstoolFile getCrosstoolFile() {
+    return crosstoolFile;
   }
 
   /** Returns the label of the CROSSTOOL for this configuration. */
@@ -1180,17 +1178,6 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   public boolean disableMakeVariables() {
     return cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables;
-  }
-
-  /**
-   * cc_toolchain_suite allows to override CROSSTOOL by using proto attribute. This attribute value
-   * is stored here so cc_toolchain can access it in the analysis. Don't use this for anything, it
-   * will be removed when b/113849758 is fixed. If you do, I'll send bubo to take your keyboard
-   * away.
-   */
-  @Deprecated
-  public CrosstoolRelease getCrosstoolFromCcToolchainProtoAttribute() {
-    return crosstoolFromCcToolchainProtoAttribute;
   }
 
   public boolean enableLinkoptsInUserLinkFlags() {

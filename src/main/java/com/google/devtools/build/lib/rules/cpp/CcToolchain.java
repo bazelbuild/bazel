@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -58,12 +57,10 @@ import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.TextFormat;
@@ -329,6 +326,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     CppConfiguration cppConfiguration =
         Preconditions.checkNotNull(configuration.getFragment(CppConfiguration.class));
+    CppToolchainInfo toolchainInfo = getCppToolchainInfo(ruleContext, cppConfiguration);
 
     PathFragment fdoZip = null;
     FdoInputFile prefetchHints = null;
@@ -409,27 +407,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    // Is there a toolchain proto available on the target directly?
-    CToolchain toolchain = parseToolchainFromAttributes(ruleContext);
-    PathFragment crosstoolPath = null;
-    if (toolchain == null && cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute() == null) {
-      crosstoolPath =
-          cppConfiguration
-              .getCrosstoolTopPathFragment()
-              .getChild(CrosstoolConfigurationLoader.CROSSTOOL_CONFIGURATION_FILENAME);
-    }
-
-    SkyKey ccSupportKey = CcSkyframeSupportValue.key(fdoZip, crosstoolPath);
+    SkyKey fdoKey = CcSkyframeSupportValue.key(fdoZip);
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    CcSkyframeSupportValue ccSkyframeSupportValue =
-        (CcSkyframeSupportValue) skyframeEnv.getValue(ccSupportKey);
+    CcSkyframeSupportValue fdoSupport = (CcSkyframeSupportValue) skyframeEnv.getValue(fdoKey);
     if (skyframeEnv.valuesMissing()) {
      return null;
     }
-
-    CppToolchainInfo toolchainInfo =
-        getCppToolchainInfo(ruleContext, cppConfiguration, ccSkyframeSupportValue, toolchain);
 
     final Label label = ruleContext.getLabel();
     final NestedSet<Artifact> crosstool = ruleContext.getPrerequisite("all_files", Mode.HOST)
@@ -566,12 +550,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (fdoMode == FdoMode.LLVM_FDO) {
       profileArtifact =
           convertLLVMRawProfileToIndexed(
-              ccSkyframeSupportValue.getFdoZipPath().asFragment(), toolchainInfo, ruleContext);
+              fdoSupport.getFilePath().asFragment(), toolchainInfo, ruleContext);
       if (ruleContext.hasErrors()) {
         return null;
       }
     } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.XBINARY_FDO) {
-      Path fdoProfile = ccSkyframeSupportValue.getFdoZipPath();
+      Path fdoProfile = fdoSupport.getFilePath();
       profileArtifact = ruleContext.getUniqueDirectoryArtifact(
               "fdo",
               fdoProfile.getBaseName(),
@@ -624,7 +608,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             sysroot,
             fdoMode,
             new FdoProvider(
-                ccSkyframeSupportValue.getFdoZipPath(),
+                fdoSupport.getFilePath(),
                 fdoMode,
                 cppConfiguration.getFdoInstrument(),
                 profileArtifact,
@@ -669,11 +653,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   /** Finds an appropriate {@link CppToolchainInfo} for this target. */
   private CppToolchainInfo getCppToolchainInfo(
-      RuleContext ruleContext,
-      CppConfiguration cppConfiguration,
-      CcSkyframeSupportValue ccSkyframeSupportValue,
-      CToolchain toolchainFromCcToolchainAttribute)
-      throws RuleErrorException {
+      RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
 
     if (cppConfiguration.enableCcToolchainConfigInfoFromSkylark()) {
       // Attempt to obtain CppToolchainInfo from the 'toolchain_config' attribute of cc_toolchain.
@@ -696,10 +676,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
 
     // Attempt to find a toolchain based on the target attributes, not the configuration.
-    CToolchain toolchain = toolchainFromCcToolchainAttribute;
-    if (toolchain == null) {
-      toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration, ccSkyframeSupportValue);
-    }
+    CToolchain toolchain = getToolchainFromAttributes(ruleContext, cppConfiguration);
 
     // If we found a toolchain, use it.
     try {
@@ -722,14 +699,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Nullable
   private CToolchain parseToolchainFromAttributes(RuleContext ruleContext)
       throws RuleErrorException {
-    String protoAttribute = StringUtil.emptyToNull(ruleContext.attributes().get("proto", STRING));
-    if (protoAttribute == null) {
+    if (ruleContext.attributes().get("proto", Type.STRING).isEmpty()) {
       return null;
     }
 
+    String data = ruleContext.attributes().get("proto", Type.STRING);
+
     CToolchain.Builder builder = CToolchain.newBuilder();
     try {
-      TextFormat.merge(protoAttribute, builder);
+      TextFormat.merge(data, builder);
       return builder.build();
     } catch (ParseException e) {
       throw ruleContext.throwWithAttributeError("proto", "Could not parse CToolchain data");
@@ -775,31 +753,25 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   @Nullable
   private CToolchain getToolchainFromAttributes(
-      RuleContext ruleContext,
-      CppConfiguration cppConfiguration,
-      CcSkyframeSupportValue ccSkyframeSupportValue)
-      throws RuleErrorException {
+      RuleContext ruleContext, CppConfiguration cppConfiguration) throws RuleErrorException {
+
+    // Is there a toolchain proto available on the target directly?
+    CToolchain toolchain = parseToolchainFromAttributes(ruleContext);
+    if (toolchain != null) {
+      return toolchain;
+    }
 
     String toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
     String cpu = ruleContext.attributes().get("cpu", Type.STRING);
     String compiler = ruleContext.attributes().get("compiler", Type.STRING);
     try {
-      CrosstoolRelease crosstoolRelease;
-      if (cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute() != null) {
-        // We have cc_toolchain_suite.proto attribute set, let's use it
-        crosstoolRelease = cppConfiguration.getCrosstoolFromCcToolchainProtoAttribute();
-      } else {
-        // We use the proto from the CROSSTOOL file
-        crosstoolRelease = ccSkyframeSupportValue.getCrosstoolRelease();
-      }
-
       return CToolchainSelectionUtils.selectCToolchain(
           toolchainIdentifier,
           cpu,
           compiler,
           cppConfiguration.getTransformedCpuFromOptions(),
           cppConfiguration.getCompilerFromOptions(),
-          crosstoolRelease);
+          cppConfiguration.getCrosstoolFile().getProto());
     } catch (InvalidConfigurationException e) {
       ruleContext.throwWithRuleError(
           String.format("Error while selecting cc_toolchain: %s", e.getMessage()));
