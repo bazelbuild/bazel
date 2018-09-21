@@ -491,6 +491,9 @@ public class BlazeCommandDispatcher {
       }
       return result;
     } catch (Throwable e) {
+      outErr.printErr(
+          "Internal error thrown during build. Printing stack trace: "
+              + Throwables.getStackTraceAsString(e));
       e.printStackTrace();
       BugReport.printBug(outErr, e);
       BugReport.sendBugReport(e, args, env.getCrashData());
