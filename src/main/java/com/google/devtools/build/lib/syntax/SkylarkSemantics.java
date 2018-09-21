@@ -182,7 +182,7 @@ public abstract class SkylarkSemantics {
           .incompatibleStaticNameResolution(false)
           .incompatibleStringIsNotIterable(false)
           .internalSkylarkFlagTestCanary(false)
-          .incompatibleNeverUseEmbeddedJDKForJavabase(false)
+          .incompatibleNeverUseEmbeddedJDKForJavabase(true)
           .build();
 
   /** Builder for {@link SkylarkSemantics}. All fields are mandatory. */
