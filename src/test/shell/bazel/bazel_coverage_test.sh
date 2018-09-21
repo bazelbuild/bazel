@@ -154,6 +154,8 @@ function test_cc_test_coverage_gcov() {
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   # Check the expected coverage for a.cc in the coverage file.
+  # Note that t.cc is not included in the coverage report because it is
+  # coming from a cc_test whose code is not included in the report by default.
   local expected_result_a_cc="SF:a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab

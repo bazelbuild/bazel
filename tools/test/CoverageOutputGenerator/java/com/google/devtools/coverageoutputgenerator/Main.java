@@ -80,7 +80,6 @@ public class Main {
     int exitStatus = 0;
     String outputFile = flags.outputFile();
     try {
-      logger.log(Level.INFO, "Writing coverage to outputfile " + outputFile);
       LcovPrinter.print(new FileOutputStream(new File(outputFile)), coverage);
     } catch (IOException e) {
       logger.log(
@@ -102,12 +101,10 @@ public class Main {
    */
   private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
     Set<String> sourceFiles = new HashSet<>();
-    logger.log(Level.INFO, "Lines of source file manifest:");
     try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest));
         InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
         BufferedReader reader = new BufferedReader(inputStreamReader)) {
       for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-        logger.log(Level.INFO, line);
         // The source file manifest is only required for C++ code coverage.
         if (!isMetadataFile(line) && isCcFile(line)) {
           sourceFiles.add(line);
@@ -116,7 +113,6 @@ public class Main {
     } catch (IOException e) {
       logger.log(Level.SEVERE, "Error reading file " + sourceFileManifest + ": " + e.getMessage());
     }
-    logger.log(Level.INFO, "Found " + sourceFiles.size() + " source files in the coverage manifest.");
     return sourceFiles;
   }
 
