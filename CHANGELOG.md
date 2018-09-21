@@ -1,3 +1,79 @@
+## Release 0.17.2 (2018-09-21)
+
+```
+Baseline: aa118ca818baf722aede0bc48d0a17584fa45b6e
+
+Cherry picks:
+   + 0e0462589528154cb5160411991075a2000b5452:
+     Update checker framework dataflow and javacutil versions
+   + 3987300d6651cf0e6e91b395696afac6913a7d66:
+     Stop using --release in versioned java_toolchains
+   + 438b2773b8c019afa46be470b90bcf70ede7f2ef:
+     make_deb: Add new empty line in the end of conffiles file
+   + 504401791e0a0e7e3263940e9e127f74956e7806:
+     Properly mark configuration files in the Debian package.
+   + 9ed9d8ac4347408d15c8fce7c9c07e5c8e658b30:
+     Add flag
+     --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfil
+     es_tree.
+   + 22d761ab42dfb1b131f1facbf490ccdb6c17b89c:
+     Update protobuf to 3.6.1 -- add new files
+   + 27303d79c38f2bfa3b64ee7cd7a6ef03a9a87842:
+     Update protobuf to 3.6.1 -- update references
+   + ddc97ed6b0367eb443e3e09a28d10e65179616ab:
+     Update protobuf to 3.6.1 -- remove 3.6.0 sources
+   + ead1002d3803fdfd4ac68b4b4872076b19d511a2:
+     Fix protobuf in the WORKSPACE
+   + 12dcd35ef7a26d690589b0fbefb1f20090cbfe15:
+     Revert "Update to JDK 10 javac"
+   + 7eb9ea150fb889a93908d96896db77d5658e5005:
+     Automated rollback of
+     https://github.com/bazelbuild/bazel/commit/808ec9ff9b5cec14f23a4b
+     a106bc5249cacc8c54 and
+     https://github.com/bazelbuild/bazel/commit/4c9149d558161e7d3e363f
+     b697f5852bc5742a36 and some manual merging.
+   + 4566a428c5317d87940aeacfd65f1018340e52b6:
+     Fix tests on JDK 9 and 10
+   + 1e9f0aa89dad38eeab0bd40e95e689be2ab6e5e5:
+     Fix more tests on JDK 9 and 10
+   + a572c1cbc8c26f625cab6716137e2d57d05cfdf3:
+     Add ubuntu1804_nojava, ubuntu1804_java9, ubuntu1804_java10 to
+     postsubmit.
+   + 29f1de099e4f6f0f50986aaa4374fc5fb7744ee8:
+     Disable Android shell tests on the "nojava" platform.
+   + b495eafdc2ab380afe533514b3bcd7d5b30c9935:
+     Update bazel_toolchains to latest release.
+   + 9323c57607d37f9c949b60e293b573584906da46:
+     Windows: fix writing java.log
+   + 1aba9ac4b4f68b69f2d91e88cfa8e5dcc7cb98c2:
+     Automated rollback of commit
+     de22ab0582760dc95f33e217e82a7b822378f625.
+   + 2579b791c023a78a577e8cb827890139d6fb7534:
+     Fix toolchain_java9 on --host_javabase=<jdk9> after
+     7eb9ea150fb889a93908d96896db77d5658e5005
+   + 2834613f93f74e988c51cf27eac0e59c79ff3b8f:
+     Include also ext jars in the bootclasspath jar.
+   + fdb09a260dead1e1169f94584edc837349a4f4a5:
+     Release 0.17.1 (2018-09-14)
+   + 1d956c707e1c843896ac58a341c335c9c149073d:
+     Do not fail the build when gcov is not installed
+   + 2e677fb6b8f309b63558eb13294630a91ee0cd33:
+     Ignore unrecognized VM options in desugar.sh, such as the JVM 9
+     flags to silence warnings.
+```
+
+Important changes:
+
+  - In the future, Bazel will expand tree artifacts in runfiles, too,
+    which causes the sandbox to link each file individually into the
+    sandbox directory, instead of symlinking the entire directory. In
+    this release, the behavior is not enabled by default yet. Please
+    try it out via
+    --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfile
+    s_tree and let us know if it causes issues. If everything looks
+    good, this behavior will become the default in a following
+    release.
+
 ## Release 0.17.1 (2018-09-14)
 
 ```
@@ -3323,6 +3399,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
