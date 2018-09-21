@@ -271,7 +271,7 @@ function test_stats_high_system_time() {
 }
 
 function test_stats_high_user_time_and_high_system_time() {
-  assert_linux_sandbox_exec_time 10 19 10 19
+  assert_linux_sandbox_exec_time 10 25 10 25
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

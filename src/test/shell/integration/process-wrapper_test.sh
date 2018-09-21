@@ -160,7 +160,7 @@ function test_stats_high_system_time() {
 }
 
 function test_stats_high_user_time_and_high_system_time() {
-  assert_process_wrapper_exec_time 10 19 10 19
+  assert_process_wrapper_exec_time 10 25 10 25
 }
 
 run_suite "process-wrapper"
