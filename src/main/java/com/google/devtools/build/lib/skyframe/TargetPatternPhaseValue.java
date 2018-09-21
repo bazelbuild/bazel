@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -64,38 +65,34 @@ public final class TargetPatternPhaseValue implements SkyValue {
     this.workspaceName = workspaceName;
   }
 
+  private static ImmutableSet<Target> getTargetsFromLabels(
+      Collection<Label> labels, ExtendedEventHandler eventHandler, PackageManager packageManager)
+      throws InterruptedException {
+    ImmutableSet.Builder<Target> result = ImmutableSet.builderWithExpectedSize(labels.size());
+    for (Label label : labels) {
+      try {
+        result.add(
+            packageManager
+                .getPackage(eventHandler, label.getPackageIdentifier())
+                .getTarget(label.getName()));
+      } catch (NoSuchTargetException | NoSuchPackageException e) {
+        throw new IllegalStateException(
+            "Failed to get preloaded package from TargetPatternPhaseValue for " + label, e);
+      }
+    }
+    return result.build();
+  }
+
   public ImmutableSet<Target> getTargets(
-      ExtendedEventHandler eventHandler, PackageManager packageManager) {
-    return targetLabels
-        .stream()
-        .map(
-            (label) -> {
-              try {
-                return packageManager
-                    .getPackage(eventHandler, label.getPackageIdentifier())
-                    .getTarget(label.getName());
-              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-                throw new RuntimeException("Failed to get package from TargetPatternPhaseValue", e);
-              }
-            })
-        .collect(ImmutableSet.toImmutableSet());
+      ExtendedEventHandler eventHandler, PackageManager packageManager)
+      throws InterruptedException {
+    return getTargetsFromLabels(targetLabels, eventHandler, packageManager);
   }
 
   public ImmutableSet<Target> getTestsToRun(
-      ExtendedEventHandler eventHandler, PackageManager packageManager) {
-    return testsToRunLabels
-        .stream()
-        .map(
-            (label) -> {
-              try {
-                return packageManager
-                    .getPackage(eventHandler, label.getPackageIdentifier())
-                    .getTarget(label.getName());
-              } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-                throw new RuntimeException("Failed to get package from TargetPatternPhaseValue", e);
-              }
-            })
-        .collect(ImmutableSet.toImmutableSet());
+      ExtendedEventHandler eventHandler, PackageManager packageManager)
+      throws InterruptedException {
+    return getTargetsFromLabels(testsToRunLabels, eventHandler, packageManager);
   }
 
   public ImmutableSet<Label> getTargetLabels() {
