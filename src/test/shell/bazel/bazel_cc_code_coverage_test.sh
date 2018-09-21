@@ -304,6 +304,15 @@ function test_cc_test_coverage_lcov() {
 }
 
 function test_cc_test_coverage_gcov() {
+    "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported. Skipping test." && return
+    # gcov -v | grep "gcov" outputs a line that looks like this:
+    # gcov (Debian 7.3.0-5) 7.3.0
+    local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+    [ "$gcov_version" -lt 7 ] \
+        && echo "gcov version before 7.0 is not supported. Skipping test." \
+        && return
+
     run_coverage "GCOV" > "$TEST_log"
 
     # Location of the output file of the C++ coverage script when gcov is used.
