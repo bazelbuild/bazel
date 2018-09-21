@@ -214,6 +214,34 @@ end_of_record"
   assert_contains 'name: "baseline.lcov"' bep.txt
 }
 
+function test_cc_test_llvm_coverage_doesnt_fail() {
+  local -r llvmprofdata=$(which llvm-profdata)
+  if [[ ! -x ${llvmprofdata:-/usr/bin/llvm-profdata} ]]; then
+    echo "llvm-profdata not installed. Skipping test."
+    return
+  fi
+
+  local -r clang_tool=$(which clang++)
+  if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
+    echo "clang++ not installed. Skipping test."
+    return
+  fi
+
+  setup_a_cc_lib_and_t_cc_test
+
+  # Only test that bazel coverage doesn't crash when invoked for llvm native
+  # coverage.
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvmprofdata CC=$clang_tool \
+      bazel coverage --test_output=all //:t &>$TEST_log \
+      || fail "Coverage for //:t failed"
+
+  # Check to see if the coverage output file was created. Cannot check its
+  # contents because it's a binary.
+  [ -f "$(get_coverage_file_path_from_test_log)" ] \
+      || fail "Coverage output file was not created."
+}
+
+
 function test_failed_coverage() {
   local -r LCOV=$(which lcov)
   if [[ ! -x ${LCOV:-/usr/bin/lcov} ]]; then

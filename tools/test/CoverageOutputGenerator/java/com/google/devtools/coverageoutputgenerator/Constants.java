@@ -36,8 +36,9 @@ class Constants {
   static final String END_OF_RECORD_MARKER = "end_of_record";
   static final String TAKEN = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
-  static final String DELIMITER = ",";
   static final String GCOV_EXTENSION = ".gcov";
+  static final String PROFDATA_EXTENSION = ".profdata";
+  static final String DELIMITER = ",";
   static final String GCOV_VERSION_MARKER = "version:";
   static final String GCOV_CWD_MARKER = "cwd:";
   static final String GCOV_FILE_MARKER = "file:";
