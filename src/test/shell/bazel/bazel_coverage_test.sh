@@ -110,6 +110,8 @@ function test_cc_test_coverage_lcov() {
   local coverage_output_file="$( get_coverage_file_path_from_test_log )"
 
   # Check the expected coverage for a.cc in the coverage file.
+  # Note that t.cc is not included in the coverage report because it is
+  # coming from a cc_test whose code is not included in the report by default.
   local expected_result_a_cc="SF:a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab
@@ -123,21 +125,6 @@ LH:3
 LF:4
 end_of_record"
   assert_coverage_result "$expected_result_a_cc" "$coverage_output_file"
-
-
-  # Check the expected coverage for t.cc in the coverage file.
-  local expected_result_t_cc="SF:t.cc
-FN:4,main
-FNDA:1,main
-FNF:1
-FNH:1
-DA:4,1
-DA:5,1
-DA:6,1
-LH:3
-LF:3
-end_of_record"
-  assert_coverage_result "$expected_result_t_cc" "$coverage_output_file"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
@@ -173,6 +160,8 @@ function test_cc_test_coverage_gcov() {
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   # Check the expected coverage for a.cc in the coverage file.
+  # Note that t.cc is not included in the coverage report because it is
+  # coming from a cc_test whose code is not included in the report by default.
   local expected_result_a_cc="SF:a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab
@@ -189,20 +178,6 @@ LH:3
 LF:4
 end_of_record"
   assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
-
-  # Check the expected coverage for t.cc in the coverage file.
-  local expected_result_t_cc="SF:t.cc
-FN:4,main
-FNDA:1,main
-FNF:1
-FNH:1
-DA:4,1
-DA:5,1
-DA:6,1
-LH:3
-LF:3
-end_of_record"
-  assert_coverage_result "$expected_result_t_cc" "$coverage_file_path"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage --experimental_cc_coverage --test_output=all \
