@@ -65,10 +65,11 @@ public class Main {
     }
 
     if (flags.hasSourceFileManifest()) {
-      Set<String> sources = getSourcesFromSourceFileManifest(flags.sourceFileManifest());
-      if (!sources.isEmpty()) {
+      // The source file manifest is only required for C++ code coverage.
+      Set<String> ccSources = getCcSourcesFromSourceFileManifest(flags.sourceFileManifest());
+      if (!ccSources.isEmpty()) {
         // Only filter out coverage if there were C++ sources found in the coverage manifest.
-        coverage = Coverage.getOnlyTheseSources(coverage, sources);
+        coverage = Coverage.getOnlyTheseSources(coverage, ccSources);
       }
     }
 
@@ -96,16 +97,15 @@ public class Main {
    * <p>The manifest contains file names line by line. Each file can either be a source file (e.g.
    * .java, .cc) or a coverage metadata file (e.g. .gcno, .em).
    *
-   * <p>This method only returns the source files, ignoring the coverage metadata files as they are
-   * not relevant when putting together the final coverage report.
+   * <p>This method only returns the C++ source files, ignoring the other files as they are not
+   * necessary when putting together the final coverage report.
    */
-  private static Set<String> getSourcesFromSourceFileManifest(String sourceFileManifest) {
+  private static Set<String> getCcSourcesFromSourceFileManifest(String sourceFileManifest) {
     Set<String> sourceFiles = new HashSet<>();
     try (FileInputStream inputStream = new FileInputStream(new File(sourceFileManifest));
         InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
         BufferedReader reader = new BufferedReader(inputStreamReader)) {
       for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-        // The source file manifest is only required for C++ code coverage.
         if (!isMetadataFile(line) && isCcFile(line)) {
           sourceFiles.add(line);
         }
