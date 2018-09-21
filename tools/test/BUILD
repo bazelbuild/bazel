@@ -38,8 +38,10 @@ filegroup(
     srcs = ["@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main"],
 )
 
+# Test wrapper binary to run tests on Windows.
+# See https://github.com/bazelbuild/bazel/issues/5508
 cc_binary(
-    name = "test_wrapper_bin",
+    name = "tw",
     srcs = select({
         "@bazel_tools//src/conditions:windows": ["windows/test_wrapper.cc"],
         "//conditions:default": ["empty_test_wrapper.cc"],
@@ -76,7 +78,7 @@ filegroup(
         "collect_coverage.sh",
         "collect_cc_coverage.sh",
     ] + glob(["LcovMerger/**"]) + select({
-        "@bazel_tools//src/conditions:windows": ["test_wrapper_bin"],
+        "@bazel_tools//src/conditions:windows": ["tw"],
         "//conditions:default": [],
     }),
     visibility = ["//tools:__pkg__"],

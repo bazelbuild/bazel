@@ -327,11 +327,28 @@ bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd, Path* zip,
   return true;
 }
 
-inline void PrintTestLogStartMarker() {
+inline bool PrintTestLogStartMarker(bool suppress_output) {
+  if (suppress_output) {
+    return true;
+  }
+
+  std::wstring test_target;
+  if (!GetEnv(L"TEST_TARGET", &test_target)) {
+    return false;
+  }
+  if (test_target.empty()) {
+    // According to the Bazel Test Encyclopedia, setting TEST_TARGET is
+    // optional.
+    wprintf(L"Executing tests from unknown target\n");
+  } else {
+    wprintf(L"Executing tests from %s\n", test_target.c_str());
+  }
+
   // This header marks where --test_output=streamed will start being printed.
   printf(
       "------------------------------------------------------------------------"
       "-----\n");
+  return true;
 }
 
 inline bool GetWorkspaceName(std::wstring* result) {
@@ -433,6 +450,31 @@ int WaitForSubprocess(HANDLE process) {
   }
 }
 
+bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
+               std::wstring* out_test_path_arg, bool* out_suppress_output) {
+  if (!out_argv0->Set(argv[0])) {
+    return false;
+  }
+  argc--;
+  argv++;
+  *out_suppress_output = false;
+  if (argc > 0 && wcscmp(argv[0], L"--no_echo") == 0) {
+    // Don't print anything to stdout in this special case.
+    // Currently needed for persistent test runner.
+    *out_suppress_output = true;
+    argc--;
+    argv++;
+  }
+
+  if (argc < 1) {
+    LogError(__LINE__, "Usage: $0 [--no_echo] <test_path> [test_args...]");
+    return false;
+  }
+
+  *out_test_path_arg = argv[0];
+  return true;
+}
+
 bool Path::Set(const std::wstring& path) {
   std::wstring result;
   std::string error;
@@ -462,64 +504,22 @@ Path Path::Dirname() const {
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-  // TODO(laszlocsomor): Implement the functionality described in
-  // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
-
   Path argv0;
-  if (!argv0.Set(argv[0])) {
-    return 1;
-  }
-  argc--;
-  argv++;
+  std::wstring test_path_arg;
   bool suppress_output = false;
-  if (argc > 0 && wcscmp(argv[0], L"--no_echo") == 0) {
-    // Don't print anything to stdout in this special case.
-    // Currently needed for persistent test runner.
-    suppress_output = true;
-    argc--;
-    argv++;
-  } else {
-    std::wstring test_target;
-    if (!GetEnv(L"TEST_TARGET", &test_target)) {
-      return 1;
-    }
-    if (test_target.empty()) {
-      // According to the Bazel Test Encyclopedia, setting TEST_TARGET is
-      // optional.
-      wprintf(L"Executing tests from unknown target\n");
-    } else {
-      wprintf(L"Executing tests from %s\n", test_target.c_str());
-    }
-  }
-
-  if (argc < 1) {
-    LogError(__LINE__, "Usage: $0 [--no_echo] <test_path> [test_args...]");
-    return 1;
-  }
-
-  const wchar_t* test_path_arg = argv[0];
-  Path test_path;
-  if (!FindTestBinary(argv0, test_path_arg, &test_path)) {
-    return 1;
-  }
-
-  Path exec_root;
-  if (!GetCwd(&exec_root)) {
-    return 1;
-  }
-
-  Path srcdir, tmpdir, xml_output, undecl_zip, undecl_mf, undecl_annot;
-  if (!ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
+  Path exec_root, test_path, srcdir, tmpdir, xml_output, undecl_zip, undecl_mf,
+      undecl_annot;
+  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output) ||
+      !PrintTestLogStartMarker(suppress_output) ||
+      !FindTestBinary(argv0, test_path_arg, &test_path) ||
+      !GetCwd(&exec_root) || !ExportUserName() ||
+      !ExportSrcPath(exec_root, &srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
       !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl_zip,
                                               &undecl_mf, &undecl_annot)) {
     return 1;
-  }
-
-  if (!suppress_output) {
-    PrintTestLogStartMarker();
   }
 
   HANDLE process;
