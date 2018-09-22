@@ -418,14 +418,18 @@ public class CompactPersistentActionCache implements ActionCache {
       Md5Digest md5Digest = DigestUtils.read(source);
 
       int count = VarInt.getVarInt(source);
-      ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-      for (int i = 0; i < count; i++) {
-        int id = VarInt.getVarInt(source);
-        String filename = (id >= 0 ? indexer.getStringForIndex(id) : null);
-        if (filename == null) {
-          throw new IOException("Corrupted file index");
+      ImmutableList<String> files = null;
+      if (count != NO_INPUT_DISCOVERY_COUNT) {
+        ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(count);
+        for (int i = 0; i < count; i++) {
+          int id = VarInt.getVarInt(source);
+          String filename = (id >= 0 ? indexer.getStringForIndex(id) : null);
+          if (filename == null) {
+            throw new IOException("Corrupted file index");
+          }
+          builder.add(filename);
         }
-        builder.add(filename);
+        files = builder.build();
       }
 
       Md5Digest usedClientEnvDigest = DigestUtils.read(source);
@@ -436,7 +440,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return new ActionCache.Entry(
           actionKey,
           usedClientEnvDigest,
-          count == NO_INPUT_DISCOVERY_COUNT ? null : builder.build(),
+          files,
           md5Digest);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
