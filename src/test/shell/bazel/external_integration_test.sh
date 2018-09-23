@@ -925,6 +925,22 @@ EOF
 }
 
 
+function test_server_timeout() {
+  startup_timeout_server $PWD
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    url = "http://127.0.0.1:$fileserver_port/some_archive.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/some_archive.zip\\] to"
+  expect_log "Read timed out"
+  shutdown_server
+}
+
 
 function test_same_name() {
   mkdir ext

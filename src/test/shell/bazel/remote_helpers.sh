@@ -209,6 +209,16 @@ function startup_auth_server() {
   wait_for_server_startup
 }
 
+function startup_timeout_server() {
+  fileserver_port=$(pick_random_unused_tcp_port) || exit 1
+  # We allow only for one response from the server.
+  # wait_for_server_startup uses this response to make sure that the
+  # timeout server is ready.
+  python $python_server --port=$fileserver_port --max_responses=1 &
+  fileserver_pid=$!
+  wait_for_server_startup
+}
+
 function shutdown_server() {
   # Try to kill nc, otherwise the test will time out if Bazel has a bug and
   # didn't make a request to it.

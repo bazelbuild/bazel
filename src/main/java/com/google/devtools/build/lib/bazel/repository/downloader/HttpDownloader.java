@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -226,6 +227,14 @@ public class HttpDownloader {
         OutputStream out = destination.getOutputStream()) {
       ByteStreams.copy(payload, out);
       success = true;
+    } catch (SocketTimeoutException e) {
+      // SocketTimeoutException is a subclass of InterruptedIOException.
+      // If we catch a SocketTimeoutException we want to print an informative message
+      // like we do for the IOException case.
+      // This can happen in real life, when bazel is inside a network where any
+      // connections to the outside world are neither acknowledged nor refused.
+      throw new IOException(
+          "Error downloading " + urls + " to " + destination + ": " + e.getMessage());
     } catch (InterruptedIOException e) {
       throw new InterruptedException();
     } catch (IOException e) {

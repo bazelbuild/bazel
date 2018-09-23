@@ -20,8 +20,11 @@ import getopt
 import os
 import SocketServer
 import sys
+import time
 
 auth = None
+max_responses = -1
+response_counter = 0
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -39,6 +42,13 @@ class Handler(BaseHTTPRequestHandler):
     self.end_headers()
 
   def do_GET(self):  # pylint: disable=invalid-name
+    global response_counter
+    if max_responses >= 0 and response_counter >= max_responses:
+      while True:
+        time.sleep(1)
+    else:
+      response_counter = response_counter + 1
+
     if auth is None:
       self.do_HEAD()
       self.serve_file()
@@ -68,7 +78,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
   try:
-    opts, args = getopt.getopt(sys.argv[1:], 'p:a:', ['port=', 'auth='])
+    opts, args = getopt.getopt(
+          sys.argv[1:], 'p:a:m:', ['port=', 'auth=', 'max_responses='])
   except getopt.GetoptError:
     print 'Error parsing args'
     sys.exit(1)
@@ -79,6 +90,8 @@ if __name__ == '__main__':
       port = int(a)
     if o in ('-a', '--auth'):
       auth = a
+    if o in ('-m', '--max_responses'):
+      max_responses = int(a)
   httpd = SocketServer.TCPServer(('', port), Handler)
   try:
     print 'Serving forever on %d.' % port
