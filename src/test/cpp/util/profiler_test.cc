@@ -59,7 +59,7 @@ TEST(ProfilerTest, TestScopedTaskMeasuresElapsedTime) {
     SleepMeasurably();
     SleepMeasurably();
   }
-  ASSERT_GT(scope2.GetDuration().micros_, scope1.GetDuration().micros_);
+  ASSERT_GT(scope_both.GetDuration().micros_, scope1.GetDuration().micros_);
   ASSERT_GT(scope_both.GetDuration().micros_, scope2.GetDuration().micros_);
   ASSERT_EQ(scope1.GetCalls(), 1u);
   ASSERT_EQ(scope2.GetCalls(), 1u);
