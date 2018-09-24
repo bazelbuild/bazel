@@ -301,11 +301,14 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (!Strings.isNullOrEmpty(repoOptions.repositoryHashFile)) {
+        Path hashFile;
+        if (env.getWorkspace() != null) {
+          hashFile = env.getWorkspace().getRelative(repoOptions.repositoryHashFile);
+        } else {
+          hashFile = filesystem.getPath(repoOptions.repositoryHashFile);
+        }
         resolvedFile =
-            Optional.of(
-                RootedPath.toRootedPath(
-                    Root.absoluteRoot(filesystem),
-                    filesystem.getPath(repoOptions.repositoryHashFile)));
+            Optional.of(RootedPath.toRootedPath(Root.absoluteRoot(filesystem), hashFile));
       }
 
       if (!Strings.isNullOrEmpty(repoOptions.experimentalResolvedFileInsteadOfWorkspace)) {
