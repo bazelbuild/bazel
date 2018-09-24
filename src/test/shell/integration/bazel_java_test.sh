@@ -174,4 +174,51 @@ function test_no_javabase_default_embedded() {
   expect_log "Zulu"
 }
 
+function test_genrule() {
+  mkdir -p foo/bin bar/bin
+  cat << EOF > BUILD
+java_runtime(
+    name = "foo_javabase",
+    java_home = "$PWD/foo",
+    visibility = ["//visibility:public"],
+)
+
+java_runtime(
+    name = "bar_runtime",
+    visibility = ["//visibility:public"],
+    srcs = ["bar/bin/java"],
+)
+
+genrule(
+    name = "without_java",
+    srcs = ["in"],
+    outs = ["out_without"],
+    cmd = "cat \$(SRCS) > \$(OUTS)",
+)
+
+genrule(
+    name = "with_java",
+    srcs = ["in"],
+    outs = ["out_with"],
+    cmd = "echo \$(JAVA) > \$(OUTS)",
+    toolchains = [":bar_runtime"],
+)
+EOF
+
+  bazel cquery --implicit_deps 'deps(//:without_java)' >& $TEST_log
+  expect_not_log "foo"
+  expect_not_log "bar"
+  expect_not_log "embedded_jdk"
+
+  bazel cquery --implicit_deps 'deps(//:with_java)' >& $TEST_log
+  expect_not_log "foo"
+  expect_log "bar"
+  expect_log "embedded_jdk"
+
+  bazel cquery --implicit_deps 'deps(//:with_java)' --host_javabase=:foo_javabase >& $TEST_log
+  expect_log "foo"
+  expect_log "bar"
+  expect_not_log "embedded_jdk"
+}
+
 run_suite "Tests of specifying custom server_javabase/host_javabase and javabase."

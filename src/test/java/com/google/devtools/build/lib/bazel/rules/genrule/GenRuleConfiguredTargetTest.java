@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP_PATH;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,9 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -48,26 +45,6 @@ import org.junit.runners.JUnit4;
 /** Tests of {@link BazelGenRule}. */
 @RunWith(JUnit4.class)
 public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
-
-  /** Filter to remove implicit dependencies of C/C++ rules. */
-  private static final Predicate<ConfiguredTarget> CC_CONFIGURED_TARGET_FILTER =
-      new Predicate<ConfiguredTarget>() {
-        @Override
-        public boolean apply(ConfiguredTarget target) {
-          return AnalysisMock.get().ccSupport().labelFilter().apply(target.getLabel());
-        }
-      };
-
-  /** Filter to remove implicit dependencies of Java rules. */
-  private static final Predicate<ConfiguredTarget> JAVA_CONFIGURED_TARGET_FILTER =
-      new Predicate<ConfiguredTarget>() {
-        @Override
-        public boolean apply(ConfiguredTarget target) {
-          Label label = target.getLabel();
-          String labelName = "//" + label.getPackageName();
-          return !labelName.startsWith("//third_party/java/jdk");
-        }
-      };
 
   private static final Pattern SETUP_COMMAND_PATTERN =
       Pattern.compile(".*/genrule-setup.sh;\\s+(?<command>.*)");
@@ -466,23 +443,13 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget parentTarget = getConfiguredTarget("//config");
 
-    Iterable<ConfiguredTarget> prereqs =
-        Iterables.filter(
-            Iterables.filter(
-                getDirectPrerequisites(parentTarget),
-                CC_CONFIGURED_TARGET_FILTER),
-            JAVA_CONFIGURED_TARGET_FILTER);
+    Iterable<ConfiguredTarget> prereqs = getDirectPrerequisites(parentTarget);
 
     boolean foundSrc = false;
     boolean foundTool = false;
     boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
       String name = prereq.getLabel().getName();
-      if (name.contains("cc-") || name.contains("jdk")) {
-          // Ignore these, they are present due to the implied genrule dependency on crosstool and
-          // JDK.
-        continue;
-      }
       switch (name) {
         case "src":
           assertConfigurationsEqual(getConfiguration(parentTarget), getConfiguration(prereq));
