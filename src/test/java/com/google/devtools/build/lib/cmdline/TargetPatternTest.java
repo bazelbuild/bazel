@@ -25,6 +25,13 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link com.google.devtools.build.lib.cmdline.TargetPattern}. */
 @RunWith(JUnit4.class)
 public class TargetPatternTest {
+  private void expectError(String pattern) {
+    try {
+      parse(pattern);
+      fail();
+    } catch (TargetParsingException expected) {
+    }
+  }
 
   @Test
   public void testPassingValidations() throws TargetParsingException {
@@ -49,11 +56,9 @@ public class TargetPatternTest {
 
   @Test
   public void testInvalidPatterns() throws TargetParsingException {
-    try {
-      parse("Bar\\java");
-      fail();
-    } catch (TargetParsingException expected) {
-    }
+    expectError("Bar\\java");
+    expectError("");
+    expectError("\\");
   }
 
   @Test

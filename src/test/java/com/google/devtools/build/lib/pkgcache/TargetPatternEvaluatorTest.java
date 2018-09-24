@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Pair;
@@ -47,17 +46,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   private PathFragment fooOffset;
 
   private Set<Label> rulesBeneathFoo;
-  private Set<Label> rulesBeneathFooBar;
-  private Set<Label> rulesBeneathOtherrules;
-  private Set<Label> rulesInTopLevelPackage;
   private Set<Label> rulesInFoo;
-  private Set<Label> rulesInFooBar;
-  private Set<Label> rulesInOtherrules;
   private Set<Label> targetsInFoo;
   private Set<Label> targetsInFooBar;
   private Set<Label> targetsBeneathFoo;
   private Set<Label> targetsInOtherrules;
-  private Set<Label> targetsInTopLevelPackage;
 
   @Before
   public final void createFiles() throws Exception {
@@ -89,14 +82,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     fooOffset = foo.relativeTo(rootDirectory);
 
     rulesBeneathFoo = labels("//foo:foo1", "//foo/bar:bar1", "//foo/bar:bar2");
-    rulesBeneathFooBar = labels("//foo/bar:bar1", "//foo/bar:bar2");
-    rulesBeneathOtherrules = labels(
-        "//otherrules:suite1", "//otherrules:wiz", "//otherrules:group");
-    rulesInTopLevelPackage = labels("//:fg");
     rulesInFoo = labels("//foo:foo1");
-    rulesInFooBar = labels("//foo/bar:bar1", "//foo/bar:bar2");
-    rulesInOtherrules = rulesBeneathOtherrules;
-    targetsInTopLevelPackage = labels("//:BUILD", "//:foo.cc", "//:fg");
 
     targetsInFoo = labels(
         "//foo:foo1",
@@ -217,14 +203,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         .getLabel();
   }
 
-  private Label parseIndividualTargetRelative(String targetLabel) throws Exception {
-    return Iterables.getOnlyElement(
-        getFailFast(
-            parseTargetPatternList(
-                fooOffset, parser, parsingListener, ImmutableList.of(targetLabel), false)))
-        .getLabel();
-  }
-
   @Test
   public void testModifiedBuildFile() throws Exception {
     assertThat(parseList("foo:all")).containsExactlyElementsIn(rulesInFoo);
@@ -235,107 +213,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         "cc_library(name = 'foo2', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])");
     invalidate("foo/BUILD");
     assertThat(parseList("foo:all")).containsExactlyElementsIn(labels("//foo:foo1", "//foo:foo2"));
-  }
-
-  private void runFindTargetsInPackage(String suffix) throws Exception {
-    // 'my_package:all'
-    assertThat(parseList("foo" + suffix)).containsExactlyElementsIn(rulesInFoo);
-    assertThat(parseList("foo/bar" + suffix)).containsExactlyElementsIn(rulesInFooBar);
-    assertThat(parseList("otherrules" + suffix)).containsExactlyElementsIn(rulesInOtherrules);
-    assertNoEvents();
-    String msg1 = "while parsing 'nosuchpkg" + suffix + "': no such package 'nosuchpkg': "
-        + "BUILD file not found on package path";
-    expectError(msg1, "nosuchpkg" + suffix);
-
-    String msg2 = "while parsing 'nosuchdirectory" + suffix
-        + "': no such package 'nosuchdirectory': "
-        + "BUILD file not found on package path";
-    expectError(msg2, "nosuchdirectory" + suffix);
-    assertThat(parsingListener.events).containsExactly(Pair.of("nosuchpkg" + suffix, msg1),
-        Pair.of("nosuchdirectory" + suffix, msg2));
-  }
-
-  private void runFindTargetsInPackageAbsolute(String suffix) throws Exception {
-    // '//my_package:all'
-    assertThat(parseList("//foo" + suffix)).containsExactlyElementsIn(rulesInFoo);
-    assertThat(parseList("//foo/bar" + suffix)).containsExactlyElementsIn(rulesInFooBar);
-    assertThat(parseList("//otherrules" + suffix)).containsExactlyElementsIn(rulesInOtherrules);
-    assertNoEvents();
-    expectError("while parsing '//nosuchpkg" + suffix + "': no such package 'nosuchpkg': "
-            + "BUILD file not found on package path",
-        "//nosuchpkg" + suffix);
-    expectError("while parsing '//nosuchpkg" + suffix + "': no such package 'nosuchpkg': "
-            + "BUILD file not found on package path",
-        "//nosuchpkg" + suffix);
-  }
-
-  @Test
-  public void testFindRulesInPackage() throws Exception {
-    runFindTargetsInPackage(":all");
-    runFindTargetsInPackageAbsolute(":all");
-  }
-
-  private void runFindRulesRecursively(String suffix) throws Exception {
-    assertThat(parseList("foo" + suffix)).containsExactlyElementsIn(rulesBeneathFoo);
-    assertThat(parseList("//foo" + suffix)).containsExactlyElementsIn(rulesBeneathFoo);
-    assertThat(parseList("//foo/bar" + suffix)).containsExactlyElementsIn(rulesBeneathFooBar);
-    assertThat(parseList("//foo" + suffix)).containsExactlyElementsIn(rulesBeneathFoo);
-    assertThat(parseList("otherrules" + suffix)).containsExactlyElementsIn(rulesBeneathOtherrules);
-    assertThat(parseList("//foo" + suffix)).containsExactlyElementsIn(rulesBeneathFoo);
-    assertNoEvents();
-    eventCollector.clear();
-  }
-
-  @Test
-  public void testNoTargetsFoundRecursiveDirectory() throws Exception {
-    try {
-      parseList("nosuchpkg/...");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessage("no targets found beneath 'nosuchpkg'");
-    }
-  }
-
-  @Test
-  public void testFindRulesRecursively() throws Exception {
-    runFindRulesRecursively("/...:all");
-    runFindRulesRecursively("/...");
-  }
-
-  private void runFindAllRules(String pattern) throws Exception {
-    assertThat(parseList(pattern))
-        .containsExactlyElementsIn(ImmutableSet.builder()
-            .addAll(rulesBeneathFoo)
-            .addAll(rulesBeneathOtherrules)
-            .addAll(rulesInTopLevelPackage)
-            .build());
-    assertNoEvents();
-    eventCollector.clear();
-  }
-
-  @Test
-  public void testFindAllRules() throws Exception {
-    runFindAllRules("//...:all");
-    runFindAllRules("//...");
-    runFindAllRules("...");
-  }
-
-  private void runFindAllTargets(String pattern) throws Exception {
-    assertThat(parseList(pattern))
-        .containsExactlyElementsIn(ImmutableSet.builder()
-            .addAll(targetsBeneathFoo)
-            .addAll(targetsInOtherrules)
-            .addAll(targetsInTopLevelPackage)
-            .build());
-    assertNoEvents();
-    eventCollector.clear();
-  }
-
-  @Test
-  public void testFindAllTargets() throws Exception {
-    runFindAllTargets("//...:all-targets");
-    runFindAllTargets("//...:*");
-    runFindAllTargets("...:*");
   }
 
   /**
@@ -352,49 +229,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseIndividualTarget("sub/dir/dir2").toString()).isEqualTo("//sub/dir:dir2");
     // sub is a package but not sub/dir2
     assertThat(parseIndividualTarget("sub/dir2/dir2").toString()).isEqualTo("//sub:dir2/dir2");
-  }
-
-  @Test
-  public void testFindsLongestPlausiblePackageName() throws Exception {
-    assertThat(parseIndividualTarget("foo/bar/baz").toString()).isEqualTo("//foo/bar:baz");
-    assertThat(parseIndividualTarget("foo/bar/baz/bang").toString())
-        .isEqualTo("//foo/bar:baz/bang");
-    assertThat(parseIndividualTarget("foo/baz/bang").toString()).isEqualTo("//foo:baz/bang");
-  }
-
-  @Test
-  public void testParsesIterableOfLabels() throws Exception {
-    Set<Label> labels =
-        Sets.newHashSet(
-            Label.parseAbsolute("//foo/bar:bar1", ImmutableMap.of()),
-            Label.parseAbsolute("//foo:foo1", ImmutableMap.of()));
-    assertThat(parseList("//foo/bar:bar1", "//foo:foo1")).isEqualTo(labels);
-    parsingListener.assertEmpty();
-  }
-
-  @Test
-  public void testParseAbsoluteWithRelativeParser() throws Exception {
-    Set<Label> labels =
-        Sets.newHashSet(
-            Label.parseAbsolute("//foo/bar:bar1", ImmutableMap.of()),
-            Label.parseAbsolute("//foo:foo1", ImmutableMap.of()));
-    assertThat(parseListRelative("//foo/bar:bar1", "//foo:foo1")).isEqualTo(labels);
-    parsingListener.assertEmpty();
-  }
-
-  @Test
-  public void testMultisegmentLabelsWithNoSlashSlash() throws Exception {
-    assertThat(parseIndividualTarget("foo/bar:wiz/bang").toString())
-        .isEqualTo("//foo/bar:wiz/bang");
-    assertThat(parseIndividualTarget("foo/bar:wiz/all").toString()).isEqualTo("//foo/bar:wiz/all");
-  }
-
-  @Test
-  public void testMultisegmentLabelsWithNoSlashSlashRelative() throws Exception {
-    assertThat(parseIndividualTargetRelative("bar:wiz/bang").toString())
-        .isEqualTo("//foo/bar:wiz/bang");
-    assertThat(parseIndividualTargetRelative("bar:wiz/all").toString())
-        .isEqualTo("//foo/bar:wiz/all");
   }
 
   /** Regression test for a bug. */
@@ -453,13 +287,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   @Test
-  public void testSequenceOfTargetPatterns_UnionRelative() throws Exception {
-    // No prefix negation operator => union.  Order is not significant.
-    assertThat(parseListRelative("...", "bar/...")).containsExactlyElementsIn(rulesBeneathFoo);
-    assertThat(parseListRelative("bar/...", "...")).containsExactlyElementsIn(rulesBeneathFoo);
-  }
-
-  @Test
   public void testSequenceOfTargetPatterns_SetDifference() throws Exception {
     // Prefix negation operator => set difference.  Order is significant.
     assertThat(parseList("foo/...", "-foo/bar/...")).containsExactlyElementsIn(rulesInFoo);
@@ -473,81 +300,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseListRelative("-bar/...", "...")).containsExactlyElementsIn(rulesBeneathFoo);
   }
 
-  @Test
-  public void testAllTargetsWildcard() throws Exception {
-    assertThat(parseList("foo:all-targets")).containsExactlyElementsIn(targetsInFoo);
-    assertThat(parseList("foo/bar:all-targets")).containsExactlyElementsIn(targetsInFooBar);
-    assertThat(parseList("otherrules:all-targets")).containsExactlyElementsIn(targetsInOtherrules);
-    assertThat(parseList("foo/...:all-targets")).containsExactlyElementsIn(targetsBeneathFoo);
-
-    assertThat(parseList("foo:*")).containsExactlyElementsIn(targetsInFoo);
-    assertThat(parseList("foo/bar:*")).containsExactlyElementsIn(targetsInFooBar);
-    assertThat(parseList("otherrules:*")).containsExactlyElementsIn(targetsInOtherrules);
-    assertThat(parseList("foo/...:*")).containsExactlyElementsIn(targetsBeneathFoo);
-  }
-
-  @Test
-  public void testAllTargetsWildcardRelative() throws Exception {
-    assertThat(parseListRelative(":all-targets")).containsExactlyElementsIn(targetsInFoo);
-    assertThat(parseListRelative("//foo:all-targets")).containsExactlyElementsIn(targetsInFoo);
-    assertThat(parseListRelative("bar:all-targets")).containsExactlyElementsIn(targetsInFooBar);
-    assertThat(parseListRelative("//foo/bar:all-targets"))
-        .containsExactlyElementsIn(targetsInFooBar);
-    assertThat(parseListRelative("...:all-targets")).containsExactlyElementsIn(targetsBeneathFoo);
-    assertThat(parseListRelative("//foo/...:all-targets"))
-        .containsExactlyElementsIn(targetsBeneathFoo);
-
-    assertThat(parseListRelative(":*")).containsExactlyElementsIn(targetsInFoo);
-    assertThat(parseListRelative("//foo:*")).containsExactlyElementsIn(targetsInFoo);
-    assertThat(parseListRelative("bar:*")).containsExactlyElementsIn(targetsInFooBar);
-    assertThat(parseListRelative("//foo/bar:*")).containsExactlyElementsIn(targetsInFooBar);
-    assertThat(parseListRelative("...:*")).containsExactlyElementsIn(targetsBeneathFoo);
-    assertThat(parseListRelative("//foo/...:*")).containsExactlyElementsIn(targetsBeneathFoo);
-  }
-
-  private void setupSubDirectoryCircularSymlink() throws Exception {
-    Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
-    Path child = parent.getRelative("child");
-    child.createDirectory();
-    Path badBuild = child.getRelative("BUILD");
-    badBuild.createSymbolicLink(badBuild);
-    reporter.removeHandler(failFastHandler);
-  }
-
-  @Test
-  public void testSubdirectoryCircularSymlinkKeepGoing() throws Exception {
-    setupSubDirectoryCircularSymlink();
-    assertThat(parseListKeepGoing("//parent/...").getFirst())
-        .containsExactlyElementsIn(labels("//parent:parent"));
-  }
-
-  @Test
-  public void testSubdirectoryCircularSymlinkNoKeepGoing() throws Exception {
-    setupSubDirectoryCircularSymlink();
-    try {
-      parseList("//parent/...");
-      fail();
-    } catch (TargetParsingException e) {
-      // Expected.
-    }
-  }
-
-  @Test
-  public void testSubdirectoryCircularSymlinkNoKeepGoingPrimedParent() throws Exception {
-    setupSubDirectoryCircularSymlink();
-    // We make sure that the parent package is present, so that in the subsequent nokeep_going
-    // build, the pattern parsing will have as many of its deps available as possible, which
-    // exercises more code coverage during error bubbling.
-    assertThat(parseList("//parent:all"))
-        .containsExactly(Label.parseAbsolute("//parent:parent", ImmutableMap.of()));
-    try {
-      parseList("//parent/...");
-      fail();
-    } catch (TargetParsingException e) {
-      // Expected.
-    }
-  }
-
   /** Regression test for bug: "Bogus 'helpful' error message" */
   @Test
   public void testHelpfulMessageForDirectoryWhichIsASubdirectoryOfAPackage() throws Exception {
@@ -558,80 +310,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
             + "'exports_files([\"quux\"])' to bar/BUILD, or define a filegroup?) defined by "
             + "/workspace/bar/BUILD",
         "bar/quux");
-  }
-
-  /** Regression test for bug: "Uplevel references in blaze target patterns cause crash" */
-  @Test
-  public void testNoCrashWhenUplevelReferencesUsed() throws Exception {
-    scratch.file("/other/workspace/project/BUILD");
-    expectError(
-        "Invalid package name '../other/workspace/project': ",
-        "../other/workspace/project/...:all");
-    expectError(
-        "Invalid package name '../other/workspace/project': ", "../other/workspace/project/...");
-    expectError(
-        "Invalid package name 'foo/../../other/workspace/project': ",
-        "foo/../../other/workspace/project/...");
-    expectError(
-        "Invalid package name '../other/workspace/project': ", "../other/workspace/project:all");
-  }
-
-  @Test
-  public void testPassingValidations() {
-    expectValidationPass("foo:bar");
-    expectValidationPass("foo:all");
-    expectValidationPass("foo/...:all");
-    expectValidationPass("foo:*");
-
-    expectValidationPass("//foo");
-    expectValidationPass("foo");
-    expectValidationPass("foo/bar");
-    expectValidationPass("//foo:bar");
-    expectValidationPass("//foo:all");
-
-    expectValidationPass("//foo/all");
-    expectValidationPass("java/com/google/foo/Bar.java");
-    expectValidationPass("//foo/...:all");
-  }
-
-  @Test
-  public void testFailingValidations() {
-    expectValidationFail("");
-    expectValidationFail("\\");
-  }
-
-  private void expectValidationFail(String target) {
-    try {
-      TargetPattern.defaultParser().parse(target);
-      fail("TargetParsingException expected from parse(" + target + ")");
-    } catch (TargetParsingException expected) {
-      /* ignore */
-    }
-
-    // Ensure that validateTargetPattern's checking is strictly weaker than
-    // that of parseTargetPattern.
-    try {
-      parseTargetPatternList(parser, parsingListener, ImmutableList.of(target), false);
-      fail("parseTargetPattern(" + target + ") inconsistent with parseTargetPattern!");
-    } catch (TargetParsingException expected) {
-      /* ignore */
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private void expectValidationPass(String target) {
-    try {
-      TargetPattern.defaultParser().parse(target);
-    } catch (TargetParsingException e) {
-      fail("Expected " + target + " to pass; got exception: " + e);
-    }
-  }
-
-  @Test
-  public void testSetOffset() throws Exception {
-    assertThat(parseIndividualTarget("foo:foo1").toString()).isEqualTo("//foo:foo1");
-    assertThat(parseIndividualTargetRelative(":foo1").toString()).isEqualTo("//foo:foo1");
   }
 
   @Test

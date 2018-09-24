@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -116,6 +117,8 @@ public class LoadingPhaseRunnerTest {
       // Expected.
       tester.assertContainsError("circular symlinks detected");
     }
+    TargetPatternPhaseValue result = tester.loadKeepGoing(targetPattern);
+    assertThat(result.hasError()).isTrue();
   }
 
   private TargetPatternPhaseValue assertNoErrors(TargetPatternPhaseValue loadingResult) {
@@ -183,6 +186,60 @@ public class LoadingPhaseRunnerTest {
     TargetParsingCompleteEvent event = tester.findPostOnce(TargetParsingCompleteEvent.class);
     assertThat(event.getOriginalTargetPattern()).containsExactly("//base:hello", "//base:missing");
     assertThat(event.getFailedTargetPatterns()).containsExactly("//base:missing");
+  }
+
+  @Test
+  public void testRecursiveAllRules() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'base', srcs = ['base.txt'])");
+    tester.addFile("base/foo/BUILD",
+        "filegroup(name = 'foo', srcs = ['foo.txt'])");
+    tester.addFile("base/bar/BUILD",
+        "filegroup(name = 'bar', srcs = ['bar.txt'])");
+    TargetPatternPhaseValue loadingResult = tester.load("//base/...");
+    assertThat(loadingResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//base", "//base/foo", "//base/bar"));
+
+    loadingResult = tester.load("//base/bar/...");
+    assertThat(loadingResult.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//base/bar"));
+  }
+
+  @Test
+  public void testRecursiveAllTargets() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'base', srcs = ['base.txt'])");
+    tester.addFile("base/foo/BUILD",
+        "filegroup(name = 'foo', srcs = ['foo.txt'])");
+    tester.addFile("base/bar/BUILD",
+        "filegroup(name = 'bar', srcs = ['bar.txt'])");
+    TargetPatternPhaseValue loadingResult = tester.load("//base/...:*");
+    assertThat(loadingResult.getTargetLabels())
+        .containsExactlyElementsIn(
+            getLabels(
+                "//base:BUILD",
+                "//base:base",
+                "//base:base.txt",
+                "//base/foo:BUILD",
+                "//base/foo:foo",
+                "//base/foo:foo.txt",
+                "//base/bar:BUILD",
+                "//base/bar:bar",
+                "//base/bar:bar.txt"));
+
+    loadingResult = tester.load("//base/...:all-targets");
+    assertThat(loadingResult.getTargetLabels())
+        .containsExactlyElementsIn(
+            getLabels(
+                "//base:BUILD",
+                "//base:base",
+                "//base:base.txt",
+                "//base/foo:BUILD",
+                "//base/foo:foo",
+                "//base/foo:foo.txt",
+                "//base/bar:BUILD",
+                "//base/bar:bar",
+                "//base/bar:bar.txt"));
   }
 
   @Test
@@ -290,6 +347,42 @@ public class LoadingPhaseRunnerTest {
     assertNoErrors(tester.loadTests("-//my_library"));
     assertThat(tester.getFilteredTargets()).isEmpty();
     assertThat(tester.getTestFilteredTargets()).isEmpty();
+  }
+
+  @Test
+  public void testFindLongestPrefix() throws Exception {
+    tester.addFile("base/BUILD", "exports_files(['bar', 'bar/bar', 'bar/baz'])");
+    TargetPatternPhaseValue result = assertNoErrors(tester.load("base/bar/baz"));
+    assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:bar/baz"));
+    result = assertNoErrors(tester.load("base/bar"));
+    assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:bar"));
+  }
+
+  @Test
+  public void testMultiSegmentLabel() throws Exception {
+    tester.addFile("base/foo/BUILD", "exports_files(['bar/baz'])");
+    TargetPatternPhaseValue value = assertNoErrors(tester.load("base/foo:bar/baz"));
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base/foo:bar/baz"));
+  }
+
+  @Test
+  public void testMultiSegmentLabelRelative() throws Exception {
+    tester.addFile("base/foo/BUILD", "exports_files(['bar/baz'])");
+    tester.setRelativeWorkingDirectory("base");
+    TargetPatternPhaseValue value = assertNoErrors(tester.load("foo:bar/baz"));
+    assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base/foo:bar/baz"));
+  }
+
+  @Test
+  public void testDeletedPackage() throws Exception {
+    tester.addFile("base/BUILD", "exports_files(['base'])");
+    tester.setDeletedPackages(PackageIdentifier.createInMainRepo("base"));
+    TargetPatternPhaseValue result = tester.loadKeepGoing("//base");
+    assertThat(result.hasError()).isTrue();
+    tester.assertContainsError(
+        "no such package 'base': Package is considered deleted due to --deleted_packages");
+    ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
+    assertThat(err.getPattern()).isEqualTo("//base");
   }
 
   private void writeBuildFilesForTestFiltering() throws Exception {
@@ -738,6 +831,21 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testWildcard() throws Exception {
+    tester.addFile("foo/lib/BUILD",
+        "sh_library(name = 'lib2', srcs = ['foo.cc'])");
+    TargetPatternPhaseValue value = assertNoErrors(tester.load("//foo/lib:all-targets"));
+    assertThat(value.getTargetLabels())
+        .containsExactlyElementsIn(
+            getLabels("//foo/lib:BUILD", "//foo/lib:lib2", "//foo/lib:foo.cc"));
+
+    value = assertNoErrors(tester.load("//foo/lib:*"));
+    assertThat(value.getTargetLabels())
+        .containsExactlyElementsIn(
+            getLabels("//foo/lib:BUILD", "//foo/lib:lib2", "//foo/lib:foo.cc"));
+  }
+
+  @Test
   public void testWildcardConflict() throws Exception {
     tester.addFile("foo/lib/BUILD",
         "cc_library(name = 'lib1')",
@@ -790,52 +898,52 @@ public class LoadingPhaseRunnerTest {
     assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:hello"));
   }
 
-  @Test
-  public void testPatternWithSingleSlashIsError() throws Exception {
+  private void expectError(String pattern, String message) throws Exception {
     try {
-      tester.load("/single/slash");
+      tester.load(pattern);
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(
-          "not a valid absolute pattern (absolute target patterns must start with exactly "
-          + "two slashes): '/single/slash'");
+      assertThat(e).hasMessageThat().contains(message);
     }
+  }
+
+  @Test
+  public void testPatternWithSingleSlashIsError() throws Exception {
+    expectError(
+        "/single/slash",
+        "not a valid absolute pattern (absolute target patterns must start with exactly "
+            + "two slashes): '/single/slash'");
   }
 
   @Test
   public void testPatternWithSingleSlashIsErrorAndOffset() throws Exception {
     tester.setRelativeWorkingDirectory("base");
-    try {
-      tester.load("/single/slash");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(
-          "not a valid absolute pattern (absolute target patterns must start with exactly "
-              + "two slashes): '/single/slash'");
-    }
+    expectError(
+        "/single/slash",
+        "not a valid absolute pattern (absolute target patterns must start with exactly "
+            + "two slashes): '/single/slash'");
   }
 
   @Test
   public void testPatternWithTripleSlashIsError() throws Exception {
-    try {
-      tester.load("///triple/slash");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(
-          "not a valid absolute pattern (absolute target patterns must start with exactly "
-              + "two slashes): '///triple/slash'");
-    }
+    expectError(
+        "///triple/slash",
+        "not a valid absolute pattern (absolute target patterns must start with exactly "
+            + "two slashes): '///triple/slash'");
   }
 
   @Test
   public void testPatternEndingWithSingleSlashIsError() throws Exception {
-    try {
-      tester.load("foo/");
-      fail();
-    } catch (TargetParsingException e) {
-      assertThat(e).hasMessageThat().contains(
-          "The package part of 'foo/' should not end in a slash");
-    }
+    expectError(
+        "foo/",
+        "The package part of 'foo/' should not end in a slash");
+  }
+
+  @Test
+  public void testPatternStartingWithDotDotSlash() throws Exception {
+    expectError(
+        "../foo",
+        "Bad target pattern '../foo': package name component contains only '.' characters");
   }
 
   private static class LoadingPhaseTester {
@@ -940,6 +1048,10 @@ public class LoadingPhaseRunnerTest {
 
     public void setRelativeWorkingDirectory(String relativeWorkingDirectory) {
       this.relativeWorkingDirectory = PathFragment.create(relativeWorkingDirectory);
+    }
+
+    public void setDeletedPackages(PackageIdentifier... packages) {
+      skyframeExecutor.setDeletedPackages(ImmutableList.copyOf(packages));
     }
 
     public TargetPatternPhaseValue load(String... patterns) throws Exception {
