@@ -100,7 +100,7 @@ public final class CcLinkingHelper {
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<Artifact> linkActionInputs = new ArrayList<>();
 
-  @Nullable private Artifact dynamicLibrary;
+  @Nullable private Artifact linkerOutputArtifact;
   private LinkTargetType staticLinkType = LinkTargetType.STATIC_LIBRARY;
   private LinkTargetType dynamicLinkType = LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
   private boolean neverlink;
@@ -223,8 +223,8 @@ public final class CcLinkingHelper {
    * dynamic library is an implicit or explicit output of the rule, i.e., if it is accessible by
    * name from other rules in the same package. Set to {@code null} to use the default computation.
    */
-  public CcLinkingHelper setDynamicLibrary(@Nullable Artifact dynamicLibrary) {
-    this.dynamicLibrary = dynamicLibrary;
+  public CcLinkingHelper setLinkerOutputArtifact(@Nullable Artifact linkerOutputArtifact) {
+    this.linkerOutputArtifact = linkerOutputArtifact;
     return this;
   }
 
@@ -598,7 +598,7 @@ public final class CcLinkingHelper {
     // Create dynamic library.
     Artifact soImpl;
     String mainLibraryIdentifier;
-    if (dynamicLibrary == null) {
+    if (linkerOutputArtifact == null) {
       // If the crosstool is configured to select an output artifact, we use that selection.
       // Otherwise, we use linux defaults.
       soImpl = getLinkedArtifact(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
@@ -608,7 +608,7 @@ public final class CcLinkingHelper {
       // file is explicitly specified in the BUILD file and as such, is platform-dependent. Thus,
       // we just hardcode some reasonable logic to compute the library identifier and hope that this
       // will eventually go away.
-      soImpl = dynamicLibrary;
+      soImpl = linkerOutputArtifact;
       mainLibraryIdentifier =
           FileSystemUtils.removeExtension(soImpl.getRootRelativePath().getPathString());
     }
