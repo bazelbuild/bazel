@@ -1552,7 +1552,7 @@ public final class CcCompilationHelper {
         cppModuleMap,
         usePic,
         builder.getTempOutputFile(),
-        CppHelper.getFdoBuildStamp(ruleContext, fdoProvider),
+        CppHelper.getFdoBuildStamp(ruleContext, fdoProvider, featureConfiguration),
         dotdFileExecPath,
         ImmutableList.copyOf(variablesExtensions),
         allAdditionalBuildVariables.build(),
