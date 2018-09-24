@@ -14,12 +14,16 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparingLong;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
@@ -27,7 +31,9 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -47,6 +53,8 @@ import javax.annotation.concurrent.ThreadSafe;
 public class CriticalPathComputer {
   /** Number of top actions to record. */
   static final int SLOWEST_COMPONENTS_SIZE = 30;
+  private static final int LARGEST_MEMORY_COMPONENTS_SIZE = 20;
+  private static final int LARGEST_INPUT_SIZE_COMPONENTS_SIZE = 20;
 
   private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
@@ -100,18 +108,102 @@ public class CriticalPathComputer {
    * avoiding the memory and cpu penalty for doing it for all the actions executed.
    */
   public AggregatedCriticalPath aggregate() {
+    CriticalPathComponent criticalPath = getMaxCriticalPath();
+    Duration totalTime = Duration.ZERO;
+    Duration parseTime = Duration.ZERO;
+    Duration networkTime = Duration.ZERO;
+    Duration fetchTime = Duration.ZERO;
+    Duration remoteQueueTime = Duration.ZERO;
+    Duration uploadTime = Duration.ZERO;
+    Duration setupTime = Duration.ZERO;
+    Duration executionWallTime = Duration.ZERO;
+    Duration retryTime = Duration.ZERO;
+    long inputFiles = 0L;
+    long inputBytes = 0L;
+    long memoryEstimate = 0L;
     ImmutableList.Builder<CriticalPathComponent> components = ImmutableList.builder();
-    CriticalPathComponent maxCriticalPath = getMaxCriticalPath();
-    if (maxCriticalPath == null) {
-      return new AggregatedCriticalPath(Duration.ZERO, SpawnMetrics.EMPTY, components.build());
+    if (criticalPath == null) {
+      return AggregatedCriticalPath.EMPTY;
     }
-    CriticalPathComponent child = maxCriticalPath;
+    CriticalPathComponent child = criticalPath;
     while (child != null) {
+      SpawnMetrics childSpawnMetrics = child.getSpawnMetrics();
+      if (childSpawnMetrics != null) {
+        totalTime = totalTime.plus(childSpawnMetrics.totalTime());
+        parseTime = parseTime.plus(childSpawnMetrics.parseTime());
+        networkTime = networkTime.plus(childSpawnMetrics.networkTime());
+        fetchTime = fetchTime.plus(childSpawnMetrics.fetchTime());
+        remoteQueueTime = remoteQueueTime.plus(childSpawnMetrics.remoteQueueTime());
+        uploadTime = uploadTime.plus(childSpawnMetrics.uploadTime());
+        setupTime = setupTime.plus(childSpawnMetrics.setupTime());
+        executionWallTime = executionWallTime.plus(childSpawnMetrics.executionWallTime());
+        retryTime = retryTime.plus(childSpawnMetrics.retryTime());
+        inputBytes += childSpawnMetrics.inputBytes();
+        inputFiles += childSpawnMetrics.inputFiles();
+        memoryEstimate += childSpawnMetrics.memoryEstimate();
+      }
       components.add(child);
       child = child.getChild();
     }
+
     return new AggregatedCriticalPath(
-        maxCriticalPath.getAggregatedElapsedTime(), SpawnMetrics.EMPTY, components.build());
+        criticalPath.getAggregatedElapsedTime(),
+        new SpawnMetrics(
+            totalTime,
+            parseTime,
+            networkTime,
+            fetchTime,
+            remoteQueueTime,
+            setupTime,
+            uploadTime,
+            executionWallTime,
+            retryTime,
+            inputBytes,
+            inputFiles,
+            memoryEstimate),
+        components.build());
+  }
+
+  /** Adds spawn metrics to the action stats. */
+  @Subscribe
+  public void spawnExecuted(SpawnExecutedEvent event) {
+    ActionAnalysisMetadata action = event.getActionMetadata();
+    Artifact primaryOutput = action.getPrimaryOutput();
+    if (primaryOutput == null) {
+      // Despite the documentation to the contrary, the SpawnIncludeScanner creates an
+      // ActionExecutionMetadata instance that returns a null primary output. That said, this
+      // class is incorrect wrt. multiple Spawns in a single action. See b/111583707.
+      return;
+    }
+    CriticalPathComponent stats =
+        Preconditions.checkNotNull(outputArtifactToComponent.get(primaryOutput));
+
+    SpawnResult spawnResult = event.getSpawnResult();
+    stats.addSpawnMetrics(spawnResult.getMetrics());
+  }
+
+  /** Returns the list of components using the most memory. */
+  public ImmutableList<CriticalPathComponent> getLargestMemoryComponents() {
+    return outputArtifactToComponent
+        .values()
+        .stream()
+        .sorted(
+            comparingLong((CriticalPathComponent a) -> a.getSpawnMetrics().memoryEstimate())
+                .reversed())
+        .limit(LARGEST_MEMORY_COMPONENTS_SIZE)
+        .collect(toImmutableList());
+  }
+
+  /** Returns the list of components with the largest input sizes. */
+  public ImmutableList<CriticalPathComponent> getLargestInputSizeComponents() {
+    return outputArtifactToComponent
+        .values()
+        .stream()
+        .sorted(
+            comparingLong((CriticalPathComponent a) -> a.getSpawnMetrics().inputBytes())
+                .reversed())
+        .limit(LARGEST_INPUT_SIZE_COMPONENTS_SIZE)
+        .collect(toImmutableList());
   }
 
   /**
