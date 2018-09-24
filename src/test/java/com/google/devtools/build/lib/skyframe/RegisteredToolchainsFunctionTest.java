@@ -49,7 +49,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThat(
             value.registeredToolchains().stream()
                 .filter(
-                    toolchain -> toolchain.toolchainType().typeLabel().equals(testToolchainType))
+                    toolchain ->
+                        toolchain.toolchainType().typeLabel().equals(testToolchainTypeLabel))
                 .collect(Collectors.toList()))
         .hasSize(2);
 
