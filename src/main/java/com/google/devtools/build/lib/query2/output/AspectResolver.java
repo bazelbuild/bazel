@@ -29,7 +29,7 @@ public interface AspectResolver {
   /**
    * How to resolve aspect dependencies in 'blaze query'.
    */
-  public enum Mode {
+  enum Mode {
     // Do not report aspect dependencies
     OFF {
       @Override
@@ -67,8 +67,7 @@ public interface AspectResolver {
    * of target to determine their types. Returns map of attributes and corresponding label values.
    */
   ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
-      DependencyFilter dependencyFilter)
-      throws InterruptedException;
+      DependencyFilter dependencyFilter) throws InterruptedException;
 
   /**
    * Compute the labels of the BUILD Skylark files on which the results of the other two methods

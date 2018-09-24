@@ -34,9 +34,8 @@ import java.util.Set;
  */
 public class ConservativeAspectResolver implements AspectResolver {
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
-      DependencyFilter dependencyFilter)
-      throws InterruptedException {
+  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
+      Target target, DependencyFilter dependencyFilter) {
     if (!(target instanceof Rule)) {
       return ImmutableMultimap.of();
     }
@@ -54,8 +53,7 @@ public class ConservativeAspectResolver implements AspectResolver {
   }
 
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg)
-      throws InterruptedException {
+  public Set<Label> computeBuildFileDependencies(Package pkg) {
     // We do a conservative estimate precisely so that we don't depend on any other BUILD files.
     return ImmutableSet.copyOf(pkg.getSkylarkFileDependencies());
   }

@@ -29,14 +29,13 @@ import java.util.Set;
  */
 public class NullAspectResolver implements AspectResolver {
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
-      DependencyFilter dependencyFilter)
-      throws InterruptedException {
+  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
+      Target target, DependencyFilter dependencyFilter) {
     return ImmutableMultimap.of();
   }
 
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
+  public Set<Label> computeBuildFileDependencies(Package pkg) {
     return ImmutableSet.copyOf(pkg.getSkylarkFileDependencies());
   }
 }
