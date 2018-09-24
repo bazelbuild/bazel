@@ -105,10 +105,10 @@ public class IdlClassTest {
     }
 
     tempFolder.newFolder("c");
-    tempFolder.newFolder("c/g");
+    tempFolder.newFolder("c", "g");
     tempFolder.newFolder("wrong");
-    tempFolder.newFolder("wrong/source");
-    tempFolder.newFolder("wrong/source/dir");
+    tempFolder.newFolder("wrong", "source");
+    tempFolder.newFolder("wrong", "source", "dir");
     for (String file : Arrays.asList("c/g/Foo.java", "c/g/Bar.java", "wrong/source/dir/Baz.java")) {
       tempFolder.newFile(file);
     }
