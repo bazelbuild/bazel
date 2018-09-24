@@ -50,7 +50,11 @@ title: Build Encyclopedia
 
 <h3>Rules</h3>
 
-<h4>Language-specific Rules</h4>
+Native rules ship with the Bazel binary and do not require a <code>load<code> statement.
+Native rules are available globally in BUILD files. In .bzl files, you can find them in
+the <code>native</code> module.
+
+<h4>Language-specific native rules</h4>
 
 #macro(summaryLink $page $heading)
   #if ($singlePage)#${heading}#else${page}.html#${heading}#end
@@ -123,13 +127,53 @@ title: Build Encyclopedia
 #summaryTable($langSpecificRuleFamilies)
 
 </table>
-<h4>Rules that do not apply to a specific programming language</h4>
+<h4>Native rules that do not apply to a specific programming language</h4>
 
 <table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
   <colgroup span="6" width="20%"></colgroup>
 #summaryTable($genericRuleFamilies)
 
 </table>
+
+<h4>Additional rules</h4>
+
+<p>Non-native rules extend Bazel's capabilities. Rules for many popular languages
+have been created and are being maintained outside of Bazel. Contact the respective
+rule set's maintainers regarding issues and feature requests.</p>
+
+<p>To find more Bazel rules, use a search engine or look on
+<a href="https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories">GitHub</a>.
+</p>
+
+<p>Here is a selection of popular rules:</p>
+
+<ul>
+  <li><a href="https://github.com/bazelbuild/rules_go">Go</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_docker">Docker</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_kotlin">Kotlin</a></li>
+  <li><a href="https://github.com/pubref/rules_protobuf">Protobuf</a></li>
+  <li><a href="https://github.com/tweag/rules_haskell">Haskell</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_android">Android</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_scala">Scala</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_typescript">Typescript</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_nodejs">NodeJS</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_closure">Closure</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_k8s">Kubernetes</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_rust">Rust</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_apple">Apple platforms</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_python">Python</a></li>
+  <li><a href="https://github.com/nelhage/rules_boost">Boost</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_dotnet">C#</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_swift">Swift</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_webtesting">Webtesting</a> (Webdriver)</li>
+  <li><a href="https://github.com/bazelbuild/rules_jsonnet">Jsonnet</a></li>
+</ul>
+
+<p>The repository
+<a href="https://github.com/bazelbuild/bazel-skylib">Skylib</a>
+contains additional functions that can be useful when writing new rules
+and new macros.</p>
+
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
 #end
