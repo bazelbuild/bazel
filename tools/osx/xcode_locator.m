@@ -116,13 +116,14 @@ static NSString *ExpandVersion(NSString *version) {
 // and returns nil.
 static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
   __attribute((ns_returns_retained)) {
-  CFStringRef bundleID = CFSTR("com.apple.dt.Xcode");
+  CFStringRef cfBundleID = CFSTR("com.apple.dt.Xcode");
+  NSString *bundleID = (__bridge NSString *)cfBundleID;
 
   NSMutableDictionary<NSString *, XcodeVersionEntry *> *dict =
       [[NSMutableDictionary alloc] init];
   CFErrorRef cfError;
   NSArray *array = CFBridgingRelease(LSCopyApplicationURLsForBundleIdentifier(
-      bundleID, &cfError));
+      cfBundleID, &cfError));
   if (array == nil) {
     NSError *nsError = (__bridge NSError *)cfError;
     fprintf(stderr, "error: %s\n", nsError.description.UTF8String);
@@ -147,6 +148,19 @@ static NSMutableDictionary<NSString *, XcodeVersionEntry *> *FindXcodes()
     if (bundle == nil) {
       NSLog(@"ERROR: Unable to open bundle at URL: %@\n", url);
       errors = YES;
+      continue;
+    }
+
+    // LSCopyApplicationURLsForBundleIdentifier seems to sometimes return
+    // invalid bundles (e.g. an arbitrary folder), which we should ignore (but
+    // don't treat as an error).
+    //
+    // To work around this issue, we double check to make sure the NSBundle's
+    // bundleIdentifier is that of Xcode's, as invalid bundles won't match.
+    if (![bundle.bundleIdentifier isEqualToString:bundleID]) {
+      NSLog(@"WARNING: Ignoring bundle %@ due to bundleID mismatch "
+            @"(got \"%@\" but expected \"%@\"); info: %@",
+            url, bundle.bundleIdentifier, bundleID, bundle.infoDictionary);
       continue;
     }
 
