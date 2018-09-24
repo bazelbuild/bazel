@@ -351,7 +351,7 @@ EOF
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution: Looking for toolchain of type //toolchain:test_toolchain'
   expect_log 'ToolchainResolution:   For toolchain type //toolchain:test_toolchain, possible execution platforms and toolchains: {@bazel_tools//platforms:host_platform -> //:test_toolchain_impl_1}'
-  expect_log 'ToolchainUtil: Selected execution platform @bazel_tools//platforms:host_platform, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolver: Selected execution platform @bazel_tools//platforms:host_platform, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -730,7 +730,7 @@ EOF
     --extra_execution_platforms=//platform:test_platform \
     --toolchain_resolution_debug \
     //demo:target &> $TEST_log || fail "Build failed"
-  expect_log "ToolchainUtil: Selected execution platform //platform:test_platform"
+  expect_log "ToolchainResolver: Selected execution platform //platform:test_platform"
 }
 
 
