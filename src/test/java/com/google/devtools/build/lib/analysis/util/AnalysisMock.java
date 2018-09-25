@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeSupportValue;
-import com.google.devtools.build.lib.rules.cpp.CcSupportFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -136,7 +136,7 @@ public abstract class AnalysisMock extends LoadingMock {
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction(),
         CcSkyframeSupportValue.SKYFUNCTION,
-        new CcSupportFunction(directories));
+        new CcSkyframeSupportFunction(directories));
   }
 
   public static class Delegate extends AnalysisMock {

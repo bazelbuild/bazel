@@ -783,9 +783,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   @Test
   public void testIncompleteFile() throws Exception {
     try {
-      CrosstoolConfigurationLoader.toReleaseConfiguration("/CROSSTOOL", "major_version: \"12\"");
+      CrosstoolConfigurationLoader.getUncachedReleaseConfiguration(
+          "/CROSSTOOL", () -> "major_version: \"12\"");
       fail();
-    } catch (IOException e) {
+    } catch (InvalidConfigurationException e) {
       assertStringStartsWith(
           "Could not read the crosstool configuration file "
               + "'/CROSSTOOL', because of an incomplete protocol buffer",
@@ -870,9 +871,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   @Test
   public void testInvalidFile() throws Exception {
     try {
-      CrosstoolConfigurationLoader.toReleaseConfiguration("/CROSSTOOL", "some xxx : yak \"");
+      CrosstoolConfigurationLoader.getUncachedReleaseConfiguration(
+          "/CROSSTOOL", () -> "some xxx : yak \"");
       fail();
-    } catch (IOException e) {
+    } catch (InvalidConfigurationException e) {
       assertStringStartsWith(
           "Could not read the crosstool configuration file "
               + "'/CROSSTOOL', because of a parser error",

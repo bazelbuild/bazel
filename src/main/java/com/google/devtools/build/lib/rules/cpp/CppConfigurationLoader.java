@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.toReleaseConfiguration;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
@@ -32,11 +34,12 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.cpp.CrosstoolConfigurationLoader.CrosstoolFile;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -79,8 +82,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
    * Value class for all the data needed to create a {@link CppConfiguration}.
    */
   public static class CppConfigurationParameters {
-    protected final CrosstoolConfigurationLoader.CrosstoolFile crosstoolFile;
-    protected final String cacheKeySuffix;
     protected final BuildConfiguration.Options commonOptions;
     protected final CppOptions cppOptions;
     protected final Label crosstoolTop;
@@ -92,12 +93,12 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final CcToolchainConfigInfo ccToolchainConfigInfo;
     protected final String transformedCpu;
     protected final String compiler;
+    protected final CrosstoolRelease crosstoolFromCcToolchainProtoAttribute;
 
     CppConfigurationParameters(
         String transformedCpu,
         String compiler,
-        CrosstoolFile crosstoolFile,
-        String cacheKeySuffix,
+        CrosstoolRelease crosstoolFromCcToolchainProtoAttribute,
         BuildOptions buildOptions,
         PathFragment fdoPath,
         Label fdoOptimizeLabel,
@@ -108,8 +109,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         CcToolchainConfigInfo ccToolchainConfigInfo) {
       this.transformedCpu = transformedCpu;
       this.compiler = compiler;
-      this.crosstoolFile = crosstoolFile;
-      this.cacheKeySuffix = cacheKeySuffix;
+      this.crosstoolFromCcToolchainProtoAttribute = crosstoolFromCcToolchainProtoAttribute;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
       this.cppOptions = buildOptions.get(CppOptions.class);
       this.fdoPath = fdoPath;
@@ -149,9 +149,9 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
               crosstoolTopLabel));
     }
 
-    CrosstoolConfigurationLoader.CrosstoolFile file =
+    CrosstoolRelease crosstoolRelease =
         CrosstoolConfigurationLoader.readCrosstool(env, crosstoolTopLabel);
-    if (file == null) {
+    if (crosstoolRelease == null) {
       return null;
     }
 
@@ -161,7 +161,12 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         transformedCpu + (cppOptions.cppCompiler == null ? "" : ("|" + cppOptions.cppCompiler));
     Label ccToolchainLabel =
         selectCcToolchainLabel(
-            cppOptions, crosstoolTopLabel, (Rule) crosstoolTop, file, transformedCpu, key);
+            cppOptions,
+            crosstoolTopLabel,
+            (Rule) crosstoolTop,
+            crosstoolRelease,
+            transformedCpu,
+            key);
 
     Target ccToolchain = loadCcToolchainTarget(env, ccToolchainLabel);
     if (ccToolchain == null) {
@@ -187,7 +192,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
             compilerAttribute,
             transformedCpu,
             cppOptions.cppCompiler,
-            file.getProto());
+            crosstoolRelease);
 
     cToolchain =
         CppToolchainInfo.addLegacyFeatures(
@@ -202,6 +207,19 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       if (stlLabel == null) {
         return null;
       }
+    }
+
+    String ccToolchainSuiteProtoAttributeValue =
+        StringUtil.emptyToNull(
+            NonconfigurableAttributeMapper.of((Rule) crosstoolTop).get("proto", Type.STRING));
+
+    CrosstoolRelease crosstoolFromCcToolchainProtoAttribute = null;
+    if (ccToolchainSuiteProtoAttributeValue != null) {
+      crosstoolFromCcToolchainProtoAttribute =
+          toReleaseConfiguration(
+              "cc_toolchain_suite rule " + crosstoolTopLabel,
+              () -> ccToolchainSuiteProtoAttributeValue,
+              /* digestOrNull= */ null);
     }
 
     PathFragment fdoPath = null;
@@ -227,8 +245,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     return new CppConfigurationParameters(
         transformedCpu,
         cppOptions.cppCompiler,
-        file,
-        file.getMd5(),
+        crosstoolFromCcToolchainProtoAttribute,
         options,
         fdoPath,
         fdoProfileLabel,
@@ -263,7 +280,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       CppOptions cppOptions,
       Label crosstoolTopLabel,
       Rule crosstoolTop,
-      CrosstoolFile file,
+      CrosstoolRelease crosstoolRelease,
       String transformedCpu,
       String key)
       throws InvalidConfigurationException {
@@ -293,7 +310,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
               /* compilerAttribute= */ null,
               transformedCpu,
               compiler,
-              file.getProto());
+              crosstoolRelease);
       ccToolchainLabel = toolchains.get(toolchain.getTargetCpu() + "|" + toolchain.getCompiler());
       if (cppOptions.disableCcToolchainFromCrosstool) {
         throw new InvalidConfigurationException(

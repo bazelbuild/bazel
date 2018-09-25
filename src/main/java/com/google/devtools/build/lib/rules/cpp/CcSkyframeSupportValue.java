@@ -14,23 +14,26 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * A container for the path to the FDO profile.
  *
- * <p>{@link CcSkyframeSupportValue} is created from {@link CcSupportFunction} (a {@link
+ * <p>{@link CcSkyframeSupportValue} is created from {@link CcSkyframeSupportFunction} (a {@link
  * SkyFunction}), which is requested from Skyframe by the {@code cc_toolchain}/{@code
- * cc_toolchain_suite} rule. It's done this way because the path depends on both a command line
+ * cc_toolchain_suite} rules. It's done this way because the path depends on both a command line
  * argument and the location of the workspace and the latter is not available either during
  * configuration creation or during the analysis phase.
  */
@@ -45,20 +48,28 @@ public class CcSkyframeSupportValue implements SkyValue {
   public static class Key implements SkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
-    private final PathFragment filePath;
+    @Nullable private final PathFragment fdoZipPath;
+    @Nullable private final Label ccToolchainSuiteLabel;
 
-    private Key(PathFragment filePath) {
-      this.filePath = filePath;
+    private Key(PathFragment fdoZipPath, Label ccToolchainSuiteLabel) {
+      this.fdoZipPath = fdoZipPath;
+      this.ccToolchainSuiteLabel = ccToolchainSuiteLabel;
     }
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static Key of(PathFragment filePath) {
-      return interner.intern(new Key(filePath));
+    static Key of(PathFragment fdoZipPath, Label ccToolchainSuiteLabel) {
+      return interner.intern(new Key(fdoZipPath, ccToolchainSuiteLabel));
     }
 
-    public PathFragment getFilePath() {
-      return filePath;
+    @Nullable
+    public Label getCcToolchainSuiteLabel() {
+      return ccToolchainSuiteLabel;
+    }
+
+    @Nullable
+    public PathFragment getFdoZipPath() {
+      return fdoZipPath;
     }
 
     @Override
@@ -66,18 +77,18 @@ public class CcSkyframeSupportValue implements SkyValue {
       if (this == o) {
         return true;
       }
-
       if (!(o instanceof Key)) {
         return false;
       }
-
-      Key that = (Key) o;
-      return Objects.equals(this.filePath, that.filePath);
+      Key key = (Key) o;
+      return Objects.equals(fdoZipPath, key.fdoZipPath)
+          && Objects.equals(ccToolchainSuiteLabel, key.ccToolchainSuiteLabel);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(filePath);
+
+      return Objects.hash(fdoZipPath, ccToolchainSuiteLabel);
     }
 
     @Override
@@ -88,19 +99,26 @@ public class CcSkyframeSupportValue implements SkyValue {
 
   /** Path of the profile file passed to {@code --fdo_optimize} */
   // TODO(lberki): This should be a PathFragment.
-  // Except that CcProtoProfileProvider#getProfile() calls #exists() on it, which is ridiculously
-  // incorrect.
-  private final Path filePath;
+  // Except that CcProtoProfileProvider#getProfile() calls #exists() on it,
+  // This is all ridiculously incorrect and should be removed asap.
+  private final Path fdoZipPath;
 
-  CcSkyframeSupportValue(Path filePath) {
-    this.filePath = filePath;
+  private final CrosstoolRelease crosstoolRelease;
+
+  CcSkyframeSupportValue(Path fdoZipPath, CrosstoolRelease crosstoolRelease) {
+    this.fdoZipPath = fdoZipPath;
+    this.crosstoolRelease = crosstoolRelease;
   }
 
-  public Path getFilePath() {
-    return filePath;
+  public Path getFdoZipPath() {
+    return fdoZipPath;
   }
 
-  public static SkyKey key(PathFragment fdoProfileArgument) {
-    return Key.of(fdoProfileArgument);
+  public CrosstoolRelease getCrosstoolRelease() {
+    return crosstoolRelease;
+  }
+
+  public static SkyKey key(PathFragment fdoZipPath, Label ccToolchainSuiteLabel) {
+    return Key.of(fdoZipPath, ccToolchainSuiteLabel);
   }
 }
