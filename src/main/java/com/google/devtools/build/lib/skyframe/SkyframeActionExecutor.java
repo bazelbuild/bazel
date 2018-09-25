@@ -836,6 +836,8 @@ public final class SkyframeActionExecutor {
                 if (p.exists(Symlinks.NOFOLLOW)) {
                   boolean isDirectory = p.isDirectory(Symlinks.NOFOLLOW);
                   if (isDirectory) {
+                    // If this directory used to be a tree artifact it won't be writable
+                    p.setWritable(true);
                     break;
                   }
                   // p may be a file or dangling symlink, or a symlink to an old Fileset output
