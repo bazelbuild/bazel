@@ -121,6 +121,18 @@ py_test(
 )
 
 py_test(
+    name = "runfiles_sandboxed_test",
+    timeout = "long",
+    srcs = ["runfiles_sandboxed_test.py"],
+    data = glob(["testdata/runfiles_test/**"]),
+    tags = [
+        # Windows does not support sandboxing yet.
+        "no_windows",
+    ],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "bazel_windows_cpp_test",
     size = "large",
     srcs = select({

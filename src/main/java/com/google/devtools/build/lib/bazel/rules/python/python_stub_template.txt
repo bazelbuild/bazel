@@ -126,6 +126,11 @@ def RunfilesEnvvar(module_space):
   if os.path.exists(runfiles):
     return ('RUNFILES_DIR', runfiles)
 
+  # If running in a sandbox and no environment variables are set, then
+  # Look for the runfiles  next to the binary.
+  if module_space.endswith('.runfiles') and os.path.isdir(module_space):
+    return ('RUNFILES_DIR', module_space)
+
   return (None, None)
 
 def Main():
