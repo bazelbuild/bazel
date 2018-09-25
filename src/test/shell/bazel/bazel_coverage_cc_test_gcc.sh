@@ -509,7 +509,6 @@ function test_cc_test_gcov_multiple_headers_instrument_test_target() {
 
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
-
   cat << EOF > BUILD
 cc_library(
   name = "a",
@@ -635,6 +634,7 @@ function test_cc_test_gcov_same_header_different_libs() {
 
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
+
   cat << EOF > BUILD
 cc_library(
   name = "a",
