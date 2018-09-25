@@ -142,20 +142,30 @@ function gcov_coverage() {
         #                 .gcda data files.
         # "${gcda"}       The input file name. gcov is looking for data files
         #                 named after the input filename without its extension.
-        "${GCOV}" -i -b -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
-
         # gcov produces files called <source file name>.gcov in the current
         # directory. These contain the coverage information of the source file
         # they correspond to. One .gcov file is produced for each source
-        # (and/or header) file containing code which was compiled to produce
-        # the .gcda files.
+        # (or header) file containing code which was compiled to produce the
+        # .gcda files.
+        "${GCOV}" -i -b -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
+
+        # Go through all the files that were created by the gcov command above
+        # and copy them in the output .gcov file.
+        #
+        # For each source file gcov outputs to stdout something like this:
+        #
+        # File 'examples/cpp/hello-lib.cc'
+        # Lines executed:100.00% of 8
+        # Creating 'hello-lib.cc.gcov'
+        #
+        # We grep the names of the files that were created from that output.
         cat "$gcov_log" | grep "Creating" | cut -d " " -f 2 | cut -d"'" -f2 | \
             while read gcov_file; do
           echo "Processing $gcov_file"
           cat "$gcov_file" >> "$output_file"
+          # Remove the intermediate gcov file because it is not useful anymore.
           rm -f "$gcov_file"
         done
-
     fi
   done
 }
