@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,7 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Implementation of {@code toolchain_type}.
@@ -35,11 +39,12 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException {
 
-    // TODO(katre): Add provider type checking to ensure the wrong provider isn't registered for
-    // a toolchain type.
+    ToolchainTypeInfo toolchainTypeInfo =
+        ToolchainTypeInfo.create(ruleContext.getLabel());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+        .addNativeDeclaredProvider(toolchainTypeInfo)
         .build();
   }
 
@@ -48,7 +53,11 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return builder.removeAttribute("licenses").removeAttribute("distribs").build();
+      return builder
+          .supportsPlatforms(false)
+          .removeAttribute("licenses")
+          .removeAttribute("distribs")
+          .build();
     }
 
     @Override
