@@ -42,8 +42,8 @@ public final class RegexFilter {
   private final int hashCode;
 
   /**
-   * Converts from a colon-separated list of regex expressions with optional -/+ prefix into the
-   * RegexFilter. Colons prefixed with backslash are considered to be part of regex definition and
+   * Converts from a comma-separated list of regex expressions with optional -/+ prefix into the
+   * RegexFilter. Commas prefixed with backslash are considered to be part of regex definition and
    * not a delimiter between separate regex expressions.
    *
    * <p>Order of expressions is not important. Empty entries are ignored. '-' marks an excluded
