@@ -381,6 +381,7 @@ function test_cc_test_coverage_gcov() {
 
     # This assertion is needed to make sure no other source files are included
     # in the output file.
+
     local nr_lines="$(wc -l < "$output_file")"
     [[ "$nr_lines" == 21 ]] || \
       fail "Number of lines in C++ gcov coverage output file is "\
