@@ -50,7 +50,7 @@ title: Build Encyclopedia
 
 <h3>Rules</h3>
 
-Native rules ship with the Bazel binary and do not require a <code>load<code> statement.
+Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
 Native rules are available globally in BUILD files. In .bzl files, you can find them in
 the <code>native</code> module.
 
@@ -148,25 +148,25 @@ rule set's maintainers regarding issues and feature requests.</p>
 <p>Here is a selection of popular rules:</p>
 
 <ul>
-  <li><a href="https://github.com/bazelbuild/rules_go">Go</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_docker">Docker</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_kotlin">Kotlin</a></li>
-  <li><a href="https://github.com/pubref/rules_protobuf">Protobuf</a></li>
-  <li><a href="https://github.com/tweag/rules_haskell">Haskell</a></li>
   <li><a href="https://github.com/bazelbuild/rules_android">Android</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_scala">Scala</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_typescript">Typescript</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_nodejs">NodeJS</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_closure">Closure</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_k8s">Kubernetes</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_rust">Rust</a></li>
   <li><a href="https://github.com/bazelbuild/rules_apple">Apple platforms</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_python">Python</a></li>
   <li><a href="https://github.com/nelhage/rules_boost">Boost</a></li>
   <li><a href="https://github.com/bazelbuild/rules_dotnet">C#</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_swift">Swift</a></li>
-  <li><a href="https://github.com/bazelbuild/rules_webtesting">Webtesting</a> (Webdriver)</li>
+  <li><a href="https://github.com/bazelbuild/rules_closure">Closure</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_docker">Docker</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_go">Go</a></li>
+  <li><a href="https://github.com/tweag/rules_haskell">Haskell</a></li>
   <li><a href="https://github.com/bazelbuild/rules_jsonnet">Jsonnet</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_kotlin">Kotlin</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_k8s">Kubernetes</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_nodejs">NodeJS</a></li>
+  <li><a href="https://github.com/pubref/rules_protobuf">Protobuf</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_python">Python</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_rust">Rust</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_scala">Scala</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_swift">Swift</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_typescript">Typescript</a></li>
+  <li><a href="https://github.com/bazelbuild/rules_webtesting">Webtesting</a> (Webdriver)</li>
 </ul>
 
 <p>The repository
