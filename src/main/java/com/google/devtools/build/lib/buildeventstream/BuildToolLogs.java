@@ -23,15 +23,11 @@ import java.util.Collection;
 /** Event reporting on statistics about the build. */
 public class BuildToolLogs implements BuildEventWithOrderConstraint {
   private final Collection<Pair<String, ByteString>> directValues;
-  private final Collection<Pair<String, String>> directUris;
   private final Collection<Pair<String, Path>> logFiles;
 
   public BuildToolLogs(
-      Collection<Pair<String, ByteString>> directValues,
-      Collection<Pair<String, String>> directUris,
-      Collection<Pair<String, Path>> logFiles) {
+      Collection<Pair<String, ByteString>> directValues, Collection<Pair<String, Path>> logFiles) {
     this.directValues = directValues;
-    this.directUris = directUris;
     this.logFiles = logFiles;
   }
 
@@ -63,13 +59,6 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
           BuildEventStreamProtos.File.newBuilder()
               .setName(direct.getFirst())
               .setContents(direct.getSecond())
-              .build());
-    }
-    for (Pair<String, String> direct : directUris) {
-      toolLogs.addLog(
-          BuildEventStreamProtos.File.newBuilder()
-              .setName(direct.getFirst())
-              .setUri(direct.getSecond())
               .build());
     }
     for (Pair<String, Path> logFile : logFiles) {

@@ -132,7 +132,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
       reporter.handle(Event.info(spawnSummary));
       statistics.add(Pair.of("process stats", ByteString.copyFromUtf8(spawnSummary)));
 
-      reporter.post(new BuildToolLogs(statistics, ImmutableList.of(), ImmutableList.of()));
+      reporter.post(new BuildToolLogs(statistics, ImmutableList.of()));
     } finally {
       criticalPathComputer = null;
     }
