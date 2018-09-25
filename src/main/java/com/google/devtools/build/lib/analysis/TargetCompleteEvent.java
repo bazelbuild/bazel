@@ -302,19 +302,13 @@ public final class TargetCompleteEvent
     for (ArtifactsInOutputGroup group : outputs) {
       if (group.areImportant()) {
         for (Artifact artifact : group.getArtifacts()) {
-          builder.add(
-              new LocalFile(
-                  pathResolver.toPath(artifact),
-                  artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
+          builder.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
         }
       }
     }
     if (baselineCoverageArtifacts != null) {
       for (Artifact artifact : baselineCoverageArtifacts) {
-        builder.add(
-            new LocalFile(
-                pathResolver.toPath(artifact),
-                artifact.isSourceArtifact() ? LocalFileType.SOURCE : LocalFileType.OUTPUT));
+        builder.add(new LocalFile(pathResolver.toPath(artifact), LocalFileType.OUTPUT));
       }
     }
     return builder.build();
