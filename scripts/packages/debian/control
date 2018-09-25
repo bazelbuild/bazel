@@ -10,7 +10,7 @@ Section: contrib/devel
 Priority: optional
 Architecture: amd64
 # Keep in sync with :bazel-debian in ./BUILD
-Depends: google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer, g++, zlib1g-dev, bash-completion, unzip
+Depends: google-jdk | java8-sdk-headless | java8-jdk | java8-sdk | oracle-java8-installer, g++, zlib1g-dev, bash-completion, unzip, python
 Description: Bazel is a tool that automates software builds and tests.
  Supported build tasks include running compilers and linkers to produce
  executable programs and libraries, and assembling deployable packages
