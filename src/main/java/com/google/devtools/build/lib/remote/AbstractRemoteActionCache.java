@@ -487,13 +487,24 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
      * Adds an action and command protos to upload. They need to be uploaded as part of the action
      * result.
      */
-    public void addAction(Action action, Command command) throws IOException {
-      for (byte[] blob : new byte[][]{action.toByteArray(), command.toByteArray()}) {
-        Digest digest = digestUtil.compute(blob);
-        Chunker chunker =
-            Chunker.builder(digestUtil).setInput(digest, blob).setChunkSize(blob.length).build();
-        digestToChunkers.put(digest, chunker);
-      }
+    public void addAction(
+        DigestUtil.ActionKey actionKey, Action action, Command command) throws IOException {
+      byte[] actionBlob = action.toByteArray();
+      digestToChunkers.put(
+          actionKey.getDigest(),
+          Chunker
+              .builder(digestUtil)
+              .setInput(actionKey.getDigest(), actionBlob)
+              .setChunkSize(actionBlob.length)
+              .build());
+      byte[] commandBlob = command.toByteArray();
+      digestToChunkers.put(
+          action.getCommandDigest(),
+          Chunker
+              .builder(digestUtil)
+              .setInput(action.getCommandDigest(), commandBlob)
+              .setChunkSize(commandBlob.length)
+              .build());
     }
 
     /** Map of digests to file paths to upload. */
