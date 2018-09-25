@@ -18,9 +18,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.hash.Funnels;
+import com.google.common.hash.Hasher;
 import com.google.common.hash.HashCode;
+import com.google.common.hash.HashFunction;
 import com.google.common.hash.HashingOutputStream;
 import com.google.common.io.BaseEncoding;
+import com.google.common.io.CountingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -52,14 +56,14 @@ public class DigestUtil {
     }
   }
 
-  private final DigestHashFunction hashFn;
+  private final HashFunction hashFn;
 
   public DigestUtil(DigestHashFunction hashFn) {
-    this.hashFn = hashFn;
+    this.hashFn = hashFn.getHashFunction();
   }
 
   public Digest compute(byte[] blob) {
-    return buildDigest(hashFn.getHashFunction().hashBytes(blob).toString(), blob.length);
+    return buildDigest(hashFn.hashBytes(blob).toString(), blob.length);
   }
 
   public Digest compute(Path file) throws IOException {
@@ -71,9 +75,10 @@ public class DigestUtil {
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {
-    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    input.writeTo(buffer);
-    return compute(buffer.toByteArray());
+    Hasher hasher = hashFn.newHasher();
+    CountingOutputStream counter = new CountingOutputStream(Funnels.asOutputStream(hasher));
+    input.writeTo(counter);
+    return buildDigest(hasher.hash().toString(), counter.getCount());
   }
 
   /**
@@ -81,15 +86,17 @@ public class DigestUtil {
    * bytes, but this implementation relies on the stability of the proto encoding, in particular
    * between different platforms and languages. TODO(olaola): upgrade to a better implementation!
    */
-  public Digest compute(Message message) {
-    return compute(message.toByteArray());
+  public Digest compute(Message message) throws IOException {
+    Hasher hasher = hashFn.newHasher();
+    message.writeTo(Funnels.asOutputStream(hasher));
+    return buildDigest(hasher.hash().toString(), message.getSerializedSize());
   }
 
   public Digest computeAsUtf8(String str) {
     return compute(str.getBytes(UTF_8));
   }
 
-  public DigestUtil.ActionKey computeActionKey(Action action) {
+  public DigestUtil.ActionKey computeActionKey(Action action) throws IOException {
     return new DigestUtil.ActionKey(compute(action));
   }
 
@@ -114,7 +121,7 @@ public class DigestUtil {
   }
 
   public HashingOutputStream newHashingOutputStream(OutputStream out) {
-    return new HashingOutputStream(hashFn.getHashFunction(), out);
+    return new HashingOutputStream(hashFn, out);
   }
 
   public String toString(Digest digest) {
