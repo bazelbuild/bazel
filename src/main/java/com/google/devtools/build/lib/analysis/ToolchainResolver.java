@@ -290,7 +290,7 @@ public class ToolchainResolver {
               .handle(
                   Event.info(
                       String.format(
-                          "ToolchainUtil: Removed execution platform %s from"
+                          "ToolchainResolver: Removed execution platform %s from"
                               + " available execution platforms, it is missing constraint %s",
                           platformInfo.label(), filterConstraint.label())));
         }
@@ -434,7 +434,7 @@ public class ToolchainResolver {
             .handle(
                 Event.info(
                     String.format(
-                        "ToolchainUtil: Selected execution platform %s, %s",
+                        "ToolchainResolver: Selected execution platform %s, %s",
                         executionPlatformKey.getLabel(), selectedToolchains)));
       }
       return Optional.of(executionPlatformKey);
