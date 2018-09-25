@@ -20,8 +20,11 @@ java_library(
         "InvalidCommandLineException.java",
         "OptionsParser.java",
     ],
+    visibility = [
+        "//src/java_tools/buildjar:buildjar_package_group",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
-        ":JarOwner",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -69,7 +72,6 @@ java_library(
         ],
     ),
     deps = [
-        ":JarOwner",
         ":invalid_command_line_exception",
         ":jarhelper",
         ":javac",

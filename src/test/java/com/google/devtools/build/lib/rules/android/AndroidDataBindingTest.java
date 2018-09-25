@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -127,9 +128,9 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         (JavaCompileAction)
             getGeneratingAction(
                 getFirstArtifactEndingWith(allArtifacts, "lib_with_data_binding.jar"));
-    assertThat(libCompileAction.getProcessorNames())
+    assertThat(getProcessorNames(libCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
-    assertThat(ActionsTestUtil.prettyArtifactNames(libCompileAction.getInputs()))
+    assertThat(prettyArtifactNames(libCompileAction.getInputs()))
         .containsAllOf(
             "java/android/library/databinding/lib_with_data_binding/layout-info.zip",
             "java/android/library/databinding/lib_with_data_binding/DataBindingInfo.java");
@@ -137,9 +138,9 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
     JavaCompileAction binCompileAction =
         (JavaCompileAction)
             getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
-    assertThat(binCompileAction.getProcessorNames())
+    assertThat(getProcessorNames(binCompileAction))
         .contains("android.databinding.annotationprocessor.ProcessDataBinding");
-    assertThat(ActionsTestUtil.prettyArtifactNames(binCompileAction.getInputs()))
+    assertThat(prettyArtifactNames(binCompileAction.getInputs()))
         .containsAllOf(
             "java/android/binary/databinding/app/layout-info.zip",
             "java/android/binary/databinding/app/DataBindingInfo.java");
@@ -236,7 +237,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
     JavaCompileAction binCompileAction =
         (JavaCompileAction)
             getGeneratingAction(getFirstArtifactEndingWith(allArtifacts, "app.jar"));
-    List<String> appJarInputs = ActionsTestUtil.prettyArtifactNames(binCompileAction.getInputs());
+    List<String> appJarInputs = prettyArtifactNames(binCompileAction.getInputs());
     String libWithResourcesMetadataBaseDir =
         "java/android/binary/databinding/app/"
             + "dependent-lib-artifacts/java/android/lib_with_resource_files/databinding/"
@@ -275,7 +276,7 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         .containsAllOf(
             "--processors", "android.databinding.annotationprocessor.ProcessDataBinding");
     // The dummy .java file with annotations that trigger the annotation process is present:
-    assertThat(ActionsTestUtil.prettyArtifactNames(libCompileAction.getInputs()))
+    assertThat(prettyArtifactNames(libCompileAction.getInputs()))
         .contains(
             "java/android/lib_no_resource_files/databinding/lib_no_resource_files/"
                 + "DataBindingInfo.java");

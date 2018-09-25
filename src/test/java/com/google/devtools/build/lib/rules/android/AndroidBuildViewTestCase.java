@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -215,11 +216,15 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return null;
   }
 
+  protected List<String> getProcessorNames(JavaCompileAction compileAction) throws Exception {
+    return JavaCompileActionTestHelper.getProcessorNames(compileAction);
+  }
+
   protected List<String> getProcessorNames(String outputTarget) throws Exception {
     OutputFileConfiguredTarget out = (OutputFileConfiguredTarget)
         getFileConfiguredTarget(outputTarget);
     JavaCompileAction compileAction = (JavaCompileAction) getGeneratingAction(out.getArtifact());
-    return compileAction.getProcessorNames();
+    return getProcessorNames(compileAction);
   }
 
   // Returns an artifact that will be generated when a rule has resources.

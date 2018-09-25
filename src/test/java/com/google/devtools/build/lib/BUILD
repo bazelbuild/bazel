@@ -1111,15 +1111,32 @@ java_test(
     ],
 )
 
+JAVA_COMPILE_ACTION_TEST_HELPER_SRCS = ["rules/java/JavaCompileActionTestHelper.java"]
+
+java_library(
+    name = "java_compile_action_test_helper",
+    testonly = 1,
+    srcs = JAVA_COMPILE_ACTION_TEST_HELPER_SRCS,
+    deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:optionsparser",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//third_party:guava",
+    ],
+)
+
 java_test(
     name = "java-rules-tests",
-    srcs = glob(["rules/java/*.java"]),
+    srcs = glob(
+        ["rules/java/*.java"],
+        exclude = JAVA_COMPILE_ACTION_TEST_HELPER_SRCS,
+    ),
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
         ":guava_junit_truth",
+        ":java_compile_action_test_helper",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",

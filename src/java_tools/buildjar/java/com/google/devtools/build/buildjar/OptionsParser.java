@@ -29,6 +29,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -42,13 +43,13 @@ import javax.annotation.Nullable;
 public final class OptionsParser {
   private final List<String> javacOpts = new ArrayList<>();
 
-  private final Set<String> directJars = new HashSet<>();
+  private final Set<String> directJars = new LinkedHashSet<>();
 
   private String strictJavaDeps;
   private String fixDepsTool;
 
   private String outputDepsProtoFile;
-  private final Set<String> depsArtifacts = new HashSet<>();
+  private final Set<String> depsArtifacts = new LinkedHashSet<>();
 
   private boolean strictClasspathMode;
 

@@ -18,6 +18,8 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.Artifact.ROOT_RELATIVE_PATH_STRING;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -208,7 +210,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             getGeneratingAction(
                 getConfiguredTarget("//java/lib:lite_pb2"), "java/lib/libproto-lite.jar");
 
-    List<String> commandLine = ImmutableList.copyOf(javacAction.buildCommandLine());
+    List<String> commandLine =
+        ImmutableList.copyOf((Iterable<String>) getJavacArguments(javacAction));
     MoreAsserts.assertContainsSublist(commandLine, "--target_label", "//java/lib:proto");
   }
 
@@ -258,8 +261,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     List<String> directJars =
         prettyArtifactNames(
-            getProvider(JavaCompilationArgsProvider.class, litepb2)
-                .getRuntimeJars());
+            getProvider(JavaCompilationArgsProvider.class, litepb2).getRuntimeJars());
     assertThat(directJars)
         .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
   }
@@ -319,7 +321,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     Artifact jar = Iterables.getOnlyElement(runtimeJars.get("x/libproto_lib-lite.jar"));
     JavaCompileAction action = (JavaCompileAction) getGeneratingAction(jar);
 
-    List<String> commandLine = ImmutableList.copyOf(action.buildCommandLine());
+    List<String> commandLine = ImmutableList.copyOf((Iterable<String>) getJavacArguments(action));
     assertThat(commandLine).contains("-protoMarkerForTest");
   }
 
@@ -549,14 +551,14 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
       JavaCompileAction action =
           (JavaCompileAction)
               getGeneratingAction(getConfiguredTarget("//x:foo_lite_pb"), "x/libfoo-lite.jar");
-      assertThat(prettyArtifactNames(action.getDirectJars())).isEmpty();
+      assertThat(prettyArtifactNames(getInputs(action, getDirectJars(action)))).isEmpty();
     }
 
     {
       JavaCompileAction action =
           (JavaCompileAction)
               getGeneratingAction(getConfiguredTarget("//x:bar_lite_pb"), "x/libbar-lite.jar");
-      assertThat(prettyArtifactNames(action.getDirectJars())).isEmpty();
+      assertThat(prettyArtifactNames(getInputs(action, getDirectJars(action)))).isEmpty();
     }
   }
 
