@@ -382,7 +382,6 @@ function test_cc_test_gcov_multiple_headers() {
 
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
-
   cat << EOF > BUILD
 cc_library(
   name = "a",
@@ -436,7 +435,6 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-
   bazel coverage --experimental_cc_coverage --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
@@ -562,7 +560,6 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-
   bazel coverage --experimental_cc_coverage --instrument_test_targets \
       --test_output=all //:t &>"$TEST_log" || fail "Coverage for //:t failed"
 
@@ -634,7 +631,6 @@ function test_cc_test_gcov_same_header_different_libs() {
 
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
-
   cat << EOF > BUILD
 cc_library(
   name = "a",
