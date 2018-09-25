@@ -110,8 +110,6 @@ function test_cc_test_coverage_lcov() {
   local coverage_output_file="$( get_coverage_file_path_from_test_log )"
 
   # Check the expected coverage for a.cc in the coverage file.
-  # Note that t.cc is not included in the coverage report because it is
-  # coming from a cc_test whose code is not included in the report by default.
   local expected_result_a_cc="SF:a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab
@@ -125,6 +123,9 @@ LH:3
 LF:4
 end_of_record"
   assert_coverage_result "$expected_result_a_cc" "$coverage_output_file"
+  # t.cc is not included in the coverage report because test targets are not
+  # instrumented by default.
+  assert_not_contains "SF:t\.cc" "$coverage_file_path"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage --test_output=all --build_event_text_file=bep.txt //:t \
@@ -160,8 +161,6 @@ function test_cc_test_coverage_gcov() {
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
 
   # Check the expected coverage for a.cc in the coverage file.
-  # Note that t.cc is not included in the coverage report because it is
-  # coming from a cc_test whose code is not included in the report by default.
   local expected_result_a_cc="SF:a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab
@@ -178,6 +177,9 @@ LH:3
 LF:4
 end_of_record"
   assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
+  # t.cc is not included in the coverage report because test targets are not
+  # instrumented by default.
+  assert_not_contains "SF:t\.cc" "$coverage_file_path"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage --experimental_cc_coverage --test_output=all \
@@ -187,6 +189,285 @@ end_of_record"
   # Verify the files are reported correctly in the build event protocol.
   assert_contains 'name: "test.lcov"' bep.txt
   assert_contains 'name: "baseline.lcov"' bep.txt
+}
+
+function test_cc_test_gcov_multiple_headers() {
+  ####### Checking if the right version of gcov is installed #######
+  local -r gcov_location=$(which gcov)
+  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
+    echo "gcov not installed. Skipping test."
+    return
+  fi
+
+  "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported. Skipping test." && return
+   # gcov -v | grep "gcov" outputs a line that looks like this:
+   # gcov (Debian 7.3.0-5) 7.3.0
+   local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+    [ "$gcov_version" -lt 7 ] \
+        && echo "gcov version before 7.0 is not supported. Skipping test." \
+        && return
+
+  ############## Setting up the test sources and BUILD file ##############
+
+  mkdir -p "coverage_srcs/"
+
+  cat << EOF > BUILD
+cc_library(
+  name = "a",
+  srcs = ["coverage_srcs/a.cc"],
+  hdrs = ["coverage_srcs/a.h", "coverage_srcs/b.h"]
+)
+
+cc_test(
+  name = "t",
+  srcs = ["coverage_srcs/t.cc"],
+  deps = [":a"]
+)
+EOF
+  cat << EOF > "coverage_srcs/a.h"
+int a(bool what);
+EOF
+
+  cat << EOF > "coverage_srcs/a.cc"
+#include "a.h"
+#include "b.h"
+#include <iostream>
+
+int a(bool what) {
+  if (what) {
+    std::cout << "Calling b(1)";
+    return b(1);
+  } else {
+    std::cout << "Calling b(-1)";
+    return b(-1);
+  }
+}
+EOF
+
+  cat << EOF > "coverage_srcs/b.h"
+int b(int what) {
+  if (what > 0) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
+  cat << EOF > "coverage_srcs/t.cc"
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+
+  ############## Running bazel coverage ##############
+
+  bazel coverage --experimental_cc_coverage --test_output=all //:t \
+      &>"$TEST_log" || fail "Coverage for //:t failed"
+
+  ##### Putting together the expected coverage results #####
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_a_cc="SF:coverage_srcs/a.cc
+FN:13,_GLOBAL__sub_I_a.cc
+FN:5,_Z1ab
+FN:13,_Z41__static_initialization_and_destruction_0ii
+FNDA:1,_GLOBAL__sub_I_a.cc
+FNDA:1,_Z1ab
+FNDA:1,_Z41__static_initialization_and_destruction_0ii
+FNF:3
+FNH:3
+BA:6,2
+BA:13,2
+BRF:2
+BRH:2
+DA:5,1
+DA:6,1
+DA:7,1
+DA:8,1
+DA:10,0
+DA:11,0
+DA:13,3
+LH:5
+LF:7
+end_of_record"
+  local expected_result_b_h="SF:coverage_srcs/b.h
+FN:1,_Z1bi
+FNDA:1,_Z1bi
+FNF:1
+FNH:1
+BA:2,2
+BRF:1
+BRH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,0
+LH:3
+LF:4
+end_of_record"
+  local expected_result_t_cc="SF:coverage_srcs/t.cc
+FN:4,main
+FNDA:1,main
+FNF:1
+FNH:1
+DA:4,1
+DA:5,1
+DA:6,1
+LH:3
+LF:3
+end_of_record"
+
+  ############## Asserting the coverage results ##############
+  assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
+  assert_coverage_result "$expected_result_b_h" "$coverage_file_path"
+  # coverage_srcs/t.cc is not included in the coverage report because the test
+  # targets are not instrumented by default.
+  assert_not_contains "SF:coverage_srcs/t\.cc" "$coverage_file_path"
+  # iostream should not be in the final coverage report because it is a syslib
+  assert_not_contains "iostream" "$coverage_file_path"
+}
+
+function test_cc_test_gcov_multiple_headers_instrument_test_target() {
+  ####### Checking if the right version of gcov is installed #######
+  local -r gcov_location=$(which gcov)
+  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
+    echo "gcov not installed. Skipping test."
+    return
+  fi
+
+  "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported. Skipping test." && return
+   # gcov -v | grep "gcov" outputs a line that looks like this:
+   # gcov (Debian 7.3.0-5) 7.3.0
+   local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+    [ "$gcov_version" -lt 7 ] \
+        && echo "gcov version before 7.0 is not supported. Skipping test." \
+        && return
+
+  ############## Setting up the test sources and BUILD file ##############
+
+  mkdir -p "coverage_srcs/"
+
+  cat << EOF > BUILD
+cc_library(
+  name = "a",
+  srcs = ["coverage_srcs/a.cc"],
+  hdrs = ["coverage_srcs/a.h", "coverage_srcs/b.h"]
+)
+
+cc_test(
+  name = "t",
+  srcs = ["coverage_srcs/t.cc"],
+  deps = [":a"]
+)
+EOF
+  cat << EOF > "coverage_srcs/a.h"
+int a(bool what);
+EOF
+
+  cat << EOF > "coverage_srcs/a.cc"
+#include "a.h"
+#include "b.h"
+#include <iostream>
+
+int a(bool what) {
+  if (what) {
+    std::cout << "Calling b(1)";
+    return b(1);
+  } else {
+    std::cout << "Calling b(-1)";
+    return b(-1);
+  }
+}
+EOF
+
+  cat << EOF > "coverage_srcs/b.h"
+int b(int what) {
+  if (what > 0) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
+  cat << EOF > "coverage_srcs/t.cc"
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+
+  ############## Running bazel coverage ##############
+
+  bazel coverage --experimental_cc_coverage --instrument_test_targets \
+      --test_output=all //:t &>"$TEST_log" || fail "Coverage for //:t failed"
+
+  ##### Putting together the expected coverage results #####
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_a_cc="SF:coverage_srcs/a.cc
+FN:13,_GLOBAL__sub_I_a.cc
+FN:5,_Z1ab
+FN:13,_Z41__static_initialization_and_destruction_0ii
+FNDA:1,_GLOBAL__sub_I_a.cc
+FNDA:1,_Z1ab
+FNDA:1,_Z41__static_initialization_and_destruction_0ii
+FNF:3
+FNH:3
+BA:6,2
+BA:13,2
+BRF:2
+BRH:2
+DA:5,1
+DA:6,1
+DA:7,1
+DA:8,1
+DA:10,0
+DA:11,0
+DA:13,3
+LH:5
+LF:7
+end_of_record"
+  local expected_result_b_h="SF:coverage_srcs/b.h
+FN:1,_Z1bi
+FNDA:1,_Z1bi
+FNF:1
+FNH:1
+BA:2,2
+BRF:1
+BRH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,0
+LH:3
+LF:4
+end_of_record"
+  local expected_result_t_cc="SF:coverage_srcs/t.cc
+FN:4,main
+FNDA:1,main
+FNF:1
+FNH:1
+DA:4,1
+DA:5,1
+DA:6,1
+LH:3
+LF:3
+end_of_record"
+
+  ############## Asserting the coverage results ##############
+  assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
+  assert_coverage_result "$expected_result_b_h" "$coverage_file_path"
+  # coverage_srcs/t.cc should be included in the coverage report now
+  assert_coverage_result "$expected_result_t_cc" "$coverage_file_path"
+  # iostream should not be in the final coverage report because it is a syslib
+  assert_not_contains "iostream" "$coverage_file_path"
 }
 
 function test_cc_test_llvm_coverage_doesnt_fail() {
