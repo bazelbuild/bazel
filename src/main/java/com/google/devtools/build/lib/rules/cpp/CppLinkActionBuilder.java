@@ -1497,9 +1497,6 @@ public class CppLinkActionBuilder {
       throws InterruptedException, RuleErrorException {
     addLinkopts(linkParams.flattenedLinkopts());
     addLibraries(linkParams.getLibraries());
-    if (linkParams.getNonCodeInputs() != null) {
-      addNonCodeInputs(linkParams.getNonCodeInputs());
-    }
     ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();
     if (extraLinkTimeLibraries != null) {
       for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {

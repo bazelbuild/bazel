@@ -202,7 +202,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     linkingHelper.setShouldCreateDynamicLibrary(createDynamicLibrary);
-    linkingHelper.setLinkerOutputArtifact(soImplArtifact);
+    linkingHelper.setDynamicLibrary(soImplArtifact);
 
     // If the reason we're not creating a dynamic library is that the toolchain
     // doesn't support it, then register an action which complains when triggered,
