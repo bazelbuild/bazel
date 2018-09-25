@@ -216,7 +216,7 @@ function SKIP_test_cc_test_coverage_gcov_virtual_includes() {
         && echo "gcov version before 7.0 is not supported. Skipping test." \
         && return
 
-  ########### Setup source files and BUILD file ###########
+ ########### Setup source files and BUILD file ###########
   mkdir -p examples/cpp
  cat << EOF > examples/cpp/BUILD
 cc_library(
@@ -382,6 +382,7 @@ function test_cc_test_gcov_multiple_headers() {
 
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
+
   cat << EOF > BUILD
 cc_library(
   name = "a",
@@ -435,6 +436,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
+
   bazel coverage --experimental_cc_coverage --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
@@ -507,6 +509,7 @@ function test_cc_test_gcov_multiple_headers_instrument_test_target() {
 
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
+
   cat << EOF > BUILD
 cc_library(
   name = "a",
@@ -560,6 +563,7 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
+
   bazel coverage --experimental_cc_coverage --instrument_test_targets \
       --test_output=all //:t &>"$TEST_log" || fail "Coverage for //:t failed"
 
