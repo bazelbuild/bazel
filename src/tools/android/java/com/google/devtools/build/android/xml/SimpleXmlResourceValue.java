@@ -73,6 +73,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     COLOR(TAG_COLOR),
     DIMEN(TAG_DIMEN),
     DRAWABLE(TAG_DRAWABLE),
+    FONT(TAG_ITEM),
     FRACTION(TAG_FRACTION),
     INTEGER(TAG_INTEGER),
     ITEM(TAG_ITEM),
@@ -87,6 +88,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     Type(QName tagName) {
       this.tagName = tagName;
     }
+
 
     public static Type from(ResourceType resourceType) {
       for (Type valueType : values()) {
@@ -173,11 +175,13 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   public static XmlResourceValue from(Value proto, ResourceType resourceType) {
     Item item = proto.getItem();
     String stringValue = null;
+    ImmutableMap.Builder<String, String> attributes = ImmutableMap.builder();
 
     if (item.hasStr()) {
       stringValue = XmlEscapers.xmlContentEscaper().escape(item.getStr().getValue());
     } else if (item.hasRef()) {
       stringValue = "@" + item.getRef().getName();
+      attributes.put("format", "reference");
     } else if (item.hasStyledStr()) {
       StyledString styledString = item.getStyledStr();
       StringBuilder stringBuilder = new StringBuilder(styledString.getValue());
@@ -206,7 +210,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
 
     return of(
         Type.valueOf(resourceType.toString().toUpperCase(Locale.ENGLISH)),
-        ImmutableMap.of(),
+        attributes.build(),
         stringValue);
   }
 
