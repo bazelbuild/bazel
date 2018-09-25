@@ -93,6 +93,9 @@ service Execution {
   // * `INTERNAL`: An internal error occurred in the execution engine or the
   //   worker.
   // * `DEADLINE_EXCEEDED`: The execution timed out.
+  // * `CANCELLED`: The operation was cancelled by the client. This status is
+  //   only possible if the server implements the Operations API CancelOperation
+  //   method, and it was called for the current execution.
   //
   // In the case of a missing input or command, the server SHOULD additionally
   // send a [PreconditionFailure][google.rpc.PreconditionFailure] error detail
@@ -157,7 +160,7 @@ service ActionCache {
   // `ContentAddressableStorage`.
   //
   // Errors:
-  // * `NOT_IMPLEMENTED`: This method is not supported by the server.
+  // * `UNIMPLEMENTED`: This method is not supported by the server.
   // * `RESOURCE_EXHAUSTED`: There is insufficient storage space to add the
   //   entry to the cache.
   rpc UpdateActionResult(UpdateActionResultRequest) returns (ActionResult) {
@@ -181,8 +184,8 @@ service ActionCache {
 // hierarchy, which must also each be uploaded on their own.
 //
 // For small file uploads the client should group them together and call
-// [BatchUpdateBlobs][build.bazel.remote.execution.v2.ContentAddressableStorage.BatchUpdateBlobs]
-// on chunks of no more than 10 MiB. For large uploads, the client must use the
+// [BatchUpdateBlobs][build.bazel.remote.execution.v2.ContentAddressableStorage.BatchUpdateBlobs].
+// For large uploads, the client must use the
 // [Write method][google.bytestream.ByteStream.Write] of the ByteStream API. The
 // `resource_name` is `{instance_name}/uploads/{uuid}/blobs/{hash}/{size}`,
 // where `instance_name` is as described in the next paragraph, `uuid` is a
@@ -438,9 +441,8 @@ message Command {
   // MUST be sorted lexicographically by code point (or, equivalently, by UTF-8
   // bytes).
   //
-  // An output file cannot be duplicated, be a parent of another output file, be
-  // a child of a listed output directory, or have the same path as any of the
-  // listed output directories.
+  // An output file cannot be duplicated, be a parent of another output file, or
+  // have the same path as any of the listed output directories.
   repeated string output_files = 3;
 
   // A list of the output directories that the client expects to retrieve from
@@ -461,9 +463,8 @@ message Command {
   // MUST be sorted lexicographically by code point (or, equivalently, by UTF-8
   // bytes).
   //
-  // An output directory cannot be duplicated, be a parent of another output
-  // directory, be a parent of a listed output file, or have the same path as
-  // any of the listed output files.
+  // An output directory cannot be duplicated or have the same path as any of
+  // the listed output files.
   repeated string output_directories = 4;
 
   // The platform requirements for the execution environment. The server MAY
@@ -710,13 +711,30 @@ message ActionResult {
 
   // The output files of the action. For each output file requested in the
   // `output_files` field of the Action, if the corresponding file existed after
-  // the action completed, a single entry will be present in the output list.
+  // the action completed, a single entry will be present either in this field,
+  // or in the output_file_symlinks field, if the file was a symbolic link to
+  // another file.
   //
   // If the action does not produce the requested output, or produces a
   // directory where a regular file is expected or vice versa, then that output
   // will be omitted from the list. The server is free to arrange the output
   // list as desired; clients MUST NOT assume that the output list is sorted.
   repeated OutputFile output_files = 2;
+
+  // The output files of the action that are symbolic links to other files. Those
+  // may be links to other output files, or input files, or even absolute paths
+  // outside of the working directory, if the server supports
+  // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy].
+  // For each output file requested in the `output_files` field of the Action,
+  // if the corresponding file existed after
+  // the action completed, a single entry will be present either in this field,
+  // or in the `output_files` field, if the file was not a symbolic link.
+  //
+  // If the action does not produce the requested output, or produces a
+  // directory where a regular file is expected or vice versa, then that output
+  // will be omitted from the list. The server is free to arrange the output
+  // list as desired; clients MUST NOT assume that the output list is sorted.
+  repeated OutputSymlink output_file_symlinks = 10;
 
   // The output directories of the action. For each output directory requested
   // in the `output_directories` field of the Action, if the corresponding
@@ -779,6 +797,22 @@ message ActionResult {
   // ```
   repeated OutputDirectory output_directories = 3;
 
+  // The output directories of the action that are symbolic links to other
+  // directories. Those may be links to other output directories, or input
+  // directories, or even absolute paths outside of the working directory,
+  // if the server supports
+  // [SymlinkAbsolutePathStrategy.ALLOWED][build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy].
+  // For each output directory requested in the `output_directories` field of
+  // the Action, if the directory file existed after
+  // the action completed, a single entry will be present either in this field,
+  // or in the `output_directories` field, if the directory was not a symbolic link.
+  //
+  // If the action does not produce the requested output, or produces a
+  // file where a directory is expected or vice versa, then that output
+  // will be omitted from the list. The server is free to arrange the output
+  // list as desired; clients MUST NOT assume that the output list is sorted.
+  repeated OutputSymlink output_directory_symlinks = 11;
+
   // The exit code of the command.
   int32 exit_code = 4;
 
@@ -821,7 +855,7 @@ message ActionResult {
 //
 // `OutputFile` is binary-compatible with `FileNode`.
 message OutputFile {
-  // The full path of the file relative to the input root, including the
+  // The full path of the file relative to the working directory, including the
   // filename. The path separator is a forward slash `/`. Since this is a
   // relative path, it MUST NOT begin with a leading forward slash.
   string path = 1;
@@ -864,6 +898,26 @@ message OutputDirectory {
   // [Tree][build.bazel.remote.execution.v2.Tree] proto containing the
   // directory's contents.
   Digest tree_digest = 3;
+}
+
+// An `OutputSymlink` is similar to a
+// [Symlink][build.bazel.remote.execution.v2.SymlinkNode], but it is used as an
+// output in an `ActionResult`.
+//
+// `OutputSymlink` is binary-compatible with `SymlinkNode`.
+message OutputSymlink {
+  // The full path of the symlink relative to the working directory, including the
+  // filename. The path separator is a forward slash `/`. Since this is a
+  // relative path, it MUST NOT begin with a leading forward slash.
+  string path = 1;
+
+  // The target path of the symlink. The path separator is a forward slash `/`.
+  // The target path can be relative to the parent directory of the symlink or
+  // it can be an absolute path starting with `/`. Support for absolute paths
+  // can be checked using the [Capabilities][build.bazel.remote.execution.v2.Capabilities]
+  // API. The canonical form forbids the substrings `/./` and `//` in the target
+  // path. `..` components are allowed anywhere in the target path.
+  string target = 2;
 }
 
 // An `ExecutionPolicy` can be used to control the scheduling of the action.
