@@ -205,9 +205,7 @@ function test_cc_test_gcov_multiple_headers() {
   fi
 
   ############## Setting up the test sources and BUILD file ##############
-
   mkdir -p "coverage_srcs/"
-
   cat << EOF > BUILD
 cc_library(
   name = "a",
@@ -261,7 +259,6 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-
   bazel coverage --experimental_cc_coverage --test_output=all //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
 
@@ -387,7 +384,6 @@ int main(void) {
 EOF
 
   ############## Running bazel coverage ##############
-
   bazel coverage --experimental_cc_coverage --instrument_test_targets \
       --test_output=all //:t &>"$TEST_log" || fail "Coverage for //:t failed"
 
@@ -446,7 +442,7 @@ end_of_record"
   ############## Asserting the coverage results ##############
   assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
   assert_coverage_result "$expected_result_b_h" "$coverage_file_path"
-  # coverage_srcs/t.cc should be included in the coverage report now
+  # coverage_srcs/t.cc should be included in the coverage report
   assert_coverage_result "$expected_result_t_cc" "$coverage_file_path"
   # iostream should not be in the final coverage report because it is a syslib
   assert_not_contains "iostream" "$coverage_file_path"
@@ -458,9 +454,7 @@ function test_cc_test_gcov_same_header_different_libs() {
   fi
 
   ############## Setting up the test sources and BUILD file ##############
-
   mkdir -p "coverage_srcs/"
-
   cat << EOF > BUILD
 cc_library(
   name = "a",
