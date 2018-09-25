@@ -481,11 +481,6 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  public CppCompileActionBuilder setCppConfiguration(CppConfiguration cppConfiguration) {
-    this.cppConfiguration = cppConfiguration;
-    return this;
-  }
-
   public CppCompileActionBuilder setActionClassId(UUID uuid) {
     this.actionClassId = uuid;
     return this;
