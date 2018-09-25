@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
@@ -1055,20 +1054,15 @@ public class BuildConfiguration implements BuildConfigurationApi {
       Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
           .getRelative(outputDirName);
       if (middleman) {
-        return INTERNER.intern(ArtifactRoot.middlemanRoot(execRoot, outputDir));
+        return ArtifactRoot.middlemanRoot(execRoot, outputDir);
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
-      return INTERNER.intern(
-          ArtifactRoot.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment)));
+      return ArtifactRoot.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment));
     }
   }
 
   private final BlazeDirectories directories;
   private final String outputDirName;
-
-  // We intern the roots for non-main repositories, so we don't keep around thousands of copies of
-  // the same root.
-  private static Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
 
   // We precompute the roots for the main repository, since that's the common case.
   private final ArtifactRoot outputDirectoryForMainRepository;

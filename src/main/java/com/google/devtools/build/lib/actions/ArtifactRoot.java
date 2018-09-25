@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -49,6 +51,8 @@ import java.util.Objects;
  */
 @Immutable
 public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, FileRootApi {
+  private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
+
   /**
    * Do not use except in tests and in {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor}.
@@ -70,7 +74,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
     PathFragment execPath = root.relativeTo(execRoot);
-    return new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output);
+    return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output));
   }
 
   public static ArtifactRoot middlemanRoot(Path execRoot, Path outputDir) {
@@ -78,7 +82,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     Preconditions.checkArgument(root.startsWith(execRoot));
     Preconditions.checkArgument(!root.equals(execRoot));
     PathFragment execPath = root.relativeTo(execRoot);
-    return new ArtifactRoot(Root.fromPath(root), execPath, RootType.Middleman);
+    return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Middleman));
   }
 
   private enum RootType {
@@ -91,7 +95,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
   private final PathFragment execPath;
   private final RootType rootType;
 
-  ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
+  private ArtifactRoot(Root root, PathFragment execPath, RootType rootType) {
     this.root = Preconditions.checkNotNull(root);
     this.execPath = execPath;
     this.rootType = rootType;
@@ -196,7 +200,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
           root = Root.fromPath(outputBase.getRelative(relativeRoot));
           break;
       }
-      return new ArtifactRoot(root, context.deserialize(codedIn), rootType);
+      return INTERNER.intern(new ArtifactRoot(root, context.deserialize(codedIn), rootType));
     }
   }
 }
