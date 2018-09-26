@@ -100,7 +100,7 @@ gen_java_lang_extras_jar_cmd = """
     $(location %s) \
         --exclude_build_data \
         --dont_change_compression \
-        --sources  $(location @bazel_tools//tools/jdk:platformclasspath8) \
+        --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
         --include_prefixes "java/lang/invoke/" \
         --include_prefixes "java/lang/annotation/" \
         --output $@
@@ -111,7 +111,7 @@ gen_java_lang_extras_jar_cmd = """
 genrule(
     name = "gen_java_lang_extras_jar",
     srcs = [
-        "@bazel_tools//tools/jdk:platformclasspath8"
+        "@bazel_tools//tools/jdk:platformclasspath"
     ],
     tools = select({
         "//src/conditions:windows": [":singlejar_javabin"],
@@ -176,7 +176,7 @@ genrule(
     $(location :desugar_java8) \
         --input $< \
         --output $@ \
-        --classpath_entry "$(location @bazel_tools//tools/jdk:platformclasspath8)" \
+        --classpath_entry "$(location @bazel_tools//tools/jdk:platformclasspath)" \
         --core_library --allow_empty_bootclasspath \
         --nobest_effort_tolerate_missing_deps \
         --noemit_dependency_metadata_as_needed \
@@ -213,7 +213,7 @@ genrule(
         --dont_rewrite_core_library_invocation "java/util/Iterator#remove" """,
     tools = [
         ":desugar_java8",
-        "@bazel_tools//tools/jdk:platformclasspath8",
+        "@bazel_tools//tools/jdk:platformclasspath",
     ],
     visibility = ["//visibility:private"],
 )
