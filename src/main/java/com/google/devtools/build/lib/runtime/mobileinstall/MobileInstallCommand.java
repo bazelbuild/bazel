@@ -21,11 +21,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -212,6 +214,7 @@ public class MobileInstallCommand implements BlazeCommand {
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
     ConfiguredTarget targetToRun = Iterables.getOnlyElement(targetsBuilt);
+    validateTargetType(env, targetToRun);
 
     List<String> cmdLine = new ArrayList<>();
     // TODO(bazel-team): Get the executable path from the filesToRun provider from the aspect.
@@ -324,6 +327,23 @@ public class MobileInstallCommand implements BlazeCommand {
       }
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
+    }
+  }
+
+  private void validateTargetType(CommandEnvironment env, ConfiguredTarget target) {
+    while (target instanceof AliasConfiguredTarget) {
+      target = ((AliasConfiguredTarget) target).getActual();
+    }
+    // This should always be the case, but check to ensure future ConfiguredTarget types won't cause
+    // exceptions
+    if (target instanceof AbstractConfiguredTarget) {
+      String ruleType = ((AbstractConfiguredTarget) target).getRuleClassString();
+      if (!ruleType.equals("android_binary")) {
+        env.getReporter()
+            .handle(
+                Event.error(
+                    "mobile-install can only be run on android_binary targets. Got: " + ruleType));
+      }
     }
   }
 }
