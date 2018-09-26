@@ -157,4 +157,35 @@ EOF
     || fail "should fail to find symbol addOne"
 }
 
+function test_modular_imports() {
+    rm -rf atimport
+    mkdir -p atimport
+    cat > atimport/BUILD <<EOF
+objc_library(
+    name = 'lib',
+    enable_modules = True,
+    srcs = ['lib.m'],
+    hdrs = ['lib.h'],
+    deps = [':dep'],
+)
+
+objc_library(
+    name = 'dep',
+    module_name = 'dep',
+    enable_modules = True,
+    srcs = ['dep.m'],
+    hdrs = ['dep.h'],
+)
+EOF
+    touch atimport/lib.h atimport/dep.h atimport/dep.m
+    cat > atimport/lib.m <<EOF
+@import dep;
+EOF
+    bazel build --verbose_failures \
+          --experimental_objc_enable_module_maps \
+          //atimport:lib > "$TEST_log" 2>&1 \
+        || fail "Should support @import"
+
+}
+
 run_suite "objc/ios test suite"

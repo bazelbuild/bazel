@@ -454,6 +454,11 @@ public class CompilationSupport {
         Arrays.asList(
             objcArcCompilationInfo.getCcCompilationContext(),
             nonObjcArcCompilationInfo.getCcCompilationContext()));
+
+    // Both ARC and non-ARC sources share the same module map
+    ccCompilationContextBuilder.setCppModuleMap(
+        objcArcCompilationInfo.getCcCompilationContext().getCppModuleMap());
+
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
     semantics.setupCcCompilationContext(ruleContext, ccCompilationContextBuilder);
@@ -462,6 +467,8 @@ public class CompilationSupport {
     compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
     compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
     CcCompilationOutputs compilationOutputs = compilationOutputsBuilder.build();
+
+    ccCompilationContext = ccCompilationContextBuilder.build();
 
     if (!compilationOutputs.isEmpty()) {
       resultLink.link(compilationOutputs);
@@ -693,6 +700,7 @@ public class CompilationSupport {
   private final Map<String, NestedSet<Artifact>> outputGroupCollector;
   private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
+  private CcCompilationContext ccCompilationContext;
   private final boolean isTestRule;
   private final boolean usePch;
 
@@ -745,6 +753,8 @@ public class CompilationSupport {
       this.toolchain = null;
     }
   }
+
+  public CcCompilationContext getCcCompilationContext() { return this.ccCompilationContext; }
 
   /** Builder for {@link CompilationSupport} */
   public static class Builder {
@@ -1243,7 +1253,7 @@ public class CompilationSupport {
       }
     }
 
-    if (attributes.enableModules() && !getCustomModuleMap(ruleContext).isPresent()) {
+    if (attributes.enableModules()) { // && !getCustomModuleMap(ruleContext).isPresent()) {
       copts.add("-fmodules");
     }
     if (copts.contains("-fmodules")) {

@@ -380,7 +380,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(getArifactPaths(target, HEADER))
         .containsExactly("objc/a.h", "objc/b.h", "objc/f.m");
     assertThat(getArifactPaths(depender, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc2/d.h", "objc2/e.m");
+        .containsExactly("objc/a.h", "objc/b.h", "objc/f.m", "objc/private.h", "objc2/d.h", "objc2/e.m");
   }
 
   @Test
@@ -613,7 +613,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAllIn(moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
     assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
     assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
-        .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
+        .contains("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
   }
 
   @Test
@@ -1066,7 +1066,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(getArifactPaths(target, HEADER))
         .containsExactly("objc/a.h", "objc/b.h");
     assertThat(getArifactPaths(depender, HEADER))
-        .containsExactly("objc/a.h", "objc/b.h", "objc2/c.h", "objc2/d.h");
+        .containsExactly("objc/a.h", "objc/b.h", "objc/private.h", "objc2/c.h", "objc2/d.h");
   }
 
   private Iterable<String> getArifactPaths(ConfiguredTarget target, Key<Artifact> artifactKey) {

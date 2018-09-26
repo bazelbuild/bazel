@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingM
 import com.google.devtools.build.lib.rules.cpp.FdoProvider.FdoMode;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1735,6 +1736,18 @@ public final class CcCompilationHelper {
       boolean bitcodeOutput =
           featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
+
+      if (ruleContext.attributes().has("enable_modules") &&
+          ruleContext.attributes().get("enable_modules", Type.BOOLEAN)) {
+        for (Artifact module : ccCompilationContext.getDirectModuleMaps()) {
+          ImmutableList.Builder new_copts = ImmutableList.builder();
+          new_copts.addAll(copts);
+          if (module != null) {
+            new_copts.add("-fmodule-map-file=" + module.getExecPathString());
+          }
+          setCopts(new_copts.build());
+        }
+      }
 
       // Create PIC compile actions (same as no-PIC, but use -fPIC and
       // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
