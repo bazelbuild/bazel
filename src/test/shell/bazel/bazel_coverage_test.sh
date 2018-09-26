@@ -626,6 +626,22 @@ EOF
 }
 
 function test_sh_test_coverage_cc_binary() {
+  local -r gcov_location=$(which gcov)
+  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
+    echo "gcov not installed. Skipping test."
+    return
+  fi
+
+  "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported. Skipping test." && return
+   # gcov -v | grep "gcov" outputs a line that looks like this:
+   # gcov (Debian 7.3.0-5) 7.3.0
+   local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+    [ "$gcov_version" -lt 7 ] \
+        && echo "gcov version before 7.0 is not supported. Skipping test." \
+        && return
+
+  ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
 sh_test(
     name = "hello-sh",
@@ -722,9 +738,61 @@ void HelloLib::greet(const string& thing) {
 }  // namespace hello
 EOF
 
-  bazel coverage --experimental_cc_coverage --test_output=all //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+  ########### Run bazel coverage ###########
+  bazel coverage --experimental_cc_coverage --test_output=all \
+      //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
 
+  ########### Assert coverage results. ###########
   local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
+FN:18,_GLOBAL__sub_I_hello_lib.cc
+FN:18,_Z41__static_initialization_and_destruction_0ii
+FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_GLOBAL__sub_I_hello_lib.cc
+FNDA:1,_Z41__static_initialization_and_destruction_0ii
+FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNF:4
+FNH:4
+BA:11,2
+BA:18,2
+BRF:2
+BRH:2
+DA:11,1
+DA:12,1
+DA:14,1
+DA:15,1
+DA:16,1
+DA:18,3
+LH:6
+LF:6
+end_of_record"
+  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+
+  local coverage_result_hello_lib_header="SF:examples/cpp/hello-world.cc
+FN:8,main
+FNDA:1,main
+FNF:1
+FNH:1
+BA:9,2
+BA:10,2
+BA:11,2
+BA:12,0
+BA:14,2
+BRF:5
+BRH:4
+DA:8,1
+DA:9,2
+DA:10,2
+DA:11,1
+DA:12,0
+DA:14,1
+DA:15,1
+LH:6
+LF:7
+end_of_record"
+  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
 }
 
 run_suite "test tests"
