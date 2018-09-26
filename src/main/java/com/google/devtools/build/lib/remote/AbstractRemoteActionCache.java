@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -69,7 +68,7 @@ public abstract class AbstractRemoteActionCache implements AutoCloseable {
     ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
   }
 
-  public static boolean causedByCacheMiss(RetryException t) {
+  public static boolean causedByCacheMiss(IOException t) {
     return t.getCause() instanceof CacheNotFoundException;
   }
 
