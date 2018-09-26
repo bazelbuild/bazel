@@ -257,14 +257,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
 
-    // TODO(pcloudy): Remove this field after Bazel rule definitions are not used internally.
-    private String nativeLauncherLabel;
-
-    public Builder setNativeLauncherLabel(String label) {
-      this.nativeLauncherLabel = label;
-      return this;
-    }
-
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
       return this;
@@ -541,14 +533,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public Label getToolsLabel(String labelValue) {
       return Label.parseAbsoluteUnchecked(toolsRepository + labelValue);
-    }
-
-    @Override
-    public Label getLauncherLabel() {
-      if (nativeLauncherLabel == null) {
-        return null;
-      }
-      return getToolsLabel(nativeLauncherLabel);
     }
 
     @Override

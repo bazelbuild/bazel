@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -287,10 +286,6 @@ public class BazelJavaRuleClasses {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
-      Label launcher = env.getLauncherLabel();
-      if (launcher != null) {
-        builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));
-      }
       return builder
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(classpath_resources) -->
           <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
@@ -457,6 +452,10 @@ public class BazelJavaRuleClasses {
                           // TODO(b/30038239): migrate to //tools/jdk:no_launcher and delete
                           env.getToolsLabel("//third_party/java/jdk:jdk_launcher"),
                           env.getToolsLabel("//tools/jdk:no_launcher"))))
+          .add(
+              attr("$launcher", LABEL)
+                  .cfg(HostTransition.INSTANCE)
+                  .value(env.getToolsLabel("//tools/launcher:launcher")))
           .build();
     }
     @Override
