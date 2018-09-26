@@ -228,7 +228,7 @@ default_java_toolchain(
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
-    name = "toolchain_hostjdk9",
+    name = "toolchain",
     bootclasspath = [":platformclasspath"],
     jvm_opts = JDK9_JVM_OPTS,
     source_version = "8",
@@ -266,11 +266,6 @@ default_java_toolchain(
     )
     for release in RELEASES
 ]
-
-alias(
-    name = "toolchain",
-    actual = "//external:java_toolchain",
-)
 
 filegroup(
     name = "srcs",
