@@ -381,7 +381,7 @@ java_import(
 
 java_import(
     name = "flogger",
-    jars = ["flogger/flogger-0.3.1.jar"]
+    jars = ["flogger/flogger-0.3.1.jar", "flogger/flogger-system-backend-0.3.1.jar"]
 )
 
 java_import(
