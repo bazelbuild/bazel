@@ -48,8 +48,8 @@ class Coverage {
   }
 
   /**
-   * Returns {@link Coverage} only for the given source filenames, filtering out everything else in
-   * the given coverage.
+   * Returns {@link Coverage} only for the given CC source filenames, filtering out every other CC
+   * sources the given coverage. Other type of source files (e.g. Java) will not be filtered out.
    *
    * @param coverage The initial coverage.
    * @param sourcesToKeep The filenames of the sources to keep from the initial coverage.
