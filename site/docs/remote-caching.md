@@ -383,8 +383,8 @@ watch [issue #4558] for updates.
 A [gRPC protocol] that supports both remote caching and remote execution
 is in development. Remote execution allows Bazel to execute actions on a
 separate platform, such as a datacenter.  You can try remote execution with
-[Buildfarm], an open source project that aims to provide a distributed remote
-execution platform.
+[Buildbarn], [Buildfarm] or [BuildGrid] which are open source projects providing remote
+execution implementations.
 
 [Adapting Rules for Remote Execution](https://docs.bazel.build/versions/master/remote-execution-rules.html)
 [Troubleshooting Remote Execution](https://docs.bazel.build/versions/master/remote-execution-sandbox.html)
@@ -402,5 +402,7 @@ execution platform.
 [AWS S3]: https://aws.amazon.com/s3
 [issue #3360]: https://github.com/bazelbuild/bazel/issues/3360
 [gRPC protocol]: https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto
+[Buildbarn]: https://github.com/EdSchouten/bazel-buildbarn
 [Buildfarm]: https://github.com/bazelbuild/bazel-buildfarm
+[BuildGrid]: https://gitlab.com/BuildGrid/buildgrid
 [issue #4558]: https://github.com/bazelbuild/bazel/issues/4558
