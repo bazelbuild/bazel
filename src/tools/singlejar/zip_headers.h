@@ -44,7 +44,7 @@
 #include <string>
 #include <type_traits>
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #pragma pack(push, 1)
 #define attr_packed
 #else
@@ -653,7 +653,7 @@ class ECD64 {
 } attr_packed;
 static_assert(56 == sizeof(ECD64), "ECD64 class fields layout is incorrect.");
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #pragma pack(pop)
 #endif
 
