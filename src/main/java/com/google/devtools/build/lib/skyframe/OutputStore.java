@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFileMetadata;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -27,12 +29,13 @@ import javax.annotation.Nullable;
 /**
  * Storage layer for data associated with outputs of an action.
  *
- * <p>Data is mainly stored in three maps, {@link #artifactData}, {@link #treeArtifactData}, and
- * {@link #additionalOutputData}, all of which are keyed on an {@link Artifact}. For each of these
- * maps, this class exposes {@code get}, {@code put}, and {@code getAll} methods.
+ * <p>Data is mainly stored in four maps, {@link #artifactData}, {@link #treeArtifactData}, {@link
+ * #additionalOutputData}, and {@link #treeArtifactContents}, all of which are keyed on an {@link
+ * Artifact}. For each of these maps, this class exposes standard methods such as {@code get},
+ * {@code put}, {@code add}, and {@code getAll}.
  *
- * <p>This implementation aggresively stores all data. Subclasses may override the {@code put}
- * methods to avoid storing unnecessary data.
+ * <p>This implementation aggresively stores all data. Subclasses may override mutating methods to
+ * avoid storing unnecessary data.
  */
 @ThreadSafe
 class OutputStore {
@@ -44,6 +47,9 @@ class OutputStore {
       new ConcurrentHashMap<>();
 
   private final ConcurrentMap<Artifact, FileArtifactValue> additionalOutputData =
+      new ConcurrentHashMap<>();
+
+  private final ConcurrentMap<Artifact, Set<TreeFileArtifact>> treeArtifactContents =
       new ConcurrentHashMap<>();
 
   private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
@@ -129,6 +135,30 @@ class OutputStore {
     return ImmutableMap.copyOf(additionalOutputData);
   }
 
+  /**
+   * Returns a set of the given tree artifact's contents.
+   *
+   * <p>If the return value is {@code null}, this means nothing was injected, and the output
+   * TreeArtifact is to have its values read from disk instead.
+   */
+  @Nullable
+  final Set<TreeFileArtifact> getTreeArtifactContents(Artifact artifact) {
+    return treeArtifactContents.get(artifact);
+  }
+
+  /**
+   * Same as {@link #getTreeArtifactContents} except that a new set of contents is created and
+   * stored instead of returning {@code null}.
+   */
+  Set<TreeFileArtifact> getOrCreateTreeArtifactContents(Artifact artifact) {
+    Preconditions.checkArgument(artifact.isTreeArtifact(), artifact);
+    return treeArtifactContents.computeIfAbsent(artifact, unused -> Sets.newConcurrentHashSet());
+  }
+
+  void addTreeArtifactContents(Artifact artifact, TreeFileArtifact contents) {
+    getOrCreateTreeArtifactContents(artifact).add(contents);
+  }
+
   void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
     // TODO(shahan): there are a couple of things that could reduce memory usage
     // 1. We might be able to skip creating an entry in `outputArtifactData` and only create
@@ -159,6 +189,7 @@ class OutputStore {
     artifactData.clear();
     treeArtifactData.clear();
     additionalOutputData.clear();
+    treeArtifactContents.clear();
     injectedFiles.clear();
   }
 }

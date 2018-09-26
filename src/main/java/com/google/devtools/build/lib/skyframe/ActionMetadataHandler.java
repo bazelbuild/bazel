@@ -46,8 +46,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -82,16 +80,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
    * <p>This should never be read directly. Use {@link #getInputFileArtifactValue} instead.
    */
   private final ActionInputMap inputArtifactData;
-
-  /**
-   * Maps output TreeArtifacts to their contents. These maps are either injected or read
-   * directly from the filesystem.
-   * If the value is null, this means nothing was injected, and the output TreeArtifact
-   * is to have its values read from disk instead.
-   */
-  // TODO(b/115361150): Move this to OutputStore.
-  private final ConcurrentMap<Artifact, Set<TreeFileArtifact>> outputDirectoryListings =
-      new ConcurrentHashMap<>();
 
   /** Outputs that are to be omitted. */
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
@@ -253,11 +241,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
         artifact, FileArtifactValue.createProxy(md5Digest.getDigestBytesUnsafe()));
   }
 
-  private Set<TreeFileArtifact> getTreeArtifactContents(Artifact artifact) {
-    Preconditions.checkArgument(artifact.isTreeArtifact(), artifact);
-    return outputDirectoryListings.computeIfAbsent(artifact, unused -> Sets.newConcurrentHashSet());
-  }
-
   private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
     if (value != null) {
@@ -271,7 +254,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       setTreeReadOnlyAndExecutable(artifact, PathFragment.EMPTY_FRAGMENT);
     }
 
-    Set<TreeFileArtifact> registeredContents = outputDirectoryListings.get(artifact);
+    Set<TreeFileArtifact> registeredContents = store.getTreeArtifactContents(artifact);
     if (registeredContents != null) {
       // Check that our registered outputs matches on-disk outputs. Only perform this check
       // when contents were explicitly registered.
@@ -363,26 +346,24 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
     Set<PathFragment> paths =
         TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
-    // If you're reading tree artifacts from disk while outputDirectoryListings are being injected,
+    // If you're reading tree artifacts from disk while tree artifact contents are being injected,
     // something has gone terribly wrong.
-    Object previousDirectoryListing =
-        outputDirectoryListings.put(artifact, Sets.newConcurrentHashSet());
-    Preconditions.checkState(previousDirectoryListing == null,
-        "Race condition while constructing TreeArtifactValue: %s, %s",
-        artifact, previousDirectoryListing);
+    Object previousContents = store.getTreeArtifactContents(artifact);
+    Preconditions.checkState(
+        previousContents == null,
+        "Race condition while constructing TreeArtifactValue: %s, %s", artifact, previousContents);
     return constructTreeArtifactValue(ActionInputHelper.asTreeFileArtifacts(artifact, paths));
   }
 
   @Override
   public void addExpandedTreeOutput(TreeFileArtifact output) {
     Preconditions.checkState(executionMode.get());
-    Set<TreeFileArtifact> values = getTreeArtifactContents(output.getParent());
-    values.add(output);
+    store.addTreeArtifactContents(output.getParent(), output);
   }
 
   @Override
   public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
-    return ImmutableSet.copyOf(getTreeArtifactContents(artifact));
+    return ImmutableSet.copyOf(store.getOrCreateTreeArtifactContents(artifact));
   }
 
   @Override
@@ -478,7 +459,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
         "Files cannot be injected before action execution: %s", store.injectedFiles());
     Preconditions.checkState(omittedOutputs.isEmpty(),
         "Artifacts cannot be marked omitted before action execution: %s", omittedOutputs);
-    outputDirectoryListings.clear();
     store.clear();
   }
 
