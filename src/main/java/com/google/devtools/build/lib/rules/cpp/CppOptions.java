@@ -723,17 +723,6 @@ public class CppOptions extends FragmentOptions {
   public boolean strictSystemIncludes;
 
   @Option(
-      name = "experimental_enable_cc_configuration_make_variables",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Do not use this flag. Use the --incompatible_disable_cc_configuration_make_variables "
-              + "instead.")
-  public boolean enableMakeVariables;
-
-  @Option(
       name = "incompatible_disable_cc_configuration_make_variables",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -919,7 +908,6 @@ public class CppOptions extends FragmentOptions {
       host.crosstoolTop = hostCrosstoolTop;
     }
 
-    host.enableMakeVariables = enableMakeVariables;
     host.disableMakeVariables = disableMakeVariables;
 
     // hostLibcTop doesn't default to the target's libcTop.

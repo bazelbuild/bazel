@@ -1091,7 +1091,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
 
   @Override
   public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    if (cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables) {
+    if (cppOptions.disableMakeVariables) {
       return;
     }
 
@@ -1179,7 +1179,7 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
   }
 
   public boolean disableMakeVariables() {
-    return cppOptions.disableMakeVariables || !cppOptions.enableMakeVariables;
+    return cppOptions.disableMakeVariables;
   }
 
   /**
