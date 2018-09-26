@@ -198,6 +198,16 @@ public final class NestedSet<E> implements Iterable<E> {
     }
   }
 
+  /**
+   * Public version of {@link #getChildren}.
+   *
+   * <p>Strongly prefer {@link NestedSetVisitor}. Internal representation subject to change without
+   * notice.
+   */
+  public Object getChildrenUnsafe() {
+    return getChildren();
+  }
+
   /** Returns the internal item, array, or future. */
   Object rawChildren() {
     return children;

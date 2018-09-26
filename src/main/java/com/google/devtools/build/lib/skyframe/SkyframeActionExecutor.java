@@ -769,10 +769,8 @@ public final class SkyframeActionExecutor {
                 + " in an action which is not a SkyframeAwareAction. Action: %s\n symlinks:%s",
             action,
             actionExecutionContext.getOutputSymlinks());
-        return ActionExecutionValue.create(
-            metadataHandler.getOutputArtifactData(),
-            metadataHandler.getOutputTreeArtifactData(),
-            metadataHandler.getAdditionalOutputData(),
+        return ActionExecutionValue.createFromOutputStore(
+            metadataHandler.getOutputStore(),
             actionExecutionContext.getOutputSymlinks(),
             (action instanceof IncludeScannable)
                 ? ((IncludeScannable) action).getDiscoveredModules()
@@ -838,6 +836,8 @@ public final class SkyframeActionExecutor {
                 if (p.exists(Symlinks.NOFOLLOW)) {
                   boolean isDirectory = p.isDirectory(Symlinks.NOFOLLOW);
                   if (isDirectory) {
+                    // If this directory used to be a tree artifact it won't be writable
+                    p.setWritable(true);
                     break;
                   }
                   // p may be a file or dangling symlink, or a symlink to an old Fileset output

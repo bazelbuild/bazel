@@ -106,6 +106,20 @@ public class ActionExecutionValue implements SkyValue {
     this.discoveredModules = discoveredModules;
   }
 
+  static ActionExecutionValue createFromOutputStore(
+      OutputStore outputStore,
+      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      @Nullable NestedSet<Artifact> discoveredModules,
+      boolean notifyOnActionCacheHitAction) {
+    return create(
+        outputStore.getAllArtifactData(),
+        outputStore.getAllTreeArtifactData(),
+        outputStore.getAllAdditionalOutputData(),
+        outputSymlinks,
+        discoveredModules,
+        notifyOnActionCacheHitAction);
+  }
+
   static ActionExecutionValue create(
       Map<Artifact, ArtifactFileMetadata> artifactData,
       Map<Artifact, TreeArtifactValue> treeArtifactData,
