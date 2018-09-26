@@ -630,6 +630,7 @@ public class JavaOptions extends FragmentOptions {
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
     host.protoGeneratedStrictDeps = protoGeneratedStrictDeps;
+    host.isJavaProtoExportsEnabled = isJavaProtoExportsEnabled;
 
     host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
 
