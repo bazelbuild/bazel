@@ -625,4 +625,106 @@ EOF
   cmp result.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file"
 }
 
+function test_sh_test_coverage_cc_binary() {
+  cat <<EOF > BUILD
+sh_test(
+    name = "hello-sh",
+    srcs = ["hello-test.sh"],
+    data = ["//examples/cpp:hello-world"]
+)
+EOF
+  cat <<EOF > hello-test.sh
+#!/bin/bash
+
+examples/cpp/hello-world
+EOF
+  chmod +x hello-test.sh
+
+  mkdir -p examples/cpp
+
+  cat <<EOF > examples/cpp/BUILD
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"]
+)
+EOF
+
+  cat <<EOF > examples/cpp/hello-world.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+EOF
+
+  cat <<EOF > examples/cpp/hello-lib.h
+#ifndef EXAMPLES_CPP_HELLO_LIB_H_
+#define EXAMPLES_CPP_HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::auto_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+EOF
+
+  cat <<EOF > examples/cpp/hello-lib.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
+EOF
+
+  bazel coverage --experimental_cc_coverage --test_output=all //:hello-sh &>$TEST_log || fail "Coverage for //:orange-sh failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+}
+
 run_suite "test tests"
