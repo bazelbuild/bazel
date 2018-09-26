@@ -189,7 +189,8 @@ end_of_record"
   assert_contains 'name: "baseline.lcov"' bep.txt
 }
 
-function test_cc_test_coverage_gcov_virtual_includes() {
+# TODO(#6254): Enable this test when #6254 is fixed.
+function SKIP_test_cc_test_coverage_gcov_virtual_includes() {
   local -r gcov_location=$(which gcov)
   if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
     echo "gcov not installed. Skipping test."
@@ -211,8 +212,8 @@ function test_cc_test_coverage_gcov_virtual_includes() {
 cc_library(
     name = "a_header",
     hdrs = ["foo/bar/baz/a_header.h"],
-#    strip_include_prefix = "foo",
-#    include_prefix = "yng/yang",
+    strip_include_prefix = "foo",
+    include_prefix = "yin/yang",
 )
 
 cc_library(
@@ -247,8 +248,7 @@ EOF
 
 #include <string>
 #include <memory>
-//#include "yng/yang/bar/baz/a_header.h"
-#include "foo/bar/baz/a_header.h"
+#include "yin/yang/bar/baz/a_header.h"
 
 namespace hello {
 
@@ -315,7 +315,7 @@ EOF
   # Check the expected coverage for a.cc in the coverage file.
   # Note that t.cc is not included in the coverage report because it is
   # coming from a cc_test whose code is not included in the report by default.
-  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc222
+  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
 FN:19,_GLOBAL__sub_I_hello_lib.cc
 FN:19,_Z41__static_initialization_and_destruction_0ii
 FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
@@ -342,6 +342,30 @@ LH:8
 LF:8
 end_of_record"
   assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+
+  local expected_result_a_header="SF:examples/cpp/foo/bar/baz/a_header.h
+FN:9,_ZNK1A13cout_whateverEv
+FNDA:1,_ZNK1A13cout_whateverEv
+FNF:1
+FNH:1
+DA:9,1
+DA:10,1
+DA:11,1
+LH:3
+LF:3
+end_of_record"
+  assert_coverage_result "$expected_result_a_header" "$coverage_file_path"
+
+  local coverage_result_hello_lib_header="SF:examples/cpp/hello-lib.h
+FN:12,_ZN5hello8HelloLibD2Ev
+FNDA:1,_ZN5hello8HelloLibD2Ev
+FNF:1
+FNH:1
+DA:12,1
+LH:1
+LF:1
+end_of_record"
+  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
 }
 
 function test_cc_test_llvm_coverage_doesnt_fail() {
