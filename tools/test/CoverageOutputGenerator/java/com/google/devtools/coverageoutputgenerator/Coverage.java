@@ -54,7 +54,7 @@ class Coverage {
    * @param coverage The initial coverage.
    * @param sourcesToKeep The filenames of the sources to keep from the initial coverage.
    */
-  static Coverage getOnlyTheseSources(Coverage coverage, Set<String> sourcesToKeep) {
+  static Coverage getOnlyTheseCcSources(Coverage coverage, Set<String> sourcesToKeep) {
     if (coverage == null || sourcesToKeep == null) {
       throw new IllegalArgumentException("Coverage and sourcesToKeep should not be null.");
     }
@@ -66,11 +66,17 @@ class Coverage {
     }
     Coverage finalCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
-      if (sourcesToKeep.contains(source.sourceFileName())) {
+      if (!isCcSourceFile(source.sourceFileName())
+          || sourcesToKeep.contains(source.sourceFileName())) {
         finalCoverage.add(source);
       }
     }
     return finalCoverage;
+  }
+
+  private static boolean isCcSourceFile(String filename) {
+    return filename.endsWith(".cc") || filename.endsWith(".cpp") || filename.endsWith(".c")
+        || filename.endsWith(".h") || filename.endsWith(".hh") || filename.endsWith(".hpp");
   }
 
   static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)

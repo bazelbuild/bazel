@@ -112,7 +112,7 @@ public class Main {
       Set<String> ccSources = getCcSourcesFromSourceFileManifest(flags.sourceFileManifest());
       if (!ccSources.isEmpty()) {
         // Only filter out coverage if there were C++ sources found in the coverage manifest.
-        coverage = Coverage.getOnlyTheseSources(coverage, ccSources);
+        coverage = Coverage.getOnlyTheseCcSources(coverage, ccSources);
       }
     }
 

@@ -191,18 +191,18 @@ public class CoverageTest {
 
     assertThat(
             getSourceFileNames(
-                Coverage.getOnlyTheseSources(coverage, sourcesToKeep).getAllSourceFiles()))
+                Coverage.getOnlyTheseCcSources(coverage, sourcesToKeep).getAllSourceFiles()))
         .containsExactly("source/common/protobuf/utility.cc", "source/common/grpc/common.cc");
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetOnlyTheseSourcesNullCoverage() {
-    Coverage.getOnlyTheseSources(null, new HashSet<>());
+    Coverage.getOnlyTheseCcSources(null, new HashSet<>());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetOnlyTheseSourcesNullSources() {
-    Coverage.getOnlyTheseSources(new Coverage(), null);
+    Coverage.getOnlyTheseCcSources(new Coverage(), null);
   }
 
   @Test
@@ -213,7 +213,7 @@ public class CoverageTest {
     coverage.add(new SourceFileCoverage("source/server/options.cc"));
     coverage.add(new SourceFileCoverage("source/server/manager.cc"));
 
-    assertThat(Coverage.getOnlyTheseSources(coverage, new HashSet<>()).getAllSourceFiles())
+    assertThat(Coverage.getOnlyTheseCcSources(coverage, new HashSet<>()).getAllSourceFiles())
         .isEmpty();
   }
 }
