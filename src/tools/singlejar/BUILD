@@ -132,6 +132,7 @@ cc_test(
 
 cc_test(
     name = "input_jar_preambled_test",
+    size = "large",
     srcs = [
         "input_jar_preambled_test.cc",
     ],
@@ -158,7 +159,6 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"$(JAVABASE)/bin/jar\\\""],
     data = ["@bazel_tools//tools/jdk:current_java_runtime"],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
@@ -228,9 +228,6 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    # TODO(@rongjiecomputer): update copts to handle Windows and add
-    # ".exe" extension.
-    copts = ["-DJAR_TOOL_PATH=\\\"$(JAVABASE)/bin/jar\\\""],
     data = [
         ":data1",
         ":data2",

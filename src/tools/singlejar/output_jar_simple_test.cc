@@ -13,6 +13,10 @@
 // limitations under the License.
 
 #include <stdlib.h>
+#include <stdio.h>
+
+// Must be included before anything else.
+#include "src/tools/singlejar/port.h"
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/port.h"
@@ -23,8 +27,11 @@
 #include "src/tools/singlejar/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 
-#if !defined(JAR_TOOL_PATH)
-#error "The path to jar tool has to be defined via -DJAR_TOOL_PATH="
+#ifdef _WIN32
+const char JAR_TOOL_PATH[] = "local_jdk/bin/jar.exe";
+#define unlink _unlink
+#else
+const char JAR_TOOL_PATH[] = "local_jdk/bin/jar";
 #endif
 
 namespace {
@@ -35,15 +42,12 @@ using singlejar_test_util::GetEntryContents;
 using singlejar_test_util::OutputFilePath;
 using singlejar_test_util::RunCommand;
 using singlejar_test_util::VerifyZip;
+using singlejar_test_util::runfiles;
 
 using std::string;
 
-#if !defined(DATA_DIR_TOP)
-#define DATA_DIR_TOP
-#endif
-
-const char kPathLibData1[] = DATA_DIR_TOP "src/tools/singlejar/libdata1.jar";
-const char kPathLibData2[] = DATA_DIR_TOP "src/tools/singlejar/libdata2.jar";
+const char kPathLibData1[] = "io_bazel/src/tools/singlejar/libdata1.jar";
+const char kPathLibData2[] = "io_bazel/src/tools/singlejar/libdata2.jar";
 
 static bool HasSubstr(const string &s, const string &what) {
   return string::npos != s.find(what);
@@ -96,12 +100,14 @@ class OutputJarSimpleTest : public ::testing::Test {
     string cp_res_path =
         CreateTextFile("cp_res", "line1\nline2\nline3\nline4\n");
     string out_path = OutputFilePath("out.jar");
-    CreateOutput(out_path,
-                 {compression_option, "--sources",
-                  DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-                  DATA_DIR_TOP "src/tools/singlejar/stored.jar", "--resources",
-                  cp_res_path, "--deploy_manifest_lines", "property1: value1",
-                  "property2: value2"});
+    CreateOutput(
+        out_path,
+        {compression_option, "--sources",
+         runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar")
+             .c_str(),
+         runfiles->Rlocation("io_bazel/src/tools/singlejar/stored.jar").c_str(),
+         "--resources", cp_res_path, "--deploy_manifest_lines",
+         "property1: value1", "property2: value2"});
     return out_path;
   }
 
@@ -194,9 +200,12 @@ TEST_F(OutputJarSimpleTest, Empty) {
 // Source jars.
 TEST_F(OutputJarSimpleTest, Source) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path,
-               {"--sources", DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-                DATA_DIR_TOP "src/tools/singlejar/libtest2.jar"});
+  CreateOutput(
+      out_path,
+      {"--sources",
+       runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar").c_str(),
+       runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest2.jar")
+           .c_str()});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
@@ -224,7 +233,8 @@ TEST_F(OutputJarSimpleTest, Source) {
 // Verify --java_launcher argument
 TEST_F(OutputJarSimpleTest, JavaLauncher) {
   string out_path = OutputFilePath("out.jar");
-  const char *launcher_path = DATA_DIR_TOP "src/tools/singlejar/libtest1.jar";
+  std::string launcher_path =
+      runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar");
   CreateOutput(out_path, {"--java_launcher", launcher_path});
   // check that the offset of the first entry equals launcher size.
   InputJar input_jar;
@@ -234,7 +244,7 @@ TEST_F(OutputJarSimpleTest, JavaLauncher) {
   cdh = input_jar.NextEntry(&lh);
   ASSERT_NE(nullptr, cdh);
   struct stat statbuf;
-  ASSERT_EQ(0, stat(launcher_path, &statbuf));
+  ASSERT_EQ(0, stat(launcher_path.c_str(), &statbuf));
   EXPECT_TRUE(cdh->is());
   EXPECT_TRUE(lh->is());
   EXPECT_EQ(statbuf.st_size, cdh->local_header_offset());
@@ -438,9 +448,11 @@ TEST_F(OutputJarSimpleTest, ExtraHandler) {
 // --include_headers
 TEST_F(OutputJarSimpleTest, IncludeHeaders) {
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path,
-               {"--sources", DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-                kPathLibData1, "--include_prefixes", "tools/singlejar/data"});
+  CreateOutput(
+      out_path,
+      {"--sources",
+       runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar").c_str(),
+       kPathLibData1, "--include_prefixes", "tools/singlejar/data"});
   std::vector<string> expected_entries(
       {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
        "tools/singlejar/data/", "tools/singlejar/data/extra_file1",
@@ -467,14 +479,13 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   string out_path = OutputFilePath("out.jar");
   string testjar_path = OutputFilePath("testinput.jar");
   {
-    char *jar_tool_path = realpath(JAR_TOOL_PATH, nullptr);
+    std::string jar_tool_path = runfiles->Rlocation(JAR_TOOL_PATH);
     string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
     string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
     unlink(testjar_path.c_str());
     ASSERT_EQ(
-        0, RunCommand(jar_tool_path, "-cf", testjar_path.c_str(),
+        0, RunCommand(jar_tool_path.c_str(), "-cf", testjar_path.c_str(),
                       textfile_path.c_str(), classfile_path.c_str(), nullptr));
-    free(jar_tool_path);
   }
 
   string testzip_path = OutputFilePath("testinput.zip");
@@ -497,11 +508,12 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   //  * protobuf.meta
   //  * extra combiner
 
-  CreateOutput(out_path,
-               {"--normalize", "--sources",
-                DATA_DIR_TOP "src/tools/singlejar/libtest1.jar", testjar_path,
-                testzip_path, "--resources", resource_path,
-                "--classpath_resources", cp_resource_path});
+  CreateOutput(
+      out_path,
+      {"--normalize", "--sources",
+       runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar").c_str(),
+       testjar_path, testzip_path, "--resources", resource_path,
+       "--classpath_resources", cp_resource_path});
 
   // Scan all entries, verify that *.class entries have timestamp
   // 01/01/2010 00:00:02 and the rest have the timestamp of 01/01/2010 00:00:00.
@@ -640,8 +652,8 @@ TEST_F(OutputJarSimpleTest, DontChangeCompressionOption) {
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
   const CDH *cdh;
-  const char kStoredEntry[] =
-      DATA_DIR_TOP "src/tools/singlejar/output_jar.cc";
+  std::string kStoredEntry =
+      runfiles->Rlocation("io_bazel/src/tools/singlejar/output_jar.cc");
 
   while ((cdh = input_jar.NextEntry(&lh))) {
     string entry_name = lh->file_name_string();
@@ -707,10 +719,12 @@ TEST_F(OutputJarSimpleTest, Nocompress) {
   string res2_path =
       CreateTextFile("resource.bar", "line1\nline2\nline3\nline4\n");
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path,
-               {"--compression", "--sources",
-                DATA_DIR_TOP "src/tools/singlejar/libtest1.jar", "--resources",
-                res1_path, res2_path, "--nocompress_suffixes", ".foo", ".h"});
+  CreateOutput(
+      out_path,
+      {"--compression", "--sources",
+       runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar").c_str(),
+       "--resources", res1_path, res2_path, "--nocompress_suffixes", ".foo",
+       ".h"});
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;

@@ -28,13 +28,10 @@ namespace {
 
 using singlejar_test_util::AllocateFile;
 using singlejar_test_util::OutputFilePath;
+using singlejar_test_util::runfiles;
 using singlejar_test_util::VerifyZip;
 
 using std::string;
-
-#if !defined(DATA_DIR_TOP)
-#define DATA_DIR_TOP
-#endif
 
 class OutputHugeJarTest : public ::testing::Test {
  protected:
@@ -70,8 +67,10 @@ TEST_F(OutputHugeJarTest, EntryAbove4G) {
   ASSERT_TRUE(AllocateFile(launcher_path, 0x100000010));
 
   string out_path = OutputFilePath("out.jar");
-  CreateOutput(out_path, {"--java_launcher", launcher_path, "--sources",
-                          DATA_DIR_TOP "src/tools/singlejar/libtest1.jar"});
+  CreateOutput(out_path,
+               {"--java_launcher", launcher_path, "--sources",
+                runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar")
+                    .c_str()});
 }
 
 }  // namespace

@@ -25,7 +25,9 @@
  */
 
 #include <errno.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <memory>
 #include <string>
 
@@ -39,14 +41,11 @@
 using singlejar_test_util::OutputFilePath;
 using singlejar_test_util::AllocateFile;
 using singlejar_test_util::RunCommand;
+using singlejar_test_util::runfiles;
 
 namespace {
 
-#if !defined(DATA_DIR_TOP)
-#define DATA_DIR_TOP
-#endif
-
-const char kEmptyJar[] = DATA_DIR_TOP "src/tools/singlejar/data/empty.zip";
+const char kEmptyJar[] = "io_bazel/src/tools/singlejar/data/empty.zip";
 
 void VerifyEmpty(const std::string &jar_path) {
   InputJar input_jar;
@@ -61,14 +60,17 @@ void VerifyEmpty(const std::string &jar_path) {
 
 // Check that empty zip file (i.e., a valid zip file with no entries) is
 // handled correctly.
-TEST(InputJarBadjarTest, EmptyZipFile) { VerifyEmpty(kEmptyJar); }
+TEST(InputJarBadjarTest, EmptyZipFile) {
+  VerifyEmpty(runfiles->Rlocation(kEmptyJar).c_str());
+}
 
 // Preambled empty zip.
 TEST(InputJarPreambledTest, Empty) {
   std::string out_path = OutputFilePath("empty.jwp");
   std::string exe_path = OutputFilePath("exe");
   ASSERT_TRUE(AllocateFile(exe_path, 100));
-  ASSERT_EQ(0, RunCommand("cat", exe_path.c_str(), kEmptyJar, ">",
+  ASSERT_EQ(0, RunCommand("cat", exe_path.c_str(),
+                          runfiles->Rlocation(kEmptyJar).c_str(), ">",
                           out_path.c_str(), nullptr));
   VerifyEmpty(out_path);
 }

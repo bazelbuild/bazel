@@ -25,7 +25,9 @@
  */
 
 #include <errno.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <memory>
 #include <string>
 
@@ -38,9 +40,7 @@
 
 namespace {
 
-#if !defined(DATA_DIR_TOP)
-#define DATA_DIR_TOP
-#endif
+using singlejar_test_util::runfiles;
 
 void Verify(const std::string &path) {
   InputJar input_jar;
@@ -68,12 +68,12 @@ TEST(InputJarPreambledTest, Small) {
   std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
   std::string exe_path = singlejar_test_util::OutputFilePath("exe");
   ASSERT_TRUE(singlejar_test_util::AllocateFile(exe_path, 100));
-  ASSERT_EQ(
-      0,
-      singlejar_test_util::RunCommand(
-          "cat", exe_path.c_str(),
-          DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-          ">", out_path.c_str(), nullptr));
+  ASSERT_EQ(0,
+            singlejar_test_util::RunCommand(
+                "cat", exe_path.c_str(),
+                runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar")
+                    .c_str(),
+                ">", out_path.c_str(), nullptr));
   Verify(out_path);
 }
 
@@ -82,12 +82,12 @@ TEST(InputJarPreambledTest, SmallAdjusted) {
   std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
   std::string exe_path = singlejar_test_util::OutputFilePath("exe");
   ASSERT_TRUE(singlejar_test_util::AllocateFile(exe_path, 100));
-  ASSERT_EQ(
-      0,
-      singlejar_test_util::RunCommand(
-          "cat", exe_path.c_str(),
-          DATA_DIR_TOP "src/tools/singlejar/libtest1.jar",
-          ">", out_path.c_str(), nullptr));
+  ASSERT_EQ(0,
+            singlejar_test_util::RunCommand(
+                "cat", exe_path.c_str(),
+                runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar")
+                    .c_str(),
+                ">", out_path.c_str(), nullptr));
   ASSERT_EQ(0, singlejar_test_util::RunCommand("zip", "-A", out_path.c_str(),
                                                nullptr));
   Verify(out_path);
