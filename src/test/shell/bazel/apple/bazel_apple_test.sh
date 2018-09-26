@@ -31,13 +31,8 @@ function set_up() {
   copy_examples
   setup_objc_test_support
 
-  # Find the version number for an installed 7-series or 8-series Xcode
-  # (any sub-version will do)
-  bazel query "labels('versions', '@local_config_xcode//:host_xcodes')" \
-      --output xml  | grep 'name="version"' \
-      | sed -E 's/.*(value=\"(([0-9]|.)+))\".*/\2/' > xcode_versions
-
-  XCODE_VERSION=$(cat xcode_versions | grep -m1 '7\|8\|9')
+  # Find the version number for an installed Xcode.
+  XCODE_VERSION=$(xcodebuild -version | grep ^Xcode | cut -d' ' -f2)
 
   # Allow access to //external:xcrunwrapper.
   use_bazel_workspace_file
