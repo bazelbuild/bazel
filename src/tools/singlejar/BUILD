@@ -125,7 +125,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -141,7 +141,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -162,7 +162,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -178,7 +178,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -190,7 +190,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -232,15 +232,16 @@ cc_test(
         ":test1",
         ":test2",
         "@local_jdk//:jar",
-        "@local_jdk//:jdk-default",
+        "@local_jdk//:jdk",
     ],
     deps = [
         ":input_jar",
         ":options",
         ":output_jar",
+        ":port",
         ":test_util",
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -252,7 +253,7 @@ cc_test(
     deps = [
         ":test_util",
         ":token_stream",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -270,7 +271,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//third_party/zlib",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -415,7 +416,8 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest_main",
+        "@bazel_tools//tools/cpp/runfiles",
+        "@com_google_googletest//:gtest",
     ],
 )
 
