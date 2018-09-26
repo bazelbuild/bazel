@@ -209,7 +209,7 @@ public class GlobCache {
         .setDirectoryFilter(childDirectoryPredicate)
         .setThreadPool(globExecutor)
         .setFilesystemCalls(syscalls)
-        .globAsync(true);
+        .globAsync();
   }
 
   /**

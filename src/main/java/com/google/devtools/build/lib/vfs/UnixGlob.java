@@ -60,30 +60,29 @@ public final class UnixGlob {
   private UnixGlob() {}
 
   private static List<Path> globInternal(Path base, Collection<String> patterns,
-                                         boolean excludeDirectories,
-                                         Predicate<Path> dirPred,
-                                         boolean checkForInterruption,
-                                         FilesystemCalls syscalls,
-                                         ThreadPoolExecutor threadPool)
+      boolean excludeDirectories,
+      Predicate<Path> dirPred,
+      FilesystemCalls syscalls,
+      ThreadPoolExecutor threadPool)
       throws IOException, InterruptedException {
-    GlobVisitor visitor =
-        (threadPool == null)
-            ? new GlobVisitor(checkForInterruption)
-            : new GlobVisitor(threadPool, checkForInterruption);
+    GlobVisitor visitor = new GlobVisitor(threadPool);
     return visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
+  }
+
+  private static List<Path> globInternalUninterruptible(Path base, Collection<String> patterns,
+      boolean excludeDirectories, Predicate<Path> dirPred, FilesystemCalls syscalls,
+      ThreadPoolExecutor threadPool) throws IOException {
+    GlobVisitor visitor = new GlobVisitor(threadPool);
+    return visitor.globUninterruptible(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
   private static long globInternalAndReturnNumGlobTasksForTesting(
       Path base, Collection<String> patterns,
       boolean excludeDirectories,
       Predicate<Path> dirPred,
-      boolean checkForInterruption,
       FilesystemCalls syscalls,
       ThreadPoolExecutor threadPool) throws IOException, InterruptedException {
-    GlobVisitor visitor =
-        (threadPool == null)
-            ? new GlobVisitor(checkForInterruption)
-            : new GlobVisitor(threadPool, checkForInterruption);
+    GlobVisitor visitor = new GlobVisitor(threadPool);
     visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
     return visitor.getNumGlobTasksForTesting();
   }
@@ -94,10 +93,9 @@ public final class UnixGlob {
       boolean excludeDirectories,
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
-      boolean checkForInterruption,
       ThreadPoolExecutor threadPool) {
     Preconditions.checkNotNull(threadPool, "%s %s", base, patterns);
-    return new GlobVisitor(threadPool, checkForInterruption)
+    return new GlobVisitor(threadPool)
         .globAsync(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
@@ -284,7 +282,7 @@ public final class UnixGlob {
   /**
    * Builder class for UnixGlob.
    *
- *
+   *
    */
   public static class Builder {
     private Path base;
@@ -378,13 +376,8 @@ public final class UnixGlob {
      * Executes the glob.
      */
     public List<Path> glob() throws IOException {
-      try {
-        return globInternal(base, patterns, excludeDirectories, pathFilter, false, syscalls.get(),
-            threadPool);
-      } catch (InterruptedException e) {
-        // cannot happen, since we told globInternal not to throw
-        throw new IllegalStateException(e);
-      }
+      return globInternalUninterruptible(base, patterns, excludeDirectories, pathFilter,
+          syscalls.get(), threadPool);
     }
 
     /**
@@ -393,7 +386,7 @@ public final class UnixGlob {
      * @throws InterruptedException if the thread is interrupted.
      */
     public List<Path> globInterruptible() throws IOException, InterruptedException {
-      return globInternal(base, patterns, excludeDirectories, pathFilter, true, syscalls.get(),
+      return globInternal(base, patterns, excludeDirectories, pathFilter, syscalls.get(),
           threadPool);
     }
 
@@ -401,23 +394,20 @@ public final class UnixGlob {
     public long globInterruptibleAndReturnNumGlobTasksForTesting()
         throws IOException, InterruptedException {
       return globInternalAndReturnNumGlobTasksForTesting(base, patterns, excludeDirectories,
-          pathFilter, true, syscalls.get(), threadPool);
+          pathFilter, syscalls.get(), threadPool);
     }
 
     /**
      * Executes the glob asynchronously. {@link #setThreadPool} must have been called already with a
      * non-null argument.
-     *
-     * @param checkForInterrupt if the returned future may throw InterruptedException.
      */
-    public Future<List<Path>> globAsync(boolean checkForInterrupt) {
+    public Future<List<Path>> globAsync() {
       return globAsyncInternal(
           base,
           patterns,
           excludeDirectories,
           pathFilter,
           syscalls.get(),
-          checkForInterrupt,
           threadPool);
     }
   }
@@ -427,17 +417,10 @@ public final class UnixGlob {
    */
   private static class GlobFuture extends ForwardingListenableFuture<List<Path>> {
     private final GlobVisitor visitor;
-    private final boolean checkForInterrupt;
     private final SettableFuture<List<Path>> delegate = SettableFuture.create();
 
-    public GlobFuture(GlobVisitor visitor, boolean interruptible) {
+    public GlobFuture(GlobVisitor visitor) {
       this.visitor = visitor;
-      this.checkForInterrupt = interruptible;
-    }
-
-    @Override
-    public List<Path> get() throws InterruptedException, ExecutionException {
-      return checkForInterrupt ? super.get() : Uninterruptibles.getUninterruptibly(delegate());
     }
 
     @Override
@@ -483,39 +466,44 @@ public final class UnixGlob {
     private final AtomicReference<Error> error = new AtomicReference<>();
     private volatile boolean canceled = false;
 
-    GlobVisitor(
-        ThreadPoolExecutor executor,
-        boolean failFastOnInterrupt) {
+    GlobVisitor(ThreadPoolExecutor executor) {
       this.executor = executor;
-      this.result = new GlobFuture(this, failFastOnInterrupt);
-    }
-
-    GlobVisitor(boolean failFastOnInterrupt) {
-      this(null, failFastOnInterrupt);
+      this.result = new GlobFuture(this);
     }
 
     /**
-     * Performs wildcard globbing: returns the list of filenames that match any of
-     * {@code patterns} relative to {@code base}. Directories are traversed if and only if they
-     * match {@code dirPred}. The predicate is also called for the root of the traversal. The order
-     * of the returned list is unspecified.
+     * Performs wildcard globbing: returns the list of filenames that match any of {@code patterns}
+     * relative to {@code base}. Directories are traversed if and only if they match {@code
+     * dirPred}. The predicate is also called for the root of the traversal. The order of the
+     * returned list is unspecified.
      *
      * <p>Patterns may include "*" and "?", but not "[a-z]".
      *
-     * <p><code>**</code> gets special treatment in include patterns. If it is
-     * used as a complete path segment it matches the filenames in
-     * subdirectories recursively.
+     * <p><code>**</code> gets special treatment in include patterns. If it is used as a complete
+     * path segment it matches the filenames in subdirectories recursively.
      *
-     * @throws IllegalArgumentException if any glob pattern
-     *         {@linkplain #checkPatternForError(String) contains errors} or if any include pattern
-     *         segment contains <code>**</code> but not equal to it.
+     * @throws IllegalArgumentException if any glob pattern {@linkplain
+     *     #checkPatternForError(String) contains errors} or if any include pattern segment contains
+     *     <code>**</code> but not equal to it.
      */
-    public List<Path> glob(Path base, Collection<String> patterns,
-                           boolean excludeDirectories, Predicate<Path> dirPred,
-                           FilesystemCalls syscalls)
+    List<Path> glob(Path base, Collection<String> patterns, boolean excludeDirectories,
+        Predicate<Path> dirPred, FilesystemCalls syscalls)
         throws IOException, InterruptedException {
       try {
         return globAsync(base, patterns, excludeDirectories, dirPred, syscalls).get();
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        Throwables.propagateIfPossible(cause, IOException.class);
+        throw new RuntimeException(e);
+      }
+    }
+
+    List<Path> globUninterruptible(Path base, Collection<String> patterns,
+        boolean excludeDirectories, Predicate<Path> dirPred, FilesystemCalls syscalls)
+        throws IOException {
+      try {
+        return Uninterruptibles.getUninterruptibly(
+            globAsync(base, patterns, excludeDirectories, dirPred, syscalls));
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
         Throwables.propagateIfPossible(cause, IOException.class);
