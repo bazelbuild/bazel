@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -1077,7 +1078,7 @@ public class CppLinkActionBuilder {
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
     // from there, otherwise, use no execution info.
     // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-    Map<String, String> executionRequirements = new HashMap<>();
+    Map<String, String> executionRequirements = new LinkedHashMap<>();
 
     if (featureConfiguration.actionIsConfigured(getActionName())) {
       for (String req : featureConfiguration.getToolRequirementsForAction(getActionName())) {

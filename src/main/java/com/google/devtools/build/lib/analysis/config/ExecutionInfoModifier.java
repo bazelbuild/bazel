@@ -15,7 +15,11 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
@@ -26,26 +30,31 @@ import java.util.regex.Pattern;
  * Represents a list of regexes over mnemonics and changes to add or remove keys, parsed from a
  * {@code --modify_execution_info} option.
  */
-public final class ExecutionInfoModifier {
+@AutoValue
+public abstract class ExecutionInfoModifier {
 
   private static final Pattern MODIFIER_PATTERN =
       Pattern.compile("^(?<pattern>.+)=(?<sign>[+-])(?<key>.+)$");
 
-  private final ImmutableList<Expression> expressions;
-  private final String option;
+  private static final ExecutionInfoModifier EMPTY = create("", ImmutableList.of());
+
+  abstract String option();
+  abstract ImmutableList<Expression> expressions();
 
   @AutoValue
   abstract static class Expression {
-    abstract Pattern pattern();
+    // Patterns do not have a useful equals(), so compare by the regex and memoize the derived
+    // Pattern.
+    @Memoized
+    Pattern pattern() {
+      return Pattern.compile(regex());
+    }
+
+    abstract String regex();
 
     abstract boolean remove();
 
     abstract String key();
-  }
-
-  private ExecutionInfoModifier(String option, ImmutableList<Expression> expressions) {
-    this.expressions = expressions;
-    this.option = option;
   }
 
   /** Constructs an instance of ExecutionInfoModifier by parsing an option string. */
@@ -53,13 +62,12 @@ public final class ExecutionInfoModifier {
       implements com.google.devtools.common.options.Converter<ExecutionInfoModifier> {
     @Override
     public ExecutionInfoModifier convert(String input) throws OptionsParsingException {
-
-      String[] expressionSpecs = input.split(",");
-      if (expressionSpecs.length == 0) {
-        throw new OptionsParsingException("expected 'regex=[+-]key,regex=[+-]key,...'", input);
+      if (Strings.isNullOrEmpty(input)) {
+        return EMPTY;
       }
+
       ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
-      for (String spec : expressionSpecs) {
+      for (String spec : Splitter.on(",").split(input)) {
         Matcher specMatcher = MODIFIER_PATTERN.matcher(spec);
         if (!specMatcher.matches()) {
           throw new OptionsParsingException(
@@ -67,11 +75,13 @@ public final class ExecutionInfoModifier {
         }
         expressionBuilder.add(
             new AutoValue_ExecutionInfoModifier_Expression(
-                new RegexPatternConverter().convert(specMatcher.group("pattern")),
+                // Convert to get a useful exception if it's not a valid pattern, but use the regex
+                // (see comment in Expression)
+                new RegexPatternConverter().convert(specMatcher.group("pattern")).pattern(),
                 specMatcher.group("sign").equals("-"),
                 specMatcher.group("key")));
       }
-      return new ExecutionInfoModifier(input, expressionBuilder.build());
+      return ExecutionInfoModifier.create(input, expressionBuilder.build());
     }
 
     @Override
@@ -80,16 +90,20 @@ public final class ExecutionInfoModifier {
     }
   }
 
+  private static ExecutionInfoModifier create(String input, ImmutableList<Expression> expressions) {
+    return new AutoValue_ExecutionInfoModifier(input, expressions);
+  }
+
   /**
    * Determines whether the given {@code mnemonic} (e.g. "CppCompile") matches any of the patterns.
    */
   public boolean matches(String mnemonic) {
-    return expressions.stream().anyMatch(expr -> expr.pattern().matcher(mnemonic).matches());
+    return expressions().stream().anyMatch(expr -> expr.pattern().matcher(mnemonic).matches());
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */
   void apply(String mnemonic, Map<String, String> executionInfo) {
-    for (Expression expr : expressions) {
+    for (Expression expr : expressions()) {
       if (expr.pattern().matcher(mnemonic).matches()) {
         if (expr.remove()) {
           executionInfo.remove(expr.key());
@@ -98,10 +112,5 @@ public final class ExecutionInfoModifier {
         }
       }
     }
-  }
-
-  @Override
-  public String toString() {
-    return option;
   }
 }
