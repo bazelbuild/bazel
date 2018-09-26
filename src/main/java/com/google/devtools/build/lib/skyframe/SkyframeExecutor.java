@@ -124,6 +124,7 @@ import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.PathResolverFactory;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.FileFunction.NonexistentFileReceiver;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
 import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCacheEntry;
@@ -311,6 +312,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private static final Logger logger = Logger.getLogger(SkyframeExecutor.class.getName());
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
+  @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
 
   /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
   public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
@@ -366,13 +368,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       BuildOptions defaultBuildOptions,
       @Nullable PackageProgressReceiver packageProgress,
       MutableArtifactFactorySupplier artifactResolverSupplier,
-      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
+      @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
+      @Nullable NonexistentFileReceiver nonexistentFileReceiver) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
     this.pkgFactory = pkgFactory;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
+    this.nonexistentFileReceiver = nonexistentFileReceiver;
     this.pkgFactory.setSyscalls(syscalls);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager = new SkyframePackageManager(
@@ -434,7 +438,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new FileSymlinkCycleUniquenessFunction());
     map.put(SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
-    map.put(FileValue.FILE, new FileFunction(pkgLocator));
+    map.put(FileValue.FILE, new FileFunction(pkgLocator, nonexistentFileReceiver));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
