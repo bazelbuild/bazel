@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -306,7 +305,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(rawProfileArtifact)
-            .addTransitiveInputs(getFiles(ruleContext, "all_files"))
+            .addTransitiveInputs(getMiddlemanOrFiles(ruleContext, "all_files"))
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(toolchainInfo.getToolPathFragment(Tool.LLVM_PROFDATA))
@@ -439,17 +438,20 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     final Label label = ruleContext.getLabel();
     final NestedSet<Artifact> crosstool = ruleContext.getPrerequisite("all_files", Mode.HOST)
         .getProvider(FileProvider.class).getFilesToBuild();
-    final NestedSet<Artifact> crosstoolMiddleman = getFiles(ruleContext, "all_files");
-    final NestedSet<Artifact> compile = getFiles(ruleContext, "compiler_files");
+    final NestedSet<Artifact> crosstoolMiddleman = getMiddlemanOrFiles(ruleContext, "all_files");
+    final NestedSet<Artifact> compile = getMiddlemanOrFiles(ruleContext, "compiler_files");
     final NestedSet<Artifact> compileWithoutIncludes =
-        getOptionalFiles(ruleContext, "compiler_files_without_includes");
-    final NestedSet<Artifact> strip = getFiles(ruleContext, "strip_files");
-    final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
-    final NestedSet<Artifact> as = getOptionalFiles(ruleContext, "as_files");
-    final NestedSet<Artifact> ar = getOptionalFiles(ruleContext, "ar_files");
-    final NestedSet<Artifact> link = getFiles(ruleContext, "linker_files");
-    final NestedSet<Artifact> dwp = getFiles(ruleContext, "dwp_files");
-    final NestedSet<Artifact> libcLink = inputsForLibc(ruleContext);
+        getOptionalMiddlemanOrFiles(ruleContext, "compiler_files_without_includes");
+    final NestedSet<Artifact> strip = getMiddlemanOrFiles(ruleContext, "strip_files");
+    final NestedSet<Artifact> objcopy = getMiddlemanOrFiles(ruleContext, "objcopy_files");
+    final NestedSet<Artifact> as = getOptionalMiddlemanOrFiles(ruleContext, "as_files");
+    final NestedSet<Artifact> ar = getOptionalMiddlemanOrFiles(ruleContext, "ar_files");
+    final NestedSet<Artifact> link = getMiddlemanOrFiles(ruleContext, "linker_files");
+    final NestedSet<Artifact> dwp = getMiddlemanOrFiles(ruleContext, "dwp_files");
+    final NestedSet<Artifact> libcMiddleman =
+        getOptionalMiddlemanOrFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
+    final NestedSet<Artifact> libc =
+        getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
     String purposePrefix = Actions.escapeLabel(label) + "_";
     String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
     final PathFragment runtimeSolibDir =
@@ -539,7 +541,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.compileOrder();
 
-    NestedSet<Artifact> coverage = getOptionalFiles(ruleContext, "coverage_files");
+    NestedSet<Artifact> coverage = getOptionalMiddlemanOrFiles(ruleContext, "coverage_files");
     if (coverage.isEmpty()) {
       coverage = crosstool;
     }
@@ -599,18 +601,21 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             toolchainInfo,
             cppConfiguration.getCrosstoolTopPathFragment(),
             crosstool,
-            fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
+            /* crosstoolMiddleman= */ NestedSetBuilder.<Artifact>stableOrder()
+                .addTransitive(crosstoolMiddleman)
+                .addTransitive(libcMiddleman)
+                .build(),
             compile,
             compileWithoutIncludes,
             strip,
             objcopy,
             as,
             ar,
-            fullInputsForLink(ruleContext, link),
+            fullInputsForLink(ruleContext, link, libcMiddleman),
             ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST),
             dwp,
             coverage,
-            libcLink,
+            libc,
             staticRuntimeLinkInputs,
             staticRuntimeLinkMiddleman,
             dynamicRuntimeLinkSymlinks,
@@ -620,7 +625,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             supportsParamFiles,
             supportsHeaderParsing,
             getBuildVariables(ruleContext, toolchainInfo.getDefaultSysroot()),
-            getBuiltinIncludes(ruleContext),
+            getBuiltinIncludes(libc),
             coverageEnvironment.build(),
             toolchainInfo.supportsInterfaceSharedObjects()
                 ? ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST)
@@ -812,9 +817,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     }
   }
 
-  private ImmutableList<Artifact> getBuiltinIncludes(RuleContext ruleContext) {
+  private ImmutableList<Artifact> getBuiltinIncludes(NestedSet<Artifact> libc) {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (Artifact artifact : inputsForLibc(ruleContext)) {
+    for (Artifact artifact : libc) {
       if (artifact.getExecPath().endsWith(BUILTIN_INCLUDE_FILE_SUFFIX)) {
         result.add(artifact);
       }
@@ -823,36 +828,20 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return result.build();
   }
 
-  private NestedSet<Artifact> inputsForLibc(RuleContext ruleContext) {
-    TransitiveInfoCollection libc =
-        ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET);
-    return libc != null
-        ? libc.getProvider(FileProvider.class).getFilesToBuild()
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-  }
-
-  private NestedSet<Artifact> fullInputsForCrosstool(RuleContext ruleContext,
-      NestedSet<Artifact> crosstoolMiddleman) {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(crosstoolMiddleman)
-        .addTransitive(
-            AnalysisUtils.getMiddlemanFor(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET))
-        .build();
-  }
-
   /**
    * Returns the crosstool-derived link action inputs for a given rule. Adds the given set of
    * artifacts as extra inputs.
    */
-  protected NestedSet<Artifact> fullInputsForLink(
-      RuleContext ruleContext, NestedSet<Artifact> link) {
-    return NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(link)
-        .addTransitive(
-            AnalysisUtils.getMiddlemanFor(ruleContext, CcToolchainRule.LIBC_TOP_ATTR, Mode.TARGET))
-        .add(ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST))
-        .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST))
-        .build();
+  private NestedSet<Artifact> fullInputsForLink(
+      RuleContext ruleContext, NestedSet<Artifact> link, NestedSet<Artifact> libcLink) {
+    NestedSetBuilder<Artifact> builder =
+        NestedSetBuilder.<Artifact>stableOrder().addTransitive(link).addTransitive(libcLink);
+    if (!isAppleToolchain()) {
+      builder
+          .add(ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST))
+          .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST));
+    }
+    return builder.build();
   }
 
   private CppModuleMap createCrosstoolModuleMap(RuleContext ruleContext) {
@@ -877,8 +866,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return ruleContext.getPrerequisites(attribute, Mode.TARGET).get(0);
   }
 
-  private NestedSet<Artifact> getFiles(RuleContext context, String attribute) {
-    TransitiveInfoCollection dep = context.getPrerequisite(attribute, Mode.HOST);
+  private NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {
+    return getMiddlemanOrFiles(context, attribute, Mode.HOST);
+  }
+
+  private NestedSet<Artifact> getMiddlemanOrFiles(
+      RuleContext context, String attribute, Mode mode) {
+    TransitiveInfoCollection dep = context.getPrerequisite(attribute, mode);
     MiddlemanProvider middlemanProvider = dep.getProvider(MiddlemanProvider.class);
     // We use the middleman if we can (if the dep is a filegroup), otherwise, just the regular
     // filesToBuild (e.g. if it is a simple input file)
@@ -887,10 +881,23 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         : dep.getProvider(FileProvider.class).getFilesToBuild();
   }
 
-  private NestedSet<Artifact> getOptionalFiles(RuleContext context, String attribute) {
-    TransitiveInfoCollection dep = context.getPrerequisite(attribute, Mode.HOST);
+  private NestedSet<Artifact> getOptionalMiddlemanOrFiles(RuleContext context, String attribute) {
+    return getOptionalMiddlemanOrFiles(context, attribute, Mode.HOST);
+  }
+
+  private NestedSet<Artifact> getOptionalMiddlemanOrFiles(
+      RuleContext context, String attribute, Mode mode) {
+    TransitiveInfoCollection dep = context.getPrerequisite(attribute, mode);
     return dep != null
-        ? getFiles(context, attribute)
+        ? getMiddlemanOrFiles(context, attribute, mode)
+        : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  private NestedSet<Artifact> getOptionalFiles(
+      RuleContext ruleContext, String attribute, Mode mode) {
+    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, mode);
+    return dep != null
+        ? dep.getProvider(FileProvider.class).getFilesToBuild()
         : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
@@ -943,21 +950,26 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       variables.addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
     }
 
-    addBuildVariables(ruleContext, variables);
+    variables.addAllNonTransitive(getAdditionalBuildVariables(ruleContext));
 
     return variables.build();
   }
 
   /**
-   * Add local build variables from subclasses into {@link
-   * com.google.devtools.build.lib.rules.cpp.CcToolchainVariables} returned from {@link
-   * #getBuildVariables(RuleContext, PathFragment)}.
+   * Add local build variables from subclasses into {@link CcToolchainVariables} returned from
+   * {@link CcToolchain#getBuildVariables(RuleContext, PathFragment)}.
    *
    * <p>This method is meant to be overridden by subclasses of CcToolchain.
    */
-  protected void addBuildVariables(RuleContext ruleContext, CcToolchainVariables.Builder variables)
+  protected boolean isAppleToolchain() {
+    // To be overridden in subclass.
+    return false;
+  }
+
+  protected CcToolchainVariables getAdditionalBuildVariables(RuleContext ruleContext)
       throws RuleErrorException {
-    // To be overridden in subclasses.
+    // To be overridden in subclass.
+    return CcToolchainVariables.EMPTY;
   }
 
   private PathFragment calculateSysroot(RuleContext ruleContext, PathFragment defaultSysroot) {
