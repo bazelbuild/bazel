@@ -947,4 +947,12 @@ function test_nobuild() {
   expect_log 'reason: NO_BUILD'
 }
 
+function test_server_pid() {
+  bazel build --test_output=all --build_event_text_file=bep.txt \
+    || fail "Build failed but should have succeeded"
+  cat bep.txt | grep server_pid >> "$TEST_log"
+  expect_log_once "server_pid:.*$(bazel info server_pid)$"
+  rm bep.txt
+}
+
 run_suite "Integration tests for the build event stream"
