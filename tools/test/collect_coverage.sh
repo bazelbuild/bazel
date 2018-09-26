@@ -25,15 +25,6 @@
 # Script expects that it will be started in the execution root directory and
 # not in the test's runfiles directory.
 
-if [[ -z "$LCOV_MERGER" ]]; then
-  echo --
-  echo "Coverage collection running in legacy mode."
-  echo "Legacy mode only supports C++ and even then, it's very brittle."
-  COVERAGE_LEGACY_MODE=1
-else
-  COVERAGE_LEGACY_MODE=
-fi
-
 if [[ -z "$COVERAGE_MANIFEST" ]]; then
   echo --
   echo Coverage runner: \$COVERAGE_MANIFEST is not set
@@ -87,7 +78,7 @@ export GCOV_PREFIX_STRIP=3
 export GCOV_PREFIX="${COVERAGE_DIR}"
 export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 
-# TODO(iirina): cd should be avoided.
+# TODO(bazel-team): cd should be avoided.
 cd "$TEST_SRCDIR/$TEST_WORKSPACE"
 # Execute the test.
 "$@"
@@ -104,9 +95,10 @@ if [[ $TEST_STATUS -ne 0 ]]; then
   exit $TEST_STATUS
 fi
 
-# TODO(iirina): cd should be avoided.
+# TODO(bazel-team): cd should be avoided.
 cd $ROOT
 
+# Call the C++ code coverage collection script.
 if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
     eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
