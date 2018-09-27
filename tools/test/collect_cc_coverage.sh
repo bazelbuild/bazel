@@ -116,12 +116,12 @@ function gcov_coverage() {
   # We'll save the standard output of each the gcov command in this log.
   local gcov_log="$output_file.gcov.log"
 
-  # Move .gcno files in $COVERAGE_DIR as the gcda files, because gcov
-  # expects them to be under the same directory.
+  # Copy .gcno files next to their corresponding .gcda files in $COVERAGE_DIR
+  # because gcov expects them to be in the same directory.
   cat "${COVERAGE_MANIFEST}" | grep ".gcno$" | while read gcno_path; do
 
     local gcda="${COVERAGE_DIR}/$(dirname ${gcno_path})/$(basename ${gcno_path} .gcno).gcda"
-    # If the gcda file was not found we generate empty coverage from the gcno
+    # If the gcda file was not found we skip generating coverage from the gcno
     # file.
     if [[ -f "$gcda" ]]; then
         # gcov expects both gcno and gcda files to be in the same directory.
@@ -149,7 +149,7 @@ function gcov_coverage() {
         "${GCOV}" -i -b -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
 
         # Go through all the files that were created by the gcov command above
-        # and copy them in the output .gcov file.
+        # and append their content to the output .gcov file.
         #
         # For each source file gcov outputs to stdout something like this:
         #

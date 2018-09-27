@@ -66,7 +66,7 @@ EOF
 
 # Returns 0 if gcov is not installed or if a version before 7.0 was found.
 # Returns 1 otherwise.
-function is_gcov_right_version_installed() {
+function is_gcov_uninstalled_or_wrong_version() {
   local -r gcov_location=$(which gcov)
   if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
     echo "gcov not installed."
@@ -156,7 +156,7 @@ end_of_record"
 }
 
 function test_cc_test_coverage_gcov() {
-  if is_gcov_right_version_installed; then
+  if is_gcov_uninstalled_or_wrong_version; then
     echo "Skipping test." && return
   fi
 
@@ -200,7 +200,7 @@ end_of_record"
 }
 
 function test_cc_test_gcov_multiple_headers() {
-  if is_gcov_right_version_installed; then
+  if is_gcov_uninstalled_or_wrong_version; then
     echo "Skipping test." && return
   fi
 
@@ -325,7 +325,7 @@ end_of_record"
 }
 
 function test_cc_test_gcov_multiple_headers_instrument_test_target() {
-  if is_gcov_right_version_installed; then
+  if is_gcov_uninstalled_or_wrong_version; then
     echo "Skipping test." && return
   fi
 
@@ -449,7 +449,7 @@ end_of_record"
 }
 
 function test_cc_test_gcov_same_header_different_libs() {
-  if is_gcov_right_version_installed; then
+  if is_gcov_uninstalled_or_wrong_version; then
     echo "Skipping test." && return
   fi
 
@@ -607,7 +607,7 @@ end_of_record"
 }
 
 function test_cc_test_gcov_same_header_different_libs_multiple_exec() {
-  if is_gcov_right_version_installed; then
+  if is_gcov_uninstalled_or_wrong_version; then
     echo "Skipping test." && return
   fi
 
