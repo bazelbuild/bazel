@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 
-/** Info object representing data about a specific platform. */
+/** Info object representing data about a specific toolchain type. */
 @SkylarkModule(
     name = "ToolchainTypeInfo",
     doc =
