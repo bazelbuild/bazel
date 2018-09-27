@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -153,7 +155,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getConfiguration())
             .fromCommon(common)
             .addLinkopts(common.getLinkopts())
-            .enableInterfaceSharedObjects()
+            .emitInterfaceSharedObjects(true)
             .setAlwayslink(alwaysLink)
             .setNeverLink(neverLink)
             .addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
@@ -258,6 +260,37 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
+      if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+        // If windows_export_all_symbols feature is enabled, bazel parses object files to generate
+        // DEF file and use it to export symbols. The generated DEF file won't be used if a custom
+        // DEF file is specified by win_def_file attribute.
+        if (CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
+          try {
+            Artifact generatedDefFile =
+                CppHelper.createDefFileActions(
+                    ruleContext,
+                    ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST),
+                    ccCompilationOutputs.getObjectFiles(false),
+                    ccToolchain
+                        .getFeatures()
+                        .getArtifactNameForCategory(
+                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
+            linkingHelper.setDefFile(generatedDefFile);
+          } catch (InvalidConfigurationException e) {
+            ruleContext.throwWithRuleError(e.getMessage());
+            throw new IllegalStateException("Should not be reached");
+          }
+        }
+
+        // If user specifies a custom DEF file, then we use this one instead of the generated one.
+        Artifact customDefFile = null;
+        if (ruleContext.isAttrDefined("win_def_file", LABEL)) {
+          customDefFile = ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+          if (customDefFile != null) {
+            linkingHelper.setDefFile(customDefFile);
+          }
+        }
+      }
       ccLinkingOutputs = linkingHelper.link(ccCompilationOutputs);
     }
 

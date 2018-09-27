@@ -474,6 +474,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:lib', '-s', '--output_groups=dynamic_library',
         '--features=windows_export_all_symbols'
     ])
+    self.AssertExitCode(exit_code, 0, stderr)
 
     bazel_bin = self.getBazelInfo('bazel-bin')
     lib_if = os.path.join(bazel_bin, 'lib.if.lib')
