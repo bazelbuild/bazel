@@ -346,9 +346,8 @@ function test_cc_test_coverage_lcov() {
     assert_lcov_coverage_srcs_t_cc "$output_file"
     assert_lcov_coverage_srcs_b_h "$output_file"
 
-    # The expected total number of lines of output file is 25. This assertion
-    # is needed to make sure no other source files are included in the output
-    # file.
+    # This assertion is needed to make sure no other source files are included
+    # in the output file.
     local nr_lines="$(wc -l < "$output_file")"
     [[ "$nr_lines" == 37 ]] || \
       fail "Number of lines in C++ lcov coverage output file is "\
@@ -380,9 +379,8 @@ function test_cc_test_coverage_gcov() {
     assert_gcov_coverage_srcs_t_cc "$output_file"
     assert_gcov_coverage_srcs_b_h "$output_file"
 
-    # The expected total number of lines of output file is 13. This assertion
-    # is needed to make sure no other source files are included in the output
-    # file.
+    # This assertion is needed to make sure no other source files are included
+    # in the output file.
     local nr_lines="$(wc -l < "$output_file")"
     [[ "$nr_lines" == 21 ]] || \
       fail "Number of lines in C++ gcov coverage output file is "\
