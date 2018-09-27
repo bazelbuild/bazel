@@ -79,6 +79,7 @@ public class ProtoCompileActionBuilder {
   private boolean hasServices;
   private Iterable<String> additionalCommandLineArguments;
   private Iterable<FilesToRunProvider> additionalTools;
+  private boolean checkStrictImportPublic;
 
   public ProtoCompileActionBuilder allowServices(boolean hasServices) {
     this.hasServices = hasServices;
@@ -120,6 +121,11 @@ public class ProtoCompileActionBuilder {
   public ProtoCompileActionBuilder setAdditionalTools(
       Iterable<FilesToRunProvider> additionalTools) {
     this.additionalTools = additionalTools;
+    return this;
+  }
+
+  public ProtoCompileActionBuilder checkStrictImportPublic(boolean checkStrictImportPublic) {
+    this.checkStrictImportPublic = checkStrictImportPublic;
     return this;
   }
 
@@ -314,6 +320,19 @@ public class ProtoCompileActionBuilder {
 
     if (!hasServices) {
       result.add("--disallow_services");
+    }
+    if (checkStrictImportPublic) {
+      NestedSet<Artifact> protosInExports = supportData.getProtosInExports();
+      if (protosInExports.isEmpty()) {
+        // This line is necessary to trigger the check.
+        result.add("--allowed_public_imports=");
+      } else {
+        result.addAll(
+            "--allowed_public_imports",
+            VectorArg.join(":")
+                .each(protosInExports)
+                .mapped(new ExpandToPathFn(supportData.getTransitiveProtoPathFlags())));
+      }
     }
 
     if (additionalCommandLineArguments != null) {
