@@ -124,6 +124,7 @@ class ArmCrosstools {
         .addCompilationModeFlags(CompilationModeFlags.newBuilder()
             .setMode(CompilationMode.DBG)
             .addCompilerFlag("-O0")
+            .addCompilerFlag("-g")
             .addCompilerFlag("-UNDEBUG")
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
