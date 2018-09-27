@@ -127,10 +127,21 @@ public class SymlinkAction extends AbstractAction {
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create symbolic link '"
           + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-          + "' to the '" + Iterables.getOnlyElement(getInputs()).prettyPrint()
+          + "' to '" + printInputs()
           + "' due to I/O error: " + e.getMessage(), e, this, false);
     }
     return ActionResult.EMPTY;
+  }
+
+  private String printInputs() {
+    if (Iterables.isEmpty(getInputs())) {
+      return inputPath.getPathString();
+    } else if (Iterables.size(getInputs()) == 1){
+      return Iterables.getOnlyElement(getInputs()).prettyPrint();
+    } else {
+      throw new IllegalStateException(
+          "Inputs unexpectedly contains more than 1 element: " + getInputs());
+    }
   }
 
   @Override
