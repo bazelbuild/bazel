@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -145,7 +144,13 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
   private void testDisablingLinkingApiMethod(String method) throws Exception {
     useConfiguration("--experimental_disable_legacy_cc_linking_api");
-    scratch.file(
+    testDisablingLinkingApiMethodWithConfiguration(method);
+    useConfiguration("--incompatible_disable_legacy_flags_cc_toolchain_api");
+    testDisablingLinkingApiMethodWithConfiguration(method);
+  }
+
+  private void testDisablingLinkingApiMethodWithConfiguration(String method) throws Exception {
+    scratch.overwriteFile(
         "test/rule.bzl",
         "def _impl(ctx):",
         "  provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
@@ -158,18 +163,15 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "  fragments = [ 'cpp' ],",
         "  attrs = {'_cc_toolchain': attr.label(default=Label('//test:toolchain')) }",
         ")");
-    scratch.file(
+    scratch.overwriteFile(
         "test/BUILD",
         "load(':rule.bzl', 'my_rule')",
         "cc_toolchain_alias(name = 'toolchain')",
         "my_rule(name = 'target')");
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:target"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Skylark APIs accessing linking flags has been removed. "
-                + "Use the new API on cc_common.");
+    invalidatePackages();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:target");
+    assertContainsEvent("Skylark APIs accessing linking flags has been removed.");
   }
 
   @Test
@@ -214,7 +216,13 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
   private void testDisablingCompilationApiMethod(String method) throws Exception {
     useConfiguration("--experimental_disable_legacy_cc_compilation_api");
-    scratch.file(
+    testDisablingCompilationApiMethodWithConfiguration(method);
+    useConfiguration("--incompatible_disable_legacy_flags_cc_toolchain_api");
+    testDisablingCompilationApiMethodWithConfiguration(method);
+  }
+
+  private void testDisablingCompilationApiMethodWithConfiguration(String method) throws Exception {
+    scratch.overwriteFile(
         "test/rule.bzl",
         "def _impl(ctx):",
         "  provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
@@ -227,18 +235,15 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "  fragments = [ 'cpp' ],",
         "  attrs = {'_cc_toolchain': attr.label(default=Label('//test:toolchain')) }",
         ")");
-    scratch.file(
+    scratch.overwriteFile(
         "test/BUILD",
         "load(':rule.bzl', 'my_rule')",
         "cc_toolchain_alias(name = 'toolchain')",
         "my_rule(name = 'target')");
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:target"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "Skylark APIs accessing compilation flags has been removed. "
-                + "Use the new API on cc_common.");
+    invalidatePackages();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:target");
+    assertContainsEvent("Skylark APIs accessing compilation flags has been removed.");
   }
 
   @Test

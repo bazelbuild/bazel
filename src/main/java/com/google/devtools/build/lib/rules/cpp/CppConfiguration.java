@@ -1212,25 +1212,34 @@ public final class CppConfiguration extends BuildConfiguration.Fragment
           null,
           "Information about the C++ toolchain API is not accessible "
               + "anymore through ctx.fragments.cpp "
-              + "(See --incompatible_disable_legacy_cpp_toolchain_skylark_api). "
+              + "(see --incompatible_disable_legacy_cpp_toolchain_skylark_api on "
+              + "http://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
+              + "#disable-legacy-c-configuration-api for migration notes). "
               + "Use CcToolchainInfo instead.");
     }
   }
 
   public void checkForLegacyCompilationApiAvailability() throws EvalException {
-    if (cppOptions.disableLegacyCompilationApi) {
+    if (cppOptions.disableLegacyCompilationApi || cppOptions.disableLegacyFlagsCcToolchainApi) {
       throw new EvalException(
           null,
           "Skylark APIs accessing compilation flags has been removed. "
-              + "Use the new API on cc_common.");
+              + "Use the new API on cc_common (see "
+              + "--incompatible_disable_legacy_flags_cc_toolchain_api on"
+              + "https://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
+              + "#disable-legacy-c-toolchain-api for migration notes).");
     }
   }
 
   public void checkForLegacyLinkingApiAvailability() throws EvalException {
-    if (cppOptions.disableLegacyLinkingApi) {
+    if (cppOptions.disableLegacyLinkingApi || cppOptions.disableLegacyFlagsCcToolchainApi) {
       throw new EvalException(
           null,
-          "Skylark APIs accessing linking flags has been removed. Use the new API on cc_common.");
+          "Skylark APIs accessing linking flags has been removed. "
+              + "Use the new API on cc_common (see "
+              + "--incompatible_disable_legacy_flags_cc_toolchain_api on"
+              + "https://docs.bazel.build/versions/master/skylark/backward-compatibility.html"
+              + "#disable-legacy-c-toolchain-api for migration notes).");
     }
   }
 
