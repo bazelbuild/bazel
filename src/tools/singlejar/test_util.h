@@ -15,7 +15,6 @@
 // limitations under the License.
 
 #include <string>
-#include <vector>
 
 #include "tools/cpp/runfiles/runfiles.h"
 
