@@ -111,7 +111,7 @@ public class BazelRuleClassProvider {
   public static class StrictActionEnvOptions extends FragmentOptions {
     @Option(
         name = "experimental_strict_action_env",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =

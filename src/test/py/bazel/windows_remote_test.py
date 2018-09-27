@@ -33,7 +33,6 @@ class WindowsRemoteTest(test_base.TestBase):
             '--define=EXECUTOR=remote',
             '--remote_executor=localhost:' + str(self._worker_port),
             '--remote_cache=localhost:' + str(self._worker_port),
-            '--experimental_strict_action_env=true',
             '--remote_timeout=3600',
             '--auth_enabled=false',
             '--remote_accept_cached=false',
