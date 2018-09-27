@@ -1354,7 +1354,6 @@ public final class CcCompilationHelper {
         ImmutableList.Builder new_copts = ImmutableList.builder();
         new_copts.addAll(copts);
         if (module != null) {
-          System.out.println("DEBUG: rule '" + ruleContext.getRule().getName() + "' adding module: " + module.getExecPathString());
           new_copts.add("-fmodule-map-file=" + module.getExecPathString());
         }
         setCopts(new_copts.build());
