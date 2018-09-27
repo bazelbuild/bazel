@@ -49,12 +49,5 @@ namespace singlejar_test_util {
   // return file's path.
   string CreateTextFile(const string& file_path, const char *contents);
 
-  using bazel::tools::cpp::runfiles::Runfiles;
-  // Pointer to Bazel Runfiles object.
-  extern Runfiles* runfiles;
-
 }  // namespace singlejar_test_util
 #endif  //  SRC_TOOLS_SINGLEJAR_TEST_UTIL_H_
-
-// Custom main entry to set up Bazel Runfiles and Googletest.
-int main(int argc, char** argv);

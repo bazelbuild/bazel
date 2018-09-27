@@ -135,19 +135,4 @@ string CreateTextFile(const string& relpath, const char *contents) {
   return string("");
 }
 
-Runfiles* runfiles = nullptr;
-
 }  // namespace singlejar_test_util
-
-int main(int argc, char** argv) {
-  std::string error;
-  std::unique_ptr<singlejar_test_util::Runfiles> runfiles(
-      singlejar_test_util::Runfiles::Create(argv[0], &error));
-  if (runfiles == nullptr) {
-    perror(error.c_str());
-    exit(1);
-  }
-  singlejar_test_util::runfiles = runfiles.get();
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

@@ -125,7 +125,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -141,7 +141,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -162,7 +162,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -178,7 +178,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -190,7 +190,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -241,7 +241,7 @@ cc_test(
         ":port",
         ":test_util",
         "//src/main/cpp/util",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -253,7 +253,7 @@ cc_test(
     deps = [
         ":test_util",
         ":token_stream",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -271,7 +271,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//third_party/zlib",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -416,8 +416,9 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
-        "@bazel_tools//tools/cpp/runfiles",
-        "@com_google_googletest//:gtest",
+        # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles
+        "//tools/cpp/runfiles",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
