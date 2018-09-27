@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -40,7 +41,7 @@ import javax.annotation.Nullable;
  * representation if desired.
  */
 public class ObjectCodecRegistry {
-
+  private static final Logger logger = Logger.getLogger(ObjectCodecRegistry.class.getName());
   /** Creates a new, empty builder. */
   public static Builder newBuilder() {
     return new Builder();
@@ -91,6 +92,7 @@ public class ObjectCodecRegistry {
             .filter((str) -> isAllowed(str, blacklistedClassNamePrefixes))
             .collect(ImmutableList.toImmutableList());
     this.dynamicCodecs = createDynamicCodecs(this.classNames, nextTag);
+    logger.info("Initialized " + this + " with approximate hash: " + deepHashCode());
   }
 
   public CodecDescriptor getCodecDescriptorForObject(Object obj)
@@ -413,5 +415,38 @@ public class ObjectCodecRegistry {
     }
     throw new SerializationException.NoCodecException(
         "No default codec available for " + className, type);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("allowDefaultCodec", allowDefaultCodec)
+        .add("classMappedCodecs.size", classMappedCodecs.size())
+        .add("tagMappedCodecs.size", tagMappedCodecs.size())
+        .add("referenceConstantsStartTag", referenceConstantsStartTag)
+        .add("referenceConstants.size", referenceConstants.size())
+        .add("classNames.size", classNames.size())
+        .add("dynamicCodecs.size", dynamicCodecs.size())
+        .toString();
+  }
+
+  private int deepHashCode() {
+    int hash = this.toString().hashCode();
+    for (CodecDescriptor codecDescriptor : tagMappedCodecs) {
+      hash =
+          37 * hash
+              + 31 * codecDescriptor.getTag()
+              + hashClass(codecDescriptor.getCodec().getEncodedClass());
+    }
+    for (Object referenceConstant : referenceConstants) {
+      // This doesn't catch two reference constants of the same class that are switched,
+      // unfortunately.
+      hash = 37 * hash + hashClass(referenceConstant.getClass());
+    }
+    return 37 * hash + classNames.hashCode();
+  }
+
+  private static int hashClass(Class<?> clazz) {
+    return clazz.getName().hashCode();
   }
 }
