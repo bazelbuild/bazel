@@ -443,6 +443,28 @@ The proposal is not fully implemented yet.
 *   Flag: `--incompatible_static_name_resolution`
 *   Default: `false`
 
+### Disallow transitive loads
+
+When the flag is set, `load` can only import symbols that were explicitly
+defined in the target file, using either `=` or `def`.
+
+When the flag is unset (legacy behavior), `load` may also import symbols that
+come from other `load` statements.
+
+In other words, the `x` below is exported only if the flag is unset:
+
+```python
+load(":file.bzl", "x")
+
+y = 1
+```
+
+*   Flag: `--incompatible_no_transitive_loads`
+*   Default: `false`
+*   Introduced in: `0.19.0`
+*   Tracking issue: https://github.com/bazelbuild/bazel/issues/5636
+
+
 ### Disable InMemory Tools Defaults Package
 
 If false, Bazel constructs an in-memory `//tools/defaults` package based on the

@@ -89,7 +89,7 @@ public final class LValue extends ASTNode {
   /** Binds a variable to the given value in the environment. */
   private static void assignIdentifier(Identifier ident, Object value, Environment env)
       throws EvalException {
-    env.update(ident.getName(), value);
+    env.updateAndExport(ident.getName(), value);
   }
 
   /**
