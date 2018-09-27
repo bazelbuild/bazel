@@ -642,6 +642,10 @@ public final class CcToolchainProvider extends ToolchainInfo implements CcToolch
     return sysroot != null ? sysroot.getPathString() : null;
   }
 
+  public PathFragment getSysrootPathFragment() {
+    return sysroot;
+  }
+
   /**
    * Returns the path fragment that is either absolute or relative to the execution root that can be
    * used to execute the given tool.

@@ -19,16 +19,11 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -147,22 +142,6 @@ public final class AnalysisUtils {
     PathFragment manifestDir = filesetDir.replaceName("_" + filesetDir.getBaseName());
     PathFragment outputManifestFrag = manifestDir.getRelative("MANIFEST");
     return outputManifestFrag;
-  }
-
-  /**
-   * Returns the middleman artifact on the specified attribute of the specified rule for the
-   * specified mode, or an empty set if it does not exist.
-   */
-  public static NestedSet<Artifact> getMiddlemanFor(RuleContext rule, String attribute, Mode mode) {
-    TransitiveInfoCollection prereq = rule.getPrerequisite(attribute, mode);
-    if (prereq == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    MiddlemanProvider provider = prereq.getProvider(MiddlemanProvider.class);
-    if (provider == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return provider.getMiddlemanArtifact();
   }
 
   /**

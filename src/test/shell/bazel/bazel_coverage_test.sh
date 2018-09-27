@@ -189,6 +189,182 @@ end_of_record"
   assert_contains 'name: "baseline.lcov"' bep.txt
 }
 
+# TODO(#6254): Enable this test when #6254 is fixed.
+function SKIP_test_cc_test_coverage_gcov_virtual_includes() {
+  local -r gcov_location=$(which gcov)
+  if [[ ! -x ${gcov_location:-/usr/bin/gcov} ]]; then
+    echo "gcov not installed. Skipping test."
+    return
+  fi
+
+  "$gcov_location" -version | grep "LLVM" && \
+      echo "gcov LLVM version not supported. Skipping test." && return
+   # gcov -v | grep "gcov" outputs a line that looks like this:
+   # gcov (Debian 7.3.0-5) 7.3.0
+   local gcov_version="$(gcov -v | grep "gcov" | cut -d " " -f 4 | cut -d "." -f 1)"
+    [ "$gcov_version" -lt 7 ] \
+        && echo "gcov version before 7.0 is not supported. Skipping test." \
+        && return
+
+  ########### Setup source files and BUILD file ###########
+  mkdir -p examples/cpp
+ cat << EOF > examples/cpp/BUILD
+cc_library(
+    name = "a_header",
+    hdrs = ["foo/bar/baz/a_header.h"],
+    strip_include_prefix = "foo",
+    include_prefix = "yin/yang",
+)
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"],
+    deps = [":a_header"],
+)
+
+cc_test(
+    name = "hello-world_test",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+EOF
+  mkdir -p examples/cpp/foo/bar/baz
+  cat << EOF > examples/cpp/foo/bar/baz/a_header.h
+#include<iostream>
+using namespace std;
+
+class A {
+public:
+	void cout_whatever() const {
+		cout << "Whatever";
+	}
+};
+EOF
+
+  cat << EOF > examples/cpp/hello-lib.h
+#ifndef EXAMPLES_CPP_HELLO_LIB_H_
+#define EXAMPLES_CPP_HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+#include "yin/yang/bar/baz/a_header.h"
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::auto_ptr<const std::string> greeting_;
+};
+}  // namespace hello
+#endif  // EXAMPLES_CPP_HELLO_LIB_H_
+EOF
+
+  cat << EOF > examples/cpp/hello-lib.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+  A* a = new A();
+  a->cout_whatever();
+}
+}  // namespace hello
+EOF
+
+  cat << EOF > examples/cpp/hello-world.cc
+#include "examples/cpp/hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+EOF
+
+  ########### Run bazel coverage ###########
+  bazel coverage --experimental_cc_coverage --test_output=all //examples/cpp:hello-world_test &>"$TEST_log" \
+     || fail "Coverage for //examples/cpp:hello-world_test failed"
+
+  ########### Assert coverage results. ###########
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result_hello_lib="SF:examples/cpp/hello-lib.cc
+FN:19,_GLOBAL__sub_I_hello_lib.cc
+FN:19,_Z41__static_initialization_and_destruction_0ii
+FN:14,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FN:11,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_GLOBAL__sub_I_hello_lib.cc
+FNDA:1,_Z41__static_initialization_and_destruction_0ii
+FNDA:1,_ZN5hello8HelloLib5greetERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNDA:1,_ZN5hello8HelloLibC2ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+FNF:4
+FNH:4
+BA:11,2
+BA:19,2
+BRF:2
+BRH:2
+DA:11,1
+DA:12,1
+DA:14,1
+DA:15,1
+DA:16,1
+DA:17,1
+DA:18,1
+DA:19,3
+LH:8
+LF:8
+end_of_record"
+  assert_coverage_result "$expected_result_hello_lib" "$coverage_file_path"
+
+  local expected_result_a_header="SF:examples/cpp/foo/bar/baz/a_header.h
+FN:9,_ZNK1A13cout_whateverEv
+FNDA:1,_ZNK1A13cout_whateverEv
+FNF:1
+FNH:1
+DA:9,1
+DA:10,1
+DA:11,1
+LH:3
+LF:3
+end_of_record"
+  assert_coverage_result "$expected_result_a_header" "$coverage_file_path"
+
+  local coverage_result_hello_lib_header="SF:examples/cpp/hello-lib.h
+FN:12,_ZN5hello8HelloLibD2Ev
+FNDA:1,_ZN5hello8HelloLibD2Ev
+FNF:1
+FNH:1
+DA:12,1
+LH:1
+LF:1
+end_of_record"
+  assert_coverage_result "$coverage_result_hello_lib_header" "$coverage_file_path"
+}
+
 function test_cc_test_llvm_coverage_doesnt_fail() {
   local -r llvmprofdata=$(which llvm-profdata)
   if [[ ! -x ${llvmprofdata:-/usr/bin/llvm-profdata} ]]; then

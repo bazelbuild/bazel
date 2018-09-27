@@ -194,21 +194,6 @@ alias(
     actual = "@embedded_jdk//:jdk",
 )
 
-RELEASES = (8, 9)
-
-# Create jars containing compile-time bootclasspaths for each Java version
-# in RELEASES, using javac to read those APIs via the infrastructure added
-# for the --release flag (see http://openjdk.java.net/jeps/247).
-[
-    bootclasspath(
-        name = "platformclasspath%d" % release,
-        src = "DumpPlatformClassPath.java",
-        host_javabase = "current_java_runtime",
-        release = "%s" % release,
-    )
-    for release in RELEASES
-]
-
 bootclasspath(
     name = "platformclasspath",
     src = "DumpPlatformClassPath.java",
@@ -219,7 +204,7 @@ bootclasspath(
 
 default_java_toolchain(
     name = "toolchain_hostjdk8",
-    bootclasspath = [":platformclasspath8"],
+    bootclasspath = [":platformclasspath"],
     jvm_opts = JDK8_JVM_OPTS,
     source_version = "8",
     target_version = "8",
@@ -228,7 +213,7 @@ default_java_toolchain(
 # Default to the Java 8 language level.
 # TODO(cushon): consider if/when we should increment this?
 default_java_toolchain(
-    name = "toolchain_hostjdk9",
+    name = "toolchain",
     bootclasspath = [":platformclasspath"],
     jvm_opts = JDK9_JVM_OPTS,
     source_version = "8",
@@ -256,21 +241,18 @@ default_java_toolchain(
     jvm_opts = [],
 )
 
+RELEASES = (8, 9)
+
 [
     default_java_toolchain(
         name = "toolchain_java%d" % release,
-        bootclasspath = [":platformclasspath%d" % release],
+        bootclasspath = [":platformclasspath"],
         jvm_opts = JDK9_JVM_OPTS,
         source_version = "%s" % release,
         target_version = "%s" % release,
     )
     for release in RELEASES
 ]
-
-alias(
-    name = "toolchain",
-    actual = "//external:java_toolchain",
-)
 
 filegroup(
     name = "srcs",

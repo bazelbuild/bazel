@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.syntax.Type.ListType;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,14 +71,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * {@link #visitAttribute}'s documentation. So we want to avoid that code path when possible.
    */
   @Override
-  protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor)
-      throws InterruptedException {
+  protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor) {
     visitLabels(attribute, true, visitor);
   }
 
   private void visitLabels(
-      Attribute attribute, boolean includeSelectKeys, Type.LabelVisitor<Attribute> visitor)
-      throws InterruptedException {
+      Attribute attribute, boolean includeSelectKeys, Type.LabelVisitor<Attribute> visitor) {
     Type<?> type = attribute.getType();
     SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
     if (selectorList == null) {
@@ -117,18 +114,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
-  public Set<Label> getReachableLabels(String attributeName, boolean includeSelectKeys)
-      throws InterruptedException {
+  public Set<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
     final ImmutableSet.Builder<Label> builder = ImmutableSet.<Label>builder();
     visitLabels(
         getAttributeDefinition(attributeName),
         includeSelectKeys,
-        new LabelVisitor<Attribute>() {
-          @Override
-          public void visit(Label label, Attribute attribute) {
-            builder.add(label);
-          }
-        });
+        (label, attribute) -> builder.add(label));
     return builder.build();
   }
 
@@ -581,22 +572,15 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   private static ImmutableList<Label> extractLabels(Type<?> type, Object value) {
-    try {
-      final ImmutableList.Builder<Label> result = ImmutableList.builder();
-      type.visitLabels(
-          new Type.LabelVisitor<Object>() {
-            @Override
-            public void visit(@Nullable Label label, Object dummy) {
-              if (label != null) {
-                result.add(label);
-              }
-            }
-          },
-          value,
-          /*context=*/ null);
-      return result.build();
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("Unexpected InterruptedException", e);
-    }
+    final ImmutableList.Builder<Label> result = ImmutableList.builder();
+    type.visitLabels(
+        (label, dummy) -> {
+          if (label != null) {
+            result.add(label);
+          }
+        },
+        value,
+        /*context=*/ null);
+    return result.build();
   }
 }

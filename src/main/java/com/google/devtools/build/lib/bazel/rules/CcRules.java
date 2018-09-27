@@ -66,8 +66,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBaseRule());
-    builder.addRuleDefinition(new BazelCppRuleClasses.CcRule(
-        BazelRuleClassProvider.TOOLS_REPOSITORY + "//tools/def_parser:def_parser"));
+    builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule());
     builder.addRuleDefinition(new BazelCcBinaryRule());
     builder.addRuleDefinition(new BazelCcTestRule());

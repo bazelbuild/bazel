@@ -12,7 +12,7 @@ load(":build_defs.bzl", "default_javacopts")
 # Exports the canonical javac bootclasspath artifact locations
 genrule(
     name = "javac-bootclasspath-locations",
-    srcs = ["//tools/jdk:platformclasspath8"],
+    srcs = ["//tools/jdk:platformclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
     cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) $(SRCS)",
     tools = ["javac-bootclasspath-locations.sh"],
@@ -25,7 +25,7 @@ java_library(
         "JavacBootclasspath.java",
         ":javac-bootclasspath-locations",
     ],
-    data = ["//tools/jdk:platformclasspath8"],
+    data = ["//tools/jdk:platformclasspath"],
     visibility = ["//visibility:public"],
     deps = ["//third_party:guava"],
 )

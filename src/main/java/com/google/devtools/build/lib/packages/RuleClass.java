@@ -1984,7 +1984,7 @@ public class RuleClass {
   }
 
   public void checkAttributesNonEmpty(
-      Rule rule, RuleErrorConsumer ruleErrorConsumer, AttributeMap attributes) {
+      RuleErrorConsumer ruleErrorConsumer, AttributeMap attributes) {
     for (String attributeName : attributes.getAttributeNames()) {
       Attribute attr = attributes.getAttributeDefinition(attributeName);
       if (!attr.isNonEmpty()) {
@@ -1994,7 +1994,7 @@ public class RuleClass {
 
       boolean isEmpty = false;
       if (attributeValue instanceof SkylarkList) {
-        isEmpty = ((SkylarkList) attributeValue).isEmpty();
+        isEmpty = ((SkylarkList<?>) attributeValue).isEmpty();
       } else if (attributeValue instanceof List<?>) {
         isEmpty = ((List<?>) attributeValue).isEmpty();
       } else if (attributeValue instanceof Map<?, ?>) {

@@ -723,17 +723,6 @@ public class CppOptions extends FragmentOptions {
   public boolean strictSystemIncludes;
 
   @Option(
-      name = "experimental_enable_cc_configuration_make_variables",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Do not use this flag. Use the --incompatible_disable_cc_configuration_make_variables "
-              + "instead.")
-  public boolean enableMakeVariables;
-
-  @Option(
       name = "incompatible_disable_cc_configuration_make_variables",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -787,7 +776,7 @@ public class CppOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp .")
+      help = "Flag for disabling access to the C++ toolchain API through the ctx.fragments.cpp.")
   public boolean disableLegacyToolchainSkylarkApi;
 
   @Option(
@@ -807,6 +796,20 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, C++ Skylark API exposing compilation flags will be disabled.")
   public boolean disableLegacyCompilationApi;
+
+  @Option(
+      name = "incompatible_disable_legacy_flags_cc_toolchain_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+              + "CROSSTOOL fields.")
+  public boolean disableLegacyFlagsCcToolchainApi;
 
   @Option(
       name = "experimental_disable_linking_mode_flags",
@@ -833,7 +836,7 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "If true, Bazel will not read crosstool flags from legacy crosstool fields (see #5187.")
+          "If true, Bazel will not read crosstool flags from legacy crosstool fields (see #5187).")
   public boolean disableLegacyCrosstoolFields;
 
   @Option(
@@ -919,7 +922,6 @@ public class CppOptions extends FragmentOptions {
       host.crosstoolTop = hostCrosstoolTop;
     }
 
-    host.enableMakeVariables = enableMakeVariables;
     host.disableMakeVariables = disableMakeVariables;
 
     // hostLibcTop doesn't default to the target's libcTop.

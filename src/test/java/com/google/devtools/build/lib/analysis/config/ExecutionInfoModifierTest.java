@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.ExecutionInfoModifier.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
@@ -35,6 +36,12 @@ import org.junit.runners.JUnit4;
 public class ExecutionInfoModifierTest {
 
   private final ExecutionInfoModifier.Converter converter = new Converter();
+
+  @Test
+  public void executionInfoModifier_empty() throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("");
+    assertThat(modifier.matches("Anything")).isFalse();
+  }
 
   @Test
   public void executionInfoModifier_singleAdd() throws Exception {
@@ -65,7 +72,7 @@ public class ExecutionInfoModifierTest {
   @Test
   public void executionInfoModifier_invalidFormat_throws() throws Exception {
     List<String> invalidModifiers =
-        ImmutableList.of("", "A", "=", "A=", "A=+", "=+", "A=-B,A", "A=B", "A", ",");
+        ImmutableList.of("A", "=", "A=", "A=+", "=+", "A=-B,A", "A=B", "A", ",");
     for (String invalidModifer : invalidModifiers) {
       assertThrows(OptionsParsingException.class, () -> converter.convert(invalidModifer));
     }
@@ -77,6 +84,28 @@ public class ExecutionInfoModifierTest {
         assertThrows(OptionsParsingException.class, () -> converter.convert("A=+1,B=2,C=-3"));
     assertThat(thrown).hasMessageThat().contains("malformed");
     assertThat(thrown).hasMessageThat().contains("'B=2'");
+  }
+
+  @Test
+  public void executionInfoModifier_EqualsTester() throws Exception {
+    new EqualsTester()
+        // base empty
+        .addEqualityGroup(converter.convert(""), converter.convert(""))
+        // base non-empty
+        .addEqualityGroup(converter.convert("A=+B"), converter.convert("A=+B"))
+        // different pattern and key
+        .addEqualityGroup(converter.convert("C=+D"))
+        // different key
+        .addEqualityGroup(converter.convert("A=+D"))
+        // different pattern
+        .addEqualityGroup(converter.convert("C=+B"))
+        // different operation
+        .addEqualityGroup(converter.convert("A=-B"))
+        // more items
+        .addEqualityGroup(converter.convert("A=+B,C=-D"), converter.convert("A=+B,C=-D"))
+        // different order
+        .addEqualityGroup(converter.convert("C=-D,A=+B"))
+        .testEquals();
   }
 
   private void assertModifierMatchesAndResults(

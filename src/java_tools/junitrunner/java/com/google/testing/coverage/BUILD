@@ -15,11 +15,6 @@ filegroup(
     tags = ["manual"],
 )
 
-filegroup(
-    name = "jacoco_coverage_runtime",
-    srcs = ["JacocoCoverage_deploy.jar"],
-)
-
 # Bazel custom Jacoco runner used to provide proper initialization and lcov
 # report generation when using offline Jacoco instrumentation.
 # This target should not be used as a dependency (except when writing tests for

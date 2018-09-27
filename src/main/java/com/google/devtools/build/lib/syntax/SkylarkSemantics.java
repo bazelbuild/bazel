@@ -125,6 +125,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
+  public abstract boolean incompatibleNoTransitiveLoads();
+
   public abstract boolean incompatiblePackageNameIsAFunction();
 
   public abstract boolean incompatibleRangeType();
@@ -175,6 +177,7 @@ public abstract class SkylarkSemantics {
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
+          .incompatibleNoTransitiveLoads(false)
           .incompatiblePackageNameIsAFunction(false)
           .incompatibleRangeType(false)
           .incompatibleRemoveNativeGitRepository(false)
@@ -227,6 +230,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
+
+    public abstract Builder incompatibleNoTransitiveLoads(boolean value);
 
     public abstract Builder incompatiblePackageNameIsAFunction(boolean value);
 

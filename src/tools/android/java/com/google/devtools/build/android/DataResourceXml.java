@@ -240,10 +240,11 @@ public class DataResourceXml implements DataResource {
       case MIPMAP:
       case RAW:
       case TRANSITION:
+      case FONT:
       case XML:
         return SimpleXmlResourceValue.from(proto, resourceType);
       default:
-        throw new IllegalArgumentException();
+        throw new IllegalArgumentException("Unhandled type " + resourceType + " from " + proto);
     }
   }
 

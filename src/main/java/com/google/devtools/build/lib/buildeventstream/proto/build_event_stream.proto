@@ -301,6 +301,9 @@ message BuildStarted {
 
   // The directory of the workspace.
   string workspace_directory = 7;
+
+  // The process ID of the Bazel server.
+  int64 server_pid = 8;
 }
 
 // Payload of an event reporting the command-line of the invocation as

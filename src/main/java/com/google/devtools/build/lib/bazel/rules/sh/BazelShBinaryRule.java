@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
@@ -30,11 +29,12 @@ import com.google.devtools.build.lib.packages.RuleClass;
 public final class BazelShBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-    Label launcher = environment.getLauncherLabel();
-    if (launcher != null) {
-      builder.add(attr("$launcher", LABEL).cfg(HostTransition.INSTANCE).value(launcher));
-    }
-    return builder.build();
+    return builder
+        .add(
+            attr("$launcher", LABEL)
+                .cfg(HostTransition.INSTANCE)
+                .value(environment.getToolsLabel("//tools/launcher:launcher")))
+        .build();
   }
 
   @Override

@@ -24,6 +24,8 @@ import static org.mockito.Mockito.when;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,6 +51,7 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.Retrier.RetryException;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.DigestUtil.ActionKey;
@@ -408,5 +411,127 @@ public class RemoteSpawnCacheTest {
     assertThat(evt.getMessage()).contains("cache down");
     assertThat(progressUpdates)
         .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+  }
+
+  @Test
+  public void printWarningIfDownloadFails() throws Exception {
+    doThrow(new RetryException("reason", 0, io.grpc.Status.UNAVAILABLE.asRuntimeException()))
+        .when(remoteCache)
+        .getCachedActionResult(any(ActionKey.class));
+
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+    assertThat(entry.hasResult()).isFalse();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
+
+    Mockito.doAnswer(
+            new Answer<Void>() {
+              @Override
+              public Void answer(InvocationOnMock invocation) {
+                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                return null;
+              }
+            })
+        .when(remoteCache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
+    entry.store(result);
+    verify(remoteCache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
+
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    Event evt = eventHandler.getEvents().get(0);
+    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(evt.getMessage()).contains("Error");
+    assertThat(evt.getMessage()).contains("reading");
+    assertThat(evt.getMessage()).contains("reason");
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+  }
+
+  @Test
+  public void orphanedCachedResultIgnored() throws Exception {
+    Digest digest = digestUtil.computeAsUtf8("bla");
+    ActionResult actionResult =
+        ActionResult.newBuilder()
+            .addOutputFiles(OutputFile.newBuilder().setPath("/random/file").setDigest(digest))
+            .build();
+    when(remoteCache.getCachedActionResult(any(ActionKey.class)))
+        .thenAnswer(
+            new Answer<ActionResult>() {
+              @Override
+              public ActionResult answer(InvocationOnMock invocation) {
+                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                return actionResult;
+              }
+            });
+    doThrow(new RetryException("cache miss", 0, new CacheNotFoundException(digest, digestUtil)))
+        .when(remoteCache)
+        .download(actionResult, execRoot, outErr);
+
+    CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
+    assertThat(entry.hasResult()).isFalse();
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    ImmutableList<Path> outputFiles = ImmutableList.of(fs.getPath("/random/file"));
+
+    Mockito.doAnswer(
+            new Answer<Void>() {
+              @Override
+              public Void answer(InvocationOnMock invocation) {
+                RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+                assertThat(meta.getCorrelatedInvocationsId()).isEqualTo("build-req-id");
+                assertThat(meta.getToolInvocationId()).isEqualTo("command-id");
+                return null;
+              }
+            })
+        .when(remoteCache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
+    entry.store(result);
+    verify(remoteCache)
+        .upload(
+            any(ActionKey.class),
+            any(Action.class),
+            any(Command.class),
+            any(Path.class),
+            eq(outputFiles),
+            eq(outErr),
+            eq(true));
+    assertThat(progressUpdates)
+        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+    assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
 }

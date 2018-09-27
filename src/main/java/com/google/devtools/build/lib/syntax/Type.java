@@ -129,21 +129,20 @@ public abstract class Type<T> {
    * {@link #visitLabels}.
    */
   public interface LabelVisitor<C> {
-    void visit(@Nullable Label label, @Nullable C context) throws InterruptedException;
+    void visit(@Nullable Label label, @Nullable C context);
   }
 
   /**
    * Invokes {@code visitor.visit(label, context)} for each {@link Label} {@code label} associated
    * with {@code value}, which is assumed an instance of this {@link Type}.
    *
-   * <p>This is used to support reliable label visitation in
-   * {@link com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve
-   * that reliability, every type should faithfully define its own instance of this method. In other
+   * <p>This is used to support reliable label visitation in {@link
+   * com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve that
+   * reliability, every type should faithfully define its own instance of this method. In other
    * words, be careful about defining default instances in base types that get auto-inherited by
    * their children. Keep all definitions as explicit as possible.
    */
-  public abstract <C> void visitLabels(LabelVisitor<C> visitor, Object value, @Nullable C context)
-      throws InterruptedException;
+  public abstract <C> void visitLabels(LabelVisitor<C> visitor, Object value, @Nullable C context);
 
   /** Classifications of labels by their usage. */
   public enum LabelClass {
@@ -437,8 +436,7 @@ public abstract class Type<T> {
     private final LabelClass labelClass;
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
-        throws InterruptedException {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
       for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
         keyType.visitLabels(visitor, entry.getKey(), context);
         valueType.visitLabels(visitor, entry.getValue(), context);
@@ -552,8 +550,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
-        throws InterruptedException {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
       List<ElemT> elems = cast(value);
       // Hot code path. Optimize for lists with O(1) access to avoid iterator garbage.
       if (elems instanceof ImmutableList || elems instanceof ArrayList) {

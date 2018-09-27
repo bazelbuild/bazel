@@ -53,6 +53,8 @@ guarded behind flags in the current release:
     flags](#disable-depsets-in-c-toolchain-api-in-user-flags)
 *   [Disallow using CROSSTOOL to select the cc_toolchain label](#disallow-using-crosstool-to-select-the-cc_toolchain-label)
 *   [Disallow using C++ Specific Make Variables from the configuration](#disallow-using-c-specific-make-variables-from-the-configuration)
+*   [Disable legacy C++ configuration API](#disable-legacy-c-configuration-api)
+*   [Disable legacy C++ toolchain API](#disable-legacy-c-toolchain-api)
 
 
 ### Dictionary concatenation
@@ -441,6 +443,28 @@ The proposal is not fully implemented yet.
 *   Flag: `--incompatible_static_name_resolution`
 *   Default: `false`
 
+### Disallow transitive loads
+
+When the flag is set, `load` can only import symbols that were explicitly
+defined in the target file, using either `=` or `def`.
+
+When the flag is unset (legacy behavior), `load` may also import symbols that
+come from other `load` statements.
+
+In other words, the `x` below is exported only if the flag is unset:
+
+```python
+load(":file.bzl", "x")
+
+y = 1
+```
+
+*   Flag: `--incompatible_no_transitive_loads`
+*   Default: `false`
+*   Introduced in: `0.19.0`
+*   Tracking issue: https://github.com/bazelbuild/bazel/issues/5636
+
+
 ### Disable InMemory Tools Defaults Package
 
 If false, Bazel constructs an in-memory `//tools/defaults` package based on the
@@ -662,5 +686,163 @@ my_rule = rule(
 *   Default: `false`
 *   Introduced in: `0.18.0`
 
-<!-- Add new options here -->
+### Disable legacy C++ configuration API
 
+This turns off legacy Starlark access to cc toolchain information via the
+`ctx.fragments.cpp` fragment. Instead of declaring dependency on the `ctx.fragments.cpp` using the
+`fragments` attribute declare a dependency on the `@bazel_tools//tools/cpp:current_cc_toolchain`
+via implicit attribute named `_cc_toolchain` (see example below). Use `find_cpp_toolchain` from
+`@bazel_tools//tools/cpp:toolchain_utils.bzl` to get the current C++ toolchain in the rule
+  implementation.
+
+```python
+# Before
+def _impl(ctx):
+  ...
+  ctx.fragments.cpp.compiler_options()
+
+foo = rule(
+    implementation = _impl,
+    fragments = ["cpp"],
+    ...
+)
+
+# After
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+
+def _impl(ctx):
+  ...
+  cc_toolchain = find_cpp_toolchain(ctx)
+  cc_toolchain.compiler_options()
+
+foo = rule(
+    implementation = _impl,
+    attrs = {
+        "_cc_toolchain": attr.label(
+            default=Label("@bazel_tools//tools/cpp:current_cc_toolchain")
+        ),
+    },
+)
+```
+
+List of all legacy fields and their corresponding `cc_toolchain` alternative:
+
+|`ctx.fragments.cpp` | `cc_toolchain`  |
+|---|---|
+| `ar_executable` |  `ar_executable()` |
+| `built_in_include_directories` |  `built_in_include_directories` |
+| `c_options` |  `c_options()` |
+| `compiler` |  `compiler` |
+| `compiler_executable` |  `compiler_executable()` |
+| `compiler_options(unused_arg)` |  `compiler_options()` |
+| `cpu` |  `cpu` |
+| `cxx_options(unused_arg)` |  `cxx_options()` |
+| `dynamic_link_options(unused_arg, bool)` |  `dynamic_link_options(bool)` |
+| `fully_static_link_options(unused_arg, True)` |  `fully_static_link_options(True)` |
+| `ld_executable` |  `ld_executable()` |
+| `link_options` |  `link_options_do_not_use` |
+| `mostly_static_link_options(unused_arg, bool)` |  `mostly_static_link_options(bool)` |
+| `nm_executable` |  `nm_executable()` |
+| `objcopy_executable` |  `objcopy_executable()` |
+| `objdump_executable` |  `objdump_executable()` |
+| `preprocessor_executable` |  `preprocessor_executable()` |
+| `strip_executable` |  `strip_executable()` |
+| `sysroot` |  `sysroot` |
+| `target_gnu_system_name` |  `target_gnu_system_name` |
+| `unfiltered_compiler_options(unused_arg)` |  `unfiltered_compiler_options(unused_arg)` |
+
+*   Flag: `--incompatible_disable_legacy_cpp_toolchain_skylark_api`
+*   Default: `false`
+*   Introduced in: `0.18.0`
+
+### Disable legacy C++ toolchain API
+
+We have deprecated the `cc_toolchain` Starlark API returning legacy CROSSTOOL fields:
+
+* ar_executable
+* c_options
+* compiler_executable
+* compiler_options
+* cxx_options
+* dynamic_link_options
+* fully_static_link_options
+* ld_executable
+* link_options
+* mostly_static_link_options
+* nm_executable
+* objcopy_executable
+* objdump_executable
+* preprocessor_executable
+* strip_executable
+* unfiltered_compiler_options
+
+Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html)
+
+```python
+# Before:
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+
+def _impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    compiler_options = (
+        cc_toolchain.compiler_options() +
+        cc_toolchain.unfiltered_compiler_options([]) +
+        ["-w", "-Wno-error"]
+    )
+    link_options = (
+        ["-shared", "-static-libgcc"] +
+        cc_toolchain.mostly_static_link_options(True) +
+        ["-Wl,-whole-archive"] +
+        [l.path for l in libs] +
+        ["-Wl,-no-whole-archive"] +
+        cc_toolchain.link_options_do_not_use
+    )
+
+# After
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load(
+    "@bazel_tools//tools/build_defs/cc:action_names.bzl",
+    "CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME",
+    "C_COMPILE_ACTION_NAME",
+)
+
+def _impl(ctx):
+    cc_toolchain = find_cc_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+    compile_variables = cc_common.create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        user_compile_flags = depset(["-w", "-Wno-error"]),
+    )
+    compiler_options = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = C_COMPILE_ACTION_NAME,
+        variables = compile_variables,
+    )
+
+    link_variables = cc_common.create_link_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        is_linking_dynamic_library = True,
+        user_link_flags =
+            ["-static-libgcc"] +
+            ["-Wl,-whole-archive"] +
+            [lib.path for lib in libs] +
+            ["-Wl,-no-whole-archive"],
+    )
+    link_flags = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
+        variables = link_variables,
+    )
+```
+
+*   Flag: `--incompatible_disable_legacy_flags_cc_toolchain_api`
+*   Default: `false`
+*   Introduced in: `0.19.0`
+
+<!-- Add new options here -->

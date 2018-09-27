@@ -9,6 +9,14 @@ filegroup(
     ],
 )
 
+LOCALHOST_CAPACITY_SRCS = [
+    "LocalHostCapacity.java",
+    "LocalHostResourceManagerLinux.java",
+    "LocalHostResourceManagerDarwin.java",
+    "LocalHostResourceFallback.java",
+    "ResourceSet.java",
+]
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -17,16 +25,17 @@ java_library(
             "*.java",
             "cache/*.java",
         ],
-        exclude = ["CommandLineItem.java"],
+        exclude = ["CommandLineItem.java"] + LOCALHOST_CAPACITY_SRCS,
     ),
     deps = [
+        ":commandline_item",
+        ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
@@ -56,4 +65,18 @@ java_library(
 java_library(
     name = "commandline_item",
     srcs = ["CommandLineItem.java"],
+)
+
+java_library(
+    name = "localhost_capacity",
+    srcs = LOCALHOST_CAPACITY_SRCS,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:unix",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

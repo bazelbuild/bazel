@@ -19,6 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:single-line-formatter",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/blobstore",
         "//src/main/java/com/google/devtools/build/lib/remote/util",

@@ -128,7 +128,13 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
             }
           });
     }
-    executor.awaitQuiescence(/*interruptWorkers=*/ true);
+    try {
+      executor.awaitQuiescence(/*interruptWorkers=*/ true);
+    } catch (IllegalStateException e) {
+      // TODO(mschaller): Remove this wrapping after debugging the invalidation-after-OOMing-eval
+      // problem. The wrapping provides a stack trace showing what caused the invalidation.
+      throw new IllegalStateException(e);
+    }
 
     // Note: implementations that do not support interruption also do not update pendingVisitations.
     Preconditions.checkState(!getSupportInterruptions() || pendingVisitations.isEmpty(),

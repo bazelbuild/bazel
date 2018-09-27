@@ -911,7 +911,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
           OptionEffectTag.AFFECTS_OUTPUTS,
           OptionEffectTag.LOADING_AND_ANALYSIS,
         },
-        defaultValue = "null",
+        defaultValue = "",
         help =
             "Add or remove keys from an action's execution info based on action mnemonic.  "
                 + "Applies only to actions which support execution info. Many common actions "
@@ -1841,19 +1841,17 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (options.executionInfoModifier == null || !options.executionInfoModifier.matches(mnemonic)) {
+    if (!options.executionInfoModifier.matches(mnemonic)) {
       return executionInfo;
     }
-    HashMap<String, String> mutableCopy = new HashMap<>(executionInfo);
+    LinkedHashMap<String, String> mutableCopy = new LinkedHashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
     return ImmutableMap.copyOf(mutableCopy);
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    if (options.executionInfoModifier != null) {
-      options.executionInfoModifier.apply(mnemonic, executionInfo);
-    }
+    options.executionInfoModifier.apply(mnemonic, executionInfo);
   }
 
   /** @return the list of default features used for all packages. */

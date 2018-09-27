@@ -140,6 +140,7 @@ public class SkylarkSemanticsConsistencyTest {
         "--incompatible_generate_javacommon_source_jar=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
+        "--incompatible_no_transitive_loads=" + rand.nextBoolean(),
         "--incompatible_package_name_is_a_function=" + rand.nextBoolean(),
         "--incompatible_range_type=" + rand.nextBoolean(),
         "--incompatible_remove_native_git_repository=" + rand.nextBoolean(),
@@ -177,6 +178,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleGenerateJavaCommonSourceJar(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
+        .incompatibleNoTransitiveLoads(rand.nextBoolean())
         .incompatiblePackageNameIsAFunction(rand.nextBoolean())
         .incompatibleRangeType(rand.nextBoolean())
         .incompatibleRemoveNativeGitRepository(rand.nextBoolean())

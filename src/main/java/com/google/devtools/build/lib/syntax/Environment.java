@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.SpellChecker;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -271,12 +272,16 @@ public final class Environment implements Freezable, Debuggable {
     /** Bindings are maintained in order of creation. */
     private final LinkedHashMap<String, Object> bindings;
 
+    /** Set of bindings that are exported (can be loaded from other modules). */
+    private final HashSet<String> exportedBindings;
+
     /** Constructs an uninitialized instance; caller must call {@link #initialize} before use. */
     public GlobalFrame() {
       this.mutability = null;
       this.universe = null;
       this.label = null;
       this.bindings = new LinkedHashMap<>();
+      this.exportedBindings = new HashSet<>();
     }
 
     public GlobalFrame(
@@ -298,6 +303,7 @@ public final class Environment implements Freezable, Debuggable {
       if (bindings != null) {
         this.bindings.putAll(bindings);
       }
+      this.exportedBindings = new HashSet<>();
     }
 
     public GlobalFrame(Mutability mutability) {
@@ -397,6 +403,21 @@ public final class Environment implements Freezable, Debuggable {
     public Map<String, Object> getBindings() {
       checkInitialized();
       return Collections.unmodifiableMap(bindings);
+    }
+
+    /**
+     * Returns a map of bindings that are exported (i.e. symbols declared using `=` and
+     * `def`, but not `load`).
+     */
+    public Map<String, Object> getExportedBindings() {
+      checkInitialized();
+      ImmutableMap.Builder<String, Object> result = new ImmutableMap.Builder<>();
+      for (Map.Entry<String, Object> entry : bindings.entrySet()) {
+        if (exportedBindings.contains(entry.getKey())) {
+          result.put(entry);
+        }
+      }
+      return result.build();
     }
 
     @Override
@@ -523,7 +544,14 @@ public final class Environment implements Freezable, Debuggable {
      * and that {@code Environment}'s transitive hash code.
      */
     public Extension(Environment env) {
-      this(ImmutableMap.copyOf(env.globalFrame.bindings), env.getTransitiveContentHashCode());
+      // Legacy behavior: all symbols from the global Frame are exported (including symbols
+      // introduced by load).
+      this(
+          ImmutableMap.copyOf(
+              env.getSemantics().incompatibleNoTransitiveLoads()
+                  ? env.globalFrame.getExportedBindings()
+                  : env.globalFrame.getBindings()),
+          env.getTransitiveContentHashCode());
     }
 
     public String getTransitiveContentHashCode() {
@@ -979,6 +1007,15 @@ public final class Environment implements Freezable, Debuggable {
     } catch (MutabilityException e) {
       throw new AssertionError(e);
     }
+  }
+
+  /** Modifies a binding in the current Frame. If it is the module Frame, also export it. */
+  public Environment updateAndExport(String varname, Object value) throws EvalException {
+    update(varname, value);
+    if (isGlobal()) {
+      globalFrame.exportedBindings.add(varname);
+    }
+    return this;
   }
 
   /**

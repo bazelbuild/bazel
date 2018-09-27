@@ -319,6 +319,20 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoSupportToolsInActionInputs;
 
   @Option(
+      name = "incompatible_no_transitive_loads",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help =
+          "If set to true, only symbols explicitly defined in the file can be loaded; "
+              + "symbols introduced by load are not implicitly re-exported.")
+  public boolean incompatibleNoTransitiveLoads;
+
+  @Option(
       name = "incompatible_package_name_is_a_function",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -451,6 +465,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
+        .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
         .incompatibleRangeType(incompatibleRangeType)
         .incompatibleRemoveNativeGitRepository(incompatibleRemoveNativeGitRepository)

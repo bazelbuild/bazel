@@ -121,7 +121,7 @@ public class Eval {
       throw new EvalException(node.getLocation(), "Keyword-only argument is forbidden.");
     }
 
-    env.update(
+    env.updateAndExport(
         node.getIdentifier().getName(),
         new UserDefinedFunction(
             node.getIdentifier().getName(),
