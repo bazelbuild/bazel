@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionMapper;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.NonExceptionalUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
@@ -402,7 +403,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     BatchStreamedCallback batchCallback = new BatchStreamedCallback(
         callback,
         BATCH_CALLBACK_SIZE,
-        createUniquifier());
+        createUniquifierForOuterBatchStreamedCallback(expr));
     return super.evaluateQuery(expr, batchCallback);
   }
 
@@ -633,8 +634,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @ThreadSafe
+  protected NonExceptionalUniquifier<Target> createUniquifierForOuterBatchStreamedCallback(
+      QueryExpression expr) {
+    return createUniquifier();
+  }
+
+  @ThreadSafe
   @Override
-  public UniquifierImpl<Target, ?> createUniquifier() {
+  public NonExceptionalUniquifier<Target> createUniquifier() {
     return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
   }
 
@@ -1168,7 +1175,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // memory. We should have a threshold for when to invoke the callback with a batch, and also a
     // separate, larger, bound on the number of targets being processed at the same time.
     private final ThreadSafeOutputFormatterCallback<Target> callback;
-    private final UniquifierImpl<Target, ?> uniquifier;
+    private final NonExceptionalUniquifier<Target> uniquifier;
     private final Object pendingLock = new Object();
     private List<Target> pending = new ArrayList<>();
     private int batchThreshold;
@@ -1176,7 +1183,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     private BatchStreamedCallback(
         ThreadSafeOutputFormatterCallback<Target> callback,
         int batchThreshold,
-        UniquifierImpl<Target, ?> uniquifier) {
+        NonExceptionalUniquifier<Target> uniquifier) {
       this.callback = callback;
       this.batchThreshold = batchThreshold;
       this.uniquifier = uniquifier;
