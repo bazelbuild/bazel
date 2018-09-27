@@ -111,6 +111,11 @@ public abstract class FileArtifactValue implements SkyValue {
     return 0;
   }
 
+  /** Returns {@code true} if this is a special marker as opposed to a representing a real file. */
+  public final boolean isMarkerValue() {
+    return this instanceof Singleton;
+  }
+
   /**
    * Provides a best-effort determination whether the file was changed since the digest was
    * computed. This method performs file system I/O, so may be expensive. It's primarily intended to

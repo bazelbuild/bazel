@@ -229,4 +229,17 @@ public class FileArtifactValueTest {
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
   }
+
+  @Test
+  public void testIsMarkerValue_marker() {
+    assertThat(FileArtifactValue.DEFAULT_MIDDLEMAN.isMarkerValue()).isTrue();
+    assertThat(FileArtifactValue.MISSING_FILE_MARKER.isMarkerValue()).isTrue();
+    assertThat(FileArtifactValue.OMITTED_FILE_MARKER.isMarkerValue()).isTrue();
+  }
+
+  @Test
+  public void testIsMarkerValue_notMarker() throws Exception {
+    FileArtifactValue value = create(scratchFile("/dir/artifact1", 0L, "content"));
+    assertThat(value.isMarkerValue()).isFalse();
+  }
 }

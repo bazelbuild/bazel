@@ -99,19 +99,20 @@ public final class ActionMetadataHandler implements MetadataHandler {
    */
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
 
-  // TODO(b/115361150): Swap in a different output store when using ActionFS.
-  private final OutputStore store = new OutputStore();
+  private final OutputStore store;
 
   @VisibleForTesting
   public ActionMetadataHandler(
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputs,
       TimestampGranularityMonitor tsgm,
-      ArtifactPathResolver artifactPathResolver)  {
+      ArtifactPathResolver artifactPathResolver,
+      OutputStore store)  {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.outputs = ImmutableSet.copyOf(outputs);
     this.tsgm = tsgm;
     this.artifactPathResolver = artifactPathResolver;
+    this.store = store;
   }
 
   /**
@@ -322,10 +323,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
         }
 
         // A minor hack: maybeStoreAdditionalData will force the data to be stored via
-        // store.putAdditionalOutputData.
-        maybeStoreAdditionalData(treeFileArtifact, fileMetadata, null);
-        cachedValue = Preconditions.checkNotNull(
-            store.getAdditionalOutputData(treeFileArtifact), treeFileArtifact);
+        // store.putAdditionalOutputData, if the underlying OutputStore supports it.
+        cachedValue = maybeStoreAdditionalData(treeFileArtifact, fileMetadata, null);
       }
 
       values.put(treeFileArtifact, cachedValue);
@@ -363,7 +362,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
-    return ImmutableSet.copyOf(store.getOrCreateTreeArtifactContents(artifact));
+    Set<TreeFileArtifact> contents = store.getTreeArtifactContents(artifact);
+    return contents != null ? ImmutableSet.copyOf(contents) : ImmutableSet.of();
   }
 
   @Override
