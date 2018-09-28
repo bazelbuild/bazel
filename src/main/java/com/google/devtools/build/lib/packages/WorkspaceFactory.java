@@ -478,9 +478,10 @@ public class WorkspaceFactory {
           throws EvalException, InterruptedException {
         try {
           Package.Builder builder = PackageFactory.getContext(env, ast.getLocation()).pkgBuilder;
+          String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
-              && kwargs.containsKey("name")
-              && builder.targets.containsKey(kwargs.get("name"))) {
+              && externalRepoName != null
+              && builder.getTarget(externalRepoName) != null) {
             throw new EvalException(
                 ast.getLocation(),
                 "Cannot redefine repository after any load statement in the WORKSPACE file"
@@ -488,15 +489,14 @@ public class WorkspaceFactory {
                     + kwargs.get("name")
                     + "')");
           }
-          String externalRepoName = (String) kwargs.get("name");
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
           if (env.getSemantics().experimentalRemapMainRepo()) {
-            if (!Strings.isNullOrEmpty(builder.pkg.getWorkspaceName())) {
+            if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
               builder.addRepositoryMappingEntry(
                   RepositoryName.createFromValidStrippedName(externalRepoName),
-                  RepositoryName.createFromValidStrippedName(builder.pkg.getWorkspaceName()),
+                  RepositoryName.createFromValidStrippedName(builder.getPackageWorkspaceName()),
                   RepositoryName.MAIN);
             }
           }
@@ -514,8 +514,8 @@ public class WorkspaceFactory {
               for (Map.Entry<String, String> e : map.entrySet()) {
                 builder.addRepositoryMappingEntry(
                     RepositoryName.createFromValidStrippedName(externalRepoName),
-                    RepositoryName.create((String) e.getKey()),
-                    RepositoryName.create((String) e.getValue()));
+                    RepositoryName.create(e.getKey()),
+                    RepositoryName.create(e.getValue()));
               }
             }
           }
