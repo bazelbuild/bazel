@@ -1019,8 +1019,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "sh_library(name='after')");
     Package pkg = packages.eval("a", file);
 
-    assertThat(pkg.getRule("before").getFeatures()).containsExactly("b", "c");
-    assertThat(pkg.getRule("after").getFeatures()).containsExactly("b", "c");
     assertThat(pkg.getFeatures()).containsExactly("b", "c");
   }
 

@@ -101,7 +101,7 @@ public class WorkspaceFactoryHelper {
   }
 
   private static void overwriteRule(Package.Builder pkg, Rule rule)
-      throws Package.NameConflictException, InterruptedException {
+      throws Package.NameConflictException {
     Preconditions.checkArgument(rule.getOutputFiles().isEmpty());
     Target old = pkg.getTarget(rule.getName());
     if (old != null) {

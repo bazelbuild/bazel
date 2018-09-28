@@ -1347,7 +1347,7 @@ public class Package {
       }
     }
 
-    void addRule(Rule rule) throws NameConflictException, InterruptedException {
+    void addRule(Rule rule) throws NameConflictException {
       checkForConflicts(rule);
       addRuleUnchecked(rule);
     }
@@ -1488,7 +1488,7 @@ public class Package {
      * <li>The generating rule of every output file in the package must itself be in the package.
      * </ul>
      */
-    private void checkForConflicts(Rule rule) throws NameConflictException, InterruptedException {
+    private void checkForConflicts(Rule rule) throws NameConflictException {
       String name = rule.getName();
       Target existing = targets.get(name);
       if (existing != null) {
@@ -1540,7 +1540,7 @@ public class Package {
      * @throws NameConflictException if a conflict is found.
      */
     private void checkForInputOutputConflicts(Rule rule, Set<String> outputFiles)
-        throws NameConflictException, InterruptedException {
+        throws NameConflictException {
       PackageIdentifier packageIdentifier = rule.getLabel().getPackageIdentifier();
       for (Label inputLabel : rule.getLabels()) {
         if (packageIdentifier.equals(inputLabel.getPackageIdentifier())

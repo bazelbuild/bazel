@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -570,8 +569,7 @@ public class PackageCacheTest extends FoundationTestCase {
         "peach/BUILD",
         "package(features = ['crosstool_default_false'])",
         "cc_library(name = 'cc', srcs = ['cc.cc'])");
-    Rule cc = (Rule) getTarget("//peach:cc");
-    assertThat(cc.getFeatures()).hasSize(1);
+    assertThat(getPackage("peach").getFeatures()).hasSize(1);
   }
 
   @Test

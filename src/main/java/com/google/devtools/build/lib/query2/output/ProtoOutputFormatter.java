@@ -239,7 +239,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             .distinct()
             .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
       }
-      for (String feature : rule.getFeatures()) {
+      for (String feature : rule.getPackage().getFeatures()) {
         rulePb.addDefaultSetting(feature);
       }
       targetPb.setType(RULE);
