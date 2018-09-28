@@ -379,35 +379,36 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       pdbFile = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".pdb");
     }
 
-    Pair<CcLinkingOutputs, CcLinkingInfo> ccLinkingOutputsAndCcLinkingInfo =
-        createTransitiveLinkingActions(
-            ruleContext,
-            ccToolchain,
-            featureConfiguration,
-            fdoProvider,
-            common,
-            precompiledFiles,
-            ccCompilationOutputs,
-            ccLinkingOutputs,
-            ccCompilationContext,
-            fake,
-            binary,
-            linkParams,
-            linkCompileOutputSeparately,
-            semantics,
-            linkingMode,
-            cppConfiguration,
-            linkType,
-            pdbFile,
-            generatedDefFile,
-            customDefFile);
+    Pair<CcLinkingOutputs, Pair<CcLinkingInfo, CcCompilationOutputs>>
+        ccLinkingOutputsAndCcLinkingInfo =
+            createTransitiveLinkingActions(
+                ruleContext,
+                ccToolchain,
+                featureConfiguration,
+                fdoProvider,
+                common,
+                precompiledFiles,
+                ccCompilationOutputs,
+                ccLinkingOutputs,
+                ccCompilationContext,
+                fake,
+                binary,
+                linkParams,
+                linkCompileOutputSeparately,
+                semantics,
+                linkingMode,
+                cppConfiguration,
+                linkType,
+                pdbFile,
+                generatedDefFile,
+                customDefFile);
 
     CcLinkingOutputs ccLinkingOutputsBinary = ccLinkingOutputsAndCcLinkingInfo.first;
 
     CcLauncherInfo ccLauncherInfo =
         new CcLauncherInfo(
-            ccLinkingOutputsAndCcLinkingInfo.second.getStaticModeParamsForExecutable(),
-            ccCompilationOutputs);
+            ccLinkingOutputsAndCcLinkingInfo.second.first.getStaticModeParamsForExecutable(),
+            ccLinkingOutputsAndCcLinkingInfo.second.second);
 
     // Store immutable context for use in other *_binary rules that are implemented by
     // linking the interpreter (Java, Python, etc.) together with native deps.
@@ -553,28 +554,29 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  public static Pair<CcLinkingOutputs, CcLinkingInfo> createTransitiveLinkingActions(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      FeatureConfiguration featureConfiguration,
-      FdoProvider fdoProvider,
-      CcCommon common,
-      PrecompiledFiles precompiledFiles,
-      CcCompilationOutputs ccCompilationOutputs,
-      CcLinkingOutputs ccLinkingOutputs,
-      CcCompilationContext ccCompilationContext,
-      boolean fake,
-      Artifact binary,
-      CcLinkParams linkParams,
-      boolean linkCompileOutputSeparately,
-      CppSemantics cppSemantics,
-      LinkingMode linkingMode,
-      CppConfiguration cppConfiguration,
-      LinkTargetType linkType,
-      Artifact pdbFile,
-      Artifact generatedDefFile,
-      Artifact customDefFile)
-      throws InterruptedException, RuleErrorException {
+  public static Pair<CcLinkingOutputs, Pair<CcLinkingInfo, CcCompilationOutputs>>
+      createTransitiveLinkingActions(
+          RuleContext ruleContext,
+          CcToolchainProvider ccToolchain,
+          FeatureConfiguration featureConfiguration,
+          FdoProvider fdoProvider,
+          CcCommon common,
+          PrecompiledFiles precompiledFiles,
+          CcCompilationOutputs ccCompilationOutputs,
+          CcLinkingOutputs ccLinkingOutputs,
+          CcCompilationContext ccCompilationContext,
+          boolean fake,
+          Artifact binary,
+          CcLinkParams linkParams,
+          boolean linkCompileOutputSeparately,
+          CppSemantics cppSemantics,
+          LinkingMode linkingMode,
+          CppConfiguration cppConfiguration,
+          LinkTargetType linkType,
+          Artifact pdbFile,
+          Artifact generatedDefFile,
+          Artifact customDefFile)
+          throws InterruptedException, RuleErrorException {
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder =
         new CcCompilationOutputs.Builder()
             .addPicObjectFiles(ccCompilationOutputs.getObjectFiles(/* usePic= */ true))
@@ -669,7 +671,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     return Pair.of(
-        ccLinkingHelper.link(ccCompilationOutputsWithOnlyObjects), ccLinkingInfo.build());
+        ccLinkingHelper.link(ccCompilationOutputsWithOnlyObjects),
+        Pair.of(ccLinkingInfo.build(), ccCompilationOutputsWithOnlyObjects));
   }
 
   /**
