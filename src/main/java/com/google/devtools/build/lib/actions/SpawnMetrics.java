@@ -24,35 +24,10 @@ public final class SpawnMetrics {
   private static final double STATS_SHOW_THRESHOLD = 0.10;
 
   /** Represents a zero cost/null statistic. */
-  public static final SpawnMetrics EMPTY =
-      new SpawnMetrics(
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          Duration.ZERO,
-          0L,
-          0L,
-          0L);
+  public static final SpawnMetrics EMPTY = new Builder().build();
 
   public static SpawnMetrics forLocalExecution(Duration wallTime) {
-    return new SpawnMetrics(
-        wallTime,
-        Duration.ZERO,
-        Duration.ZERO,
-        Duration.ZERO,
-        Duration.ZERO,
-        Duration.ZERO,
-        Duration.ZERO,
-        wallTime,
-        Duration.ZERO,
-        0L,
-        0L,
-        0L);
+    return new Builder().setTotalTime(wallTime).setExecutionWallTime(wallTime).build();
   }
 
   private final Duration totalTime;
@@ -93,6 +68,21 @@ public final class SpawnMetrics {
     this.inputBytes = inputBytes;
     this.inputFiles = inputFiles;
     this.memoryEstimateBytes = memoryEstimateBytes;
+  }
+
+  private SpawnMetrics(Builder builder) {
+    this.totalTime = builder.totalTime;
+    this.parseTime = builder.parseTime;
+    this.networkTime = builder.networkTime;
+    this.fetchTime = builder.fetchTime;
+    this.remoteQueueTime = builder.remoteQueueTime;
+    this.setupTime = builder.setupTime;
+    this.uploadTime = builder.uploadTime;
+    this.executionWallTime = builder.executionWallTime;
+    this.retryTime = builder.retryTime;
+    this.inputBytes = builder.inputBytes;
+    this.inputFiles = builder.inputFiles;
+    this.memoryEstimateBytes = builder.memoryEstimateBytes;
   }
 
   /**
@@ -244,5 +234,86 @@ public final class SpawnMetrics {
       return "N/A";
     }
     return String.format("%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
+  }
+
+  /** Builder class for SpawnMetrics. */
+  public static class Builder {
+    private Duration totalTime = Duration.ZERO;
+    private Duration parseTime = Duration.ZERO;
+    private Duration networkTime = Duration.ZERO;
+    private Duration fetchTime = Duration.ZERO;
+    private Duration remoteQueueTime = Duration.ZERO;
+    private Duration setupTime = Duration.ZERO;
+    private Duration uploadTime = Duration.ZERO;
+    private Duration executionWallTime = Duration.ZERO;
+    private Duration retryTime = Duration.ZERO;
+    private long inputBytes = 0;
+    private long inputFiles = 0;
+    private long memoryEstimateBytes = 0;
+
+    public SpawnMetrics build() {
+      // TODO(ulfjack): Add consistency checks here?
+      return new SpawnMetrics(this);
+    }
+
+    public Builder setTotalTime(Duration totalTime) {
+      this.totalTime = totalTime;
+      return this;
+    }
+
+    public Builder setParseTime(Duration parseTime) {
+      this.parseTime = parseTime;
+      return this;
+    }
+
+    public Builder setNetworkTime(Duration networkTime) {
+      this.networkTime = networkTime;
+      return this;
+    }
+
+    public Builder setFetchTime(Duration fetchTime) {
+      this.fetchTime = fetchTime;
+      return this;
+    }
+
+    public Builder setRemoteQueueTime(Duration remoteQueueTime) {
+      this.remoteQueueTime = remoteQueueTime;
+      return this;
+    }
+
+    public Builder setSetupTime(Duration setupTime) {
+      this.setupTime = setupTime;
+      return this;
+    }
+
+    public Builder setUploadTime(Duration uploadTime) {
+      this.uploadTime = uploadTime;
+      return this;
+    }
+
+    public Builder setExecutionWallTime(Duration executionWallTime) {
+      this.executionWallTime = executionWallTime;
+      return this;
+    }
+
+    public Builder setRetryTime(Duration retryTime) {
+      this.retryTime = retryTime;
+      return this;
+    }
+
+    public Builder setInputBytes(long inputBytes) {
+      this.inputBytes = inputBytes;
+      return this;
+    }
+
+    public Builder setInputFiles(long inputFiles) {
+      this.inputFiles = inputFiles;
+      return this;
+    }
+
+    public Builder setMemoryEstimateBytes(long memoryEstimateBytes) {
+      this.memoryEstimateBytes = memoryEstimateBytes;
+      return this;
+    }
   }
 }
