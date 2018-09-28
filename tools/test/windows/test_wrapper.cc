@@ -112,7 +112,12 @@ inline bool ToInt(const wchar_t* s, int* result) {
   return swscanf_s(s, L"%d", result) == 1;
 }
 
-inline std::wstring AsUnixPath(const std::wstring& path) {
+// Converts a Windows-style path to a mixed (Unix-Windows) style.
+// The path is mixed-style because it is a Windows path (begins with a drive
+// letter) but uses forward slashes as directory separators.
+// We must export envvars as mixed style path because some tools confuse the
+// backslashes in Windows paths for Unix-style escape characters.
+inline std::wstring AsMixedPath(const std::wstring& path) {
   std::wstring value = path;
   std::replace(value.begin(), value.end(), L'\\', L'/');
   return value;
@@ -211,20 +216,19 @@ bool ExportSrcPath(const Path& cwd, Path* result) {
     return false;
   }
   return !result->Absolutize(cwd) ||
-         SetEnv(L"TEST_SRCDIR", AsUnixPath(result->Get()));
+         SetEnv(L"TEST_SRCDIR", AsMixedPath(result->Get()));
 }
 
 // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
 bool ExportTmpPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_TMPDIR", result) ||
       (result->Absolutize(cwd) &&
-       !SetEnv(L"TEST_TMPDIR", AsUnixPath(result->Get())))) {
+       !SetEnv(L"TEST_TMPDIR", AsMixedPath(result->Get())))) {
     return false;
   }
   // Create the test temp directory, which may not exist on the remote host when
   // doing a remote build.
-  CreateDirectories(*result);
-  return true;
+  return CreateDirectories(*result);
 }
 
 // Set HOME as required by the Bazel Test Encyclopedia.
@@ -239,7 +243,7 @@ bool ExportHome(const Path& test_tmpdir) {
     return true;
   } else {
     // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
-    return SetEnv(L"HOME", AsUnixPath(test_tmpdir.Get()));
+    return SetEnv(L"HOME", AsMixedPath(test_tmpdir.Get()));
   }
 }
 
@@ -247,7 +251,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   Path runfiles_dir;
   if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
       (runfiles_dir.Absolutize(cwd) &&
-       !SetEnv(L"RUNFILES_DIR", AsUnixPath(runfiles_dir.Get())))) {
+       !SetEnv(L"RUNFILES_DIR", AsMixedPath(runfiles_dir.Get())))) {
     return false;
   }
 
@@ -256,10 +260,10 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   Path java_rf, py_rf;
   if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
       (java_rf.Absolutize(cwd) &&
-       !SetEnv(L"JAVA_RUNFILES", AsUnixPath(java_rf.Get()))) ||
+       !SetEnv(L"JAVA_RUNFILES", AsMixedPath(java_rf.Get()))) ||
       !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
       (py_rf.Absolutize(cwd) &&
-       !SetEnv(L"PYTHON_RUNFILES", AsUnixPath(py_rf.Get())))) {
+       !SetEnv(L"PYTHON_RUNFILES", AsMixedPath(py_rf.Get())))) {
     return false;
   }
 
@@ -274,7 +278,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     // manifest file to find their runfiles.
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
-        !SetEnv(L"RUNFILES_MANIFEST_FILE", AsUnixPath(runfiles_mf.Get()))) {
+        !SetEnv(L"RUNFILES_MANIFEST_FILE", AsMixedPath(runfiles_mf.Get()))) {
       return false;
     }
   }
@@ -312,7 +316,7 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
       return false;
     }
   }
-  return SetEnv(L"GTEST_TMP_DIR", AsUnixPath(test_tmpdir.Get()));
+  return SetEnv(L"GTEST_TMP_DIR", AsMixedPath(test_tmpdir.Get()));
 }
 
 bool ExportMiscEnvvars(const Path& cwd) {
@@ -322,7 +326,7 @@ bool ExportMiscEnvvars(const Path& cwd) {
         L"TEST_WARNINGS_OUTPUT_FILE"}) {
     Path value;
     if (!GetPathEnv(name, &value) ||
-        (value.Absolutize(cwd) && !SetEnv(name, AsUnixPath(value.Get())))) {
+        (value.Absolutize(cwd) && !SetEnv(name, AsMixedPath(value.Get())))) {
       return false;
     }
   }
@@ -357,9 +361,9 @@ bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd,
   result->annotations.Absolutize(cwd);
 
   return SetEnv(L"TEST_UNDECLARED_OUTPUTS_DIR",
-                AsUnixPath(result->root.Get())) &&
+                AsMixedPath(result->root.Get())) &&
          SetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
-                AsUnixPath(result->annotations_dir.Get())) &&
+                AsMixedPath(result->annotations_dir.Get())) &&
          CreateDirectories(result->root) &&
          CreateDirectories(result->annotations_dir);
 }
