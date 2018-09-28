@@ -164,10 +164,11 @@ public class ParallelSkyQueryUtils {
   static void getRBuildFilesParallel(
       SkyQueryEnvironment env,
       Collection<PathFragment> fileIdentifiers,
+      QueryExpressionContext<Target> context,
       Callback<Target> callback) throws QueryException, InterruptedException {
     Uniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
     RBuildFilesVisitor visitor =
-        new RBuildFilesVisitor(env, keyUniquifier, callback);
+        new RBuildFilesVisitor(env, keyUniquifier, context, callback);
     visitor.visitAndWaitForCompletion(env.getFileStateKeysForFileFragments(fileIdentifiers));
   }
 

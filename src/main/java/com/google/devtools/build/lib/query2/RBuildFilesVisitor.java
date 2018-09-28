@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -37,11 +38,16 @@ class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
   private static final SkyKey EXTERNAL_PACKAGE_KEY =
       PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
   private final SkyQueryEnvironment env;
+  private final QueryExpressionContext<Target> context;
 
   RBuildFilesVisitor(
-      SkyQueryEnvironment env, Uniquifier<SkyKey> uniquifier, Callback<Target> callback) {
+      SkyQueryEnvironment env,
+      Uniquifier<SkyKey> uniquifier,
+      QueryExpressionContext<Target> context,
+      Callback<Target> callback) {
     super(uniquifier, callback, ParallelSkyQueryUtils.VISIT_BATCH_SIZE, PROCESS_RESULTS_BATCH_SIZE);
     this.env = env;
+    this.context = context;
   }
 
   @Override
@@ -71,7 +77,8 @@ class RBuildFilesVisitor extends AbstractSkyKeyParallelVisitor<Target> {
   protected void processPartialResults(
       Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    env.getBuildFileTargetsForPackageKeysAndProcessViaCallback(keysToUseForResult, callback);
+    env.getBuildFileTargetsForPackageKeysAndProcessViaCallback(
+        keysToUseForResult, context, callback);
   }
 
   @Override
