@@ -266,10 +266,10 @@ public class NotifyingHelper {
     }
 
     @Override
-    public MarkedDirtyResult markDirty(boolean isChanged) throws InterruptedException {
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, isChanged);
-      MarkedDirtyResult result = super.markDirty(isChanged);
-      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, isChanged);
+    public MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException {
+      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.BEFORE, dirtyType);
+      MarkedDirtyResult result = super.markDirty(dirtyType);
+      graphListener.accept(myKey, EventType.MARK_DIRTY, Order.AFTER, dirtyType);
       return result;
     }
 
