@@ -163,6 +163,10 @@ bool SetEnv(const wchar_t* name, const std::wstring& value) {
   }
 }
 
+bool SetPathEnv(const wchar_t* name, const Path& path) {
+  return SetEnv(name, AsMixedPath(path.Get()));
+}
+
 bool UnsetEnv(const wchar_t* name) {
   if (SetEnvironmentVariableW(name, NULL) != 0) {
     return true;
@@ -215,15 +219,13 @@ bool ExportSrcPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_SRCDIR", result)) {
     return false;
   }
-  return !result->Absolutize(cwd) ||
-         SetEnv(L"TEST_SRCDIR", AsMixedPath(result->Get()));
+  return !result->Absolutize(cwd) || SetPathEnv(L"TEST_SRCDIR", *result);
 }
 
 // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
 bool ExportTmpPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_TMPDIR", result) ||
-      (result->Absolutize(cwd) &&
-       !SetEnv(L"TEST_TMPDIR", AsMixedPath(result->Get())))) {
+      (result->Absolutize(cwd) && !SetPathEnv(L"TEST_TMPDIR", *result))) {
     return false;
   }
   // Create the test temp directory, which may not exist on the remote host when
@@ -243,7 +245,7 @@ bool ExportHome(const Path& test_tmpdir) {
     return true;
   } else {
     // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
-    return SetEnv(L"HOME", AsMixedPath(test_tmpdir.Get()));
+    return SetPathEnv(L"HOME", test_tmpdir);
   }
 }
 
@@ -251,7 +253,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   Path runfiles_dir;
   if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
       (runfiles_dir.Absolutize(cwd) &&
-       !SetEnv(L"RUNFILES_DIR", AsMixedPath(runfiles_dir.Get())))) {
+       !SetPathEnv(L"RUNFILES_DIR", runfiles_dir))) {
     return false;
   }
 
@@ -259,11 +261,9 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   // {JAVA,PYTHON}_RUNFILES vars.
   Path java_rf, py_rf;
   if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
-      (java_rf.Absolutize(cwd) &&
-       !SetEnv(L"JAVA_RUNFILES", AsMixedPath(java_rf.Get()))) ||
+      (java_rf.Absolutize(cwd) && !SetPathEnv(L"JAVA_RUNFILES", java_rf)) ||
       !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
-      (py_rf.Absolutize(cwd) &&
-       !SetEnv(L"PYTHON_RUNFILES", AsMixedPath(py_rf.Get())))) {
+      (py_rf.Absolutize(cwd) && !SetPathEnv(L"PYTHON_RUNFILES", py_rf))) {
     return false;
   }
 
@@ -278,7 +278,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     // manifest file to find their runfiles.
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
-        !SetEnv(L"RUNFILES_MANIFEST_FILE", AsMixedPath(runfiles_mf.Get()))) {
+        !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf)) {
       return false;
     }
   }
@@ -290,7 +290,7 @@ bool ExportShardStatusFile(const Path& cwd) {
   Path status_file;
   if (!GetPathEnv(L"TEST_SHARD_STATUS_FILE", &status_file) ||
       (!status_file.Get().empty() && status_file.Absolutize(cwd) &&
-       !SetEnv(L"TEST_SHARD_STATUS_FILE", status_file.Get()))) {
+       !SetPathEnv(L"TEST_SHARD_STATUS_FILE", status_file))) {
     return false;
   }
 
@@ -316,7 +316,7 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
       return false;
     }
   }
-  return SetEnv(L"GTEST_TMP_DIR", AsMixedPath(test_tmpdir.Get()));
+  return SetPathEnv(L"GTEST_TMP_DIR", test_tmpdir);
 }
 
 bool ExportMiscEnvvars(const Path& cwd) {
@@ -326,7 +326,7 @@ bool ExportMiscEnvvars(const Path& cwd) {
         L"TEST_WARNINGS_OUTPUT_FILE"}) {
     Path value;
     if (!GetPathEnv(name, &value) ||
-        (value.Absolutize(cwd) && !SetEnv(name, AsMixedPath(value.Get())))) {
+        (value.Absolutize(cwd) && !SetPathEnv(name, value))) {
       return false;
     }
   }
@@ -360,10 +360,9 @@ bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd,
   result->manifest.Absolutize(cwd);
   result->annotations.Absolutize(cwd);
 
-  return SetEnv(L"TEST_UNDECLARED_OUTPUTS_DIR",
-                AsMixedPath(result->root.Get())) &&
-         SetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
-                AsMixedPath(result->annotations_dir.Get())) &&
+  return SetPathEnv(L"TEST_UNDECLARED_OUTPUTS_DIR", result->root) &&
+         SetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
+                    result->annotations_dir) &&
          CreateDirectories(result->root) &&
          CreateDirectories(result->annotations_dir);
 }
