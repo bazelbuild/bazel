@@ -71,6 +71,14 @@ class Path {
   std::wstring path_;
 };
 
+struct UndeclaredOutputs {
+  Path root;
+  Path zip;
+  Path manifest;
+  Path annotations;
+  Path annotations_dir;
+};
+
 void LogError(const int line, const char* msg) {
   printf("ERROR(" __FILE__ ":%d) %s\n", line, msg);
 }
@@ -92,15 +100,27 @@ void LogErrorWithArgAndValue(const int line, const char* msg,
          line, error_code, error_code, arg, msg);
 }
 
-inline void CreateDirectories(const Path& path) {
+inline bool CreateDirectories(const Path& path) {
   blaze_util::MakeDirectoriesW(bazel::windows::HasUncPrefix(path.Get().c_str())
                                    ? path.Get()
                                    : L"\\\\?\\" + path.Get(),
                                0777);
+  return true;
 }
 
 inline bool ToInt(const wchar_t* s, int* result) {
   return swscanf_s(s, L"%d", result) == 1;
+}
+
+// Converts a Windows-style path to a mixed (Unix-Windows) style.
+// The path is mixed-style because it is a Windows path (begins with a drive
+// letter) but uses forward slashes as directory separators.
+// We must export envvars as mixed style path because some tools confuse the
+// backslashes in Windows paths for Unix-style escape characters.
+inline std::wstring AsMixedPath(const std::wstring& path) {
+  std::wstring value = path;
+  std::replace(value.begin(), value.end(), L'\\', L'/');
+  return value;
 }
 
 bool GetEnv(const wchar_t* name, std::wstring* result) {
@@ -137,18 +157,22 @@ bool SetEnv(const wchar_t* name, const std::wstring& value) {
   if (SetEnvironmentVariableW(name, value.c_str()) != 0) {
     return true;
   } else {
-    LogErrorWithArgAndValue(__LINE__, "Failed to set envvar", name,
-                            GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to set envvar", name, err);
     return false;
   }
+}
+
+bool SetPathEnv(const wchar_t* name, const Path& path) {
+  return SetEnv(name, AsMixedPath(path.Get()));
 }
 
 bool UnsetEnv(const wchar_t* name) {
   if (SetEnvironmentVariableW(name, NULL) != 0) {
     return true;
   } else {
-    LogErrorWithArgAndValue(__LINE__, "Failed to unset envvar", name,
-                            GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to unset envvar", name, err);
     return false;
   }
 }
@@ -183,7 +207,8 @@ bool ExportUserName() {
   WCHAR buffer[UNLEN + 1];
   DWORD len = UNLEN + 1;
   if (GetUserNameW(buffer, &len) == 0) {
-    LogErrorWithValue(__LINE__, "Failed to query user name", GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "Failed to query user name", err);
     return false;
   }
   return SetEnv(L"USER", buffer);
@@ -194,19 +219,18 @@ bool ExportSrcPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_SRCDIR", result)) {
     return false;
   }
-  return !result->Absolutize(cwd) || SetEnv(L"TEST_SRCDIR", result->Get());
+  return !result->Absolutize(cwd) || SetPathEnv(L"TEST_SRCDIR", *result);
 }
 
 // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
 bool ExportTmpPath(const Path& cwd, Path* result) {
   if (!GetPathEnv(L"TEST_TMPDIR", result) ||
-      (result->Absolutize(cwd) && !SetEnv(L"TEST_TMPDIR", result->Get()))) {
+      (result->Absolutize(cwd) && !SetPathEnv(L"TEST_TMPDIR", *result))) {
     return false;
   }
   // Create the test temp directory, which may not exist on the remote host when
   // doing a remote build.
-  CreateDirectories(*result);
-  return true;
+  return CreateDirectories(*result);
 }
 
 // Set HOME as required by the Bazel Test Encyclopedia.
@@ -221,7 +245,7 @@ bool ExportHome(const Path& test_tmpdir) {
     return true;
   } else {
     // Set TEST_TMPDIR as required by the Bazel Test Encyclopedia.
-    return SetEnv(L"HOME", test_tmpdir.Get());
+    return SetPathEnv(L"HOME", test_tmpdir);
   }
 }
 
@@ -229,7 +253,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   Path runfiles_dir;
   if (!GetPathEnv(L"RUNFILES_DIR", &runfiles_dir) ||
       (runfiles_dir.Absolutize(cwd) &&
-       !SetEnv(L"RUNFILES_DIR", runfiles_dir.Get()))) {
+       !SetPathEnv(L"RUNFILES_DIR", runfiles_dir))) {
     return false;
   }
 
@@ -237,9 +261,9 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
   // {JAVA,PYTHON}_RUNFILES vars.
   Path java_rf, py_rf;
   if (!GetPathEnv(L"JAVA_RUNFILES", &java_rf) ||
-      (java_rf.Absolutize(cwd) && !SetEnv(L"JAVA_RUNFILES", java_rf.Get())) ||
+      (java_rf.Absolutize(cwd) && !SetPathEnv(L"JAVA_RUNFILES", java_rf)) ||
       !GetPathEnv(L"PYTHON_RUNFILES", &py_rf) ||
-      (py_rf.Absolutize(cwd) && !SetEnv(L"PYTHON_RUNFILES", py_rf.Get()))) {
+      (py_rf.Absolutize(cwd) && !SetPathEnv(L"PYTHON_RUNFILES", py_rf))) {
     return false;
   }
 
@@ -254,7 +278,7 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir) {
     // manifest file to find their runfiles.
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
-        !SetEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf.Get())) {
+        !SetPathEnv(L"RUNFILES_MANIFEST_FILE", runfiles_mf)) {
       return false;
     }
   }
@@ -266,15 +290,13 @@ bool ExportShardStatusFile(const Path& cwd) {
   Path status_file;
   if (!GetPathEnv(L"TEST_SHARD_STATUS_FILE", &status_file) ||
       (!status_file.Get().empty() && status_file.Absolutize(cwd) &&
-       !SetEnv(L"TEST_SHARD_STATUS_FILE", status_file.Get()))) {
+       !SetPathEnv(L"TEST_SHARD_STATUS_FILE", status_file))) {
     return false;
   }
 
-  if (!status_file.Get().empty()) {
-    // The test shard status file is only set for sharded tests.
-    CreateDirectories(status_file.Dirname());
-  }
-  return true;
+  return status_file.Get().empty() ||
+         // The test shard status file is only set for sharded tests.
+         CreateDirectories(status_file.Dirname());
 }
 
 bool ExportGtestVariables(const Path& test_tmpdir) {
@@ -294,7 +316,7 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
       return false;
     }
   }
-  return SetEnv(L"GTEST_TMP_DIR", test_tmpdir.Get());
+  return SetPathEnv(L"GTEST_TMP_DIR", test_tmpdir);
 }
 
 bool ExportMiscEnvvars(const Path& cwd) {
@@ -304,27 +326,45 @@ bool ExportMiscEnvvars(const Path& cwd) {
         L"TEST_WARNINGS_OUTPUT_FILE"}) {
     Path value;
     if (!GetPathEnv(name, &value) ||
-        (value.Absolutize(cwd) && !SetEnv(name, value.Get()))) {
+        (value.Absolutize(cwd) && !SetPathEnv(name, value))) {
       return false;
     }
   }
   return true;
 }
 
-bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd, Path* zip,
-                                            Path* manifest, Path* annotations) {
-  if (!GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP", zip) ||
+bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd,
+                                            UndeclaredOutputs* result) {
+  // The test may only see TEST_UNDECLARED_OUTPUTS_DIR and
+  // TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR, so keep those but unexport others.
+  if (!GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP", &(result->zip)) ||
       !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ZIP") ||
-      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST", manifest) ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST", &(result->manifest)) ||
       !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_MANIFEST") ||
-      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS", annotations) ||
-      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS")) {
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS",
+                  &(result->annotations)) ||
+      !UnsetEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS") ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_DIR", &(result->root)) ||
+
+      !GetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
+                  &(result->annotations_dir))) {
     return false;
   }
-  zip->Absolutize(cwd);
-  manifest->Absolutize(cwd);
-  annotations->Absolutize(cwd);
-  return true;
+
+  result->root.Absolutize(cwd);
+  result->annotations_dir.Absolutize(cwd);
+  result->zip.Absolutize(cwd);
+  result->manifest.Absolutize(cwd);
+  result->annotations.Absolutize(cwd);
+
+  return SetPathEnv(L"TEST_UNDECLARED_OUTPUTS_DIR", result->root) &&
+         SetPathEnv(L"TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
+                    result->annotations_dir) &&
+         CreateDirectories(result->root) &&
+         CreateDirectories(result->annotations_dir);
 }
 
 inline bool PrintTestLogStartMarker(bool suppress_output) {
@@ -423,7 +463,8 @@ bool StartSubprocess(const Path& path, HANDLE* process) {
     *process = processInfo.hProcess;
     return true;
   } else {
-    LogErrorWithValue(__LINE__, "CreateProcessW failed", GetLastError());
+    DWORD err = GetLastError();
+    LogErrorWithValue(__LINE__, "CreateProcessW failed", err);
     return false;
   }
 }
@@ -434,15 +475,17 @@ int WaitForSubprocess(HANDLE process) {
     case WAIT_OBJECT_0: {
       DWORD exit_code;
       if (!GetExitCodeProcess(process, &exit_code)) {
-        LogErrorWithValue(__LINE__, "GetExitCodeProcess failed",
-                          GetLastError());
+        DWORD err = GetLastError();
+        LogErrorWithValue(__LINE__, "GetExitCodeProcess failed", err);
         return 1;
       }
       return exit_code;
     }
-    case WAIT_FAILED:
-      LogErrorWithValue(__LINE__, "WaitForSingleObject failed", GetLastError());
+    case WAIT_FAILED: {
+      DWORD err = GetLastError();
+      LogErrorWithValue(__LINE__, "WaitForSingleObject failed", err);
       return 1;
+    }
     default:
       LogErrorWithValue(
           __LINE__, "WaitForSingleObject returned unexpected result", result);
@@ -473,6 +516,16 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
 
   *out_test_path_arg = argv[0];
   return true;
+}
+
+int RunSubprocess(const Path& test_path) {
+  HANDLE process;
+  if (!StartSubprocess(test_path, &process)) {
+    return 1;
+  }
+  Defer close_process([process]() { CloseHandle(process); });
+
+  return WaitForSubprocess(process);
 }
 
 bool Path::Set(const std::wstring& path) {
@@ -507,8 +560,8 @@ int wmain(int argc, wchar_t** argv) {
   Path argv0;
   std::wstring test_path_arg;
   bool suppress_output = false;
-  Path exec_root, test_path, srcdir, tmpdir, xml_output, undecl_zip, undecl_mf,
-      undecl_annot;
+  Path test_path, exec_root, srcdir, tmpdir, xml_output;
+  UndeclaredOutputs undecl;
   if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output) ||
       !PrintTestLogStartMarker(suppress_output) ||
       !FindTestBinary(argv0, test_path_arg, &test_path) ||
@@ -517,16 +570,9 @@ int wmain(int argc, wchar_t** argv) {
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
-      !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl_zip,
-                                              &undecl_mf, &undecl_annot)) {
+      !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl)) {
     return 1;
   }
 
-  HANDLE process;
-  if (!StartSubprocess(test_path, &process)) {
-    return 1;
-  }
-  Defer close_process([process]() { CloseHandle(process); });
-
-  return WaitForSubprocess(process);
+  return RunSubprocess(test_path);
 }
