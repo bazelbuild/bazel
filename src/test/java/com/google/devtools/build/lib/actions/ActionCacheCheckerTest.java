@@ -333,8 +333,11 @@ public class ActionCacheCheckerTest {
   /** A fake metadata handler that is able to obtain metadata from the file system. */
   private static class FakeMetadataHandler extends FakeMetadataHandlerBase {
     @Override
-    public FileArtifactValue getMetadata(Artifact artifact) throws IOException {
-      return FileArtifactValue.create(artifact);
+    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+      if (!(input instanceof Artifact)) {
+        return null;
+      }
+      return FileArtifactValue.create((Artifact) input);
     }
 
     @Override
