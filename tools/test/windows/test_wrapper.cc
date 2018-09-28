@@ -112,6 +112,16 @@ inline bool ToInt(const wchar_t* s, int* result) {
   return swscanf_s(s, L"%d", result) == 1;
 }
 
+bool WcsToAcp(const std::wstring& wcs, std::string* acp) {
+  uint32_t err;
+  if (!blaze_util::WcsToAcp(wcs, acp, &err)) {
+    LogErrorWithArgAndValue(__LINE__, "Failed to convert string", wcs.c_str(),
+                            err);
+    return false;
+  }
+  return true;
+}
+
 // Converts a Windows-style path to a mixed (Unix-Windows) style.
 // The path is mixed-style because it is a Windows path (begins with a drive
 // letter) but uses forward slashes as directory separators.
@@ -333,6 +343,44 @@ bool ExportMiscEnvvars(const Path& cwd) {
   return true;
 }
 
+bool OpenFileForWriting(const std::wstring& path, HANDLE* result) {
+  *result = CreateFileW(bazel::windows::HasUncPrefix(path.c_str())
+                            ? path.c_str()
+                            : (L"\\\\?\\" + path).c_str(),
+                        GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE,
+                        NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (*result == INVALID_HANDLE_VALUE) {
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.c_str(), err);
+    return false;
+  }
+  return true;
+}
+
+bool TouchFile(const std::wstring& path) {
+  HANDLE handle;
+  if (!OpenFileForWriting(path, &handle)) {
+    return false;
+  }
+  CloseHandle(handle);
+  return true;
+}
+
+bool ExportXmlPath(const Path& cwd) {
+  Path result;
+  if (!GetPathEnv(L"XML_OUTPUT_FILE", &result)) {
+    return false;
+  }
+  result.Absolutize(cwd);
+  std::wstring unix_result = AsMixedPath(result.Get());
+  return SetEnv(L"XML_OUTPUT_FILE", unix_result) &&
+         // TODO(ulfjack): Update Gunit to accept XML_OUTPUT_FILE and drop the
+         // GUNIT_OUTPUT env variable.
+         SetEnv(L"GUNIT_OUTPUT", L"xml:" + unix_result) &&
+         CreateDirectories(result.Dirname()) &&
+         TouchFile(result.Get() + L".log");
+}
+
 bool GetAndUnexportUndeclaredOutputsEnvvars(const Path& cwd,
                                             UndeclaredOutputs* result) {
   // The test may only see TEST_UNDECLARED_OUTPUTS_DIR and
@@ -404,10 +452,7 @@ inline void StripLeadingDotSlash(std::wstring* s) {
 bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   if (!blaze_util::IsAbsolute(test_path)) {
     std::string argv0_acp;
-    uint32_t err;
-    if (!blaze_util::WcsToAcp(argv0.Get(), &argv0_acp, &err)) {
-      LogErrorWithArgAndValue(__LINE__, "Failed to convert string",
-                              argv0.Get().c_str(), err);
+    if (!WcsToAcp(argv0.Get(), &argv0_acp)) {
       return false;
     }
 
@@ -429,6 +474,7 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
     test_path = workspace + L"/" + test_path;
 
     std::string utf8_test_path;
+    uint32_t err;
     if (!blaze_util::WcsToUtf8(test_path, &utf8_test_path, &err)) {
       LogErrorWithArgAndValue(__LINE__, "Failed to convert string to UTF-8",
                               test_path.c_str(), err);
@@ -570,9 +616,11 @@ int wmain(int argc, wchar_t** argv) {
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||
       !ExportRunfiles(exec_root, srcdir) || !ExportShardStatusFile(exec_root) ||
       !ExportGtestVariables(tmpdir) || !ExportMiscEnvvars(exec_root) ||
+      !ExportXmlPath(exec_root) ||
       !GetAndUnexportUndeclaredOutputsEnvvars(exec_root, &undecl)) {
     return 1;
   }
 
   return RunSubprocess(test_path);
 }
+
