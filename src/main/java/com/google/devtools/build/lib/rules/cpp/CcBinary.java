@@ -49,6 +49,9 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
@@ -60,6 +63,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -90,6 +94,53 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    */
   @VisibleForTesting
   public static final String INTERMEDIATE_DWP_DIR = "_dwps";
+
+  /** Provider for native deps launchers. DO NOT USE. */
+  @Deprecated
+  public static class CcLauncherInfo extends NativeInfo {
+    private static final String RESTRICTION_ERROR_MESSAGE =
+        "This provider is restricted to native.java_binary, native.py_binary and native.java_test. "
+            + "This is a ";
+    public static final String PROVIDER_NAME = "CcLauncherInfo";
+    public static final Provider PROVIDER = new Provider();
+
+    private final CcCompilationOutputs ccCompilationOutputs;
+    private final CcLinkParams staticModeParamsForExecutable;
+
+    public CcLauncherInfo(
+        CcLinkParams staticModeParamsForExecutable, CcCompilationOutputs ccCompilationOutputs) {
+      super(PROVIDER);
+      this.staticModeParamsForExecutable = staticModeParamsForExecutable;
+      this.ccCompilationOutputs = ccCompilationOutputs;
+    }
+
+    public CcCompilationOutputs getCcCompilationOutputs(RuleContext ruleContext) {
+      checkRestrictedUsage(ruleContext);
+      return ccCompilationOutputs;
+    }
+
+    public CcLinkParams getStaticModeParamsForExecutable(RuleContext ruleContext) {
+      checkRestrictedUsage(ruleContext);
+      return staticModeParamsForExecutable;
+    }
+
+    private void checkRestrictedUsage(RuleContext ruleContext) {
+      Rule rule = ruleContext.getRule();
+      if (rule.getRuleClassObject().isSkylark()
+          || (!rule.getRuleClass().equals("java_binary")
+              && !rule.getRuleClass().equals("java_test")
+              && !rule.getRuleClass().equals("py_binary"))) {
+        throw new IllegalStateException(RESTRICTION_ERROR_MESSAGE + rule.getRuleClass());
+      }
+    }
+
+    /** Provider class for {@link CcLauncherInfo} objects. */
+    public static class Provider extends BuiltinProvider<CcLauncherInfo> {
+      private Provider() {
+        super(PROVIDER_NAME, CcLauncherInfo.class);
+      }
+    }
+  }
 
   private static Runfiles collectRunfiles(
       RuleContext ruleContext,
@@ -328,7 +379,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       pdbFile = ruleContext.getRelatedArtifact(binary.getRootRelativePath(), ".pdb");
     }
 
-    CcLinkingOutputs ccLinkingOutputsBinary =
+    Pair<CcLinkingOutputs, CcLinkingInfo> ccLinkingOutputsAndCcLinkingInfo =
         createTransitiveLinkingActions(
             ruleContext,
             ccToolchain,
@@ -347,10 +398,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             linkingMode,
             cppConfiguration,
             linkType,
-            binaryPath,
             pdbFile,
             generatedDefFile,
             customDefFile);
+
+    CcLinkingOutputs ccLinkingOutputsBinary = ccLinkingOutputsAndCcLinkingInfo.first;
+
+    CcLauncherInfo ccLauncherInfo =
+        new CcLauncherInfo(
+            ccLinkingOutputsAndCcLinkingInfo.second.getStaticModeParamsForExecutable(),
+            ccCompilationOutputs);
 
     // Store immutable context for use in other *_binary rules that are implemented by
     // linking the interpreter (Java, Python, etc.) together with native deps.
@@ -491,11 +548,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             new DebugPackageProvider(ruleContext.getLabel(), strippedFile, binary, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, binary)
         .addProvider(CppLinkAction.Context.class, linkContext)
+        .addNativeDeclaredProvider(ccLauncherInfo)
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .build();
   }
 
-  public static CcLinkingOutputs createTransitiveLinkingActions(
+  public static Pair<CcLinkingOutputs, CcLinkingInfo> createTransitiveLinkingActions(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
@@ -513,7 +571,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       LinkingMode linkingMode,
       CppConfiguration cppConfiguration,
       LinkTargetType linkType,
-      PathFragment binaryPath,
       Artifact pdbFile,
       Artifact generatedDefFile,
       Artifact customDefFile)
@@ -529,14 +586,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCompilationOutputs ccCompilationOutputsWithOnlyObjects = ccCompilationOutputsBuilder.build();
     CcLinkingHelper ccLinkingHelper =
         new CcLinkingHelper(
-                ruleContext,
-                cppSemantics,
-                featureConfiguration,
-                ccToolchain,
-                fdoProvider,
-                ruleContext.getConfiguration())
-            .addNonCodeLinkerInputs(ccCompilationContext.getTransitiveCompilationPrerequisites())
-            .addNonCodeLinkerInputs(common.getLinkerScripts());
+            ruleContext,
+            cppSemantics,
+            featureConfiguration,
+            ccToolchain,
+            fdoProvider,
+            ruleContext.getConfiguration());
 
     CcLinkParams.Builder ccLinkParamsBuilder = CcLinkParams.builder();
     ccLinkParamsBuilder.addTransitiveArgs(linkParams);
@@ -571,6 +626,20 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       }
     }
 
+    if (linkingMode != Link.LinkingMode.DYNAMIC
+        && !cppConfiguration.disableEmittingStaticLibgcc()) {
+      // Only force a static link of libgcc if static runtime linking is enabled (which
+      // can't be true if runtimeInputs is empty).
+      // TODO(bazel-team): Move this to CcToolchain.
+      if (!ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration).isEmpty()) {
+        ccLinkParamsBuilder.addLinkOpts(ImmutableList.of("-static-libgcc"));
+      }
+    }
+
+    ccLinkParamsBuilder
+        .addNonCodeInputs(ccCompilationContext.getTransitiveCompilationPrerequisites())
+        .addNonCodeInputs(common.getLinkerScripts());
+
     CcLinkParams ccLinkParams = ccLinkParamsBuilder.build();
     CcLinkingInfo.Builder ccLinkingInfo = CcLinkingInfo.Builder.create();
     ccLinkingInfo.setStaticModeParamsForDynamicLibrary(ccLinkParams);
@@ -584,7 +653,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .setShouldCreateStaticLibraries(false)
         .setLinkingMode(linkingMode)
         .setDynamicLinkType(linkType)
-        .setDynamicLibrary(binary)
+        .setLinkerOutputArtifact(binary)
         .setNeverLink(true)
         .emitInterfaceSharedObjects(
             isLinkShared(ruleContext)
@@ -599,17 +668,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       ccLinkingHelper.setDefFile(generatedDefFile);
     }
 
-    if (linkingMode != Link.LinkingMode.DYNAMIC
-        && !cppConfiguration.disableEmittingStaticLibgcc()) {
-      // Only force a static link of libgcc if static runtime linking is enabled (which
-      // can't be true if runtimeInputs is empty).
-      // TODO(bazel-team): Move this to CcToolchain.
-      if (!ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration).isEmpty()) {
-        ccLinkingHelper.addLinkopts(ImmutableList.of("-static-libgcc"));
-      }
-    }
-
-    return ccLinkingHelper.link(/* ccOutputs */ ccCompilationOutputsWithOnlyObjects);
+    return Pair.of(
+        ccLinkingHelper.link(ccCompilationOutputsWithOnlyObjects), ccLinkingInfo.build());
   }
 
   /**

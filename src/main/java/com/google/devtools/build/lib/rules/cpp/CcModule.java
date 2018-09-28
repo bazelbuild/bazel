@@ -544,7 +544,7 @@ public class CcModule
                 ruleContext.getConfiguration())
             .addLinkopts(linkopts)
             .setShouldCreateStaticLibraries(shouldCreateStaticLibraries)
-            .setDynamicLibrary(convertFromNoneable(dynamicLibrary, null))
+            .setLinkerOutputArtifact(convertFromNoneable(dynamicLibrary, null))
             .addCcLinkingInfos(skylarkCcLinkingInfos)
             .setNeverLink(neverLink);
     try {
