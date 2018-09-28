@@ -1,0 +1,61 @@
+  - New bazelrc file list.
+  - Adds --incompatible_expand_directories to automatically expand
+    directories in skylark command lines. Design doc:
+    https://docs.google.com/document/d/11agWFiOUiz2htBLj6swPTob5z78TrC
+    xm8DQE4uJLOwM
+  - --incompatible_package_name_is_a_function now defaults to true.
+    The magic values PACKAGE_NAME and REPOSITORY_NAME are no longer
+    exposed.
+
+New features:
+
+  - Add --modify_execution_info, a flag to customize action execution
+    info.
+
+Important changes:
+
+  - A new, experimental, options --experimental_ui_deduplicate was
+    added that
+      makes the UI try to deduplicate messages from actions to keep
+    the output on the
+      console cleaner.
+  - Add ExecutionInfo to aquery output for ExecutionInfoSpecifier
+    actions.
+  - The Android resource processing pipeline now supports persistence
+    via worker processes. Enable it with
+    `--persistent_android_resource_processor`. We have observed 1.5x
+    faster clean local builds, and up to 2.5x faster incremental
+    local builds.
+  - --windows_exe_launcher is deprecated, this flag will be removed
+    soon. Please make sure you are not using it.
+  - CppRules: cc_binary link action no longer hardcodes
+    -static-libgcc for toolchains that support embedded runtimes
+    (guarded by --experimental_dont_emit_static_libgcc temporarily).
+  - When computing --instrumentation_filter, end filter patterns with
+    "[/:]" to match non-top-level packages exactly and treat
+    top-level targets consistently.
+  - Note
+  - The startup flag --host_javabase has been renamed to
+    --server_javabase to avoid confusion with the build flag
+    --host_javabase.
+  - objc_library now supports the module_name attribute
+  - Added "bazel info server_log" command to obtain the main Bazel
+    server
+    log file path, which can be quite useful for debugging Bazel
+    issues.
+  - Support fileset expansion in ctx.actions.args(). Controlled by
+    --incompatible_expand_directories.
+  - Fixes aapt shrink resources not respecting filters configurations
+  - --javacopt= no longer affects compilations of tools that are
+    executed during the build; use --host_javacopt= to change javac
+    flags in the host configuration.
+  - Revert the default of --incompatible_package_name_is_a_function
+    to false.
+  - Future versions of Bazel will require a locally installed JDK
+    for Java development. Previously Bazel would fall back to using
+    the
+    embedded --server_javabase if no JDK as available. Pass
+    --incompatible_never_use_embedded_jdk_for_javabase to disable the
+    legacy
+    behaviour.
+  - Fix regression #6219, remote cache failures
