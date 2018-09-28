@@ -661,7 +661,7 @@ public class GrpcRemoteCacheTest {
 
     ActionResult.Builder result = ActionResult.newBuilder();
     client.upload(
-        execRoot, null, null, ImmutableList.<Path>of(fooFile, barDir), outErr, false, result);
+        execRoot, null, null, null, ImmutableList.<Path>of(fooFile, barDir), outErr, false, result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
@@ -690,7 +690,8 @@ public class GrpcRemoteCacheTest {
         });
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(execRoot, null, null, ImmutableList.<Path>of(barDir), outErr, false, result);
+    client.upload(
+        execRoot, null, null, null, ImmutableList.<Path>of(barDir), outErr, false, result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());
@@ -741,7 +742,8 @@ public class GrpcRemoteCacheTest {
         });
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(execRoot, null, null, ImmutableList.<Path>of(barDir), outErr, false, result);
+    client.upload(
+        execRoot, null, null, null, ImmutableList.<Path>of(barDir), outErr, false, result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());
@@ -777,7 +779,14 @@ public class GrpcRemoteCacheTest {
 
     ActionResult.Builder result = ActionResult.newBuilder();
     client.upload(
-        execRoot, action, command, ImmutableList.<Path>of(fooFile, barFile), outErr, true, result);
+        execRoot,
+        DIGEST_UTIL.asActionKey(actionDigest),
+        action,
+        command,
+        ImmutableList.<Path>of(fooFile, barFile),
+        outErr,
+        true,
+        result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult
