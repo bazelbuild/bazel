@@ -364,7 +364,9 @@ public class SimpleBlobStoreActionCacheTest {
     final SimpleBlobStoreActionCache client = newClient(map);
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(result, action, cmd, execRoot, ImmutableList.<Path>of(fooFile, barDir), true);
+    client.upload(
+        result, DIGEST_UTIL.asActionKey(actionDigest), action, cmd, execRoot,
+        ImmutableList.<Path>of(fooFile, barDir), true);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
@@ -391,7 +393,7 @@ public class SimpleBlobStoreActionCacheTest {
     final SimpleBlobStoreActionCache client = newClient(map);
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(result, null, null, execRoot, ImmutableList.<Path>of(barDir), false);
+    client.upload(result, null, null, null, execRoot, ImmutableList.<Path>of(barDir), false);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());
@@ -434,7 +436,7 @@ public class SimpleBlobStoreActionCacheTest {
     final Path barDir = execRoot.getRelative("bar");
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(result, null, null, execRoot, ImmutableList.<Path>of(barDir), false);
+    client.upload(result, null, null, null, execRoot, ImmutableList.<Path>of(barDir), false);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result.build()).isEqualTo(expectedResult.build());

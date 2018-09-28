@@ -250,6 +250,7 @@ final class ExecutionServer extends ExecutionImplBase {
       throws IOException, InterruptedException, StatusException {
     Command command = null;
     Action action = null;
+    ActionKey actionKey = digestUtil.asActionKey(actionDigest);
     try {
       action = Action.parseFrom(getFromFuture(cache.downloadBlob(actionDigest)));
       command = Command.parseFrom(getFromFuture(cache.downloadBlob(action.getCommandDigest())));
@@ -328,7 +329,7 @@ final class ExecutionServer extends ExecutionImplBase {
     ActionResult.Builder result = ActionResult.newBuilder();
     boolean setResult = exitCode == 0 && !action.getDoNotCache();
     try {
-     cache.upload(result, action, command, execRoot, outputs, setResult);
+      cache.upload(result, actionKey, action, command, execRoot, outputs, setResult);
     } catch (ExecException e) {
       if (errStatus == null) {
         errStatus =
@@ -347,7 +348,6 @@ final class ExecutionServer extends ExecutionImplBase {
       resp.setStatus(errStatus);
       throw new ExecutionStatusException(errStatus, resp.build());
     } else if (setResult) {
-      ActionKey actionKey = digestUtil.computeActionKey(action);
       cache.setCachedActionResult(actionKey, finalResult);
     }
     return finalResult;
