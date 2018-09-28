@@ -31,6 +31,8 @@ tutorial:
 
 *   [Tutorial: Build an iOS Application](tutorial/ios-app.html)
 
+Once you are familiar with the basics, you can try the rules for
+[other languages](be/overview.html).
 
 ## Migration
 

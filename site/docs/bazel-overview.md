@@ -36,8 +36,10 @@ Bazel offers the following advantages:
     source files. It works with multiple repositories and user bases in the tens
     of thousands.
 
-*   **Bazel is extensible.** You can extend Bazel to support your language of
-    choice.
+*   **Bazel is extensible.** Many
+    [languages](https://docs.bazel.build/versions/master/be/overview.html#rules)
+    are supported, and you can extend Bazel to support any other language or
+    framework.
 
 
 # How do I use Bazel?
@@ -53,8 +55,9 @@ To build or test a project with Bazel, you typically do the following:
 3.  **Write a `BUILD` file**, which tells Bazel what to build and how to
     build it.
 
-    You write your `BUILD` file by declaring build targets using an abstract
-    Python-like language. (See example [here](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD).)
+    You write your `BUILD` file by declaring build targets using
+    [Starlark](https://docs.bazel.build/versions/master/skylark/language.html),
+    a domain-specific language. (See example [here](https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD).)
 
     A build target specifies a set of input artifacts that Bazel will build plus
     their dependencies, the build rule Bazel will use to build it, and options
