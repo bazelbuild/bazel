@@ -43,7 +43,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     actionBuilder
         // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
         // including header files, as opposed to just the "compile" filegroup.
-        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstoolMiddleman())
+        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getCrosstool())
         .setShouldScanIncludes(false);
   }
 
