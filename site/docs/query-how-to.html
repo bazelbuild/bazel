@@ -421,7 +421,7 @@ name to it using <code>let</code> to avoid duplication.</p>
 
 <h4>What targets directly depend on T, in T's package?</h4>
 
-<pre>bazel query 'let t = T in rdeps(siblings($t), $t, 1)'</pre>
+<pre>bazel query 'same_pkg_direct_rdeps(T)'</pre>
 
 <p><a name="How_do_I_break_a_dependency_"></a></p>
 
