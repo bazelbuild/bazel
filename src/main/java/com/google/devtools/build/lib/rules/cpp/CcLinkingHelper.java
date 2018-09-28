@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction.Context;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
@@ -116,6 +115,9 @@ public final class CcLinkingHelper {
   private Artifact defFile;
   private LinkingMode linkingMode = LinkingMode.DYNAMIC;
   private boolean fake;
+  private boolean nativeDeps;
+  private boolean wholeArchive;
+  private final ImmutableList.Builder<String> additionalLinkstampDefines = ImmutableList.builder();
 
   private final FeatureConfiguration featureConfiguration;
   private final CcToolchainProvider ccToolchain;
@@ -153,6 +155,21 @@ public final class CcLinkingHelper {
   public CcLinkingHelper fromCommon(CcCommon common) {
     addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
     addNonCodeLinkerInputs(common.getLinkerScripts());
+    return this;
+  }
+
+  public CcLinkingHelper setNativeDeps(boolean nativeDeps) {
+    this.nativeDeps = nativeDeps;
+    return this;
+  }
+
+  public CcLinkingHelper setWholeArchive(boolean wholeArchive) {
+    this.wholeArchive = wholeArchive;
+    return this;
+  }
+
+  public CcLinkingHelper addAdditionalLinkstampDefines(List<String> additionalLinkstampDefines) {
+    this.additionalLinkstampDefines.addAll(additionalLinkstampDefines);
     return this;
   }
 
@@ -636,6 +653,9 @@ public final class CcLinkingHelper {
 
     CppLinkActionBuilder dynamicLinkActionBuilder =
         newLinkActionBuilder(soImpl)
+            .setWholeArchive(wholeArchive)
+            .setNativeDeps(nativeDeps)
+            .setAdditionalLinkstampDefines(additionalLinkstampDefines.build())
             .setInterfaceOutput(soInterface)
             .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLtoBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
@@ -722,7 +742,6 @@ public final class CcLinkingHelper {
       result.addAllLtoArtifacts(dynamicLinkActionBuilder.getAllLtoBackendArtifacts());
     }
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
-    result.setCppLinkActionContext(new Context(dynamicLinkActionBuilder));
     result.addLinkActionInputs(dynamicLinkAction.getInputs());
     env.registerAction(dynamicLinkAction);
 

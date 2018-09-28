@@ -58,7 +58,6 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
 
   private final ImmutableList<LtoBackendArtifacts> allLtoArtifacts;
   private final ImmutableList<Artifact> linkActionInputs;
-  private final CppLinkAction.Context cppLinkActionContext;
 
   private CcLinkingOutputs(
       ImmutableList<LibraryToLink> staticLibraries,
@@ -66,15 +65,13 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
       ImmutableList<LibraryToLink> dynamicLibrariesForLinking,
       ImmutableList<LibraryToLink> dynamicLibrariesForRuntime,
       ImmutableList<LtoBackendArtifacts> allLtoArtifacts,
-      ImmutableList<Artifact> linkActionInputs,
-      CppLinkAction.Context cppLinkActionContext) {
+      ImmutableList<Artifact> linkActionInputs) {
     this.staticLibraries = staticLibraries;
     this.picStaticLibraries = picStaticLibraries;
     this.dynamicLibrariesForLinking = dynamicLibrariesForLinking;
     this.dynamicLibrariesForRuntime = dynamicLibrariesForRuntime;
     this.allLtoArtifacts = allLtoArtifacts;
     this.linkActionInputs = linkActionInputs;
-    this.cppLinkActionContext = cppLinkActionContext;
   }
 
   @Override
@@ -114,10 +111,6 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
 
   public ImmutableList<Artifact> getLinkActionInputs() {
     return linkActionInputs;
-  }
-
-  public CppLinkAction.Context getCppLinkActionContext() {
-    return cppLinkActionContext;
   }
 
   public boolean isEmpty() {
@@ -277,8 +270,6 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
     private final ImmutableList.Builder<LtoBackendArtifacts> allLtoArtifacts =
         ImmutableList.builder();
     private final ImmutableList.Builder<Artifact> linkActionInputs = ImmutableList.builder();
-    // TODO(plf): Try to remove this by refactoring native deps and the way they build the launcher.
-    private CppLinkAction.Context cppLinkActionContext;
 
     public CcLinkingOutputs build() {
       return new CcLinkingOutputs(
@@ -287,8 +278,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
           ImmutableList.copyOf(dynamicLibrariesForLinking),
           ImmutableList.copyOf(dynamicLibrariesForRuntime),
           allLtoArtifacts.build(),
-          linkActionInputs.build(),
-          cppLinkActionContext);
+          linkActionInputs.build());
     }
 
     public Builder merge(CcLinkingOutputs outputs) {
@@ -348,12 +338,6 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi {
 
     public Builder addLinkActionInputs(Iterable<Artifact> linkActionInputs) {
       this.linkActionInputs.addAll(linkActionInputs);
-      return this;
-    }
-
-    public Builder setCppLinkActionContext(CppLinkAction.Context cppLinkActionContext) {
-      Preconditions.checkState(this.cppLinkActionContext == null);
-      this.cppLinkActionContext = cppLinkActionContext;
       return this;
     }
   }

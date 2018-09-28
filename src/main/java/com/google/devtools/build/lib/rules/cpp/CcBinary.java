@@ -129,7 +129,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       if (rule.getRuleClassObject().isSkylark()
           || (!rule.getRuleClass().equals("java_binary")
               && !rule.getRuleClass().equals("java_test")
-              && !rule.getRuleClass().equals("py_binary"))) {
+              && !rule.getRuleClass().equals("py_binary")
+              && !rule.getRuleClass().equals("py_test"))) {
         throw new IllegalStateException(RESTRICTION_ERROR_MESSAGE + rule.getRuleClass());
       }
     }
@@ -410,10 +411,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ccLinkingOutputsAndCcLinkingInfo.second.first.getStaticModeParamsForExecutable(),
             ccLinkingOutputsAndCcLinkingInfo.second.second);
 
-    // Store immutable context for use in other *_binary rules that are implemented by
-    // linking the interpreter (Java, Python, etc.) together with native deps.
-    CppLinkAction.Context linkContext = ccLinkingOutputsBinary.getCppLinkActionContext();
-
     LibraryToLink outputLibrary = null;
     List<LibraryToLink> dynamicLibrariesForRuntime =
         ccLinkingOutputsBinary.getDynamicLibrariesForRuntime();
@@ -548,7 +545,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             DebugPackageProvider.class,
             new DebugPackageProvider(ruleContext.getLabel(), strippedFile, binary, explicitDwpFile))
         .setRunfilesSupport(runfilesSupport, binary)
-        .addProvider(CppLinkAction.Context.class, linkContext)
         .addNativeDeclaredProvider(ccLauncherInfo)
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .build();
