@@ -38,10 +38,10 @@
 #include "src/tools/singlejar/test_util.h"
 #include "googletest/include/gtest/gtest.h"
 
+using bazel::tools::cpp::runfiles::Runfiles;
 using singlejar_test_util::OutputFilePath;
 using singlejar_test_util::AllocateFile;
 using singlejar_test_util::RunCommand;
-using singlejar_test_util::runfiles;
 
 namespace {
 
@@ -61,11 +61,13 @@ void VerifyEmpty(const std::string &jar_path) {
 // Check that empty zip file (i.e., a valid zip file with no entries) is
 // handled correctly.
 TEST(InputJarBadjarTest, EmptyZipFile) {
+  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
   VerifyEmpty(runfiles->Rlocation(kEmptyJar).c_str());
 }
 
 // Preambled empty zip.
 TEST(InputJarPreambledTest, Empty) {
+  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
   std::string out_path = OutputFilePath("empty.jwp");
   std::string exe_path = OutputFilePath("exe");
   ASSERT_TRUE(AllocateFile(exe_path, 100));

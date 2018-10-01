@@ -22,14 +22,18 @@
 #include "src/tools/singlejar/input_jar_scan_entries_test.h"
 
 #ifdef _WIN32
-const char JAR_TOOL_PATH[] = "local_jdk/bin/jar.exe";
+const char JAR_TOOL_PATH[] = "%JAVABASE%\bin\jar.exe";
 #else
-const char JAR_TOOL_PATH[] = "local_jdk/bin/jar";
+const char JAR_TOOL_PATH[] = "$(JAVABASE)/bin/jar";
 #endif
+
+using bazel::tools::cpp::runfiles::Runfiles;
 
 class JartoolCreator {
  public:
+<<<<<<< Updated upstream
   static void SetUpTestCase() {
+    std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
     static std::string jar_path_str = runfiles->Rlocation(JAR_TOOL_PATH);
     jar_path_ = jar_path_str.c_str();
     if (!jar_path_) {
@@ -40,11 +44,14 @@ class JartoolCreator {
     }
     ASSERT_NE(nullptr, jar_path_);
   }
+=======
+  static void SetUpTestCase() {}
+>>>>>>> Stashed changes
 
   static void TearDownTestCase() {}
 
   static int Jar(bool compress, const char *output_jar, ...) {
-    std::string command(jar_path_);
+    std::string command(JAR_TOOL_PATH);
     if (access(output_jar, F_OK) == 0) {
       command += compress ? " -uf " : " -u0f ";
     } else {
@@ -60,10 +67,15 @@ class JartoolCreator {
     }
     return system(command.c_str());
   }
+<<<<<<< Updated upstream
   static const char* jar_path_;
 };
 
 const char* JartoolCreator::jar_path_ = nullptr;
 
+=======
+};
+
+>>>>>>> Stashed changes
 typedef testing::Types<JartoolCreator> Creators;
 INSTANTIATE_TYPED_TEST_CASE_P(Jartool, InputJarScanEntries, Creators);

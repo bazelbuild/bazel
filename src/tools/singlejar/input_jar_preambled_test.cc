@@ -40,7 +40,7 @@
 
 namespace {
 
-using singlejar_test_util::runfiles;
+using bazel::tools::cpp::runfiles::Runfiles;
 
 void Verify(const std::string &path) {
   InputJar input_jar;
@@ -65,6 +65,7 @@ void Verify(const std::string &path) {
 
 // Archive not containing 64-bit End of Central Directory/Locator with preamble.
 TEST(InputJarPreambledTest, Small) {
+  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
   std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
   std::string exe_path = singlejar_test_util::OutputFilePath("exe");
   ASSERT_TRUE(singlejar_test_util::AllocateFile(exe_path, 100));
@@ -79,6 +80,7 @@ TEST(InputJarPreambledTest, Small) {
 
 // Same as above with zip -A applied to the file.
 TEST(InputJarPreambledTest, SmallAdjusted) {
+  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest());
   std::string out_path = singlejar_test_util::OutputFilePath("out.jwp");
   std::string exe_path = singlejar_test_util::OutputFilePath("exe");
   ASSERT_TRUE(singlejar_test_util::AllocateFile(exe_path, 100));

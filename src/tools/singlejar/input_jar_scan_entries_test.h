@@ -27,8 +27,6 @@
 
 #include "googletest/include/gtest/gtest.h"
 
-using singlejar_test_util::runfiles;
-
 static const char kJar[] = "jar.jar";
 static const char kXXXX[] = "4GB-1file";
 static const char kEmpty[] = "empty";

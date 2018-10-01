@@ -28,21 +28,23 @@
 #include "googletest/include/gtest/gtest.h"
 
 #ifdef _WIN32
-const char JAR_TOOL_PATH[] = "local_jdk/bin/jar.exe";
+const char JAR_TOOL_PATH[] = "%JAVABASE%\bin\jar.exe";
 #define unlink _unlink
+#define CMD_SEPARATOR "&&"
 #else
-const char JAR_TOOL_PATH[] = "local_jdk/bin/jar";
+const char JAR_TOOL_PATH[] = "$(JAVABASE)/bin/jar";
+#define CMD_SEPARATOR ";"
 #endif
 
 namespace {
 
+using bazel::tools::cpp::runfiles::Runfiles;
 using singlejar_test_util::CreateTextFile;
 using singlejar_test_util::GetEntryContents;
 using singlejar_test_util::GetEntryContents;
 using singlejar_test_util::OutputFilePath;
 using singlejar_test_util::RunCommand;
 using singlejar_test_util::VerifyZip;
-using singlejar_test_util::runfiles;
 
 using std::string;
 
@@ -76,6 +78,10 @@ class CustomOutputJar : public OutputJar {
 
 class OutputJarSimpleTest : public ::testing::Test {
  protected:
+  void SetUp() override {
+    runfiles.reset(Runfiles::CreateForTest());
+  }
+
   void CreateOutput(const string &out_path, const std::vector<string> &args) {
     const char *option_list[100] = {"--output", out_path.c_str()};
     int nargs = 2;
@@ -113,6 +119,7 @@ class OutputJarSimpleTest : public ::testing::Test {
 
   OutputJar output_jar_;
   Options options_;
+  std::unique_ptr<Runfiles> runfiles;
 };
 
 // No inputs at all.
@@ -420,39 +427,47 @@ TEST_F(OutputJarSimpleTest, DuplicateResources) {
 
 // Extra combiners
 TEST_F(OutputJarSimpleTest, ExtraCombiners) {
+  string resolvedLibDataPath1 = runfiles->Rlocation(kPathLibData1);
+  string resolvedLibDataPath2 = runfiles->Rlocation(kPathLibData2);
   string out_path = OutputFilePath("out.jar");
   const char kEntry[] = "tools/singlejar/data/extra_file1";
   output_jar_.ExtraCombiner(kEntry, new Concatenator(kEntry));
-  CreateOutput(out_path, {"--sources", kPathLibData1, kPathLibData2});
-  string contents1 = GetEntryContents(kPathLibData1, kEntry);
-  string contents2 = GetEntryContents(kPathLibData2, kEntry);
+  CreateOutput(out_path, {"--sources", resolvedLibDataPath1.c_str(),
+                          resolvedLibDataPath2.c_str()});
+  string contents1 = GetEntryContents(resolvedLibDataPath1.c_str(), kEntry);
+  string contents2 = GetEntryContents(resolvedLibDataPath2.c_str(), kEntry);
   EXPECT_EQ(contents1 + contents2, GetEntryContents(out_path, kEntry));
 }
 
 // Test ExtraHandler override.
 TEST_F(OutputJarSimpleTest, ExtraHandler) {
+  string resolvedLibDataPath1 = runfiles->Rlocation(kPathLibData1);
+  string resolvedLibDataPath2 = runfiles->Rlocation(kPathLibData2);
   string out_path = OutputFilePath("out.jar");
   const char kEntry[] = "tools/singlejar/data/extra_file1";
-  const char *option_list[] = {"--output", out_path.c_str(), "--sources",
-                               kPathLibData1, kPathLibData2};
+  const char* option_list[] = {"--output", out_path.c_str(), "--sources",
+                               resolvedLibDataPath1.c_str(),
+                               resolvedLibDataPath2.c_str()};
   CustomOutputJar custom_output_jar;
   options_.ParseCommandLine(arraysize(option_list), option_list);
   ASSERT_EQ(0, custom_output_jar.Doit(&options_));
   EXPECT_EQ(0, VerifyZip(out_path));
 
-  string contents1 = GetEntryContents(kPathLibData1, kEntry);
-  string contents2 = GetEntryContents(kPathLibData2, kEntry);
+  string contents1 = GetEntryContents(resolvedLibDataPath1.c_str(), kEntry);
+  string contents2 = GetEntryContents(resolvedLibDataPath2.c_str(), kEntry);
   EXPECT_EQ(contents1 + contents2, GetEntryContents(out_path, kEntry));
 }
 
 // --include_headers
 TEST_F(OutputJarSimpleTest, IncludeHeaders) {
+  string resolvedLibDataPath1 = runfiles->Rlocation(kPathLibData1);
   string out_path = OutputFilePath("out.jar");
   CreateOutput(
       out_path,
       {"--sources",
        runfiles->Rlocation("io_bazel/src/tools/singlejar/libtest1.jar").c_str(),
-       kPathLibData1, "--include_prefixes", "tools/singlejar/data"});
+       resolvedLibDataPath1.c_str(), "--include_prefixes",
+       "tools/singlejar/data"});
   std::vector<string> expected_entries(
       {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
        "tools/singlejar/data/", "tools/singlejar/data/extra_file1",
@@ -479,12 +494,19 @@ TEST_F(OutputJarSimpleTest, Normalize) {
   string out_path = OutputFilePath("out.jar");
   string testjar_path = OutputFilePath("testinput.jar");
   {
+<<<<<<< Updated upstream
     std::string jar_tool_path = runfiles->Rlocation(JAR_TOOL_PATH);
+=======
+>>>>>>> Stashed changes
     string textfile_path = CreateTextFile("jar_testinput.txt", "jar_inputtext");
     string classfile_path = CreateTextFile("JarTestInput.class", "Dummy");
     unlink(testjar_path.c_str());
     ASSERT_EQ(
+<<<<<<< Updated upstream
         0, RunCommand(jar_tool_path.c_str(), "-cf", testjar_path.c_str(),
+=======
+        0, RunCommand(JAR_TOOL_PATH, "-cf", testjar_path.c_str(),
+>>>>>>> Stashed changes
                       textfile_path.c_str(), classfile_path.c_str(), nullptr));
   }
 
@@ -567,7 +589,7 @@ TEST_F(OutputJarSimpleTest, Services) {
   //   META-INF/spring.schemas
   string out_dir = OutputFilePath("");
   ASSERT_EQ(0,
-              RunCommand("cd", out_dir.c_str(), ";",
+              RunCommand("cd", out_dir.c_str(), CMD_SEPARATOR,
                          "zip", "-mr", "testinput1.zip", "META-INF", nullptr));
   string zip1_path = OutputFilePath("testinput1.zip");
 
@@ -580,7 +602,7 @@ TEST_F(OutputJarSimpleTest, Services) {
   CreateTextFile("META-INF/spring.handlers", "handler2\n");
   CreateTextFile("META-INF/spring.schemas", "schema2\n");
   ASSERT_EQ(0,
-              RunCommand("cd ", out_dir.c_str(), ";",
+              RunCommand("cd ", out_dir.c_str(), CMD_SEPARATOR,
                          "zip", "-mr", "testinput2.zip", "META-INF", nullptr));
   string zip2_path = OutputFilePath("testinput2.zip");
 
@@ -652,8 +674,7 @@ TEST_F(OutputJarSimpleTest, DontChangeCompressionOption) {
   ASSERT_TRUE(input_jar.Open(out_path));
   const LH *lh;
   const CDH *cdh;
-  std::string kStoredEntry =
-      runfiles->Rlocation("io_bazel/src/tools/singlejar/output_jar.cc");
+  std::string kStoredEntry = "src/tools/singlejar/output_jar.cc";
 
   while ((cdh = input_jar.NextEntry(&lh))) {
     string entry_name = lh->file_name_string();
@@ -703,7 +724,7 @@ TEST_F(OutputJarSimpleTest, ExcludeBuildData2) {
   string testzip_path = OutputFilePath("testinput.zip");
   string buildprop_path = CreateTextFile(kBuildDataFile, "build: foo");
   unlink(testzip_path.c_str());
-  ASSERT_EQ(0, RunCommand("cd ", out_dir.c_str(), ";", "zip", "-m",
+  ASSERT_EQ(0, RunCommand("cd ", out_dir.c_str(), CMD_SEPARATOR, "zip", "-m",
                           "testinput.zip", kBuildDataFile , nullptr));
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, {"--exclude_build_data", "--sources", testzip_path});
