@@ -414,6 +414,7 @@ cc_library(
     name = "test_util",
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
+    testonly = 1,
     deps = [
         "//src/main/cpp/util",
         # TODO(laszlocsomor) Use @bazel_tools//tools/cpp/runfiles

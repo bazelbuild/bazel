@@ -108,7 +108,11 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
   string command;
   blaze_util::StringPrintf(&command, "unzip -p %s %s", zip_path.c_str(),
                            entry_name.c_str());
+#ifdef _WIN32
   FILE *fp = popen(command.c_str(), "rb");
+#else
+  FILE *fp = popen(command.c_str(), "r");
+#endif
   if (!fp) {
     ADD_FAILURE() << "Command " << command << " failed.";
     return string("");
