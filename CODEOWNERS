@@ -84,4 +84,6 @@ android/ @ahumesky @jin
 /src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @dkelmer @dslomov @laurentlb @vladmos
 
 /tools/coverage/ @iirina
-/tools/test/ @iirina
+/tools/test/collect_coverage.sh @iirina
+/tools/test/collect_cc_coverage.sh @iirina
+/tools/test/CoverageOutputGenerator/ @iirina
