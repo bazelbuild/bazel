@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -1393,18 +1392,11 @@ public class CppLinkActionBuilder {
    * #addLibraries}, and {@link #addLinkstamps}.
    */
   public CppLinkActionBuilder addLinkParams(
-      CcLinkParams linkParams, RuleErrorConsumer errorListener)
-      throws InterruptedException, RuleErrorException {
+      CcLinkParams linkParams, RuleErrorConsumer errorListener) {
     addLinkopts(linkParams.flattenedLinkopts());
     addLibraries(linkParams.getLibraries());
     if (linkParams.getNonCodeInputs() != null) {
       addNonCodeInputs(linkParams.getNonCodeInputs());
-    }
-    ExtraLinkTimeLibraries extraLinkTimeLibraries = linkParams.getExtraLinkTimeLibraries();
-    if (extraLinkTimeLibraries != null) {
-      for (ExtraLinkTimeLibrary extraLibrary : extraLinkTimeLibraries.getExtraLibraries()) {
-        addLibraries(extraLibrary.buildLibraries(ruleContext));
-      }
     }
     CppHelper.checkLinkstampsUnique(errorListener, linkParams);
     addLinkstamps(linkParams.getLinkstamps());
