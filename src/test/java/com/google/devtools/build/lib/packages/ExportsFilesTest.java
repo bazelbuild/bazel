@@ -21,9 +21,12 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,11 +38,17 @@ public class ExportsFilesTest {
   private Scratch scratch = new Scratch("/workspace");
   private EventCollectionApparatus events = new EventCollectionApparatus();
   private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
+  private Root root;
+
+  @Before
+  public void setUp() throws Exception {
+    root = Root.fromPath(scratch.dir(""));
+  }
 
   private Package pkg() throws Exception {
     Path buildFile = scratch.file("pkg/BUILD",
                                   "exports_files(['foo.txt', 'bar.txt'])");
-    return packages.createPackage("pkg", buildFile);
+    return packages.createPackage("pkg", RootedPath.toRootedPath(root, buildFile));
   }
 
   @Test
@@ -88,7 +97,7 @@ public class ExportsFilesTest {
         "exports_files(['foo'])",
         "genrule(name = 'foo', srcs = ['bar'], outs = [],",
         "        cmd = '/bin/true')");
-    Package pkg = packages.createPackage("pkg2", buildFile);
+    Package pkg = packages.createPackage("pkg2", RootedPath.toRootedPath(root, buildFile));
     events.assertContainsError("rule 'foo' in package 'pkg2' conflicts with "
                                + "existing source file");
     assertThat(pkg.getTarget("foo") instanceof InputFile).isTrue();

@@ -95,7 +95,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Override
   protected BazelPackageLoader.Builder newPackageLoaderBuilder(Path workspaceDir) {
-    return BazelPackageLoader.builder(workspaceDir, installBase, outputBase);
+    return BazelPackageLoader.builder(root, workspaceDir, installBase, outputBase);
   }
 
   @Test

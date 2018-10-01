@@ -19,6 +19,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,7 +41,10 @@ public class OutputFileTest extends PackageLoadingTestCase {
             "        outs=['x', 'subdir/y'])");
     this.pkg =
         packageFactory.createPackageForTesting(
-            PackageIdentifier.createInMainRepo("pkg"), buildfile, getPackageManager(), reporter);
+            PackageIdentifier.createInMainRepo("pkg"),
+            RootedPath.toRootedPath(root, buildfile),
+            getPackageManager(),
+            reporter);
     assertNoEvents();
 
     this.rule = (Rule) pkg.getTarget("foo");
@@ -110,7 +114,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
         PackageIdentifier.createInMainRepo("two_outs"),
-        buildfile,
+        RootedPath.toRootedPath(root, buildfile),
         getPackageManager(),
         reporter);
     assertContainsEvent(
@@ -134,7 +138,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
         PackageIdentifier.createInMainRepo("out_is_rule"),
-        buildfile,
+        RootedPath.toRootedPath(root, buildfile),
         getPackageManager(),
         reporter);
     assertContainsEvent("generated file 'a' in rule 'b' conflicts with existing genrule rule");
@@ -152,7 +156,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
         PackageIdentifier.createInMainRepo("two_outs"),
-        buildfile,
+        RootedPath.toRootedPath(root, buildfile),
         getPackageManager(),
         reporter);
     assertContainsEvent(
@@ -172,7 +176,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
         PackageIdentifier.createInMainRepo("bad_out_name"),
-        buildfile,
+        RootedPath.toRootedPath(root, buildfile),
         getPackageManager(),
         reporter);
     assertContainsEvent("illegal output file name '!@#:' in rule //bad_out_name:a");
@@ -190,7 +194,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
         PackageIdentifier.createInMainRepo("cross_package_out"),
-        buildfile,
+        RootedPath.toRootedPath(root, buildfile),
         getPackageManager(),
         reporter);
     assertContainsEvent("label '//foo:bar' is not in the current package");
@@ -207,8 +211,10 @@ public class OutputFileTest extends PackageLoadingTestCase {
 
     reporter.removeHandler(failFastHandler);
     packageFactory.createPackageForTesting(
-        PackageIdentifier.createInMainRepo("output_called_build"), buildfile,
-        getPackageManager(), reporter);
+        PackageIdentifier.createInMainRepo("output_called_build"),
+        RootedPath.toRootedPath(root, buildfile),
+        getPackageManager(),
+        reporter);
     assertContainsEvent("generated file 'BUILD' in rule 'a' conflicts with existing source file");
   }
 }
