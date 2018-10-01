@@ -64,6 +64,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaI
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.MarkdownRenderer;
 import com.google.devtools.build.skydoc.rendering.RuleInfo;
@@ -327,7 +328,8 @@ public class SkydocMain {
         new FakeJavaProtoCommon());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     RepositoryBootstrap repositoryBootstrap = new RepositoryBootstrap(new FakeRepositoryModule());
-    TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule());
+    TestingBootstrap testingBootstrap = new TestingBootstrap(new FakeTestingModule(),
+        new FakeAnalysisFailureInfoProvider());
 
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 

@@ -20,7 +20,11 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -2267,5 +2271,32 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     checkEvalErrorDoesNotContain(
         "First argument of 'load' must be a label and start with either '//', ':', or '@'.",
         "load(':foo.bzl', 'arg')");
+  }
+
+  @Test
+  public void testAnalysisFailureInfo() throws Exception {
+    AnalysisFailure cause = new AnalysisFailure(Label.create("test", "test"), "ErrorMessage");
+
+    AnalysisFailureInfo info = new AnalysisFailureInfo(
+        SkylarkNestedSet.of(
+            AnalysisFailure.class, NestedSetBuilder.create(Order.STABLE_ORDER, cause)));
+
+    new SkylarkTest("--experimental_analysis_testing_improvements=true")
+        .update("val", info)
+        .setUp(
+            "causes = val.causes",
+            "label = causes.to_list()[0].label",
+            "message = causes.to_list()[0].message")
+        .testLookup("label", Label.create("test", "test"))
+        .testLookup("message", "ErrorMessage");
+
+    new SkylarkTest()
+        .update("val", info)
+        .testIfErrorContains("'AnalysisFailureInfo' has no field 'causes'", "val.causes");
+
+    new SkylarkTest()
+        .update("val", cause)
+        .testIfErrorContains("'AnalysisFailure' has no field 'message'", "val.message")
+        .testIfErrorContains("'AnalysisFailure' has no field 'label'", "val.label");
   }
 }

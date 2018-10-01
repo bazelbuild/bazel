@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.test;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 
@@ -29,7 +30,9 @@ public final class TestingSupportRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addSkylarkBootstrap(new TestingBootstrap(new SkylarkTestingModule()));
+    builder.addSkylarkBootstrap(new TestingBootstrap(
+        new SkylarkTestingModule(),
+        AnalysisFailureInfo.SKYLARK_CONSTRUCTOR));
   }
 
   @Override

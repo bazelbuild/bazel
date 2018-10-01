@@ -35,6 +35,8 @@ public abstract class SkylarkSemantics {
 
   /** Enum where each element represents a skylark semantics flag. */
   public enum FlagIdentifier {
+    EXPERIMENTAL_ANALYSIS_TESTING_IMPROVEMENTS(
+        SkylarkSemantics::experimentalAnalysisTestingImprovements),
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
     INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
@@ -89,6 +91,8 @@ public abstract class SkylarkSemantics {
       AutoValue_SkylarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
+  public abstract boolean experimentalAnalysisTestingImprovements();
+
   public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
 
   public abstract boolean experimentalEnableRepoMapping();
@@ -162,6 +166,7 @@ public abstract class SkylarkSemantics {
   public static final SkylarkSemantics DEFAULT_SEMANTICS =
       builder()
           // <== Add new options here in alphabetic order ==>
+          .experimentalAnalysisTestingImprovements(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
           .experimentalEnableRepoMapping(false)
           .experimentalRemapMainRepo(false)
@@ -198,6 +203,8 @@ public abstract class SkylarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
+    public abstract Builder experimentalAnalysisTestingImprovements(boolean value);
+
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
 
     public abstract Builder experimentalEnableRepoMapping(boolean value);
