@@ -140,13 +140,15 @@ public class WorkerModule extends BlazeModule {
     Preconditions.checkNotNull(workerPool);
     ImmutableMultimap<String, String> extraFlags =
         ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
+    LocalEnvProvider localEnvProvider = createLocalEnvProvider(env);
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
             env.getExecRoot(),
             workerPool,
             extraFlags,
             env.getReporter(),
-            createFallbackRunner(env),
+            createFallbackRunner(env, localEnvProvider),
+            localEnvProvider,
             env.getOptions()
                 .getOptions(SandboxOptions.class)
                 .symlinkedSandboxExpandsTreeArtifactsInRunfilesTree);
@@ -156,20 +158,22 @@ public class WorkerModule extends BlazeModule {
     builder.addStrategyByContext(SpawnActionContext.class, "worker");
   }
 
-  private static SpawnRunner createFallbackRunner(CommandEnvironment env) {
+  private static SpawnRunner createFallbackRunner(CommandEnvironment env, LocalEnvProvider localEnvProvider) {
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
-    LocalEnvProvider localEnvProvider =
-        OS.getCurrent() == OS.DARWIN
-            ? new XcodeLocalEnvProvider(env.getClientEnv())
-            : (OS.getCurrent() == OS.WINDOWS
-                ? new WindowsLocalEnvProvider(env.getClientEnv())
-                : new PosixLocalEnvProvider(env.getClientEnv()));
     return new LocalSpawnRunner(
         env.getExecRoot(),
         localExecutionOptions,
         ResourceManager.instance(),
         localEnvProvider);
+  }
+
+  private static LocalEnvProvider createLocalEnvProvider(CommandEnvironment env) {
+    return OS.getCurrent() == OS.DARWIN
+        ? new XcodeLocalEnvProvider(env.getClientEnv())
+        : (OS.getCurrent() == OS.WINDOWS
+            ? new WindowsLocalEnvProvider(env.getClientEnv())
+            : new PosixLocalEnvProvider(env.getClientEnv()));
   }
 
   @Subscribe
