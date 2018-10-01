@@ -119,7 +119,7 @@ abstract class FileTransport implements BuildEventTransport {
                 ExitCode.PUBLISH_ERROR,
                 e));
       }
-      this.writerThread = new Thread(this);
+      this.writerThread = new Thread(this, "bep-local-writer");
       this.serializeFunc = serializeFunc;
       this.exitFunc = exitFunc;
       this.uploader = uploader;
