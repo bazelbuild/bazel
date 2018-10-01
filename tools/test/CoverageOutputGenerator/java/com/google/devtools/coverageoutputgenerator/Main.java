@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -63,6 +64,11 @@ public class Main {
         Coverage.merge(
             parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
             parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
+
+    if (flags.sourcesToReplaceFile() != null) {
+      coverage.maybeReplaceSourcefileNames(
+          getReportedToOriginalSources(flags.sourcesToReplaceFile()));
+    }
 
     File profdataFile = getProfdataFileOrNull(filesInCoverageDir);
     if (coverage.isEmpty()) {
@@ -213,6 +219,24 @@ public class Main {
       logger.log(Level.INFO, "Found " + lcovTracefiles.size() + " tracefiles.");
     }
     return lcovTracefiles;
+  }
+
+  private static ImmutableMap<String, String> getReportedToOriginalSources(String file) {
+    ImmutableMap.Builder<String, String> reportedToOriginalMap = ImmutableMap.builder();
+    try (FileInputStream inputStream = new FileInputStream(file)) {
+      InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
+      BufferedReader reader = new BufferedReader(inputStreamReader);
+      for (String reportedToOriginal = reader.readLine();
+          reportedToOriginal != null; reportedToOriginal = reader.readLine()) {
+        String[] reportedAndOriginal = reportedToOriginal.split(":");
+        if (reportedAndOriginal.length == 2) {
+          reportedToOriginalMap.put(reportedAndOriginal[0], reportedAndOriginal[1]);
+        }
+      }
+    } catch (IOException e) {
+      logger.log(Level.SEVERE, "Error reading file " + file + ": " + e.getMessage());
+    }
+    return reportedToOriginalMap.build();
   }
 
   private static Coverage parseFiles(List<File> files, Parser parser) {

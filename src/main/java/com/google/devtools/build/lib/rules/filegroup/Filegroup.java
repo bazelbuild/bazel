@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.filegroup;
 
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -75,7 +76,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
         InstrumentedFilesCollector.collect(ruleContext,
             // what do *we* know about whether this is a source file or not
             new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
-            InstrumentedFilesCollector.NO_METADATA_COLLECTOR, filesToBuild);
+            InstrumentedFilesCollector.NO_METADATA_COLLECTOR, filesToBuild, ImmutableMap.of());
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         new Runfiles.Builder(

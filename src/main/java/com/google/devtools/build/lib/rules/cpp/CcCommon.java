@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
@@ -695,8 +696,10 @@ public final class CcCommon {
   /**
    * Provides support for instrumentation.
    */
-  public InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files,
-      boolean withBaselineCoverage) {
+  public InstrumentedFilesProvider getInstrumentedFilesProvider(
+      Iterable<Artifact> files,
+      boolean withBaselineCoverage,
+      ImmutableMap<String, String> virtualToOriginalHeaders) {
     return InstrumentedFilesCollector.collect(
         ruleContext,
         CppRuleClasses.INSTRUMENTATION_SPEC,
@@ -704,7 +707,8 @@ public final class CcCommon {
         files,
         CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
         CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
-        withBaselineCoverage);
+        withBaselineCoverage,
+        virtualToOriginalHeaders);
   }
 
   public static ImmutableList<String> getCoverageFeatures(CcToolchainProvider toolchain) {

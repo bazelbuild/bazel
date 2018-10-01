@@ -264,7 +264,8 @@ public final class SkylarkRuleConfiguredTargetUtil {
             ruleContext,
             instrumentationSpec,
             InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-            Collections.<Artifact>emptySet());
+            Collections.emptySet(),
+            ImmutableMap.of());
     builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
   }
 

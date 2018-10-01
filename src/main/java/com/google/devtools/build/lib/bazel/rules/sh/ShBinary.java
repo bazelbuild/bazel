@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.sh;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -102,9 +103,10 @@ public class ShBinary implements RuleConfiguredTargetFactory {
             InstrumentedFilesProvider.class,
             InstrumentedFilesCollector.collect(
                 ruleContext,
-                new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
-                CC_METADATA_COLLECTOR,
-                filesToBuild))
+    new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
+        CC_METADATA_COLLECTOR,
+                filesToBuild,
+                ImmutableMap.of()))
         .build();
   }
 

@@ -15,7 +15,9 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -42,6 +44,9 @@ abstract class LcovMergerFlags {
   @Nullable
   abstract String sourceFileManifest();
 
+  @Nullable
+  abstract String sourcesToReplaceFile();
+
   /** Parse flags in the form of "--coverage_dir=... -output_file=..." */
   static LcovMergerFlags parseFlags(String[] args) {
     ImmutableList.Builder<String> filterSources = new ImmutableList.Builder<>();
@@ -49,6 +54,7 @@ abstract class LcovMergerFlags {
     String reportsFile = null;
     String outputFile = null;
     String sourceFileManifest = null;
+    String sourcesToReplaceFile = null;
 
     for (String arg : args) {
       if (!arg.startsWith("--")) {
@@ -74,6 +80,9 @@ abstract class LcovMergerFlags {
         case "source_file_manifest":
           sourceFileManifest = parts[1];
           break;
+        case "sources_to_replace_file":
+          sourcesToReplaceFile = parts[1];
+          break;
         default:
           throw new IllegalArgumentException("Unknown flag " + arg);
       }
@@ -91,7 +100,7 @@ abstract class LcovMergerFlags {
       throw new IllegalArgumentException("--output_file was not specified.");
     }
     return new AutoValue_LcovMergerFlags(
-        coverageDir, reportsFile, outputFile, filterSources.build(), sourceFileManifest);
+        coverageDir, reportsFile, outputFile, filterSources.build(), sourceFileManifest, sourcesToReplaceFile);
   }
 
   boolean hasSourceFileManifest() {

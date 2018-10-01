@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -30,7 +31,8 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER));
+          NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+          ImmutableMap.of());
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
@@ -38,6 +40,7 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
+  private final ImmutableMap<String, String> sourcesToReplaceInReport;
 
   public InstrumentedFilesProviderImpl(
       NestedSet<Artifact> instrumentedFiles,
@@ -45,13 +48,15 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
       NestedSet<Artifact> baselineCoverageFiles,
       NestedSet<Artifact> baselineCoverageArtifacts,
       NestedSet<Artifact> coverageSupportFiles,
-      NestedSet<Pair<String, String>> coverageEnvironment) {
+      NestedSet<Pair<String, String>> coverageEnvironment,
+      ImmutableMap<String, String> sourcesToReplaceInReport) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
     this.baselineCoverageArtifacts = baselineCoverageArtifacts;
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
+    this.sourcesToReplaceInReport = sourcesToReplaceInReport;
   }
 
   @Override
@@ -82,5 +87,10 @@ public final class InstrumentedFilesProviderImpl implements InstrumentedFilesPro
   @Override
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return coverageEnvironment;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getSourcesToReplaceInReport() {
+    return  sourcesToReplaceInReport;
   }
 }

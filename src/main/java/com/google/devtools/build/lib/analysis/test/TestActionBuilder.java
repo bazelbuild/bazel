@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -30,6 +31,9 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction.Compression;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -46,6 +50,7 @@ import com.google.devtools.common.options.EnumConverter;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -57,6 +62,7 @@ public final class TestActionBuilder {
   private static final String LCOV_MERGER = "LCOV_MERGER";
   // The coverage tool Bazel uses to generate a code coverage report for C++.
   private static final String BAZEL_CC_COVERAGE_TOOL = "BAZEL_CC_COVERAGE_TOOL";
+  private static final String SOURCES_TO_REPLACE = "SOURCES_TO_REPLACE";
 
   enum CcCoverageTool {
     GCOV,
@@ -260,6 +266,25 @@ public final class TestActionBuilder {
             ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage");
         inputsBuilder.add(collectCcCoverage);
         extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
+      }
+
+      if (!instrumentedFiles.getSourcesToReplaceInReport().isEmpty()) {
+        Artifact sourcesToReplaceArtifact = ruleContext.getBinArtifact("source_to_replace.txt");
+        String sourcesToReplaceContents =
+            instrumentedFiles.getSourcesToReplaceInReport().entrySet().stream()
+                .map(e -> e.getKey() + ":" + e.getValue())
+                .reduce((s1, s2) -> s1 + "\n" + s2).get();
+
+        ruleContext.registerAction(FileWriteAction.create(
+            ruleContext.getActionOwner(),
+            sourcesToReplaceArtifact,
+            sourcesToReplaceContents,
+            /*makeExecutable=*/ false,
+            Compression.DISALLOW
+            )
+        );
+        inputsBuilder.add(sourcesToReplaceArtifact);
+        extraTestEnv.put(SOURCES_TO_REPLACE, sourcesToReplaceArtifact.getExecPathString());
       }
 
       // lcov is the default CC coverage tool unless otherwise specified on the command line.

@@ -915,7 +915,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(false));
     instrumentedObjectFiles.addAll(ccCompilationOutputs.getObjectFiles(true));
     InstrumentedFilesProvider instrumentedFilesProvider = common.getInstrumentedFilesProvider(
-        instrumentedObjectFiles, !TargetUtils.isTestRule(ruleContext.getRule()) && !fake);
+        instrumentedObjectFiles,
+        !TargetUtils.isTestRule(ruleContext.getRule()) && !fake,
+        ccCompilationContext.getVirtualToOriginalHeaders());
 
     NestedSet<Artifact> headerTokens =
         CcCompilationHelper.collectHeaderTokens(ruleContext, ccCompilationOutputs);

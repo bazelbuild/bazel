@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -60,4 +61,6 @@ public interface InstrumentedFilesProvider extends TransitiveInfoProvider {
    * Environment variables that need to be set for tests collecting code coverage.
    */
   NestedSet<Pair<String, String>> getCoverageEnvironment();
+
+  ImmutableMap<String, String> getSourcesToReplaceInReport();
 }

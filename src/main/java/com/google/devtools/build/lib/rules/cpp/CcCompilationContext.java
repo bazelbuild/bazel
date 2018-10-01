@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -80,6 +81,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
 
   private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
 
+  private final ImmutableMap<String, String> virtualToOriginalHeaders;
+
   @AutoCodec.Instantiator
   @VisibleForSerialization
   CcCompilationContext(
@@ -96,7 +99,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       CppModuleMap cppModuleMap,
       @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput,
-      CppConfiguration.HeadersCheckingMode headersCheckingMode) {
+      CppConfiguration.HeadersCheckingMode headersCheckingMode,
+      ImmutableMap<String, String> virtualToOriginalHeaders) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -112,6 +116,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
     this.headersCheckingMode = headersCheckingMode;
+    this.virtualToOriginalHeaders = virtualToOriginalHeaders;
   }
 
   @Override
@@ -353,7 +358,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.verificationModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.headersCheckingMode);
+        ccCompilationContext.headersCheckingMode,
+        ccCompilationContext.virtualToOriginalHeaders);
   }
 
   /** @return the C++ module map of the owner. */
@@ -385,6 +391,10 @@ public final class CcCompilationContext implements CcCompilationContextApi {
         new CcCompilationContext.Builder(/* ruleContext= */ null);
     builder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     return builder.build();
+  }
+
+  public ImmutableMap<String, String> getVirtualToOriginalHeaders() {
+    return virtualToOriginalHeaders;
   }
 
   /**
@@ -436,6 +446,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
     private boolean propagateModuleMapAsActionInput = true;
     private CppConfiguration.HeadersCheckingMode headersCheckingMode =
         CppConfiguration.HeadersCheckingMode.STRICT;
+    private Map<String, String> virtualToOriginalHeaders = new HashMap<>();
 
     /** The rule that owns the context */
     private final RuleContext ruleContext;
@@ -496,6 +507,7 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       }
 
       defines.addAll(otherCcCompilationContext.getDefines());
+      virtualToOriginalHeaders.putAll(otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
     }
 
@@ -653,6 +665,11 @@ public final class CcCompilationContext implements CcCompilationContextApi {
       return this;
     }
 
+    public Builder addVirtualToOriginalHeaders(Map<String, String> virtualToOriginalHeaders) {
+      this.virtualToOriginalHeaders.putAll(virtualToOriginalHeaders);
+      return this;
+    }
+
     /** Builds the {@link CcCompilationContext}. */
     public CcCompilationContext build() {
       return build(
@@ -689,7 +706,8 @@ public final class CcCompilationContext implements CcCompilationContextApi {
           cppModuleMap,
           verificationModuleMap,
           propagateModuleMapAsActionInput,
-          headersCheckingMode);
+          headersCheckingMode,
+          ImmutableMap.copyOf(virtualToOriginalHeaders));
     }
 
     /**

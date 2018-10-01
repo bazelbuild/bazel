@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -54,18 +55,21 @@ public final class InstrumentedFilesCollector {
         ruleContext,
         new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
         null,
-        null);
+        null,
+        ImmutableMap.of());
   }
 
   public static InstrumentedFilesProvider collect(
       RuleContext ruleContext,
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
-      Iterable<Artifact> rootFiles) {
+      Iterable<Artifact> rootFiles,
+      ImmutableMap<String, String> virtualToOriginalHeaders) {
     return collect(ruleContext, spec, localMetadataCollector, rootFiles,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
-        false);
+        false,
+        virtualToOriginalHeaders);
   }
 
   /**
@@ -82,7 +86,8 @@ public final class InstrumentedFilesCollector {
       Iterable<Artifact> rootFiles,
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
-      boolean withBaselineCoverage) {
+      boolean withBaselineCoverage,
+      ImmutableMap<String, String> sourcesToReplace) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 
@@ -160,7 +165,8 @@ public final class InstrumentedFilesCollector {
         baselineCoverageFiles,
         baselineCoverageArtifacts,
         coverageSupportFilesBuilder.build(),
-        coverageEnvironmentBuilder.build());
+        coverageEnvironmentBuilder.build(),
+        sourcesToReplace);
   }
 
   /**

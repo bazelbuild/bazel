@@ -16,6 +16,7 @@ package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -84,6 +85,22 @@ class Coverage {
       }
     }
     return false;
+  }
+
+  void maybeReplaceSourcefileNames(ImmutableMap<String, String> reportedToOriginalSources) {
+    if (reportedToOriginalSources == null) {
+      throw new IllegalArgumentException(
+          "reportedToOriginalSources should not be null.");
+    }
+    if (reportedToOriginalSources.isEmpty()) {
+      // nothing to replace
+      return;
+    }
+    for (SourceFileCoverage source : this.getAllSourceFiles()) {
+      if (reportedToOriginalSources.containsKey(source.sourceFileName())) {
+        source.changeSourcefileName(reportedToOriginalSources.get(source.sourceFileName()));
+      }
+    }
   }
 
   static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)

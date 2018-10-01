@@ -103,6 +103,7 @@ if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
     eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
 
+
 # Export the command line that invokes LcovMerger with the flags:
 # --coverage_dir          The absolute path of the directory where the
 #                         intermediate coverage reports are located.
@@ -124,7 +125,7 @@ fi
 #                         keep only the C++ sources found in the manifest.
 #                         For other languages the sources in the manifest are
 #                         ignored.
-export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
+LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --output_file=${COVERAGE_OUTPUT_FILE} \
   --filter_sources=/usr/bin/.+ \
   --filter_sources=/usr/lib/.+ \
@@ -132,6 +133,10 @@ export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --filter_sources=.*external/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 
+if [[ $SOURCES_TO_REPLACE ]]; then
+  LCOV_MERGER_CMD="$LCOV_MERGER_CMD\
+  --sources_to_replace_file=$ROOT/$SOURCES_TO_REPLACE"
+fi
 
 if [[ $DISPLAY_LCOV_CMD ]] ; then
   echo "Running lcov_merger"

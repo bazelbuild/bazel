@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
@@ -129,6 +130,12 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   public NestedSet<Pair<String, String>> getCoverageEnvironment() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
         .getCoverageEnvironment();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getSourcesToReplaceInReport() {
+    return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
+        .getSourcesToReplaceInReport();
   }
 
   /**

@@ -853,14 +853,17 @@ public final class CcCompilationHelper {
     private final ImmutableList<Artifact> headers;
     private final ImmutableList<Artifact> moduleMapHeaders;
     private final @Nullable PathFragment virtualIncludePath;
+    private final ImmutableMap<String, String> virtualHeaderToOriginalHeader;
 
     private PublicHeaders(
         ImmutableList<Artifact> headers,
         ImmutableList<Artifact> moduleMapHeaders,
-        PathFragment virtualIncludePath) {
+        PathFragment virtualIncludePath,
+        ImmutableMap<String, String> virtualHeaderToOriginalHeader) {
       this.headers = headers;
       this.moduleMapHeaders = moduleMapHeaders;
       this.virtualIncludePath = virtualIncludePath;
+      this.virtualHeaderToOriginalHeader = virtualHeaderToOriginalHeader;
     }
 
     private ImmutableList<Artifact> getHeaders() {
@@ -917,15 +920,16 @@ public final class CcCompilationHelper {
       return new PublicHeaders(
           ImmutableList.copyOf(Iterables.concat(publicHeaders, nonModuleMapHeaders)),
           ImmutableList.copyOf(publicHeaders),
-          null);
+          null,
+          ImmutableMap.of());
     }
 
     if (ruleContext.hasErrors()) {
-      return new PublicHeaders(ImmutableList.of(), ImmutableList.of(), null);
+      return new PublicHeaders(ImmutableList.of(), ImmutableList.of(), null, ImmutableMap.of());
     }
 
     ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();
-
+    ImmutableMap.Builder<String, String> virtualToOriginalHeaders = ImmutableMap.builder();
     for (Artifact originalHeader : publicHeaders) {
       if (!originalHeader.getRootRelativePath().startsWith(stripPrefix)) {
         ruleContext.ruleError(
@@ -950,6 +954,10 @@ public final class CcCompilationHelper {
             virtualHeader,
             "Symlinking virtual headers for " + ruleContext.getLabel()));
         moduleHeadersBuilder.add(virtualHeader);
+        if (configuration.isCodeCoverageEnabled()) {
+          virtualToOriginalHeaders.put(
+              virtualHeader.getExecPathString(), originalHeader.getExecPathString());
+        }
       } else {
         moduleHeadersBuilder.add(originalHeader);
       }
@@ -968,7 +976,8 @@ public final class CcCompilationHelper {
         ruleContext
             .getBinOrGenfilesDirectory()
             .getExecPath()
-            .getRelative(ruleContext.getUniqueDirectory("_virtual_includes")));
+            .getRelative(ruleContext.getUniqueDirectory("_virtual_includes")),
+        virtualToOriginalHeaders.build());
   }
 
   /**
@@ -1003,6 +1012,11 @@ public final class CcCompilationHelper {
     PublicHeaders publicHeaders = computePublicHeaders();
     if (publicHeaders.getVirtualIncludePath() != null) {
       ccCompilationContextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
+    }
+
+    if (configuration.isCodeCoverageEnabled()) {
+      ccCompilationContextBuilder.addVirtualToOriginalHeaders(
+          publicHeaders.virtualHeaderToOriginalHeader);
     }
 
     if (useDeps) {
