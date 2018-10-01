@@ -1284,7 +1284,10 @@ java_library(
 java_library(
     name = "loading-phase-threads-option",
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
 )
 
 java_library(
