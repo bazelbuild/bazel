@@ -1,0 +1,104 @@
+Incompatible changes:
+
+  - New bazelrc file list.
+  - Adds --incompatible_expand_directories to automatically expand
+    directories in skylark command lines. Design doc:
+    https://docs.google.com/document/d/11agWFiOUiz2htBLj6swPTob5z78TrC
+    xm8DQE4uJLOwM
+  - --incompatible_package_name_is_a_function now defaults to true.
+    The magic values PACKAGE_NAME and REPOSITORY_NAME are no longer
+    exposed.
+
+New features:
+
+  - Add --modify_execution_info, a flag to customize action execution
+    info.
+  - Add --apple_compiler and --apple_grte_top options.
+  - C++, runfiles in cc_test: the C++ runfiles library
+    (`@bazel_tools//tools/cpp/runfiles`) can now create Runfiles
+    objects for tests. See `//tools/cpp/runfiles/runfiles_src.h` (in
+    the Bazel source tree) for documentation.
+  - There is now a 'same_pkg_direct_rdeps' query function. See the
+    query documentation for more details.
+
+Important changes:
+
+  - A new, experimental, options --experimental_ui_deduplicate was
+    added that
+      makes the UI try to deduplicate messages from actions to keep
+    the output on the
+      console cleaner.
+  - Add ExecutionInfo to aquery output for ExecutionInfoSpecifier
+    actions.
+  - The Android resource processing pipeline now supports persistence
+    via worker processes. Enable it with
+    `--persistent_android_resource_processor`. We have observed 1.5x
+    faster clean local builds, and up to 2.5x faster incremental
+    local builds.
+  - --windows_exe_launcher is deprecated, this flag will be removed
+    soon. Please make sure you are not using it.
+  - CppRules: cc_binary link action no longer hardcodes
+    -static-libgcc for toolchains that support embedded runtimes
+    (guarded by --experimental_dont_emit_static_libgcc temporarily).
+  - When computing --instrumentation_filter, end filter patterns with
+    "[/:]" to match non-top-level packages exactly and treat
+    top-level targets consistently.
+  - Note
+  - The startup flag --host_javabase has been renamed to
+    --server_javabase to avoid confusion with the build flag
+    --host_javabase.
+  - objc_library now supports the module_name attribute
+  - Added "bazel info server_log" command to obtain the main Bazel
+    server
+    log file path, which can be quite useful for debugging Bazel
+    issues.
+  - Support fileset expansion in ctx.actions.args(). Controlled by
+    --incompatible_expand_directories.
+  - Fixes aapt shrink resources not respecting filters configurations
+  - --javacopt= no longer affects compilations of tools that are
+    executed during the build; use --host_javacopt= to change javac
+    flags in the host configuration.
+  - Revert the default of --incompatible_package_name_is_a_function
+    to false.
+  - Future versions of Bazel will require a locally installed JDK
+    for Java development. Previously Bazel would fall back to using
+    the
+    embedded --server_javabase if no JDK as available. Pass
+    --incompatible_never_use_embedded_jdk_for_javabase to disable the
+    legacy
+    behaviour.
+  - Revise --server_javabase in documentation.
+  - Bazel will now check stderr instead of stdout to decide if it is
+    outputting to a terminal.  "--isatty" is deprecated, use
+    "--is_stderr_atty"
+    instead.
+  - LcovMerger was renamed to CoverageOutputGenerator.
+  - Propagating remote errors to the user even if
+    --verbose_failures=false
+  - Add number of configured targets to analysis phase status output.
+  - Faster coverage collection for gcc compiled C++ code can now be
+    tested by enabling it with --experimental_cc_coverage.
+  - If the --javabase flag is unset, it Bazel locates a JDK using the
+    JAVA_HOME environment variable and searching the PATH. If no JDK
+    is found --javabase will be empty, and builds targeting Java will
+    not be supported.  Previously Bazel would fall back to using the
+    embedded JDK as a --javabase, but this is no longer default
+    behaviour. A JDK should be explicitly installed instead to enable
+    Java development.
+  - Fix regression #6219, remote cache failures
+  - The flag "--experimental_enable_cc_configuration_make_variables"
+    is
+    removed, use
+    "--incompatible_disable_cc_configuration_make_variables" instead.
+  - Added `--incompatible_disable_legacy_flags_cc_toolchain_api` to
+    deprecate legacy `cc_toolchain` Skylark API for legacy CROSSTOOL
+    fields.
+  - Fixed missing debug symbols when building native code with
+    `--compilation_mode=dbg` that target Android ARM architectures by
+    adding the -g flag.
+  - --loading_phase_threads now defaults to "auto" (not 200, as was
+    previously the case), which at the moment corresponds to the
+    number of CPUs.
+    If your sources are on a slow file system, increasing this value
+    may yield
+    better analysis-time performance when disk caches are cold.
