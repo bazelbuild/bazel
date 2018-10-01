@@ -37,6 +37,8 @@ public abstract class SkylarkSemantics {
   public enum FlagIdentifier {
     INCOMPATIBLE_DISABLE_OBJC_PROVIDER_RESOURCES(
         SkylarkSemantics::incompatibleDisableObjcProviderResources),
+    INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP(
+        SkylarkSemantics::incompatibleNoTargetOutputGroup),
     NONE(null);
 
     // Using a Function here makes the enum definitions far cleaner, and, since this is
@@ -125,6 +127,8 @@ public abstract class SkylarkSemantics {
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
+  public abstract boolean incompatibleNoTargetOutputGroup();
+
   public abstract boolean incompatibleNoTransitiveLoads();
 
   public abstract boolean incompatiblePackageNameIsAFunction();
@@ -177,6 +181,7 @@ public abstract class SkylarkSemantics {
           .incompatibleGenerateJavaCommonSourceJar(false)
           .incompatibleNewActionsApi(false)
           .incompatibleNoSupportToolsInActionInputs(false)
+          .incompatibleNoTargetOutputGroup(false)
           .incompatibleNoTransitiveLoads(false)
           .incompatiblePackageNameIsAFunction(false)
           .incompatibleRangeType(false)
@@ -230,6 +235,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
+
+    public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
 
     public abstract Builder incompatibleNoTransitiveLoads(boolean value);
 

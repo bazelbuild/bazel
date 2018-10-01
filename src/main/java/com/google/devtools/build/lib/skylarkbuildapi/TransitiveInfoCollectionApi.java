@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemantics.FlagIdentifier;
 
 /**
  * Interface for a build target.
@@ -53,6 +54,7 @@ public interface TransitiveInfoCollectionApi {
     documented = false, //  TODO(dslomov): document.
     parameters = {
       @Param(name = "group_name", type = String.class, doc = "Output group name", named = true)
-    })
+    },
+    disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP)
   SkylarkNestedSet outputGroup(String group);
 }

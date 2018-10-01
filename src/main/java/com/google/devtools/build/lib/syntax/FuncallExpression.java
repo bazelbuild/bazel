@@ -511,7 +511,7 @@ public final class FuncallExpression extends Expression {
       Environment environment)
       throws EvalException {
     Pair<MethodDescriptor, List<Object>> matchingMethod = null;
-    List<MethodDescriptor> methods = getMethods(objClass, methodName);
+    List<MethodDescriptor> methods = getMethods(environment.getSemantics(), objClass, methodName);
     ArgumentListConversionResult argumentListConversionResult = null;
     if (methods != null) {
       for (MethodDescriptor method : methods) {

@@ -319,6 +319,18 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleNoSupportToolsInActionInputs;
 
   @Option(
+      name = "incompatible_no_target_output_group",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, disables the output_group field of the 'Target' Starlark type.")
+  public boolean incompatibleNoTargetOutputGroup;
+
+  @Option(
       name = "incompatible_no_transitive_loads",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
@@ -465,6 +477,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         .incompatibleGenerateJavaCommonSourceJar(incompatibleGenerateJavaCommonSourceJar)
         .incompatibleNewActionsApi(incompatibleNewActionsApi)
         .incompatibleNoSupportToolsInActionInputs(incompatibleNoSupportToolsInActionInputs)
+        .incompatibleNoTargetOutputGroup(incompatibleNoTargetOutputGroup)
         .incompatibleNoTransitiveLoads(incompatibleNoTransitiveLoads)
         .incompatiblePackageNameIsAFunction(incompatiblePackageNameIsAFunction)
         .incompatibleRangeType(incompatibleRangeType)

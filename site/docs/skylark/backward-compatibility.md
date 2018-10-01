@@ -41,6 +41,7 @@ guarded behind flags in the current release:
 *   [New actions API](#new-actions-api)
 *   [New args API](#new-args-api)
 *   [Disable objc provider resources](#disable-objc-provider-resources)
+*   [Disable output group field on Target](#disable-output-group-field-on-target)
 *   [Remove native git repository](#remove-native-git-repository)
 *   [Remove native http archive](#remove-native-http-archive)
 *   [New-style JavaInfo constructor](#new-style-java_info)
@@ -251,6 +252,27 @@ This flag disables certain deprecated resource fields on
 [ObjcProvider](lib/ObjcProvider.html).
 
 *   Flag: `--incompatible_objc_provider_resources`
+*   Default: `false`
+
+
+### Disable output group field on Target
+
+This flag disables the `output_group` field on the `Target` Starlark type.
+Use `OutputGroupInfo` instead.
+
+For example, replace:
+
+```python
+dep_bin = ctx.attr.dep.output_group.bin
+```
+
+with:
+
+```python
+dep_bin = ctx.attr.dep[OutputGroupInfo].bin
+```
+
+*   Flag: `--incompatible_no_target_output_group`
 *   Default: `false`
 
 
