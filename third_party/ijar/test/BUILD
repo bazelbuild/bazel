@@ -280,7 +280,6 @@ java_test(
     tags = ["zip"],
     test_class = "IjarTests",
     deps = [
-        "//src/java_tools/buildjar:BazelJavaCompiler",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
