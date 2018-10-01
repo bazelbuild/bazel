@@ -602,8 +602,23 @@ cc_toolchain_suite(
         'cpu2' : ':cc_tolchain_label4',
     }
 )
-
 ```
+
+Before, it could happen that the same `cc_toolchain` is used with multiple
+`CToolchain`s from the CROSSTOOL through `default_toolchain`s. This is no longer
+allowed, each `cc_toolchain` must point to at most one `CToolchain` by:
+
+* (preferable) specifying `cc_toolchain.toolchain_identifier` equal to
+  `CToolchain.toolchain_identifier`
+* (deprecated, but still supported, doesn't work without specifying `compiler`)
+  specifying `cc_toolchain.cpu` and `cc_toolchain.compiler` fields that match
+  `CToolchain.target_cpu` and `CToolchain.compiler` respectively.
+* (deprecated, but still supported, doesn't work with
+  [platforms](https://www.bazel.build/roadmaps/platforms.html)) Relying on
+  `--cpu` and `--compiler` options.
+
+Using `cc_toolchain.toolchain_identifier` will save you one migration in the
+future.
 
 *   Flag: `--incompatible_disable_cc_toolchain_label_from_crosstool_proto`
 *   Default: `false`
