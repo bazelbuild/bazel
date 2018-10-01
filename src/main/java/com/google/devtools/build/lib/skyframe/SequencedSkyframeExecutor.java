@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.packages.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
@@ -302,7 +304,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     super.sync(eventHandler, packageCacheOptions, skylarkSemanticsOptions, outputBase,
         workingDirectory, defaultsPackageContents, commandId, clientEnv, tsgm, options);
-    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
+    try (SilentCloseable c = Profiler.instance().profile("handleDiffs")) {
+      handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
+    }
   }
 
   /**
@@ -486,17 +490,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     logger.info(
         "About to scan skyframe graph checking for filesystem nodes of types "
             + Iterables.toString(fileTypesToCheck));
-    Differencer.Diff diff =
-        fsvc.getDirtyKeys(
-            memoizingEvaluator.getValues(),
-            new UnionDirtinessChecker(
-                Iterables.concat(
-                    customDirtinessCheckers,
-                    ImmutableList.<SkyValueDirtinessChecker>of(
-                        new ExternalDirtinessChecker(
-                            tmpExternalFilesHelper,
-                            fileTypesToCheck),
-                        new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+    Differencer.Diff diff;
+    try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
+      diff =
+          fsvc.getDirtyKeys(
+              memoizingEvaluator.getValues(),
+              new UnionDirtinessChecker(
+                  Iterables.concat(
+                      customDirtinessCheckers,
+                      ImmutableList.<SkyValueDirtinessChecker>of(
+                          new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
+                          new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+    }
     handleChangedFiles(diffPackageRootsUnderWhichToCheck, diff);
 
     for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
