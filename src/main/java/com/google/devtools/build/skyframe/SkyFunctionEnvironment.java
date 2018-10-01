@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -210,10 +209,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         // we may as well use it for the call to evaluatorContext#getBatchValues since we've
         // precomputed the size.
         depKeysAsSet = depKeys.toSet();
-        evaluatorContext
-            .getGraph()
-            .prefetchDeps(
-                requestor, Iterables.filter(oldDeps, Predicates.not(Predicates.in(depKeysAsSet))));
+        evaluatorContext.getGraph().prefetchDeps(requestor, oldDeps, depKeysAsSet);
       }
     }
     Map<SkyKey, ? extends NodeEntry> batchMap =

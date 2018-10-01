@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -60,10 +63,20 @@ public interface QueryableGraph {
     return InterruptibleSupplier.Memoize.of(() -> getBatch(requestor, reason, keys));
   }
 
-  /** Optimistically prefetches dependencies. */
-  default void prefetchDeps(@Nullable SkyKey requestor, Iterable<? extends SkyKey> depKeys)
+  /**
+   * Optimistically prefetches dependencies.
+   *
+   * @param excludedKeys keys that could overlap with {@code depKeys}. {@code prefetchDeps} is
+   *     usually called together with an actual fetch, and the keys actually fetched should be
+   *     excluded from the prefetch.
+   */
+  default void prefetchDeps(
+      @Nullable SkyKey requestor, Iterable<? extends SkyKey> depKeys, Set<SkyKey> excludedKeys)
       throws InterruptedException {
-    getBatchAsync(requestor, Reason.PREFETCH, depKeys);
+    getBatchAsync(
+        requestor,
+        Reason.PREFETCH,
+        Iterables.filter(depKeys, Predicates.not(Predicates.in(excludedKeys))));
   }
 
   /**
