@@ -115,14 +115,19 @@ labels attribute.
 <h2 id="configurable-attributes">Configurable attributes</h2>
 
 <p>
-  Most attributes can be "configured" so their values depend on the flags passed
-  at the command line. This can be used, for example, to declare
-  platform-dependent <code>srcs</code> or custom compiler flags depending on the
-  <a href="../user-manual.html#flag--compilation_mode">compilation
-  mode</a>.
+  Most attributes are "configurable", meaning that their values may change when
+  the target is built in different ways. Specifically, configurable attributes
+  may vary based on the flags passed to the Bazel command line, or what
+  downstream dependency is requesting the target. This can be used, for
+  instance, to customize the target for multiple platforms or compilation modes.
 </p>
 
-<h4>Example</h4>
+<p>
+  The following example declares different sources for different target
+  architectures. Running <code>bazel build :multiplatform_lib --cpu x86</code>
+  will build the target using <code>x86_impl.cc</code>, while substituting
+  <code>--cpu arm</code> will instead cause it to use <code>arm_impl.cc</code>.
+</p>
 
 <pre class="code">
 cc_library(
@@ -143,22 +148,41 @@ config_setting(
 </pre>
 
 <p>
-  An attribute is made configurable by assigning it to a <code>select</code>.
-  This makes its value depend on which <code>config_setting</code> matches
-  the build. For example, <code>bazel build :multiplatform_lib --cpu=arm</code>
-  sets <code>multiplatform_lib</code>'s <code>srcs</code> to
-  <code>["arm_impl.cc"]</code>, while <code>bazel build :multiplatform_lib
-  --cpu=x86</code> sets <code>srcs</code> to <code>["x86_impl.cc"]</code>.
+  The <a href="$expander.expandRef("select")"><code>select()</code></a> function
+  chooses among different alternative values for a configurable attribute based
+  on which <a href="$expander.expandRef("config_setting")">
+  <code>config_setting</code></a> criteria is satisfied in the current
+  configuration.
 </p>
 
 <p>
-  See the definitions of
-  <a href="$expander.expandRef("select")">select</a> and
-  <a href="$expander.expandRef("config_setting")">config_setting</a> for more details.
-  Attributes marked <code>nonconfigurable</code> in their documentation cannot
-  use this feature (usually because Bazel has to know their values before flags
-  have been parsed).
+  Configurable attributes are evaluated after the processing of macros and
+  before the processing of rules (technically, between the
+  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">
+  loading and analysis phases</a>.
+  Any processing that Bazel does before the <code>select()</code> is evaluated
+  will not know which branch will be chosen. In particular, macros can't change
+  their behavior based on the chosen branch, and <code>bazel query</code> can
+  only make conservative guesses about the configurable dependencies of a
+  target. Conversely, when authoring a new type of rule, you do not need to
+  worry about the ambiguity of configurable attributes because all
+  <code>select()</code> expressions have already been replaced by their resolved
+  values. See
+  <a href="https://docs.bazel.build/versions/master/configurable-attributes.html#faq">
+  this FAQ</a>
+  for more on using <code>select()</code> with rules and macros.
+</p>
 
+<p>
+  Attributes marked <code>nonconfigurable</code> in their documentation cannot
+  use this feature. Usually an attribute is nonconfigurable because Bazel
+  internally needs to know its value before it can determine how to choose the
+  <code>select()</code> branch.
+</p>
+
+<p>
+  See <a href="https://docs.bazel.build/versions/master/configurable-attributes.html">
+  Configurable Build Attributes</a> for more information.
 </p>
 
 <h2 id="implicit-outputs">Implicit output targets</h2>

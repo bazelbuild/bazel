@@ -28,35 +28,36 @@ title: Configurable Build Attributes
 (be/functions.html#select), is a Bazel feature that lets users toggle the values
 of BUILD rule attributes at the command line.
 
-This can be used, for example, to write multiplatform libraries that
-automatically choose the right implementation or feature-configurable binaries
-that can be custom assembled at build time.
+This can be used, for example, for a multiplatform library that automatically
+chooses the appropriate implementation for the architecture, or for a
+feature-configurable binary that can be customized at build time.
 
 ## Example
 
-```sh
-//myapp/BUILD:
+```python
+# myapp/BUILD
+
 cc_binary(
     name = "mybinary",
     srcs = ["main.cc"],
     deps = select({
         ":arm_build": [":arm_lib"],
         ":x86_debug_build": [":x86_dev_lib"],
-        "//conditions:default": [":generic_lib"]
-    })
+        "//conditions:default": [":generic_lib"],
+    }),
 )
 
 config_setting(
     name = "arm_build",
-    values = { "cpu": "arm" }
+    values = {"cpu": "arm"},
 )
 
 config_setting(
     name = "x86_debug_build",
     values = {
-      "cpu": "x86",
-      "compilation_mode": "dbg"
-    }
+        "cpu": "x86",
+        "compilation_mode": "dbg",
+    },
 )
 ```
 
@@ -85,48 +86,55 @@ command line. Specficially, `deps` becomes:
     <td><code>[":generic_lib"]</code></td>
   </tr>
 </table>
-&nbsp;
-
-`select()` turns any attribute into a dictionary that maps _configuration
-conditions_ to desired values. Configuration conditions are build labels that
-reference [`config_setting`](be/general.html#config_setting) rules. Values are
-any value the attribute can normally take.
+`select()` serves as a placeholder for a value that will be chosen based on
+*configuration conditions*. These conditions are labels that refer to
+[`config_setting`](be/general.html#config_setting) targets. By using `select()`
+in a configurable attribute, the attribute effectively takes on different values
+when different conditions hold.
 
 Matches must be unambiguous: either exactly one condition must match or, if
 multiple conditions match, one's `values` must be a strict superset of all
-others' (for example, `values = {"cpu": "x86", "compilation_mode": "dbg"}` is an
-unambiguous specialization of `values = {"cpu": "x86"}`). The built-in condition
+others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}` is an
+unambiguous specialization of `values = {"cpu": "x86"}`. The built-in condition
 [`//conditions:default`](#defaults) automatically matches when nothing else
 does.
 
 This example uses `deps`. But `select()` works just as well on `srcs`,
 `resources`, `cmd`, or practically any other attribute. Only a small number of
-attributes are *non-configurable*, and those are clearly [annotated]
-(be/general.html#config_setting.values).
+attributes are *non-configurable*, and those are clearly annotated; for
+instance, `config_setting`'s own
+[`values`](be/general.html#config_setting.values) attribute is non-configurable.
+
+Certain attributes, like the `tools` of a `genrule`, have the effect of changing
+the build parameters (such as the cpu) for all targets that transitively appear
+beneath them. This will affect how conditions are matched within those targets
+but not within the attribute that causes the change. That is, a `select` in the
+`tools` attribute of a `genrule` will work the same as a `select` in the `srcs`.
 
 ## Configuration Conditions
 
 Each key in a configurable attribute is a label reference to a
-[`config_setting`](be/general.html#config_setting) rule. This is just a
+[`config_setting`](be/general.html#config_setting) target. This is just a
 collection of expected command line flag settings. By encapsulating these in a
-rule, it's easy to maintain "standard" conditions that can be referenced across
-rules and BUILD files.
+target, it's easy to maintain "standard" conditions that can be referenced
+across targets and BUILD files.
 
 The core `config_setting` syntax is:
 
-```sh
+```python
 config_setting(
     name = "meaningful_condition_name",
     values = {
         "flag1": "expected_value1",
         "flag2": "expected_value2",
         ...
-    }
+    },
 )
 ```
 
 `flagN` is an arbitrary Bazel command line flag. `value` is the expected value
-for that flag. A `config_setting` matches when *all* of its flags match.
+for that flag. A `config_setting` matches when *all* of its flags match (order
+is irrelevant).
 
 `values` entries use the same parsing logic as at the actual command line. This
 means:
@@ -155,18 +163,19 @@ Because of the "exactly one match" rule, a configurable attribute with no match
 and no default condition triggers a `"no matching conditions"` error. This can
 protect against silent failures from unexpected build flags:
 
-```sh
-//foo:
+```python
+# foo/BUILD
+
 config_setting(
     name = "foobar",
-    values = { "define": "foo=bar" }
+    values = {"define": "foo=bar"},
 )
 
 cc_library(
     name = "my_lib",
     srcs = select({
         ":foobar": ["foobar_lib.cc"],
-    })
+    }),
 )
 ```
 
@@ -194,19 +203,19 @@ the best approach for these purposes.
 `--define` is a bit awkward to use and wasn't originally designed for this
 purpose. We recommend using it sparingly until true custom flags are available.
 For example, don't use `--define` to specify multiple variants of top-level
-binary. Just use multiple rules instead.
+binary. Just use multiple targets instead.
 
 To trigger an arbitrary condition with `--define`, write
 
-```sh
+```python
 config_setting(
     name = "bar",
-    values = { "define": "foo=bar" }
+    values = {"define": "foo=bar"},
 )
 
 config_setting(
     name = "baz",
-    values = { "define": "foo=baz" }
+    values = {"define": "foo=baz"},
 )
 ```
 
@@ -216,13 +225,13 @@ The `values` attribute can't contain multiple `define`s. This is
 because each instance has the same dictionary key. To solve this, use
 `define_values`:
 
-```sh
+```python
 config_setting(
     name = "bar_and_baz",
     define_values = {
-        "foo": "bar", # matches --define foo=bar
-        "baz": "bat", # matches --define baz=bat
-    }
+        "foo": "bar",  # matches --define foo=bar
+        "baz": "bat",  # matches --define baz=bat
+    },
 )
 ```
 
@@ -232,38 +241,40 @@ the `config_setting` to match.
 ## Platforms
 
 While the ability to specify multiple flags on the command line provides
-flexibility, it can also be burdensome to individually set each `--cpu`,
-`-crosstool_top`, etc. flag every time you want to build a target. [Platforms]
-(https://docs.bazel.build/versions/master/platforms.html) allow you to
-consolidate these into simple bundles.
+flexibility, it can also be burdensome to individually set each one every time
+you want to build a target.
+   [Platforms](platforms.html)
+allow you to consolidate these into simple bundles.
 
-```sh
+```python
+# myapp/BUILD
+
 sh_binary(
-    name = "my_rocks_rule",
+    name = "my_rocks",
     srcs = select({
-        ":basalt" : ["pyroxene.sh"],
-        ":marble" : ["calcite.sh"],
-        "//conditions:default": ["feldspar.sh"]
-    })
+        ":basalt": ["pyroxene.sh"],
+        ":marble": ["calcite.sh"],
+        "//conditions:default": ["feldspar.sh"],
+    }),
 )
 
 config_setting(
     name = "basalt",
     constraint_values = [
+        ":black",
         ":igneous",
-        ":black"
-    ]
+    ],
 )
 
 config_setting(
     name = "marble",
     constraint_values = [
         ":white",
-        ":metamorphic"
-        ":smooth"
-    ]
+        ":metamorphic",
+    ],
 )
 
+# constraint_setting acts as an enum type, and constraint_value as an enum value.
 constraint_setting(name = "color")
 constraint_value(name = "black", constraint_setting = "color")
 constraint_value(name = "white", constraint_setting = "color")
@@ -277,115 +288,120 @@ platform(
     name = "basalt_platform",
     constraint_values = [
         ":black",
-        ":igneous"]
+        ":igneous",
+    ],
 )
 
 platform(
     name = "marble_platform",
     constraint_values = [
         ":white",
-        ":smooth"
-        ":metamorphic"
-    ]
+        ":smooth",
+        ":metamorphic",
+    ],
 )
 ```
 
-The `platform` specified on the command line matches a `config_setting` that
-contains the same set (or a superset) of `constraint_values` and triggers
-that `config_setting` as a match in the `select()` statement.
+The platform can be specified on the command line. It activates the
+`config_setting`s that contain a subset of the platform's `constraint_values`,
+allowing those `config_setting`s to match in `select()` expressions.
 
-For example, in order to set the `srcs` attribute of `my_rocks_rule` to
-`calcite.sh`, simply run
+For example, in order to set the `srcs` attribute of `my_rocks` to `calcite.sh`,
+we can simply run
 
 ```sh
-bazel build my_app:my_rocks_rule --platforms=marble_platform
+bazel build //my_app:my_rocks --platforms=//myapp:marble_platform
 ```
 
 Without platforms, this might look something like
 
 ```sh
-bazel build my_app:my_rocks_rule --define color=light --define texture=smooth --define type=metamorphic
+bazel build //my_app:my_rocks --define color=white --define texture=smooth --define type=metamorphic
 ```
+
 Platforms are still under development. See the [documentation]
 (https://docs.bazel.build/versions/master/platforms.html) and [roadmap]
-(https://docs.google.com/document/d/1_clxJHyUylwYjmQ9jQfWr-eZeLLTUZL6onfvPV7CMoI/edit?usp=sharing)
-for details.
+(https://bazel.build/roadmaps/platforms.html) for details.
 
 ## Short Keys
 
-Since configuration keys are rule labels, their names can get long and unwieldy.
-This can be mitigated with local variable definitions:
+Since configuration keys are target labels, their names can get long and
+unwieldy. This can be mitigated with local variable definitions:
 
 Before:
 
-```sh
+```python
 sh_binary(
-    name = "my_rule",
+    name = "my_target",
     srcs = select({
-        "//my/project/my/team/configs:config1": ["my_rule_1.sh"],
-        "//my/project/my/team/configs:config2": ["my_rule_2.sh"],
-    })
+        "//my/project/my/team/configs:config1": ["my_target_1.sh"],
+        "//my/project/my/team/configs:config2": ["my_target_2.sh"],
+    }),
 )
 ```
 
 After:
 
-```sh
+```python
 CONFIG1="//my/project/my/team/configs:config1"
 CONFIG2="//my/project/my/team/configs:config2"
 
 sh_binary(
-    name = "my_rule",
+    name = "my_target",
     srcs = select({
-        CONFIG1: ["my_rule_1.sh"],
-        CONFIG2: ["my_rule_2.sh"],
+        CONFIG1: ["my_target_1.sh"],
+        CONFIG2: ["my_target_2.sh"],
     })
 )
 ```
 
 
-For more complex expressions, use [macros](skylark/macros.md):
+For more complex expressions, you can use [macros](skylark/macros.md):
 
 Before:
 
-```sh
-//foo/BUILD
+```python
+# foo/BUILD
+
 genrule(
-    name = "my_rule",
+    name = "my_target",
     srcs = [],
-    outs = ["my_rule.out"],
+    outs = ["my_target.out"],
     cmd = select({
         "//my/project/my/team/configs/config1": "echo custom val: this > $@",
         "//my/project/my/team/configs/config2": "echo custom val: that > $@",
-        "//conditions:default": "echo default output > $@"
-    })
+        "//conditions:default": "echo default output > $@",
+    }),
 )
 ```
 
 After:
 
-```sh
-//foo/genrule_select.bzl:
+```python
+# foo/genrule_select.bzl
+
 def select_echo(input_dict):
-  echo_cmd = "echo %s > $@"
-  out_dict = {"//conditions:default": echo_cmd % "default output" }
-  for (key, val) in input_dict.items():
-    cmd = echo_cmd % ("custom val: " + val)
-    out_dict["//my/project/my/team/configs/config" + key] = cmd
-  return select(out_dict)
+    echo_cmd = "echo %s > $@"
+    out_dict = {"//conditions:default": echo_cmd % "default output"}
+    for (key, val) in input_dict.items():
+        cmd = echo_cmd % ("custom val: " + val)
+        out_dict["//my/project/my/team/configs/config" + key] = cmd
+    return select(out_dict)
 ```
 
-```sh
-//foo/BUILD:
+```python
+# foo/BUILD
+
 load("//foo:genrule_select.bzl", "select_echo")
+
 genrule(
-    name = "my_rule",
+    name = "my_target",
     srcs = [],
-    outs = ["my_rule.out"],
+    outs = ["my_target.out"],
     cmd = select_echo({
         "1": "this",
         "2": "that",
-    })
+    }),
 )
 ```
 
@@ -393,40 +409,40 @@ genrule(
 
 `select` can appear multiple times in the same attribute:
 
-```sh
+```python
 sh_binary(
-    name = "my_rule",
-    srcs = ["always_include.sh"]
-    + select({
-          ":armeabi_mode": ["armeabi_src.sh"],
-          ":x86_mode": ["x86_src.sh"],
-      })
-    + select({
-          ":opt_mode": ["opt_extras.sh"],
-          ":dbg_mode": ["dbg_extras.sh"],
-      })
+    name = "my_target",
+    srcs = ["always_include.sh"] +
+           select({
+               ":armeabi_mode": ["armeabi_src.sh"],
+               ":x86_mode": ["x86_src.sh"],
+           }) +
+           select({
+               ":opt_mode": ["opt_extras.sh"],
+               ":dbg_mode": ["dbg_extras.sh"],
+           }),
 )
 ```
 
 `select` cannot appear inside another `select` (i.e. *`AND` chaining*). If you
-need to `AND` selects together, either use an intermediate rule:
+need to `AND` selects together, either use an intermediate target:
 
-```sh
-sh_binary
-    name = "my_rule",
+```python
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
         ":armeabi_mode": [":armeabi_lib"],
         ...
-    })
+    }),
 )
 
 sh_library(
     name = "armeabi_lib",
     srcs = select({
-        ":opt_mode":  ["armeabi_with_opt.sh"],
+        ":opt_mode": ["armeabi_with_opt.sh"],
         ...
-    })
+    }),
 )
 ```
 
@@ -437,13 +453,13 @@ This approach doesn't work for non-deps attributes (like
 [genrule:cmd](be/general.html#genrule.cmd)). For these, extra `config_settings`
 may be necessary:
 
-```sh
+```python
 config_setting(
     name = "armeabi_and_opt",
     values = {
         "cpu": "armeabi",
-        "compilation_mode": "opt"
-    }
+        "compilation_mode": "opt",
+    },
 )
 ```
 
@@ -452,16 +468,16 @@ config_setting(
 
 Consider the following:
 
-```sh
-sh_binary
-    name = "my_rule",
+```python
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
         ":config1": [":standard_lib"],
         ":config2": [":standard_lib"],
         ":config3": [":standard_lib"],
         ":config4": [":special_lib"],
-    })
+    }),
 )
 ```
 
@@ -474,15 +490,15 @@ One option is to predefine the declaration as a BUILD variable:
 ```python
 STANDARD_DEP = [":standard_lib"]
 
-sh_binary
-    name = "my_rule",
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = select({
         ":config1": STANDARD_DEP,
         ":config2": STANDARD_DEP,
         ":config3": STANDARD_DEP,
         ":config4": [":special_lib"],
-    })
+    }),
 )
 ```
 
@@ -493,18 +509,18 @@ duplication.
 the [Skylib](https://github.com/bazelbuild/bazel-skylib) utility [`selects`]
 (https://github.com/bazelbuild/bazel-skylib/blob/master/lib/selects.bzl).
 
-```sh
+```python
 load("@bazel_skylib//:lib.bzl", "selects")
 ```
 
-```sh
-sh_binary
-    name = "my_rule",
+```python
+sh_binary(
+    name = "my_target",
     srcs = ["always_include.sh"],
     deps = selects.with_or({
         (":config1", ":config2", ":config3"): [":standard_lib"],
         ":config4": [":special_lib"],
-    })
+    }),
 )
 ```
 
@@ -514,7 +530,7 @@ For `AND` chaining, see [here](#multiple-selects).
 
 ## Custom Error Messages
 
-By default, when no condition matches, the owning rule fails with the error:
+By default, when no condition matches, the owning target fails with the error:
 
 ```sh
 ERROR: Configurable attribute "deps" doesn't match this configuration (would
@@ -526,14 +542,16 @@ Conditions checked:
 
 This can be customized with [`no_match_error`](be/functions.html#select):
 
-```sh
+```python
 cc_library(
     name = "my_lib",
-    deps = select({
-        "//tools/cc_target_os:android": [":android_deps"],
-        "//tools/cc_target_os:windows": [":windows_deps"],
-    }, no_match_error = "Please build with an Android or Windows toolchain"
-    )
+    deps = select(
+        {
+            "//tools/cc_target_os:android": [":android_deps"],
+            "//tools/cc_target_os:windows": [":windows_deps"],
+        },
+        no_match_error = "Please build with an Android or Windows toolchain",
+    ),
 )
 ```
 
@@ -549,19 +567,20 @@ Starlark is compatible with configurable attributes in limited form.
 Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
 
-```sh
-//myproject/BUILD:
+```python
+# myproject/BUILD
+
 some_rule(
-    name = "my_rule",
+    name = "my_target",
     some_attr = select({
         ":foo_mode": [":foo"],
         ":bar_mode": [":bar"],
-    })
+    }),
 )
 ```
 
 ```sh
-$ bazel build //myproject/my_rule --define mode=foo
+$ bazel build //myproject/my_target --define mode=foo
 ```
 
 Rule implementation code sees `ctx.attr.some_attr` as `[":foo"]`.
@@ -570,14 +589,14 @@ Macros can accept `select()` clauses and pass them through to native
 rules. But *they cannot directly manipulate them*. For example, there's no way
 for a macro to convert
 
-```sh
-`select({"foo": "val"}, ...)`
+```python
+select({"foo": "val"}, ...)
 ```
 
 to
 
-```sh
-`select({"foo": "val_with_suffix"}, ...)`.
+```python
+select({"foo": "val_with_suffix"}, ...)
 ```
 
 This is for two reasons.
@@ -594,7 +613,7 @@ this.
 ## <a name="query"></a>Bazel Query and Cquery
 Bazel `query` operates over Bazel's [loading phase]
 (user-manual.html#loading-phase). This means it doesn't know what command line
-flags will be applied to a rule since those flags aren't evaluated until later
+flags will be applied to a target since those flags aren't evaluated until later
 in the build (during the [analysis phase](user-manual.html#analysis-phase)). So
 the [`query`](query.html) command can't accurately determine which path a
 configurable attribute will follow.
@@ -605,24 +624,28 @@ attributes. It doesn't have full feature parity with query but supports most
 major functionality and is actively being worked on.
 Querying the following build file...
 
-```sh
-//myproject/BUILD:
+```python
+# myproject/BUILD
+
 cc_library(
     name = "my_lib",
     deps = select({
         ":long": [":foo_dep"],
         ":short": [":bar_dep"],
-    })
+    }),
 )
+
 config_setting(
-    name = 'long',
-    values = { "define": "dog=dachshund" }
+    name = "long",
+    values = {"define": "dog=dachshund"},
 )
+
 config_setting(
-    name = 'short',
-    values = { "define": "dog=pug" }
+    name = "short",
+    values = {"define": "dog=pug"},
 )
 ```
+
 ...would return the following results.
 
 ```sh
@@ -650,32 +673,33 @@ Here's an end-to-end example:
 
 Define a rule and macro:
 
-```sh
-# myproject/defs.bzl:
+```python
+# myproject/defs.bzl
 
 # Rule implementation: when an attribute is read, all select()s have already
 # been resolved. So it looks like a plain old attribute just like any other.
 def _impl(ctx):
-  name = ctx.attr.name
-  allcaps = ctx.attr.my_config_string.upper()  # This works fine on all values.
-  print("My name is " + name + " with custom message: " + allcaps)
+    name = ctx.attr.name
+    allcaps = ctx.attr.my_config_string.upper()  # This works fine on all values.
+    print("My name is " + name + " with custom message: " + allcaps)
 
 # Rule declaration:
 my_custom_bazel_rule = rule(
     implementation = _impl,
-    attrs = {"my_config_string": attr.string()}
+    attrs = {"my_config_string": attr.string()},
 )
 
 # Macro declaration:
 def my_custom_bazel_macro(name, my_config_string):
-  allcaps = my_config_string.upper() # This line won't work with select(s).
-  print("My name is " + name + " with custom message: " + allcaps)
+    allcaps = my_config_string.upper()  # This line won't work with select(s).
+    print("My name is " + name + " with custom message: " + allcaps)
 ```
 
 Instantiate the rule and macro:
 
-```sh
-# myproject/BUILD:
+```python
+# myproject/BUILD
+
 load("//myproject:defx.bzl", "my_custom_bazel_rule")
 load("//myproject:defs.bzl", "my_custom_bazel_macro")
 
@@ -731,13 +755,15 @@ information to evaluate select()s.
 
 Macros can, however, pass `select()`s as opaque blobs to rules:
 
-```sh
-# myproject/defs.bzl:
+```python
+# myproject/defs.bzl
+
 def my_custom_bazel_macro(name, my_config_string):
-  print("Invoking macro " + name)
-  my_custom_bazel_rule(
-      name = name + "_as_rule",
-      my_config_string = my_config_string)
+    print("Invoking macro " + name)
+    my_custom_bazel_rule(
+        name = name + "_as_target",
+        my_config_string = my_config_string,
+    )
 ```
 
 ```sh
@@ -766,11 +792,11 @@ Booleans are a special case that fail silently, so you should be particularly
 vigilant with them:
 
 ```sh
-$ cat myproject/defs.bzl:
+$ cat myproject/defs.bzl
 def my_boolean_macro(boolval):
   print("TRUE" if boolval else "FALSE")
 
-$ cat myproject/BUILD:
+$ cat myproject/BUILD
 load("//myproject:defx.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
@@ -832,17 +858,18 @@ If you'd like to support both `select()` and native types, you can do this:
 ```sh
 $ cat myproject/defs.bzl
 def selecty_genrule(name, select_cmd):
-  cmd_suffix = ""
-  if type(select_cmd) == "string":
-    cmd_suffix = select_cmd + " WITH SUFFIX"
-  elif type(select_cmd) == "dict":
-    for key in select_cmd.keys():
-      select_cmd[key] += " WITH SUFFIX"
-    cmd_suffix = select(select_cmd + {"//conditions:default": "default"})
+    cmd_suffix = ""
+    if type(select_cmd) == "string":
+        cmd_suffix = select_cmd + " WITH SUFFIX"
+    elif type(select_cmd) == "dict":
+        for key in select_cmd.keys():
+            select_cmd[key] += " WITH SUFFIX"
+        cmd_suffix = select(select_cmd + {"//conditions:default": "default"})
 
-  native.genrule(
-      name = name,
-      outs = [name + ".out"],
-      srcs = [],
-      cmd = "echo " + cmd_suffix + "> $@")
+    native.genrule(
+        name = name,
+        outs = [name + ".out"],
+        srcs = [],
+        cmd = "echo " + cmd_suffix + "> $@",
+    )
 ```
