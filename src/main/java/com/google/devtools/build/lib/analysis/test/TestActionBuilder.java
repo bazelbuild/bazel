@@ -269,7 +269,8 @@ public final class TestActionBuilder {
       }
 
       if (!instrumentedFiles.getSourcesToReplaceInReport().isEmpty()) {
-        Artifact sourcesToReplaceArtifact = ruleContext.getBinArtifact("source_to_replace.txt");
+        Artifact sourcesToReplaceArtifact =
+            ruleContext.getUniqueDirectoryArtifact("_coverage_helpers","source_to_replace.txt");
         String sourcesToReplaceContents =
             instrumentedFiles.getSourcesToReplaceInReport().entrySet().stream()
                 .map(e -> e.getKey() + ":" + e.getValue())
