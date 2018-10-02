@@ -2268,9 +2268,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new CyclesReporter(
         new TransitiveTargetCycleReporter(packageManager),
         new ActionArtifactCycleReporter(packageManager),
+        new ConfiguredTargetCycleReporter(packageManager),
+        new TestSuiteCycleReporter(packageManager),
         // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?
-        new ConfiguredTargetCycleReporter(packageManager),
         new SkylarkModuleCycleReporter());
   }
 
