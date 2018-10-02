@@ -28,6 +28,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
@@ -81,6 +82,14 @@ struct UndeclaredOutputs {
 
 void LogError(const int line, const char* msg) {
   printf("ERROR(" __FILE__ ":%d) %s\n", line, msg);
+}
+
+void LogError(const int line, const wchar_t* msg) {
+#define _WSTR_HELPER_1(x) L##x
+#define _WSTR_HELPER_2(x) _WSTR_HELPER_1(x)
+  wprintf(L"ERROR(" _WSTR_HELPER_2(__FILE__) L":%d) %s\n", line, msg);
+#undef _WSTR_HELPER_2
+#undef _WSTR_HELPER_1
 }
 
 void LogErrorWithValue(const int line, const char* msg, DWORD error_code) {
@@ -491,14 +500,84 @@ bool FindTestBinary(const Path& argv0, std::wstring test_path, Path* result) {
   return result->Set(test_path);
 }
 
-bool StartSubprocess(const Path& path, HANDLE* process) {
+bool AddCommandLineArg(const wchar_t* arg, const size_t arg_size,
+                       const bool first, wchar_t* cmdline,
+                       const size_t cmdline_limit, size_t* inout_cmdline_len) {
+  if (arg_size == 0) {
+    const size_t len = (first ? 0 : 1) + 2;
+    if (*inout_cmdline_len + len >= cmdline_limit) {
+      LogError(__LINE__,
+               (std::wstring(L"Failed to add command line argument \"") + arg +
+                L"\"; command would be too long")
+                   .c_str());
+      return false;
+    }
+
+    size_t offset = *inout_cmdline_len;
+    if (!first) {
+      cmdline[offset] = L' ';
+      offset += 1;
+    }
+    cmdline[offset] = L'"';
+    cmdline[offset + 1] = L'"';
+    *inout_cmdline_len += len;
+    return true;
+  } else {
+    const size_t len = (first ? 0 : 1) + arg_size;
+    if (*inout_cmdline_len + len >= cmdline_limit) {
+      LogError(__LINE__,
+               (std::wstring(L"Failed to add command line argument \"") + arg +
+                L"\"; command would be too long")
+                   .c_str());
+      return false;
+    }
+
+    size_t offset = *inout_cmdline_len;
+    if (!first) {
+      cmdline[offset] = L' ';
+      offset += 1;
+    }
+    wcsncpy(cmdline + offset, arg, arg_size);
+    offset += arg_size;
+    *inout_cmdline_len += len;
+    return true;
+  }
+}
+
+bool CreateCommandLine(const Path& path,
+                       const std::vector<const wchar_t*>& args,
+                       std::unique_ptr<WCHAR[]>* result) {
   // kMaxCmdline value: see lpCommandLine parameter of CreateProcessW.
-  static constexpr size_t kMaxCmdline = 32768;
+  static constexpr size_t kMaxCmdline = 32767;
 
-  std::unique_ptr<WCHAR[]> cmdline(new WCHAR[kMaxCmdline]);
-  size_t len = path.Get().size();
-  wcsncpy(cmdline.get(), path.Get().c_str(), len + 1);
+  // Add an extra character for the final null-terminator.
+  result->reset(new WCHAR[kMaxCmdline + 1]);
 
+  size_t total_len = 0;
+  if (!AddCommandLineArg(path.Get().c_str(), path.Get().size(), true,
+                         result->get(), kMaxCmdline, &total_len)) {
+    return false;
+  }
+
+  for (const auto arg : args) {
+    if (!AddCommandLineArg(arg, wcslen(arg), false, result->get(), kMaxCmdline,
+                           &total_len)) {
+      return false;
+    }
+  }
+  // Add final null-terminator. There's surely enough room for it:
+  // AddCommandLineArg kept validating that we stay under the limit of
+  // kMaxCmdline, and the buffer is one WCHAR larger than that.
+  result->get()[total_len] = 0;
+  return true;
+}
+
+bool StartSubprocess(const Path& path, const std::vector<const wchar_t*>& args,
+                     HANDLE* process) {
+  std::unique_ptr<WCHAR[]> cmdline;
+  if (!CreateCommandLine(path, args, &cmdline)) {
+    return false;
+  }
   PROCESS_INFORMATION processInfo;
   STARTUPINFOW startupInfo = {0};
 
@@ -540,7 +619,8 @@ int WaitForSubprocess(HANDLE process) {
 }
 
 bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
-               std::wstring* out_test_path_arg, bool* out_suppress_output) {
+               std::wstring* out_test_path_arg, bool* out_suppress_output,
+               std::vector<const wchar_t*>* out_args) {
   if (!out_argv0->Set(argv[0])) {
     return false;
   }
@@ -561,12 +641,18 @@ bool ParseArgs(int argc, wchar_t** argv, Path* out_argv0,
   }
 
   *out_test_path_arg = argv[0];
+  out_args->clear();
+  out_args->reserve(argc - 1);
+  for (int i = 1; i < argc; i++) {
+    out_args->push_back(argv[i]);
+  }
   return true;
 }
 
-int RunSubprocess(const Path& test_path) {
+int RunSubprocess(const Path& test_path,
+                  const std::vector<const wchar_t*>& args) {
   HANDLE process;
-  if (!StartSubprocess(test_path, &process)) {
+  if (!StartSubprocess(test_path, args, &process)) {
     return 1;
   }
   Defer close_process([process]() { CloseHandle(process); });
@@ -608,7 +694,8 @@ int wmain(int argc, wchar_t** argv) {
   bool suppress_output = false;
   Path test_path, exec_root, srcdir, tmpdir, xml_output;
   UndeclaredOutputs undecl;
-  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output) ||
+  std::vector<const wchar_t*> args;
+  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &suppress_output, &args) ||
       !PrintTestLogStartMarker(suppress_output) ||
       !FindTestBinary(argv0, test_path_arg, &test_path) ||
       !GetCwd(&exec_root) || !ExportUserName() ||
@@ -621,5 +708,5 @@ int wmain(int argc, wchar_t** argv) {
     return 1;
   }
 
-  return RunSubprocess(test_path);
+  return RunSubprocess(test_path, args);
 }
