@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
@@ -819,6 +820,21 @@ public class LoadingPhaseRunnerTest {
             "test/b:all", Label.parseAbsoluteUnchecked("//test/b:b_lib"),
             "test/...", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
             "test/...", Label.parseAbsoluteUnchecked("//test/b:b_lib"));
+  }
+
+  @Test
+  public void testSuiteCycle() throws Exception {
+    tester.addFile(
+        "BUILD", "test_suite(name = 'a', tests = [':b']); test_suite(name = 'b', tests = [':a'])");
+    assertThat(
+	assertThrows(TargetParsingException.class, () -> tester.loadKeepGoing("//:a", "//:b")))
+        .hasMessageThat()
+        .contains("cycles detected");
+    assertThat(
+        tester.assertContainsError("cycle in dependency graph").toString())
+        .containsMatch("in test_suite rule //:.: cycle in dependency graph");
+    PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
+    assertThat(err.getPattern()).containsExactly("//:a", "//:b");
   }
 
   @Test
