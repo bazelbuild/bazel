@@ -388,6 +388,15 @@ java_import(
     ],
 )
 
+filegroup(
+    name = "flogger-jars",
+    srcs = [
+        "flogger/flogger-0.3.1.jar",
+        "flogger/flogger-system-backend-0.3.1.jar",
+        "flogger/google-extensions-0.3.1.jar",
+    ]
+)
+
 java_import(
     name = "instrumentation",
     jars = [
