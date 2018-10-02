@@ -244,16 +244,19 @@ public class BazelRepositoryModule extends BlazeModule {
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       skylarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
       if (repoOptions.experimentalRepositoryCache != null) {
-        Path repositoryCachePath;
-        if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
-          repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
-        } else {
-          repositoryCachePath =
-              env.getBlazeWorkspace()
-                  .getWorkspace()
-                  .getRelative(repoOptions.experimentalRepositoryCache);
+        // A set but empty path indicates a request to disable the repository cache.
+        if (!repoOptions.experimentalRepositoryCache.isEmpty()) {
+          Path repositoryCachePath;
+          if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
+            repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
+          } else {
+            repositoryCachePath =
+                env.getBlazeWorkspace()
+                    .getWorkspace()
+                    .getRelative(repoOptions.experimentalRepositoryCache);
+          }
+          repositoryCache.setRepositoryCachePath(repositoryCachePath);
         }
-        repositoryCache.setRepositoryCachePath(repositoryCachePath);
       } else {
         Path repositoryCachePath =
             env.getDirectories()
