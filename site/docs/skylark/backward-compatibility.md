@@ -797,22 +797,22 @@ List of all legacy fields and their corresponding `cc_toolchain` alternative:
 
 We have deprecated the `cc_toolchain` Starlark API returning legacy CROSSTOOL fields:
 
-* ar_executable
-* c_options
-* compiler_executable
-* compiler_options
-* cxx_options
-* dynamic_link_options
-* fully_static_link_options
-* ld_executable
-* link_options
-* mostly_static_link_options
-* nm_executable
-* objcopy_executable
-* objdump_executable
-* preprocessor_executable
-* strip_executable
-* unfiltered_compiler_options
+* ar\_executable
+* c\_options
+* compiler\_executable
+* compiler\_options
+* cxx\_options
+* dynamic\_link\_options
+* fully\_static\_link\_options
+* ld\_executable
+* link\_options
+* mostly\_static\_link\_options
+* nm\_executable
+* objcopy\_executable
+* objdump\_executable
+* preprocessor\_executable
+* strip\_executable
+* unfiltered\_compiler\_options
 
 Use the new API from [cc_common](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html)
 
