@@ -122,6 +122,18 @@ http_file(
     ],
 )
 
+# Used by CI to test Bazel on platforms without an installed system JDK.
+# TODO(twerth): Migrate to @remotejdk when https://github.com/bazelbuild/bazel/pull/6216 is merged.
+new_http_archive(
+    name = "openjdk_linux_archive",
+    sha256 = "f27cb933de4f9e7fe9a703486cf44c84bc8e9f138be0c270c9e5716a32367e87",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-9.0.7.1-jdk9.0.7/zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules.tar.gz",
+    ],
+    strip_prefix = "zulu9.0.7.1-jdk9.0.7-linux_x64-allmodules",
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+)
+
 http_file(
     name = "openjdk_macos",
     sha256 = "404e7058ff91f956612f47705efbee8e175a38b505fb1b52d8c1ea98718683de",
