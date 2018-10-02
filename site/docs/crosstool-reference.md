@@ -41,8 +41,8 @@ it into source control alongside your project. You can share a single
 
 When a C++ target enters the analysis phase, Bazel selects the appropriate
 `cc_toolchain` target based on the BUILD file, then reads the corresponding
-toolchain definition from the CROSSTOOL file.  The `cc_toolchain` target passes
-information from the CROSSTOOL proto to the C++ target through a
+toolchain definition from the `CROSSTOOL` file.  The `cc_toolchain` target passes
+information from the `CROSSTOOL` proto to the C++ target through a
 `CcToolchainProvider`.
 
 For example, a compile or link action, instantiated by a rule such as
@@ -124,7 +124,7 @@ The toolchain selection logic operates as follows:
     [inspection mechanism code](https://source.bazel.build/bazel/+/1b73bc37e184e71651eb631223dcce321ba16211:src/main/java/com/google/devtools/build/lib/analysis/config/AutoCpuConverter.java).
 
 Once a toolchain has been selected, corresponding `feature` and `action_config`
-messages in the CROSSTOOL file govern the configuration of the build (that is,
+messages in the `CROSSTOOL` file govern the configuration of the build (that is,
 items described earlier in this document). These messages allow the
 implementation of fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
@@ -159,7 +159,7 @@ settings, and other variables.
 Dependencies are typically managed directly with Bazel, which simply enforces
 the requirements and manages conflicts intrinsic to the nature of the features
 defined in the build. The toolchain specification allows for more granular
-constraints for use directly within the CROSSTOOL file that govern feature
+constraints for use directly within the `CROSSTOOL` file that govern feature
 support and expansion. These are:
 
 <table>
@@ -228,9 +228,9 @@ how that tool behaves when the action is invoked.
 
 [Features](#crosstool-features) reference CROSSTOOL actions to signal which
 Bazel actions they affect since CROSSTOOL actions can modify the Bazel action
-graph. The CROSSTOOL file includes actions that have flags and tools associated
-with them, such as `c++-compile`. Flags are assigned to each action by
-associating them with a feature.
+graph. The `CROSSTOOL` file includes actions that have flags and tools
+associated with them, such as `c++-compile`. Flags are assigned to each action
+by associating them with a feature.
 
 Each CROSSTOOL action name represents a single type of action performed by
 Bazel, such as compiling or linking. There is, however, a many-to-one
@@ -561,7 +561,7 @@ toolchain {
 ### Flag groups
 
 CROSSTOOL allows you to bundle flags into groups that serve a specific purpose.
-You can specify a flag within the CROSSTOOL file using pre-defined variables
+You can specify a flag within the `CROSSTOOL` file using pre-defined variables
 within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
@@ -993,8 +993,8 @@ conditions.
   <tr>
    <td><strong><code>per_object_debug_info</code></strong>
    </td>
-   <td>Enabled if the `supports_fission` attribute is set in the CROSSTOOL file
-       and the current compilation mode is specified in the
+   <td>Enabled if the `supports_fission` attribute is set in the `CROSSTOOL`
+       file and the current compilation mode is specified in the
        <code>--fission</code> flag.
    </td>
   </tr>
