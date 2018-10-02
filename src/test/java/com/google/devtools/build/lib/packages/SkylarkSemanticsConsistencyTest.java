@@ -123,6 +123,7 @@ public class SkylarkSemanticsConsistencyTest {
             + rand.nextDouble()
             + ","
             + rand.nextDouble(),
+        "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--experimental_enable_repo_mapping=" + rand.nextBoolean(),
         "--experimental_remap_main_repo=" + rand.nextBoolean(),
         "--incompatible_bzl_disallow_load_after_statement=" + rand.nextBoolean(),
@@ -163,6 +164,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalAnalysisTestingImprovements(rand.nextBoolean())
         .experimentalCcSkylarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
+        .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
         .experimentalEnableRepoMapping(rand.nextBoolean())
         .experimentalRemapMainRepo(rand.nextBoolean())
         .incompatibleBzlDisallowLoadAfterStatement(rand.nextBoolean())

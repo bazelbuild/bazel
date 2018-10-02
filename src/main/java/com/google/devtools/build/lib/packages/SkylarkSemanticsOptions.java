@@ -90,6 +90,14 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public List<String> experimentalCcSkylarkApiEnabledPackages;
 
   @Option(
+      name = "experimental_enable_android_migration_apis",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.SKYLARK_SEMANTICS,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If set to true, enables the APIs required to support the Android Starlark migration.")
+  public boolean experimentalEnableAndroidMigrationApis;
+
+  @Option(
       name = "experimental_enable_repo_mapping",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -475,6 +483,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
         // <== Add new options here in alphabetic order ==>
         .experimentalAnalysisTestingImprovements(experimentalAnalysisTestingImprovements)
         .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
+        .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
         .experimentalEnableRepoMapping(experimentalEnableRepoMapping)
         .experimentalRemapMainRepo(experimentalRemapMainRepo)
         .incompatibleBzlDisallowLoadAfterStatement(incompatibleBzlDisallowLoadAfterStatement)

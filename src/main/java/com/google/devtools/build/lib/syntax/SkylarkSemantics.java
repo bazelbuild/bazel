@@ -95,6 +95,8 @@ public abstract class SkylarkSemantics {
 
   public abstract List<String> experimentalCcSkylarkApiEnabledPackages();
 
+  public abstract boolean experimentalEnableAndroidMigrationApis();
+
   public abstract boolean experimentalEnableRepoMapping();
 
   public abstract boolean experimentalRemapMainRepo();
@@ -168,6 +170,7 @@ public abstract class SkylarkSemantics {
           // <== Add new options here in alphabetic order ==>
           .experimentalAnalysisTestingImprovements(false)
           .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
+          .experimentalEnableAndroidMigrationApis(false)
           .experimentalEnableRepoMapping(false)
           .experimentalRemapMainRepo(false)
           .incompatibleBzlDisallowLoadAfterStatement(false)
@@ -206,6 +209,8 @@ public abstract class SkylarkSemantics {
     public abstract Builder experimentalAnalysisTestingImprovements(boolean value);
 
     public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
+
+    public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
     public abstract Builder experimentalEnableRepoMapping(boolean value);
 
