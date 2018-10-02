@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.NdkMa
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r13.NdkMajorRevisionR13;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r15.NdkMajorRevisionR15;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r17.NdkMajorRevisionR17;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r18.NdkMajorRevisionR18;
 import com.google.devtools.build.lib.util.OS;
 import java.util.Map;
 
@@ -48,6 +49,7 @@ public final class AndroidNdkCrosstools {
           // usage of the unified headers. Support for unified headers were added in r15.
           .put(16, new NdkMajorRevisionR15("5.0.300080")) // no changes relevant to Bazel
           .put(17, new NdkMajorRevisionR17("6.0.2"))
+          .put(18, new NdkMajorRevisionR18("7.0.2"))
           .build();
 
   public static final Map.Entry<Integer, NdkMajorRevision> LATEST_KNOWN_REVISION =
