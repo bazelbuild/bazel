@@ -226,7 +226,8 @@ public final class AnalysisPhaseRunner {
         .post(
             new AnalysisPhaseCompleteEvent(
                 analysisResult.getTargetsToBuild(),
-                view.getTargetsVisited(),
+                view.getTargetsLoaded(),
+                view.getTargetsConfigured(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 view.getActionsConstructed()));

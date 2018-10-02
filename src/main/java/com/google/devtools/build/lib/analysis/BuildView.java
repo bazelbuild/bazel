@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static java.util.stream.Collectors.toSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
@@ -155,9 +157,17 @@ public class BuildView {
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
-  /** The number of targets freshly evaluated in the last analysis run. */
-  public int getTargetsVisited() {
+  /** The number of configured targets freshly evaluated in the last analysis run. */
+  public int getTargetsConfigured() {
     return skyframeBuildView.getEvaluatedTargetKeys().size();
+  }
+
+  /** The number of targets (not configured targets) loaded in the last analysis run. */
+  public int getTargetsLoaded() {
+    return skyframeBuildView.getEvaluatedTargetKeys().stream()
+        .map(key -> ((ConfiguredTargetKey) key).getLabel())
+        .collect(toSet())
+        .size();
   }
 
   public int getActionsConstructed() {

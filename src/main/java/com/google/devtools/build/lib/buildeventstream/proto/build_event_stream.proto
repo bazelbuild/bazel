@@ -641,6 +641,23 @@ message BuildMetrics {
     int64 used_heap_size_post_build = 1;
   }
   MemoryMetrics memory_metrics = 2;
+
+  message TargetMetrics {
+    // Number of targets loaded during this build.
+    int64 targets_loaded = 1;
+
+    // Number of targets configured during this build. This can
+    // be greater than targets_loaded if the same target is configured
+    // multiple times.
+    int64 targets_configured = 2;
+  }
+  TargetMetrics target_metrics = 3;
+
+  message PackageMetrics {
+    // Number of BUILD files (aka packages) loaded during this build.
+    int64 packages_loaded = 1;
+  }
+  PackageMetrics package_metrics = 4;
 }
 
 // Event providing additional statistics/logs after completion of the build.
