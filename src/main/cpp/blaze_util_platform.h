@@ -113,9 +113,6 @@ void WarnFilesystemType(const std::string& output_base);
 // a value less than a previous result.
 uint64_t GetMillisecondsMonotonic();
 
-// Returns elapsed milliseconds since the process started.
-uint64_t GetMillisecondsSinceProcessStart();
-
 // Set cpu and IO scheduling properties. Note that this can take ~50ms
 // on Linux, so it should only be called when necessary.
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level);

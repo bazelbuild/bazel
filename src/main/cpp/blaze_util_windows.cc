@@ -277,7 +277,6 @@ SignalHandler SignalHandler::INSTANCE;
 class WindowsClock {
  public:
   uint64_t GetMilliseconds() const;
-  uint64_t GetProcessMilliseconds() const;
 
   static const WindowsClock INSTANCE;
 
@@ -288,9 +287,6 @@ class WindowsClock {
   // consistent across all processors. Therefore, the frequency need only be
   // queried upon application initialization, and the result can be cached."
   const LARGE_INTEGER kFrequency;
-
-  // Time (in milliseconds) at process start.
-  const LARGE_INTEGER kStart;
 
   WindowsClock();
 
@@ -430,10 +426,6 @@ string GetJavaBinaryUnderJavabase() { return "bin/java.exe"; }
 
 uint64_t GetMillisecondsMonotonic() {
   return WindowsClock::INSTANCE.GetMilliseconds();
-}
-
-uint64_t GetMillisecondsSinceProcessStart() {
-  return WindowsClock::INSTANCE.GetProcessMilliseconds();
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
@@ -1115,15 +1107,10 @@ LARGE_INTEGER WindowsClock::GetMillisecondsAsLargeInt(
 const WindowsClock WindowsClock::INSTANCE;
 
 WindowsClock::WindowsClock()
-    : kFrequency(GetFrequency()),
-      kStart(GetMillisecondsAsLargeInt(kFrequency)) {}
+    : kFrequency(GetFrequency()) {}
 
 uint64_t WindowsClock::GetMilliseconds() const {
   return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
-}
-
-uint64_t WindowsClock::GetProcessMilliseconds() const {
-  return GetMilliseconds() - kStart.QuadPart;
 }
 
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,

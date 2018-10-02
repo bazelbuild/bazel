@@ -21,7 +21,7 @@
 namespace blaze {
 
 int Main(int argc, const char* argv[], WorkspaceLayout* workspace_layout,
-         OptionProcessor* option_processor);
+         OptionProcessor* option_processor, uint64_t start_time);
 
 }  // namespace blaze
 

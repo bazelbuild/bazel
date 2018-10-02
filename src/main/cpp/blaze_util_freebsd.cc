@@ -100,12 +100,6 @@ uint64_t GetMillisecondsMonotonic() {
   return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
-uint64_t GetMillisecondsSinceProcessStart() {
-  struct timespec ts = {};
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
-}
-
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
   // Stubbed out so we can compile for FreeBSD.
 }
