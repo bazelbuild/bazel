@@ -449,8 +449,7 @@ public final class SkyframeActionExecutor {
       ActionMetadataHandler metadataHandler,
       long actionStartTime,
       ActionExecutionContext actionExecutionContext,
-      ActionLookupData actionLookupData,
-      boolean inputDiscoveryRan)
+      ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
@@ -490,15 +489,6 @@ public final class SkyframeActionExecutor {
           ActionExecutionException.class, InterruptedException.class);
       throw new IllegalStateException(e);
     } finally {
-      if (!isPrimaryActionForTheValue && action.discoversInputs() && inputDiscoveryRan) {
-        /**
-         * If this is a shared action that does input discovery, but was not executed, we need to
-         * remove it from the active actions pool (it was added there by {@link
-         * ActionRunner#call()}).
-         */
-        // TODO(b/72764586): Cleanup once we can properly skip input discovery for shared actions
-        statusReporterRef.get().remove(action);
-      }
       String message = action.getProgressMessage();
       if (message != null) {
         // Tell the receiver that the action has completed *before* telling the reporter.

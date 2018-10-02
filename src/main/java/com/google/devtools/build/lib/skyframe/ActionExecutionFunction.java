@@ -377,8 +377,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           /* metadataHandler= */ null,
           /* actionStartTime= */ -1,
           /* actionExecutionContext= */ null,
-          actionLookupData,
-          /* inputDiscoveryRan= */ false);
+          actionLookupData);
     }
     // The metadataHandler may be recreated (via the supplier) if we discover inputs.
     ArtifactPathResolver pathResolver = ArtifactPathResolver.createPathResolver(
@@ -522,8 +521,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
                 metadataHandler,
                 actionStartTime,
                 actionExecutionContext,
-                actionLookupData,
-                /* inputDiscoveryRan= */ true);
+                actionLookupData);
       }
     } catch (IOException e) {
       throw new ActionExecutionException(
