@@ -470,19 +470,6 @@ public abstract class GraphTest {
     }
   }
 
-  @Test
-  public void testGetCurrentlyAvailableNodes() throws Exception {
-    SkyKey foo = key("foo");
-    SkyKey bar = key("bar");
-    SkyKey foobar = key("foobar");
-    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(foo, bar));
-
-    Iterable<SkyKey> currentlyAvailable =
-        graph.getCurrentlyAvailableNodes(ImmutableList.of(foo, bar, foobar), Reason.OTHER);
-
-    assertThat(currentlyAvailable).containsExactly(foo, bar);
-  }
-
   private static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
     return entry.addReverseDepAndCheckIfDone(null);
   }

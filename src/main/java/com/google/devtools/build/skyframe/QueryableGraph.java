@@ -80,17 +80,6 @@ public interface QueryableGraph {
   }
 
   /**
-   * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
-   * currently available to be fetched.
-   *
-   * <p>Note: An unavailable node does not mean it is not in the graph. It only means it's not ready
-   * to be fetched immediately.
-   *
-   * @param reason the reason the nodes are being requested.
-   */
-  Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason);
-
-  /**
    * The reason that a node is being looked up in the Skyframe graph.
    *
    * <p>Alternate graph implementations may wish to make use of this information.

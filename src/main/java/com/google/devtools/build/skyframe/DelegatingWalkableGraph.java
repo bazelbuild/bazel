@@ -131,10 +131,4 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     }
     return result;
   }
-
-  @Override
-  public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
-    return graph.getCurrentlyAvailableNodes(keys, reason);
-  }
-
 }

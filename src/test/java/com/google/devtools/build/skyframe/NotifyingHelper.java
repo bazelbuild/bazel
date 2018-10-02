@@ -102,10 +102,6 @@ public class NotifyingHelper {
       return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
 
-    @Override
-    public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
-      return delegate.getCurrentlyAvailableNodes(keys, reason);
-    }
   }
 
   static class NotifyingProcessableGraph
