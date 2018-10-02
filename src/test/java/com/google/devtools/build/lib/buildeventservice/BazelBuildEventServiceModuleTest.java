@@ -60,6 +60,7 @@ public class BazelBuildEventServiceModuleTest {
 
   private static final ActionExecutedEvent SUCCESSFUL_ACTION_EXECUTED_EVENT =
       new ActionExecutedEvent(
+          ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
           new ActionsTestUtil.NullAction(),
           /* exception= */ null,
           ActionsTestUtil.DUMMY_ARTIFACT.getPath(),

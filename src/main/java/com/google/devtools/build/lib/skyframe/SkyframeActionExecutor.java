@@ -1260,6 +1260,7 @@ public final class SkyframeActionExecutor {
     }
     eventHandler.post(
         new ActionExecutedEvent(
+            action.getPrimaryOutput().getExecPath(),
             action,
             exception,
             actionExecutionContext.getInputPath(action.getPrimaryOutput()),
