@@ -56,6 +56,7 @@ guarded behind flags in the current release:
 *   [Disallow using C++ Specific Make Variables from the configuration](#disallow-using-c-specific-make-variables-from-the-configuration)
 *   [Disable legacy C++ configuration API](#disable-legacy-c-configuration-api)
 *   [Disable legacy C++ toolchain API](#disable-legacy-c-toolchain-api)
+*   [Disallow `cfg = "data"`](#disallow-cfg--data)
 
 
 ### Dictionary concatenation
@@ -881,5 +882,35 @@ def _impl(ctx):
 *   Flag: `--incompatible_disable_legacy_flags_cc_toolchain_api`
 *   Default: `false`
 *   Introduced in: `0.19.0`
+
+### Disallow `cfg = "data"`
+
+`cfg = "data"` is a no-op that incorrectly gives the impression dependencies under
+it are built in a distinct "data" mode:
+
+```python
+my_rule = rule(
+    ...
+    "some_attr": attr.label_list(
+        cfg = "data"  # This line does nothing
+    )
+)
+```
+
+The original semantics were unclear and were
+[removed](https://github.com/bazelbuild/bazel/commit/8820d3ae601f229b72c61d2eb601b0e8e9b0111a#diff-ffd6930edbe7f2529b608c400fd19456)
+in 0.16.0.
+
+Because this syntax is non-functional and confusing, it's being removed outright
+([#6153](https://github.com/bazelbuild/bazel/issues/6153)). The functionality it
+implies will be provided by
+[Starlark build configuration](https://github.com/bazelbuild/bazel/issues/5574).
+
+When `--incompatible_disallow_data_transition=true`, builds using this syntax
+fail with an error.
+
+*   Flag: `--incompatible_disallow_data_transition`
+*   Default: `false`
+*   Introduced in: `0.16.0`
 
 <!-- Add new options here -->
