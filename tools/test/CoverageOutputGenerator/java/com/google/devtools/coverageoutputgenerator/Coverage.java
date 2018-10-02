@@ -14,6 +14,8 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.devtools.coverageoutputgenerator.Constants.CC_EXTENSIONS;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -75,8 +77,12 @@ class Coverage {
   }
 
   private static boolean isCcSourceFile(String filename) {
-    return filename.endsWith(".cc") || filename.endsWith(".cpp") || filename.endsWith(".c")
-        || filename.endsWith(".h") || filename.endsWith(".hh") || filename.endsWith(".hpp");
+    for (String ccExtension : CC_EXTENSIONS) {
+      if (filename.endsWith(ccExtension)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)
