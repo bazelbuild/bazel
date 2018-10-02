@@ -119,6 +119,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
@@ -167,23 +168,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -330,21 +314,6 @@ toolchain {
       action: "c++-link-nodeps-dynamic-library"
       flag_group {
         flag: "-shared"
-      }
-    }
-  }
-  feature {
-    name: "kernel_extension"
-    flag_set {
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-nostdlib"
-        flag: "-lkmod"
-        flag: "-lkmodc++"
-        flag: "-lcc_kext"
-        flag: "-Xlinker"
-        flag: "-kext"
       }
     }
   }
@@ -1117,9 +1086,6 @@ toolchain {
         flag: "-framework"
         flag: "Foundation"
       }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
     }
   }
   feature {
@@ -1497,6 +1463,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "x86_64"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -1507,15 +1477,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "x86_64"
       }
       flag_group {
         flag: "-framework"
@@ -1809,6 +1770,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "x86_64-apple-ios"
@@ -1856,23 +1818,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -2030,9 +1975,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -3187,6 +3129,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "x86_64"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -3197,15 +3143,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "x86_64"
       }
       flag_group {
         flag: "-framework"
@@ -3499,6 +3436,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "i386-apple-watchos"
@@ -3546,23 +3484,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -3720,9 +3641,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -4879,6 +4797,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "i386"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -4889,15 +4811,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "i386"
       }
       flag_group {
         flag: "-framework"
@@ -5191,6 +5104,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "x86_64-apple-tvos"
@@ -5239,23 +5153,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -5413,9 +5310,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -6597,6 +6491,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "x86_64"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -6607,15 +6505,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "x86_64"
       }
       flag_group {
         flag: "-framework"
@@ -6912,6 +6801,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "i386-apple-ios"
@@ -6959,23 +6849,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -7133,9 +7006,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -8290,6 +8160,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "i386"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -8300,15 +8174,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "i386"
       }
       flag_group {
         flag: "-framework"
@@ -8602,6 +8467,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "armv7-apple-ios"
@@ -8649,23 +8515,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -8823,9 +8672,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -9968,6 +9814,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "armv7"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -9978,15 +9828,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "armv7"
       }
       flag_group {
         flag: "-framework"
@@ -10280,6 +10121,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "armv7-apple-watchos"
@@ -10327,23 +10169,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -10501,9 +10326,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -11648,6 +11470,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "armv7k"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -11658,15 +11484,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "armv7k"
       }
       flag_group {
         flag: "-framework"
@@ -11960,6 +11777,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "arm64-apple-tvos"
@@ -12008,23 +11826,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -12182,9 +11983,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -13354,6 +13152,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "arm64"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -13364,15 +13166,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "arm64"
       }
       flag_group {
         flag: "-framework"
@@ -13669,6 +13462,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   linker_flag: "-target"
   linker_flag: "arm64-apple-ios"
@@ -13716,23 +13510,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -13890,9 +13667,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -15035,6 +14809,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "arm64"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -15045,15 +14823,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "arm64"
       }
       flag_group {
         flag: "-framework"
@@ -15348,6 +15117,7 @@ toolchain {
   compiler_flag: "-fno-omit-frame-pointer"
   cxx_flag: "-std=c++11"
   linker_flag: "-headerpad_max_install_names"
+  linker_flag: "-lc++"
   linker_flag: "-no-canonical-prefixes"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
@@ -15395,23 +15165,6 @@ toolchain {
   }
   feature {
     name: "dbg"
-  }
-  feature {
-    name: "link_libc++"
-    flag_set {
-      action: "c++-link-executable"
-      action: "c++-link-dynamic-library"
-      action: "c++-link-nodeps-dynamic-library"
-      action: "objc-executable"
-      action: "objc++-executable"
-      flag_group {
-        flag: "-lc++"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    enabled: true
   }
   feature {
     name: "compile_all_modules"
@@ -15569,9 +15322,6 @@ toolchain {
         flag: "-shared"
       }
     }
-  }
-  feature {
-    name: "kernel_extension"
   }
   feature {
     name: "linkstamps"
@@ -16714,6 +16464,10 @@ toolchain {
     }
     flag_set {
       flag_group {
+        flag: "-arch"
+        flag: "<architecture>"
+      }
+      flag_group {
         flag: "-Xlinker"
         flag: "-objc_abi_version"
         flag: "-Xlinker"
@@ -16724,15 +16478,6 @@ toolchain {
         flag: "@executable_path/Frameworks"
         flag: "-fobjc-link-runtime"
         flag: "-ObjC"
-      }
-      with_feature {
-        not_feature: "kernel_extension"
-      }
-    }
-    flag_set {
-      flag_group {
-        flag: "-arch"
-        flag: "<architecture>"
       }
       flag_group {
         flag: "-framework"
