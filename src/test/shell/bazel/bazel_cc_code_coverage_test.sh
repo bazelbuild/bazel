@@ -82,9 +82,20 @@ EOF
 
   cat << EOF > "$ROOT_VAR/coverage_srcs/a.cc"
 #include "a.h"
+#include "b.h"
 
 int a(bool what) {
   if (what) {
+    return b(1);
+  } else {
+    return b(-1);
+  }
+}
+EOF
+
+  cat << EOF > "$ROOT_VAR/coverage_srcs/b.h"
+int b(int what) {
+  if (what > 0) {
     return 1;
   } else {
     return 2;
@@ -103,7 +114,9 @@ EOF
 
   generate_and_execute_instrumented_binary coverage_srcs/test \
       "$COVERAGE_DIR_VAR/coverage_srcs" \
-      coverage_srcs/a.h coverage_srcs/a.cc coverage_srcs/t.cc
+      coverage_srcs/a.h coverage_srcs/a.cc \
+      coverage_srcs/b.h \
+      coverage_srcs/t.cc
 
    # g++ generates the notes files in the current directory. The documentation
    # (https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files)
@@ -203,18 +216,41 @@ function assert_lcov_coverage_srcs_a_cc() {
     # The expected coverage result for coverage_srcs/a.cc in lcov format.
     local expected_lcov_result_a_cc="TN:
 SF:coverage_srcs/a.cc
-FN:3,_Z1ab
+FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
 FNH:1
-DA:3,1
 DA:4,1
 DA:5,1
-DA:7,0
+DA:6,1
+DA:8,0
 LF:4
 LH:3
 end_of_record"
     assert_coverage_entry_in_file "$expected_lcov_result_a_cc" "$output_file"
+}
+
+# Asserts if coverage result in lcov format for coverage_srcs/a.cc is included
+# in the given output file.
+#
+# - output_file    The location of the coverage output file.
+function assert_lcov_coverage_srcs_b_h() {
+    local output_file="${1}"; shift
+
+    # The expected coverage result for coverage_srcs/a.cc in lcov format.
+    local expected_lcov_result="SF:coverage_srcs/b.h
+FN:1,_Z1bi
+FNDA:1,_Z1bi
+FNF:1
+FNH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,0
+LF:4
+LH:3
+end_of_record"
+    assert_coverage_entry_in_file "$expected_lcov_result" "$output_file"
 }
 
 # Asserts if coverage result in lcov format for coverage_srcs/t.cc is included
@@ -249,13 +285,13 @@ function assert_gcov_coverage_srcs_a_cc() {
 
     # The expected coverage result for coverage_srcs/a.cc in gcov format.
     local expected_gcov_result_a_cc="file:coverage_srcs/a.cc
-function:3,1,_Z1ab
-lcount:3,1
+function:4,1,_Z1ab
 lcount:4,1
-branch:4,taken
-branch:4,nottaken
 lcount:5,1
-lcount:7,0"
+branch:5,taken
+branch:5,nottaken
+lcount:6,1
+lcount:8,0"
     assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
 }
 
@@ -276,6 +312,21 @@ lcount:6,1"
     assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
 }
 
+function assert_gcov_coverage_srcs_b_h() {
+    local output_file="${1}"; shift
+
+    # The expected coverage result for coverage_srcs/t.cc in gcov format.
+    local expected_gcov_result="file:coverage_srcs/b.h
+function:1,1,_Z1bi
+lcount:1,1
+lcount:2,1
+branch:2,taken
+branch:2,nottaken
+lcount:3,1
+lcount:5,0"
+    assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
+}
+
 function test_cc_test_coverage_lcov() {
     # Run the C++ coverage script with the environment setup accordingly.
     # This will get coverage results for coverage_srcs/a.cc and
@@ -293,14 +344,14 @@ function test_cc_test_coverage_lcov() {
     # order in the coverage report is not relevant.
     assert_lcov_coverage_srcs_a_cc "$output_file"
     assert_lcov_coverage_srcs_t_cc "$output_file"
+    assert_lcov_coverage_srcs_b_h "$output_file"
 
-    # The expected total number of lines of output file is 25. This assertion
-    # is needed to make sure no other source files are included in the output
-    # file.
+    # This assertion is needed to make sure no other source files are included
+    # in the output file.
     local nr_lines="$(wc -l < "$output_file")"
-    [[ "$nr_lines" == 25 ]] || \
+    [[ "$nr_lines" == 37 ]] || \
       fail "Number of lines in C++ lcov coverage output file is "\
-      "$nr_lines and different than 25"
+      "$nr_lines and different than 37"
 }
 
 function test_cc_test_coverage_gcov() {
@@ -318,14 +369,6 @@ function test_cc_test_coverage_gcov() {
     # Location of the output file of the C++ coverage script when gcov is used.
     local output_file="$COVERAGE_DIR_VAR/_cc_coverage.gcov"
 
-    # The expected total number of lines of output file is 13. This assertion
-    # is needed to make sure no other source files are included in the output
-    # file.
-    local nr_lines="$(wc -l < "$output_file")"
-    [[ "$nr_lines" == 13 ]] || \
-      fail "Number of lines in C++ gcov coverage output file is "\
-      "$nr_lines and different than 13"
-
     # Assert that the coverage output file contains the coverage data for the
     # two cc files: coverage_srcs/a.cc and coverage_srcs/t.cc.
     # The result for each source file must be asserted separately because the
@@ -334,6 +377,14 @@ function test_cc_test_coverage_gcov() {
     # order in the coverage report is not relevant.
     assert_gcov_coverage_srcs_a_cc "$output_file"
     assert_gcov_coverage_srcs_t_cc "$output_file"
+    assert_gcov_coverage_srcs_b_h "$output_file"
+
+    # This assertion is needed to make sure no other source files are included
+    # in the output file.
+    local nr_lines="$(wc -l < "$output_file")"
+    [[ "$nr_lines" == 21 ]] || \
+      fail "Number of lines in C++ gcov coverage output file is "\
+      "$nr_lines and different than 21"
 }
 
 run_suite "Testing tools/test/collect_cc_coverage.sh"
