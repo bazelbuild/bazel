@@ -52,9 +52,12 @@ platforms:
     # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/5888
     - "-//src/test/java/com/google/devtools/build/android/ziputils:ziputils-tests"
   ubuntu1804_nojava:
+    build_flags:
+    - "--javabase=@openjdk_linux_archive//:runtime"
     build_targets:
-    - "//examples/cpp:all"
+    - "//src:bazel"
     test_flags:
+    - "--javabase=@openjdk_linux_archive//:runtime"
     - "--test_timeout=1200"
     test_targets:
     - "--"
@@ -65,8 +68,37 @@ platforms:
     - "-//src/test/java/com/google/devtools/build/android/..."
     - "-//src/test/shell/bazel/android/..."
     # Currently broken tests on this platform.
+    # These tests do not work without an installed system JDK:
+    # (see https://github.com/bazelbuild/bazel/issues/6214#issuecomment-424813868)
+    # TODO(philwo): Use tags instead of an explicit blacklist.
+    - "-//src/test/py/bazel:launcher_test"
+    - "-//src/test/py/bazel:runfiles_test"
     - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+    - "-//src/test/shell/bazel:bazel_coverage_test"
+    - "-//src/test/shell/bazel:bazel_determinism_test"
+    - "-//src/test/shell/bazel:bazel_example_test"
     - "-//src/test/shell/bazel:bazel_java_test"
+    - "-//src/test/shell/bazel:bazel_random_characters_test"
+    - "-//src/test/shell/bazel:bazel_repository_cache_test"
+    - "-//src/test/shell/bazel:bazel_rules_test"
+    - "-//src/test/shell/bazel:bazel_sandboxing_test"
+    - "-//src/test/shell/bazel:bazel_test_test"
+    - "-//src/test/shell/bazel:empty_package_test"
+    - "-//src/test/shell/bazel:external_integration_test"
+    - "-//src/test/shell/bazel:java_launcher_test"
+    - "-//src/test/shell/bazel:local_repository_test"
+    - "-//src/test/shell/bazel:maven_test"
+    - "-//src/test/shell/bazel:runfiles_test"
+    - "-//src/test/shell/integration:bazel_java_test"
+    - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
+    - "-//src/test/shell/integration:bazel_worker_test"
+    - "-//src/test/shell/integration:discard_analysis_cache_test"
+    - "-//src/test/shell/integration:discard_graph_edges_test"
+    - "-//src/test/shell/integration:java_integration_test"
+    - "-//src/test/shell/integration:nonincremental_builds_test"
+    - "-//src/test/shell/integration:output_filter_test"
+    - "-//src/test/shell/integration:stub_finds_runfiles_test"
+    - "-//src/test/shell/integration:test_test"
   ubuntu1804_java9:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
