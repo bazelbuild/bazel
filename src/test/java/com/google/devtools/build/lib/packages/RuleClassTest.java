@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -246,15 +245,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   @Before
   public final void setRuleLocation() throws Exception {
-    testBuildfilePath = root.getRelative("testpackage/BUILD");
+    testBuildfilePath = scratch.resolve("/home/user/workspace/testpackage/BUILD");
     testRuleLocation = Location.fromPathAndStartColumn(
         testBuildfilePath.asFragment(), 0, 0, new LineAndColumn(TEST_RULE_DEFINED_AT_LINE, 0));
   }
 
   private Package.Builder createDummyPackageBuilder() {
-    return packageFactory
-        .newPackageBuilder(PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
-        .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
+    return packageFactory.newPackageBuilder(
+        PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
+        .setFilename(testBuildfilePath);
   }
 
   @Test

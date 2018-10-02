@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,12 +39,6 @@ public class InputFileTest {
   private EventCollectionApparatus events = new EventCollectionApparatus();
   private Scratch scratch = new Scratch("/workspace");
   private PackageFactoryApparatus packages = new PackageFactoryApparatus(events.reporter());
-  private Root root;
-
-  @Before
-  public void setUp() throws Exception {
-    root = Root.fromPath(scratch.dir(""));
-  }
 
   @Before
   public final void writeFiles() throws Exception  {
@@ -57,7 +49,7 @@ public class InputFileTest {
             "        cmd = '', ",
             "        outs = [], ",
             "        srcs = ['x', 'subdir/y'])");
-    pkg = packages.createPackage("pkg", RootedPath.toRootedPath(root, buildfile));
+    pkg = packages.createPackage("pkg", buildfile);
     events.assertNoWarningsOrErrors();
 
     this.pathX = scratch.file("pkg/x", "blah");

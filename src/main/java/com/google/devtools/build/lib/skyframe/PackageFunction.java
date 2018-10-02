@@ -436,6 +436,7 @@ public class PackageFunction implements SkyFunction {
 
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = null;
+    Path buildFilePath = buildFileRootedPath.asPath();
     String replacementContents = null;
 
     if (isDefaultsPackage(packageId) && PrecomputedValue.isInMemoryToolsDefaults(env)) {
@@ -491,7 +492,7 @@ public class PackageFunction implements SkyFunction {
             repositoryMapping,
             replacementContents,
             packageId,
-            buildFileRootedPath,
+            buildFilePath,
             buildFileValue,
             defaultVisibility,
             skylarkSemantics,
@@ -588,12 +589,12 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet, returns
-   * null.
+   * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet,
+   * returns null.
    */
   @Nullable
   static SkylarkImportResult fetchImportsFromBuildFile(
-      PathFragment buildFilePath,
+      Path buildFilePath,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
       Environment env,
@@ -1164,8 +1165,8 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Constructs a {@link Package} object for the given package. Note that the returned package may
-   * be in error.
+   * Constructs a {@link Package} object for the given package. Note that the returned package
+   * may be in error.
    *
    * <p>May return null if the computation has to be restarted.
    *
@@ -1179,7 +1180,7 @@ public class PackageFunction implements SkyFunction {
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
-      RootedPath buildFilePath,
+      Path buildFilePath,
       @Nullable FileValue buildFileValue,
       RuleVisibility defaultVisibility,
       SkylarkSemantics skylarkSemantics,
@@ -1195,7 +1196,6 @@ public class PackageFunction implements SkyFunction {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.CREATE_PACKAGE, packageId.toString())) {
         AstParseResult astParseResult = astCache.getIfPresent(packageId);
-        Path inputFile = buildFilePath.asPath();
         if (astParseResult == null) {
           if (showLoadingProgress.get()) {
             env.getListener().handle(Event.progress("Loading package: " + packageId));
@@ -1207,12 +1207,12 @@ public class PackageFunction implements SkyFunction {
             try {
               buildFileBytes =
                   buildFileValue.isSpecialFile()
-                      ? FileSystemUtils.readContent(inputFile)
-                      : FileSystemUtils.readWithKnownFileSize(inputFile, buildFileValue.getSize());
+                      ? FileSystemUtils.readContent(buildFilePath)
+                      : FileSystemUtils.readWithKnownFileSize(
+                          buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
-              buildFileBytes =
-                  actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(
-                      inputFile.asFragment(), e);
+              buildFileBytes = actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(
+                  buildFilePath.asFragment(), e);
               if (buildFileBytes == null) {
                 // Note that we did the work that led to this IOException, so we should
                 // conservatively report this error as transient.
@@ -1224,10 +1224,10 @@ public class PackageFunction implements SkyFunction {
             }
             input =
                 ParserInputSource.create(
-                    FileSystemUtils.convertFromLatin1(buildFileBytes), inputFile.asFragment());
+                    FileSystemUtils.convertFromLatin1(buildFileBytes),
+                    buildFilePath.asFragment());
           } else {
-            input =
-                ParserInputSource.create(replacementContents, buildFilePath.asPath().asFragment());
+            input = ParserInputSource.create(replacementContents, buildFilePath.asFragment());
           }
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
           BuildFileAST ast =
@@ -1240,7 +1240,7 @@ public class PackageFunction implements SkyFunction {
         try {
           importResult =
               fetchImportsFromBuildFile(
-                  buildFilePath.getRootRelativePath(),
+                  buildFilePath,
                   packageId,
                   astParseResult.ast,
                   env,
@@ -1256,7 +1256,7 @@ public class PackageFunction implements SkyFunction {
         }
         astCache.invalidate(packageId);
         GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
-            makeGlobber(inputFile, packageId, packageRoot, env);
+            makeGlobber(buildFilePath, packageId, packageRoot, env);
         long startTimeNanos = BlazeClock.nanoTime();
         Package.Builder pkgBuilder =
             packageFactory.createPackageFromAst(

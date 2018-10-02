@@ -224,7 +224,7 @@ public class PackageCacheTest extends FoundationTestCase {
     createPkg1();
     Package pkg1 = getPackage("pkg1");
     assertThat(pkg1.getName()).isEqualTo("pkg1");
-    assertThat(pkg1.getFilename().asPath().getPathString()).isEqualTo("/workspace/pkg1/BUILD");
+    assertThat(pkg1.getFilename().toString()).isEqualTo("/workspace/pkg1/BUILD");
     assertThat(getPackageManager().getPackage(reporter, PackageIdentifier.createInMainRepo("pkg1")))
         .isSameAs(pkg1);
   }
@@ -349,7 +349,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
     Package oldPkg = getPackage("pkg");
     assertThat(getPackage("pkg")).isSameAs(oldPkg); // change not yet visible
-    assertThat(oldPkg.getFilename().asPath()).isEqualTo(buildFile1);
+    assertThat(oldPkg.getFilename()).isEqualTo(buildFile1);
     assertThat(oldPkg.getSourceRoot()).isEqualTo(Root.fromPath(rootDirectory));
 
     buildFile1.delete();
@@ -357,7 +357,7 @@ public class PackageCacheTest extends FoundationTestCase {
 
     Package newPkg = getPackage("pkg");
     assertThat(newPkg).isNotSameAs(oldPkg);
-    assertThat(newPkg.getFilename().asPath()).isEqualTo(buildFile2);
+    assertThat(newPkg.getFilename()).isEqualTo(buildFile2);
     assertThat(newPkg.getSourceRoot()).isEqualTo(Root.fromPath(scratch.dir("/otherroot")));
 
     // TODO(bazel-team): (2009) test BUILD file moves in the other direction too.
@@ -526,8 +526,7 @@ public class PackageCacheTest extends FoundationTestCase {
     // root.  It's as if we've merged c and c/d in the first root.
 
     // c/d is still a subpackage--found in the second root:
-    assertThat(getPackage("c/d").getFilename().asPath())
-        .isEqualTo(rootDir2.getRelative("c/d/BUILD"));
+    assertThat(getPackage("c/d").getFilename()).isEqualTo(rootDir2.getRelative("c/d/BUILD"));
 
     // Subpackage labels are still valid...
     assertLabelValidity(true, "//c/d:foo.txt");

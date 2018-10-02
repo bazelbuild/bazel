@@ -17,9 +17,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.Root;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,15 +26,8 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class WorkspaceFactoryTest {
-  private Scratch scratch = new Scratch();
-  private WorkspaceFactoryTestHelper helper;
-  private Root root;
 
-  @Before
-  public void setUp() throws Exception {
-    root = Root.fromPath(scratch.dir(""));
-    helper = new WorkspaceFactoryTestHelper(root);
-  }
+  private WorkspaceFactoryTestHelper helper = new WorkspaceFactoryTestHelper();
 
   @Test
   public void testLoadError() throws Exception {
@@ -75,7 +65,7 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testIllegalWorkspaceFunctionPosition() throws Exception {
-    helper = new WorkspaceFactoryTestHelper(/*allowOverride=*/ false, root);
+    helper = new WorkspaceFactoryTestHelper(/*allowOverride=*/ false);
     helper.parse("workspace(name = 'foo')");
     assertThat(helper.getParserError()).contains(
         "workspace() function should be used only at the top of the WORKSPACE file");

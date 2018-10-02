@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.syntax.SkylarkSemantics;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -103,14 +102,12 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Path buildFile = scratch.file("" + packageId.getSourceRoot() + "/BUILD", lines);
     Package.Builder externalPkg =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
-            RootedPath.toRootedPath(root, buildFile.getRelative("WORKSPACE")),
-            "TESTING");
+            Package.Builder.DefaultHelper.INSTANCE, buildFile.getRelative("WORKSPACE"), "TESTING");
     externalPkg.setWorkspaceName(workspaceName);
     return pkgFactory.createPackageForTesting(
         packageId,
         externalPkg.build(),
-        RootedPath.toRootedPath(root, buildFile),
+        buildFile,
         packageIdentifier -> buildFile,
         reporter,
         SkylarkSemantics.DEFAULT_SEMANTICS);

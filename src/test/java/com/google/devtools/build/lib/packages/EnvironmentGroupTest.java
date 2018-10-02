@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,10 +52,7 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
             ")");
     pkg =
         packageFactory.createPackageForTesting(
-            PackageIdentifier.createInMainRepo("pkg"),
-            RootedPath.toRootedPath(root, buildfile),
-            getPackageManager(),
-            reporter);
+            PackageIdentifier.createInMainRepo("pkg"), buildfile, getPackageManager(), reporter);
 
     group = (EnvironmentGroup) pkg.getTarget("group");
   }
@@ -110,12 +106,8 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
         "a/BUILD",
         "environment_group(name = 'empty_group', environments = [], defaults = [])");
     reporter.removeHandler(failFastHandler);
-    Package emptyGroupPkg =
-        packageFactory.createPackageForTesting(
-            PackageIdentifier.createInMainRepo("a"),
-            RootedPath.toRootedPath(root, buildfile),
-            getPackageManager(),
-            reporter);
+    Package emptyGroupPkg = packageFactory.createPackageForTesting(
+        PackageIdentifier.createInMainRepo("a"), buildfile, getPackageManager(), reporter);
     assertThat(emptyGroupPkg.containsErrors()).isTrue();
     assertContainsEvent(
         "environment group empty_group must contain at least one environment");

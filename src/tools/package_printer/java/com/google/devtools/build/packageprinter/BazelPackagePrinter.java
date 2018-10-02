@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
 import java.nio.file.Paths;
 
 /**
@@ -53,8 +52,7 @@ public class BazelPackagePrinter {
 
   /** newPackageLoader returns a new PackageLoader. */
   static PackageLoader newPackageLoader(Path workspaceDir, Path installBase, Path outputBase) {
-    return BazelPackageLoader.builder(
-            Root.fromPath(workspaceDir), workspaceDir, installBase, outputBase)
+    return BazelPackageLoader.builder(workspaceDir, installBase, outputBase)
         .useDefaultSkylarkSemantics()
         .setReporter(new Reporter(new EventBus(), PrintingEventHandler.ERRORS_TO_STDERR))
         .setLegacyGlobbingThreads(400)

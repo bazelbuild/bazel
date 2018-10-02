@@ -68,7 +68,6 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
     PackageLoader packageLoader =
         BazelPackageLoader.builder(
-                pkg.getSourceRoot(),
                 directories.getWorkspace(),
                 directories.getInstallBase(),
                 directories.getOutputBase())

@@ -23,18 +23,16 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkSemantics;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.List;
 
 /** Parses a WORKSPACE file with the given content. */
 class WorkspaceFactoryTestHelper {
-  private final Root root;
   private Package.Builder builder;
   private Exception exception;
   private ImmutableList<Event> events;
@@ -42,31 +40,30 @@ class WorkspaceFactoryTestHelper {
 
   private final boolean allowOverride;
 
-  WorkspaceFactoryTestHelper(Root root) {
-    this(true, root);
+  WorkspaceFactoryTestHelper() {
+    this(true);
   }
 
-  WorkspaceFactoryTestHelper(boolean allowOverride, Root root) {
-    this.root = root;
+  WorkspaceFactoryTestHelper(boolean allowOverride) {
     this.exception = null;
     this.events = null;
     this.allowOverride = allowOverride;
     this.skylarkSemantics = SkylarkSemantics.DEFAULT_SEMANTICS;
   }
 
-  void parse(String... args) {
-    Path workspaceFilePath = root.getRelative("WORKSPACE");
+  void parse(Scratch scratch, String... args) {
+    Path root = null;
+    Path workspaceFilePath = null;
     try {
-      FileSystemUtils.writeIsoLatin1(workspaceFilePath, args);
+      root = scratch.dir("/workspace");
+      workspaceFilePath = scratch.overwriteFile("/workspace/WORKSPACE", args);
     } catch (IOException e) {
       fail("Shouldn't happen: " + e.getMessage());
     }
     StoredEventHandler eventHandler = new StoredEventHandler();
     builder =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
-            RootedPath.toRootedPath(root, workspaceFilePath),
-            "");
+            Package.Builder.DefaultHelper.INSTANCE, workspaceFilePath, "");
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
@@ -74,8 +71,8 @@ class WorkspaceFactoryTestHelper {
             ImmutableList.<PackageFactory.EnvironmentExtension>of(),
             Mutability.create("test"),
             allowOverride,
-            root.asPath(),
-            root.asPath(),
+            root,
+            root,
             /* defaultSystemJavabaseDir= */ null,
             /* skylarkSemantics= */ SkylarkSemantics.DEFAULT_SEMANTICS);
     Exception exception = null;
@@ -95,13 +92,17 @@ class WorkspaceFactoryTestHelper {
     this.exception = exception;
   }
 
+  void parse(String... args) {
+    parse(new Scratch("/"), args);
+  }
+
   public Package getPackage() throws InterruptedException, NoSuchPackageException {
     return builder.build();
   }
 
   public void assertLexingExceptionThrown() {
     assertThat(exception).isNotNull();
-    assertThat(exception).hasMessageThat().contains("Failed to parse /WORKSPACE");
+    assertThat(exception).hasMessageThat().contains("Failed to parse /workspace/WORKSPACE");
   }
 
   public String getLexerError() {
