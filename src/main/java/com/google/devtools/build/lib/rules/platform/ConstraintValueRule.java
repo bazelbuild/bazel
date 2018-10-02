@@ -33,7 +33,8 @@ public class ConstraintValueRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint_setting) -->
-        The constraint_setting rule this value is applied to.
+        The <code>constraint_setting</code> for which this <code>constraint_value</code> is a
+        possible choice.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(CONSTRAINT_SETTING_ATTR, BuildType.LABEL)
@@ -56,7 +57,21 @@ public class ConstraintValueRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = constraint_value, TYPE = OTHER, FAMILY = Platform)[GENERIC_RULE] -->
 
-<p>This rule defines a specific value of a constraint, which can be used to define execution
-platforms.
+This rule introduces a new value for a given constraint type. See the
+<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page for more
+details.
+
+<h4 id="constraint_value_examples">Example</h4>
+<p>The following creates a new possible value for the predefined <code>constraint_value</code>
+representing cpu architecture.
+<pre class="code">
+constraint_value(
+    name = "mips",
+    constraint_setting = "@bazel_tools//platforms:cpu",
+)
+</pre>
+
+Platforms can then declare that they have the <code>mips</code> architecture as an alternative to
+<code>x86_64</code>, <code>arm</code>, and so on.
 
 <!-- #END_BLAZE_RULE -->*/
