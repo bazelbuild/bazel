@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
  * @see TransitiveInfoProvider
  */
 public interface TransitiveInfoCollection
-    extends SkylarkIndexable, SkylarkProviderCollection, TransitiveInfoCollectionApi {
+    extends SkylarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
 
   @Override
   default SkylarkNestedSet outputGroup(String group) {
@@ -55,12 +55,6 @@ public interface TransitiveInfoCollection
         : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
     return SkylarkNestedSet.of(Artifact.class, result);
   }
-
-  /**
-   * Returns the transitive information provider requested, or null if the provider is not found.
-   * The provider has to be a TransitiveInfoProvider Java class.
-   */
-  @Nullable <P extends TransitiveInfoProvider> P getProvider(Class<P> provider);
 
   /**
    * Returns the label associated with this prerequisite.

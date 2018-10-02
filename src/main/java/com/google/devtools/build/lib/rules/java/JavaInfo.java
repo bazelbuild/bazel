@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -179,21 +180,20 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
   /**
    * Returns a provider of the specified class, fetched from the specified target or, if not found,
-   * from the JavaInfo of the given target. JavaInfo can be found as a declared provider
-   * in SkylarkProviders.
-   * Returns null if no such provider exists.
+   * from the JavaInfo of the given target. JavaInfo can be found as a declared provider in
+   * SkylarkProviders. Returns null if no such provider exists.
    *
-   * <p>A target can either have both the specified provider and JavaInfo that encapsulates the
-   * same information, or just one of them.</p>
+   * <p>A target can either have both the specified provider and JavaInfo that encapsulates the same
+   * information, or just one of them.
    */
   @Nullable
   public static <T extends TransitiveInfoProvider> T getProvider(
-      Class<T> providerClass, TransitiveInfoCollection target) {
-    T provider = target.getProvider(providerClass);
+      Class<T> providerClass, ProviderCollection providers) {
+    T provider = providers.getProvider(providerClass);
     if (provider != null) {
       return provider;
     }
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = (JavaInfo) providers.get(JavaInfo.PROVIDER.getKey());
     if (javaInfo == null) {
       return null;
     }
@@ -210,7 +210,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     if (provider != null) {
       return provider;
     }
-    JavaInfo javaInfo = (JavaInfo) providerMap.getProvider(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = (JavaInfo) providerMap.get(JavaInfo.PROVIDER.getKey());
     if (javaInfo == null) {
       return null;
     }

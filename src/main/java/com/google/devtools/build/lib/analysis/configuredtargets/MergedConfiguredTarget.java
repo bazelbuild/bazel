@@ -92,7 +92,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected InfoInterface rawGetSkylarkProvider(Provider.Key providerKey) {
-    InfoInterface provider = providers.getProvider(providerKey);
+    InfoInterface provider = providers.get(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
     }
@@ -111,7 +111,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       }
       return actions.build();
     }
-    Object provider = providers.getProvider(providerKey);
+    Object provider = providers.get(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
     }

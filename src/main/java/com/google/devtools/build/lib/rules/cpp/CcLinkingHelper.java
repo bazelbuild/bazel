@@ -78,7 +78,7 @@ public final class CcLinkingHelper {
 
     @Override
     public CcLinkingInfo getCcLinkingInfo() {
-      return (CcLinkingInfo) providers.getProvider(CcLinkingInfo.PROVIDER.getKey());
+      return (CcLinkingInfo) providers.get(CcLinkingInfo.PROVIDER.getKey());
     }
 
     @Override

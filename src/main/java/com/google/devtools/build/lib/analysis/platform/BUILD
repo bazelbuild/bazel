@@ -36,7 +36,7 @@ java_library(
     srcs = UTIL_SRCS,
     deps = [
         ":platform",
-        "//src/main/java/com/google/devtools/build/lib:skylark-provider-collection",
+        "//src/main/java/com/google/devtools/build/lib:provider-collection",
         "//third_party:guava",
     ],
 )
