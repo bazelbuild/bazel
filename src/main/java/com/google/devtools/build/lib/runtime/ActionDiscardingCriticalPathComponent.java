@@ -27,12 +27,12 @@ import javax.annotation.Nullable;
  * and 24 bytes without compressed OOPS, which is a price we'd rather not pay unless the user
  * explicitly enables this clearing of {@link Action} objects.
  */
-public class ActionDiscardingCriticalPathComponent extends CriticalPathComponent {
+class ActionDiscardingCriticalPathComponent extends CriticalPathComponent {
   @Nullable private final Label owner;
   private final String prettyPrint;
   private final String mnemonic;
 
-  public ActionDiscardingCriticalPathComponent(int id, Action action, long relativeStartNanos) {
+  ActionDiscardingCriticalPathComponent(int id, Action action, long relativeStartNanos) {
     super(id, action, relativeStartNanos);
     this.prettyPrint = super.prettyPrintAction();
     this.owner = super.getOwner();
