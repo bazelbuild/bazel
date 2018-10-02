@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.metrics;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
@@ -23,11 +24,13 @@ import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.util.concurrent.atomic.AtomicLong;
 
 class MetricsCollector {
 
   private final CommandEnvironment env;
   private final boolean bepPublishUsedHeapSizePostBuild;
+  private final AtomicLong executedActionCount = new AtomicLong();
 
   private int actionsConstructed;
 
@@ -48,6 +51,11 @@ class MetricsCollector {
   }
 
   @Subscribe
+  public void onActionComplete(ActionCompletionEvent event) {
+    executedActionCount.incrementAndGet();
+  }
+
+  @Subscribe
   public void onBuildComplete(BuildCompleteEvent event) {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
@@ -60,7 +68,10 @@ class MetricsCollector {
   }
 
   private ActionSummary createActionSummary() {
-    return ActionSummary.newBuilder().setActionsCreated(actionsConstructed).build();
+    return ActionSummary.newBuilder()
+        .setActionsCreated(actionsConstructed)
+        .setActionsExecuted(executedActionCount.get())
+        .build();
   }
 
   private MemoryMetrics createMemoryMetrics() {

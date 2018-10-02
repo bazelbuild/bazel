@@ -626,6 +626,11 @@ message BuildMetrics {
     // This includes unused actions that were constructed but
     // not executed during this build.
     int64 actions_created = 1;
+
+    // The total number of actions executed during the build.
+    // This includes any remote cache hits, but excludes
+    // local action cache hits.
+    int64 actions_executed = 2;
   }
   ActionSummary action_summary = 1;
 
