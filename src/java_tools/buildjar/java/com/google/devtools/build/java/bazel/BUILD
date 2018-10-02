@@ -86,24 +86,6 @@ java_library(
     ],
 )
 
-# Command line version of BazelJavaCompiler, interface-compatible
-# with the javac command, for use with ant, for example.
-java_library(
-    name = "BazelJavac",
-    srcs = ["BazelJavac.java"],
-    visibility = ["//visibility:public"],
-    deps = [":BazelJavaCompiler"],
-)
-
-java_binary(
-    name = "bazeljavac",
-    # Use same stack size as javac and JavaBuilder.
-    jvm_flags = ["-Xss4m"],
-    main_class = "com.google.devtools.build.java.bazel.BazelJavac",
-    visibility = ["//visibility:public"],
-    runtime_deps = [":BazelJavac"],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob([
