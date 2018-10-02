@@ -39,7 +39,7 @@ import java.util.Set;
  * Static utilities for managing output directory symlinks.
  */
 public class OutputDirectoryLinksUtils {
-  private static interface SymlinkDefinition {
+  static interface SymlinkDefinition {
     String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName);
 
     Optional<Path> getLinkPath(
@@ -218,60 +218,10 @@ public class OutputDirectoryLinksUtils {
     }
   }
 
-  /**
-   * Returns a convenient path to the specified file, relativizing it and using output-dir symlinks
-   * if possible. Otherwise, return the absolute path.
-   *
-   * <p>This method must be called after the symlinks are created at the end of a build. If called
-   * before, the pretty path may be incorrect if the symlinks end up pointing somewhere new.
-   */
-  public static PathFragment getPrettyPath(
-      Path file,
-      String workspaceName,
-      Path workspaceDirectory,
-      Path workingDirectory,
-      String symlinkPrefix,
-      String productName) {
-    if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
-      return file.asFragment();
-    }
-
-    String workspaceBaseName = workspaceDirectory.getBaseName();
-    for (SymlinkDefinition link : LINK_DEFINITIONS) {
-      PathFragment result =
-          relativize(
-              file,
-              workspaceDirectory,
-              workingDirectory,
-              link.getLinkName(symlinkPrefix, productName, workspaceBaseName));
-      if (result != null) {
-        return result;
-      }
-    }
-
-    return file.asFragment();
-  }
-
-  // Helper to getPrettyPath.  Returns file, relativized w.r.t. the referent of
-  // "linkname", or null if it was a not a child.
-  private static PathFragment relativize(
-      Path file, Path workspaceDirectory, Path workingDirectory, String linkname) {
-    PathFragment link = PathFragment.create(linkname);
-    try {
-      Path dir = workspaceDirectory.getRelative(link);
-      PathFragment levelOneLinkTarget = dir.readSymbolicLink();
-      if (levelOneLinkTarget.isAbsolute() &&
-          file.startsWith(dir = file.getRelative(levelOneLinkTarget))) {
-        PathFragment outputLink =
-            workingDirectory.equals(workspaceDirectory)
-                ? link
-                : workspaceDirectory.getRelative(link).asFragment();
-        return outputLink.getRelative(file.relativeTo(dir));
-      }
-    } catch (IOException e) {
-      /* ignore */
-    }
-    return null;
+  public static PathPrettyPrinter getPathPrettyPrinter(
+      String symlinkPrefix, String productName, Path workspaceDirectory, Path workingDirectory) {
+    return new PathPrettyPrinter(
+        LINK_DEFINITIONS, symlinkPrefix, productName, workspaceDirectory, workingDirectory);
   }
 
   /**
