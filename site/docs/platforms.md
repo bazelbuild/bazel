@@ -100,9 +100,10 @@ and operating systems.
    *  `@bazel_tools//platforms:ppc`
    *  `@bazel_tools//platforms:arm`
    *  `@bazel_tools//platforms:s390x`
-*   `@bazel_tools//platforms:os` defines the following operating systems:
+*  `@bazel_tools//platforms:os` defines the following operating systems:
    *  `@bazel_tools//platforms:osx`
    *  `@bazel_tools//platforms:freebsd`
+   *  `@bazel_tools//platforms:android`
    *  `@bazel_tools//platforms:linux`
    *  `@bazel_tools//platforms:windows`
 
