@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,46 +18,31 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
+import com.google.devtools.build.lib.skyframe.PrepareTestSuitesUnderDirectoryValue.Key;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
 /**
- * Ensures the graph contains the targets in the directory's package, if any, and in the
- * non-excluded packages in its subdirectories, and all those targets' transitive dependencies,
- * after a successful evaluation.
+ * {@link SkyFunction} to recursively traverse a directory and ensure {@link
+ * CollectTestSuitesInPackageFunction} are evaluated at each package.
  */
-public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
+public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
   private final BlazeDirectories directories;
 
-  PrepareDepsOfTargetsUnderDirectoryFunction(BlazeDirectories directories) {
+  PrepareTestSuitesUnderDirectoryFunction(BlazeDirectories directories) {
     this.directories = directories;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    PrepareDepsOfTargetsUnderDirectoryKey argument =
-        (PrepareDepsOfTargetsUnderDirectoryKey) skyKey.argument();
-    final FilteringPolicy filteringPolicy = argument.getFilteringPolicy();
-    RecursivePkgKey recursivePkgKey = argument.getRecursivePkgKey();
+    Key argument = (Key) skyKey.argument();
     ProcessPackageDirectory processPackageDirectory =
-        new ProcessPackageDirectory(
-            directories,
-            (repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory) ->
-                PrepareDepsOfTargetsUnderDirectoryValue.key(
-                    repository,
-                    subdirectory,
-                    excludedSubdirectoriesBeneathSubdirectory,
-                    filteringPolicy));
+        new ProcessPackageDirectory(directories, PrepareTestSuitesUnderDirectoryValue::key);
     ProcessPackageDirectoryResult packageExistenceAndSubdirDeps =
         processPackageDirectory.getPackageExistenceAndSubdirDeps(
-            recursivePkgKey.getRootedPath(),
-            recursivePkgKey.getRepository(),
-            env,
-            recursivePkgKey.getExcludedPaths());
+            argument.getRootedPath(), argument.getRepository(), env, argument.getExcludedPaths());
     if (env.valuesMissing()) {
       return null;
     }
@@ -66,18 +51,17 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
       keysToRequest =
           Iterables.concat(
               ImmutableList.of(
-                  CollectTargetsInPackageValue.key(
+                  CollectTestSuitesInPackageValue.key(
                       PackageIdentifier.create(
-                          recursivePkgKey.getRepository(),
-                          recursivePkgKey.getRootedPath().getRootRelativePath()),
-                      filteringPolicy)),
+                          argument.getRepository(),
+                          argument.getRootedPath().getRootRelativePath()))),
               keysToRequest);
     }
     env.getValuesOrThrow(keysToRequest, NoSuchPackageException.class);
     if (env.valuesMissing()) {
       return null;
     }
-    return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
+    return PrepareTestSuitesUnderDirectoryValue.INSTANCE;
   }
 
   @Nullable

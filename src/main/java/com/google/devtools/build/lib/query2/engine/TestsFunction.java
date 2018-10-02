@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -42,8 +43,8 @@ import java.util.Set;
  * <pre>expr ::= TESTS '(' expr ')'</pre>
  */
 public class TestsFunction implements QueryFunction {
-  TestsFunction() {
-  }
+  @VisibleForTesting
+  public TestsFunction() {}
 
   @Override
   public String getName() {
