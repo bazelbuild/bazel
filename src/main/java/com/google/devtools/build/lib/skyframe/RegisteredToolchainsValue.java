@@ -64,6 +64,16 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
     }
 
     @Override
+    public String toString() {
+      return new StringBuilder()
+          .append("RegisteredToolchainsValue.Key{")
+          .append("configurationKey: ")
+          .append(configurationKey)
+          .append("}")
+          .toString();
+    }
+
+    @Override
     public boolean equals(Object obj) {
       if (!(obj instanceof Key)) {
         return false;
