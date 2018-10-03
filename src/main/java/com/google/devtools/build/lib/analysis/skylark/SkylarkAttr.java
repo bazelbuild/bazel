@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAttrApi;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -254,6 +255,10 @@ public final class SkylarkAttr implements SkylarkAttrApi {
         builder.cfg((SplitTransition) trans);
       } else if (trans instanceof SplitTransitionProvider) {
         builder.cfg((SplitTransitionProvider) trans);
+      } else if (trans instanceof BaseFunction) {
+        builder.hasFunctionTransition();
+        builder.cfg(new FunctionSplitTransitionProvider((BaseFunction) trans,
+                env.getSemantics(), env.getEventHandler()));
       } else if (!trans.equals("target")) {
         throw new EvalException(ast.getLocation(),
             "cfg must be either 'data', 'host', or 'target'.");

@@ -514,6 +514,23 @@ public class BuildConfiguration implements BuildConfigurationApi {
     )
     public String outputDirectoryName;
 
+    /**
+     * This option is used by skylark transitions to add a disginguishing element to the output
+     * directory name, in order to avoid name clashing.
+     */
+    @Option(
+      name = "transition directory name fragment",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = { OptionMetadataTag.INTERNAL }
+    )
+    public String transitionDirectoryNameFragment;
+
     @Option(
       name = "platform_suffix",
       defaultValue = "null",
@@ -1396,6 +1413,9 @@ public class BuildConfiguration implements BuildConfigurationApi {
       nameParts.add(fragment.getOutputDirectoryName());
     }
     nameParts.add(getCompilationMode() + platformSuffix);
+    if (options.transitionDirectoryNameFragment != null) {
+      nameParts.add(options.transitionDirectoryNameFragment);
+    }
     return Joiner.on('-').skipNulls().join(nameParts);
   }
 

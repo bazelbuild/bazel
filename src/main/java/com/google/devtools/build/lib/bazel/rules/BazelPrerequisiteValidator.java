@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -85,7 +86,9 @@ public class BazelPrerequisiteValidator
       boolean containsPackageSpecificationProvider =
           requiredProviders.getDescription().contains("PackageSpecificationProvider");
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
-      if (!attrName.equals("visibility") && !containsPackageSpecificationProvider) {
+      if (!attrName.equals("visibility")
+          && !attrName.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)
+          && !containsPackageSpecificationProvider) {
         context.attributeError(
             attrName,
             "in "

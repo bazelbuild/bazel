@@ -823,6 +823,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:auto_value",

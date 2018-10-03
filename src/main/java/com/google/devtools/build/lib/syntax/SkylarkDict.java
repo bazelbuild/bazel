@@ -454,7 +454,9 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
         ? null : Printer.formattable("'%s' value", description);
     for (Map.Entry<?, ?> e : this.entrySet()) {
       SkylarkType.checkType(e.getKey(), keyType, keyDescription);
-      SkylarkType.checkType(e.getValue(), valueType, valueDescription);
+      if (e.getValue() != null) {
+        SkylarkType.checkType(e.getValue(), valueType, valueDescription);
+      }
     }
     return Collections.unmodifiableMap((SkylarkDict<X, Y>) this);
   }
