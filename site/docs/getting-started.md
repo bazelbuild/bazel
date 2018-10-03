@@ -11,6 +11,7 @@ not already done so, first read the [Bazel Overview](bazel-overview.html).
 ## Installation
 
 To install Bazel, see [Installing Bazel](install.html).
+If you use Windows, please read also [Using Bazel on Windows](windows.html).
 
 ## Bazel container
 

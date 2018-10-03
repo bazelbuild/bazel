@@ -65,3 +65,7 @@ title: Installing Bazel on Windows
 See [Chocolatey installation and package maintenance
 guide](https://bazel.build/windows-chocolatey-maintenance.html) for more
 information about the Chocolatey package.
+
+### Using Bazel
+
+Once you have installed Bazel, see [Using Bazel on Windows](windows.html).
