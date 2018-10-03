@@ -70,7 +70,21 @@ nav: docs
               <li><a href="/versions/{{ site.version }}/user-manual.html">User Manual</a></li>
               <li><a href="/versions/{{ site.version }}/windows.html">Using Bazel on Windows</a></li>
               <li><a href="/versions/{{ site.version }}/external.html">Adding External Dependencies</a></li>
-              <li><a href="/versions/{{ site.version }}/query-how-to.html">Querying Builds</a></li>
+
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#query-menu" aria-expanded="false"
+                    aria-controls="query-menu">
+                  Queries<span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="query-menu">
+                  <li><a href="/versions/{{ site.version }}/query-how-to.html">Bazel query</a></li>
+                  <li><a href="/versions/{{ site.version }}/cquery.html">Bazel cquery</a></li>
+                  <li><a href="/versions/{{ site.version }}/user-manual.html#aquery">Bazel aquery</a></li>
+                  <li><a href="/versions/{{ site.version }}/query.html">Query Language</a></li>
+                </ul>
+              </li>
+
               <li><a href="/versions/{{ site.version }}/test-encyclopedia.html">Writing Tests</a></li>
               <li><a href="/versions/{{ site.version }}/configurable-attributes.html">Configurable Attributes</a></li>
               <li><a href="/versions/{{ site.version }}/best-practices.html">Best Practices</a></li>
@@ -156,7 +170,6 @@ nav: docs
              <li><a href="/versions/{{ site.version }}/skylark/build-style.html">BUILD Style Guide</a></li>
              <li><a href="/versions/{{ site.version }}/command-line-reference.html">Command Line Reference</a></li>
              <li><a href="/versions/{{ site.version }}/build-event-protocol.html">Build Event Protocol</a></li>
-             <li><a href="/versions/{{ site.version }}/query.html">Bazel Query Language</a></li>
              <li><a href="/versions/{{ site.version }}/output_directories.html">Output Directory Layout</a></li>
              <li><a href="/versions/{{ site.version }}/platforms.html">Platforms</a></li>
              <li><a href="/versions/{{ site.version }}/toolchains.html">Toolchains</a></li>
