@@ -32,19 +32,11 @@ This document uses the requirement levels described in
    - [Versioning](#versioning)
    - [.bazelrc](#bazelrc)
    - [Packages](#packages)
-- [BUILD files](#build-files)
-- [.bzl files](#bzl-files)
-   - [.bzl files style guide](#bzl-files-style-guide)
-   - [Packaging rules](#packaging-rules)
-   - [Rule choice](#rule-choice)
 - [WORKSPACE files](#workspace-files)
    - [Repository rules](#repository-rules)
    - [Custom BUILD files](#custom-build-files)
    - [Repository rules](#repository-rules)
-- [Programming languages](#programming-languages)
-   - [C++ and Bazel](#c-and-bazel)
-   - [Java and Bazel](#java-and-bazel)
-   - [Protos and Bazel](#protos-and-bazel)
+- [Protos and Bazel](#protos-and-bazel)
 
 # General structure
 
@@ -101,29 +93,6 @@ that subdirectory.  The longer this structure exists, the more likely circular d
 inadvertently created, a target's scope will creep, and an increasing number of reverse
 dependencies will have to be updated.
 
-# BUILD files
-
-See the [BUILD file style
-guide](https://docs.bazel.build/skylark/build-style.html).
-
-# .bzl files
-
-## .bzl files style guide
-
-See the [Style guide for .bzl files](https://docs.bazel.build/skylark/bzl-style.html)
-for guidelines.
-
-## Packaging rules
-
-See [Packaging rules](https://docs.bazel.build/skylark/deploying.html) for advice
-on how to structure and where to put new rules.
-
-## Rule choice
-
-When using a language for which Bazel has built-in rules (e.g., C++), prefer using these rules to
-writing your own. These rules are documented in the
-[build encyclopedia](https://docs.bazel.build/be/overview.html).
-
 # WORKSPACE files
 
 ## Repository rules
@@ -161,19 +130,7 @@ library that has a build using Make, it is preferable to use `repository_ctx.dow
 write a BUILD file that builds it, instead of running `ctx.execute(["make"])`.
 
 
-# Programming languages
-
-This section describes best practices for specific programming languages.
-
-## C++ and Bazel
-
-For best practices for C++ projects, see [C++ and Bazel](bazel-and-cpp.md).
-
-## Java and Bazel
-
-For best practices for Java projects, see [Java and Bazel](bazel-and-java.md).
-
-## Protos and Bazel
+# Protos and Bazel
 
 Recommended code organization:
 
