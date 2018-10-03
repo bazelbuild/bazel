@@ -626,10 +626,7 @@ public final class SkyframeBuildView {
       @Nullable ToolchainContext toolchainContext)
       throws InterruptedException, ActionConflictException {
     Preconditions.checkState(
-        enableAnalysis || skyframeExecutor.allowsAnalysisDuringExecution(),
-        "Already in execution phase %s %s",
-        target,
-        configuration);
+        enableAnalysis, "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
