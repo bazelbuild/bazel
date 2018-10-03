@@ -411,8 +411,35 @@ testdata/input.txt
 
 <p>
   However, BUILD files are evaluated using an imperative language,
+  <a href="https://github.com/bazelbuild/starlark/">Starlark</a>.
 
-    <a href="skylark/language.html">Skylark</a>.
+  BUILD files are interpreted as a sequential list of statements.
+  Build rule functions, such as <code>cc_library</code>, are procedures whose
+  side-effect is to create an abstract build rule inside the build tool.
+</p>
+
+<p>
+  To encourage a clean separatation between code and data, BUILD files cannot
+  contain function definitions, <code>for</code> statements or
+  <code>if</code> statements (but list comprehensions and <code>if</code>
+  expressions are allowed). Functions should be declared in <code>.bzl</code>
+  files instead.
+</p>
+
+<p>
+  Crucially, programs in Skylark are unable to perform
+  arbitrary I/O.  This invariant makes the
+  interpretation of BUILD files hermetic, i.e. dependent only on a
+  known set of inputs, which is essential for ensuring that builds are
+  reproducible.
+</p>
+
+<p>
+  BUILD files should be written using only ASCII characters,
+  although technically they are interpreted using the Latin-1
+  character set.
+</p>
+
 <h3 id="declaring_build_rules">Declaring build rules</h3>
 
 <p>
