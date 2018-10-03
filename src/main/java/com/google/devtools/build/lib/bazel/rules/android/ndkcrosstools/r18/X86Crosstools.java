@@ -48,7 +48,7 @@ final class X86Crosstools {
             .addAllToolPath(ndkPaths.createClangToolpaths("x86-4.9", "i686-linux-android", null))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"));
 
-    stlImpl.addStlImpl(x86Clang, "4.9");
+    stlImpl.addStlImpl(x86Clang, null);
 
     /** x86_64 */
     CToolchain.Builder x8664Clang =
@@ -59,7 +59,7 @@ final class X86Crosstools {
                 ndkPaths.createClangToolpaths("x86_64-4.9", "x86_64-linux-android", null))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
 
-    stlImpl.addStlImpl(x8664Clang, "4.9");
+    stlImpl.addStlImpl(x8664Clang, null);
 
     return ImmutableList.of(x86Clang, x8664Clang);
   }
