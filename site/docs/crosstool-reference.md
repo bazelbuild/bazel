@@ -3,10 +3,10 @@ layout: documentation
 title: Understanding CROSSTOOL
 ---
 
-# Understanding CROSSTOOL
+# Understanding `CROSSTOOL`
 
 *  [Overview](#overview)
-*  [CROSSTOOL proto structure](#crosstool-proto-structure)
+*  [`CROSSTOOL` proto structure](#crosstool-proto-structure)
 *  [Toolchain selection](#toolchain-selection)
 *  [CROSSTOOL features](#crosstool-features)
    *  [Feature relationships](#feature-relationships)
@@ -41,8 +41,8 @@ it into source control alongside your project. You can share a single
 
 When a C++ target enters the analysis phase, Bazel selects the appropriate
 `cc_toolchain` target based on the BUILD file, then reads the corresponding
-toolchain definition from the `CROSSTOOL` file.  The `cc_toolchain` target passes
-information from the `CROSSTOOL` proto to the C++ target through a
+toolchain definition from the `CROSSTOOL` file.  The `cc_toolchain` target
+passes information from the `CROSSTOOL` proto to the C++ target through a
 `CcToolchainProvider`.
 
 For example, a compile or link action, instantiated by a rule such as
@@ -54,16 +54,16 @@ For example, a compile or link action, instantiated by a rule such as
 *   Environment variables
 *   Artifacts needed in the sandbox in which the action executes
 
-All of the above information except the artifacts required in the sandbox are
-specified in the CROSSTOOL proto.
+All of the above information except the artifacts required in the sandbox is
+specified in the `CROSSTOOL` proto.
 
 The artifacts to be shipped to the sandbox are declared in the `cc_toolchain`
 target. For example, with the `cc_toolchain.linker_files` attribute you can
 specify the linker binary and toolchain libraries to ship into the sandbox.
 
-## CROSSTOOL proto structure
+## `CROSSTOOL` proto structure
 
-The CROSSTOOL proto has the following structure:
+The `CROSSTOOL` proto has the following structure:
 
 *   Map from `--cpu` to toolchain (to be used when `--compiler` is not specified
     or when `cc_toolchain_suite.toolchains` omits the `cpu` entry)
@@ -90,7 +90,7 @@ The toolchain selection logic operates as follows:
 
 1.  User specifies a `cc_toolchain_suite` target in the `BUILD` file and points
     Bazel to the target using the
-    [`--crosstool_top option`](https://docs.bazel.build/versions/master/user-manual.html#flag--crosstool_top).
+    [`--crosstool_top` option](https://docs.bazel.build/versions/master/user-manual.html#flag--crosstool_top).
     The `CROSSTOOL` file must reside in the same directory as the
     `BUILD` file containing the `cc_toolchain_suite` target.
 
@@ -130,7 +130,7 @@ implementation of fully fledged C++ features in Bazel without modifying the
 Bazel binary. C++ rules support multiple unique actions documented in detail
 [in the Bazel source code](https://source.bazel.build/bazel/+/4f547a7ea86df80e4c76145ffdbb0c8b75ba3afa:tools/build_defs/cc/action_names.bzl).
 
-## CROSSTOOL features
+## `CROSSTOOL` features
 
 A feature is an entity that requires non-default command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
@@ -143,10 +143,10 @@ Ideally, a toolchain definition consists of a set of features, where each
 feature consists of multiple flag groups, each defining a list of flags that
 apply to specific Bazel actions.
 
-A feature is specified by name, which allows full decoupling of the CROSSTOOL
+A feature is specified by name, which allows full decoupling of the `CROSSTOOL`
 configuration from Bazel releases. In other words, a Bazel release does not
-affect the behavior of CROSSTOOL configurations as long as those configurations
-do not require the use of new features.
+affect the behavior of `CROSSTOOL` configurations as long as those
+configurations do not require the use of new features.
 
 A feature is enabled only when both Bazel and the CROSSTOOL configuration
 support it.
@@ -218,23 +218,23 @@ support and expansion. These are:
   </tr>
 </table>
 
-## CROSSTOOL actions
+## `CROSSTOOL` actions
 
-CROSSTOOL actions provide the flexibility to modify the circumstances under
+`CROSSTOOL` actions provide the flexibility to modify the circumstances under
 which an action executes without assuming how the action will be run. An
-<code>action_config</code> specifies the tool binary that an action invokes,
-while a <code>feature</code> specifies the configuration (flags) that determine
-how that tool behaves when the action is invoked.
+`action_config` specifies the tool binary that an action invokes, while a
+`feature` specifies the configuration (flags) that determine how that tool
+behaves when the action is invoked.
 
-[Features](#crosstool-features) reference CROSSTOOL actions to signal which
-Bazel actions they affect since CROSSTOOL actions can modify the Bazel action
+[Features](#crosstool-features) reference `CROSSTOOL` actions to signal which
+Bazel actions they affect since `CROSSTOOL` actions can modify the Bazel action
 graph. The `CROSSTOOL` file includes actions that have flags and tools
 associated with them, such as `c++-compile`. Flags are assigned to each action
 by associating them with a feature.
 
-Each CROSSTOOL action name represents a single type of action performed by
+Each `CROSSTOOL` action name represents a single type of action performed by
 Bazel, such as compiling or linking. There is, however, a many-to-one
-relationship between CROSSTOOL actions and Bazel action types, where a Bazel
+relationship between `CROSSTOOL` actions and Bazel action types, where a Bazel
 action type refers to a Java class that implements an action (such as
 `CppCompileAction`). In particular, the "assembler actions" and "compiler
 actions" in the table below are `CppCompileAction`, while the link actions are
@@ -382,12 +382,12 @@ and encode some semantics into the name.
   </tr>
 </table>
 
-## CROSSTOOL `action_config`
+## `CROSSTOOL` `action_config`
 
-A CROSSTOOL `action_config` is a proto message that describes a Bazel action by
-specifying the tool (binary) to invoke during the action and sets of flags,
+A `CROSSTOOL` `action_config` is a proto message that describes a Bazel action
+by specifying the tool (binary) to invoke during the action and sets of flags,
 defined by features, that apply constraints to the action's execution. A
-CROSSTOOL action takes the following attributes:
+`CROSSTOOL` action takes the following attributes:
 
 <table>
   <col width="300">
@@ -401,8 +401,9 @@ CROSSTOOL action takes the following attributes:
   <tr>
    <td><code>action_name</code>
    </td>
-   <td>The Bazel action to which this CROSSTOOL action corresponds. Bazel uses
-       this attribute to discover per-action tool and execution requirements.
+    <td>The Bazel action to which this <code>CROSSTOOL</code> action corresponds.
+        Bazel uses this attribute to discover per-action tool and execution
+        requirements.
    </td>
   </tr>
   <tr>
@@ -427,25 +428,25 @@ CROSSTOOL action takes the following attributes:
   </tr>
 </table>
 
-A CROSSTOOL `action_config` can require and imply other features and
+A `CROSSTOOL` `action_config` can require and imply other features and
 <code>action_config</code>s as dictated by the
 [feature relationships](#feature-relationships) described earlier. This behavior
 is similar to that of a feature.
 
 The last two attributes are redundant against the corresponding attributes on
 features and are included because some Bazel actions require certain flags or
-environment variables and we want to avoid unnecessary `ction_config`+`feature`
+environment variables and we want to avoid unnecessary `action_config`+`feature`
 pairs. Typically, sharing a single feature across multiple `action_config`s is
 preferred.
 
-You can not define more than one CROSSTOOL `action_config` with the same
+You can not define more than one `CROSSTOOL` `action_config` with the same
 `action_name` within the same toolchain. This prevents ambiguity in tool paths
 and enforces the intention behind `action_config` - that an action's properties
 are clearly described in a single place in the toolchain.
 
 ### `tool` messages
 
-A CROSSTOOL `action_config` can specify a set of tools via `tool` messages.
+A `CROSSTOOL` `action_config` can specify a set of tools via `tool` messages.
 A `tool` message consists of the following fields:
 
 
@@ -473,18 +474,17 @@ A `tool` message consists of the following fields:
   </tr>
 </table>
 
-For a given CROSSTOOL `action_config`, only a single `tool` message applies its
-tool path and execution requirements to the Bazel action. A tool is selected by
-sequentially parsing `tool` messages on an `action_config` until a tool with a
-`with_feature` set matching the feature configuration is found
+For a given `CROSSTOOL` `action_config`, only a single `tool` message applies
+its tool path and execution requirements to the Bazel action. A tool is selected
+by sequentially parsing `tool` messages on an `action_config` until a tool with
+a `with_feature` set matching the feature configuration is found
 (see [Feature relationships](#feature-relationships) earlier in this document
 for more information). We recommend that you end your tool lists with a default
 tool that corresponds to an empty feature configuration.
 
-
 ### Example usage
 
-Features and CROSSTOOL actions can be used together to implement Bazel actions
+Features and `CROSSTOOL` actions can be used together to implement Bazel actions
 with diverse cross-platform semantics. For example, debug symbol generation on
 macOS requires generating symbols in the compile action, then invoking a
 specialized tool during the link action to create  compressed dsym archive, and
@@ -560,7 +560,7 @@ toolchain {
 
 ### Flag groups
 
-CROSSTOOL allows you to bundle flags into groups that serve a specific purpose.
+`CROSSTOOL` allows you to bundle flags into groups that serve a specific purpose.
 You can specify a flag within the `CROSSTOOL` file using pre-defined variables
 within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
@@ -671,14 +671,14 @@ variable or its field using the `expand_if_all_available`, `expand_if_none_avail
 the build command only when a currently iterated library has an
 `is_whole_archive` field.
 
-## CROSSTOOL reference
+## `CROSSTOOL` reference
 
 This section provides a reference of build variables, features, and other
-information required to successfully configure CROSSTOOL.
+information required to successfully configure `CROSSTOOL`.
 
-### CROSSTOOL build variables
+### `CROSSTOOL` build variables
 
-The following is a reference of CROSSTOOL build variables.
+The following is a reference of `CROSSTOOL` build variables.
 
 **Note:** `[action]` indicates the relevant action type.
 
@@ -800,9 +800,10 @@ The following is a reference of CROSSTOOL build variables.
   <tr>
    <td><strong><code>legacy_compile_flags</code></strong>
    </td>
-   <td><code>[compile]</code> Sequence of flags from legacy CROSSTOOL fields
-       such as <code>compiler_flag</code>, <code>optional_compiler_flag</code>,
-     <code>cxx_flag</code>, and <code>optional_cxx_flag</code>.
+    <td><code>[compile]</code> Sequence of flags from legacy
+        <code>CROSSTOOL</code> fields such as <code>compiler_flag</code>,
+        <code>optional_compiler_flag</code>, <code>cxx_flag</code>, and
+        <code>optional_cxx_flag</code>.
    </td>
   </tr>
   <tr>
@@ -817,7 +818,7 @@ The following is a reference of CROSSTOOL build variables.
    <td><strong><code>unfiltered_compile_flags</code></strong>
    </td>
    <td><code>[compile]</code> Sequence of flags from the
-       <code>unfiltered_cxx_flag</code> legacy CROSSTOOL field or the
+     <code>unfiltered_cxx_flag</code> legacy <code>CROSSTOOL</code> field or the
        <code>unfiltered _compile_flags</code> feature. These are not filtered by
        the <code>nocopts</code> rule attribute.
    </td>
@@ -884,7 +885,8 @@ The following is a reference of CROSSTOOL build variables.
   <tr>
    <td><strong><code>interface_library_input_path</code></strong>
    </td>
-   <td><code>[link]</code> Input for the interface library ifso builder tool.
+    <td><code>[link]</code> Input for the interface library <code>ifso</code>
+        builder tool.
    </td>
   </tr>
   <tr>
@@ -897,7 +899,8 @@ The following is a reference of CROSSTOOL build variables.
   <tr>
    <td><strong><code>legacy_link_flags</code></strong>
    </td>
-   <td><code>[link]</code> Linker flags coming from the legacy crosstool fields.
+   <td><code>[link]</code> Linker flags coming from the legacy
+       <code>CROSSTOOL</code>.
    </td>
   </tr>
   <tr>
@@ -954,7 +957,7 @@ The following is a reference of CROSSTOOL build variables.
 
 ### CROSSTOOL features
 
-The following is a reference of CROSSTOOL features and their activation
+The following is a reference of `CROSSTOOL` features and their activation
 conditions.
 
 <table>
@@ -993,16 +996,17 @@ conditions.
   <tr>
    <td><strong><code>per_object_debug_info</code></strong>
    </td>
-   <td>Enabled if the `supports_fission` attribute is set in the `CROSSTOOL`
-       file and the current compilation mode is specified in the
-       <code>--fission</code> flag.
+    <td>Enabled if the <code>supports_fission</code> attribute is set in the
+        `CROSSTOOL` file and the current compilation mode is specified in the
+        <code>--fission</code> flag.
    </td>
   </tr>
   <tr>
    <td><strong><code>pic</code></strong>
    </td>
-   <td>Required if the target needs PIC objects for dynamic libraries, always
-       enabled, pic build variable is present when PIC compilation is requested.
+   <td>Required if the target needs PIC objects for dynamic libraries. Enabled
+       by default - the `pic` variable is present whenever PIC compilation is
+       requested.
    </td>
   </tr>
 </table>
