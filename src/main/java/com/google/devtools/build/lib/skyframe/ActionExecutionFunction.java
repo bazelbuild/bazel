@@ -227,7 +227,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     if (env.valuesMissing()) {
-      Preconditions.checkState(stateMap.containsKey(action), action);
+      // Only input-discovering actions are present in the stateMap. Other actions may have
+      // valuesMissing() here in rare circumstances related to Fileset inputs being unavailable.
+      // See comments in ActionInputMapHelper#getFilesets().
+      Preconditions.checkState(!action.discoversInputs() || stateMap.containsKey(action), action);
       return null;
     }
 
