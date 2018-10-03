@@ -295,11 +295,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> setValue(SkyValue value, Version version)
       throws InterruptedException {
     Preconditions.checkState(isReady(), "%s %s", this, value);
-    // This check may need to be removed when we move to a non-linear versioning sequence.
-    Preconditions.checkState(
-        this.lastChangedVersion.atMost(version), "%s %s %s", this, version, value);
-    Preconditions.checkState(
-        this.lastEvaluatedVersion.atMost(version), "%s %s %s", this, version, value);
+    assertVersionCompatibleWhenSettingValue(version, value);
     this.lastEvaluatedVersion = version;
 
     if (isDirty() && getDirtyBuildingState().unchangedFromLastBuild(value)) {
@@ -327,6 +323,18 @@ public class InMemoryNodeEntry implements NodeEntry {
       this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();
+  }
+
+  protected void assertVersionCompatibleWhenSettingValue(
+      Version version, SkyValue valueForDebugging) {
+    if (!this.lastChangedVersion.atMost(version)) {
+      logError(
+          new IllegalStateException("Bad ch: " + this + ", " + version + ", " + valueForDebugging));
+    }
+    if (!this.lastEvaluatedVersion.atMost(version)) {
+      logError(
+          new IllegalStateException("Bad ev: " + this + ", " + version + ", " + valueForDebugging));
+    }
   }
 
   @Override
