@@ -46,15 +46,16 @@ public class ToolchainRule implements RuleDefinition {
         .exemptFromConstraintChecking("this rule *defines* a constraint")
 
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain_type) -->
-        The type of the toolchain, which should be the label of a toolchain_type() target.
+        The label of a <code>toolchain_type</code> target that represents the role that this
+        toolchain serves.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(TOOLCHAIN_TYPE_ATTR, BuildType.NODEP_LABEL)
                 .mandatory()
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(exec_compatible_with) -->
-        The constraints, as defined by constraint_value() and constraint_setting(), that are
-        required on the execution platform for this toolchain to be selected.
+        A list of <code>constraint_value</code>s that must be satisfied by an execution platform in
+        order for this toolchain to be selected for a target building on that platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
@@ -62,8 +63,8 @@ public class ToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_compatible_with) -->
-        The constraints, as defined by constraint_value() and constraint_setting(), that are
-        required on the target platform for this toolchain to be selected.
+        A list of <code>constraint_value</code>s that must be satisfied by the target platform in
+        order for this toolchain to be selected for a target building for that platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
@@ -71,7 +72,8 @@ public class ToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain) -->
-        The label of the actual toolchain data to be used when this toolchain is selected.
+        The target representing the actual tool or tool suite that is made available when this
+        toolchain is selected.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         // This needs to not introduce a dependency so that we can load the toolchain only if it is
         // needed.
@@ -94,6 +96,8 @@ public class ToolchainRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = toolchain, TYPE = OTHER, FAMILY = Platform)[GENERIC_RULE] -->
 
 <p>This rule declares a specific toolchain's type and constraints so that it can be selected
-during toolchain resolution.</p>
+during toolchain resolution. See the
+<a href="https://docs.bazel.build/versions/master/toolchains.html">Toolchains</a> page for more
+details.
 
 <!-- #END_BLAZE_RULE -->*/
