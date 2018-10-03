@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -66,8 +65,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            WrappingProvider.Helper.unwrapProviders(
-                javaProtoLibraryAspectProviders, JavaSourceJarsProvider.class));
+            ruleContext.getPrerequisites("deps", TARGET, JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 

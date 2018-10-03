@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -281,8 +280,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
         JavaRuleOutputJarsProvider outputJarsProvider =
-            WrappingProvider.Helper.getWrappedProvider(
-                base, JavaProtoLibraryAspectProvider.class, JavaRuleOutputJarsProvider.class);
+            base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
           return outputJarsProvider
               .getOutputJars()
@@ -307,10 +305,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     if (provider != null) {
       return provider;
     }
-    return isProtoLibrary(ruleContext)
-        ? WrappingProvider.Helper.getWrappedProvider(
-            base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class)
-        : null;
+    return isProtoLibrary(ruleContext) ? base.getProvider(JavaCompilationArgsProvider.class) : null;
   }
 
   private static boolean isProtoLibrary(RuleContext ruleContext) {

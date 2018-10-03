@@ -44,10 +44,7 @@ public class JplCcLinkParams {
     List<JavaCcLinkParamsProvider> providers = new ArrayList<>();
     for (TransitiveInfoCollection t :
         ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET)) {
-      providers.add(
-          t.getProvider(JavaProtoLibraryAspectProvider.class)
-              .getTransitiveInfoProviderMap()
-              .getProvider(JavaCcLinkParamsProvider.class));
+      providers.add(t.getProvider(JavaCcLinkParamsProvider.class));
     }
     ImmutableList<CcLinkingInfo> ccLinkingInfos =
         ImmutableList.<CcLinkingInfo>builder()

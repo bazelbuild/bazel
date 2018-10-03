@@ -29,9 +29,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -186,8 +183,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       this.dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
-              WrappingProvider.Helper.unwrapProviders(
-                  javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
+              ruleContext.getPrerequisites(
+                  "deps", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
 
       this.isJavaProtoExportsEnabled =
           ruleContext.getFragment(JavaConfiguration.class).isJavaProtoExportsEnabled();
@@ -195,11 +192,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       if (this.isJavaProtoExportsEnabled) {
         this.exportsCompilationArgs =
             JavaCompilationArgsProvider.merge(
-                WrappingProvider.Helper.unwrapProviders(
-                    ruleContext.getPrerequisites(
-                        "exports",
-                        RuleConfiguredTarget.Mode.TARGET,
-                        JavaProtoLibraryAspectProvider.class),
+                ruleContext.getPrerequisites(
+                    "exports",
+                    RuleConfiguredTarget.Mode.TARGET,
                     JavaCompilationArgsProvider.class));
       } else {
         this.exportsCompilationArgs = null;
@@ -218,9 +213,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       for (JavaProtoLibraryAspectProvider provider : javaProtoLibraryAspectProviders) {
         transitiveOutputJars.addTransitive(provider.getJars());
       }
-
-      TransitiveInfoProviderMapBuilder javaProvidersBuilder =
-          new TransitiveInfoProviderMapBuilder();
 
       if (shouldGenerateCode()) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
@@ -250,12 +242,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             JavaSourceJarsProvider.create(
                 NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars);
 
-        javaProvidersBuilder.add(ruleOutputJarsProvider).add(sourceJarsProvider);
+        aspect.addProvider(ruleOutputJarsProvider).addProvider(sourceJarsProvider);
       } else {
         // No sources - this proto_library is an alias library, which exports its dependencies.
         // Simply propagate the compilation-args from its dependencies.
         generatedCompilationArgsProvider = dependencyCompilationArgs;
-        javaProvidersBuilder.add(JavaRuleOutputJarsProvider.EMPTY);
+        aspect.addProvider(JavaRuleOutputJarsProvider.EMPTY);
       }
 
       if (isJavaProtoExportsEnabled) {
@@ -264,17 +256,18 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 ImmutableList.of(generatedCompilationArgsProvider, exportsCompilationArgs));
       }
 
-      javaProvidersBuilder.add(generatedCompilationArgsProvider);
-      javaProvidersBuilder.add(
-          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
-      TransitiveInfoProviderMap javaProviders = javaProvidersBuilder.build();
+      aspect.addProvider(generatedCompilationArgsProvider);
+      aspect.addProvider(createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
+      JavaSkylarkApiProvider javaSkylarkApiProvider = JavaSkylarkApiProvider.fromRuleContext();
       aspect
+          .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, javaSkylarkApiProvider)
+          // This is legacy from when we had a "java" provider on the base proto_library,
+          // forcing us to use a different name ("proto_java") for the aspect's provider.
+          // For backwards compatibility we retain proto_java as well.
           .addSkylarkTransitiveInfo(
-              JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
-              JavaSkylarkApiProvider.fromProviderMap(javaProviders))
+              JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(), javaSkylarkApiProvider)
           .addProvider(
               new JavaProtoLibraryAspectProvider(
-                  javaProviders,
                   transitiveOutputJars.build(),
                   createNonStrictCompilationArgsProvider(
                       javaProtoLibraryAspectProviders,
