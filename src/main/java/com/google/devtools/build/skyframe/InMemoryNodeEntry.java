@@ -311,16 +311,21 @@ public class InMemoryNodeEntry implements NodeEntry {
           isDirty() && getDirtyBuildingState().getDirtyState() == DirtyState.FORCED_REBUILDING;
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
-      Preconditions.checkState(
-          forcedRebuild || !this.lastChangedVersion.equals(version),
-          "Changed value but with the same version? %s %s %s",
-          this.lastChangedVersion,
-          version,
-          this);
+      if (!forcedRebuild && this.lastChangedVersion.equals(version)) {
+        logError(
+            new IllegalStateException(
+                "Changed value but with the same version? "
+                    + this.lastChangedVersion
+                    + " "
+                    + version
+                    + " "
+                    + this));
+      }
+      // If this is a new value, or it has changed since the last build, set the version to the
+      // current graph version.
       this.lastChangedVersion = version;
       this.value = value;
     }
-
     return setStateFinishedAndReturnReverseDepsToSignal();
   }
 
@@ -449,7 +454,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(isEvaluating(), this);
     signaledDeps++;
     if (isDirty()) {
-      dirtyBuildingState.signalDepInternal(!childVersion.atMost(lastEvaluatedVersion), isReady());
+      dirtyBuildingState.signalDepInternal(
+          hasChildChanged(lastEvaluatedVersion, childVersion), isReady());
     }
     return isReady();
   }
@@ -638,6 +644,20 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized boolean isReady() {
     Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
     return isReady(getNumTemporaryDirectDeps());
+  }
+
+  /** True if the child has changed since the last evaluated version. */
+  protected boolean hasChildChanged(Version lastEvaluatedVersion, Version childVersion) {
+    // childVersion > lastEvaluatedVersion
+    return !childVersion.atMost(lastEvaluatedVersion);
+  }
+
+  protected int getSignaledDeps() {
+    return signaledDeps;
+  }
+
+  protected void logError(RuntimeException error) {
+    throw error;
   }
 
   /** Returns whether all known children of this node have signaled that they are done. */
