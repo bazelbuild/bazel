@@ -463,7 +463,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     signaledDeps++;
     if (isDirty()) {
       dirtyBuildingState.signalDepInternal(
-          hasChildChanged(lastEvaluatedVersion, childVersion), isReady());
+          childCausesReevaluation(lastEvaluatedVersion, childVersion), isReady());
     }
     return isReady();
   }
@@ -654,8 +654,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     return isReady(getNumTemporaryDirectDeps());
   }
 
-  /** True if the child has changed since the last evaluated version. */
-  protected boolean hasChildChanged(Version lastEvaluatedVersion, Version childVersion) {
+  /** True if the child should cause re-evaluation of this node. */
+  protected boolean childCausesReevaluation(Version lastEvaluatedVersion, Version childVersion) {
     // childVersion > lastEvaluatedVersion
     return !childVersion.atMost(lastEvaluatedVersion);
   }
